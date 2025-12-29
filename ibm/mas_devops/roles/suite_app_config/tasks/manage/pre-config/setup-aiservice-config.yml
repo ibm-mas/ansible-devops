@@ -1,0 +1,153 @@
+---
+# Manage specific steps to configure AI Service integration
+# This retrieves AI Service connection details and sets them as facts
+# to be included in the Manage encryption secret
+# ------------------------------------------------------------------------
+
+# Set AI Service namespace
+- set_fact:
+    aiservice_namespace: "aiservice-{{ aiservice_instance_id }}"
+
+# Step 1: Construct fully qualified tenant name
+# ------------------------------------------------------------------------
+- name: "Construct fully qualified AI Service tenant name"
+  set_fact:
+    mas_manage_encryptionsecret_aiservice_fqn: "aiservice-{{ aiservice_instance_id }}-{{ aiservice_tenant_id }}"
+
+- name: "Debug: AI Service tenant information"
+  debug:
+    msg:
+      - "AI Service tenant ID ............................... {{ aiservice_tenant_id }}"
+      - "AI Service tenant FQN .............................. {{ mas_manage_encryptionsecret_aiservice_fqn }}"
+
+# Step 2: Retrieve AI Service API key (tenant-specific)
+# ------------------------------------------------------------------------
+- name: "Step 2: Lookup AI Service tenant API key secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ mas_manage_encryptionsecret_aiservice_fqn }}----apikey-secret"
+    namespace: "{{ aiservice_namespace }}"
+  register: aiservice_apikey_secret
+
+- name: "Fail if AI Service tenant API key secret not found"
+  fail:
+    msg: "AI Service tenant API key secret '{{ mas_manage_encryptionsecret_aiservice_fqn }}----apikey-secret' not found in namespace '{{ aiservice_namespace }}'"
+  when:
+    - aiservice_apikey_secret.resources is not defined or aiservice_apikey_secret.resources | length == 0
+
+- name: "Extract AI Service API key"
+  set_fact:
+    mas_manage_encryptionsecret_aiservice_apikey: "{{ aiservice_apikey_secret.resources[0].data.AIBROKER_APIKEY | b64decode }}"
+
+- name: "Verify AI Service API key was retrieved"
+  fail:
+    msg: "Could not retrieve AI Service API key from secret"
+  when: mas_manage_encryptionsecret_aiservice_apikey is not defined or mas_manage_encryptionsecret_aiservice_apikey == ""
+
+# Step 3: Retrieve AI Service URL from aibroker route
+# ------------------------------------------------------------------------
+- name: "Step 3: Retrieve AI Service URL from aibroker route"
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: "aibroker"
+    namespace: "{{ aiservice_namespace }}"
+  register: aiservice_route
+
+- name: "Fail if aibroker route not found"
+  fail:
+    msg: "AI Service route 'aibroker' not found in namespace '{{ aiservice_namespace }}'"
+  when:
+    - aiservice_route.resources is not defined or aiservice_route.resources | length == 0
+
+- name: "Extract AI Service URL"
+  set_fact:
+    mas_manage_encryptionsecret_aiservice_url: "https://{{ aiservice_route.resources[0].spec.host }}/ibm/aibroker/service/rest/api/v1"
+
+# Step 4: Retrieve AI Service TLS certificate for import
+# ------------------------------------------------------------------------
+- name: "Step 4: Lookup AI Service TLS certificate secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ aiservice_instance_id }}-public-aibroker-tls"
+    namespace: "{{ aiservice_namespace }}"
+  register: aiservice_tls_secret
+
+- name: "Fail if AI Service TLS certificate secret not found"
+  fail:
+    msg: "AI Service TLS certificate secret '{{ aiservice_instance_id }}-public-aibroker-tls' not found in namespace '{{ aiservice_namespace }}'"
+  when:
+    - aiservice_tls_secret.resources is not defined or aiservice_tls_secret.resources | length == 0
+
+- name: "Extract AI Service TLS certificate"
+  set_fact:
+    mas_manage_aiservice_tls_crt:
+      - "{{ aiservice_tls_secret.resources[0].data['ca.crt'] | b64decode }}"
+
+# Step 6: Verify AI Service is running and healthy
+# ------------------------------------------------------------------------
+- name: "Step 6: Verify AI Service is running and healthy"
+  block:
+    - name: "Set AI Service health URL"
+      set_fact:
+        aiservice_health_url: "https://{{ aiservice_route.resources[0].spec.host }}/ibm/aibroker/service/rest/api/v1/health"
+
+    - name: "Check AI Service health endpoint"
+      uri:
+        url: "{{ aiservice_health_url }}"
+        method: GET
+        validate_certs: false
+        return_content: true
+        status_code: [200, 503]
+      register: aiservice_health_response
+      retries: 5
+      delay: 10
+      until:
+        - aiservice_health_response.status == 200
+        - aiservice_health_response.json is defined
+      failed_when: false
+
+    - name: "Fail if health endpoint never returned 200"
+      fail:
+        msg: "AI Service health endpoint failed to return HTTP 200 after 5 attempts. Last status: {{ aiservice_health_response.status }}"
+      when: aiservice_health_response.status != 200
+
+    - name: "Parse AI Service health response"
+      set_fact:
+        aiservice_kmodel_status: "{{ aiservice_health_response.json.kmodel | default('unknown') }}"
+        aiservice_healthy_status: "{{ aiservice_health_response.json.healthy | default(false) }}"
+
+    - name: "Display AI Service health status"
+      debug:
+        msg:
+          - "AI Service Health Check:"
+          - "  URL: {{ aiservice_health_url }}"
+          - "  kmodel: {{ aiservice_kmodel_status }}"
+          - "  healthy: {{ aiservice_healthy_status }}"
+
+    - name: "Verify AI Service is fully healthy"
+      assert:
+        that:
+          - aiservice_kmodel_status == 'running'
+          - aiservice_healthy_status == true
+        success_msg: "AI Service is running and healthy"
+        fail_msg: |
+          AI Service is not fully healthy:
+          - kmodel: {{ aiservice_kmodel_status }} (expected: running)
+          - healthy: {{ aiservice_healthy_status }} (expected: true)
+
+# Debug output
+# ------------------------------------------------------------------------
+- name: "Debug AI Service configuration"
+  debug:
+    msg:
+      - "AI Service instance ID ............................. {{ aiservice_instance_id }}"
+      - "AI Service tenant ID ............................... {{ aiservice_tenant_id }}"
+      - "AI Service tenant FQN .............................. {{ mas_manage_encryptionsecret_aiservice_fqn }}"
+      - "AI Service namespace ............................... {{ aiservice_namespace }}"
+      - "AI Service URL ..................................... {{ mas_manage_encryptionsecret_aiservice_url }}"
+      - "AI Service API key retrieved ....................... Yes"
+      - "AI Service TLS certificate retrieved ............... Yes"
+      - "AI Service health status ........................... {{ aiservice_kmodel_status }} / {{ aiservice_healthy_status }}"
