@@ -17,6 +17,8 @@ DBPATH=`/usr/local/bin/db2greg -dump | grep -ae "I," | grep -v "/das," | grep "$
 SOURCEPATH="$DBPATH/db2profile"
 . $SOURCEPATH
 
+mkdir -p ${INSTHOME}/bin/
+
 cd /tmp/db2-scripts/
 
 echo -e "\nCopying the files to bin directory under Instance Home . . . "

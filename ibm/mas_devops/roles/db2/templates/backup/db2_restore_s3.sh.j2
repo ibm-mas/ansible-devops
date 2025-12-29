@@ -16,7 +16,7 @@ echo "Verifying backup files in S3 path: ${REMOTE_PATH}"
 LIST_OUTPUT=$(db2RemStgManager ALIAS LIST source=${REMOTE_PATH} 2>&1)
 rc=$?
 if [ $rc -ne 0 ]; then
-    echo "Error listing files in S3 path ${REMOTE_PATH}. Return code: $rc
+    echo "Error listing files in S3 path ${REMOTE_PATH}. Return code: $rc"
     exit 1
 fi
 
@@ -88,6 +88,14 @@ db2RemStgManager ALIAS GET source=${REMOTE_PATH}/keystore.sth target=${POD_BACKU
 # Extract Db2 keystore master key
 # https://www.ibm.com/docs/en/db2/11.5?topic=edr-restoring-encrypted-backup-image-different-system-local-keystore
 
+### Get the database and backup timestamp from the backup file name
+# Example backup file name: DBNAME.0.db2inst1.DBPART000.20231015120000.001
+DATABASE=$(echo "$BACKUP_FILE" | awk -F. '{print $1}')
+echo "Db2 database name extracted from backup file name: ${DATABASE}"
+
+DB2_BACKUP_TIMESTAMP=$(echo "$BACKUP_FILE" | awk -F. '{print $5}')
+echo "Db2 backup timestamp extracted: ${DB2_BACKUP_TIMESTAMP}"
+
 MASTER_KEY_LABEL=`gsk8capicmd_64 -cert -list all -db ${POD_BACKUP_PATH}/keystore.p12 -stashed 2>&1 | grep -i $INSTOWNER_$DATABASE | awk '/^#/ { print $2 }'`
 if [ -z "$MASTER_KEY_LABEL" ]; then
 	echo "MASTER_KEY_LABEL is empty."
@@ -97,7 +105,7 @@ else
 fi
 
 ## Add Master key to target keystore
-result=$(gsk8capicmd_64 -cert -add -db /mnt/blumeta0/db2/keystore/keystore.p12 -stashed -label ${MASTER_KEY_LABEL} -file ${POD_BACKUP_PATH}/master_key_label.kdb 2>&1)
+result=$(gsk8capicmd_64 -secretkey -add -db /mnt/blumeta0/db2/keystore/keystore.p12 -stashed -label ${MASTER_KEY_LABEL} -file ${POD_BACKUP_PATH}/master_key_label.kdb 2>&1)
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "Error adding master key to target keystore. Return code: $rc"
@@ -111,14 +119,6 @@ if echo "$result" | grep -q "CTGSK3005W"; then
 fi
 
 echo "Db2 keystore master key restored successfully."
-
-### Get the backup timestamp from the backup file name
-# Example backup file name: DBNAME.0.db2inst1.DBPART000.20231015120000.001
-DATABASE=$(echo "$BACKUP_FILE" | awk -F. '{print $1}')
-echo "Db2 database name extracted from backup file name: ${DATABASE}"
-
-DB2_BACKUP_TIMESTAMP=$(echo "$BACKUP_FILE" | awk -F. '{print $5}')
-echo "Db2 backup timestamp extracted: ${DB2_BACKUP_TIMESTAMP}"
 
 # Deactivate Db2 in preparation for restore
 # https://www.ibm.com/docs/en/db2/11.5?topic=r-restoring-db2-from-online-backup-using-commands
@@ -272,8 +272,4 @@ fi
 echo "Db2 database ${DATABASE} restored successfully from S3 backup taken at ${DB2_BACKUP_TIMESTAMP}."
 echo "Db2 restore process completed successfully - RestoreSuccess"
 exit 0
-
-
-
-
 
