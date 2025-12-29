@@ -35,9 +35,8 @@
     # -------------------------------------------------------------------------
     cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') }}"
     mirror_cp4d: "{{ lookup('env', 'MIRROR_CP4D') | default ('False', True) | bool }}"
-    cpd_52_or_higher: "{{ cpd_product_version is defined and cpd_product_version is version('5.2.0','>=') | bool }}"
-    cpd_51: "{{ cpd_product_version is defined and cpd_product_version is version('5.1.3','==') | bool }}"
-
+    cpd_52_or_higher: "{{ (cpd_product_version is defined and cpd_product_version is version('5.2.0','>=')) | bool }}"
+    cpd_51: "{{ (cpd_product_version is defined and cpd_product_version is version('5.1.3','==')) | bool }}"
     # 7. Watson Studio Local
     # -------------------------------------------------------------------------
     mirror_wsl: "{{ lookup('env', 'MIRROR_WSL') | default ('False', True) | bool }}"
@@ -362,23 +361,49 @@
         manifest_name: ibm-licensing
         manifest_version: "{{ mas_catalog_metadata.ibm_licensing_version }}"
 
-    # 6.3 IBM Watson Studio and Watson Machine Learning dependency - ibm-ccs
+    # 6.3: cpd 5.1.3 IBM Watson Studio and Watson Machine Learning dependency - ibm-ccs
     # -------------------------------------------------------------------------
     - role: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_wsl or mirror_wml
         - mirror_mode != "from-filesystem"
+        - cpd_51
       vars:
         case_name: ibm-ccs
         case_version: "{{ mas_catalog_metadata.wsl_version }}"
         exclude_images: []
         ibmpak_skip_dependencies: false
+        casectl_resolve_charts: false
 
     - role: ibm.mas_devops.mirror_images
-      when: mirror_wsl or mirror_wml
+      when:
+        - mirror_wsl or mirror_wml
+        - cpd_51
       vars:
         manifest_name: ibm-ccs
         manifest_version: "{{ mas_catalog_metadata.wsl_version }}"
+
+    # 6.3: cpd 5.2.0 IBM Watson Studio and Watson Machine Learning dependency - ibm-ccs
+    # -------------------------------------------------------------------------
+    - role: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_wsl or mirror_wml
+        - mirror_mode != "from-filesystem"
+        - cpd_52_or_higher
+      vars:
+        case_name: ibm-ccs
+        case_version: "{{ mas_catalog_metadata.ccs_build }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: false
+        casectl_resolve_charts: false
+
+    - role: ibm.mas_devops.mirror_images
+      when:
+        - mirror_wsl or mirror_wml
+        - cpd_52_or_higher
+      vars:
+        manifest_name: ibm-ccs
+        manifest_version: "{{ mas_catalog_metadata.ccs_build }}"
 
     # 6.4 CP4D Platform - PostgreSQL dependency (only for CPD 5.2+)
     # -------------------------------------------------------------------------
@@ -444,6 +469,7 @@
       when:
         - mirror_wsl
         - mirror_mode != "from-filesystem"
+        - cpd_51
       vars:
         case_name: ibm-elasticsearch-operator
         case_version: "{{ mas_catalog_metadata.elasticsearch_version }}"
@@ -451,12 +477,35 @@
         ibmpak_skip_dependencies: false
 
     - role: ibm.mas_devops.mirror_images
-      when: mirror_wsl
+      when:
+        - mirror_wsl
+        - cpd_51
       vars:
         manifest_name: ibm-elasticsearch-operator
         manifest_version: "{{ mas_catalog_metadata.elasticsearch_version }}"
 
-    # 7.4 IBM Watson Studio
+    # 7.4 IBM Watson Studio dependency - ibm-opensearch-operator
+    # -------------------------------------------------------------------------
+    - role: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_wsl
+        - mirror_mode != "from-filesystem"
+        - cpd_52_or_higher
+      vars:
+        case_name: ibm-opensearch-operator
+        case_version: "{{ mas_catalog_metadata.opensearch_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: false
+
+    - role: ibm.mas_devops.mirror_images
+      when:
+        - mirror_wsl
+        - cpd_52_or_higher
+      vars:
+        manifest_name: ibm-opensearch-operator
+        manifest_version: "{{ mas_catalog_metadata.opensearch_version }}"
+
+    # 7.5 IBM Watson Studio
     # -------------------------------------------------------------------------
     - role: ibm.mas_devops.mirror_case_prepare
       when:
@@ -554,6 +603,7 @@
         case_version: "{{ mas_catalog_metadata.cognos_version }}"
         exclude_images: []
         ibmpak_skip_dependencies: false
+        casectl_resolve_charts: false
 
     - role: ibm.mas_devops.mirror_images
       when: mirror_cognos
