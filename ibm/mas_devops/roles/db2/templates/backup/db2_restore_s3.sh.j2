@@ -1,0 +1,279 @@
+#!/bin/bash
+DB2_BACKUP_VERSION={{ db2_backup_version }}
+
+# Finding the db2 Instance owner
+INSTOWNER=`/usr/local/bin/db2greg -dump | grep -ae "I," | grep -v "/das," | awk -F ',' '{print $4}' `
+
+instance=`whoami`
+BACKUP_BASE=/mnt/backup
+
+REMOTE_PATH="{{ s3_full_backup_path }}"
+
+### Check if backup files are present in the provided S3 remote path
+
+echo "Verifying backup files in S3 path: ${REMOTE_PATH}"
+
+LIST_OUTPUT=$(db2RemStgManager ALIAS LIST source=${REMOTE_PATH} 2>&1)
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Error listing files in S3 path ${REMOTE_PATH}. Return code: $rc
+    exit 1
+fi
+
+echo "$LIST_OUTPUT"
+
+TOTAL_FILES=$(echo "$LIST_OUTPUT" | awk -F= '/Total number of files found/ { gsub(/[^0-9]/,"",$2); print $2 }')
+if [ "$TOTAL_FILES" -eq 0 ]; then
+  echo "No files found in S3 path: ${REMOTE_PATH}"
+  exit 1
+fi
+
+FILES=$(echo "$LIST_OUTPUT" | awk '/^[0-9]/ { print $2 }')
+
+FOUND_P12=false
+FOUND_STH=false
+#FOUND_INFO=false
+FOUND_BACKUP=false
+BACKUP_FILE=""
+
+### Check if Db2 keystore files are present
+for FILE in $FILES; do
+    if [[ "$FILE" == *.p12 ]]; then
+        FOUND_P12=true
+    elif [[ "$FILE" == *.sth ]]; then
+        FOUND_STH=true
+#    elif [[ "$FILE" == *db2-backup-info.yaml ]]; then
+#        FOUND_INFO=true
+    elif [[ "$FILE" == *.DBPART000.* ]]; then
+        FOUND_BACKUP=true
+        BACKUP_FILE=$(basename "$FILE")
+    fi
+done
+
+if [[ "$FOUND_P12" == false ]]; then
+  echo "Db2 keystore.p12 file is missing in the backup location: ${REMOTE_PATH}"
+  exit 1
+fi
+
+if [[ "$FOUND_STH" == false ]]; then
+  echo "Db2 keystore.sth file is missing in the backup location: ${REMOTE_PATH}"
+  exit 1
+fi
+
+#if [[ "$FOUND_INFO" == false ]]; then
+#  echo "Db2 db2-backup-info.yaml file is missing in the backup location: ${REMOTE_PATH}"
+#  exit 1
+#fi
+
+if [[ "$FOUND_BACKUP" == false ]]; then
+  echo "Db2 backup files are missing in the backup location: ${REMOTE_PATH}"
+  exit 1
+fi
+
+echo "Db2 keystore files verified successfully."
+
+### Copy Db2 keystore files from S3 to local path
+
+POD_BACKUP_PATH="/mnt/backup/{{ db2_backup_version }}"
+rm -rf ${POD_BACKUP_PATH}
+mkdir -p ${POD_BACKUP_PATH}
+
+## Copy Db2 backup files from S3 to local path
+echo "Copying Db2 keystore files from S3 to local path: ${POD_BACKUP_PATH}"
+db2RemStgManager ALIAS GET source=${REMOTE_PATH}/keystore.p12 target=${POD_BACKUP_PATH}/keystore.p12
+db2RemStgManager ALIAS GET source=${REMOTE_PATH}/keystore.sth target=${POD_BACKUP_PATH}/keystore.sth
+#db2RemStgManager ALIAS GET source=${REMOTE_PATH}/db2-backup-info.yaml target=${POD_BACKUP_PATH}/db2-backup-info.yaml
+
+
+# Extract Db2 keystore master key
+# https://www.ibm.com/docs/en/db2/11.5?topic=edr-restoring-encrypted-backup-image-different-system-local-keystore
+
+MASTER_KEY_LABEL=`gsk8capicmd_64 -cert -list all -db ${POD_BACKUP_PATH}/keystore.p12 -stashed 2>&1 | grep -i $INSTOWNER_$DATABASE | awk '/^#/ { print $2 }'`
+if [ -z "$MASTER_KEY_LABEL" ]; then
+	echo "MASTER_KEY_LABEL is empty."
+else
+	gsk8capicmd_64 -secretkey -extract -db ${POD_BACKUP_PATH}/keystore.p12 -stashed -label ${MASTER_KEY_LABEL} -format ascii -target ${POD_BACKUP_PATH}/master_key_label.kdb
+	echo "MASTER_KEY_LABEL is not empty - Secret key extraction Completed."
+fi
+
+## Add Master key to target keystore
+result=$(gsk8capicmd_64 -cert -add -db /mnt/blumeta0/db2/keystore/keystore.p12 -stashed -label ${MASTER_KEY_LABEL} -file ${POD_BACKUP_PATH}/master_key_label.kdb 2>&1)
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Error adding master key to target keystore. Return code: $rc"
+    exit 1
+fi
+
+if echo "$result" | grep -q "CTGSK3005W"; then
+  echo "ERROR: CTGSK3005W warning detected. Exiting"
+  echo "$result"
+  exit 1
+fi
+
+echo "Db2 keystore master key restored successfully."
+
+### Get the backup timestamp from the backup file name
+# Example backup file name: DBNAME.0.db2inst1.DBPART000.20231015120000.001
+DATABASE=$(echo "$BACKUP_FILE" | awk -F. '{print $1}')
+echo "Db2 database name extracted from backup file name: ${DATABASE}"
+
+DB2_BACKUP_TIMESTAMP=$(echo "$BACKUP_FILE" | awk -F. '{print $5}')
+echo "Db2 backup timestamp extracted: ${DB2_BACKUP_TIMESTAMP}"
+
+# Deactivate Db2 in preparation for restore
+# https://www.ibm.com/docs/en/db2/11.5?topic=r-restoring-db2-from-online-backup-using-commands
+
+
+echo "1. Temporarily disable the built-in HA"
+sudo wvcli system disable -m "Disable HA before Db2 maintenance"
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Error disabling HA. Return code: $rc"
+    exit 1
+fi
+
+echo "2. Connect to the database"
+db2 -v connect to ${DATABASE}
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Error connecting to database ${DATABASE}. Return code: $rc"
+    exit 1
+fi
+
+echo "3. Disconnect all the applications that are connected to Db2"
+db2 -v list applications
+db2 -v force application all
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Error disconnecting applications from database ${DATABASE}. Return code: $rc"
+    exit 1
+fi
+
+echo "4. Terminate the database"
+db2 -v terminate
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Error terminating database ${DATABASE}. Return code: $rc"
+    exit 1
+fi
+
+echo "5. Stop the database"
+db2stop force
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Error stopping database ${DATABASE}. Return code: $rc"
+    exit 1
+fi
+
+echo "6. Ensure that all Db2 interprocess communications are cleaned for the instance"
+ipclean -a
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Error cleaning Db2 interprocess communications. Return code: $rc"
+    exit 1
+fi
+
+echo "7. Turn off all communications to the database by setting the value of the DB2COMM variable to null"
+db2set -null DB2COMM
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Error setting DB2COMM variable to null. Return code: $rc"
+    exit 1
+fi
+
+echo "8. Restart the database in restricted access mode"
+db2start admin mode restricted access
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Error starting database ${DATABASE} in restricted access mode. Return code: $rc"
+    exit 1
+fi
+
+echo "9. Restore Db2 from a full backup"
+db2 -v restore db ${DATABASE} from ${REMOTE_PATH} taken at ${DB2_BACKUP_TIMESTAMP} into ${DATABASE} logtarget ${POD_BACKUP_PATH} replace existing without prompting
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Error restoring database ${DATABASE} from backup. Return code: $rc"
+    exit 1
+fi
+
+echo "10. Check Db2 rollforward status"
+db2 -v rollforward db ${DATABASE} query status
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Error querying rollforward status for database ${DATABASE}. Return code: $rc"
+    exit 1
+fi
+
+echo "11. Run Db2 rollforward command"
+db2 -v "rollforward db ${DATABASE} to end of backup and complete overflow log path ${POD_BACKUP_PATH} noretrieve"
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Error during rollforward for database ${DATABASE}. Return code: $rc"
+    exit 1
+fi
+
+echo "12. Stop the database"
+db2stop force
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Error stopping database ${DATABASE}. Return code: $rc"
+    exit 1
+fi
+
+echo "13. Ensure that all Db2 interprocess communications are cleaned for the instance"
+ipclean -a
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Error cleaning Db2 interprocess communications. Return code: $rc" | tee
+    exit 1
+fi
+
+echo "14. Reinitialize the Db2 communication manager to accept database connections"
+db2set DB2COMM=TCPIP,SSL
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Error reinitializing Db2 communication manager. Return code: $rc"
+    exit 1
+fi
+
+echo "15. Restart the database for normal operation"
+db2start
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Error starting database ${DATABASE}. Return code: $rc"
+    exit 1
+fi
+
+echo "16. Activate the database"
+db2 activate db ${DATABASE}
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Error activating database ${DATABASE}. Return code: $rc"
+    exit 1
+fi
+
+echo "17. Re-enable the Wolverine high availability monitoring process"
+sudo wvcli system enable -m "Enable HA after Db2 maintenance"
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Error enabling HA. Return code: $rc"
+    exit 1
+fi
+
+echo "18. Connect to the database"
+db2 -v connect to ${DATABASE}
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "Error connecting to database ${DATABASE}. Return code: $rc"
+    exit 1
+fi
+
+echo "Db2 database ${DATABASE} restored successfully from S3 backup taken at ${DB2_BACKUP_TIMESTAMP}."
+echo "Db2 restore process completed successfully - RestoreSuccess"
+exit 0
+
+
+
+
+

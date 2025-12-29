@@ -24,8 +24,12 @@
     backup_s3_secret_key: "{{ backup_s3_secret_key }}"
   when: backup_vendor == "s3"
 
-- name: "Set fact backup_path for the backup script when backup vendor is s3"
-  set_fact:
-    full_backup_path: "DB2REMOTE://{{ backup_s3_alias }}/{{ backup_s3_bucket }}/backups-db2/{{ db2_backup_version }}"
-  when: backup_vendor == "s3"
+- name: "Start database restore process"
+  debug:
+    msg:
+      - "------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------"
+      - "Starting restore process from {{ backup_vendor }} for DB2 database from backup version {{ db2_backup_version }}"
+      - "------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------"
 
+- name: "Run restore-db-from-disk.yml when backup vendor is disk"
+  include_tasks: "{{ role_path }}/tasks/restore/restore-db-from-{{ backup_vendor }}.yml"

@@ -20,11 +20,25 @@ SOURCEPATH="$DBPATH/db2profile"
 cd /tmp/db2-scripts/
 
 echo -e "\nCopying the files to bin directory under Instance Home . . . "
-cp -rp db2_backup.sh ${INSTHOME}/bin/
+
+if [ -f db2_backup.sh ]; then
+    echo -e "\nCopying db2_backup.sh to bin directory under Instance Home . . . "
+    cp -rp db2_backup.sh ${INSTHOME}/bin/
+fi
 
 if [ -f setup_cos_storage_access.sh ]; then
     echo -e "\nCopying setup_cos_storage_access.sh to bin directory under Instance Home . . . "
     cp -rp setup_cos_storage_access.sh ${INSTHOME}/bin/
+fi
+
+if [ -f db2_restore_disk.sh ]; then
+    echo -e "\nCopying db2_restore_disk.sh to bin directory under Instance Home . . . "
+    cp -rp db2_restore_disk.sh ${INSTHOME}/bin/
+fi
+
+if [ -f db2_restore_s3.sh ]; then
+    echo -e "\nCopying db2_restore_s3.sh to bin directory under Instance Home . . . "
+    cp -rp db2_restore_s3.sh ${INSTHOME}/bin/
 fi
 
 chown -R ${INSTOWNER}:${INSTGROUP} ${INSTHOME}/bin
