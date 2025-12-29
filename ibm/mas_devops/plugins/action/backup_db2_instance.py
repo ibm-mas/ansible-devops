@@ -147,7 +147,7 @@ class ActionModule(ActionBase):
         createBackupDirectories([db2_backup_path, db2_backup_resource_path, db2_backup_secrets_path])
 
         # Get Db2uCluster or Db2uInstance CR
-        db2u_cr = getDb2uInstance(DynamicClient=dynClient, db2_instance_name=db2_instance_name, db2_namespace=db2_namespace)
+        db2u_cr = getDb2uInstance(dynClient=dynClient, db2_instance_name=db2_instance_name, db2_namespace=db2_namespace)
         if not db2u_cr:
             raise AnsibleError(f"Db2uCluster or Db2uInstance CR '{db2_instance_name}' not found in namespace '{db2_namespace}'")
         
