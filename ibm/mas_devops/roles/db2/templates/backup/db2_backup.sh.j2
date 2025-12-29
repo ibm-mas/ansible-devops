@@ -14,7 +14,6 @@ BACKUP_BASE=/mnt/backup
 
 # Find the home directory
 instance_home=`/usr/local/bin/db2greg -dump | grep -ae "I," | grep -v "/das," | grep "${instance}" | awk -F ',' '{print $5}'| cut -d/ -f 1,2,3,4,5`
-BACK_LOG=$instance_home/bin/{{ db2_backup_version }}_BackupLOG.out
 
 if [ ! -f "$instance_home/sqllib/db2profile" ]
 then
@@ -53,28 +52,25 @@ fi
 DATETIME=`date +%Y-%m-%d_%H%M%S`;
 echo "BACKUP Start time : ${DATETIME}"  
 
-db2 -v archive log for db $DATABASE | tee -a $BACK_LOG
+db2 -v archive log for db $DATABASE
 sleep 30
 
 
 if [ ${BACKUP_TYPE} = 'full' ] ; then
-	db2 -v backup db $DATABASE on all dbpartitionnums online to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting | tee -a $BACK_LOG
+	BACKUP_CMD=$(db2 -v backup db $DATABASE on all dbpartitionnums online to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting)
 else 
-	db2 -v backup db $DATABASE online INCREMENTAL DELTA to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting | tee -a $BACK_LOG
-fi   
-grep -Fq "Backup successful." $BACK_LOG
-if [ $? = 0 ]; then
-	backup_timestamp=`grep timestamp $BACK_LOG | cut -d: -f2`
+	BACKUP_CMD=$(db2 -v backup db $DATABASE online INCREMENTAL DELTA to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting)
+fi
+
+if echo "$BACKUP_CMD" | grep -q "Backup successful."; then
+	echo "$BACKUP_CMD"
+  	backup_timestamp=`grep timestamp $BACKUP_CMD | cut -d: -f2`
 else
-	echo "" >&2
 	echo "********** BACKUP FAILED ************" >&2
 	echo "ERROR: Backup operation did not complete successfully" >&2
 	echo "ERROR: Timestamp: $(date '+%Y-%m-%d %H:%M:%S')" >&2
-	echo "ERROR: Check log file: ${BACK_LOG}" >&2
-	echo "" >&2
 	exit 1
 fi
-
 
 ######## Copy keystore to COS or Disk location based on VENDOR #########
 KEY_SOURCE1=/mnt/blumeta0/db2/keystore/keystore.p12
@@ -96,7 +92,6 @@ else
 fi
 
 DATETIME=`date +%Y-%m-%d_%H%M%S`;
-echo "BACKUP End time : ${DATETIME}" >> $BACK_LOG
 echo "BACKUP End time : ${DATETIME}"
 echo " "
 
@@ -133,5 +128,4 @@ fi
 
 
 echo "BACKUP_FILE_TIMESTAMP=${backup_timestamp}"
-echo " "
 echo "********** BACKUP COMPLETED SUCCESSFULLY ************"
