@@ -177,12 +177,17 @@
   shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc '{{ db2_insthome }}/bin/db2_backup.sh {{ db2_backup_path }} | tee /tmp/db2_backup.log' db2inst1"
   register: db2_backup_result
 
+- name: "Debug db2_backup.sh output"
+  ansible.builtin.debug:
+    msg: "{{ db2_backup_result.stdout_lines }}"
+
 - name: "Assert DB2 backup completed successfully"
   assert:
     that:
       - db2_backup_result is defined
       - db2_backup_result.rc == 0
       - db2_backup_result.stdout | regex_search('BACKUP COMPLETED SUCCESSFULLY', multiline=True)
+  fail_msg: "DB2 backup did not complete successfully. Check /tmp/db2_backup.log in {{ db2_pod_name }} pod for details."
 
 - name: Get backup file timestamp from db2_backup.log
   ansible.builtin.set_fact:
