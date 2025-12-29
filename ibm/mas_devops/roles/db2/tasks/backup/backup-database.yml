@@ -68,7 +68,12 @@
   set_fact:
     db2_pod_name: "{{ db2_pod_name_result.pod_name }}"
 
-- name: "Create /tmp/db2-scripts directory on localhost"
+- name: "Remove any existing files in /tmp/db2-scripts directory on localhost"
+  ansible.builtin.file:
+    path: "/tmp/db2-scripts"
+    state: absent
+
+- name: "Recreate /tmp/db2-scripts directory on localhost"
   ansible.builtin.file:
     path: "/tmp/db2-scripts"
     state: directory
@@ -103,7 +108,7 @@
 # Create /tmp/db2-scripts directory in DB2 pod and copy scripts into the pod
 # -----------------------------------------------------------------------------
 - name: create /tmp/db2-scripts directory in DB2 pod
-  shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc 'mkdir -p /tmp/db2-scripts/' db2inst1"
+  shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc 'rm -rf /tmp/db2-scripts && mkdir -p /tmp/db2-scripts/' db2inst1"
   register: create_dir_result
   retries: 2
   delay: 15 # seconds
@@ -152,9 +157,13 @@
 - name: "Execute setup_cos_storage_access.sh in DB2 pod"
   shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc '{{ db2_insthome }}/bin/setup_cos_storage_access.sh | tee /tmp/setup_cos_storage_access.log' db2inst1"
   register: setup_s3_result
-  retries: 2
-  delay: 15 # seconds
-  until: setup_s3_result.rc == 0
+  when: backup_vendor == "s3"
+
+- name: "Assert S3 storage access setup completed successfully"
+  assert:
+    that:
+      - setup_s3_result is defined
+      - setup_s3_result.rc == 0
   when: backup_vendor == "s3"
 
 - name: "Debug setup_cos_storage_access.sh output"
@@ -167,11 +176,13 @@
 - name: "Execute db2_backup.sh in DB2 pod"
   shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc '{{ db2_insthome }}/bin/db2_backup.sh {{ db2_backup_path }} | tee /tmp/db2_backup.log' db2inst1"
   register: db2_backup_result
-  retries: 2
-  delay: 15 # seconds
-  until:
-    - db2_backup_result.rc == 0
-    - db2_backup_result.stdout | regex_search('BACKUP COMPLETED SUCCESSFULLY', multiline=True)
+
+- name: "Assert DB2 backup completed successfully"
+  assert:
+    that:
+      - db2_backup_result is defined
+      - db2_backup_result.rc == 0
+      - db2_backup_result.stdout | regex_search('BACKUP COMPLETED SUCCESSFULLY', multiline=True)
 
 - name: Get backup file timestamp from db2_backup.log
   ansible.builtin.set_fact:
