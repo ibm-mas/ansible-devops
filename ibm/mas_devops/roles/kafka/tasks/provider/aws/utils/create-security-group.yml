@@ -12,7 +12,7 @@
     sg_id: "{{security_group_info.stdout | from_json | json_query('SecurityGroups[0].GroupId')}}"
 
 - name: Create a Security Group {{ aws_msk_security_group_name }}, if doesn't exists
-  when: not sg_id
+  when: sg_id is not defined or sg_id | length == 0
   shell: |
     aws ec2 create-security-group \
     --group-name '{{ aws_msk_security_group_name }}' \
@@ -21,7 +21,7 @@
   register: sg_info
 
 - name: Fail if Security group not created
-  when: not sg_id
+  when: sg_id is not defined or sg_id | length == 0
   assert:
     that:
       - sg_info is defined and sg_info != None and sg_info != ''
@@ -29,7 +29,7 @@
       - sg_info.stdout | from_json | json_query('GroupId')
 
 - name: Set Fact, Security group Id
-  when: not sg_id
+  when: sg_id is not defined or sg_id | length == 0
   set_fact:
     sg_id: "{{sg_info.stdout | from_json | json_query('GroupId')}}"
 
@@ -62,7 +62,7 @@
     egress_rule_info.rc not in [0] and ('InvalidPermission.Duplicate' not in egress_rule_info.stderr )
 
 - name: Debug Info, Added Egress rule to Security Group
-  when: egress_rule_info.stdout
+  when: egress_rule_info.stdout | length > 0
   debug:
     msg:
       - "egress_rule_info ....................... {{ egress_rule_info.stdout | from_json }}"
