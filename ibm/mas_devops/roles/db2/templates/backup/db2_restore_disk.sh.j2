@@ -15,20 +15,20 @@ BACKUP_BASE=/mnt/backup
 
 ### Check if keystore files are present
 
-REMOTE_PATH="{{ pod_full_backup_path }}"
+POD_BACKUP_PATH="{{ pod_full_backup_path }}"
 
-KESTORE_P12_FILE=$(ls ${REMOTE_PATH}/*.p12 2>/dev/null)
-KESTORE_STH_FILE=$(ls ${REMOTE_PATH}/*.sth 2>/dev/null)
+KESTORE_P12_FILE=$(ls ${POD_BACKUP_PATH}/*.p12 2>/dev/null)
+KESTORE_STH_FILE=$(ls ${POD_BACKUP_PATH}/*.sth 2>/dev/null)
 
 if [[ -z "${KESTORE_P12_FILE}" || -z "${KESTORE_STH_FILE}" ]]; then
-  echo "Db2 keystore files are missing in the backup location: ${REMOTE_PATH}"
+  echo "Db2 keystore files are missing in the backup location: ${POD_BACKUP_PATH}"
   exit 1
 fi
 
 ### Check if backup files are present
-BACKUP_FILES=$(ls ${REMOTE_PATH}/${DATABASE}*.db2inst1.DBPART000.* 2>/dev/null)
+BACKUP_FILES=$(ls ${POD_BACKUP_PATH}/${DATABASE}*.db2inst1.DBPART000.* 2>/dev/null)
 if [[ -z "${BACKUP_FILES}" ]]; then
-  echo "Db2 backup files are missing in the backup location: ${REMOTE_PATH}"
+  echo "Db2 backup files are missing in the backup location: ${POD_BACKUP_PATH}"
   exit 1
 fi
 
@@ -37,106 +37,95 @@ echo "Db2 keystore files verified successfully."
 # Extract Db2 keystore master key
 # https://www.ibm.com/docs/en/db2/11.5?topic=edr-restoring-encrypted-backup-image-different-system-local-keystore
 
-MASTER_KEY_LABEL=`gsk8capicmd_64 -cert -list all -db ${REMOTE_PATH}/${KESTORE_P12_FILE} -stashed 2>&1 | grep -i $INSTOWNER_$DATABASE | awk '/^#/ { print $2 }'`
+MASTER_KEY_LABEL=`gsk8capicmd_64 -cert -list all -db ${POD_BACKUP_PATH}/keystore.p12 -stashed 2>&1 | grep -i $INSTOWNER_$DATABASE | awk '/^#/ { print $2 }'`
 if [ -z "$MASTER_KEY_LABEL" ]; then
-	echo "MASTER_KEY_LABEL is empty."
-else
-	gsk8capicmd_64 -secretkey -extract -db ${REMOTE_PATH}/${KESTORE_P12_FILE} -stashed -label ${MASTER_KEY_LABEL} -format ascii -target ${REMOTE_PATH}/master_key_label.kdb
-	echo "MASTER_KEY_LABEL is not empty - Secret key extraction Completed."
-fi
-
-## Add Master key to target keystore
-result=$(gsk8capicmd_64 -cert -add -db /mnt/blumeta0/db2/keystore/keystore.p12 -stashed -label ${MASTER_KEY_LABEL} -file ${REMOTE_PATH}/master_key_label.kdb 2>&1)
-rc=$?
-if [ $rc -ne 0 ]; then
-    echo "Error adding master key to target keystore. Return code: $rc"
+	echo "MASTER_KEY_LABEL is empty. Cannot proceed with secret key extraction."
     exit 1
-fi
+else
+    ### Check if MASTER_KEY_LABEL exists in the source keystore
+    SOURCE_LABELS=$(gsk8capicmd_64 -cert -list all -db /mnt/blumeta0/db2/keystore/keystore.p12 -stashed 2>&1 | awk '/^#/ { print $2 }')
+    if ! echo "$SOURCE_LABELS" | grep -q "^${MASTER_KEY_LABEL}$"; then
+        echo "MASTER_KEY_LABEL '${MASTER_KEY_LABEL}' not found in source keystore."
+        gsk8capicmd_64 -secretkey -extract -db ${POD_BACKUP_PATH}/keystore.p12 -stashed -label ${MASTER_KEY_LABEL} -format ascii -target ${POD_BACKUP_PATH}/master_key_label.kdb
+	    echo "MASTER_KEY_LABEL is not empty - Secret key extraction Completed."
+        ## Add Master key to target keystore
+        result=$(gsk8capicmd_64 -secretkey -add -db /mnt/blumeta0/db2/keystore/keystore.p12 -stashed -label ${MASTER_KEY_LABEL} -file ${POD_BACKUP_PATH}/master_key_label.kdb 2>&1)
+        rc=$?
+        if [ $rc -ne 0 ]; then
+            echo "Error adding master key to target keystore. Return code: $rc"
+            exit 1
+        fi
 
-if echo "$result" | grep -q "CTGSK3005W"; then
-  echo "ERROR: CTGSK3005W warning detected. Exiting"
-  echo "$result"
-  exit 1
+        if echo "$result" | grep -q "CTGSK3005W"; then
+            echo "ERROR: CTGSK3005W warning detected. Exiting"
+            echo "$result"
+            exit 1
+        fi
+    else
+        echo "MASTER_KEY_LABEL '${MASTER_KEY_LABEL}' already exists in target keystore. Skipping addition."
+    fi
 fi
 
 echo "Db2 keystore master key restored successfully."
 
-
 # Deactivate Db2 in preparation for restore
 # https://www.ibm.com/docs/en/db2/11.5?topic=r-restoring-db2-from-online-backup-using-commands
 
+dbRestoreSuccess=true
 
 echo "1. Temporarily disable the built-in HA"
-sudo wvcli system disable -m "Disable HA before Db2 maintenance"
-rc=$?
-if [ $rc -ne 0 ]; then
-    echo "Error disabling HA. Return code: $rc"
-    exit 1
+if [ -f /etc/wolverine/config.json ]; then
+    wvcli system disable -m "Disable HA before Db2 maintenance"
+else
+    echo "Wolverine HA not enabled"
 fi
 
 echo "2. Connect to the database"
-db2 -v connect to ${DATABASE}
+connect_status=$(db2 -v connect to ${DATABASE})
 rc=$?
 if [ $rc -ne 0 ]; then
-    echo "Error connecting to database ${DATABASE}. Return code: $rc"
-    exit 1
+    if echo "$connect_status" | grep -q "SQL1032N"; then
+        echo "Database ${DATABASE} is not currently active. Proceeding with restore."
+    elif echo "$connect_status" | grep -q "SQL1013N"; then
+        echo "Database ${DATABASE} does not exist. Proceeding with restore."
+    elif echo "$connect_status" | grep -q "SQL30081N"; then
+        echo "Network error while connecting to database ${DATABASE}"
+        exit 1
+    elif echo "$connect_status" | grep -q "SQL1119N"; then
+        echo "$connect_status"
+        exit 1
+    else
+        echo "$connect_status. Proceeding with restore."
+    fi
 fi
 
 echo "3. Disconnect all the applications that are connected to Db2"
-db2 -v list applications
 db2 -v force application all
-rc=$?
-if [ $rc -ne 0 ]; then
-    echo "Error disconnecting applications from database ${DATABASE}. Return code: $rc"
-    exit 1
-fi
 
 echo "4. Terminate the database"
 db2 -v terminate
-rc=$?
-if [ $rc -ne 0 ]; then
-    echo "Error terminating database ${DATABASE}. Return code: $rc"
-    exit 1
-fi
 
 echo "5. Stop the database"
 db2stop force
-rc=$?
-if [ $rc -ne 0 ]; then
-    echo "Error stopping database ${DATABASE}. Return code: $rc"
-    exit 1
-fi
 
 echo "6. Ensure that all Db2 interprocess communications are cleaned for the instance"
 ipclean -a
-rc=$?
-if [ $rc -ne 0 ]; then
-    echo "Error cleaning Db2 interprocess communications. Return code: $rc"
-    exit 1
-fi
 
 echo "7. Turn off all communications to the database by setting the value of the DB2COMM variable to null"
 db2set -null DB2COMM
-rc=$?
-if [ $rc -ne 0 ]; then
-    echo "Error setting DB2COMM variable to null. Return code: $rc"
-    exit 1
-fi
 
 echo "8. Restart the database in restricted access mode"
 db2start admin mode restricted access
-rc=$?
-if [ $rc -ne 0 ]; then
-    echo "Error starting database ${DATABASE} in restricted access mode. Return code: $rc"
-    exit 1
-fi
+
+echo "waiting for db to start"
+sleep 60
 
 echo "9. Restore Db2 from a full backup"
-db2 -v restore db ${DATABASE} from ${REMOTE_PATH} taken at ${DB2_BACKUP_TIMESTAMP} into ${DATABASE} logtarget ${REMOTE_PATH} replace existing without prompting
+db2 -v restore db ${DATABASE} from ${POD_BACKUP_PATH} taken at ${DB2_BACKUP_TIMESTAMP} into ${DATABASE} logtarget ${POD_BACKUP_PATH} replace existing without prompting
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "Error restoring database ${DATABASE} from backup. Return code: $rc"
-    exit 1
+    dbRestoreSuccess=false
 fi
 
 echo "10. Check Db2 rollforward status"
@@ -144,15 +133,15 @@ db2 -v rollforward db ${DATABASE} query status
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "Error querying rollforward status for database ${DATABASE}. Return code: $rc"
-    exit 1
+    dbRestoreSuccess=false
 fi
 
 echo "11. Run Db2 rollforward command"
-db2 -v "rollforward db ${DATABASE} to end of backup and complete overflow log path ${REMOTE_PATH} noretrieve"
+db2 -v "rollforward db ${DATABASE} to end of backup and complete overflow log path ${POD_BACKUP_PATH} noretrieve"
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "Error during rollforward for database ${DATABASE}. Return code: $rc"
-    exit 1
+    dbRestoreSuccess=false
 fi
 
 echo "12. Stop the database"
@@ -160,7 +149,7 @@ db2stop force
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "Error stopping database ${DATABASE}. Return code: $rc"
-    exit 1
+    dbRestoreSuccess=false
 fi
 
 echo "13. Ensure that all Db2 interprocess communications are cleaned for the instance"
@@ -168,7 +157,7 @@ ipclean -a
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "Error cleaning Db2 interprocess communications. Return code: $rc" | tee
-    exit 1
+    dbRestoreSuccess=false
 fi
 
 echo "14. Reinitialize the Db2 communication manager to accept database connections"
@@ -176,7 +165,7 @@ db2set DB2COMM=TCPIP,SSL
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "Error reinitializing Db2 communication manager. Return code: $rc"
-    exit 1
+    dbRestoreSuccess=false
 fi
 
 echo "15. Restart the database for normal operation"
@@ -184,15 +173,18 @@ db2start
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "Error starting database ${DATABASE}. Return code: $rc"
-    exit 1
+    dbRestoreSuccess=false
 fi
+
+echo "waiting for db to start"
+sleep 60
 
 echo "16. Activate the database"
 db2 activate db ${DATABASE}
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "Error activating database ${DATABASE}. Return code: $rc"
-    exit 1
+    dbRestoreSuccess=false
 fi
 
 echo "17. Re-enable the Wolverine high availability monitoring process"
@@ -200,7 +192,7 @@ sudo wvcli system enable -m "Enable HA after Db2 maintenance"
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "Error enabling HA. Return code: $rc"
-    exit 1
+    dbRestoreSuccess=false
 fi
 
 echo "18. Connect to the database"
@@ -208,10 +200,15 @@ db2 -v connect to ${DATABASE}
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "Error connecting to database ${DATABASE}. Return code: $rc"
+    dbRestoreSuccess=false
+fi
+
+if [ "$dbRestoreSuccess" = false ]; then
+    echo "Db2 restore process encountered errors - RestoreFailed"
     exit 1
 fi
 
-echo "Db2 database ${DATABASE} restored successfully from backup taken at ${DB2_BACKUP_TIMESTAMP}."
+echo "Db2 database ${DATABASE} restored successfully from S3 backup taken at ${DB2_BACKUP_TIMESTAMP}."
 echo "Db2 restore process completed successfully - RestoreSuccess"
 exit 0
 
