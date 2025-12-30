@@ -72,6 +72,7 @@ echo "Db2 keystore master key restored successfully."
 # https://www.ibm.com/docs/en/db2/11.5?topic=r-restoring-db2-from-online-backup-using-commands
 
 dbRestoreSuccess=true
+dbRollbackSuccess=true
 
 echo "1. Temporarily disable the built-in HA"
 if [ -f /etc/wolverine/config.json ]; then
@@ -102,6 +103,9 @@ fi
 echo "3. Disconnect all the applications that are connected to Db2"
 db2 -v force application all
 
+echo "Waiting for connections to close, sleep for 30 seconds"
+sleep 30
+
 echo "4. Terminate the database"
 db2 -v terminate
 
@@ -117,15 +121,20 @@ db2set -null DB2COMM
 echo "8. Restart the database in restricted access mode"
 db2start admin mode restricted access
 
-echo "waiting for db to start"
+echo "Waiting for db to start"
 sleep 60
 
 echo "9. Restore Db2 from a full backup"
-db2 -v restore db ${DATABASE} from ${POD_BACKUP_PATH} taken at ${DB2_BACKUP_TIMESTAMP} into ${DATABASE} logtarget ${POD_BACKUP_PATH} replace existing without prompting
+restore_cmd=$(db2 -v restore db ${DATABASE} from ${POD_BACKUP_PATH} taken at ${DB2_BACKUP_TIMESTAMP} into ${DATABASE} logtarget ${POD_BACKUP_PATH} replace existing without prompting)
 rc=$?
 if [ $rc -ne 0 ]; then
-    echo "Error restoring database ${DATABASE} from backup. Return code: $rc"
-    dbRestoreSuccess=false
+    echo "$restore_cmd"
+    if echo "$restore_cmd" | grep -q "Restore is successful"; then
+        echo "Database ${DATABASE} restored successfully from backup."
+    else
+        echo "Error restoring database ${DATABASE} from backup. Return code: $rc"
+        dbRestoreSuccess=false
+    fi
 fi
 
 echo "10. Check Db2 rollforward status"
@@ -133,15 +142,14 @@ db2 -v rollforward db ${DATABASE} query status
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "Error querying rollforward status for database ${DATABASE}. Return code: $rc"
-    dbRestoreSuccess=false
 fi
 
 echo "11. Run Db2 rollforward command"
-db2 -v "rollforward db ${DATABASE} to end of backup and complete overflow log path ${POD_BACKUP_PATH} noretrieve"
+db2 -v rollforward db ${DATABASE} to end of backup and complete overflow log path "(${POD_BACKUP_PATH})" noretrieve
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "Error during rollforward for database ${DATABASE}. Return code: $rc"
-    dbRestoreSuccess=false
+    dbRollbackSuccess=false
 fi
 
 echo "12. Stop the database"
@@ -149,7 +157,6 @@ db2stop force
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "Error stopping database ${DATABASE}. Return code: $rc"
-    dbRestoreSuccess=false
 fi
 
 echo "13. Ensure that all Db2 interprocess communications are cleaned for the instance"
@@ -157,7 +164,6 @@ ipclean -a
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "Error cleaning Db2 interprocess communications. Return code: $rc" | tee
-    dbRestoreSuccess=false
 fi
 
 echo "14. Reinitialize the Db2 communication manager to accept database connections"
@@ -165,7 +171,6 @@ db2set DB2COMM=TCPIP,SSL
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "Error reinitializing Db2 communication manager. Return code: $rc"
-    dbRestoreSuccess=false
 fi
 
 echo "15. Restart the database for normal operation"
@@ -173,7 +178,6 @@ db2start
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "Error starting database ${DATABASE}. Return code: $rc"
-    dbRestoreSuccess=false
 fi
 
 echo "waiting for db to start"
@@ -184,7 +188,6 @@ db2 activate db ${DATABASE}
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "Error activating database ${DATABASE}. Return code: $rc"
-    dbRestoreSuccess=false
 fi
 
 echo "17. Re-enable the Wolverine high availability monitoring process"
@@ -192,7 +195,6 @@ sudo wvcli system enable -m "Enable HA after Db2 maintenance"
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "Error enabling HA. Return code: $rc"
-    dbRestoreSuccess=false
 fi
 
 echo "18. Connect to the database"
@@ -200,11 +202,20 @@ db2 -v connect to ${DATABASE}
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "Error connecting to database ${DATABASE}. Return code: $rc"
-    dbRestoreSuccess=false
 fi
+
+# Cleanup the backup files from local path
+echo "Cleaning up local backup files at: ${POD_BACKUP_PATH}"
+rm -rf ${POD_BACKUP_PATH}
+
 
 if [ "$dbRestoreSuccess" = false ]; then
     echo "Db2 restore process encountered errors - RestoreFailed"
+    exit 1
+fi
+
+if [ "$dbRollbackSuccess" = false ]; then
+    echo "Db2 rollforward process encountered errors - RestoreFailed"
     exit 1
 fi
 
