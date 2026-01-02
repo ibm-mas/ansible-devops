@@ -17,7 +17,7 @@ instance_home=`/usr/local/bin/db2greg -dump | grep -ae "I," | grep -v "/das," | 
 
 if [ ! -f "$instance_home/sqllib/db2profile" ]
 then
-	echo "ERROR - $instance_home/sqllib/db2profile not found"
+	echo "ERROR: $instance_home/sqllib/db2profile not found"
 	EXIT_STATUS=1
 else
 	. $instance_home/sqllib/db2profile
@@ -30,10 +30,10 @@ then
 	rm ${COMPRESS_LOC}
 fi
 
-###   Check to see if the database is  Running
+###   Check to see if the database is Running
 ps -ef | grep db2sys | grep -v grep  > /dev/null 2>&1
 if [ $? -eq 1 ]; then
-	echo "Database is not active "      
+	echo "ERROR: Database is not active"
 	echo "Database Not Active,BACKUP Not Run" > $instance_home/bin/LASTbkupRUN
 	exit
 fi
@@ -41,63 +41,93 @@ fi
 ### Create Backup Directory if it does not exist when vendor is disk
 if [ ${VENDOR} = 'disk' ] ; then
 	if [ ! -d "${BACKUP_PATH}" ] ; then
+		echo "INFO: Creating backup directory: ${BACKUP_PATH}"
 		mkdir -p ${BACKUP_PATH}
 		if [ $? -ne 0 ] ; then
 			echo "ERROR: Could not create backup directory ${BACKUP_PATH}"
 			exit 1
 		fi
+		echo "INFO: Backup directory created successfully"
 	fi
 fi
 
+# ============================================================================
+# Start Backup Process
+# ============================================================================
 DATETIME=`date +%Y-%m-%d_%H%M%S`;
-echo "BACKUP Start time : ${DATETIME}"  
+echo ""
+echo "========================================================================"
+echo "  DB2 BACKUP PROCESS STARTED"
+echo "========================================================================"
+echo "  Database        : ${DATABASE}"
+echo "  Backup Type     : ${BACKUP_TYPE}"
+echo "  Backup Vendor   : ${VENDOR}"
+echo "  Backup Path     : ${BACKUP_PATH}"
+echo "  Start Time      : ${DATETIME}"
+echo "========================================================================"
+echo ""
 
 db2 -v archive log for db $DATABASE
 sleep 30
 
-
+# ============================================================================
+# Execute Backup Command
+# ============================================================================
 if [ ${BACKUP_TYPE} = 'full' ] ; then
-	echo "Performing FULL Online backup of database $DATABASE ..."
-	echo "db2 -v backup db $DATABASE on all dbpartitionnums online to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting"
+	echo "INFO: Performing FULL online backup of database ${DATABASE}..."
+	echo "INFO: Command: db2 -v backup db ${DATABASE} on all dbpartitionnums online to ${BACKUP_PATH} compress UTIL_IMPACT_PRIORITY 50 include logs without prompting"
 	BACKUP_CMD=$(db2 -v backup db $DATABASE on all dbpartitionnums online to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting)
-else 
+else
+	echo "INFO: Performing INCREMENTAL DELTA backup of database ${DATABASE}..."
 	BACKUP_CMD=$(db2 -v backup db $DATABASE online INCREMENTAL DELTA to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting)
 fi
 
 if echo "$BACKUP_CMD" | grep -q "Backup successful."; then
 	echo "$BACKUP_CMD"
   	backup_timestamp=`echo "$output" | grep timestamp | cut -d: -f2`
+	echo ""
+	echo "INFO: Backup operation completed successfully"
 else
-	echo "********** BACKUP FAILED ************" >&2
+	echo ""
+	echo "========================================================================"
+	echo "  BACKUP FAILED"
+	echo "========================================================================"
 	echo "ERROR: Backup operation did not complete successfully" >&2
 	echo "ERROR: Timestamp: $(date '+%Y-%m-%d %H:%M:%S')" >&2
+	echo "========================================================================"
 	exit 1
 fi
 
-######## Copy keystore to COS or Disk location based on VENDOR #########
+# ============================================================================
+# Copy Keystore Files
+# ============================================================================
 KEY_SOURCE1=/mnt/blumeta0/db2/keystore/keystore.p12
 KEY_SOURCE2=/mnt/blumeta0/db2/keystore/keystore.sth
+
 if [ ${VENDOR} = 's3' ] ; then
-	echo "Copying Keystore to COS location"
+	echo ""
+	echo "INFO: Copying keystore files to COS location..."
 	set -x
 	TARGET1=keystore.p12
 	TARGET2=keystore.sth
 
 	db2RemStgManager ALIAS PUT source=${KEY_SOURCE1} target=${BACKUP_PATH}/${TARGET1}
 	db2RemStgManager ALIAS PUT source=${KEY_SOURCE2} target=${BACKUP_PATH}/${TARGET2}
-	echo "Copying Keystore to COS location - Completed"
+	set +x
+	echo "INFO: Keystore files copied to COS location successfully"
 else
-	echo "Copying Keystore to local disk location"
+	echo ""
+	echo "INFO: Copying keystore files to local disk location..."
 	cp ${KEY_SOURCE1} ${BACKUP_PATH}/keystore.p12
 	cp ${KEY_SOURCE2} ${BACKUP_PATH}/keystore.sth
-	echo "Copying Keystore to local disk location - Completed"
+	echo "INFO: Keystore files copied to local disk location successfully"
 fi
 
-DATETIME=`date +%Y-%m-%d_%H%M%S`;
-echo "BACKUP End time : ${DATETIME}"
-echo " "
-
-echo "Writing db2-backup-info.yaml file in /tmp directory..."
+# ============================================================================
+# Create Backup Information File
+# ============================================================================
+echo ""
+echo "INFO: Creating db2-backup-info.yaml file..."
 YAML_FILE=/tmp/db2-backup-info.yaml
 cat <<EOT >> ${YAML_FILE}
 source_db2_backup_version: {{ db2_backup_version }}
@@ -111,24 +141,46 @@ source_db2_instance_version: {{ db2_version }}
 source_db2_instance_channel: {{ db2_channel }}
 status: SUCCESS
 EOT
-echo "db2-backup-info.yaml file created at ${YAML_FILE}"
+echo "INFO: db2-backup-info.yaml file created at ${YAML_FILE}"
 
 if [ ${VENDOR} = 's3' ] ; then
-	echo "Uploading /tmp/db2-backup-info.yaml file to COS location..."
+	echo "INFO: Uploading db2-backup-info.yaml file to COS location..."
 	db2RemStgManager ALIAS PUT source=${YAML_FILE} target=${BACKUP_PATH}/db2-backup-info.yaml
+	echo "INFO: db2-backup-info.yaml file uploaded successfully"
 fi
 
-###### If vendor is disk, tar the backup files
+# ============================================================================
+# Archive Backup Files (Disk Vendor Only)
+# ============================================================================
 if [ ${VENDOR} = 'disk' ] ; then
 	cp ${YAML_FILE} ${BACKUP_PATH}/db2-backup-info.yaml
-	echo "Starting to tar the backup files..."
+	echo ""
+	echo "INFO: Creating tar archive of backup files..."
 	tar -czf ${BACKUP_PATH}/db2_${DATABASE}_backup_{{ db2_backup_version }}.tar.gz -C ${BACKUP_PATH} .
-	echo "Tar backup files completed. Showing disk usage:"
+	echo "INFO: Tar archive created successfully"
+	echo ""
+	echo "Disk Usage:"
 	df -h ${BACKUP_PATH}/*
 else
-	echo "Backup vendor is not disk. Skipping tar of backup files."
+	echo ""
+	echo "INFO: Backup vendor is not disk. Skipping tar archive creation."
 fi
 
-
 echo "BACKUP_FILE_TIMESTAMP=${backup_timestamp}"
-echo "********** BACKUP COMPLETED SUCCESSFULLY ************"
+
+# ============================================================================
+# Backup Completion Summary
+# ============================================================================
+DATETIME=`date +%Y-%m-%d_%H%M%S`;
+echo ""
+echo "========================================================================"
+echo "  DB2 BACKUP COMPLETED SUCCESSFULLY"
+echo "========================================================================"
+echo "  Database        : ${DATABASE}"
+echo "  Backup Type     : ${BACKUP_TYPE}"
+echo "  Backup Vendor   : ${VENDOR}"
+echo "  Backup Path     : ${BACKUP_PATH}"
+echo "  End Time        : ${DATETIME}"
+echo "  Backup Timestamp: ${backup_timestamp}"
+echo "========================================================================"
+echo ""
