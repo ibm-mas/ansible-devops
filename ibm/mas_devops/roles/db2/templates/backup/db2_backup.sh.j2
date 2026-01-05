@@ -8,29 +8,30 @@ function stopDBConnections()
 	echo ""
 	echo "STEP 1: Temporarily disable the built-in HA"
 	if [ -f /etc/wolverine/config.json ]; then
-    	wvcli system disable -m "Disable HA before Db2 maintenance"
-    	echo "INFO: Wolverine HA disabled"
+		wvcli system disable -m "Disable HA before Db2 maintenance"
+		echo "INFO: Wolverine HA disabled"
 	else
-    	echo "INFO: Wolverine HA not enabled"
+		echo "INFO: Wolverine HA not enabled"
+	fi
 	
 	echo ""
 	echo "STEP 2: Connect to the database"
 	connect_status=$(db2 -v connect to ${databaseName})
 	rc=$?
 	if [ $rc -ne 0 ]; then
-    	if echo "$connect_status" | grep -q "SQL1032N"; then
-        	echo "INFO: Database ${databaseName} is not currently active. Proceeding with restore"
-    	elif echo "$connect_status" | grep -q "SQL1013N"; then
-        	echo "INFO: Database ${databaseName} does not exist. Proceeding with restore"
-    	elif echo "$connect_status" | grep -q "SQL30081N"; then
-        	echo "ERROR: Network error while connecting to database ${databaseName}"
-        	exit 1
-    	elif echo "$connect_status" | grep -q "SQL1119N"; then
-        	echo "ERROR: $connect_status"
-        	exit 1
-    	else
-        	echo "INFO: $connect_status. Proceeding with restore"
-    	fi
+		if echo "$connect_status" | grep -q "SQL1032N"; then
+			echo "INFO: Database ${databaseName} is not currently active. Proceeding with restore"
+		elif echo "$connect_status" | grep -q "SQL1013N"; then
+			echo "INFO: Database ${databaseName} does not exist. Proceeding with restore"
+		elif echo "$connect_status" | grep -q "SQL30081N"; then
+			echo "ERROR: Network error while connecting to database ${databaseName}"
+			exit 1
+		elif echo "$connect_status" | grep -q "SQL1119N"; then
+			echo "ERROR: $connect_status"
+			exit 1
+		else
+			echo "INFO: $connect_status. Proceeding with restore"
+		fi
 	fi
 
 	echo ""
@@ -60,7 +61,6 @@ function stopDBConnections()
 	db2start admin mode restricted access
 	echo "INFO: Waiting for database to start in restricted access mode (60 seconds)..."
 	sleep 60
-
 }
 
 function startDB()
@@ -86,9 +86,9 @@ function startDB()
 	db2 activate db ${databaseName}
 	rc=$?
 	if [ $rc -ne 0 ]; then
-    	echo "ERROR: Failed to activate database ${databaseName}. Return code: $rc"
+		echo "ERROR: Failed to activate database ${databaseName}. Return code: $rc"
 	else
-    	echo "INFO: Database activated successfully"
+		echo "INFO: Database activated successfully"
 	fi
 
 	echo ""
@@ -96,9 +96,9 @@ function startDB()
 	sudo wvcli system enable -m "Enable HA after Db2 maintenance"
 	rc=$?
 	if [ $rc -ne 0 ]; then
-    	echo "ERROR: Failed to enable HA. Return code: $rc"
+		echo "ERROR: Failed to enable HA. Return code: $rc"
 	else
-    	echo "INFO: Wolverine HA re-enabled successfully"
+		echo "INFO: Wolverine HA re-enabled successfully"
 	fi
 
 	echo ""
@@ -111,9 +111,9 @@ function startDB()
 	db2 -v connect to ${databaseName}
 	rc=$?
 	if [ $rc -ne 0 ]; then
-    	echo "ERROR: Failed to connect to database ${databaseName}. Return code: $rc"
+		echo "ERROR: Failed to connect to database ${databaseName}. Return code: $rc"
 	else
-    	echo "INFO: Successfully connected to database ${databaseName}"
+		echo "INFO: Successfully connected to database ${databaseName}"
 	fi
 }
 
@@ -175,7 +175,8 @@ logarchmeth1_cmd=$(db2 get db cfg for ${DATABASE} | grep LOGARCHMETH1 | awk -F'=
 if [ ${logarchmeth1_cmd} = 'OFF' ]; then
 	if [ ${BACKUP_TYPE} = 'online' ] ; then
 		echo "ERROR: LOGARCHMETH1 is OFF. Cannot proceed with ONLINE backup, Please change this setting to enable online backup. Exiting..."
-  		exit 1
+		exit 1
+	fi
 	echo "INFO: LOGARCHMETH1 is OFF. Proceeding with OFFLINE backup..."
 else
   echo "INFO: LOGARCHMETH1 is ON: $value"
@@ -225,7 +226,7 @@ fi
 
 if echo "$BACKUP_CMD" | grep -q "Backup successful."; then
 	echo "$BACKUP_CMD"
-  	backup_timestamp=`echo "$output" | grep timestamp | cut -d: -f2`
+	backup_timestamp=`echo "$BACKUP_CMD" | grep timestamp | cut -d: -f2`
 	echo ""
 	echo "INFO: Backup operation completed successfully"
 else
