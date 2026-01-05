@@ -51,6 +51,17 @@ if [ ${VENDOR} = 'disk' ] ; then
 	fi
 fi
 
+### Check LOGARCHMETH1 is not OFF to proceed with ONLINE backup
+echo "INFO: Checking if LOGARCHMETH1 is ON to proceed with ONLINE backup..."
+logarchmeth1_cmd=$(db2 get db cfg for ${DATABASE} | grep LOGARCHMETH1 | awk -F'= ' '{print $2}')
+
+if [[ "$value" == "OFF" ]]; then
+  echo "ERROR: LOGARCHMETH1 is OFF. Cannot proceed with ONLINE backup, Please change this setting to enable online backup. Exiting..."
+  exit 1
+else
+  echo "INFO: LOGARCHMETH1 is ON: $value"
+fi
+
 # ============================================================================
 # Start Backup Process
 # ============================================================================
