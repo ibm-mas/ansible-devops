@@ -168,18 +168,16 @@ if [ ${VENDOR} = 'disk' ] ; then
 	fi
 fi
 
-### Check LOGARCHMETH1 is not OFF to proceed with ONLINE backup
-echo "INFO: Checking if LOGARCHMETH1 is ON to proceed with ONLINE backup..."
-logarchmeth1_cmd=$(db2 get db cfg for ${DATABASE} | grep LOGARCHMETH1 | awk -F'= ' '{print $2}')
+### Check LOGARCHMETH1 is not OFF to proceed if ONLINE backup
+if [ ${BACKUP_TYPE} = 'online' ] ; then
+	echo "INFO: Checking if LOGARCHMETH1 is ON to proceed with ONLINE backup..."
+	logarchmeth1_cmd=$(db2 get db cfg for ${DATABASE} | grep LOGARCHMETH1 | awk -F'= ' '{print $2}')
 
-if [ ${logarchmeth1_cmd} = 'OFF' ]; then
-	if [ ${BACKUP_TYPE} = 'online' ] ; then
-		echo "ERROR: LOGARCHMETH1 is OFF. Cannot proceed with ONLINE backup, Please change this setting to enable online backup. Exiting..."
+	if [ ${logarchmeth1_cmd} = 'OFF' ]; then
+		echo "ERROR: LOGARCHMETH1 is OFF. Cannot proceed with online backup, Please choose offline backup option. Exiting..."
 		exit 1
 	fi
-	echo "INFO: LOGARCHMETH1 is OFF. Proceeding with OFFLINE backup..."
-else
-  echo "INFO: LOGARCHMETH1 is ON: $value"
+	echo "INFO: LOGARCHMETH1 is ON: $logarchmeth1_cmd"
 fi
 
 # ============================================================================
