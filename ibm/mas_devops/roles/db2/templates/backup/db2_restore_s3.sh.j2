@@ -7,6 +7,17 @@ INSTOWNER=`/usr/local/bin/db2greg -dump | grep -ae "I," | grep -v "/das," | awk 
 instance=`whoami`
 BACKUP_BASE=/mnt/backup
 
+# Find the home directory
+instance_home=`/usr/local/bin/db2greg -dump | grep -ae "I," | grep -v "/das," | grep "${instance}" | awk -F ',' '{print $5}'| cut -d/ -f 1,2,3,4,5`
+
+if [ ! -f "$instance_home/sqllib/db2profile" ]
+then
+	echo "ERROR: $instance_home/sqllib/db2profile not found"
+	EXIT_STATUS=1
+else
+	. $instance_home/sqllib/db2profile
+fi
+
 REMOTE_PATH="{{ s3_full_backup_path }}"
 
 # ============================================================================
@@ -112,6 +123,15 @@ for FILE in $FILES; do
             exit 1
         else
             echo "INFO: Successfully downloaded: $(basename "$FILE")"
+        fi
+
+        echo "INFO: Verifying downloaded backup file"
+        bkpchk_cmd=$(db2ckbkp ${POD_BACKUP_PATH}/$(basename "$FILE"))
+        if [ $? -ne 0 ]; then
+            echo "ERROR: Failed to verify backup file ${FILE}. Return code: $rc"
+            exit 1
+        else
+            echo "INFO: Successfully verified: $(basename "$FILE")"
         fi
     fi
 done

@@ -1,5 +1,122 @@
 #!/bin/bash
 
+
+function stopDBConnections()
+{
+	databaseName=${1}
+
+	echo ""
+	echo "STEP 1: Temporarily disable the built-in HA"
+	if [ -f /etc/wolverine/config.json ]; then
+    	wvcli system disable -m "Disable HA before Db2 maintenance"
+    	echo "INFO: Wolverine HA disabled"
+	else
+    	echo "INFO: Wolverine HA not enabled"
+	
+	echo ""
+	echo "STEP 2: Connect to the database"
+	connect_status=$(db2 -v connect to ${databaseName})
+	rc=$?
+	if [ $rc -ne 0 ]; then
+    	if echo "$connect_status" | grep -q "SQL1032N"; then
+        	echo "INFO: Database ${databaseName} is not currently active. Proceeding with restore"
+    	elif echo "$connect_status" | grep -q "SQL1013N"; then
+        	echo "INFO: Database ${databaseName} does not exist. Proceeding with restore"
+    	elif echo "$connect_status" | grep -q "SQL30081N"; then
+        	echo "ERROR: Network error while connecting to database ${databaseName}"
+        	exit 1
+    	elif echo "$connect_status" | grep -q "SQL1119N"; then
+        	echo "ERROR: $connect_status"
+        	exit 1
+    	else
+        	echo "INFO: $connect_status. Proceeding with restore"
+    	fi
+	fi
+
+	echo ""
+	echo "STEP 3: Disconnect all applications connected to Db2"
+	db2 -v force application all
+	echo "INFO: Waiting for connections to close (30 seconds)..."
+	sleep 30
+
+	echo ""
+	echo "STEP 4: Terminate the database"
+	db2 -v terminate
+
+	echo ""
+	echo "STEP 5: Stop the database"
+	db2stop force
+
+	echo ""
+	echo "STEP 6: Clean Db2 interprocess communications"
+	ipclean -a
+
+	echo ""
+	echo "STEP 7: Disable database communications"
+	db2set -null DB2COMM
+
+	echo ""
+	echo "STEP 8: Restart database in restricted access mode"
+	db2start admin mode restricted access
+	echo "INFO: Waiting for database to start in restricted access mode (60 seconds)..."
+	sleep 60
+
+}
+
+function startDB()
+{
+	databaseName=${1}
+
+	echo ""
+	echo "STEP 10: Halt the restricted access mode"
+	db2stop force
+
+	echo ""
+	echo "STEP 11: Clean Db2 interprocess communications"
+	ipclean -a
+	
+	echo ""
+	echo "STEP 12: Restart database for normal operation"
+	db2start
+	echo "INFO: Waiting for database to start (60 seconds)..."
+	sleep 60
+
+	echo ""
+	echo "STEP 13: Activate the database"
+	db2 activate db ${databaseName}
+	rc=$?
+	if [ $rc -ne 0 ]; then
+    	echo "ERROR: Failed to activate database ${databaseName}. Return code: $rc"
+	else
+    	echo "INFO: Database activated successfully"
+	fi
+
+	echo ""
+	echo "STEP 14: Re-enable Wolverine high availability"
+	sudo wvcli system enable -m "Enable HA after Db2 maintenance"
+	rc=$?
+	if [ $rc -ne 0 ]; then
+    	echo "ERROR: Failed to enable HA. Return code: $rc"
+	else
+    	echo "INFO: Wolverine HA re-enabled successfully"
+	fi
+
+	echo ""
+	echo "STEP 15: Show HA monitoring status"
+	sudo wvcli system status 
+	sudo wvcli system devices
+
+	echo ""
+	echo "STEP 18: Connect to the database"
+	db2 -v connect to ${databaseName}
+	rc=$?
+	if [ $rc -ne 0 ]; then
+    	echo "ERROR: Failed to connect to database ${databaseName}. Return code: $rc"
+	else
+    	echo "INFO: Successfully connected to database ${databaseName}"
+	fi
+}
+
 DATABASE={{ db2_dbname }}
 BACKUP_TYPE={{ backup_type }}
 VENDOR={{ backup_vendor }}
@@ -55,9 +172,11 @@ fi
 echo "INFO: Checking if LOGARCHMETH1 is ON to proceed with ONLINE backup..."
 logarchmeth1_cmd=$(db2 get db cfg for ${DATABASE} | grep LOGARCHMETH1 | awk -F'= ' '{print $2}')
 
-if [[ "$logarchmeth1_cmd" == "OFF" ]]; then
-  echo "ERROR: LOGARCHMETH1 is OFF. Cannot proceed with ONLINE backup, Please change this setting to enable online backup. Exiting..."
-  exit 1
+if [ ${logarchmeth1_cmd} = 'OFF' ]; then
+	if [ ${BACKUP_TYPE} = 'online' ] ; then
+		echo "ERROR: LOGARCHMETH1 is OFF. Cannot proceed with ONLINE backup, Please change this setting to enable online backup. Exiting..."
+  		exit 1
+	echo "INFO: LOGARCHMETH1 is OFF. Proceeding with OFFLINE backup..."
 else
   echo "INFO: LOGARCHMETH1 is ON: $value"
 fi
@@ -78,19 +197,30 @@ echo "  Start Time      : ${DATETIME}"
 echo "========================================================================"
 echo ""
 
-db2 -v archive log for db $DATABASE
-sleep 30
 
 # ============================================================================
 # Execute Backup Command
 # ============================================================================
-if [ ${BACKUP_TYPE} = 'full' ] ; then
-	echo "INFO: Performing FULL online backup of database ${DATABASE}..."
+if [ ${BACKUP_TYPE} = 'online' ] ; then
+	echo "INFO: Performing full online backup of database ${DATABASE}..."
+	db2 -v archive log for db $DATABASE
+	sleep 30
 	echo "INFO: Command: db2 -v backup db ${DATABASE} on all dbpartitionnums online to ${BACKUP_PATH} compress UTIL_IMPACT_PRIORITY 50 include logs without prompting"
 	BACKUP_CMD=$(db2 -v backup db $DATABASE on all dbpartitionnums online to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting)
+elif [ ${BACKUP_TYPE} = 'offline' ] ; then
+	echo "INFO: Performing full offline backup of database ${DATABASE}..."
+	
+	stopDBConnections $DATABASE
+
+	echo ""
+	echo "STEP 9: Backup database in offline mode"
+	BACKUP_CMD=$(db2 -v backup db $DATABASE on all dbpartitionnums to $BACKUP_PATH compress UTIL_IMPACT_PRIORITY 50 without prompting)
+
+	startDB $DATABASE
+
 else
-	echo "INFO: Performing INCREMENTAL DELTA backup of database ${DATABASE}..."
-	BACKUP_CMD=$(db2 -v backup db $DATABASE online INCREMENTAL DELTA to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting)
+	echo "ERROR: Invalid backup type: ${BACKUP_TYPE}"
+	exit 1
 fi
 
 if echo "$BACKUP_CMD" | grep -q "Backup successful."; then
