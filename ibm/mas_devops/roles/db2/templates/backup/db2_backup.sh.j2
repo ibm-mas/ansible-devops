@@ -74,15 +74,19 @@ function startDB()
 	echo ""
 	echo "STEP 11: Clean Db2 interprocess communications"
 	ipclean -a
+
+	echo ""
+	echo "STEP 12: Reinitialize the Db2 communication manager to accept database connections"
+	db2set DB2COMM=TCPIP,SSL
 	
 	echo ""
-	echo "STEP 12: Restart database for normal operation"
+	echo "STEP 13: Restart database for normal operation"
 	db2start
 	echo "INFO: Waiting for database to start (60 seconds)..."
 	sleep 60
 
 	echo ""
-	echo "STEP 13: Activate the database"
+	echo "STEP 14: Activate the database"
 	db2 activate db ${databaseName}
 	rc=$?
 	if [ $rc -ne 0 ]; then
@@ -92,7 +96,7 @@ function startDB()
 	fi
 
 	echo ""
-	echo "STEP 14: Re-enable Wolverine high availability"
+	echo "STEP 15: Re-enable Wolverine high availability"
 	sudo wvcli system enable -m "Enable HA after Db2 maintenance"
 	rc=$?
 	if [ $rc -ne 0 ]; then
@@ -102,12 +106,12 @@ function startDB()
 	fi
 
 	echo ""
-	echo "STEP 15: Show HA monitoring status"
+	echo "STEP 16: Show HA monitoring status"
 	sudo wvcli system status 
 	sudo wvcli system devices
 
 	echo ""
-	echo "STEP 18: Connect to the database"
+	echo "STEP 17: Connect to the database"
 	db2 -v connect to ${databaseName}
 	rc=$?
 	if [ $rc -ne 0 ]; then
