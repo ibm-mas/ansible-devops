@@ -197,10 +197,10 @@
     - db2_backup_result.rc == 0
     - db2_backup_result.stdout is defined
 
-# If vendor is disk, tar the backup files and rsync to backup_data_path
+# If vendor is disk, tar the backup files and cp to backup_data_path
 # -----------------------------------------------------------------------------
-- name: "Move backup files to {{ db2_backup_data_path }} when backup vendor is disk"
-  shell: "oc rsync -n {{ db2_namespace }} {{ db2_pod_name }}:{{ full_backup_path }}/db2_{{ db2_dbname }}_backup_{{ db2_backup_version }}.tar.gz {{ db2_backup_data_path }}/"
+- name: "Move backup files to {{ db2_backup_data_path }} when backup vendor is disk.. This will take a while..."
+  shell: "oc cp --retries=50 -c db2u {{ db2_namespace }}/{{ db2_pod_name }}:{{ full_backup_path }}/db2-{{ db2_dbname }}-backup-{{ db2_backup_version }}.tar.gz {{ db2_backup_data_path }}/db2-{{ db2_dbname }}-backup-{{ db2_backup_version }}.tar.gz"
   register: rsync_result
   retries: 2
   delay: 15 # seconds
@@ -227,7 +227,7 @@
       backup_vendor: "{{ backup_vendor }}"
       vendor_backup_path: "{{ full_backup_path }}"
       {% if backup_vendor == 'disk' %}
-      local_backup_path: "{{ db2_backup_data_path }}/db2_{{ db2_dbname }}_backup_{{ db2_backup_version }}.tar.gz"
+      local_backup_path: "{{ db2_backup_data_path }}/db2-{{ db2_dbname }}-backup-{{ db2_backup_version }}.tar.gz"
       {% endif %}
       status: "SUCCESS"
 
