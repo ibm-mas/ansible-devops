@@ -113,6 +113,9 @@ echo "INFO: Keystore files downloaded successfully"
 
 echo ""
 echo "INFO: Downloading backup image files from S3..."
+
+# from the backup check command, check if the logs are included in the backup files.
+backup_contain_logs=true
 for FILE in $FILES; do
     if [[ "$FILE" == *.DBPART000.* ]]; then
         echo "INFO: Downloading backup file: $(basename "$FILE")"
@@ -126,12 +129,21 @@ for FILE in $FILES; do
         fi
 
         echo "INFO: Verifying downloaded backup file"
-        bkpchk_cmd=$(db2ckbkp ${POD_BACKUP_PATH}/$(basename "$FILE"))
-        if [ $? -ne 0 ]; then
+        bkpchk_cmd=$(db2ckbkp -h ${POD_BACKUP_PATH}/$(basename "$FILE"))
+        rc=$?
+        if [ $rc -ne 0 ]; then
             echo "ERROR: Failed to verify backup file ${FILE}. Return code: $rc"
             exit 1
         else
             echo "INFO: Successfully verified: $(basename "$FILE")"
+            # Check if the backup contains logs
+            echo "INFO: Check if the backup contains logs"
+            logs_value=$(echo "$bkpchk_cmd" | grep 'Includes Logs' | awk -F '-- ' '{print $2}' | awk '{print $1}')
+            # 0 when the backup doesn't contain logs
+            if [ "$logs_value" = 0 ]; then
+                echo "INFO: Backup doesn't contain logs"
+                backup_contain_logs=false
+            fi
         fi
     fi
 done
@@ -150,6 +162,17 @@ echo "INFO: Database name: ${DATABASE}"
 
 DB2_BACKUP_TIMESTAMP=$(echo "$BACKUP_FILE" | awk -F. '{print $5}')
 echo "INFO: Backup timestamp: ${DB2_BACKUP_TIMESTAMP}"
+
+echo "INFO: Checking if LOGARCHMETH1 is ON."
+logarchmeth1_enabled=true
+logarchmeth1_cmd=$(db2 get db cfg for ${DATABASE} | grep LOGARCHMETH1 | awk -F'= ' '{print $2}')
+if [ ${logarchmeth1_cmd} = 'OFF' ]; then
+    echo "INFO: LOGARCHMETH1 is OFF."
+	logarchmeth1_enabled=false
+else
+    echo "INFO: LOGARCHMETH1 is ON."
+fi
+
 
 echo ""
 echo "INFO: Extracting keystore master key..."
@@ -269,8 +292,14 @@ echo "========================================================================"
 echo ""
 
 echo "STEP 9: Restore Db2 from full backup"
-echo "INFO: Restoring database ${DATABASE} from backup timestamp ${DB2_BACKUP_TIMESTAMP}..."
-restore_cmd=$(db2 -v restore db ${DATABASE} from ${POD_BACKUP_PATH} taken at ${DB2_BACKUP_TIMESTAMP} into ${DATABASE} logtarget ${POD_BACKUP_PATH} replace existing without prompting)
+
+if [[ "$backup_contain_logs" == "true" && "logarchmeth1_enabled" == "true" ]]; then
+    echo "INFO: Restoring database ${DATABASE} from backup timestamp ${DB2_BACKUP_TIMESTAMP}..."
+    restore_cmd=$(db2 -v restore db ${DATABASE} from ${POD_BACKUP_PATH} taken at ${DB2_BACKUP_TIMESTAMP} into ${DATABASE} logtarget ${POD_BACKUP_PATH} replace existing without prompting)
+else
+    echo "INFO: Restoring database ${DATABASE} from backup timestamp ${DB2_BACKUP_TIMESTAMP} WITHOUT logs..."
+    restore_cmd=$(db2 -v restore db ${DATABASE} from ${POD_BACKUP_PATH} taken at ${DB2_BACKUP_TIMESTAMP} into ${DATABASE} replace existing without prompting)
+fi
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "$restore_cmd"
@@ -285,24 +314,34 @@ else
 fi
 
 echo ""
-echo "STEP 10: Check Db2 rollforward status"
-db2 -v rollforward db ${DATABASE} query status
-rc=$?
-if [ $rc -ne 0 ]; then
-    echo "ERROR: Failed to query rollforward status for database ${DATABASE}. Return code: $rc"
+if [[ "$backup_contain_logs" == "true" && "logarchmeth1_enabled" == "true" ]]; then
+    echo "STEP 10: Check Db2 rollforward status"
+    db2 -v rollforward db ${DATABASE} query status
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        echo "ERROR: Failed to query rollforward status for database ${DATABASE}. Return code: $rc"
+    fi
+else
+    echo "STEP 10: Check Db2 rollforward status"
+    echo "INFO: Skipping rollforward status as either backup does not contain logs or logarchmeth1 is OFF."
 fi
 
 echo ""
 echo "STEP 11: Execute Db2 rollforward"
-echo "INFO: Rolling forward database ${DATABASE}..."
-db2 -v rollforward db ${DATABASE} to end of backup and complete overflow log path "(${POD_BACKUP_PATH})" noretrieve
-rc=$?
-if [ $rc -ne 0 ]; then
-    echo "ERROR: Rollforward failed for database ${DATABASE}. Return code: $rc"
-    dbRollbackSuccess=false
+if [[ "$backup_contain_logs" == "true" && "logarchmeth1_enabled" == "true" ]]; then
+    echo "INFO: Rolling forward database ${DATABASE}..."
+    db2 -v rollforward db ${DATABASE} to end of backup and complete overflow log path "(${POD_BACKUP_PATH})" noretrieve
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        echo "ERROR: Rollforward failed for database ${DATABASE}. Return code: $rc"
+        dbRollbackSuccess=false
+    else
+        echo "INFO: Rollforward completed successfully"
+    fi
 else
-    echo "INFO: Rollforward completed successfully"
+    echo "INFO: Skipping rollforward as either backup does not contain logs or logarchmeth1 is OFF."
 fi
+echo ""
 
 # ============================================================================
 # Restart Database for Normal Operation

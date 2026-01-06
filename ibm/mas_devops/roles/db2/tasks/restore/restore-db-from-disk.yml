@@ -59,8 +59,8 @@
 - name: "Assert DB2 version matches backup version"
   assert:
     that:
-      - db2_pod_name_result.db2_version == db2_backup_info.db2_version
-    fail_msg: "DB2 version {{ db2_pod_name_result.db2_version }} does not match backup version {{ db2_backup_info.db2_version }}. Cannot proceed with restore."
+      - db2_pod_name_result.db2_version == db2_backup_info.source_db2_instance_version
+    fail_msg: "DB2 version {{ db2_pod_name_result.db2_version }} does not match backup version {{ db2_backup_info.source_db2_instance_version }}. Cannot proceed with restore."
 
 - name: "Set fact db2_pod_name"
   set_fact:
@@ -88,7 +88,7 @@
 - name: create template restore script in /tmp/db2-scripts directory on localhost
   ansible.builtin.template:
     src: "backup/db2_restore_disk.sh.j2"
-    dest: "/tmp/db2_restore_disk.sh"
+    dest: "/tmp/db2-scripts/db2_restore_disk.sh"
     mode: "0755"
   vars:
     db2_dbname: "{{ db2_backup_info.database }}"
@@ -153,12 +153,12 @@
 # Copy backup archive to DB2 pod
 # -----------------------------------------------------------------------------
 - name: "Create {{ pod_full_backup_path }} directory in DB2 pod"
-  shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc 'mkdir -p {{ pod_full_backup_path }}' db2inst1"
+  shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc 'rm -rf {{ pod_full_backup_path }} && mkdir -p {{ pod_full_backup_path }} && chmod a+w {{ pod_full_backup_path}}' db2inst1"
   register: create_dir_result
   failed_when: create_dir_result.rc != 0
 
 - name: "Copy backup archive to DB2 pod"
-  shell: "oc rsync -n {{ db2_namespace }} {{ local_full_backup_path }}/{{ backup_archive_filename }} {{ db2_pod_name }}:{{ pod_full_backup_path }}/{{ backup_archive_filename }}"
+  shell: "oc cp --retries=50 {{ local_full_backup_path }}/{{ backup_archive_filename }} {{ db2_namespace }}/{{ db2_pod_name }}:{{ pod_full_backup_path }}/{{ backup_archive_filename }} -c db2u"
   register: copy_backup_result
   failed_when: copy_backup_result.rc != 0
 

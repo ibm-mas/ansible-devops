@@ -10,6 +10,16 @@ INSTOWNER=`/usr/local/bin/db2greg -dump | grep -ae "I," | grep -v "/das," | awk 
 
 instance=`whoami`
 BACKUP_BASE=/mnt/backup
+# Find the home directory
+instance_home=`/usr/local/bin/db2greg -dump | grep -ae "I," | grep -v "/das," | grep "${instance}" | awk -F ',' '{print $5}'| cut -d/ -f 1,2,3,4,5`
+
+if [ ! -f "$instance_home/sqllib/db2profile" ]
+then
+	echo "ERROR: $instance_home/sqllib/db2profile not found"
+	EXIT_STATUS=1
+else
+	. $instance_home/sqllib/db2profile
+fi
 
 ### Verify the backup files
 
@@ -21,25 +31,56 @@ KESTORE_P12_FILE=$(ls ${POD_BACKUP_PATH}/*.p12 2>/dev/null)
 KESTORE_STH_FILE=$(ls ${POD_BACKUP_PATH}/*.sth 2>/dev/null)
 
 if [[ -z "${KESTORE_P12_FILE}" || -z "${KESTORE_STH_FILE}" ]]; then
-  echo "Db2 keystore files are missing in the backup location: ${POD_BACKUP_PATH}"
-  exit 1
+    echo "Db2 keystore files are missing in the backup location: ${POD_BACKUP_PATH}"
+    exit 1
 fi
 
 ### Check if backup files are present
 BACKUP_FILES=$(ls ${POD_BACKUP_PATH}/${DATABASE}*.db2inst1.DBPART000.* 2>/dev/null)
 if [[ -z "${BACKUP_FILES}" ]]; then
-  echo "Db2 backup files are missing in the backup location: ${POD_BACKUP_PATH}"
-  exit 1
+    echo "Db2 backup files are missing in the backup location: ${POD_BACKUP_PATH}"
+    exit 1
 fi
 
-echo "Db2 keystore files verified successfully."
+# from the backup check command, check if the logs are included in the backup files.
+backup_contain_logs=true
+for FILE in $BACKUP_FILES; do
+    echo "INFO: Verifying downloaded backup $FILE"
+    bkpchk_cmd=$(db2ckbkp ${POD_BACKUP_PATH}/${FILE})
+    if [ $rc -ne 0 ]; then
+        echo "ERROR: Failed to verify backup file ${FILE}. Return code: $rc"
+        exit 1
+    else
+        echo "INFO: Successfully verified: $(basename "$FILE")"
+        echo "INFO: Check if the backup contains logs"
+        logs_value=$(echo "$bkpchk_cmd" | grep 'Includes Logs' | awk -F '-- ' '{print $2}' | awk '{print $1}')
+        # 0 when the backup doesn't contain logs
+        if [ "$logs_value" = 0 ]; then
+            echo "INFO: Backup doesn't contain logs"
+            backup_contain_logs=false
+        fi
+    fi
+done
+echo "INFO: Db2 backup files verified successfully."
+
+echo "INFO: Checking if LOGARCHMETH1 is ON."
+logarchmeth1_enabled=true
+logarchmeth1_cmd=$(db2 get db cfg for ${DATABASE} | grep LOGARCHMETH1 | awk -F'= ' '{print $2}')
+if [ ${logarchmeth1_cmd} = 'OFF' ]; then
+    echo "INFO: LOGARCHMETH1 is OFF."
+	logarchmeth1_enabled=false
+else
+    echo "INFO: LOGARCHMETH1 is ON."
+fi
+
+echo "INFO: Db2 keystore files verified successfully."
 
 # Extract Db2 keystore master key
 # https://www.ibm.com/docs/en/db2/11.5?topic=edr-restoring-encrypted-backup-image-different-system-local-keystore
 
 MASTER_KEY_LABEL=`gsk8capicmd_64 -cert -list all -db ${POD_BACKUP_PATH}/keystore.p12 -stashed 2>&1 | grep -i $INSTOWNER_$DATABASE | awk '/^#/ { print $2 }'`
 if [ -z "$MASTER_KEY_LABEL" ]; then
-	echo "MASTER_KEY_LABEL is empty. Cannot proceed with secret key extraction."
+    echo "MASTER_KEY_LABEL is empty. Cannot proceed with secret key extraction."
     exit 1
 else
     ### Check if MASTER_KEY_LABEL exists in the source keystore
@@ -125,7 +166,12 @@ echo "Waiting for db to start"
 sleep 60
 
 echo "9. Restore Db2 from a full backup"
-restore_cmd=$(db2 -v restore db ${DATABASE} from ${POD_BACKUP_PATH} taken at ${DB2_BACKUP_TIMESTAMP} into ${DATABASE} logtarget ${POD_BACKUP_PATH} replace existing without prompting)
+if [[ "$backup_contain_logs" == "true" && "logarchmeth1_enabled" == "true" ]]; then
+    restore_cmd=$(db2 -v restore db ${DATABASE} from ${POD_BACKUP_PATH} taken at ${DB2_BACKUP_TIMESTAMP} into ${DATABASE} logtarget ${POD_BACKUP_PATH} replace existing without prompting)
+else
+    echo "Restoring database ${DATABASE} from backup timestamp ${DB2_BACKUP_TIMESTAMP} WITHOUT logs..."
+    restore_cmd=$(db2 -v restore db ${DATABASE} from ${POD_BACKUP_PATH} taken at ${DB2_BACKUP_TIMESTAMP} into ${DATABASE} replace existing without prompting)
+fi
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "$restore_cmd"
@@ -138,18 +184,26 @@ if [ $rc -ne 0 ]; then
 fi
 
 echo "10. Check Db2 rollforward status"
-db2 -v rollforward db ${DATABASE} query status
-rc=$?
-if [ $rc -ne 0 ]; then
-    echo "Error querying rollforward status for database ${DATABASE}. Return code: $rc"
+if [[ "$backup_contain_logs" == "true" && "logarchmeth1_enabled" == "true" ]]; then
+    db2 -v rollforward db ${DATABASE} query status
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        echo "Error querying rollforward status for database ${DATABASE}. Return code: $rc"
+    fi
+else
+    echo "Skipping rollforward status check as either backup does not contain logs or logarchmeth1 is OFF."
 fi
 
 echo "11. Run Db2 rollforward command"
-db2 -v rollforward db ${DATABASE} to end of backup and complete overflow log path "(${POD_BACKUP_PATH})" noretrieve
-rc=$?
-if [ $rc -ne 0 ]; then
-    echo "Error during rollforward for database ${DATABASE}. Return code: $rc"
-    dbRollbackSuccess=false
+if [[ "$backup_contain_logs" == "true" && "logarchmeth1_enabled" == "true" ]]; then
+    db2 -v rollforward db ${DATABASE} to end of backup and complete overflow log path "(${POD_BACKUP_PATH})" noretrieve
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        echo "Error during rollforward for database ${DATABASE}. Return code: $rc"
+        dbRollbackSuccess=false
+    fi
+else
+    echo "Skipping rollforward as either backup does not contain logs or logarchmeth1 is OFF."
 fi
 
 echo "12. Stop the database"
