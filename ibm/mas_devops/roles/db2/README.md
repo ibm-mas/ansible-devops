@@ -582,11 +582,11 @@ vendor_backup_path: "DB2REMOTE://S3DB2COS/my-bucket/backups-db2/241225-143022"
 status: "SUCCESS"
 ```
 
-### Example: Backup to S3
+### Example: Backup to S3 (only database backup is uploaded to S3)
 ```bash
 export DB2_ACTION=backup
 export MAS_INSTANCE_ID=inst1
-export MAS_BACKUP_DIR=/tmp/mas_backups
+export MAS_BACKUP_DIR=/tmp/mas_backups 
 export DB2_INSTANCE_NAME=db2u-manage
 export DB2_NAMESPACE=db2u
 export BACKUP_VENDOR=s3
@@ -596,7 +596,7 @@ export BACKUP_S3_ACCESS_KEY=<access_key>
 export BACKUP_S3_SECRET_KEY=<secret_key>
 export DB2_BACKUP_TYPE=online
 
-ansible-playbook ibm.mas_devops.br_db2
+ROLE_NAME=db2 ansible-playbook ibm.mas_devops.run_role
 ```
 
 ### Example: Backup to Disk
@@ -609,10 +609,10 @@ export DB2_NAMESPACE=db2u
 export BACKUP_VENDOR=disk
 export DB2_BACKUP_TYPE=online
 
-ansible-playbook ibm.mas_devops.br_db2
+ROLE_NAME=db2 ansible-playbook ibm.mas_devops.run_role
 ```
 
-### Example: Restore from S3
+### Example: Restore Database from S3
 ```bash
 export DB2_ACTION=restore
 export MAS_INSTANCE_ID=inst1
@@ -626,7 +626,7 @@ export BACKUP_S3_BUCKET=mas-db2-backups
 export BACKUP_S3_ACCESS_KEY=<access_key>
 export BACKUP_S3_SECRET_KEY=<secret_key>
 
-ansible-playbook ibm.mas_devops.br_db2
+ROLE_NAME=db2 ansible-playbook ibm.mas_devops.run_role
 ```
 
 ### Example: Restore from Disk
@@ -639,10 +639,10 @@ export DB2_NAMESPACE=db2u
 export DB2_BACKUP_VERSION=241225-143022
 export BACKUP_VENDOR=disk
 
-ansible-playbook ibm.mas_devops.br_db2
+ROLE_NAME=db2 ansible-playbook ibm.mas_devops.run_role
 ```
 
-### Example: Database-Only Backup (Skip Instance)
+### Example: Database-Only Backup (Skip Instance) to S3
 ```bash
 export DB2_ACTION=backup
 export MAS_INSTANCE_ID=inst1
@@ -656,7 +656,7 @@ export BACKUP_S3_BUCKET=mas-db2-backups
 export BACKUP_S3_ACCESS_KEY=<access_key>
 export BACKUP_S3_SECRET_KEY=<secret_key>
 
-ansible-playbook ibm.mas_devops.br_db2
+ROLE_NAME=db2 ansible-playbook ibm.mas_devops.run_role
 ```
 
 ### Backup Types
