@@ -173,44 +173,48 @@
 
 # Execute db2_backup.sh in DB2 pod
 # -----------------------------------------------------------------------------
-- name: "Execute db2_backup.sh in DB2 pod"
-  shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc '{{ db2_insthome }}/bin/db2_backup.sh | tee /tmp/db2_backup.log' db2inst1"
-  register: db2_backup_result
+- name: "Executing DB2 backup.."
+  block:
+    - name: "Execute db2_backup.sh in DB2 pod"
+      shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc '{{ db2_insthome }}/bin/db2_backup.sh | tee /tmp/db2_backup.log' db2inst1"
+      register: db2_backup_result
 
-- name: "Debug db2_backup.sh output"
-  ansible.builtin.debug:
-    msg: "{{ db2_backup_result.stdout_lines }}"
+    - name: "Debug db2_backup.sh output"
+      ansible.builtin.debug:
+        msg: "{{ db2_backup_result.stdout_lines }}"
 
-- name: "Assert DB2 backup completed successfully"
-  assert:
-    that:
-      - db2_backup_result is defined
-      - db2_backup_result.rc == 0
-      - db2_backup_result.stdout | regex_search('BACKUP COMPLETED SUCCESSFULLY', multiline=True)
-    fail_msg: "DB2 backup did not complete successfully. Check /tmp/db2_backup.log in {{ db2_pod_name }} pod for details."
+    - name: "Assert DB2 backup completed successfully"
+      assert:
+        that:
+          - db2_backup_result is defined
+          - db2_backup_result.rc == 0
+          - db2_backup_result.stdout | regex_search('BACKUP COMPLETED SUCCESSFULLY', multiline=True)
+        fail_msg: "DB2 backup did not complete successfully. Check /tmp/db2_backup.log in {{ db2_pod_name }} pod for details."
 
-- name: Get backup file timestamp from db2_backup.log
-  ansible.builtin.set_fact:
-    db2_backup_timestamp: "{{ (db2_backup_result.stdout | regex_search('BACKUP_FILE_TIMESTAMP=(.*)', '\\1'))[0] }}"
-  when:
-    - db2_backup_result is defined
-    - db2_backup_result.rc == 0
-    - db2_backup_result.stdout is defined
+    - name: Get backup file timestamp from db2_backup.log
+      ansible.builtin.set_fact:
+        db2_backup_timestamp: "{{ (db2_backup_result.stdout | regex_search('BACKUP_FILE_TIMESTAMP=(.*)', '\\1'))[0] }}"
+      when:
+        - db2_backup_result is defined
+        - db2_backup_result.rc == 0
+        - db2_backup_result.stdout is defined
 
-# If vendor is disk, tar the backup files and cp to backup_data_path
-# -----------------------------------------------------------------------------
-- name: "Move backup files to {{ db2_backup_data_path }} when backup vendor is disk.. This will take a while..."
-  shell: "oc cp --retries=50 -c db2u {{ db2_namespace }}/{{ db2_pod_name }}:{{ full_backup_path }}/db2-{{ db2_dbname }}-backup-{{ db2_backup_version }}.tar.gz {{ db2_backup_data_path }}/db2-{{ db2_dbname }}-backup-{{ db2_backup_version }}.tar.gz"
-  register: rsync_result
-  retries: 2
-  delay: 15 # seconds
-  until: rsync_result.rc == 0
-  when: backup_vendor == "disk"
+    # If vendor is disk, tar the backup files and cp to backup_data_path
+    # -----------------------------------------------------------------------------
+    - name: "Move backup files to {{ db2_backup_data_path }} when backup vendor is disk.. This will take a while..."
+      shell: "oc cp --retries=50 -c db2u {{ db2_namespace }}/{{ db2_pod_name }}:{{ full_backup_path }}/db2-{{ db2_dbname }}-backup-{{ db2_backup_version }}.tar.gz {{ db2_backup_data_path }}/db2-{{ db2_dbname }}-backup-{{ db2_backup_version }}.tar.gz"
+      register: rsync_result
+      when: backup_vendor == "disk"
 
-- name: "Debug rsync output"
-  ansible.builtin.debug:
-    msg: "{{ rsync_result.stdout_lines }}"
-  when: backup_vendor == "disk"
+    - name: "Debug rsync output"
+      ansible.builtin.debug:
+        msg: "{{ rsync_result.stdout_lines }}"
+      when: backup_vendor == "disk"
+
+  always:
+    - name: "Clean up backup directory in the pod"
+      shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc 'rm -rf {{ full_backup_path }}' db2inst1"
+      when: backup_vendor == "disk"
 
 
 # Create yaml file with db2 backup details, add local_backup_path if vendor is disk
