@@ -184,7 +184,8 @@ else
     echo "INFO: Master key label: ${MASTER_KEY_LABEL}"
     
     # Check if MASTER_KEY_LABEL exists in the source keystore
-    SOURCE_LABELS=$(gsk8capicmd_64 -cert -list all -db /mnt/blumeta0/db2/keystore/keystore.p12 -stashed 2>&1 | awk '/^#/ { print $2 }')
+    SOURCE_KEYSTORE_LOC=$(db2 get dbm cfg | grep KEYSTORE_LOCATION | awk -F'= ' '{print $2}')
+    SOURCE_LABELS=$(gsk8capicmd_64 -cert -list all -db ${SOURCE_KEYSTORE_LOC} -stashed 2>&1 | awk '/^#/ { print $2 }')
     if ! echo "$SOURCE_LABELS" | grep -q "^${MASTER_KEY_LABEL}$"; then
         echo "INFO: Master key label '${MASTER_KEY_LABEL}' not found in target keystore"
         echo "INFO: Extracting secret key from backup keystore..."
@@ -192,7 +193,7 @@ else
         echo "INFO: Secret key extraction completed"
         
         echo "INFO: Adding master key to target keystore..."
-        result=$(gsk8capicmd_64 -secretkey -add -db /mnt/blumeta0/db2/keystore/keystore.p12 -stashed -label ${MASTER_KEY_LABEL} -file ${POD_BACKUP_PATH}/master_key_label.kdb 2>&1)
+        result=$(gsk8capicmd_64 -secretkey -add -db ${SOURCE_KEYSTORE_LOC} -stashed -label ${MASTER_KEY_LABEL} -file ${POD_BACKUP_PATH}/master_key_label.kdb 2>&1)
         rc=$?
         if [ $rc -ne 0 ]; then
             echo "ERROR: Failed to add master key to target keystore. Return code: $rc"

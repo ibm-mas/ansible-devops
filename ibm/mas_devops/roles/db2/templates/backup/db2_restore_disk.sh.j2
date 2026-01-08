@@ -27,22 +27,26 @@ fi
 
 POD_BACKUP_PATH="{{ pod_full_backup_path }}"
 
-KESTORE_P12_FILE=$(ls ${POD_BACKUP_PATH}/*.p12 2>/dev/null)
-KESTORE_STH_FILE=$(ls ${POD_BACKUP_PATH}/*.sth 2>/dev/null)
+if [[ ! -f "${POD_BACKUP_PATH}/keystore.p12" ]]; then
+    echo "ERROR: Db2 keystore.p12 file is missing in the backup location: ${POD_BACKUP_PATH}"
+    exit 1
+fi
 
-if [[ -z "${KESTORE_P12_FILE}" || -z "${KESTORE_STH_FILE}" ]]; then
-    echo "ERROR: Db2 keystore files are missing in the backup location: ${POD_BACKUP_PATH}"
+if [[ ! -f "${POD_BACKUP_PATH}/keystore.sth" ]]; then
+    echo "ERROR: Db2 keystore.sth file is missing in the backup location: ${POD_BACKUP_PATH}"
     exit 1
 fi
 
 ### Check if backup files are present
-BACKUP_FILES=$(ls ${POD_BACKUP_PATH}/${DATABASE}*.db2inst1.DBPART000.* 2>/dev/null)
-if [[ -z "${BACKUP_FILES}" ]]; then
-    echo "ERROR: Db2 backup files are missing in the backup location: ${POD_BACKUP_PATH}"
+ls ${POD_BACKUP_PATH}/${DATABASE}*.DBPART000.* 2>/dev/null
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "ERROR: Db2 backup files are not found in the backup location: ${POD_BACKUP_PATH}"
     exit 1
 fi
 
 # from the backup check command, check if the logs are included in the backup files.
+BACKUP_FILES=${POD_BACKUP_PATH}/${DATABASE}*.DBPART000.*
 backup_contain_logs=true
 for FILE in $BACKUP_FILES; do
     echo "INFO: Verifying downloaded backup $FILE"
@@ -84,13 +88,14 @@ if [ -z "$MASTER_KEY_LABEL" ]; then
     exit 1
 else
     ### Check if MASTER_KEY_LABEL exists in the source keystore
-    SOURCE_LABELS=$(gsk8capicmd_64 -cert -list all -db /mnt/blumeta0/db2/keystore/keystore.p12 -stashed 2>&1 | awk '/^#/ { print $2 }')
+    SOURCE_KEYSTORE_LOC=$(db2 get dbm cfg | grep KEYSTORE_LOCATION | awk -F'= ' '{print $2}')
+    SOURCE_LABELS=$(gsk8capicmd_64 -cert -list all -db ${SOURCE_KEYSTORE_LOC} -stashed 2>&1 | awk '/^#/ { print $2 }')
     if ! echo "$SOURCE_LABELS" | grep -q "^${MASTER_KEY_LABEL}$"; then
         echo "INFO: MASTER_KEY_LABEL '${MASTER_KEY_LABEL}' not found in source keystore."
         gsk8capicmd_64 -secretkey -extract -db ${POD_BACKUP_PATH}/keystore.p12 -stashed -label ${MASTER_KEY_LABEL} -format ascii -target ${POD_BACKUP_PATH}/master_key_label.kdb
 	    echo "INFO: MASTER_KEY_LABEL is not empty - Secret key extraction Completed."
         ## Add Master key to target keystore
-        result=$(gsk8capicmd_64 -secretkey -add -db /mnt/blumeta0/db2/keystore/keystore.p12 -stashed -label ${MASTER_KEY_LABEL} -file ${POD_BACKUP_PATH}/master_key_label.kdb 2>&1)
+        result=$(gsk8capicmd_64 -secretkey -add -db ${SOURCE_KEYSTORE_LOC} -stashed -label ${MASTER_KEY_LABEL} -file ${POD_BACKUP_PATH}/master_key_label.kdb 2>&1)
         rc=$?
         if [ $rc -ne 0 ]; then
             echo "ERROR: Error adding master key to target keystore. Return code: $rc"

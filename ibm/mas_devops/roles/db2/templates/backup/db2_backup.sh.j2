@@ -245,8 +245,12 @@ fi
 # ============================================================================
 # Copy Keystore Files
 # ============================================================================
-KEY_SOURCE1=/mnt/blumeta0/db2/keystore/keystore.p12
-KEY_SOURCE2=/mnt/blumeta0/db2/keystore/keystore.sth
+
+# Get KEYSTORE_LOCATION from dbm cfg
+KEYSTORE_LOC=$(db2 get dbm cfg | grep KEYSTORE_LOCATION | awk -F'= ' '{print $2}')
+
+# Get .sth file by replacing the .p12 to .sth
+STH_LOC=$(echo $KEYSTORE_LOC | sed 's/\.p12$/.sth/')
 
 if [ ${VENDOR} = 's3' ] ; then
 	echo ""
@@ -255,15 +259,15 @@ if [ ${VENDOR} = 's3' ] ; then
 	TARGET1=keystore.p12
 	TARGET2=keystore.sth
 
-	db2RemStgManager ALIAS PUT source=${KEY_SOURCE1} target=${BACKUP_PATH}/${TARGET1}
-	db2RemStgManager ALIAS PUT source=${KEY_SOURCE2} target=${BACKUP_PATH}/${TARGET2}
+	db2RemStgManager ALIAS PUT source=${KEYSTORE_LOC} target=${BACKUP_PATH}/${TARGET1}
+	db2RemStgManager ALIAS PUT source=${STH_LOC} target=${BACKUP_PATH}/${TARGET2}
 	set +x
 	echo "INFO: Keystore files copied to COS location successfully"
 else
 	echo ""
 	echo "INFO: Copying keystore files to local disk location..."
-	cp ${KEY_SOURCE1} ${BACKUP_PATH}/keystore.p12
-	cp ${KEY_SOURCE2} ${BACKUP_PATH}/keystore.sth
+	cp ${KEYSTORE_LOC} ${BACKUP_PATH}/keystore.p12
+	cp ${STH_LOC} ${BACKUP_PATH}/keystore.sth
 	echo "INFO: Keystore files copied to local disk location successfully"
 fi
 
