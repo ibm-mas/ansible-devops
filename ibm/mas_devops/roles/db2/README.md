@@ -447,18 +447,18 @@ Version identifier for the backup. For backup operations, if not provided, it de
 - Default: Auto-generated timestamp in `YYMMDD-HHMMSS` format for backup operations
 
 ### br_skip_instance
-Set to `true` to skip backing up or restoring the DB2 instance Kubernetes resources (only backup/restore the database data).
+Set to `false` to back up or restore the DB2 instance Kubernetes resources.
 
 - Optional
 - Environment Variable: `BR_SKIP_INSTANCE`
-- Default: `false`
+- Default: `true` (only backup/restore the database data)
 
 ### backup_vendor
 Specifies where the database backup will be stored or retrieved from.
 
 - Optional
 - Environment Variable: `BACKUP_VENDOR`
-- Default: `s3`
+- Default: `disk`
 - Supported values: `s3`, `disk`
 
 ### backup_type
@@ -510,7 +510,7 @@ Backup and Restore Operations
 -------------------------------------------------------------------------------
 
 ### Overview
-The DB2 role supports comprehensive backup and restore operations for both DB2 instance configuration and database data. The backup process creates a complete snapshot that can be used to restore the DB2 instance to a previous state.
+The DB2 role supports comprehensive backup and restore operations for both DB2 instance configuration and database data. The backup process creates a snapshot of necessary resources that can be used to restore the DB2 instance to a previous state.
 
 ### Backup Components
 The backup operation consists of two main components:
@@ -533,7 +533,7 @@ The backup operation consists of two main components:
 
 #### Backup Workflow
 1. **Validation**: Verifies all required variables are set
-2. **Instance Backup** (unless `BR_SKIP_INSTANCE=true`):
+2. **Instance Backup** (when `BR_SKIP_INSTANCE=false`):
    - Exports DB2UCluster CR and related Kubernetes resources
    - Saves instance configuration and secrets
 3. **Database Backup**:
@@ -544,8 +544,8 @@ The backup operation consists of two main components:
    - Creates `db2-backup-info.yaml` with backup metadata
 
 #### Backup Storage Locations
-- **S3**: `s3://<bucket>/backups-db2/<backup_version>/`
 - **Disk**: `<mas_backup_dir>/backup-<backup_version>-db2u/data/`
+- **S3**: `s3://<bucket>/backups-db2/<backup_version>/`
 
 ### Restore Process
 
@@ -557,7 +557,7 @@ The backup operation consists of two main components:
 
 #### Restore Workflow
 1. **Validation**: Verifies backup version and required variables
-2. **Instance Restore** (unless `BR_SKIP_INSTANCE=true`):
+2. **Instance Restore** (when `BR_SKIP_INSTANCE=false`):
    - Checks if DB2 instance exists and is healthy
    - If not present or unhealthy: Creates new instance from backup configuration
    - Restores secrets and configuration
@@ -582,13 +582,44 @@ vendor_backup_path: "DB2REMOTE://S3DB2COS/my-bucket/backups-db2/241225-143022"
 status: "SUCCESS"
 ```
 
-### Example: Backup to S3 (only database backup is uploaded to S3)
+### Example: Database-Only Backup (Skip Instance) to S3
+```bash
+export DB2_ACTION=backup
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/tmp/mas_backups
+export DB2_INSTANCE_NAME=db2u-manage
+export DB2_NAMESPACE=db2u
+export BR_SKIP_INSTANCE=true
+export BACKUP_VENDOR=s3
+export BACKUP_S3_ENDPOINT=https://s3.us-east.cloud-object-storage.appdomain.cloud
+export BACKUP_S3_BUCKET=mas-db2-backups
+export BACKUP_S3_ACCESS_KEY=<access_key>
+export BACKUP_S3_SECRET_KEY=<secret_key>
+
+ROLE_NAME=db2 ansible-playbook ibm.mas_devops.run_role
+```
+
+### Example: Database-Only Backup (Skip Instance) to Disk
+```bash
+export DB2_ACTION=backup
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/tmp/mas_backups
+export DB2_INSTANCE_NAME=db2u-manage
+export DB2_NAMESPACE=db2u
+export BR_SKIP_INSTANCE=true
+export BACKUP_VENDOR=disk
+
+ROLE_NAME=db2 ansible-playbook ibm.mas_devops.run_role
+```
+
+### Example: Backup both Instance and Database to S3 (only database backup is uploaded to S3)
 ```bash
 export DB2_ACTION=backup
 export MAS_INSTANCE_ID=inst1
 export MAS_BACKUP_DIR=/tmp/mas_backups 
 export DB2_INSTANCE_NAME=db2u-manage
 export DB2_NAMESPACE=db2u
+export BR_SKIP_INSTANCE=false
 export BACKUP_VENDOR=s3
 export BACKUP_S3_ENDPOINT=https://s3.us-east.cloud-object-storage.appdomain.cloud
 export BACKUP_S3_BUCKET=mas-db2-backups
@@ -599,12 +630,13 @@ export DB2_BACKUP_TYPE=online
 ROLE_NAME=db2 ansible-playbook ibm.mas_devops.run_role
 ```
 
-### Example: Backup to Disk
+### Example: Backup both Instance and Database to Disk
 ```bash
 export DB2_ACTION=backup
 export MAS_INSTANCE_ID=inst1
 export MAS_BACKUP_DIR=/tmp/mas_backups
 export DB2_INSTANCE_NAME=db2u-manage
+export BR_SKIP_INSTANCE=false
 export DB2_NAMESPACE=db2u
 export BACKUP_VENDOR=disk
 export DB2_BACKUP_TYPE=online
@@ -620,6 +652,7 @@ export MAS_BACKUP_DIR=/tmp/mas_backups
 export DB2_INSTANCE_NAME=db2u-manage
 export DB2_NAMESPACE=db2u
 export DB2_BACKUP_VERSION=241225-143022
+export BR_SKIP_INSTANCE=true
 export BACKUP_VENDOR=s3
 export BACKUP_S3_ENDPOINT=https://s3.us-east.cloud-object-storage.appdomain.cloud
 export BACKUP_S3_BUCKET=mas-db2-backups
@@ -629,12 +662,13 @@ export BACKUP_S3_SECRET_KEY=<secret_key>
 ROLE_NAME=db2 ansible-playbook ibm.mas_devops.run_role
 ```
 
-### Example: Restore from Disk
+### Example: Restore Database from Disk
 ```bash
 export DB2_ACTION=restore
 export MAS_INSTANCE_ID=inst1
 export MAS_BACKUP_DIR=/tmp/mas_backups
 export DB2_INSTANCE_NAME=db2u-manage
+export BR_SKIP_INSTANCE=true
 export DB2_NAMESPACE=db2u
 export DB2_BACKUP_VERSION=241225-143022
 export BACKUP_VENDOR=disk
@@ -642,19 +676,16 @@ export BACKUP_VENDOR=disk
 ROLE_NAME=db2 ansible-playbook ibm.mas_devops.run_role
 ```
 
-### Example: Database-Only Backup (Skip Instance) to S3
+### Example: Restore Instance and database from Disk
 ```bash
-export DB2_ACTION=backup
+export DB2_ACTION=restore
 export MAS_INSTANCE_ID=inst1
 export MAS_BACKUP_DIR=/tmp/mas_backups
 export DB2_INSTANCE_NAME=db2u-manage
+export BR_SKIP_INSTANCE=false
 export DB2_NAMESPACE=db2u
-export BR_SKIP_INSTANCE=true
-export BACKUP_VENDOR=s3
-export BACKUP_S3_ENDPOINT=https://s3.us-east.cloud-object-storage.appdomain.cloud
-export BACKUP_S3_BUCKET=mas-db2-backups
-export BACKUP_S3_ACCESS_KEY=<access_key>
-export BACKUP_S3_SECRET_KEY=<secret_key>
+export DB2_BACKUP_VERSION=241225-143022
+export BACKUP_VENDOR=disk
 
 ROLE_NAME=db2 ansible-playbook ibm.mas_devops.run_role
 ```
