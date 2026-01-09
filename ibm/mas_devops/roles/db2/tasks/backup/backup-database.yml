@@ -45,7 +45,8 @@
 
 - name: "Set fact backup_path for the backup script when backup vendor is disk"
   set_fact:
-    full_backup_path: "/mnt/backup/{{ db2_backup_version }}"
+    full_backup_path: "/mnt/backup/{{ db2_backup_version }}/data"
+    base_backup_path: "/mnt/backup/{{ db2_backup_version }}"
   when: backup_vendor == "disk"
 
 # Check if db2 instance is running and get the pod name
@@ -202,7 +203,7 @@
     # If vendor is disk, tar the backup files and cp to backup_data_path
     # -----------------------------------------------------------------------------
     - name: "Move backup files to {{ db2_backup_data_path }} when backup vendor is disk.. This will take a while..."
-      shell: "oc cp --retries=50 -c db2u {{ db2_namespace }}/{{ db2_pod_name }}:{{ full_backup_path }}/db2-{{ db2_dbname }}-backup-{{ db2_backup_version }}.tar.gz {{ db2_backup_data_path }}/db2-{{ db2_dbname }}-backup-{{ db2_backup_version }}.tar.gz"
+      shell: "oc cp --retries=50 -c db2u {{ db2_namespace }}/{{ db2_pod_name }}:{{ base_backup_path }}/db2-{{ db2_dbname }}-backup-{{ db2_backup_version }}.tar.gz {{ db2_backup_data_path }}/db2-{{ db2_dbname }}-backup-{{ db2_backup_version }}.tar.gz"
       register: rsync_result
       when: backup_vendor == "disk"
 
@@ -213,7 +214,7 @@
 
   always:
     - name: "Clean up backup directory in the pod"
-      shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc 'rm -rf {{ full_backup_path }}' db2inst1"
+      shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc 'rm -rf {{ base_backup_path }}' db2inst1"
       when: backup_vendor == "disk"
 
 
