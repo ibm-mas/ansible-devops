@@ -7,8 +7,8 @@
     mas_backup_dir: "{{ lookup('env', 'MAS_BACKUP_DIR') }}" # eg: /tmp/mas_backups
     db2_instance_name: "{{ lookup('env', 'DB2_INSTANCE_NAME') }}"
     db2_namespace: "{{ lookup('env', 'DB2_NAMESPACE') | default('db2u', true) }}"
-    db2_action: "{{ lookup('env', 'MASBR_ACTION') }}" # backup or restore
-    db2_backup_version: "{{ lookup('env', 'MASBR_BACKUP_VERSION') | default('None', true)}}" # Required for restore action
+    db2_action: "{{ lookup('env', 'DB2_ACTION') }}" # backup or restore
+    db2_backup_version: "{{ lookup('env', 'DB2_BACKUP_VERSION') }}" # Required for restore action
     br_skip_instance: "{{ lookup('env', 'BR_SKIP_INSTANCE') | default(true, true) }}" # set to false to enable DB2 instance backup/restore
     backup_type: "{{ lookup('env', 'DB2_BACKUP_TYPE') | default('online', true) }}" # Supported values are online, offline and required for backup
     backup_vendor: "{{ lookup('env', 'BACKUP_VENDOR') | default('disk', true) }}"
@@ -20,10 +20,10 @@
 
 
   pre_tasks:
-    - name: "Fail if MASBR_ACTION is not set to backup|restore"
+    - name: "Fail if DB2_ACTION is not set to backup|restore"
       assert:
         that: db2_action in ["backup", "restore"]
-        fail_msg: "MASBR_ACTION is required and must be set to 'backup' or 'restore'"
+        fail_msg: "DB2_ACTION is required and must be set to 'backup' or 'restore'"
 
     - name: "Fail if BACKUP_VENDOR is not set to s3|disk"
       assert:
@@ -36,14 +36,15 @@
         fail_msg: "DB2_BACKUP_TYPE is required and must be set to 'online' or 'offline'"
 
     - name: "Fail if S3 variables are not set when backup_vendor is s3"
-      assert:
-        that:
-          - backup_s3_endpoint is defined and backup_s3_endpoint != ""
-          - backup_s3_bucket is defined and backup_s3_bucket != ""
-          - backup_s3_access_key is defined and backup_s3_access_key != ""
-          - backup_s3_secret_key is defined and backup_s3_secret_key != ""
-        fail_msg: "BACKUP_S3_ENDPOINT, BACKUP_S3_BUCKET, BACKUP_S3_ACCESS_KEY and BACKUP_S3_SECRET_KEY are required when BACKUP_VENDOR is s3"
-      when: backup_vendor == "s3"
+      ibm.mas_devops.verify_backup_restore_vars:
+        backup_vendor: "{{ backup_vendor }}"
+        backup_s3_alias: "{{ backup_s3_alias }}"
+        backup_s3_endpoint: "{{ backup_s3_endpoint }}"
+        backup_s3_bucket: "{{ backup_s3_bucket }}"
+        backup_s3_access_key: "{{ backup_s3_access_key }}"
+        backup_s3_secret_key: "{{ backup_s3_secret_key }}"
+        action: "s3_setup"
+        component: "db2"
 
   roles:
     - role: ibm.mas_devops.db2
