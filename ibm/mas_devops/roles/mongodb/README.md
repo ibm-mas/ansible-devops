@@ -252,7 +252,7 @@ Performs backup and restore of MongoDB databases:
 4. Executes `mongodump` for each database
 5. Excludes `sessions` collection from Monitor databases
 6. Creates compressed archive: `mongodump-<version>.tar.gz`
-7. Saves backup metadata in `mongodb-info.yml`
+7. Saves backup metadata in `mongodb-info.yaml`
 8. Cleans up temporary files from MongoDB pod
 
 #### Backup Directory Structure
@@ -266,7 +266,7 @@ Performs backup and restore of MongoDB databases:
     │   └── certificates/             # TLS certificates
     └── data/
         ├── mongodump-<version>.tar.gz  # Database backup archive
-        └── mongodb-info.yml            # Backup metadata
+        └── mongodb-info.yaml            # Backup metadata
 ```
 
 #### Backup Variables
