@@ -1,0 +1,29 @@
+---
+- hosts: localhost
+  any_errors_fatal: true
+
+  vars:
+    catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('@@MAS_LATEST_CATALOG@@', True) }}"
+    mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default ('9.1.x', True) }}"
+    mirror_mode: "{{ lookup('env', 'MIRROR_MODE') | default ('direct', True) }}"
+    artifactory_token: "{{ lookup('env', 'ARTIFACTORY_TOKEN') }}"
+
+  pre_tasks:
+    - name: "Load Catalog Metadata"
+      ibm.mas_devops.get_catalog_info:
+        mas_catalog_version: "{{ catalog_tag }}"
+      register: mas_catalog_metadata
+
+    - name: "Check that the catalog is a know catalog"
+      assert:
+        that: mas_catalog_metadata.failed == false
+
+    - name: "Truststore Manager Version"
+      debug:
+        msg: "TSM Version: {{ mas_catalog_metadata.tsm_version }}"
+
+  roles:
+    - role: ibm.mas_devops.mirror_images_isc
+      vars:
+        package_name: ibm-truststore-mgr
+        package_version: "{{ lookup('env', 'MAS_TM_VERSION') | default (mas_catalog_metadata.tsm_version, True) | replace('_', '.') }}"

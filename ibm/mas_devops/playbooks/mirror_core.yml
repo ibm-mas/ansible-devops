@@ -17,27 +17,18 @@
       assert:
         that: mas_catalog_metadata.failed == false
 
-    - name: "MAS Core Version"
-      debug:
-        msg: "MAS Core Version: {{ mas_catalog_metadata.mas_core_version[mas_channel] }}"
-
-    - name: "MAS Core Version"
-      debug:
-        msg: "SLS Version: {{ mas_catalog_metadata.sls_version }}"
-
-    - name: "MAS Core Version"
-      debug:
-        msg: "TSM Version: {{ mas_catalog_metadata.tsm_version }}"
   roles:
     # 1. IBM Maximo Application Suite Core
     # -------------------------------------------------------------------------
-    - role: ibm.mas_devops.mirror_images_isc
+    - role: ibm.mas_devops.mirror_case_prepare
       when: mirror_mode != "from-filesystem"
       vars:
-        package_name: ibm-mas
-        package_version: "{{ lookup('env', 'MAS_CORE_VERSION') | default (mas_catalog_metadata.mas_core_version[mas_channel], True) | replace('_', '.') }}"
+        case_name: ibm-mas
+        case_version: "{{ lookup('env', 'MAS_CORE_VERSION') | default (mas_catalog_metadata.mas_core_version[mas_channel], True) | replace('_', '.') }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: true
 
-  #   - role: ibm.mas_devops.mirror_images
-  #     vars:
-  #       manifest_name: ibm-mas
-  #       manifest_version: "{{ lookup('env', 'MAS_CORE_VERSION') | default (mas_catalog_metadata.mas_core_version[mas_channel], True) | replace('_', '.') }}"
+    - role: ibm.mas_devops.mirror_images
+      vars:
+        manifest_name: ibm-mas
+        manifest_version: "{{ lookup('env', 'MAS_CORE_VERSION') | default (mas_catalog_metadata.mas_core_version[mas_channel], True) | replace('_', '.') }}"

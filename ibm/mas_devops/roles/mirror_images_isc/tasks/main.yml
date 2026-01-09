@@ -19,6 +19,8 @@
       - "Working Directory ...................... {{ mirror_working_dir }}"
       - "Mode ................................... {{ mirror_mode }}"
       - "Auth File .............................. {{ auth_file }}"
+      - "REGISTRY_PASSWORD .................... {{ registry_password | default('<not set>', True) }}"
+      - "Artifactory .............................. {{ artifactory_token | default('', True) }}"
 
 # 2. Set up auth secret
 # -----------------------------------------------------------------------------
@@ -26,6 +28,10 @@
   file:
     path: "{{ ansible_env.HOME }}/.ibm-mas"
     state: directory
+
+# - name: "{{ package_name }} : Set XDG_RUNTIME_DIR environment variable"
+#   set_fact:
+#     XDG_RUNTIME_DIR: "{{ ansible_env.HOME}) }}"
 
 # 2. Create directory for auth.json
 # -----------------------------------------------------------------------------
@@ -36,14 +42,12 @@
 
 # 2. Configure credentials in auth.json
 # -----------------------------------------------------------------------------
-- name: "{{ package_name }} : Set XDG_RUNTIME_DIR environment variable"
-  set_fact:
-    ansible_env: "{{ ansible_env | combine({'XDG_RUNTIME_DIR': ansible_env.HOME}) }}"
-
 - name: "{{ package_name }} : Create auth secret"
   ansible.builtin.template:
     src: templates/auth.json.j2
-    dest: "{{ XDG_RUNTIME_DIR }}/containers/auth.json"
+    dest: "{{ ansible_env.HOME }}/containers/auth.json"
+  environment:
+    XDG_RUNTIME_DIR: "{{ ansible_env.HOME }}"
   #no_log: true
 
 # 3. Modify the manifest
@@ -94,16 +98,16 @@
 
 - name: Path of ISC file to download
   set_fact:
-    isc_file_path: "{{ isc_files_registry_full_url }}/{{ package_name }}/isc-{{ package_name }}{{ package_version }}-amd64.tar.gz"
+    isc_file_path: "https://{{ isc_files_registry_full_url }}/{{ package_name }}/isc-{{ package_name }}-{{ package_version }}-amd64.tar.gz"
 
 - name: "{{ package_name }} : Download ISC file from Artifactory with token"
   get_url:
     url: "{{ isc_file_path }}"
-    dest: "{{ ansible_env.HOME }}/.ibm-mas/isc-{{ package_name }}{{ package_version }}-amd64.tar.gz"
+    dest: "{{ ansible_env.HOME }}/.ibm-mas/isc-{{ package_name }-{{ package_version }}-amd64.yaml"
+    mode: '755'
     headers:
-      Authorization: "Bearer {{ artifactory_token }}"
-    validate_certs: yes
-  no_log: true
+      Authorization: "Bearer {{ registry_password }}"
+  #no_log: true
 
 # 4A. Execute the mirror (to filesystem)
 # -----------------------------------------------------------------------------
@@ -113,8 +117,8 @@
     - name: "{{ package_name }}: Run mirror command"
       shell: |
         oc mirror \
-          -c "{{ ansible_env.HOME }}/.ibm-mas/isc-{{ package_name }}{{ package_version }}-amd64.tar.gz"
-          file://{{ mirror_working_dir }} --v2
+          -c "{{ ansible_env.HOME }}/.ibm-mas/isc-{{ package_name }}-{{ package_version }}-amd64.yaml" \
+          --from file://{{ mirror_working_dir }} --v2 
       register: ocimagemirror_result
       ignore_errors: true
 
