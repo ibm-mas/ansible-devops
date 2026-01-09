@@ -57,9 +57,20 @@ echo "Databases to back up: $databases"
 IFS=',' read -r -a db_array <<< "$databases"
 
 # Perform backup for each database
+
+# Excluding sessions collection for Monitor database since it is not cleaned up automatically
+# leading to very large backup sizes and long backup times. This is acceptable as
+# sessions are transient and can be recreated.
+# Refer DT425304 - MASCORE-5808
+
 for db_name in "${db_array[@]}"; do
     echo "Backing up database: $db_name"
-    $mongodump_cmd --db=$db_name --out=$TMP_BACKUP_DIR
+    # ignore sessions collection for monitor database
+    if [[ "$db_name" == *_monitor ]]; then
+        $mongodump_cmd --db=$db_name --excludeCollection=sessions --out=$TMP_BACKUP_DIR
+    else
+        $mongodump_cmd --db=$db_name --out=$TMP_BACKUP_DIR
+    fi
     cmdrc=$?
     if [ $cmdrc -ne 0 ]; then
         echo "Error backing up database $db_name. Exiting."
