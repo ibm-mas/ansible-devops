@@ -80,7 +80,7 @@ def processUserCredentialsSecret(dynClient: DynamicClient, mas_instance_id: str,
     """
     Process user credentials secret for Db2u instance
     Check user credentials from jdbc credentials secret in Core namespace
-    If the user is not the default db2inst1 user, backup the jdbc credentials secret as well
+    If the user is not the default db2inst1 user, Store the username and password
     this will be used during restore to set the correct user
     """
     jdbc_core_secret_name = f"jdbc-{db2_instance_name}-credentials".lower()
@@ -90,14 +90,15 @@ def processUserCredentialsSecret(dynClient: DynamicClient, mas_instance_id: str,
             username_encoded = jdbc_core_secret['data']['username']
             username = base64.b64decode(username_encoded).decode('utf-8')
             if username.lower() != 'db2inst1':
-                # Backup the jdbc credentials secret
-                backup_status = backupSecret(dynClient=dynClient, namespace=f"mas-{mas_instance_id}-core".lower(), secret_name=jdbc_core_secret_name, backup_path=backup_path)
-                if backup_status:
-                    display.v(f"Backed up JDBC credentials secret '{jdbc_core_secret_name}' for Db2u instance '{db2_instance_name}'")
-                    return True
-                else:
-                    display.v(f"Warning: Failed to backup JDBC credentials secret '{jdbc_core_secret_name}' for Db2u instance '{db2_instance_name}'")
-                    return False
+                # create a yaml file with LDAP user details
+                ldap_user_info = dict(
+                    db2_ldap_username=username_encoded,
+                    db2_ldap_password=jdbc_core_secret['data']['password']
+                )
+                ldap_info_file_path = os.path.join(backup_path, "ldapuser-NOT_SECRET.yaml")
+                with open(ldap_info_file_path, 'w') as ldap_info_file:
+                    yaml.dump(ldap_user_info, ldap_info_file)
+                display.v(f"Wrote LDAP user info to {ldap_info_file_path}")
             else:
                 display.v(f"JDBC credentials secret '{jdbc_core_secret_name}' uses default admin user. No additional user backup needed.")
         return False
@@ -146,7 +147,7 @@ class ActionModule(ActionBase):
         createBackupDirectories([db2_backup_path, db2_backup_resource_path, db2_backup_secrets_path])
 
         # Get Db2uCluster or Db2uInstance CR
-        db2u_cr = getDb2uInstance(DynamicClient=dynClient, db2_instance_name=db2_instance_name, db2_namespace=db2_namespace)
+        db2u_cr = getDb2uInstance(dynClient=dynClient, db2_instance_name=db2_instance_name, db2_namespace=db2_namespace)
         if not db2u_cr:
             raise AnsibleError(f"Db2uCluster or Db2uInstance CR '{db2_instance_name}' not found in namespace '{db2_namespace}'")
         
@@ -205,10 +206,11 @@ class ActionModule(ActionBase):
             'db2_dbname': str(db2_dbname),
             'mas_instance_id': str(mas_instance_id),
             'db2_version': getDb2VersionFromCR(db2uCR=db2u_cr),
-            'db2_channel': channel_name
+            'db2_channel': channel_name,
+            'status': 'SUCCESS'
         }
 
-        db2_info_file_path = os.path.join(db2_backup_resource_path, "db2-info.yaml")
+        db2_info_file_path = os.path.join(db2_backup_resource_path, "db2-backup-info.yaml")
         with open(db2_info_file_path, 'w') as info_file:
             yaml.dump(db2_info, info_file)
         display.v(f"Wrote Db2 instance info to {db2_info_file_path}")

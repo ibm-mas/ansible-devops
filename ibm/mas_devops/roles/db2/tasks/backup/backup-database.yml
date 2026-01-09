@@ -1,18 +1,18 @@
 ---
 - name: Debug – configuration summary
   ansible.builtin.debug:
-    msg: |
-      ================== BACKUP DB2 DATABASE CONFIGURATION SUMMARY ==================
-      MAS INSTANCE ID   : {{ mas_instance_id | default('UNDEFINED') }}
-      DB2 INSTANCE NAME : {{ db2_instance_name | default('UNDEFINED') }}
-      NAMESPACE         : {{ db2_namespace | default('UNDEFINED') }}
-      DB NAME           : {{ db2_dbname | default('UNDEFINED') }}
-      BACKUP VERSION    : {{ db2_backup_version | default('UNDEFINED') }}
-      VENDOR            : {{ backup_vendor | default('UNDEFINED') }}
-      S3 ENDPOINT       : {{ backup_s3_endpoint | default('UNDEFINED') }}
-      S3 BUCKET         : {{ backup_s3_bucket | default('UNDEFINED') }}
-      BACKUP DIR        : {{ db2_backup_path | default('UNDEFINED') }}
-      ===========================================================
+    msg:
+      - "================== BACKUP DB2 DATABASE CONFIGURATION SUMMARY =================="
+      - "MAS INSTANCE ID   : {{ mas_instance_id | default('UNDEFINED') }}"
+      - "DB2 INSTANCE NAME : {{ db2_instance_name | default('UNDEFINED') }}"
+      - "NAMESPACE         : {{ db2_namespace | default('UNDEFINED') }}"
+      - "DB NAME           : {{ db2_dbname | default('UNDEFINED') }}"
+      - "BACKUP VERSION    : {{ db2_backup_version | default('UNDEFINED') }}"
+      - "VENDOR            : {{ backup_vendor | default('UNDEFINED') }}"
+      - "S3 ENDPOINT       : {{ backup_s3_endpoint | default('UNDEFINED') }}"
+      - "S3 BUCKET         : {{ backup_s3_bucket | default('UNDEFINED') }}"
+      - "BACKUP DIR        : {{ db2_backup_path | default('UNDEFINED') }}"
+      - "================================================================================"
 
 # Check if backup vendor is s3, then check s3 related variables
 # -----------------------------------------------------------------------------
@@ -21,7 +21,7 @@
     component: "db2"
     action: "s3_setup"
     backup_vendor: "{{ backup_vendor }}"
-    backup_s3_name: "{{ backup_s3_name }}"
+    backup_s3_alias: "{{ backup_s3_alias }}"
     backup_s3_endpoint: "{{ backup_s3_endpoint }}"
     backup_s3_bucket: "{{ backup_s3_bucket }}"
     backup_s3_access_key: "{{ backup_s3_access_key }}"
@@ -40,12 +40,12 @@
 
 - name: "Set fact backup_path for the backup script when backup vendor is s3"
   set_fact:
-    full_backup_path: "DB2REMOTE://{{ backup_s3_name }}/{{ backup_s3_bucket }}/backups-db2/{{ db2_backup_version }}"
+    full_backup_path: "DB2REMOTE://{{ backup_s3_alias }}/{{ backup_s3_bucket }}/backups-db2/{{ db2_backup_version }}"
   when: backup_vendor == "s3"
 
 - name: "Set fact backup_path for the backup script when backup vendor is disk"
   set_fact:
-   full_backup_path: "/mnt/backup/{{ db2_backup_version }}"
+    full_backup_path: "/mnt/backup/{{ db2_backup_version }}"
   when: backup_vendor == "disk"
 
 # Check if db2 instance is running and get the pod name
@@ -68,7 +68,12 @@
   set_fact:
     db2_pod_name: "{{ db2_pod_name_result.pod_name }}"
 
-- name: "Create /tmp/db2-scripts directory on localhost"
+- name: "Remove any existing files in /tmp/db2-scripts directory on localhost"
+  ansible.builtin.file:
+    path: "/tmp/db2-scripts"
+    state: absent
+
+- name: "Recreate /tmp/db2-scripts directory on localhost"
   ansible.builtin.file:
     path: "/tmp/db2-scripts"
     state: directory
@@ -103,7 +108,7 @@
 # Create /tmp/db2-scripts directory in DB2 pod and copy scripts into the pod
 # -----------------------------------------------------------------------------
 - name: create /tmp/db2-scripts directory in DB2 pod
-  shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc 'mkdir -p /tmp/db2-scripts/' db2inst1"
+  shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc 'rm -rf /tmp/db2-scripts && mkdir -p /tmp/db2-scripts/' db2inst1"
   register: create_dir_result
   retries: 2
   delay: 15 # seconds
@@ -152,9 +157,13 @@
 - name: "Execute setup_cos_storage_access.sh in DB2 pod"
   shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc '{{ db2_insthome }}/bin/setup_cos_storage_access.sh | tee /tmp/setup_cos_storage_access.log' db2inst1"
   register: setup_s3_result
-  retries: 2
-  delay: 15 # seconds
-  until: setup_s3_result.rc == 0
+  when: backup_vendor == "s3"
+
+- name: "Assert S3 storage access setup completed successfully"
+  assert:
+    that:
+      - setup_s3_result is defined
+      - setup_s3_result.rc == 0
   when: backup_vendor == "s3"
 
 - name: "Debug setup_cos_storage_access.sh output"
@@ -164,52 +173,80 @@
 
 # Execute db2_backup.sh in DB2 pod
 # -----------------------------------------------------------------------------
-- name: "Execute db2_backup.sh in DB2 pod"
-  shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc '{{ db2_insthome }}/bin/db2_backup.sh {{ db2_backup_path }} | tee /tmp/db2_backup.log' db2inst1"
-  register: db2_backup_result
-  retries: 2
-  delay: 15 # seconds
-  until:
-    - db2_backup_result.rc == 0
-    - db2_backup_result.stdout | regex_search('BACKUP COMPLETED SUCCESSFULLY', multiline=True)
+- name: "Executing DB2 backup.."
+  block:
+    - name: "Execute db2_backup.sh in DB2 pod"
+      shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc '{{ db2_insthome }}/bin/db2_backup.sh | tee /tmp/db2_backup.log' db2inst1"
+      register: db2_backup_result
 
-- name: Get backup file timestamp from db2_backup.log
-  ansible.builtin.set_fact:
-    db2_backup_timestamp: "{{ (db2_backup_result.stdout | regex_search('BACKUP_FILE_TIMESTAMP=(.*)', '\\1'))[0] }}"
-  when:
-    - db2_backup_result is defined
-    - db2_backup_result.rc == 0
-    - db2_backup_result.stdout is defined
+    - name: "Debug db2_backup.sh output"
+      ansible.builtin.debug:
+        msg: "{{ db2_backup_result.stdout_lines }}"
 
-# If vendor is disk, tar the backup files and rsync to backup_data_path
-# -----------------------------------------------------------------------------
-- name: "Move backup files to {{ db2_backup_data_path }} when backup vendor is disk"
-  shell: "oc rsync -n {{ db2_namespace }} {{ db2_pod_name }}:{{ full_backup_path }}/db2_{{ db2_dbname }}_backup_{{ db2_backup_version }}.tar.gz {{ db2_backup_data_path }}/"
-  register: rsync_result
-  retries: 2
-  delay: 15 # seconds
-  until: rsync_result.rc == 0
-  when: backup_vendor == "disk"
+    - name: "Assert DB2 backup completed successfully"
+      assert:
+        that:
+          - db2_backup_result is defined
+          - db2_backup_result.rc == 0
+          - db2_backup_result.stdout | regex_search('BACKUP COMPLETED SUCCESSFULLY', multiline=True)
+        fail_msg: "DB2 backup did not complete successfully. Check /tmp/db2_backup.log in {{ db2_pod_name }} pod for details."
 
-- name: "Debug rsync output"
-  ansible.builtin.debug:
-    msg: "{{ rsync_result.stdout_lines }}"
-  when: backup_vendor == "disk"
+    - name: Get backup file timestamp from db2_backup.log
+      ansible.builtin.set_fact:
+        db2_backup_timestamp: "{{ (db2_backup_result.stdout | regex_search('BACKUP_FILE_TIMESTAMP=(.*)', '\\1'))[0] }}"
+      when:
+        - db2_backup_result is defined
+        - db2_backup_result.rc == 0
+        - db2_backup_result.stdout is defined
+
+    # If vendor is disk, tar the backup files and cp to backup_data_path
+    # -----------------------------------------------------------------------------
+    - name: "Move backup files to {{ db2_backup_data_path }} when backup vendor is disk.. This will take a while..."
+      shell: "oc cp --retries=50 -c db2u {{ db2_namespace }}/{{ db2_pod_name }}:{{ full_backup_path }}/db2-{{ db2_dbname }}-backup-{{ db2_backup_version }}.tar.gz {{ db2_backup_data_path }}/db2-{{ db2_dbname }}-backup-{{ db2_backup_version }}.tar.gz"
+      register: rsync_result
+      when: backup_vendor == "disk"
+
+    - name: "Debug rsync output"
+      ansible.builtin.debug:
+        msg: "{{ rsync_result.stdout_lines }}"
+      when: backup_vendor == "disk"
+
+  always:
+    - name: "Clean up backup directory in the pod"
+      shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc 'rm -rf {{ full_backup_path }}' db2inst1"
+      when: backup_vendor == "disk"
 
 
 # Create yaml file with db2 backup details, add local_backup_path if vendor is disk
 # -----------------------------------------------------------------------------
 - name: "Create yaml file with db2 backup details"
   copy:
-    dest: "{{ db2_backup_data_path }}/db2-backup-info.yml"
+    dest: "{{ db2_backup_data_path }}/db2-backup-info.yaml"
     content: |
       source_db2_backup_version: "{{ db2_backup_version }}"
       source_db2_backup_timestamp: "{{ db2_backup_timestamp }}"
       source_db2_instance_name: "{{ db2_instance_name }}"
-      source_db2_instance_version: "{{ db2_pod_name_result.db2version }}"
+      source_db2_instance_version: "{{ db2_pod_name_result.db2_version }}"
+      database: "{{ db2_dbname }}"
       backup_vendor: "{{ backup_vendor }}"
       vendor_backup_path: "{{ full_backup_path }}"
       {% if backup_vendor == 'disk' %}
-      local_backup_path: "{{ db2_backup_data_path }}/db2_{{ db2_dbname }}_backup_{{ db2_backup_version }}.tar.gz"
+      local_backup_path: "{{ db2_backup_data_path }}/db2-{{ db2_dbname }}-backup-{{ db2_backup_version }}.tar.gz"
       {% endif %}
+      status: "SUCCESS"
+
+- name: Database backup summary
+  ansible.builtin.debug:
+    msg:
+      - "================== BACKUP DB2 DATABASE CONFIGURATION SUMMARY =================="
+      - "DB2 INSTANCE NAME : {{ db2_instance_name | default('UNDEFINED') }}"
+      - "NAMESPACE         : {{ db2_namespace | default('UNDEFINED') }}"
+      - "DB NAME           : {{ db2_dbname | default('UNDEFINED') }}"
+      - "BACKUP VERSION    : {{ db2_backup_version | default('UNDEFINED') }}"
+      - "VENDOR            : {{ backup_vendor | default('UNDEFINED') }}"
+      - "S3 ENDPOINT       : {{ backup_s3_endpoint | default('UNDEFINED') }}"
+      - "S3 BUCKET         : {{ backup_s3_bucket | default('UNDEFINED') }}"
+      - "BACKUP DIR        : {{ db2_backup_path | default('UNDEFINED') }}"
+      - "STATUS            : SUCCESS"
+      - "================================================================================"
 

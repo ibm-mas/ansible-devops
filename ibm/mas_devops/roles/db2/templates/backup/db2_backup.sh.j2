@@ -1,9 +1,130 @@
 #!/bin/bash
 
+
+function stopDBConnections()
+{
+	databaseName=${1}
+
+	echo ""
+	echo "STEP 1: Temporarily disable the built-in HA"
+	if [ -f /etc/wolverine/config.json ]; then
+		wvcli system disable -m "Disable HA before Db2 maintenance"
+		echo "INFO: Wolverine HA disabled"
+	else
+		echo "INFO: Wolverine HA not enabled"
+	fi
+	
+	echo ""
+	echo "STEP 2: Connect to the database"
+	connect_status=$(db2 -v connect to ${databaseName})
+	rc=$?
+	if [ $rc -ne 0 ]; then
+		if echo "$connect_status" | grep -q "SQL1032N"; then
+			echo "INFO: Database ${databaseName} is not currently active. Proceeding with restore"
+		elif echo "$connect_status" | grep -q "SQL1013N"; then
+			echo "INFO: Database ${databaseName} does not exist. Proceeding with restore"
+		elif echo "$connect_status" | grep -q "SQL30081N"; then
+			echo "ERROR: Network error while connecting to database ${databaseName}"
+			exit 1
+		elif echo "$connect_status" | grep -q "SQL1119N"; then
+			echo "ERROR: $connect_status"
+			exit 1
+		else
+			echo "INFO: $connect_status. Proceeding with restore"
+		fi
+	fi
+
+	echo ""
+	echo "STEP 3: Disconnect all applications connected to Db2"
+	db2 -v force application all
+	echo "INFO: Waiting for connections to close (30 seconds)..."
+	sleep 30
+
+	echo ""
+	echo "STEP 4: Terminate the database"
+	db2 -v terminate
+
+	echo ""
+	echo "STEP 5: Stop the database"
+	db2stop force
+
+	echo ""
+	echo "STEP 6: Clean Db2 interprocess communications"
+	ipclean -a
+
+	echo ""
+	echo "STEP 7: Disable database communications"
+	db2set -null DB2COMM
+
+	echo ""
+	echo "STEP 8: Restart database in restricted access mode"
+	db2start admin mode restricted access
+	echo "INFO: Waiting for database to start in restricted access mode (60 seconds)..."
+	sleep 60
+}
+
+function startDB()
+{
+	databaseName=${1}
+
+	echo ""
+	echo "STEP 10: Halt the restricted access mode"
+	db2stop force
+
+	echo ""
+	echo "STEP 11: Clean Db2 interprocess communications"
+	ipclean -a
+
+	echo ""
+	echo "STEP 12: Reinitialize the Db2 communication manager to accept database connections"
+	db2set DB2COMM=TCPIP,SSL
+	
+	echo ""
+	echo "STEP 13: Restart database for normal operation"
+	db2start
+	echo "INFO: Waiting for database to start (60 seconds)..."
+	sleep 60
+
+	echo ""
+	echo "STEP 14: Activate the database"
+	db2 activate db ${databaseName}
+	rc=$?
+	if [ $rc -ne 0 ]; then
+		echo "ERROR: Failed to activate database ${databaseName}. Return code: $rc"
+	else
+		echo "INFO: Database activated successfully"
+	fi
+
+	echo ""
+	echo "STEP 15: Re-enable Wolverine high availability"
+	sudo wvcli system enable -m "Enable HA after Db2 maintenance"
+	rc=$?
+	if [ $rc -ne 0 ]; then
+		echo "ERROR: Failed to enable HA. Return code: $rc"
+	else
+		echo "INFO: Wolverine HA re-enabled successfully"
+	fi
+
+	echo ""
+	echo "STEP 16: Show HA monitoring status"
+	sudo wvcli system status 
+	sudo wvcli system devices
+
+	echo ""
+	echo "STEP 17: Connect to the database"
+	db2 -v connect to ${databaseName}
+	rc=$?
+	if [ $rc -ne 0 ]; then
+		echo "ERROR: Failed to connect to database ${databaseName}. Return code: $rc"
+	else
+		echo "INFO: Successfully connected to database ${databaseName}"
+	fi
+}
+
 DATABASE={{ db2_dbname }}
 BACKUP_TYPE={{ backup_type }}
 VENDOR={{ backup_vendor }}
-###  for S3, BACKUP_PATH=DB2REMOTE://{{ backup_s3_name }}/{{ backup_s3_bucket }}/backups-db2/{{ db2_backup_version }}
+###  for S3, BACKUP_PATH=DB2REMOTE://{{ backup_s3_alias }}/{{ backup_s3_bucket }}/backups-db2/{{ db2_backup_version }}
 BACKUP_PATH={{ full_backup_path }}
 
 # Finding the db2 Instance owner
@@ -14,11 +135,10 @@ BACKUP_BASE=/mnt/backup
 
 # Find the home directory
 instance_home=`/usr/local/bin/db2greg -dump | grep -ae "I," | grep -v "/das," | grep "${instance}" | awk -F ',' '{print $5}'| cut -d/ -f 1,2,3,4,5`
-BACK_LOG=$instance_home/bin/{{ db2_backup_version }}_BackupLOG.out
 
 if [ ! -f "$instance_home/sqllib/db2profile" ]
 then
-	echo "ERROR - $instance_home/sqllib/db2profile not found"
+	echo "ERROR: $instance_home/sqllib/db2profile not found"
 	EXIT_STATUS=1
 else
 	. $instance_home/sqllib/db2profile
@@ -31,10 +151,10 @@ then
 	rm ${COMPRESS_LOC}
 fi
 
-###   Check to see if the database is  Running
+###   Check to see if the database is Running
 ps -ef | grep db2sys | grep -v grep  > /dev/null 2>&1
 if [ $? -eq 1 ]; then
-	echo "Database is not active "      
+	echo "ERROR: Database is not active"
 	echo "Database Not Active,BACKUP Not Run" > $instance_home/bin/LASTbkupRUN
 	exit
 fi
@@ -42,74 +162,173 @@ fi
 ### Create Backup Directory if it does not exist when vendor is disk
 if [ ${VENDOR} = 'disk' ] ; then
 	if [ ! -d "${BACKUP_PATH}" ] ; then
+		echo "INFO: Creating backup directory: ${BACKUP_PATH}"
 		mkdir -p ${BACKUP_PATH}
 		if [ $? -ne 0 ] ; then
 			echo "ERROR: Could not create backup directory ${BACKUP_PATH}"
 			exit 1
 		fi
+		echo "INFO: Backup directory created successfully"
 	fi
 fi
 
+### Check LOGARCHMETH1 is not OFF to proceed if ONLINE backup
+if [ ${BACKUP_TYPE} = 'online' ] ; then
+	echo "INFO: Checking if LOGARCHMETH1 is ON to proceed with ONLINE backup..."
+	logarchmeth1_cmd=$(db2 get db cfg for ${DATABASE} | grep LOGARCHMETH1 | awk -F'= ' '{print $2}')
+
+	if [ ${logarchmeth1_cmd} = 'OFF' ]; then
+		echo "ERROR: LOGARCHMETH1 is OFF. Cannot proceed with online backup, Please choose offline backup option. Exiting..."
+		exit 1
+	fi
+	echo "INFO: LOGARCHMETH1 is ON: $logarchmeth1_cmd"
+fi
+
+# ============================================================================
+# Start Backup Process
+# ============================================================================
 DATETIME=`date +%Y-%m-%d_%H%M%S`;
-echo "BACKUP Start time : ${DATETIME}"  
-echo " "                               
-echo " "                            
+echo ""
+echo "========================================================================"
+echo "  DB2 BACKUP PROCESS STARTED"
+echo "========================================================================"
+echo "  Database        : ${DATABASE}"
+echo "  Backup Type     : ${BACKUP_TYPE}"
+echo "  Backup Vendor   : ${VENDOR}"
+echo "  Backup Path     : ${BACKUP_PATH}"
+echo "  Start Time      : ${DATETIME}"
+echo "========================================================================"
+echo ""
 
-db2 -v archive log for db $DATABASE | tee -a $BACK_LOG
-sleep 30
 
+# ============================================================================
+# Execute Backup Command
+# ============================================================================
+if [ ${BACKUP_TYPE} = 'online' ] ; then
+	echo "INFO: Performing full online backup of database ${DATABASE}..."
+	db2 -v archive log for db $DATABASE
+	sleep 30
+	echo "INFO: Command: db2 -v backup db ${DATABASE} on all dbpartitionnums online to ${BACKUP_PATH} compress UTIL_IMPACT_PRIORITY 50 include logs without prompting"
+	BACKUP_CMD=$(db2 -v backup db $DATABASE on all dbpartitionnums online to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting)
+elif [ ${BACKUP_TYPE} = 'offline' ] ; then
+	echo "INFO: Performing full offline backup of database ${DATABASE}..."
+	
+	stopDBConnections $DATABASE
 
-if [ ${BACKUP_TYPE} = 'full' ] ; then
-	db2 -v backup db $DATABASE online to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting | tee -a $BACK_LOG
-else 
-	db2 -v backup db $DATABASE online INCREMENTAL DELTA to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting | tee -a $BACK_LOG
-fi   
-grep -Fq "Backup successful." $BACK_LOG
-if [ $? = 0 ]; then
-	backup_timestamp=`grep timestamp $BACK_LOG | cut -d: -f2`
+	echo ""
+	echo "STEP 9: Backup database in offline mode"
+	BACKUP_CMD=$(db2 -v backup db $DATABASE on all dbpartitionnums to $BACKUP_PATH compress UTIL_IMPACT_PRIORITY 50 without prompting)
+
+	startDB $DATABASE
+
 else
-	echo " "                               
-	echo "********** BACKUP FAILED ************"  
-	echo " "                               
+	echo "ERROR: Invalid backup type: ${BACKUP_TYPE}"
 	exit 1
 fi
 
-######## Copy keystore to COS or Disk location based on VENDOR #########
-if [ ${VENDOR} = 's3' ] ; then
-	echo "Copying Keystore to COS location"
-	set -x       
-	SOURCE1=/mnt/blumeta0/db2/keystore/keystore.p12
-	SOURCE2=/mnt/blumeta0/db2/keystore/keystore.sth
-	TARGET1=KEYSTORE/keystore.p12
-	TARGET2=KEYSTORE/keystore.sth
-
-	db2RemStgManager ALIAS PUT source=${SOURCE1} target=${BACKUP_PATH}/${TARGET1}
-	db2RemStgManager ALIAS PUT source=${SOURCE2} target=${BACKUP_PATH}/${TARGET2}
-	echo "Copying Keystore to COS location - Completed"
+if echo "$BACKUP_CMD" | grep -q "Backup successful."; then
+	echo "$BACKUP_CMD"
+	backup_timestamp=`echo "$BACKUP_CMD" | grep timestamp | cut -d: -f2`
+	echo ""
+	echo "INFO: Backup operation completed successfully"
 else
-	echo "Copying Keystore to local disk location"
-	cp /mnt/blumeta0/db2/keystore/keystore.p12 ${BACKUP_PATH}/keystore.p12
-	cp /mnt/blumeta0/db2/keystore/keystore.sth ${BACKUP_PATH}/keystore.sth
-	echo "Copying Keystore to local disk location - Completed"
+	echo ""
+	echo "========================================================================"
+	echo "  BACKUP FAILED"
+	echo "========================================================================"
+	echo "ERROR: Backup operation did not complete successfully" >&2
+	echo "ERROR: Timestamp: $(date '+%Y-%m-%d %H:%M:%S')" >&2
+	echo "========================================================================"
+	exit 1
 fi
 
-DATETIME=`date +%Y-%m-%d_%H%M%S`;
-echo "BACKUP End time : ${DATETIME}" >> $BACK_LOG
-echo "BACKUP End time : ${DATETIME}"
-echo " "
+# ============================================================================
+# Copy Keystore Files
+# ============================================================================
 
+# Get KEYSTORE_LOCATION from dbm cfg
+KEYSTORE_LOC=$(db2 get dbm cfg | grep KEYSTORE_LOCATION | awk -F'= ' '{print $2}')
 
-###### If vendor is disk, tar the backup files
+# Get .sth file by replacing the .p12 to .sth
+STH_LOC=$(echo $KEYSTORE_LOC | sed 's/\.p12$/.sth/')
+
+if [ ${VENDOR} = 's3' ] ; then
+	echo ""
+	echo "INFO: Copying keystore files to COS location..."
+	set -x
+	TARGET1=keystore.p12
+	TARGET2=keystore.sth
+
+	db2RemStgManager ALIAS PUT source=${KEYSTORE_LOC} target=${BACKUP_PATH}/${TARGET1}
+	db2RemStgManager ALIAS PUT source=${STH_LOC} target=${BACKUP_PATH}/${TARGET2}
+	set +x
+	echo "INFO: Keystore files copied to COS location successfully"
+else
+	echo ""
+	echo "INFO: Copying keystore files to local disk location..."
+	cp ${KEYSTORE_LOC} ${BACKUP_PATH}/keystore.p12
+	cp ${STH_LOC} ${BACKUP_PATH}/keystore.sth
+	echo "INFO: Keystore files copied to local disk location successfully"
+fi
+
+# ============================================================================
+# Create Backup Information File
+# ============================================================================
+echo ""
+echo "INFO: Creating db2-backup-info.yaml file..."
+YAML_FILE=/tmp/db2-backup-info.yaml
+cat <<EOT >> ${YAML_FILE}
+source_db2_backup_version: {{ db2_backup_version }}
+database: ${DATABASE}
+backup_type: ${BACKUP_TYPE}
+backup_vendor: ${VENDOR}
+vendor_backup_path: ${BACKUP_PATH}
+backup_timestamp: ${backup_timestamp}
+source_db2_instance_name: {{ db2_instance_name }}
+source_db2_instance_version: {{ db2_version }}
+source_db2_instance_channel: {{ db2_channel }}
+status: SUCCESS
+EOT
+echo "INFO: db2-backup-info.yaml file created at ${YAML_FILE}"
+
+if [ ${VENDOR} = 's3' ] ; then
+	echo "INFO: Uploading db2-backup-info.yaml file to COS location..."
+	db2RemStgManager ALIAS PUT source=${YAML_FILE} target=${BACKUP_PATH}/db2-backup-info.yaml
+	echo "INFO: db2-backup-info.yaml file uploaded successfully"
+fi
+
+# ============================================================================
+# Archive Backup Files (Disk Vendor Only)
+# ============================================================================
 if [ ${VENDOR} = 'disk' ] ; then
-	echo "Starting to tar the backup files..."
-	tar -czf ${BACKUP_PATH}/db2_${DATABASE}_backup_{{ db2_backup_version }}.tar.gz -C ${BACKUP_PATH} .
-	echo "Tar backup files completed. Showing disk usage:"
+	cp ${YAML_FILE} ${BACKUP_PATH}/db2-backup-info.yaml
+	echo ""
+	echo "INFO: Creating tar archive of backup files..."
+	tar -czf ${BACKUP_PATH}/db2-${DATABASE}-backup-{{ db2_backup_version }}.tar.gz -C ${BACKUP_PATH} .
+	echo "INFO: Tar archive created successfully"
+	echo ""
+	echo "Disk Usage:"
 	df -h ${BACKUP_PATH}/*
 else
-	echo "Backup vendor is not disk. Skipping tar of backup files."
+	echo ""
+	echo "INFO: Backup vendor is not disk. Skipping tar archive creation."
 fi
 
-
 echo "BACKUP_FILE_TIMESTAMP=${backup_timestamp}"
-echo " "
-echo "********** BACKUP COMPLETED SUCCESSFULLY ************"
+
+# ============================================================================
+# Backup Completion Summary
+# ============================================================================
+DATETIME=`date +%Y-%m-%d_%H%M%S`;
+echo ""
+echo "========================================================================"
+echo "  DB2 BACKUP COMPLETED SUCCESSFULLY"
+echo "========================================================================"
+echo "  Database        : ${DATABASE}"
+echo "  Backup Type     : ${BACKUP_TYPE}"
+echo "  Backup Vendor   : ${VENDOR}"
+echo "  Backup Path     : ${BACKUP_PATH}"
+echo "  End Time        : ${DATETIME}"
+echo "  Backup Timestamp: ${backup_timestamp}"
+echo "========================================================================"
+echo ""

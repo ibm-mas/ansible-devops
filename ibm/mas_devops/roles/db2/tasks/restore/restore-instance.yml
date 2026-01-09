@@ -1,0 +1,87 @@
+---
+# Check db2 Restore required variables
+# -----------------------------------------------------------------------------
+- name: Verify DB2 restore variables
+  ibm.mas_devops.verify_backup_restore_vars:
+    component: "db2"
+    action: "{{ db2_action }}_instance"
+    db2_backup_version: "{{ db2_backup_version }}"
+    mas_backup_dir: "{{ mas_backup_dir }}"
+
+# Restore Db2 Universal operator Instance Kubernetes Resources
+# -------------------------------------------------------------------------
+- name: "Start Db2 Universal operator Instance restore process."
+  ibm.mas_devops.restore_db2_resources:
+    db2_backup_version: "{{ db2_backup_version }}"
+    mas_backup_dir: "{{ mas_backup_dir }}"
+  register: restore_db2_instance_result
+
+- name: "Assert Restore Db2 Universal operator Instance Kubernetes Resources result"
+  assert:
+    that:
+      - restore_db2_instance_result is defined
+      - restore_db2_instance_result.success == true
+    fail_msg: "Restoring Db2 Universal operator Instance Kubernetes Resources failed."
+
+- name: "Check if DB2 instance exist and healthy. If not, proceed with restore."
+  ansible.builtin.debug:
+    msg:
+      - "================== FINISHED RESTORE DB2 INSTANCE =============================="
+      - "{{ restore_db2_instance_result.msg }}"
+      - "==============================================================================="
+  when:
+    - restore_db2_instance_result.proceed == False
+
+# Create Db2 Instance using info from backup CR if required
+# -------------------------------------------------------------------------
+- name: "Create Db2 Instance if not present"
+  block:
+    - name: "Set fact from Db2 info"
+      set_fact:
+        db2_database_db_config: "{{ restore_db2_instance_result.db2_database_db_config }}"
+        db2_instance_dbm_config: "{{ restore_db2_instance_result.db2_instance_dbm_config }}"
+        db2_instance_registry: "{{ restore_db2_instance_result.db2_instance_registry }}"
+        db2_channel: "{{ restore_db2_instance_result.db2_channel }}"
+        db2_version: "{{ restore_db2_instance_result.db2_version }}"
+        db2_instance_name: "{{ restore_db2_instance_result.db2_instance_name }}"
+        db2_namespace: "{{ restore_db2_instance_result.db2_namespace }}"
+        db2_type: "{{ restore_db2_instance_result.db2_type }}"
+        db2_dbname: "{{ restore_db2_instance_result.db2_database_name }}"
+        db2_table_org: "{{ restore_db2_instance_result.db2_table_org }}"
+        db2_cpu_requests: "{{ restore_db2_instance_result.db2_cpu_requests }}"
+        db2_memory_requests: "{{ restore_db2_instance_result.db2_memory_requests }}"
+        db2_cpu_limits: "{{ restore_db2_instance_result.db2_cpu_limits }}"
+        db2_memory_limits: "{{ restore_db2_instance_result.db2_memory_limits }}"
+
+    - name: "Set fact LDAP credentials if exist."
+      set_fact:
+        db2_ldap_username: "{{ restore_db2_instance_result.db2_ldap_username }}"
+        db2_ldap_password: "{{ restore_db2_instance_result.db2_ldap_password }}"
+      when: restore_db2_instance_result.db2_ldap_username is defined and restore_db2_instance_result.db2_ldap_password is defined
+
+    - name: DB2 Instance restore configuration summary
+      ansible.builtin.debug:
+        msg:
+          - "================== STARTING RESTORE DB2 INSTANCE ==============================="
+          - "DB2 INSTANCE NAME : {{ db2_instance_name | default('UNDEFINED') }}"
+          - "NAMESPACE         : {{ db2_namespace | default('UNDEFINED') }}"
+          - "DB NAME           : {{ db2_dbname | default('UNDEFINED') }}"
+          - "BACKUP VERSION    : {{ db2_backup_version | default('UNDEFINED') }}"
+          - "BACKUP DIR        : {{ mas_backup_dir | default('UNDEFINED') }}"
+          - "================================================================================"
+
+    - name: "Creating Db2 Universal operator Instance"
+      include_tasks: "{{ role_path }}/tasks/install/main.yml"
+
+    - name: DB2 Instance restore summary
+      ansible.builtin.debug:
+        msg:
+          - "================== FINISHED RESTORE DB2 INSTANCE ==============================="
+          - "DB2 INSTANCE NAME : {{ db2_instance_name | default('UNDEFINED') }}"
+          - "NAMESPACE         : {{ db2_namespace | default('UNDEFINED') }}"
+          - "DB NAME           : {{ db2_dbname | default('UNDEFINED') }}"
+          - "BACKUP VERSION    : {{ db2_backup_version | default('UNDEFINED') }}"
+          - "BACKUP DIR        : {{ mas_backup_dir | default('UNDEFINED') }}"
+          - "================================================================================"
+
+  when: restore_db2_instance_result.proceed == true
