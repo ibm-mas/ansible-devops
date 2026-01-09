@@ -94,7 +94,7 @@ The restore operation also consists of two phases, with behavior determined by t
 | `MAS_INSTANCE_ID`       | Yes      | N/A             | Identifies the MAS instance whose MongoDB databases should be backed up or restored. To back up multiple MAS instances that share the same MongoDB CE instance, run the playbook multiple times with different values. |
 | `MONGODB_NAMESPACE`     | No       | `mongoce`       | Namespace where MongoDB Community Edition is installed. Set this if MongoDB CE is deployed in a custom namespace.                                                                                                      |
 | `MONGODB_INSTANCE_NAME` | No       | `mas-mongo-ce`  | Name of the MongoDB Community Edition instance. For backup, this value is used to locate the instance. For restore, the value is taken from the backup data.                                                           |
-| `BR_SKIP_INSTANCE`      | No       | `false`         | Skips MongoDB instance backup or restore. Set to `true` to back up or restore **databases only**.                                                                                                                      |
+| `BR_SKIP_INSTANCE`      | No       | `true`         | Skips MongoDB instance backup or restore. Set to `false` to back up or restore instances.                                                                                                                      |
 
 
 ### Examples

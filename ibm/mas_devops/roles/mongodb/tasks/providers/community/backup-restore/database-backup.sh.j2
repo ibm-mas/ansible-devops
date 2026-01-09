@@ -3,6 +3,7 @@
 MONGODB_BACKUP_USER="bradmin"
 
 TMP_BACKUP_DIR="/tmp/masbr/{{ mongodb_backup_version }}"
+TMP_BACKUP_MONGODUMP_DIR="${TMP_BACKUP_DIR}/mongodump"
 
 ALL_DATABASES_FILTER="^(mas|iot)(_|-){{ mas_instance_id }}(_|-)(?!.*monitor$)"
 
@@ -67,9 +68,9 @@ for db_name in "${db_array[@]}"; do
     echo "Backing up database: $db_name"
     # ignore sessions collection for monitor database
     if [[ "$db_name" == *_monitor ]]; then
-        $mongodump_cmd --db=$db_name --excludeCollection=sessions --out=$TMP_BACKUP_DIR
+        $mongodump_cmd --db=$db_name --excludeCollection=sessions --out=$TMP_BACKUP_MONGODUMP_DIR
     else
-        $mongodump_cmd --db=$db_name --out=$TMP_BACKUP_DIR
+        $mongodump_cmd --db=$db_name --out=$TMP_BACKUP_MONGODUMP_DIR
     fi
     cmdrc=$?
     if [ $cmdrc -ne 0 ]; then
@@ -77,10 +78,10 @@ for db_name in "${db_array[@]}"; do
         exit 1
     fi
 done
-echo "Backup completed successfully. Backup files are located in $TMP_BACKUP_DIR."
+echo "Backup completed successfully. Backup files are located in $TMP_BACKUP_MONGODUMP_DIR."
 
 # Create tar.gz archives of database backup files
-tar -czf $TMP_BACKUP_DIR/{{ mongodb_backup_data_filename }} -C $TMP_BACKUP_DIR .
+tar -czf $TMP_BACKUP_DIR/{{ mongodb_backup_data_filename }} -C $TMP_BACKUP_MONGODUMP_DIR .
 if [ $? -ne 0 ]; then
     echo "Error creating tar.gz archive of backup files. Exiting."
     exit 1

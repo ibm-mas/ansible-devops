@@ -125,13 +125,17 @@ DATABASE={{ db2_dbname }}
 BACKUP_TYPE={{ backup_type }}
 VENDOR={{ backup_vendor }}
 ###  for S3, BACKUP_PATH=DB2REMOTE://{{ backup_s3_alias }}/{{ backup_s3_bucket }}/backups-db2/{{ db2_backup_version }}
+###  for disk, BACKUP_PATH=/mnt/backup/{{ db2_backup_version }}/data
 BACKUP_PATH={{ full_backup_path }}
+DB2_BACKUP_VERSION={{ db2_backup_version }}
+
+###  only for disk, DISK_BACKUP_BASE=/mnt/backup/{{ db2_backup_version }} where tar is stored
+DISK_BACKUP_BASE={{ base_backup_path }}
 
 # Finding the db2 Instance owner
 INSTOWNER=`/usr/local/bin/db2greg -dump | grep -ae "I," | grep -v "/das," | awk -F ',' '{print $4}' `
 
 instance=`whoami`
-BACKUP_BASE=/mnt/backup
 
 # Find the home directory
 instance_home=`/usr/local/bin/db2greg -dump | grep -ae "I," | grep -v "/das," | grep "${instance}" | awk -F ',' '{print $5}'| cut -d/ -f 1,2,3,4,5`
@@ -304,11 +308,11 @@ if [ ${VENDOR} = 'disk' ] ; then
 	cp ${YAML_FILE} ${BACKUP_PATH}/db2-backup-info.yaml
 	echo ""
 	echo "INFO: Creating tar archive of backup files..."
-	tar -czf ${BACKUP_PATH}/db2-${DATABASE}-backup-{{ db2_backup_version }}.tar.gz -C ${BACKUP_PATH} .
+	tar -czf ${DISK_BACKUP_BASE}/db2-${DATABASE}-backup-${DB2_BACKUP_VERSION}.tar.gz -C ${BACKUP_PATH} .
 	echo "INFO: Tar archive created successfully"
 	echo ""
 	echo "Disk Usage:"
-	df -h ${BACKUP_PATH}/*
+	du -h ${BACKUP_PATH}/*
 else
 	echo ""
 	echo "INFO: Backup vendor is not disk. Skipping tar archive creation."

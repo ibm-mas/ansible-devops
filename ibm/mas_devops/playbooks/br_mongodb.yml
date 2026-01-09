@@ -7,29 +7,26 @@
     mas_backup_dir: "{{ lookup('env', 'MAS_BACKUP_DIR') }}" # eg: /tmp/mas_backups
     mongodb_instance_name: "{{ lookup('env', 'MONGODB_INSTANCE_NAME') | default('mas-mongo-ce', true) }}"
     mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', true) }}"
-    masbr_action: "{{ lookup('env', 'MASBR_ACTION') | default('backup', true) }}" # backup or restore
+    mongodb_action: "{{ lookup('env', 'MONGODB_ACTION') | default('backup', true) }}" # backup or restore
     mongodb_provider: "community" # only community is supported currently
     mas_app_id: "{{ lookup('env', 'MAS_APP_ID') }}" # Optional
-    masbr_backup_version: "{{ lookup('env', 'MASBR_BACKUP_VERSION') | default('None', true)}}" # Required for restore action
-    br_skip_instance: "{{ lookup('env', 'BR_SKIP_INSTANCE') | default(false, true) }}" # set to True to skip mongodb instance backup/restore
+    mongodb_backup_version: "{{ lookup('env', 'MONGODB_BACKUP_VERSION') | default('None', true)}}" # Required for restore action
+    br_skip_instance: "{{ lookup('env', 'BR_SKIP_INSTANCE') | default(true, true) }}" # set to false for mongodb instance backup/restore
 
   pre_tasks:
-    - name: "Fail if masbr_action is not set to backup|restore"
+    - name: "Fail if mongodb_action is not set to backup|restore"
       assert:
-        that: masbr_action in ["backup", "restore"]
-        fail_msg: "masbr_action is required and must be set to 'backup' or 'restore'"
+        that: mongodb_action in ["backup", "restore"]
+        fail_msg: "mongodb_action is required and must be set to 'backup' or 'restore'"
 
     - name: "Fail if require variables for Mongodb backup/restore are not provided"
       ibm.mas_devops.verify_backup_restore_vars:
         mas_instance_id: "{{ mas_instance_id }}"
         mas_backup_dir: "{{ mas_backup_dir }}"
         mongodb_instance_name: "{{ mongodb_instance_name }}"
-        mongodb_backup_version: "{{ masbr_backup_version }}"
-        action: "{{ masbr_action }}"
+        mongodb_backup_version: "{{ mongodb_backup_version }}"
+        action: "{{ mongodb_action }}"
         component: "mongodb"
 
   roles:
     - role: ibm.mas_devops.mongodb
-      vars:
-        mongodb_action: "{{ masbr_action }}"
-        mongodb_backup_version: "{{ masbr_backup_version }}"

@@ -37,80 +37,77 @@
 
 # Prepare shell scripts and transfer to mongo pod
 # -----------------------------------------------------------------------------
-- block:
-  - name: Create create-role-user.sh script in local /tmp
-    ansible.builtin.template:
-      src: create-role-user.sh.j2
-      dest: /tmp/create-role-user.sh
-      mode: '777'
+- name: Create create-role-user.sh script in local /tmp
+  ansible.builtin.template:
+    src: create-role-user.sh.j2
+    dest: /tmp/create-role-user.sh
+    mode: '777'
 
-  - name: Create database-backup.sh script in local /tmp
-    ansible.builtin.template:
-      src: database-backup.sh.j2
-      dest: /tmp/database-backup.sh
-      mode: '777'
+- name: Create database-backup.sh script in local /tmp
+  ansible.builtin.template:
+    src: database-backup.sh.j2
+    dest: /tmp/database-backup.sh
+    mode: '777'
 
-  - name: Copy the create-role-user.sh script into the mongodb pod
-    shell: "oc cp /tmp/create-role-user.sh {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/create-role-user.sh -c mongod"
-    register: copy_result
-    retries: 2
-    delay: 15 # seconds
-    until: copy_result.rc == 0
+- name: Copy the create-role-user.sh script into the mongodb pod
+  shell: "oc cp --retries=50 /tmp/create-role-user.sh {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/create-role-user.sh -c mongod"
+  register: copy_result
 
-  - name: Copy the database-backup.sh script into the mongodb pod
-    shell: "oc cp /tmp/database-backup.sh {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/database-backup.sh -c mongod"
-    register: copy_result
-    retries: 2
-    delay: 15 # seconds
-    until: copy_result.rc == 0
+- name: Copy the database-backup.sh script into the mongodb pod
+  shell: "oc cp --retries=50 /tmp/database-backup.sh {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/database-backup.sh -c mongod"
+  register: copy_result
 
 # The log file will also be available inside the pod /tmp/create-role-user.log
 - name: Exec into mongo pod and run create-role-user.sh to setup backup role and user in Mongodb.
   shell: |
-    oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -- bash /tmp/create-role-user.sh
+    oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -c mongod -- bash /tmp/create-role-user.sh
   register: create_roleuser_output
-  ignore_errors: true
-  retries: 1
-  delay: 10 # seconds
-  until:
-    - create_roleuser_output.rc == 0
-    - create_roleuser_output.stdout | regex_search('ROLEUSERstatus-SUCCESS', multiline=True)
+
+- name: "Assert Create role user"
+  assert:
+    that:
+      - create_roleuser_output.rc == 0
+      - create_roleuser_output.stdout | regex_search('ROLEUSERstatus-SUCCESS', multiline=True)
+    fail_msg: "Failed to create role and user for restore"
 
 - name: "Debug create-role-user logs"
   debug:
     msg: "{{ create_roleuser_output.stdout_lines }}"
 
-- name: Exec into mongo pod and run database-backup.sh to backup databases.
-  shell: |
-    oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -- bash /tmp/database-backup.sh
-  register: database_backup_output
-  ignore_errors: true
-  retries: 1
-  delay: 10 # seconds
-  until:
-    - database_backup_output.rc == 0
-    - database_backup_output.stdout | regex_search('DATABASEBACKUPstatus-SUCCESS', multiline=True)
+- name: "Starting Mongo database backup"
+  block:
+    - name: "Running backup script in pod. Check logs in /tmp/database-backup.log in pod"
+      shell: |
+        oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -c mongod -- bash /tmp/database-backup.sh | tee /tmp/database-backup.log
+      register: database_backup_output
 
-- name: "Debug database-backup logs"
-  debug:
-    msg: "{{ database_backup_output.stdout_lines }}"
+    - name: "Assert Database backup"
+      assert:
+        that:
+          - database_backup_output.rc == 0
+          - database_backup_output.stdout | regex_search('DATABASEBACKUPstatus-SUCCESS', multiline=True)
+        fail_msg: "Failed to backup databases"
 
-- name: "copy backup files from mongo pod to local backup directory"
-  shell: "oc cp --retries=50 -c mongod {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/masbr/{{ mongodb_backup_version }}/{{ mongodb_backup_data_filename }} {{ mongodb_backup_data_path }}/{{ mongodb_backup_data_filename }}"
-  register: copy_result
-  retries: 2
-  delay: 10 # seconds
-  until: copy_result.rc == 0
-  when:
-    - database_backup_output is defined
-    - database_backup_output.rc == 0
-    - database_backup_output.stdout | regex_search('DATABASEBACKUPstatus-SUCCESS', multiline=True)
+    - name: "Debug database-backup logs"
+      debug:
+        msg: "{{ database_backup_output.stdout_lines }}"
 
-- name: "Create yaml file with mongodb backup details"
-  copy:
-    dest: "{{ mongodb_backup_data_path }}/mongodb-info.yml"
-    content: |
-      source_mongodb_backup_version: "{{ mongodb_backup_version }}"
-      source_mongodb_backup_data_filename: "{{ mongodb_backup_data_filename }}"
-      source_mongodb_version: "{{ mongodb_version }}"
+    - name: "copy backup files from mongo pod to local backup directory"
+      shell: "oc cp --retries=50 -c mongod {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/masbr/{{ mongodb_backup_version }}/{{ mongodb_backup_data_filename }} {{ mongodb_backup_data_path }}/{{ mongodb_backup_data_filename }}"
+      register: copy_result
+
+    - name: "Create yaml file with mongodb backup details"
+      copy:
+        dest: "{{ mongodb_backup_data_path }}/mongodb-info.yml"
+        content: |
+          source_mongodb_backup_version: "{{ mongodb_backup_version }}"
+          source_mongodb_backup_data_filename: "{{ mongodb_backup_data_filename }}"
+          source_mongodb_version: "{{ mongodb_version }}"
+
+  always:
+    - name: Cleanup backup files from mongo pod
+      shell: |
+        oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -c mongod -- rm -rf /tmp/masbr/{{ mongodb_backup_version }}
+      register: database_backup_cleanup_output
+
 
