@@ -117,9 +117,9 @@
     oc cp --retries=50 {{ mongodb_data_path }}/{{ mongodb_backup_data_filename }} {{ mongodb_namespace }}/{{ mongoce_pod_name }}:{{ mongodb_tmp_restore_dir }}/{{ mongodb_backup_data_filename }} -c mongod
   register: copy_backupdata_output
 
-- name: "Exec into mongo pod and run database-restore.sh to restore the database from backup."
+- name: "Running restore script in pod, check logs in /tmp/database-restore.log in pod"
   shell: |
-    oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -c mongod -- bash /tmp/database-restore.sh
+    oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -c mongod -- bash /tmp/database-restore.sh | tee /tmp/database-restore.log
   register: database_restore_output
 
 - name: Assert database restore

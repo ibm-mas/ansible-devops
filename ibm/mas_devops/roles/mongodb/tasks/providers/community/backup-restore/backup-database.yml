@@ -74,38 +74,40 @@
   debug:
     msg: "{{ create_roleuser_output.stdout_lines }}"
 
-- name: Exec into mongo pod and run database-backup.sh to backup databases.
-  shell: |
-    oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -c mongod -- bash /tmp/database-backup.sh
-  register: database_backup_output
+- name: "Starting Mongo database backup"
+  block:
+    - name: "Running backup script in pod. Check logs in /tmp/database-backup.log in pod"
+      shell: |
+        oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -c mongod -- bash /tmp/database-backup.sh | tee /tmp/database-backup.log
+      register: database_backup_output
 
-- name: "Assert Database backup"
-  assert:
-    that:
-      - database_backup_output.rc == 0
-      - database_backup_output.stdout | regex_search('DATABASEBACKUPstatus-SUCCESS', multiline=True)
-    fail_msg: "Failed to backup databases"
+    - name: "Assert Database backup"
+      assert:
+        that:
+          - database_backup_output.rc == 0
+          - database_backup_output.stdout | regex_search('DATABASEBACKUPstatus-SUCCESS', multiline=True)
+        fail_msg: "Failed to backup databases"
 
-- name: "Debug database-backup logs"
-  debug:
-    msg: "{{ database_backup_output.stdout_lines }}"
+    - name: "Debug database-backup logs"
+      debug:
+        msg: "{{ database_backup_output.stdout_lines }}"
 
-- name: "copy backup files from mongo pod to local backup directory"
-  shell: "oc cp --retries=50 -c mongod {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/masbr/{{ mongodb_backup_version }}/{{ mongodb_backup_data_filename }} {{ mongodb_backup_data_path }}/{{ mongodb_backup_data_filename }}"
-  register: copy_result
-  retries: 2
-  delay: 10 # seconds
-  until: copy_result.rc == 0
-  when:
-    - database_backup_output is defined
-    - database_backup_output.rc == 0
-    - database_backup_output.stdout | regex_search('DATABASEBACKUPstatus-SUCCESS', multiline=True)
+    - name: "copy backup files from mongo pod to local backup directory"
+      shell: "oc cp --retries=50 -c mongod {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/masbr/{{ mongodb_backup_version }}/{{ mongodb_backup_data_filename }} {{ mongodb_backup_data_path }}/{{ mongodb_backup_data_filename }}"
+      register: copy_result
 
-- name: "Create yaml file with mongodb backup details"
-  copy:
-    dest: "{{ mongodb_backup_data_path }}/mongodb-info.yml"
-    content: |
-      source_mongodb_backup_version: "{{ mongodb_backup_version }}"
-      source_mongodb_backup_data_filename: "{{ mongodb_backup_data_filename }}"
-      source_mongodb_version: "{{ mongodb_version }}"
+    - name: "Create yaml file with mongodb backup details"
+      copy:
+        dest: "{{ mongodb_backup_data_path }}/mongodb-info.yml"
+        content: |
+          source_mongodb_backup_version: "{{ mongodb_backup_version }}"
+          source_mongodb_backup_data_filename: "{{ mongodb_backup_data_filename }}"
+          source_mongodb_version: "{{ mongodb_version }}"
+
+  always:
+    - name: Cleanup backup files from mongo pod
+      shell: |
+        oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -c mongod -- rm -rf /tmp/masbr/{{ mongodb_backup_version }}
+      register: database_backup_cleanup_output
+
 
