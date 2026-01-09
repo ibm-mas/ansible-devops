@@ -76,14 +76,14 @@
       mode: '777'
 
   - name: Copy the create-role-user.sh script into the mongodb pod
-    shell: "oc cp /tmp/create-role-user.sh {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/create-role-user.sh -c mongod"
+    shell: "oc cp --retries=50 /tmp/create-role-user.sh {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/create-role-user.sh -c mongod"
     register: copy_result
     retries: 2
     delay: 15 # seconds
     until: copy_result.rc == 0
 
   - name: Copy the database-restore.sh script into the mongodb pod
-    shell: "oc cp /tmp/database-restore.sh {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/database-restore.sh -c mongod"
+    shell: "oc cp --retries=50 /tmp/database-restore.sh {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/database-restore.sh -c mongod"
     register: copy_result
     retries: 2
     delay: 15 # seconds
@@ -94,44 +94,40 @@
   shell: |
     oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -- bash /tmp/create-role-user.sh
   register: create_roleuser_output
-  ignore_errors: true
-  retries: 1
-  delay: 10 # seconds
-  until:
-    - create_roleuser_output.rc == 0
-    - create_roleuser_output.stdout | regex_search('ROLEUSERstatus-SUCCESS', multiline=True)
 
 - name: "Debug create-role-user logs"
   debug:
     msg: "{{ create_roleuser_output.stdout_lines }}"
 
+- name: "Assert Create role user"
+  assert:
+    that:
+      - create_roleuser_output.rc == 0
+      - create_roleuser_output.stdout | regex_search('ROLEUSERstatus-SUCCESS', multiline=True)
+    fail_msg: "Failed to create role and user for restore"
+
 # Create temporary restore directory
 - name: "Create temporary restore directory in mongodb pod and clean up any existing files"
   shell: |
-    oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -c mongod -- mkdir -p {{ mongodb_tmp_restore_dir }} && rm -rf {{ mongodb_tmp_restore_dir }}/*
+    oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -c mongod -- rm -rf {{ mongodb_tmp_restore_dir }} && mkdir -p {{ mongodb_tmp_restore_dir }}
   register: create_tmpdir_output
-  retries: 2
-  delay: 15 # seconds
-  until: create_tmpdir_output.rc == 0
 
 - name: "Copy backup data file into mongodb pod"
   shell: |
-    oc cp {{ mongodb_data_path }}/{{ mongodb_backup_data_filename }} {{ mongodb_namespace }}/{{ mongoce_pod_name }}:{{ mongodb_tmp_restore_dir }}/{{ mongodb_backup_data_filename }} -c mongod
+    oc cp --retries=50 {{ mongodb_data_path }}/{{ mongodb_backup_data_filename }} {{ mongodb_namespace }}/{{ mongoce_pod_name }}:{{ mongodb_tmp_restore_dir }}/{{ mongodb_backup_data_filename }} -c mongod
   register: copy_backupdata_output
-  retries: 2
-  delay: 15 # seconds
-  until: copy_backupdata_output.rc == 0
 
 - name: "Exec into mongo pod and run database-restore.sh to restore the database from backup."
   shell: |
-    oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -- bash /tmp/database-restore.sh
+    oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -c mongod -- bash /tmp/database-restore.sh
   register: database_restore_output
-  ignore_errors: true
-  retries: 1
-  delay: 10 # seconds
-  until:
-    - database_restore_output.rc == 0
-    - database_restore_output.stdout | regex_search('DATABASERESTOREstatus-SUCCESS', multiline=True)
+
+- name: Assert database restore
+  assert:
+    that:
+      - database_restore_output.rc == 0
+      - database_restore_output.stdout | regex_search('DATABASERESTOREstatus-SUCCESS', multiline=True)
+    fail_msg: "Failed to restore database from backup"
 
 - name: "Debug database-restore logs"
   debug:
