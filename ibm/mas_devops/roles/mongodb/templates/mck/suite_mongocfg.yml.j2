@@ -1,0 +1,46 @@
+---
+# Mongo credentials for MAS
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: "mongodb-mongomck-admin"
+  namespace: "mas-{{mas_instance_id}}-core"
+{% if custom_labels is defined and custom_labels.items() %}
+  labels:
+{% for key, value in custom_labels.items() %}
+    "{{ key }}": "{{ value }}"
+{% endfor %}
+{% endif %}
+data:
+  username: "{{ 'admin' | b64encode }}"
+  password: "{{ mongodb_admin_password | b64encode }}"
+---
+# Mongo configuration for MAS
+apiVersion: config.mas.ibm.com/v1
+kind: MongoCfg
+metadata:
+  name: "{{mas_instance_id}}-mongo-system"
+  namespace: "mas-{{mas_instance_id}}-core"
+  labels:
+    mas.ibm.com/configScope: system
+    mas.ibm.com/instanceId: "{{mas_instance_id}}"
+{% if custom_labels is defined and custom_labels.items() %}
+{% for key, value in custom_labels.items() %}
+    "{{ key }}": "{{ value }}"
+{% endfor %}
+{% endif %}
+spec:
+  displayName: "MongoDb Community MCK Edition in '{{ mongodb_namespace }}' namespace"
+  type: external
+  config:
+    configDb: admin
+    authMechanism: DEFAULT
+    credentials:
+      secretName: mongodb-mongo-mck-admin
+    hosts:
+      {{ mongo_hosts | indent(6) }}
+  certificates:
+    - alias: ca
+      crt: |
+        {{ mongodb_ca_pem | indent(8) }}

@@ -1,0 +1,227 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: "{{ mongodb_namespace }}"
+
+# -------------------------------------------------
+# ServiceAccount: Operator
+# -------------------------------------------------
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mongodb-kubernetes-operator
+  namespace: "{{ mongodb_namespace }}"
+
+# -------------------------------------------------
+# ServiceAccount: Database
+# -------------------------------------------------
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mongodb-database
+  namespace: "{{ mongodb_namespace }}"
+
+# -------------------------------------------------
+# ServiceAccount: AppDB
+# -------------------------------------------------
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mongodb-kubernetes-appdb
+  namespace: "{{ mongodb_namespace }}"
+
+# -------------------------------------------------
+# Namespace Role 
+# -------------------------------------------------
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mongodb-kubernetes-operator-ns
+  namespace: "{{ mongodb_namespace }}"
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - services
+      - configmaps
+      - secrets
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+
+  - apiGroups: ["apps"]
+    resources:
+      - statefulsets
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+
+# -------------------------------------------------
+# RoleBinding
+# -------------------------------------------------
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mongodb-kubernetes-operator-ns
+  namespace: "{{ mongodb_namespace }}"
+subjects:
+  - kind: ServiceAccount
+    name: mongodb-kubernetes-operator
+    namespace: "{{ mongodb_namespace }}"
+roleRef:
+  kind: Role
+  name: mongodb-kubernetes-operator-ns
+  apiGroup: rbac.authorization.k8s.io
+
+# -------------------------------------------------
+# Database Role
+# -------------------------------------------------
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mongodb-database
+  namespace: "{{ mongodb_namespace }}"
+rules:
+  - apiGroups: [""]
+    resources:
+      - secrets
+    verbs:
+      - get
+
+  - apiGroups: [""]
+    resources:
+      - pods
+    verbs:
+      - patch
+      - delete
+      - get
+
+# -------------------------------------------------
+# Database RoleBinding
+# -------------------------------------------------
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mongodb-database
+  namespace: "{{ mongodb_namespace }}"
+subjects:
+  - kind: ServiceAccount
+    name: mongodb-database
+    namespace: "{{ mongodb_namespace }}"
+roleRef:
+  kind: Role
+  name: mongodb-database
+  apiGroup: rbac.authorization.k8s.io
+
+# -------------------------------------------------
+# ClusterRole 
+# -------------------------------------------------
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: mongodb-kubernetes-operator
+rules:
+  # MongoDBCommunity CRD
+  - apiGroups:
+      - mongodbcommunity.mongodb.com
+    resources:
+      - mongodbcommunity
+      - mongodbcommunity/status
+      - mongodbcommunity/finalizers
+    verbs:
+      - get
+      - list
+      - watch
+      - patch
+      - update
+
+  # MongoDBSearch CRD
+  - apiGroups:
+      - mongodb.com
+    resources:
+      - mongodbsearch
+      - mongodbsearch/status
+    verbs:
+      - get
+      - list
+      - watch
+
+# -------------------------------------------------
+# ClusterRoleBinding 
+# -------------------------------------------------
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: mongodb-kubernetes-operator
+subjects:
+  - kind: ServiceAccount
+    name: mongodb-kubernetes-operator
+    namespace: "{{ mongodb_namespace }}"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mongodb-kubernetes-operator
+
+# -------------------------------------------------
+# Role: AppDB secrets access
+# -------------------------------------------------
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mongodb-kubernetes-appdb-secrets
+  namespace: "{{ mongodb_namespace }}"
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - get
+      - patch
+
+# -------------------------------------------------
+# RoleBinding: AppDB secrets access
+# -------------------------------------------------
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mongodb-kubernetes-appdb-secrets
+  namespace: "{{ mongodb_namespace }}"
+subjects:
+  - kind: ServiceAccount
+    name: mongodb-kubernetes-appdb
+    namespace: "{{ mongodb_namespace }}"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: mongodb-kubernetes-appdb-secrets
+
