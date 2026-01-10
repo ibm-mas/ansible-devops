@@ -1,0 +1,70 @@
+---
+# 1. Debug Properties
+# -----------------------------------------------------------------------------
+- name: "mck : uninstall : Debug properties"
+  debug:
+    msg:
+      - "MongoDb namespace ............ {{ mongodb_namespace }}"
+
+# 2. Delete MongoDBCommunity (mas-mongo-ce)
+# -----------------------------------------------------------------------------
+- name: "mck : uninstall : Delete the MongoDB MCK CR"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: mongodbcommunity.mongodb.com/v1
+    kind: MongoDBCommunity
+    namespace: "{{ mongodb_namespace }}"
+    name: mas-mongo-mck
+
+# 3. Wait for StatefulSet to shut down
+# -----------------------------------------------------------------------------
+- name: "mck: uninstall : Wait for all sts to wind down"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: StatefulSet
+    namespace: "{{ mongodb_namespace }}"
+  register: stss
+  until:
+    - stss.resources is defined
+    - stss.resources | length == 0
+  retries: 30
+  delay: 10 # seconds
+
+# 3. Verify that MongoDBCommunity CR is gone
+# -----------------------------------------------------------------------------
+- name: "mck : uninstall : Look for the MongoDB MCK CR after deletion"
+  kubernetes.core.k8s_info:
+    api_version: mongodbcommunity.mongodb.com/v1
+    kind: MongoDBCommunity
+    namespace: "{{ mongodb_namespace }}"
+    name: mas-mongo-mck
+  register: verify_mongo_delete
+
+- name: "uninstall : Verify the MongoDBCommunity CR was deleted"
+  assert:
+    that:
+      - verify_mongo_delete.resources is defined
+      - verify_mongo_delete.resources | length == 0
+
+# 4. Delete Namespace
+# -----------------------------------------------------------------------------
+- name: "mck : uninstall : Delete Mongo Namespace"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Namespace
+    name: "{{ mongodb_namespace }}"
+
+# 5. Verify Namespace is gone
+# -----------------------------------------------------------------------------
+- name: "community : uninstall : Wait for namespace to be deleted"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ mongodb_namespace }}"
+  register: namespace_check
+  until:
+    - namespace_check.resources is defined
+    - namespace_check.resources | length == 0
+  retries: 30
+  delay: 10 # seconds
