@@ -1,0 +1,53 @@
+---
+# 1. Check for existing MongoDb MCK install
+# -----------------------------------------------------------------------------
+- name: "mck: install : Lookup existing mongo install"
+  include_tasks: tasks/providers/mck/check-mongo-exists.yml
+
+# 2. Load default storage classes (if not provided by the user and not an update)
+# -----------------------------------------------------------------------------
+- name: Use chosen (or default) storage class
+  when: existing_mongo_storage_class is not defined
+  include_tasks: tasks/providers/mck/determine-storage-classes.yml
+
+# Note: This will not override a storage class provided explicitly, thus allowing us
+# to respect the chosen storage class (by failing the assertion that follows this task)
+- name: Use existing storage class
+  when:
+    - existing_mongo_storage_class is defined
+    - mongodb_storage_class == ""
+  set_fact:
+    mongodb_storage_class: "{{ existing_mongo_storage_class }}"
+
+# If the user provided a storage class explicitly and it does not match what
+# is currently in use, then we will fail because this role cannot change
+# the storage class used by an existing MongoDb installation
+- name: Validate existing and chosen storage classes match
+  when: existing_mongo_storage_class is defined
+  assert:
+    that: mongodb_storage_class == existing_mongo_storage_class
+    fail_msg:
+      - "The selected storage class {{ mongodb_storage_class }} does not match the existing storage class in use {{ existing_mongo_storage_class }}"
+      - "This role is unable to modify the storage used by an existing MongoDb installation"
+
+# Also, override default/selected storage capacity based on what is currently selected
+# The storage capacity used in the statefulset can not be changed
+- name: Use existing storage capacity
+  when:
+    - existing_mongodb_storage_capacity_data is defined
+    - existing_mongodb_storage_capacity_logs is defined
+  set_fact:
+    mongodb_storage_capacity_data: "{{ existing_mongodb_storage_capacity_data }}"
+    mongodb_storage_capacity_logs: "{{ existing_mongodb_storage_capacity_logs }}"
+
+
+
+# 3. Check for existing MongoDb MCK install (again)
+# -----------------------------------------------------------------------------
+- name: "mck : install : Lookup existing mongo mck install (again)"
+  include_tasks: tasks/providers/community/check-mongo-exists.yml
+
+# 5. Install the selected MongoDb MCK version
+# -----------------------------------------------------------------------------
+- name: "mck : install : Install/upgrade to chosen mongo mck version"
+  include_tasks: tasks/providers/mck/install-mongo.yml
