@@ -1,0 +1,50 @@
+---
+# Check if MongoDB exists
+- name: "mck : install : Check if mongo exists"
+  include_tasks: tasks/providers/mck/check-mongo-exists.yml
+
+
+# Debug – Print upgrade context
+- name: "mck : validate-upgrade : debug"
+  debug:
+    msg:
+      - "Minor mongo version ....................... {{ existing_mongo_minor_version }}"
+      - "Existing MongoDb version .................. {{ existing_mongo_version }}"
+      - "Compatible Target MongoDb version ......... {{ mongo_compatible_target_version[existing_mongo_version] }}"
+      - "Target MongoDb version .................... {{ target_mongodb_version }}"
+
+# Only allow Mongo upgrades if existing instance is in Running state
+- name: "Assert existing Mongo is running"
+  assert:
+    that: existing_mongodb.resources[0].status.phase == 'Running'
+    fail_msg:
+      - "Unable to upgrade existing Mongo instance to {{ target_mongodb_version }} in namespace {{ mongodb_namespace }} because it is not in 'Running' state."
+      - "Current Mongo Status: {{ existing_mongodb.resources[0].status.phase }}"
+
+# Only allow Mongo upgrades, prevent downgrades from happening
+- name: Assert no Mongo downgrade operations
+  assert:
+    that: "existing_mongo_version is version_compare(target_mongodb_version, '<=')"
+    fail_msg: "Mongo downgrade is not allowed! Current mongo version: {{ existing_mongo_version }}, target mongo version {{ target_mongodb_version }}"
+
+# For users installed or upgraded to mongo v4.4 using old CLI didn't have featureCompatibilityVersion set correctly.
+- name: Assert featureCompatibilityVersion is present and equal to existing version.
+  assert:
+    that:
+      - existing_mongodb.resources[0].spec.featureCompatibilityVersion is defined and existing_mongodb.resources[0].spec.featureCompatibilityVersion != ""
+      - existing_mongodb.resources[0].spec.featureCompatibilityVersion == existing_mongo_minor_version
+    fail_msg: "Mongo upgrade is not allowed due to either missing featureCompatibilityVersion field or wrong version in featureCompatibilityVersion field in MongoDBCommunity CR"
+  when: mongodb_v5_upgrade or mongodb_v6_upgrade or mongodb_v7_upgrade or mongodb_v8_upgrade
+
+# Only allow Mongo upgrades to be next compatible minor version
+- name: "Assert Mongo upgrade compatibility: {{ target_mongodb_version }} must be in {{ mongo_compatible_target_version[existing_mongo_version] }}"
+  when: existing_mongo_minor_version != '4.2' # will skip this assertion if mongo v4.2 as we'll assist in the auto upgrade to v4.4 and v5 in a single run
+  assert:
+    that: target_mongodb_version in mongo_compatible_target_version[existing_mongo_version]
+    fail_msg:
+      - "Unsupported MongoDB upgrade detected!"
+      - "Current MongoDB version: {{ existing_mongo_version }}"
+      - "Target MongoDB version: {{ target_mongodb_version }}"
+      - "Supported upgrade targets: {{ mongo_compatible_target_version[existing_mongo_version] }}"
+
+
