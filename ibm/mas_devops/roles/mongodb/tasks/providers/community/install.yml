@@ -2,13 +2,13 @@
 # Detect if this is an install-from-backup scenario
 - name: "community : install : Check for backup restore variables"
   set_fact:
-    restore_from_backup: "{{ (mongodb_backup_version is defined and mongodb_backup_version != '' and mongodb_backup_version != 'None') and (mas_backup_dir is defined and mas_backup_dir != '') }}"
+    install_from_backup: "{{ (mongodb_backup_version is defined and mongodb_backup_version != '' and mongodb_backup_version != 'None') and (mas_backup_dir is defined and mas_backup_dir != '') }}"
 
 # Restore MongoDB instance from backup if needed
 - name: "community : install : Restore MongoDB instance from backup"
   when:
-    - restore_from_backup | bool
-  include_tasks: tasks/providers/community/backup-restore/install-from-backup.yml
+    - install_from_backup | bool
+  include_tasks: tasks/providers/community/backup-restore/get-backup-info.yml
 
 - name: "community : install : Check for existing mongodb instance and install new mongo instance"
   block:
@@ -69,20 +69,20 @@
     - name: "community : install : Lookup existing mongo install (again)"
       include_tasks: tasks/providers/community/check-mongo-exists.yml
   when:
-    - restore_from_backup is defined
-    - not restore_from_backup | bool
+    - install_from_backup is defined
+    - not install_from_backup | bool
 
 # Install MongoDB
 # -----------------------------------------------------------------------------
 - name: "community : install : Install/upgrade to chosen mongo version"
   include_tasks: tasks/providers/community/install-mongo.yml
   when:
-    - skip_mongoce_install is not defined or not skip_mongoce_install | bool # this is a flag set in backup-restore/install-from-backup.yml when mongoce instance exist and running.
+    - skip_mongoce_install is not defined or not skip_mongoce_install # this is a flag set in backup-restore/get-backup-info.yml when mongoce instance exist and running.
 
 # Restore MongoDB database from backup
 # -----------------------------------------------------------------------------
 - name: "community : install : Restore MongoDB database from backup"
   include_tasks: tasks/providers/community/restore-database.yml
   when:
-    - restore_from_backup is defined
-    - restore_from_backup | bool
+    - install_from_backup is defined
+    - install_from_backup | bool
