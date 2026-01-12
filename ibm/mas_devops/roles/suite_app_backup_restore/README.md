@@ -1,8 +1,7 @@
-Backup and Restore MAS Applications
-===============================================================================
+# suite_app_backup_restore
 
-Overview
--------------------------------------------------------------------------------
+## Overview
+
 This role supports backing up and restoring the data for below MAS applications:
 
 - `manage`: Manage namespace resources, persistent volume data (e.g. attachments)
@@ -12,83 +11,88 @@ This role supports backing up and restoring the data for below MAS applications:
 - `optimizer`: Optimizer namespace resources
 - `visualinspection`: Visual Inspection namespace resources, persistent volume data (e.g. image datasets, models)
 
-
 Supports creating on-demand or scheduled backup jobs for taking full or incremental backups, and optionally creating Kubernetes jobs for running the backup/restore process.
 
 !!! important
     An application backup can only be restored to an instance with the same MAS instance ID.
 
+## Role Variables
 
-Role Variables - General
--------------------------------------------------------------------------------
-### masbr_action
+### General Variables
+
+#### masbr_action
 Set `backup` or `restore` to indicate the role to create a backup or restore job.
 
 - **Required**
 - Environment Variable: `MAS_BR_ACTION`
 - Default: None
 
-### mas_app_id
+#### mas_app_id
 Defines the MAS application ID (`manage`, `iot`, `monitor`, `health`, `optimizer`, or `visualinspection`) for the backup or restore action.
 
 - **Required**
 - Environment Variable: `MAS_APP_ID`
 - Default: None
 
-### mas_instance_id
+#### mas_instance_id
 Defines the MAS instance ID for the backup or restore action.
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default: None
 
-### mas_workspace_id
+#### mas_workspace_id
 Defines the MAS workspace ID for the backup or restore action.
 
 - **Required**
 - Environment Variable: `MAS_WORKSPACE_ID`
 - Default: None
 
-### masbr_confirm_cluster
-Set `true` or `false` to indicate the role whether to confirm the currently connected cluster before running the backup or restore job.
-
-- Optional
-- Environment Variable: `MASBR_CONFIRM_CLUSTER`
-- Default: `false`
-
-### masbr_copy_timeout_sec
-Set the transfer files timeout in seconds.
-
-- Optional
-- Environment Variable: `MASBR_COPY_TIMEOUT_SEC`
-- Default: `43200` (12 hours)
-
-### masbr_job_timezone
-Set the [time zone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) for creating scheduled backup job. If not set a value for this variable, this role will use UTC time zone when creating a CronJob for running scheduled backup job.
-
-- Optional
-- Environment Variable: `MASBR_JOB_TIMEZONE`
-- Default: None
-
-### masbr_storage_local_folder
+#### masbr_storage_local_folder
 Set local path to save the backup files.
 
 - **Required**
 - Environment Variable: `MASBR_STORAGE_LOCAL_FOLDER`
 - Default: None
 
+#### masbr_confirm_cluster
+Set `true` or `false` to indicate the role whether to confirm the currently connected cluster before running the backup or restore job.
 
-Role Variables - Backup
--------------------------------------------------------------------------------
-### masbr_backup_type
+- **Optional**
+- Environment Variable: `MASBR_CONFIRM_CLUSTER`
+- Default: `false`
+
+#### masbr_copy_timeout_sec
+Set the transfer files timeout in seconds.
+
+- **Optional**
+- Environment Variable: `MASBR_COPY_TIMEOUT_SEC`
+- Default: `43200` (12 hours)
+
+#### masbr_job_timezone
+Set the [time zone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) for creating scheduled backup job. If not set a value for this variable, this role will use UTC time zone when creating a CronJob for running scheduled backup job.
+
+- **Optional**
+- Environment Variable: `MASBR_JOB_TIMEZONE`
+- Default: None
+
+### Backup Variables
+
+#### masbr_backup_type
 Set `full` or `incr` to indicate the role to create a full backup or incremental backup. Only supports creating incremental backup for persistent volume data, this role will always create a full backup for other type of data regardless of whether this variable be set to `incr`.
 
-- Optional
+- **Optional**
 - Environment Variable: `MASBR_BACKUP_TYPE`
 - Default: `full`
 
-### masbr_backup_data
-Set the types of data to be backed up, multiple data types are separated by commas (e.g. `namespace,pv`). If not set a value for this variable, this role will back up all types of data that supported by the specified MAS application. The data types supported by each MAS applications:
+#### masbr_backup_data
+Set the types of data to be backed up, multiple data types are separated by commas (e.g. `namespace,pv`). If not set a value for this variable, this role will back up all types of data that supported by the specified MAS application.
+
+- **Optional**
+- Environment Variable: `MASBR_BACKUP_DATA`
+- Default: None
+
+The data types supported by each MAS applications:
 
 | MAS App Name      | MAS App ID          | Data types          |
 | ----------------- | ------------------- | ------------------- |
@@ -99,36 +103,37 @@ Set the types of data to be backed up, multiple data types are separated by comm
 | Optimizer         | `optimizer`         | `namespace`         |
 | Visual Inspection | `visualinspection`  | `namespace`, `pv`   |
 
-- Optional
-- Environment Variable: `MASBR_BACKUP_DATA`
-- Default: None
-
-### masbr_backup_from_version
+#### masbr_backup_from_version
 Set the full backup version to use in the incremental backup, this will be in the format of a `YYYMMDDHHMMSS` timestamp (e.g. `20240621021316`). This variable is only valid when `MASBR_BACKUP_TYPE=incr`. If not set a value for this variable, this role will try to find the latest full backup version from the specified storage location.
 
-- Optional
+- **Optional**
 - Environment Variable: `MASBR_BACKUP_FROM_VERSION`
 - Default: None
 
-### masbr_backup_schedule
-Set [Cron expression](https://en.wikipedia.org/wiki/Cron) to create a scheduled backup. If not set a value for this varialbe, this role will create an on-demand backup.
+#### masbr_backup_schedule
+Set [Cron expression](https://en.wikipedia.org/wiki/Cron) to create a scheduled backup. If not set a value for this variable, this role will create an on-demand backup.
 
-- Optional
+- **Optional**
 - Environment Variable: `MASBR_BACKUP_SCHEDULE`
 - Default: None
 
+### Restore Variables
 
-Role Variables - Restore
--------------------------------------------------------------------------------
-### masbr_restore_from_version
-Set the backup version to use in the restore, this will be in the format of a `YYYMMDDHHMMSS` timestamp (e.g. `20240621021316`)
+#### masbr_restore_from_version
+Set the backup version to use in the restore, this will be in the format of a `YYYMMDDHHMMSS` timestamp (e.g. `20240621021316`).
 
 - **Required** only when `MAS_BR_ACTION=restore`
 - Environment Variable: `MASBR_RESTORE_FROM_VERSION`
 - Default: None
 
-### masbr_restore_data
-Set the types of data to be restored, multiple data types are separated by commas (e.g. `namespace,pv`). If not set a value for this variable, this role will restore all types of data that supported by the specified MAS application. The data types supported by each MAS applications:
+#### masbr_restore_data
+Set the types of data to be restored, multiple data types are separated by commas (e.g. `namespace,pv`). If not set a value for this variable, this role will restore all types of data that supported by the specified MAS application.
+
+- **Optional**
+- Environment Variable: `MASBR_RESTORE_DATA`
+- Default: None
+
+The data types supported by each MAS applications:
 
 | MAS App Name      | MAS App ID          | Data types          |
 | ----------------- | ------------------- | ------------------- |
@@ -139,18 +144,18 @@ Set the types of data to be restored, multiple data types are separated by comma
 | Optimizer         | `optimizer`         | `namespace`         |
 | Visual Inspection | `visualinspection`  | `namespace`, `pv`   |
 
-- Optional
-- Environment Variable: `MASBR_RESTORE_DATA`
-- Default: None
+### Manage Variables
 
-
-Role Variables - Manage
--------------------------------------------------------------------------------
-### masbr_manage_pvc_paths
+#### masbr_manage_pvc_paths
 Set the Manage PVC paths to use in backup and restore. The PVC path is in the format of `<pvcName>:<mountPath>/<subPath>`. Multiple PVC paths are separated by commas (e.g. `manage-doclinks1-pvc:/mnt/doclinks1/attachments,manage-doclinks2-pvc:/mnt/doclinks2`).
 
+- **Optional**
+- Environment Variable: `MASBR_MANAGE_PVC_PATHS`
+- Default: None
+
 The `<pvcName>` and `<mountPath>` are defined in the `ManageWorkspace` CRD instance `spec.settings.deployment.persistentVolumes`:
-```
+
+```yaml
 persistentVolumes:
   - accessModes:
       - ReadWriteMany
@@ -168,16 +173,9 @@ persistentVolumes:
     volumeName: ''
 ```
 
-If not set a value for this variable, this role will not backup and restore persistent valumne data for Manage.
+If not set a value for this variable, this role will not backup and restore persistent volume data for Manage.
 
-
-- Optional
-- Environment Variable: `MASBR_MANAGE_PVC_PATHS`
-- Default: None
-
-
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 ### Backup
 Backup Manage attachments, note that this does not include backup of any data in Db2, see the `backup` action in the [db2](db2.md) role.
@@ -216,8 +214,6 @@ Restore Manage attachments, note that this does not include restore of any data 
     - ibm.mas_devops.suite_app_backup_restore
 ```
 
-
-License
--------------------------------------------------------------------------------
+## License
 
 EPL-2.0

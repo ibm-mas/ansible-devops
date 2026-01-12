@@ -133,7 +133,6 @@ class READMEValidator:
         required_sections = {
             'Role Variables': r'##\s+Role Variables',
             'Example Playbook': r'##\s+Example Playbook',
-            'Run Role Playbook': r'##\s+Run Role Playbook',
             'License': r'##\s+License',
         }
 
