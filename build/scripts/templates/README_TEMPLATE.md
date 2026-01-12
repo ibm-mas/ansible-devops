@@ -66,8 +66,8 @@ After installing the Ansible Collection you can include this role in your own cu
     - ibm.mas_devops.role_name
 ```
 
-## Run Role Playbook
-After installing the Ansible Collection you can easily run the role standalone using the `run_role` playbook provided.
+## Run Role Playbook (Optional)
+After installing the Ansible Collection you can easily run the role standalone using the `run_role` playbook provided. This section is optional and can be omitted if not applicable.
 
 ```bash
 export ENV_VAR_NAME=value
