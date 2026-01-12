@@ -1,68 +1,83 @@
-nvidia_gpu
-==========
+# nvidia_gpu
+This role installs and configures the NVIDIA GPU Operator on OpenShift clusters to enable GPU workloads. The GPU Operator manages the lifecycle of NVIDIA software components required to run GPU-accelerated applications.
 
-This role installs the **NVIDIA Graphical Processing Unit (GPU)** operator and its prerequisite **Node Feature Discovery (NFD)** operator in an IBM Cloud Openshift cluster console. The role first installs the NFD operator and continues with the final step to install the NVIDIA GPU Operator. The NFD Operator is installed using the Red Hat Operators catalog source and the GPU operator is installed using the Certified Operators catalog source.
+The role automatically installs the Node Feature Discovery (NFD) Operator as a prerequisite, then deploys the NVIDIA GPU Operator and creates a ClusterPolicy to configure GPU support across the cluster. This is required for applications like Maximo Visual Inspection that need GPU acceleration.
 
+## Prerequisites
+- OpenShift cluster with GPU-enabled worker nodes
+- Cluster administrator access
+- GPU-capable hardware (NVIDIA GPUs) available in the cluster
 
-Role Variables
---------------
+## Role Variables
 
-### nfd_namespace
-The namespace where the node feature discovery operator will be deployed.
+### GPU Operator Variables
 
-- Environment Variable: `NFD_NAMESPACE`
-- Default Value: `openshift-nfd`
+#### gpu_namespace
+The namespace where the NVIDIA GPU Operator will be installed.
 
-### nfd_channel
-The channel to subscribe to for the nfd operator installation and updates. Available channels may be found in the package manifest of nfd operator in openshift.
-
-- Environment Variable: `NFD_CHANNEL`
-- Default Value: `stable`
-
-### gpu_namespace
-The namespace where the NVIDIA GPU operator will be deployed. For version 1.8.x, use of single namespace is not supported, therefore use `openshift-operators`.
-
+- **Optional**
 - Environment Variable: `GPU_NAMESPACE`
 - Default Value: `nvidia-gpu-operator`
 
-### gpu_channel
-The channel to subscribe to for the gpu operator installation and updates. Available channels may be found in the package manifest of gpu-operator-certified operator in openshift.
+#### gpu_channel
+The subscription channel for the GPU Operator. This determines which version of the operator will be installed.
 
+- **Optional**
 - Environment Variable: `GPU_CHANNEL`
 - Default Value: `v24.9`
 
-### gpu_driver_version
-By default, it will pull the latest version and the environment variable is not needed. 
-If a specific version is needed (due to OS version compatibilities), specify the following environment variable.
+#### gpu_driver_version
+Specific NVIDIA driver version to install. If not specified, the latest compatible driver version will be used.
 
+- **Optional**
 - Environment Variable: `GPU_DRIVER_VERSION`
-- Default Value: N/A
+- Default Value: None (uses latest)
 
-See the attached links for more information and to decide which driver version to use.
-https://catalog.ngc.nvidia.com/orgs/nvidia/containers/driver/tags
+#### gpu_driver_repository_path
+The container registry path for NVIDIA driver images.
 
-### gpu_driver_repository_path
-The gpu driver repository. If using a different repository, you can set the value for this repo. We only support public repositories at the moment.
-
+- **Optional**
 - Environment Variable: `GPU_DRIVER_REPOSITORY_PATH`
 - Default Value: `nvcr.io/nvidia`
 
-For more information on the NVIDIA GPU and NFD operators, visit https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/openshift/install-gpu-ocp.html
+### Node Feature Discovery Variables
 
+#### nfd_namespace
+The namespace where the Node Feature Discovery Operator will be installed. NFD is required by the GPU Operator to detect GPU hardware.
 
-Example Playbook
-----------------
+- **Optional**
+- Environment Variable: `NFD_NAMESPACE`
+- Default Value: `openshift-nfd`
 
+#### nfd_channel
+The subscription channel for the Node Feature Discovery Operator.
+
+- **Optional**
+- Environment Variable: `NFD_CHANNEL`
+- Default Value: `stable`
+
+## Example Playbook
+After installing the Ansible Collection you can include this role in your own custom playbooks.
 
 ```yaml
 - hosts: localhost
-  any_errors_fatal: true
+  vars:
+    gpu_namespace: nvidia-gpu-operator
+    gpu_channel: v24.9
+    nfd_namespace: openshift-nfd
   roles:
     - ibm.mas_devops.nvidia_gpu
 ```
 
+## Run Role Playbook
+After installing the Ansible Collection you can easily run the role standalone using the `run_role` playbook provided.
 
-License
--------
+```bash
+export GPU_NAMESPACE=nvidia-gpu-operator
+export GPU_CHANNEL=v24.9
+export NFD_NAMESPACE=openshift-nfd
+ROLE_NAME=nvidia_gpu ansible-playbook ibm.mas_devops.run_role
+```
 
+## License
 EPL-2.0
