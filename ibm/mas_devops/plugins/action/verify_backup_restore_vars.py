@@ -9,7 +9,7 @@ class ActionModule(ActionBase):
     REQUIRED = {
         "mongodb": {
             "backup":  ["mongodb_instance_name", "mas_backup_dir", "mas_instance_id"], # mongodb_instance_name has a default value
-            "restore": ["mongodb_instance_name", "mas_backup_dir", "mongodb_backup_version"]
+            "restore": ["mas_backup_dir", "mongodb_backup_version"]
         },
         "db2": {
             "backup":  ["db2_instance_name", "db2_namespace", "mas_backup_dir", "mas_instance_id"],

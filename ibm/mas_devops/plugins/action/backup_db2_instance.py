@@ -106,11 +106,11 @@ def processUserCredentialsSecret(dynClient: DynamicClient, mas_instance_id: str,
     return False
 
 def backupCertsResources(dynClient: DynamicClient, namespace: str, kind: str, api_version: str, backup_path: str, name: str, all_discovered_secrets=None):
-    backed_up, not_found, failed, discovered_secrets = backupResources(dynClient=dynClient, namespace=namespace, kind="Issuer", name=name, api_version="cert-manager.io/v1", backup_path=backup_path)
+    backed_up, not_found, failed, discovered_secrets = backupResources(dynClient=dynClient, namespace=namespace, kind=kind, name=name, api_version=api_version, backup_path=backup_path)
     if backed_up > 0:
-        if discovered_secrets:
-            if all_discovered_secrets:
-                all_discovered_secrets.update(discovered_secrets)
+        if discovered_secrets and all_discovered_secrets!=None:
+            display.v(f"Discovered secret(s) '{discovered_secrets}' in {kind}")
+            all_discovered_secrets.update(discovered_secrets)
         display.v(f"Backed up resource '{kind}' '{name}'")
     elif not_found > 0:
         display.v(f"Resource '{kind}' '{name}' is not found.")
@@ -156,7 +156,7 @@ class ActionModule(ActionBase):
         db2_backup_resource_path = f"{db2_backup_path}/resources"
         db2_backup_secrets_path = f"{db2_backup_resource_path}/secrets"
         db2_backup_issuers_path = f"{db2_backup_resource_path}/issuers"
-        db2_backup_certs_path = f"{db2_backup_resource_path}/certs"
+        db2_backup_certs_path = f"{db2_backup_resource_path}/certificates"
 
         # Create backup directory if it does not exist
         createBackupDirectories([db2_backup_path, db2_backup_resource_path, db2_backup_secrets_path, db2_backup_issuers_path, db2_backup_certs_path])
@@ -217,6 +217,7 @@ class ActionModule(ActionBase):
 
         if len(all_discovered_secrets)>0:
             # Backup discovered secrets from Issuers/certs
+            display.v(f"Backing up the discovered secrets from Issuers/certs - {all_discovered_secrets}")
             for secret in all_discovered_secrets:
                 backed_up, not_found, failed, discovered_secrets = backupResources(dynClient=dynClient, namespace=db2_namespace, kind="Secret", name=secret, api_version="v1", backup_path=db2_backup_secrets_path)
                 if failed > 0:
