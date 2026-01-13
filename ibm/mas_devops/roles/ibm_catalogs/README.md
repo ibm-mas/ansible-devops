@@ -5,24 +5,29 @@ Additional, for IBM employees only, the pre-release development operator catalog
 
 
 ## Role Variables
-### mas_catalog_version
+
+### General Variables
+
+#### mas_catalog_version
 Version of the IBM Maximo Operator Catalog to install.
 
-- Optional
+- **Optional**
 - Environment Variable: `MAS_CATALOG_VERSION`
 - Default Value: `@@MAS_LATEST_CATALOG@@`
 
-### artifactory_username
-Use to enable the install of development catalog sources for pre-release installation.
+### Development Variables
 
-- Optional
+#### artifactory_username
+Username for Artifactory access to enable installation of development catalog sources for pre-release installation. For IBM employees only.
+
+- **Optional**
 - Environment Variable: `ARTIFACTORY_USERNAME`
 - Default Value: None
 
-### artifactory_token
-Use to enable the install of development catalog sources for pre-release installation.
+#### artifactory_token
+API token for Artifactory access to enable installation of development catalog sources for pre-release installation. For IBM employees only.
 
-- Optional
+- **Optional**
 - Environment Variable: `ARTIFACTORY_TOKEN`
 - Default Value: None
 

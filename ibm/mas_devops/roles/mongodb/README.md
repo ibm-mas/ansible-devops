@@ -1,5 +1,4 @@
-mongodb
-===============================================================================
+# mongodb
 
 This role currently supports provisioning of mongodb in three different providers:
  - community
@@ -14,8 +13,7 @@ If the selected provider is `community` then the [MongoDB Community Kubernetes O
     This file can be directly applied using `oc apply -f $MAS_CONFIG_DIR/mongocfg-mongoce-system.yaml` or used in conjunction with the [suite_config](suite_config.md) role.
 
 
-Prerequisites
--------------------------------------------------------------------------------
+## Prerequisites
 To run this role with providers as `ibm` or `aws` you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
 Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role when provider is either `ibm` or `aws`.
 
@@ -24,31 +22,36 @@ To run the `docdb_secret_rotate` MONGODB_ACTION when the provider is `aws` you m
 This role will install a GrafanaDashboard used for monitoring the MongoDB instance when the provided is `community` and you have run the [grafana role](https://ibm-mas.github.io/ansible-devops/roles/grafana/) previously. If you did not run the [grafana role](https://ibm-mas.github.io/ansible-devops/roles/grafana/) then the GrafanaDashboard won't be installed.
 
 
-Role Variables - Common
--------------------------------------------------------------------------------
-### mas_instance_id
+## Role Variables
+
+### Common Variables
+
+#### mas_instance_id
 The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a MongoCfg template.
 
+- **Optional**
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default Value: None
 
-### mas_config_dir
+#### mas_config_dir
 Local directory to save the generated MongoCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Mongo cluster, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a MongoCfg template.
 
+- **Optional**
 - Environment Variable: `MAS_CONFIG_DIR`
 - Default Value: None
 
-### mongodb_provider
+#### mongodb_provider
 MongoDB provider, choose whether to use the MongoDb Community Edition Operator (`community`), IBM Cloud Database for MongoDb (`ibm`), or AWS DocumentDb (`aws`).
 
-- Environment variable: `MONGODB_PROVIDER`
+- **Optional**
+- Environment Variable: `MONGODB_PROVIDER`
 - Default Value: `community`
 
-
-### mongodb_action
+#### mongodb_action
 Determines which action to perform w.r.t mongodb for a specified provider:
 
-- Environment variable: `MONGODB_ACTION`
+- **Optional**
+- Environment Variable: `MONGODB_ACTION`
 - Default Value: `install`
 
 Each provider supports a different set of actions:
@@ -56,32 +59,32 @@ Each provider supports a different set of actions:
 - **aws**: `install`, `uninstall`, `docdb_secret_rotate`, `destroy-data`
 - **ibm**: `install`, `uninstall`, `backup`, `restore`, `create-mongo-service-credentials`
 
+### CE Operator Variables
 
-Role Variables - CE Operator
--------------------------------------------------------------------------------
-### mongodb_namespace
+#### mongodb_namespace
 The namespace where the operator and MongoDb cluster will be deployed.
 
+- **Optional**
 - Environment Variable: `MONGODB_NAMESPACE`
 - Default Value: `mongoce`
 
-### mongodb_version
+#### mongodb_version
 Defines the specific mongo version to be used. Best practice would be to use the version associated with the current Maximo Application Suite catalog. However, this value can currently be overridden to 7.0.12, 7.0.22, 7.0.23, 8.0.13, 8.0.17
 
 !!! important
     It is advised to never attempt a downgrade a MongoDB instance managed by the MAS Devops Ansible Collection. Also best practices should include creating scheduled backups of any MongoDB instance.
 
-- Optional
+- **Optional**
 - Environment Variable: `MONGODB_VERSION`
 - Default Value: Automatically defined by the mongo version specified in the [latest MAS case bundle available](https://github.com/ibm-mas/python-devops/tree/stable/src/mas/devops/data/catalogs).
 
-### mongodb_override_spec
+#### mongodb_override_spec
 This forces the deploy to use the environment variables instead of maintaining spec settings for the existing installed MongoDB. By default this is False and if you upgrade or reinstall Mongo your existing settings will be preserved.
 
 !!! important
     It is advised you check your existing Mongo installation before using this. If you do not set the environment variables to match what you have in the spec or you use defaults you may find your members, memory, and cpu reset to the default values specified in this README. Unknown settings are not preserved in the spec.
 
-- Optional
+- **Optional**
 - Environment Variable: `MONGODB_OVERRIDE_SPEC`
 - Default Value: `false`
 
@@ -96,138 +99,146 @@ List of preserved settings
 - mongodb_storage_capacity_logs
 - mongodb_replicas
 
-### mongodb_storage_class
-**Required**: The name of the storage class to configure the MongoDb operator to use for persistent storage in the MongoDb cluster. Storage class must support ReadWriteOnce(RWO) access mode.
+#### mongodb_storage_class
+The name of the storage class to configure the MongoDb operator to use for persistent storage in the MongoDb cluster. Storage class must support ReadWriteOnce(RWO) access mode.
 
+- **Required**
 - Environment Variable: `MONGODB_STORAGE_CLASS`
 - Default Value: None
 
-### mongodb_storage_capacity_data
+#### mongodb_storage_capacity_data
 The size of the PVC that will be created for data storage in the cluster.
 
+- **Optional**
 - Environment Variable: `MONGODB_STORAGE_CAPACITY_DATA`
 - Default Value: `20Gi`
 
-### mongodb_storage_capacity_logs
+#### mongodb_storage_capacity_logs
 The size of the PVC that will be created for log storage in the cluster.
 
+- **Optional**
 - Environment Variable: `MONGODB_STORAGE_CAPACITY_LOGS`
 - Default Value: `20Gi`
 
-### mongodb_cpu_limits
+#### mongodb_cpu_limits
 The CPU limits on the mongodb container.
 
+- **Optional**
 - Environment Variable: `MONGODB_CPU_LIMITS`
 - Default Value: `1`
 
-### mongodb_mem_limits
+#### mongodb_mem_limits
 The Memory limits on the mongodb container.
 
+- **Optional**
 - Environment Variable: `MONGODB_MEM_LIMITS`
 - Default Value: `1Gi`
 
-### mongodb_cpu_requests
+#### mongodb_cpu_requests
 The CPU requests on the mongodb container.
 
+- **Optional**
 - Environment Variable: `MONGODB_CPU_REQUESTS`
 - Default Value: `500m`
 
-### mongodb_mem_requests
+#### mongodb_mem_requests
 The Memory requests on the mongodb container.
 
 - Environment Variable: `MONGODB_MEM_REQUESTS`
 - Default Value: `1Gi`
 
-### mongodb_replicas
+#### mongodb_replicas
 The number of the mongodb replica set members. Default is 3. Set to 1 for SNO Cluster.
+
+- **Optional**
 - Environment Variable: `MONGODB_REPLICAS`
 - Default Value: `3`
 
-### custom_labels
+#### custom_labels
 List of comma separated key=value pairs for setting custom labels on instance specific resources.
 
 - Optional
 - Environment Variable: `CUSTOM_LABELS`
 - Default Value: None
 
-### mongodb_v5_upgrade
+#### mongodb_v5_upgrade
 Set this to `true` to confirm you want to upgrade your existing Mongo instance from version 4.2 or 4.4 to version 5.
 
-- Optional
+- **Optional**
 - Environment Variable: `MONGODB_V5_UPGRADE`
 - Default Value: `false`
 
-### mongodb_v6_upgrade
+#### mongodb_v6_upgrade
 Set this to `true` to confirm you want to upgrade your existing Mongo instance from version 5 to version 6.
 
 - Optional
 - Environment Variable: `MONGODB_V6_UPGRADE`
 - Default Value: `false`
 
-### mongodb_v7_upgrade
+#### mongodb_v7_upgrade
 Set this to `true` to confirm you want to upgrade your existing Mongo instance from version 6 to version 7.
 
-- Optional
+- **Optional**
 - Environment Variable: `MONGODB_V7_UPGRADE`
 - Default Value: `false`
 
-### mongodb_v8_upgrade
+#### mongodb_v8_upgrade
 Set this to `true` to confirm you want to upgrade your existing Mongo instance from version 7 to version 8.
 
 - Optional
 - Environment Variable: `MONGODB_V8_UPGRADE`
 - Default Value: `false`
 
-### masbr_confirm_cluster
+#### masbr_confirm_cluster
 Set `true` or `false` to indicate the role whether to confirm the currently connected cluster before running the backup or restore job.
 
-- Optional
+- **Optional**
 - Environment Variable: `MASBR_CONFIRM_CLUSTER`
 - Default: `false`
 
-### masbr_copy_timeout_sec
+#### masbr_copy_timeout_sec
 Set the transfer files timeout in seconds.
 
 - Optional
 - Environment Variable: `MASBR_COPY_TIMEOUT_SEC`
 - Default: `43200` (12 hours)
 
-### masbr_job_timezone
+#### masbr_job_timezone
 Set the [time zone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) for creating scheduled backup job. If not set a value for this variable, this role will use UTC time zone when creating a CronJob for running scheduled backup job.
 
-- Optional
+- **Optional**
 - Environment Variable: `MASBR_JOB_TIMEZONE`
 - Default: None
 
-### masbr_storage_local_folder
+#### masbr_storage_local_folder
 Set local path to save the backup files.
 
 - **Required**
 - Environment Variable: `MASBR_STORAGE_LOCAL_FOLDER`
 - Default: None
 
-### masbr_backup_type
+#### masbr_backup_type
 Set `full` or `incr` to indicate the role to create a full backup or incremental backup.
 
-- Optional
+- **Optional**
 - Environment Variable: `MASBR_BACKUP_TYPE`
 - Default: `full`
 
-### masbr_backup_from_version
+#### masbr_backup_from_version
 Set the full backup version to use in the incremental backup, this will be in the format of a `YYYMMDDHHMMSS` timestamp (e.g. `20240621021316`). This variable is only valid when `MASBR_BACKUP_TYPE=incr`. If not set a value for this variable, this role will try to find the latest full backup version from the specified storage location.
 
 - Optional
 - Environment Variable: `MASBR_BACKUP_FROM_VERSION`
 - Default: None
 
-### masbr_backup_schedule
+#### masbr_backup_schedule
 Set [Cron expression](ttps://en.wikipedia.org/wiki/Cron) to create a scheduled backup. If not set a value for this varialbe, this role will create an on-demand backup.
 
-- Optional
+- **Optional**
 - Environment Variable: `MASBR_BACKUP_SCHEDULE`
 - Default: None
 
-### masbr_restore_from_version
+#### masbr_restore_from_version
 Set the backup version to use in the restore, this will be in the format of a `YYYMMDDHHMMSS` timestamp (e.g. `20240621021316`)
 
 - **Required** only when `MONGODB_ACTION=restore`
@@ -237,25 +248,29 @@ Set the backup version to use in the restore, this will be in the format of a `Y
 
 Role Variables - IBM Cloud
 -------------------------------------------------------------------------------
-### ibm_mongo_name
-Required. IBM Cloud Mongo database instance name.
+#### ibm_mongo_name
+IBM Cloud Mongo database instance name.
 
+- **Required**
 - Environment Variable: `IBM_MONGO_NAME`
 - Default Value: `mongo-${MAS_INSTANCE_ID}`
 
-### ibm_mongo_admin_password
+#### ibm_mongo_admin_password
 Optional. Sets IBM Cloud Mongo database administrator user password.
 If not set, an auto-generated 20 character length string will be used.
 
 - Environment Variable: `IBM_MONGO_ADMIN_PASSWORD`
 - Default Value: None.
 
-### ibm_mongo_admin_credentials_secret_name
+#### ibm_mongo_admin_credentials_secret_name
 Secret for MongoDB Admin credentials.
 
+- **Optional**
+- Environment Variable: `IBM_MONGO_ADMIN_CREDENTIALS_SECRET_NAME`
 - Secret Name: `<mongo-name>-admin-credentials`
+- Default Value: None
 
-### ibm_mongo_service_credentials_secret_name
+#### ibm_mongo_service_credentials_secret_name
 Secret for MongoDB Service credentials.
 
 - Secret Name: `<mongo-name>-service-credentials`
@@ -518,8 +533,7 @@ Mongo Certificates, please refer to the below example playbook section for detai
 
 
 
-Example Playbooks
--------------------------------------------------------------------------------
+## Example Playbook
 
 ### Install (CE Operator)
 ```yaml
@@ -661,8 +675,16 @@ Example Playbooks
 
 ```
 
-Troubleshooting
--------------------------------------------------------------------------------
+## Run Role Playbook
+
+```bash
+export MONGODB_STORAGE_CLASS=ibmc-block-gold
+export MAS_INSTANCE_ID=masinst1
+export MAS_CONFIG_DIR=~/masconfig
+ansible-playbook ibm.mas_devops.run_role
+```
+
+## Troubleshooting
 
 !!! important
     Please be cautious while performing any of the troubleshooting steps outlined below. It is important to understand that the MongoDB Community operator persists data within Persistent Volume Claims. These claims should not be removed inadvertent deletion of the `mongoce` namespace could result in data loss.
@@ -766,7 +788,6 @@ If an IBM Suite Licensing Service (SLS) is also connecting to the MongoDB replic
 Once the CA certificate has been updated for the MongoCfg and LicenseService CRs several pods in the core and SLS namespaces might need to be restarted to pick up the changes. This would include but is not limited to coreidp, coreapi, api-licensing.
 
 
-License
--------------------------------------------------------------------------------
+## License
 
 EPL-2.0
