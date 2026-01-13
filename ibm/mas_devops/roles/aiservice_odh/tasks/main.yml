@@ -30,11 +30,21 @@
 
 # 2. Deploy OpenShift Serverless operators
 # -----------------------------------------------------------------------------
+# - include_tasks: tasks/serverless-operator.yml
+#   when: aiservice_{{ aiservice_dsapp_id }}_model_deployment_type is defined and aiservice_{{ aiservice_dsapp_id }}_model_deployment_type == "serverless"
+
 - include_tasks: tasks/serverless-operator.yml
-  when: aiservice_{{ aiservice_dsapp_id }}_model_deployment_type is defined and aiservice_{{ aiservice_dsapp_id }}_model_deployment_type == "serverless"
+  when:
+    - lookup('vars', 'aiservice_' ~ aiservice_dsapp_id ~ '_model_deployment_type', default='') != ''
+    - lookup('vars', 'aiservice_' ~ aiservice_dsapp_id ~ '_model_deployment_type') == "serverless"
+
+# - include_tasks: tasks/servicemesh-operator.yml
+#   when: aiservice_{{ aiservice_dsapp_id }}_model_deployment_type is defined and aiservice_{{ aiservice_dsapp_id }}_model_deployment_type == "serverless"
 
 - include_tasks: tasks/servicemesh-operator.yml
-  when: aiservice_{{ aiservice_dsapp_id }}_model_deployment_type is defined and aiservice_{{ aiservice_dsapp_id }}_model_deployment_type == "serverless"
+  when:
+    - lookup('vars', 'aiservice_' ~ aiservice_dsapp_id ~ '_model_deployment_type', default='') != ''
+    - lookup('vars', 'aiservice_' ~ aiservice_dsapp_id ~ '_model_deployment_type') == "serverless"
 
 - include_tasks: tasks/authorino-operator.yml
 
@@ -174,8 +184,13 @@
 
 # 5. Create Istio Auth Rules
 # -----------------------------------------------------------------------------
+# - include_tasks: tasks/istio-auth.yml
+#   when: aiservice_{{ aiservice_dsapp_id }}_model_deployment_type is defined and aiservice_{{ aiservice_dsapp_id }}_model_deployment_type == "serverless"
+
 - include_tasks: tasks/istio-auth.yml
-  when: aiservice_{{ aiservice_dsapp_id }}_model_deployment_type is defined and aiservice_{{ aiservice_dsapp_id }}_model_deployment_type == "serverless"
+  when:
+    - lookup('vars', 'aiservice_' ~ aiservice_dsapp_id ~ '_model_deployment_type', default='') | length > 0
+    - lookup('vars', 'aiservice_' ~ aiservice_dsapp_id ~ '_model_deployment_type') == "serverless"
 
 # 6. Install Network policy
 # -----------------------------------------------------------------------------
