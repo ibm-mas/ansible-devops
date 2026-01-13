@@ -59,7 +59,7 @@ Role Variables - IBM DevIT Fyre
 Your FYRE username
 
 - **Required** when `cluster_type` is `fyre`
-- Environment Variable: `FYRE_APIKEY`
+- Environment Variable: `FYRE_USERNAME`
 - Default: None
 
 ### fyre_apikey
