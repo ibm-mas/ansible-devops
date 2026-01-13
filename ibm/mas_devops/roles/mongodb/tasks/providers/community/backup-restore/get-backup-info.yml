@@ -30,80 +30,57 @@
     mongodb_namespace: "{{ mongodb_cr.metadata.namespace }}"
     mongodb_instance_name: "{{ mongodb_cr.metadata.name }}"
 
-# Check for existing MongoDb install
-# -----------------------------------------------------------------------------
-- name: "Check for existing MongoDB installation in namespace {{ mongodb_namespace }}"
-  ibm.mas_devops.verify_mongoce_version:
-    mongodb_instance_name: "{{ mongodb_instance_name }}"
-    mongodb_namespace: "{{ mongodb_namespace }}"
-  register: existing_mongo_info
-
-- name: "Set flag to skip MongoCE cluster instance restore if {{ mongodb_instance_name }} already exist or running"
+- name: "Set fact: Retrieve information from backup CR"
   set_fact:
-    skip_mongoce_install: true
-  when:
-    - existing_mongo_info is defined
-    - existing_mongo_info.running or existing_mongo_info.exist
+    mongo_extras_version: "{{ mongodb_cr.spec.version }}"
+    target_mongodb_version: "{{ mongodb_cr.spec.version }}"
+    mongodb_security: "{{ mongodb_cr.spec.security }}"
+    mongodb_users: "{{ mongodb_cr.spec.users | default([]) }}"
+    mongodb_replicas: "{{ mongodb_cr.spec.members }}"
+    mongodb_cpu_limits: "{{ mongodb_cr.spec.statefulSet.spec.template.spec.containers[0].resources.limits.cpu | default('500m') }}"
+    mongodb_memory_limits: "{{ mongodb_cr.spec.statefulSet.spec.template.spec.containers[0].resources.limits.cpu | default('1Gi') }}"
+    mongodb_cpu_requests: "{{ mongodb_cr.spec.statefulSet.spec.template.spec.containers[0].resources.requests.cpu | default('250m') }}"
+    mongodb_memory_requests: "{{ mongodb_cr.spec.statefulSet.spec.template.spec.containers[0].resources.requests.cpu | default('512Mi') }}"
+    mongodb_storage_capacity_data: "{{ mongodb_cr.spec.statefulSet.spec.volumeClaimTemplates[0].spec.resources.requests.storage }}"
+    mongodb_storage_capacity_logs: "{{ mongodb_cr.spec.statefulSet.spec.volumeClaimTemplates[1].spec.resources.requests.storage }}"
 
+- name: "Debug: Mongodb restore variables"
+  debug:
+    msg:
+      - "mongodb_instance_name: {{ mongodb_instance_name }}"
+      - "mongodb_namespace: {{ mongodb_namespace }}"
+      - "mongo_extras_version: {{ mongo_extras_version }}"
+      - "target_mongodb_version: {{ target_mongodb_version }}"
+      - "mongodb_security: {{ mongodb_security }}"
+      - "mongodb_users: {{ mongodb_users }}"
+      - "mongodb_replicas: {{ mongodb_replicas }}"
+      - "mongodb_cpu_limits: {{ mongodb_cpu_limits }}"
+      - "mongodb_memory_limits: {{ mongodb_memory_limits }}"
+      - "mongodb_cpu_requests: {{ mongodb_cpu_requests }}"
+      - "mongodb_memory_requests: {{ mongodb_memory_requests }}"
+      - "mongodb_storage_capacity_data: {{ mongodb_storage_capacity_data }}"
+      - "mongodb_storage_capacity_logs: {{ mongodb_storage_capacity_logs }}"
 
-- name: "Get information from backup CR to install MongoDB from backup"
-  block:
+# Restore MongoDb instance's resources from backup
+# We will restore the following resources from backup:
+#   - User, TLS Secrets defined in the MongoDb CR
+#   - Issuers in the MongoDb namespace
+#   - Certificates in the MongoDb namespace
+# All the other resources will be created afresh during MongoDb installation
+# -----------------------------------------------------------------------------
 
-    - name: "Set fact: Retrieve information from backup CR"
-      set_fact:
-        mongo_extras_version: "{{ mongodb_cr.spec.version }}"
-        target_mongodb_version: "{{ mongodb_cr.spec.version }}"
-        mongodb_security: "{{ mongodb_cr.spec.security }}"
-        mongodb_users: "{{ mongodb_cr.spec.users | default([]) }}"
-        mongodb_replicas: "{{ mongodb_cr.spec.members }}"
-        mongodb_cpu_limits: "{{ mongodb_cr.spec.statefulSet.spec.template.spec.containers[0].resources.limits.cpu | default('500m') }}"
-        mongodb_memory_limits: "{{ mongodb_cr.spec.statefulSet.spec.template.spec.containers[0].resources.limits.cpu | default('1Gi') }}"
-        mongodb_cpu_requests: "{{ mongodb_cr.spec.statefulSet.spec.template.spec.containers[0].resources.requests.cpu | default('250m') }}"
-        mongodb_memory_requests: "{{ mongodb_cr.spec.statefulSet.spec.template.spec.containers[0].resources.requests.cpu | default('512Mi') }}"
-        mongodb_storage_capacity_data: "{{ mongodb_cr.spec.statefulSet.spec.volumeClaimTemplates[0].spec.resources.requests.storage }}"
-        mongodb_storage_capacity_logs: "{{ mongodb_cr.spec.statefulSet.spec.volumeClaimTemplates[1].spec.resources.requests.storage }}"
+- name: "Restore MongoDB instance resources from backup"
+  ibm.mas_devops.restore_mongoce_resources:
+    mongodb_namespace: "{{ mongodb_namespace }}"
+    backup_secrets_path: "{{ mongodb_resource_path }}/secrets"
+    backup_issuers_path: "{{ mongodb_resource_path }}/issuers"
+    backup_certificates_path: "{{ mongodb_resource_path }}/certificates"
+  register: restore_mongoce_resources_result
 
-    - name: "Debug: Mongodb restore variables"
-      debug:
-        msg:
-          - "mongodb_namespace: {{ mongodb_namespace }}"
-          - "mongodb_instance_name: {{ mongodb_instance_name }}"
-          - "mongo_extras_version: {{ mongo_extras_version }}"
-          - "target_mongodb_version: {{ target_mongodb_version }}"
-          - "mongodb_security: {{ mongodb_security }}"
-          - "mongodb_users: {{ mongodb_users }}"
-          - "mongodb_replicas: {{ mongodb_replicas }}"
-          - "mongodb_cpu_limits: {{ mongodb_cpu_limits }}"
-          - "mongodb_memory_limits: {{ mongodb_memory_limits }}"
-          - "mongodb_cpu_requests: {{ mongodb_cpu_requests }}"
-          - "mongodb_memory_requests: {{ mongodb_memory_requests }}"
-          - "mongodb_storage_capacity_data: {{ mongodb_storage_capacity_data }}"
-          - "mongodb_storage_capacity_logs: {{ mongodb_storage_capacity_logs }}"
-
-    # Restore MongoDb instance's resources from backup
-    # We will restore the following resources from backup:
-    #   - User, TLS Secrets defined in the MongoDb CR
-    #   - Issuers in the MongoDb namespace
-    #   - Certificates in the MongoDb namespace
-    # All the other resources will be created afresh during MongoDb installation
-    # -----------------------------------------------------------------------------
-
-    - name: "Restore MongoDB instance resources from backup"
-      ibm.mas_devops.restore_mongoce_resources:
-        mongodb_namespace: "{{ mongodb_namespace }}"
-        backup_secrets_path: "{{ mongodb_resource_path }}/secrets"
-        backup_issuers_path: "{{ mongodb_resource_path }}/issuers"
-        backup_certificates_path: "{{ mongodb_resource_path }}/certificates"
-      register: restore_mongoce_resources_result
-
-    - name: "Assert: MongoDB resources restored successfully"
-      assert:
-        that:
-          - restore_mongoce_resources_result is defined
-          - restore_mongoce_resources_result.restored is defined
-          - restore_mongoce_resources_result.restored == True
-        fail_msg: "Failed to restore MongoDB instance resources from backup."
-  when:
-    - existing_mongo_info is defined
-    - not existing_mongo_info.exist
-    - not existing_mongo_info.running
+- name: "Assert: MongoDB resources restored successfully"
+  assert:
+    that:
+      - restore_mongoce_resources_result is defined
+      - restore_mongoce_resources_result.restored is defined
+      - restore_mongoce_resources_result.restored == True
+    fail_msg: "Failed to restore MongoDB instance resources from backup."
