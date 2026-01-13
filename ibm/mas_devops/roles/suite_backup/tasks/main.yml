@@ -1,12 +1,103 @@
 ---
-# Check mas core backup/restore required variables
+# Check mas core backup required variables
 # -----------------------------------------------------------------------------
 - name: "Fail if mas_instance_id is not provided"
   assert:
     that: mas_instance_id is defined and mas_instance_id != ""
     fail_msg: "mas_instance_id is required"
 
+- name: "Fail if mas_backup_dir is not provided"
+  assert:
+    that: mas_backup_dir is defined and mas_backup_dir != ""
+    fail_msg: "mas_backup_dir is required"
+
+- name: "Check if SUITE_BACKUP_VERSION is provided, if not set to default 'YYMMDD-HHMMSS' format"
+  set_fact:
+    suite_backup_version: "{{ lookup('pipe', 'date +%y%m%d-%H%M%S') }}"
+  when: suite_backup_version is not defined or suite_backup_version == "" or suite_backup_version == "None"
+
 - name: "Set fact: mas core namespace name"
   set_fact:
     mas_core_namespace: "mas-{{ mas_instance_id }}-core"
 
+- name: "Set fact: mas suite backup base directory path"
+  set_fact:
+    suite_backup_path: "{{ mas_backup_dir }}/backup-{{ suite_backup_version }}-suite"
+
+- name: "Set fact: mas suite backup resources"
+  set_fact:
+    suite_backup_resources:
+      - namespace: "{{ mas_core_namespace }}"
+        resources:
+          # subscription
+          - kind: Subscription
+            api_version: operators.coreos.com/v1alpha1
+            name: ibm-mas-operator
+          - kind: OperatorGroup
+            api_version: operators.coreos.com/v1
+            name: ibm-mas-operator-group
+          # secrets
+          - kind: Secret
+            api_version: v1
+            name: ibm-entitlement
+          - kind: Secret
+            api_version: v1
+            name: "{{ mas_instance_id }}-credentials-superuser"
+          # certificates
+          - kind: C
+          # addons.mas.ibm.com
+          - kind: MVIEdge
+            api_version: addons.mas.ibm.com/v1
+          - kind: ReplicaDB
+            api_version: addons.mas.ibm.com/v1
+          - kind: GenericAddon
+            api_version: addons.mas.ibm.com/v1
+          # config.mas.ibm.com
+          - kind: AppCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: BasCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: IDPCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: JdbcCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: KafkaCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: MongoCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: ObjectStorageCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: PushNotificationCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: ScimCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: SlsCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: SmtpCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: WatsonStudioCfg
+            api_version: config.mas.ibm.com/v1
+          # core.mas.ibm.com
+          - kind: Suite
+            api_version: core.mas.ibm.com/v1
+          - kind: Workspace
+            api_version: core.mas.ibm.com/v1
+          # internal.mas.ibm.com
+          - kind: CoreIDP
+            api_version: internal.mas.ibm.com/v1
+
+- name: "Backup MAS Suite resources (referenced secrets are auto-discovered)"
+  ibm.mas_devops.backup_resource:
+    backup_resources: "{{ suite_backup_resources }}"
+    backup_path: "{{ suite_backup_path }}"
+  register: backup_result
+
+- name: "Display backup results"
+  debug:
+    msg:
+      - "Backup completed successfully"
+      - "Total resources backed up: {{ backup_result.backed_up_count }}"
+      - "Total resources failed: {{ backup_result.failed_count }}"
+      - "Resources not found: {{ backup_result.not_found_count }}"
+      - "Secrets auto-discovered: {{ backup_result.discovered_secrets_count }}"
+      - "Backup location: {{ suite_backup_path }}"
