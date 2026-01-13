@@ -730,8 +730,6 @@
     
       <cds-select-item value="#role-variables-aws-documentdb">Role Variables - AWS DocumentDB</cds-select-item>
     
-      <cds-select-item value="#aws-documentdb-secret-rotate-role-variables">AWS DocumentDB Secret Rotate role Variables</cds-select-item>
-    
       <cds-select-item value="#aws-documentdb-destroy-data-action-variables">AWS DocumentDB destroy-data action Variables</cds-select-item>
     
       <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
@@ -769,466 +767,1305 @@ Also, you need to have AWS user credentials configured via <code>aws configure</
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="common-variables">Common Variables<a class="headerlink" href="#common-variables" title="Permanent link">¤</a></h3>
 <h4 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h4>
-<p>The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or <code>mas_config_dir</code> are not set then the role will not generate a MongoCfg template.</p>
+<p>Unique identifier for the MAS instance that will use this MongoDB deployment.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
 <li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies which MAS instance this MongoDB configuration targets. Used to generate the MongoCfg resource that connects MAS to the MongoDB instance.</p>
+<p><strong>When to use</strong>:
+- Set when you want to automatically generate MongoCfg for MAS integration
+- Must be set together with <code>mas_config_dir</code> for MongoCfg generation
+- Leave unset if manually managing MongoDB configuration for MAS</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>inst1</code>)</p>
+<p><strong>Impact</strong>: When set with <code>mas_config_dir</code>, generates a MongoCfg YAML file at <code>$MAS_CONFIG_DIR/mongocfg-mongoce-system.yaml</code>. Without this, no MAS configuration file is created.</p>
+<p><strong>Related variables</strong>: Must be set together with <code>mas_config_dir</code> for MongoCfg generation.</p>
 <h4 id="mas_config_dir">mas_config_dir<a class="headerlink" href="#mas_config_dir" title="Permanent link">¤</a></h4>
-<p>Local directory to save the generated MongoCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Mongo cluster, or used as an input to the <a href="../suite_config/">suite_config</a> role. If this or <code>mas_instance_id</code> are not set then the role will not generate a MongoCfg template.</p>
+<p>Local directory path where the generated MongoCfg resource file will be saved.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_CONFIG_DIR</code></li>
 <li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies where to save the MongoCfg YAML file that configures MAS to connect to this MongoDB instance. This file can be applied manually or used with the <code>suite_config</code> role for automated MAS configuration.</p>
+<p><strong>When to use</strong>:
+- Set when you want to automatically generate MongoCfg for MAS integration
+- Must be set together with <code>mas_instance_id</code> for MongoCfg generation
+- Use the same directory across multiple dependency roles (mongodb, db2, sls) to collect all configurations
+- Leave unset if manually managing MongoDB configuration for MAS</p>
+<p><strong>Valid values</strong>: Any valid local filesystem path (e.g., <code>/home/user/masconfig</code>, <code>~/masconfig</code>, <code>./config</code>)</p>
+<p><strong>Impact</strong>: When set with <code>mas_instance_id</code>, creates file <code>mongocfg-mongoce-system.yaml</code> in this directory. The file contains Secret and MongoCfg resources ready to apply to MAS.</p>
+<p><strong>Related variables</strong>:
+- Must be set together with <code>mas_instance_id</code> for MongoCfg generation
+- Used by <code>suite_config</code> role to apply configurations</p>
 <h4 id="mongodb_provider">mongodb_provider<a class="headerlink" href="#mongodb_provider" title="Permanent link">¤</a></h4>
-<p>MongoDB provider, choose whether to use the MongoDb Community Edition Operator (<code>community</code>), IBM Cloud Database for MongoDb (<code>ibm</code>), or AWS DocumentDb (<code>aws</code>).</p>
+<p>Selects which MongoDB deployment option to use for MAS database requirements.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MONGODB_PROVIDER</code></li>
 <li>Default Value: <code>community</code></li>
 </ul>
+<p><strong>Purpose</strong>: Determines the MongoDB infrastructure provider, which affects deployment architecture, management approach, operational requirements, and cost model. Each provider offers different trade-offs between control, convenience, and cost.</p>
+<p><strong>When to use</strong>:
+- Use <code>community</code> for self-managed deployments on OpenShift with full control
+- Use <code>ibm</code> for managed IBM Cloud Databases for MongoDB service
+- Use <code>aws</code> for managed AWS DocumentDB service (MongoDB-compatible)
+- Consider operational expertise, cloud platform, and management preferences</p>
+<p><strong>Valid values</strong>:
+- <code>community</code> - MongoDB Community Edition Operator (self-managed on OpenShift)
+- <code>ibm</code> - IBM Cloud Databases for MongoDB (managed service)
+- <code>aws</code> - AWS DocumentDB (managed service, MongoDB-compatible)</p>
+<p><strong>Impact</strong>:
+- <code>community</code>: Requires cluster storage, manual backup management, and operational overhead
+- <code>ibm</code>: Requires IBM Cloud account, API key, and incurs IBM Cloud service charges
+- <code>aws</code>: Requires AWS account, VPC configuration, and incurs AWS service charges</p>
+<p><strong>Related variables</strong>:
+- When <code>community</code>: Requires <code>mongodb_storage_class</code> and related storage/resource variables
+- When <code>ibm</code>: Requires <code>ibmcloud_apikey</code>, <code>ibm_mongo_region</code>, <code>ibm_mongo_resourcegroup</code>
+- When <code>aws</code>: Requires <code>aws_access_key_id</code>, <code>aws_secret_access_key</code>, <code>vpc_id</code>, <code>docdb_*</code> variables
+- Affects which <code>mongodb_action</code> values are supported</p>
+<p><strong>Note</strong>: Provider cannot be changed after initial deployment. Migration between providers requires backup and restore procedures.</p>
 <h4 id="mongodb_action">mongodb_action<a class="headerlink" href="#mongodb_action" title="Permanent link">¤</a></h4>
-<p>Determines which action to perform w.r.t mongodb for a specified provider:</p>
+<p>Specifies which operation to perform on the MongoDB instance.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MONGODB_ACTION</code></li>
 <li>Default Value: <code>install</code></li>
 </ul>
-<p>Each provider supports a different set of actions:
+<p><strong>Purpose</strong>: Controls what action the role executes against the MongoDB instance. Different providers support different sets of actions based on their capabilities and management model.</p>
+<p><strong>When to use</strong>:
+- Use <code>install</code> for initial deployment or updates
+- Use <code>uninstall</code> to remove MongoDB instance (use with caution)
+- Use <code>backup</code> to create MongoDB backups (community/ibm only)
+- Use <code>restore</code> to restore from backup (community/ibm only)
+- Use <code>docdb_secret_rotate</code> to rotate DocumentDB credentials (aws only)
+- Use <code>destroy-data</code> to delete all data from MongoDB (aws only)
+- Use <code>create-mongo-service-credentials</code> to generate service credentials (ibm only)</p>
+<p><strong>Valid values</strong> (provider-specific):
 - <strong>community</strong>: <code>install</code>, <code>uninstall</code>, <code>backup</code>, <code>restore</code>
 - <strong>aws</strong>: <code>install</code>, <code>uninstall</code>, <code>docdb_secret_rotate</code>, <code>destroy-data</code>
 - <strong>ibm</strong>: <code>install</code>, <code>uninstall</code>, <code>backup</code>, <code>restore</code>, <code>create-mongo-service-credentials</code></p>
+<p><strong>Impact</strong>: The action determines what the role will do. Destructive actions like <code>uninstall</code> and <code>destroy-data</code> will permanently delete data. Backup/restore actions require additional variables to be set.</p>
+<p><strong>Related variables</strong>:
+- <code>mongodb_provider</code> determines which actions are available
+- Backup actions require <code>masbr_*</code> variables
+- Restore actions require <code>masbr_restore_from_version</code>
+- AWS secret rotation requires <code>docdb_*</code> credential variables</p>
+<p><strong>Note</strong>: Always backup data before performing destructive operations. Some actions are irreversible.</p>
 <h3 id="ce-operator-variables">CE Operator Variables<a class="headerlink" href="#ce-operator-variables" title="Permanent link">¤</a></h3>
 <h4 id="mongodb_namespace">mongodb_namespace<a class="headerlink" href="#mongodb_namespace" title="Permanent link">¤</a></h4>
-<p>The namespace where the operator and MongoDb cluster will be deployed.</p>
+<p>OpenShift namespace where the MongoDB Community Operator and MongoDB cluster will be deployed.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MONGODB_NAMESPACE</code></li>
 <li>Default Value: <code>mongoce</code></li>
 </ul>
+<p><strong>Purpose</strong>: Defines the Kubernetes namespace for MongoDB resources, providing isolation and organization for the MongoDB deployment within the cluster.</p>
+<p><strong>When to use</strong>:
+- Use default <code>mongoce</code> for standard deployments
+- Change only if you need multiple MongoDB instances or have namespace naming requirements
+- Ensure namespace doesn't conflict with existing deployments</p>
+<p><strong>Valid values</strong>: Any valid Kubernetes namespace name (lowercase alphanumeric and hyphens)</p>
+<p><strong>Impact</strong>: All MongoDB resources (operator, replica set pods, PVCs, secrets, services) will be created in this namespace. Changing this after deployment requires reinstallation.</p>
+<p><strong>Related variables</strong>: Used in MongoCfg generation to reference MongoDB service endpoints.</p>
 <h4 id="mongodb_version">mongodb_version<a class="headerlink" href="#mongodb_version" title="Permanent link">¤</a></h4>
-<p>Defines the specific mongo version to be used. Best practice would be to use the version associated with the current Maximo Application Suite catalog. However, this value can currently be overridden to 7.0.12, 7.0.22, 7.0.23, 8.0.13, 8.0.17</p>
-<div class="admonition important">
-<p class="admonition-title">Important</p>
-<p>It is advised to never attempt a downgrade a MongoDB instance managed by the MAS Devops Ansible Collection. Also best practices should include creating scheduled backups of any MongoDB instance.</p>
-</div>
+<p>Specifies the MongoDB version to deploy.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MONGODB_VERSION</code></li>
-<li>Default Value: Automatically defined by the mongo version specified in the <a href="https://github.com/ibm-mas/python-devops/tree/stable/src/mas/devops/data/catalogs">latest MAS case bundle available</a>.</li>
+<li>Default Value: Automatically defined by the mongo version specified in the <a href="https://github.com/ibm-mas/python-devops/tree/stable/src/mas/devops/data/catalogs">latest MAS case bundle available</a></li>
 </ul>
+<p><strong>Purpose</strong>: Controls which MongoDB version is deployed, ensuring compatibility with MAS requirements and enabling version-specific features. The default aligns with the tested and supported version for your MAS release.</p>
+<p><strong>When to use</strong>:
+- Leave as default for standard deployments (recommended)
+- Override only when specific version requirements exist
+- Use for testing compatibility with newer MongoDB versions
+- Never use to downgrade an existing MongoDB instance</p>
+<p><strong>Valid values</strong>: <code>7.0.12</code>, <code>7.0.22</code>, <code>7.0.23</code>, <code>8.0.13</code>, <code>8.0.17</code> (check MAS compatibility matrix for supported versions)</p>
+<p><strong>Impact</strong>: Determines MongoDB feature set, performance characteristics, and compatibility. Changing versions may require data migration or compatibility testing.</p>
+<p><strong>Related variables</strong>:
+- Version upgrades require corresponding <code>mongodb_v*_upgrade</code> flags
+- Must be compatible with MAS version requirements</p>
+<p><strong>Note</strong>: <strong>Never downgrade MongoDB versions</strong>. Always create scheduled backups before version changes. Use <code>mongodb_v5_upgrade</code>, <code>mongodb_v6_upgrade</code>, <code>mongodb_v7_upgrade</code>, or <code>mongodb_v8_upgrade</code> flags when upgrading between major versions.</p>
 <h4 id="mongodb_override_spec">mongodb_override_spec<a class="headerlink" href="#mongodb_override_spec" title="Permanent link">¤</a></h4>
-<p>This forces the deploy to use the environment variables instead of maintaining spec settings for the existing installed MongoDB. By default this is False and if you upgrade or reinstall Mongo your existing settings will be preserved.</p>
-<div class="admonition important">
-<p class="admonition-title">Important</p>
-<p>It is advised you check your existing Mongo installation before using this. If you do not set the environment variables to match what you have in the spec or you use defaults you may find your members, memory, and cpu reset to the default values specified in this README. Unknown settings are not preserved in the spec.</p>
-</div>
+<p>Forces the role to use environment variables instead of preserving existing MongoDB spec settings.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MONGODB_OVERRIDE_SPEC</code></li>
 <li>Default Value: <code>false</code></li>
 </ul>
-<p>List of preserved settings</p>
-<ul>
-<li>mongodb_cpu_limits</li>
-<li>mongodb_mem_limits</li>
-<li>mongodb_cpu_requests</li>
-<li>mongodb_mem_requests</li>
-<li>mongodb_storage_class</li>
-<li>mongodb_storage_capacity_data</li>
-<li>mongodb_storage_capacity_logs</li>
-<li>mongodb_replicas</li>
-</ul>
+<p><strong>Purpose</strong>: Controls whether the role preserves existing MongoDB configuration during upgrades/reinstalls or applies new values from environment variables. This prevents accidental configuration changes during routine operations.</p>
+<p><strong>When to use</strong>:
+- Leave as <code>false</code> (default) to preserve existing settings during upgrades
+- Set to <code>true</code> only when intentionally changing MongoDB configuration
+- Use with caution - requires setting all environment variables to match desired state</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- When <code>false</code>: Existing CPU, memory, storage, and replica settings are preserved during reinstall/upgrade
+- When <code>true</code>: All settings are taken from environment variables; unset variables revert to defaults</p>
+<p><strong>Related variables</strong>: When set to <code>true</code>, affects these settings:
+- <code>mongodb_cpu_limits</code>
+- <code>mongodb_mem_limits</code>
+- <code>mongodb_cpu_requests</code>
+- <code>mongodb_mem_requests</code>
+- <code>mongodb_storage_class</code>
+- <code>mongodb_storage_capacity_data</code>
+- <code>mongodb_storage_capacity_logs</code>
+- <code>mongodb_replicas</code></p>
+<p><strong>Note</strong>: <strong>Check existing MongoDB installation before enabling</strong>. If environment variables don't match current spec, resources may be reset to defaults, potentially causing disruption. Unknown settings are not preserved.</p>
 <h4 id="mongodb_storage_class">mongodb_storage_class<a class="headerlink" href="#mongodb_storage_class" title="Permanent link">¤</a></h4>
-<p>The name of the storage class to configure the MongoDb operator to use for persistent storage in the MongoDb cluster. Storage class must support ReadWriteOnce(RWO) access mode.</p>
+<p>Name of the Kubernetes storage class for MongoDB persistent volumes.</p>
 <ul>
-<li><strong>Required</strong></li>
+<li><strong>Required</strong> when <code>mongodb_provider=community</code></li>
 <li>Environment Variable: <code>MONGODB_STORAGE_CLASS</code></li>
 <li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which storage class provides persistent volumes for MongoDB data and logs. The storage class determines performance characteristics, availability, and cost of MongoDB storage.</p>
+<p><strong>When to use</strong>:
+- Always required for Community Edition deployments
+- Choose based on performance requirements (SSD vs HDD)
+- Consider backup and snapshot capabilities of the storage class
+- Verify storage class exists in your cluster before deployment</p>
+<p><strong>Valid values</strong>: Any valid storage class name in your cluster that supports ReadWriteOnce (RWO) access mode</p>
+<p><strong>Impact</strong>: Affects MongoDB performance, reliability, and cost. Six PVCs will be created (data + logs for each of 3 replicas by default). Storage class cannot be changed after deployment without data migration.</p>
+<p><strong>Related variables</strong>:
+- <code>mongodb_storage_capacity_data</code> - Size of data PVCs
+- <code>mongodb_storage_capacity_logs</code> - Size of log PVCs
+- <code>mongodb_replicas</code> - Number of replica sets (affects total PVC count)</p>
+<p><strong>Note</strong>: Storage class must support ReadWriteOnce (RWO) access mode. Verify with <code>oc get storageclass</code> before deployment.</p>
 <h4 id="mongodb_storage_capacity_data">mongodb_storage_capacity_data<a class="headerlink" href="#mongodb_storage_capacity_data" title="Permanent link">¤</a></h4>
-<p>The size of the PVC that will be created for data storage in the cluster.</p>
+<p>Size of the persistent volume claim (PVC) for MongoDB data storage on each replica set member.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MONGODB_STORAGE_CAPACITY_DATA</code></li>
 <li>Default Value: <code>20Gi</code></li>
 </ul>
+<p><strong>Purpose</strong>: Determines disk space allocated for storing MongoDB databases, collections, and indexes on each replica. Proper sizing prevents storage exhaustion and ensures adequate space for data growth.</p>
+<p><strong>When to use</strong>:
+- Increase from default for production environments with large data volumes
+- Increase for environments with high data growth rates
+- Use default (20Gi) for development, testing, or small deployments
+- Consider backup strategy when sizing (larger volumes take longer to backup)</p>
+<p><strong>Valid values</strong>: Any valid Kubernetes storage size (e.g., <code>20Gi</code>, <code>100Gi</code>, <code>500Gi</code>, <code>1Ti</code>)</p>
+<p><strong>Impact</strong>:
+- Larger values consume more cluster storage resources
+- Cannot be decreased after deployment (PVC expansion only)
+- Total storage = this value × number of replicas
+- Affects backup and restore duration</p>
+<p><strong>Related variables</strong>:
+- <code>mongodb_replicas</code>: Total storage = capacity × replicas
+- <code>mongodb_storage_class</code>: Must support volume expansion if you plan to increase size later
+- <code>mongodb_storage_capacity_logs</code>: Consider balancing data and log storage</p>
+<p><strong>Note</strong>: PVCs can be expanded but not shrunk. Plan for growth when setting initial size. Monitor storage usage to avoid running out of space.</p>
 <h4 id="mongodb_storage_capacity_logs">mongodb_storage_capacity_logs<a class="headerlink" href="#mongodb_storage_capacity_logs" title="Permanent link">¤</a></h4>
-<p>The size of the PVC that will be created for log storage in the cluster.</p>
+<p>Size of the persistent volume claim (PVC) for MongoDB log storage on each replica set member.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MONGODB_STORAGE_CAPACITY_LOGS</code></li>
 <li>Default Value: <code>20Gi</code></li>
 </ul>
+<p><strong>Purpose</strong>: Determines disk space allocated for MongoDB operational logs on each replica. Logs are essential for troubleshooting, auditing, and monitoring MongoDB operations.</p>
+<p><strong>When to use</strong>:
+- Increase for production environments with verbose logging requirements
+- Increase if log retention policies require longer history
+- Use default (20Gi) for standard deployments
+- Consider log rotation and retention policies when sizing</p>
+<p><strong>Valid values</strong>: Any valid Kubernetes storage size (e.g., <code>10Gi</code>, <code>20Gi</code>, <code>50Gi</code>)</p>
+<p><strong>Impact</strong>:
+- Larger values consume more cluster storage resources
+- Cannot be decreased after deployment (PVC expansion only)
+- Total log storage = this value × number of replicas
+- Insufficient log space can cause MongoDB operational issues</p>
+<p><strong>Related variables</strong>:
+- <code>mongodb_replicas</code>: Total log storage = capacity × replicas
+- <code>mongodb_storage_class</code>: Must support volume expansion
+- <code>mongodb_storage_capacity_data</code>: Consider balancing data and log storage</p>
+<p><strong>Note</strong>: Monitor log usage and implement log rotation to prevent filling log volumes. PVCs can be expanded but not shrunk.</p>
 <h4 id="mongodb_cpu_limits">mongodb_cpu_limits<a class="headerlink" href="#mongodb_cpu_limits" title="Permanent link">¤</a></h4>
-<p>The CPU limits on the mongodb container.</p>
+<p>Maximum CPU cores allocated to each MongoDB container.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MONGODB_CPU_LIMITS</code></li>
 <li>Default Value: <code>1</code></li>
 </ul>
+<p><strong>Purpose</strong>: Sets the upper bound on CPU usage for MongoDB containers, preventing any single MongoDB instance from consuming excessive cluster CPU resources.</p>
+<p><strong>When to use</strong>:
+- Increase for production workloads with high query volumes
+- Increase for large datasets requiring more processing power
+- Use default (1 core) for development or light workloads
+- Set higher than <code>mongodb_cpu_requests</code> to allow burst capacity</p>
+<p><strong>Valid values</strong>: CPU units as decimal (e.g., <code>0.5</code>, <code>1</code>, <code>2</code>, <code>4</code>) or millicores (e.g., <code>500m</code>, <code>1000m</code>, <code>2000m</code>)</p>
+<p><strong>Impact</strong>:
+- Higher limits allow better performance under load but consume more cluster resources
+- Limits prevent MongoDB from starving other workloads of CPU
+- Total CPU limit = this value × number of replicas
+- Setting too low can cause performance degradation</p>
+<p><strong>Related variables</strong>:
+- <code>mongodb_cpu_requests</code>: Should be set lower than limits for burst capacity
+- <code>mongodb_replicas</code>: Total CPU = limits × replicas
+- <code>mongodb_mem_limits</code>: Balance CPU and memory allocation</p>
+<p><strong>Note</strong>: Ensure cluster has sufficient CPU capacity for all replicas. Monitor actual CPU usage to right-size limits.</p>
 <h4 id="mongodb_mem_limits">mongodb_mem_limits<a class="headerlink" href="#mongodb_mem_limits" title="Permanent link">¤</a></h4>
-<p>The Memory limits on the mongodb container.</p>
+<p>Maximum memory allocated to each MongoDB container.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MONGODB_MEM_LIMITS</code></li>
 <li>Default Value: <code>1Gi</code></li>
 </ul>
+<p><strong>Purpose</strong>: Sets the upper bound on memory usage for MongoDB containers. MongoDB uses memory for caching data and indexes, so adequate memory is critical for performance.</p>
+<p><strong>When to use</strong>:
+- Increase significantly for production workloads (4Gi-8Gi recommended)
+- Increase for large datasets to improve cache hit rates
+- Default (1Gi) is only suitable for development/testing
+- Set higher than <code>mongodb_mem_requests</code> to allow burst capacity</p>
+<p><strong>Valid values</strong>: Memory size (e.g., <code>1Gi</code>, <code>2Gi</code>, <code>4Gi</code>, <code>8Gi</code>, <code>16Gi</code>)</p>
+<p><strong>Impact</strong>:
+- Higher limits improve performance through better caching
+- Limits prevent MongoDB from consuming all cluster memory
+- Total memory limit = this value × number of replicas
+- Setting too low causes frequent cache evictions and poor performance</p>
+<p><strong>Related variables</strong>:
+- <code>mongodb_mem_requests</code>: Should be set lower than limits
+- <code>mongodb_replicas</code>: Total memory = limits × replicas
+- <code>mongodb_cpu_limits</code>: Balance CPU and memory allocation</p>
+<p><strong>Note</strong>: MongoDB performance heavily depends on available memory. Production deployments typically need 4Gi-8Gi per replica. Monitor memory usage and adjust accordingly.</p>
 <h4 id="mongodb_cpu_requests">mongodb_cpu_requests<a class="headerlink" href="#mongodb_cpu_requests" title="Permanent link">¤</a></h4>
-<p>The CPU requests on the mongodb container.</p>
+<p>Guaranteed CPU cores reserved for each MongoDB container.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MONGODB_CPU_REQUESTS</code></li>
 <li>Default Value: <code>500m</code></li>
 </ul>
+<p><strong>Purpose</strong>: Defines the minimum CPU resources guaranteed to MongoDB containers. Kubernetes scheduler uses this to place pods on nodes with sufficient available CPU.</p>
+<p><strong>When to use</strong>:
+- Increase for production workloads requiring consistent performance
+- Set to match expected baseline CPU usage
+- Use default (500m) for development or light workloads
+- Set lower than <code>mongodb_cpu_limits</code> to allow burst capacity</p>
+<p><strong>Valid values</strong>: CPU units as decimal (e.g., <code>0.5</code>, <code>1</code>, <code>2</code>) or millicores (e.g., <code>500m</code>, <code>1000m</code>, <code>2000m</code>)</p>
+<p><strong>Impact</strong>:
+- Higher requests guarantee more CPU but may limit pod scheduling if cluster capacity is constrained
+- Requests ensure MongoDB has minimum CPU even under cluster load
+- Total CPU request = this value × number of replicas
+- Affects pod Quality of Service (QoS) class</p>
+<p><strong>Related variables</strong>:
+- <code>mongodb_cpu_limits</code>: Requests should be lower than limits
+- <code>mongodb_replicas</code>: Total CPU requests = this value × replicas
+- <code>mongodb_mem_requests</code>: Balance CPU and memory requests</p>
+<p><strong>Note</strong>: Set requests based on baseline usage, not peak. The difference between requests and limits provides burst capacity.</p>
 <h4 id="mongodb_mem_requests">mongodb_mem_requests<a class="headerlink" href="#mongodb_mem_requests" title="Permanent link">¤</a></h4>
-<p>The Memory requests on the mongodb container.</p>
+<p>Guaranteed memory reserved for each MongoDB container.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MONGODB_MEM_REQUESTS</code></li>
 <li>Default Value: <code>1Gi</code></li>
 </ul>
+<p><strong>Purpose</strong>: Defines the minimum memory resources guaranteed to MongoDB containers. Kubernetes scheduler uses this to place pods on nodes with sufficient available memory.</p>
+<p><strong>When to use</strong>:
+- Increase for production workloads (2Gi-4Gi recommended)
+- Set to match expected baseline memory usage
+- Default (1Gi) is only suitable for development/testing
+- Set lower than <code>mongodb_mem_limits</code> to allow burst capacity</p>
+<p><strong>Valid values</strong>: Memory size (e.g., <code>1Gi</code>, <code>2Gi</code>, <code>4Gi</code>, <code>8Gi</code>)</p>
+<p><strong>Impact</strong>:
+- Higher requests guarantee more memory but may limit pod scheduling if cluster capacity is constrained
+- Requests ensure MongoDB has minimum memory even under cluster load
+- Total memory request = this value × number of replicas
+- Affects pod Quality of Service (QoS) class</p>
+<p><strong>Related variables</strong>:
+- <code>mongodb_mem_limits</code>: Requests should be lower than limits
+- <code>mongodb_replicas</code>: Total memory requests = this value × replicas
+- <code>mongodb_cpu_requests</code>: Balance CPU and memory requests</p>
+<p><strong>Note</strong>: MongoDB needs adequate memory for good performance. Production deployments typically need 2Gi-4Gi requests. Set based on baseline usage, not peak.</p>
 <h4 id="mongodb_replicas">mongodb_replicas<a class="headerlink" href="#mongodb_replicas" title="Permanent link">¤</a></h4>
-<p>The number of the mongodb replica set members. Default is 3. Set to 1 for SNO Cluster.</p>
+<p>Number of MongoDB replica set members to deploy.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MONGODB_REPLICAS</code></li>
 <li>Default Value: <code>3</code></li>
 </ul>
+<p><strong>Purpose</strong>: Determines the size of the MongoDB replica set, which affects high availability, read scalability, and resource consumption. Replica sets provide data redundancy and automatic failover.</p>
+<p><strong>When to use</strong>:
+- Use default (3) for production deployments with high availability requirements
+- Set to 1 only for Single Node OpenShift (SNO) clusters or development environments
+- Use 5 or more for critical production workloads requiring higher availability
+- Odd numbers (1, 3, 5) are recommended for proper election quorum</p>
+<p><strong>Valid values</strong>: Positive integers, typically 1, 3, or 5</p>
+<p><strong>Impact</strong>:
+- More replicas = higher availability but more resource consumption
+- Each replica requires its own data and log PVCs
+- Total resources = (CPU + memory + storage) × replicas
+- Affects election behavior and write acknowledgment</p>
+<p><strong>Related variables</strong>:
+- <code>mongodb_storage_capacity_data</code>: Total data storage = capacity × replicas
+- <code>mongodb_storage_capacity_logs</code>: Total log storage = capacity × replicas
+- <code>mongodb_cpu_limits</code> and <code>mongodb_mem_limits</code>: Total resources = limits × replicas</p>
+<p><strong>Note</strong>: Set to 1 for SNO clusters. Production deployments should use 3 or more for high availability. Changing replica count after deployment requires careful planning.</p>
 <h4 id="custom_labels">custom_labels<a class="headerlink" href="#custom_labels" title="Permanent link">¤</a></h4>
-<p>List of comma separated key=value pairs for setting custom labels on instance specific resources.</p>
+<p>Comma-separated list of key=value labels to apply to MongoDB resources.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>CUSTOM_LABELS</code></li>
 <li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Adds Kubernetes labels to MongoDB resources for organization, selection, and filtering. Labels enable resource tracking, cost allocation, and custom automation.</p>
+<p><strong>When to use</strong>:
+- Use to add organizational metadata (e.g., <code>cost-center=engineering</code>, <code>environment=production</code>)
+- Use to enable resource tracking and cost allocation
+- Use to support custom automation or monitoring tools
+- Use to comply with organizational labeling standards</p>
+<p><strong>Valid values</strong>: Comma-separated list of <code>key=value</code> pairs (e.g., <code>env=prod,team=platform,app=mongodb</code>)</p>
+<p><strong>Impact</strong>: Labels are applied to MongoDB resources and can be used for filtering with <code>oc get</code> commands, monitoring queries, and automation scripts. Labels do not affect MongoDB functionality.</p>
+<p><strong>Related variables</strong>: Works alongside Kubernetes resource labels for comprehensive resource management.</p>
 <h4 id="mongodb_v5_upgrade">mongodb_v5_upgrade<a class="headerlink" href="#mongodb_v5_upgrade" title="Permanent link">¤</a></h4>
-<p>Set this to <code>true</code> to confirm you want to upgrade your existing Mongo instance from version 4.2 or 4.4 to version 5.</p>
+<p>Confirmation flag to upgrade MongoDB from version 4.x to version 5.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MONGODB_V5_UPGRADE</code></li>
 <li>Default Value: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Acts as a safety confirmation to prevent accidental MongoDB major version upgrades. Upgrading MongoDB major versions requires careful planning and testing.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> only when intentionally upgrading from MongoDB 4.2 or 4.4 to version 5
+- Must be explicitly set to perform the upgrade
+- Leave as <code>false</code> for all other operations</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: When <code>true</code> and <code>mongodb_version</code> is set to a 5.x version, triggers MongoDB upgrade from 4.x to 5.x. This is a one-way operation that cannot be reversed without restoring from backup.</p>
+<p><strong>Related variables</strong>:
+- <code>mongodb_version</code>: Must be set to a 5.x version for upgrade to proceed
+- Other upgrade flags: <code>mongodb_v6_upgrade</code>, <code>mongodb_v7_upgrade</code>, <code>mongodb_v8_upgrade</code></p>
+<p><strong>Note</strong>: <strong>Always backup before upgrading</strong>. Test upgrades in non-production environments first. Review MongoDB 5.0 release notes for breaking changes and new requirements (e.g., AVX instruction set).</p>
 <h4 id="mongodb_v6_upgrade">mongodb_v6_upgrade<a class="headerlink" href="#mongodb_v6_upgrade" title="Permanent link">¤</a></h4>
-<p>Set this to <code>true</code> to confirm you want to upgrade your existing Mongo instance from version 5 to version 6.</p>
+<p>Confirmation flag to upgrade MongoDB from version 5 to version 6.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MONGODB_V6_UPGRADE</code></li>
 <li>Default Value: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Acts as a safety confirmation to prevent accidental MongoDB major version upgrades from version 5 to 6.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> only when intentionally upgrading from MongoDB 5 to version 6
+- Must be explicitly set to perform the upgrade
+- Leave as <code>false</code> for all other operations</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: When <code>true</code> and <code>mongodb_version</code> is set to a 6.x version, triggers MongoDB upgrade from 5.x to 6.x. This is a one-way operation that cannot be reversed without restoring from backup.</p>
+<p><strong>Related variables</strong>:
+- <code>mongodb_version</code>: Must be set to a 6.x version for upgrade to proceed
+- Other upgrade flags: <code>mongodb_v5_upgrade</code>, <code>mongodb_v7_upgrade</code>, <code>mongodb_v8_upgrade</code></p>
+<p><strong>Note</strong>: <strong>Always backup before upgrading</strong>. Test upgrades in non-production environments first. Review MongoDB 6.0 release notes for breaking changes.</p>
 <h4 id="mongodb_v7_upgrade">mongodb_v7_upgrade<a class="headerlink" href="#mongodb_v7_upgrade" title="Permanent link">¤</a></h4>
-<p>Set this to <code>true</code> to confirm you want to upgrade your existing Mongo instance from version 6 to version 7.</p>
+<p>Confirmation flag to upgrade MongoDB from version 6 to version 7.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MONGODB_V7_UPGRADE</code></li>
 <li>Default Value: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Acts as a safety confirmation to prevent accidental MongoDB major version upgrades from version 6 to 7.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> only when intentionally upgrading from MongoDB 6 to version 7
+- Must be explicitly set to perform the upgrade
+- Leave as <code>false</code> for all other operations</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: When <code>true</code> and <code>mongodb_version</code> is set to a 7.x version, triggers MongoDB upgrade from 6.x to 7.x. This is a one-way operation that cannot be reversed without restoring from backup.</p>
+<p><strong>Related variables</strong>:
+- <code>mongodb_version</code>: Must be set to a 7.x version for upgrade to proceed
+- Other upgrade flags: <code>mongodb_v5_upgrade</code>, <code>mongodb_v6_upgrade</code>, <code>mongodb_v8_upgrade</code></p>
+<p><strong>Note</strong>: <strong>Always backup before upgrading</strong>. Test upgrades in non-production environments first. Review MongoDB 7.0 release notes for breaking changes.</p>
 <h4 id="mongodb_v8_upgrade">mongodb_v8_upgrade<a class="headerlink" href="#mongodb_v8_upgrade" title="Permanent link">¤</a></h4>
-<p>Set this to <code>true</code> to confirm you want to upgrade your existing Mongo instance from version 7 to version 8.</p>
+<p>Confirmation flag to upgrade MongoDB from version 7 to version 8.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MONGODB_V8_UPGRADE</code></li>
 <li>Default Value: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Acts as a safety confirmation to prevent accidental MongoDB major version upgrades from version 7 to 8.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> only when intentionally upgrading from MongoDB 7 to version 8
+- Must be explicitly set to perform the upgrade
+- Leave as <code>false</code> for all other operations</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: When <code>true</code> and <code>mongodb_version</code> is set to an 8.x version, triggers MongoDB upgrade from 7.x to 8.x. This is a one-way operation that cannot be reversed without restoring from backup.</p>
+<p><strong>Related variables</strong>:
+- <code>mongodb_version</code>: Must be set to an 8.x version for upgrade to proceed
+- Other upgrade flags: <code>mongodb_v5_upgrade</code>, <code>mongodb_v6_upgrade</code>, <code>mongodb_v7_upgrade</code></p>
+<p><strong>Note</strong>: <strong>Always backup before upgrading</strong>. Test upgrades in non-production environments first. Review MongoDB 8.0 release notes for breaking changes.</p>
 <h4 id="masbr_confirm_cluster">masbr_confirm_cluster<a class="headerlink" href="#masbr_confirm_cluster" title="Permanent link">¤</a></h4>
-<p>Set <code>true</code> or <code>false</code> to indicate the role whether to confirm the currently connected cluster before running the backup or restore job.</p>
+<p>Enables cluster confirmation prompt before executing backup or restore operations.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MASBR_CONFIRM_CLUSTER</code></li>
 <li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Provides a safety check to confirm you're connected to the correct cluster before performing backup or restore operations, preventing accidental operations on wrong clusters.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> in environments with multiple clusters to prevent mistakes
+- Set to <code>true</code> for production environments as an additional safety measure
+- Leave as <code>false</code> for automated pipelines where confirmation isn't possible</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: When <code>true</code>, the role will prompt for confirmation of the cluster before proceeding with backup/restore. This adds a manual step but prevents costly mistakes.</p>
+<p><strong>Related variables</strong>: Used with <code>mongodb_action</code> when set to <code>backup</code> or <code>restore</code>.</p>
 <h4 id="masbr_copy_timeout_sec">masbr_copy_timeout_sec<a class="headerlink" href="#masbr_copy_timeout_sec" title="Permanent link">¤</a></h4>
-<p>Set the transfer files timeout in seconds.</p>
+<p>Timeout in seconds for backup/restore file transfer operations.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MASBR_COPY_TIMEOUT_SEC</code></li>
 <li>Default: <code>43200</code> (12 hours)</li>
 </ul>
+<p><strong>Purpose</strong>: Sets the maximum time allowed for copying backup files to/from storage. Prevents operations from hanging indefinitely on slow networks or large datasets.</p>
+<p><strong>When to use</strong>:
+- Increase for very large databases or slow network connections
+- Decrease for smaller databases to fail faster on issues
+- Use default (12 hours) for most deployments</p>
+<p><strong>Valid values</strong>: Positive integer representing seconds (e.g., <code>3600</code> = 1 hour, <code>43200</code> = 12 hours, <code>86400</code> = 24 hours)</p>
+<p><strong>Impact</strong>: Operations exceeding this timeout will fail. Setting too low causes failures on legitimate long-running transfers. Setting too high delays detection of stuck operations.</p>
+<p><strong>Related variables</strong>: Used with <code>mongodb_action</code> when set to <code>backup</code> or <code>restore</code>.</p>
+<p><strong>Note</strong>: Consider database size and network speed when setting timeout. Monitor actual transfer times to optimize this value.</p>
 <h4 id="masbr_job_timezone">masbr_job_timezone<a class="headerlink" href="#masbr_job_timezone" title="Permanent link">¤</a></h4>
-<p>Set the <a href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones">time zone</a> for creating scheduled backup job. If not set a value for this variable, this role will use UTC time zone when creating a CronJob for running scheduled backup job.</p>
+<p>Time zone for scheduled backup job execution.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MASBR_JOB_TIMEZONE</code></li>
-<li>Default: None</li>
+<li>Default: None (uses UTC)</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the time zone for scheduled backup CronJobs, ensuring backups run at the intended local time rather than UTC.</p>
+<p><strong>When to use</strong>:
+- Set when scheduling backups to run at specific local times
+- Use for compliance with backup windows in specific time zones
+- Leave unset to use UTC (recommended for global deployments)</p>
+<p><strong>Valid values</strong>: Any valid <a href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones">tz database time zone</a> (e.g., <code>America/New_York</code>, <code>Europe/London</code>, <code>Asia/Tokyo</code>)</p>
+<p><strong>Impact</strong>: Affects when scheduled backups execute. Incorrect time zone can cause backups to run during business hours or miss backup windows.</p>
+<p><strong>Related variables</strong>:
+- <code>masbr_backup_schedule</code>: Defines the cron schedule
+- Only applies when <code>masbr_backup_schedule</code> is set</p>
+<p><strong>Note</strong>: When not set, CronJobs use UTC time zone. Consider daylight saving time changes when scheduling backups.</p>
 <h4 id="masbr_storage_local_folder">masbr_storage_local_folder<a class="headerlink" href="#masbr_storage_local_folder" title="Permanent link">¤</a></h4>
-<p>Set local path to save the backup files.</p>
+<p>Local filesystem path where backup files will be stored or retrieved from.</p>
 <ul>
-<li><strong>Required</strong></li>
+<li><strong>Required</strong> when <code>mongodb_action</code> is <code>backup</code> or <code>restore</code></li>
 <li>Environment Variable: <code>MASBR_STORAGE_LOCAL_FOLDER</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the directory for storing MongoDB backup files. This location must have sufficient space and appropriate permissions for backup operations.</p>
+<p><strong>When to use</strong>:
+- Always required for backup and restore operations
+- Use a path with adequate storage space for full database backups
+- Consider using network-attached storage for backup retention
+- Ensure path is accessible and has proper permissions</p>
+<p><strong>Valid values</strong>: Any valid local filesystem path (e.g., <code>/backup/mongodb</code>, <code>/mnt/nfs/backups</code>, <code>/tmp/masbr</code>)</p>
+<p><strong>Impact</strong>: Backup files are written to this location. Insufficient space causes backup failures. Path must be accessible during restore operations.</p>
+<p><strong>Related variables</strong>:
+- <code>masbr_backup_type</code>: Determines if full or incremental backups are stored here
+- <code>masbr_restore_from_version</code>: Specifies which backup version to restore from this location</p>
+<p><strong>Note</strong>: Ensure adequate disk space (at least 2x database size for full backups). Implement backup retention policies to manage storage usage.</p>
 <h4 id="masbr_backup_type">masbr_backup_type<a class="headerlink" href="#masbr_backup_type" title="Permanent link">¤</a></h4>
-<p>Set <code>full</code> or <code>incr</code> to indicate the role to create a full backup or incremental backup.</p>
+<p>Type of backup to create: full or incremental.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MASBR_BACKUP_TYPE</code></li>
 <li>Default: <code>full</code></li>
 </ul>
+<p><strong>Purpose</strong>: Determines whether to create a complete database backup or an incremental backup containing only changes since the last full backup. Incremental backups save time and storage.</p>
+<p><strong>When to use</strong>:
+- Use <code>full</code> for initial backups or periodic complete backups
+- Use <code>incr</code> for frequent backups between full backups to save time and space
+- Implement a strategy like weekly full + daily incremental backups</p>
+<p><strong>Valid values</strong>: <code>full</code>, <code>incr</code></p>
+<p><strong>Impact</strong>:
+- <code>full</code>: Creates complete backup, takes longer, uses more storage
+- <code>incr</code>: Creates incremental backup, faster, uses less storage, requires base full backup</p>
+<p><strong>Related variables</strong>:
+- <code>masbr_backup_from_version</code>: Required when <code>incr</code> is used to specify base full backup
+- <code>mongodb_action</code>: Must be set to <code>backup</code></p>
+<p><strong>Note</strong>: Incremental backups require a full backup as base. Restore operations may need to apply multiple incremental backups sequentially.</p>
 <h4 id="masbr_backup_from_version">masbr_backup_from_version<a class="headerlink" href="#masbr_backup_from_version" title="Permanent link">¤</a></h4>
-<p>Set the full backup version to use in the incremental backup, this will be in the format of a <code>YYYMMDDHHMMSS</code> timestamp (e.g. <code>20240621021316</code>). This variable is only valid when <code>MASBR_BACKUP_TYPE=incr</code>. If not set a value for this variable, this role will try to find the latest full backup version from the specified storage location.</p>
+<p>Timestamp of the full backup to use as base for incremental backup.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MASBR_BACKUP_FROM_VERSION</code></li>
-<li>Default: None</li>
+<li>Default: None (automatically uses latest full backup)</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which full backup serves as the base for an incremental backup. This links the incremental backup to a specific full backup version.</p>
+<p><strong>When to use</strong>:
+- Set when creating incremental backups and you want to specify a particular full backup
+- Leave unset to automatically use the most recent full backup
+- Only valid when <code>masbr_backup_type=incr</code></p>
+<p><strong>Valid values</strong>: Timestamp in format <code>YYYYMMDDHHMMSS</code> (e.g., <code>20240621021316</code>)</p>
+<p><strong>Impact</strong>: Incremental backup will contain only changes since the specified full backup. Incorrect version can cause backup chain issues.</p>
+<p><strong>Related variables</strong>:
+- <code>masbr_backup_type</code>: Must be set to <code>incr</code>
+- <code>masbr_storage_local_folder</code>: Location where full backup exists</p>
+<p><strong>Note</strong>: If not specified, role automatically finds the latest full backup. Ensure the specified full backup exists in the storage location.</p>
 <h4 id="masbr_backup_schedule">masbr_backup_schedule<a class="headerlink" href="#masbr_backup_schedule" title="Permanent link">¤</a></h4>
-<p>Set <a href="ttps://en.wikipedia.org/wiki/Cron">Cron expression</a> to create a scheduled backup. If not set a value for this varialbe, this role will create an on-demand backup.</p>
+<p>Cron expression for scheduling automated backups.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MASBR_BACKUP_SCHEDULE</code></li>
-<li>Default: None</li>
+<li>Default: None (creates on-demand backup)</li>
 </ul>
+<p><strong>Purpose</strong>: Defines when automated backups should run using standard cron syntax. Enables regular, unattended backup operations.</p>
+<p><strong>When to use</strong>:
+- Set to schedule regular automated backups (e.g., daily, weekly)
+- Leave unset for manual, on-demand backups
+- Consider backup windows and system load when scheduling</p>
+<p><strong>Valid values</strong>: Standard <a href="https://en.wikipedia.org/wiki/Cron">cron expression</a> (e.g., <code>0 2 * * *</code> for daily at 2 AM, <code>0 2 * * 0</code> for weekly on Sunday at 2 AM)</p>
+<p><strong>Impact</strong>: When set, creates a Kubernetes CronJob that automatically runs backups on schedule. Without this, backups only run when role is manually executed.</p>
+<p><strong>Related variables</strong>:
+- <code>masbr_job_timezone</code>: Specifies time zone for schedule
+- <code>masbr_backup_type</code>: Determines if scheduled backups are full or incremental</p>
+<p><strong>Note</strong>: Test cron expressions before deploying. Consider backup duration when scheduling to avoid overlapping backup jobs.</p>
 <h4 id="masbr_restore_from_version">masbr_restore_from_version<a class="headerlink" href="#masbr_restore_from_version" title="Permanent link">¤</a></h4>
-<p>Set the backup version to use in the restore, this will be in the format of a <code>YYYMMDDHHMMSS</code> timestamp (e.g. <code>20240621021316</code>)</p>
+<p>Timestamp of the backup version to restore.</p>
 <ul>
-<li><strong>Required</strong> only when <code>MONGODB_ACTION=restore</code></li>
+<li><strong>Required</strong> when <code>mongodb_action=restore</code></li>
 <li>Environment Variable: <code>MASBR_RESTORE_FROM_VERSION</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which backup version to restore from. This allows point-in-time recovery to a specific backup.</p>
+<p><strong>When to use</strong>:
+- Always required when performing restore operations
+- Use to restore to a specific point in time
+- Verify backup version exists before attempting restore</p>
+<p><strong>Valid values</strong>: Timestamp in format <code>YYYYMMDDHHMMSS</code> (e.g., <code>20240621021316</code>)</p>
+<p><strong>Impact</strong>: Restores MongoDB to the state captured in the specified backup. All data after this backup will be lost. This is a destructive operation.</p>
+<p><strong>Related variables</strong>:
+- <code>mongodb_action</code>: Must be set to <code>restore</code>
+- <code>masbr_storage_local_folder</code>: Location where backup exists</p>
+<p><strong>Note</strong>: <strong>Verify backup version before restoring</strong>. List available backups in storage location first. Restore is destructive and cannot be undone without another backup.</p>
 <h2 id="role-variables-ibm-cloud">Role Variables - IBM Cloud<a class="headerlink" href="#role-variables-ibm-cloud" title="Permanent link">¤</a></h2>
 <h4 id="ibm_mongo_name">ibm_mongo_name<a class="headerlink" href="#ibm_mongo_name" title="Permanent link">¤</a></h4>
-<p>IBM Cloud Mongo database instance name.</p>
+<p>Name for the IBM Cloud Databases for MongoDB instance.</p>
 <ul>
-<li><strong>Required</strong></li>
+<li><strong>Required</strong> when <code>mongodb_provider=ibm</code></li>
 <li>Environment Variable: <code>IBM_MONGO_NAME</code></li>
 <li>Default Value: <code>mongo-${MAS_INSTANCE_ID}</code></li>
 </ul>
+<p><strong>Purpose</strong>: Identifies the MongoDB database instance in IBM Cloud. This name is used for resource identification, billing, and management within IBM Cloud.</p>
+<p><strong>When to use</strong>:
+- Always required when using IBM Cloud as the MongoDB provider
+- Use default naming convention for consistency across MAS instances
+- Customize only if organizational naming standards require it</p>
+<p><strong>Valid values</strong>: Valid IBM Cloud resource name (alphanumeric, hyphens allowed, must start with letter)</p>
+<p><strong>Impact</strong>: This name appears in IBM Cloud console, billing reports, and resource lists. Changing it after creation requires recreating the database instance.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_instance_id</code>: Default name includes this value
+- <code>mongodb_provider</code>: Must be set to <code>ibm</code></p>
+<p><strong>Note</strong>: Choose a descriptive name that identifies the MAS instance and environment. The name cannot be changed after creation.</p>
 <h4 id="ibm_mongo_admin_password">ibm_mongo_admin_password<a class="headerlink" href="#ibm_mongo_admin_password" title="Permanent link">¤</a></h4>
-<p>Optional. Sets IBM Cloud Mongo database administrator user password.
-If not set, an auto-generated 20 character length string will be used.</p>
+<p>Administrator password for the IBM Cloud MongoDB instance.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IBM_MONGO_ADMIN_PASSWORD</code></li>
-<li>Default Value: None.</li>
+<li>Default Value: Auto-generated 20-character string</li>
 </ul>
+<p><strong>Purpose</strong>: Sets the password for the MongoDB administrator user. If not provided, a secure random password is automatically generated.</p>
+<p><strong>When to use</strong>:
+- Set explicitly if you need to know the password in advance
+- Leave unset to use auto-generated secure password (recommended)
+- Set if integrating with external password management systems</p>
+<p><strong>Valid values</strong>: String meeting IBM Cloud password requirements (minimum length, complexity)</p>
+<p><strong>Impact</strong>: This password is used for administrative access to the MongoDB instance. Auto-generated passwords are stored in Kubernetes secrets.</p>
+<p><strong>Related variables</strong>:
+- <code>ibm_mongo_admin_credentials_secret_name</code>: Secret where credentials are stored</p>
+<p><strong>Note</strong>: Auto-generated passwords are more secure. If setting manually, ensure password meets security requirements and is stored securely.</p>
 <h4 id="ibm_mongo_admin_credentials_secret_name">ibm_mongo_admin_credentials_secret_name<a class="headerlink" href="#ibm_mongo_admin_credentials_secret_name" title="Permanent link">¤</a></h4>
-<p>Secret for MongoDB Admin credentials.</p>
+<p>Name of the Kubernetes secret containing MongoDB admin credentials.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IBM_MONGO_ADMIN_CREDENTIALS_SECRET_NAME</code></li>
-<li>Secret Name: <code>&lt;mongo-name&gt;-admin-credentials</code></li>
-<li>Default Value: None</li>
+<li>Default Value: <code>&lt;mongo-name&gt;-admin-credentials</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the Kubernetes secret name where MongoDB administrator credentials are stored. This secret is created automatically by the role.</p>
+<p><strong>When to use</strong>:
+- Customize if organizational standards require specific secret naming
+- Use default for standard deployments
+- Reference this secret name in other automation</p>
+<p><strong>Valid values</strong>: Valid Kubernetes secret name</p>
+<p><strong>Impact</strong>: The secret contains admin username and password for MongoDB access. Other roles and applications reference this secret for database connectivity.</p>
+<p><strong>Related variables</strong>:
+- <code>ibm_mongo_name</code>: Default secret name includes this value
+- <code>ibm_mongo_admin_password</code>: Password stored in this secret</p>
 <h4 id="ibm_mongo_service_credentials_secret_name">ibm_mongo_service_credentials_secret_name<a class="headerlink" href="#ibm_mongo_service_credentials_secret_name" title="Permanent link">¤</a></h4>
-<p>Secret for MongoDB Service credentials.</p>
+<p>Name of the Kubernetes secret containing MongoDB service credentials.</p>
 <ul>
-<li>Secret Name: <code>&lt;mongo-name&gt;-service-credentials</code></li>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>IBM_MONGO_SERVICE_CREDENTIALS_SECRET_NAME</code></li>
+<li>Default Value: <code>&lt;mongo-name&gt;-service-credentials</code></li>
 </ul>
-<h3 id="ibm_mongo_resourcegroup">ibm_mongo_resourcegroup<a class="headerlink" href="#ibm_mongo_resourcegroup" title="Permanent link">¤</a></h3>
-<p>Required.IBM Cloud Resource Group under which resource group will be created.</p>
+<p><strong>Purpose</strong>: Specifies the Kubernetes secret name where MongoDB service-level credentials are stored. These credentials are used by MAS applications to connect to MongoDB.</p>
+<p><strong>When to use</strong>:
+- Customize if organizational standards require specific secret naming
+- Use default for standard deployments
+- Reference this secret name when configuring MAS applications</p>
+<p><strong>Valid values</strong>: Valid Kubernetes secret name</p>
+<p><strong>Impact</strong>: The secret contains connection strings and credentials for application-level MongoDB access. MAS applications use this secret to connect to the database.</p>
+<p><strong>Related variables</strong>:
+- <code>ibm_mongo_name</code>: Default secret name includes this value</p>
+<h4 id="ibm_mongo_resourcegroup">ibm_mongo_resourcegroup<a class="headerlink" href="#ibm_mongo_resourcegroup" title="Permanent link">¤</a></h4>
+<p>IBM Cloud resource group for MongoDB instance placement.</p>
 <ul>
+<li><strong>Required</strong> when <code>mongodb_provider=ibm</code></li>
 <li>Environment Variable: <code>IBM_MONGO_RESOURCEGROUP</code></li>
 <li>Default Value: <code>Default</code></li>
 </ul>
-<h3 id="ibm_mongo_region">ibm_mongo_region<a class="headerlink" href="#ibm_mongo_region" title="Permanent link">¤</a></h3>
-<p>Required.IBM Cloud region where MongoDB resources will be created.</p>
+<p><strong>Purpose</strong>: Specifies which IBM Cloud resource group will contain the MongoDB instance. Resource groups organize IBM Cloud resources for access control and billing.</p>
+<p><strong>When to use</strong>:
+- Always required when using IBM Cloud provider
+- Use <code>Default</code> for simple deployments
+- Specify custom resource group for organizational resource management
+- Align with IBM Cloud IAM and billing structure</p>
+<p><strong>Valid values</strong>: Name of an existing IBM Cloud resource group in your account</p>
+<p><strong>Impact</strong>: Determines access control, billing allocation, and resource organization. Users need appropriate IAM permissions for the specified resource group.</p>
+<p><strong>Related variables</strong>:
+- <code>ibmcloud_apikey</code>: API key must have access to the specified resource group</p>
+<p><strong>Note</strong>: Ensure the resource group exists and your API key has permissions to create resources in it.</p>
+<h4 id="ibm_mongo_region">ibm_mongo_region<a class="headerlink" href="#ibm_mongo_region" title="Permanent link">¤</a></h4>
+<p>IBM Cloud region where MongoDB instance will be deployed.</p>
 <ul>
+<li><strong>Required</strong> when <code>mongodb_provider=ibm</code></li>
 <li>Environment Variable: <code>IBM_MONGO_REGION</code></li>
 <li>Default Value: <code>us-east</code></li>
 </ul>
-<h3 id="ibmcloud_apikey">ibmcloud_apikey<a class="headerlink" href="#ibmcloud_apikey" title="Permanent link">¤</a></h3>
-<p>Required.IBM Cloud API Key.</p>
+<p><strong>Purpose</strong>: Specifies the geographic region for MongoDB deployment. Region selection affects latency, data residency, and availability.</p>
+<p><strong>When to use</strong>:
+- Always required when using IBM Cloud provider
+- Choose region closest to your OpenShift cluster for lowest latency
+- Consider data residency requirements for compliance
+- Use default (<code>us-east</code>) if no specific requirements</p>
+<p><strong>Valid values</strong>: Valid IBM Cloud region (e.g., <code>us-east</code>, <code>us-south</code>, <code>eu-gb</code>, <code>eu-de</code>, <code>jp-tok</code>, <code>au-syd</code>)</p>
+<p><strong>Impact</strong>: Affects network latency between OpenShift and MongoDB, data residency compliance, and regional pricing. Cannot be changed after creation.</p>
+<p><strong>Related variables</strong>:
+- <code>ibmcloud_apikey</code>: API key must have access to the specified region</p>
+<p><strong>Note</strong>: Choose region carefully as it cannot be changed. Consider deploying MongoDB in the same region as your OpenShift cluster for best performance.</p>
+<h4 id="ibmcloud_apikey">ibmcloud_apikey<a class="headerlink" href="#ibmcloud_apikey" title="Permanent link">¤</a></h4>
+<p>IBM Cloud API key for authentication and resource management.</p>
 <ul>
+<li><strong>Required</strong> when <code>mongodb_provider=ibm</code></li>
 <li>Environment Variable: <code>IBMCLOUD_APIKEY</code></li>
+<li>Default Value: None</li>
 </ul>
-<h3 id="ibm_mongo_plan">ibm_mongo_plan<a class="headerlink" href="#ibm_mongo_plan" title="Permanent link">¤</a></h3>
-<p>Plan name for this IBMCloud Service.</p>
+<p><strong>Purpose</strong>: Provides authentication credentials for creating and managing IBM Cloud resources. The API key must have sufficient permissions to create and manage Databases for MongoDB instances.</p>
+<p><strong>When to use</strong>:
+- Always required when using IBM Cloud provider
+- Must have permissions for the target resource group and region
+- Should be stored securely (e.g., in Ansible Vault or external secret management)</p>
+<p><strong>Valid values</strong>: Valid IBM Cloud API key string</p>
+<p><strong>Impact</strong>: This key is used to authenticate all IBM Cloud API calls. Insufficient permissions will cause deployment failures.</p>
+<p><strong>Related variables</strong>:
+- <code>ibm_mongo_resourcegroup</code>: API key must have access to this resource group
+- <code>ibm_mongo_region</code>: API key must have access to this region</p>
+<p><strong>Note</strong>: <strong>Never commit API keys to source control</strong>. Use secure secret management. Ensure the API key has appropriate IAM permissions for Databases for MongoDB service.</p>
+<h4 id="ibm_mongo_plan">ibm_mongo_plan<a class="headerlink" href="#ibm_mongo_plan" title="Permanent link">¤</a></h4>
+<p>IBM Cloud service plan for MongoDB instance.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IBM_MONGO_PLAN</code></li>
 <li>Default Value: <code>standard</code></li>
 </ul>
-<h3 id="ibm_mongo_service">ibm_mongo_service<a class="headerlink" href="#ibm_mongo_service" title="Permanent link">¤</a></h3>
-<p>IBMCloud Offering name for MongoDB Database</p>
+<p><strong>Purpose</strong>: Specifies the IBM Cloud service plan tier for MongoDB. Different plans offer different performance, availability, and pricing characteristics.</p>
+<p><strong>When to use</strong>:
+- Use <code>standard</code> (default) for most production deployments
+- Consider <code>enterprise</code> plan for critical workloads requiring higher SLA
+- Review IBM Cloud pricing and plan features before selecting</p>
+<p><strong>Valid values</strong>: <code>standard</code>, <code>enterprise</code> (check IBM Cloud documentation for current plan options)</p>
+<p><strong>Impact</strong>: Affects pricing, performance characteristics, SLA, and available features. Plan cannot be changed after creation without recreating the instance.</p>
+<p><strong>Related variables</strong>:
+- <code>ibm_mongo_memory</code>, <code>ibm_mongo_disk</code>, <code>ibm_mongo_cpu</code>: Resource allocations vary by plan</p>
+<p><strong>Note</strong>: Review IBM Cloud Databases for MongoDB plan documentation for current offerings and pricing.</p>
+<h4 id="ibm_mongo_service">ibm_mongo_service<a class="headerlink" href="#ibm_mongo_service" title="Permanent link">¤</a></h4>
+<p>IBM Cloud service type identifier for MongoDB.</p>
 <ul>
+<li><strong>Read-only</strong></li>
 <li>Value: <code>databases-for-mongodb</code></li>
 </ul>
-<h3 id="ibm_mongo_service_endpoints">ibm_mongo_service_endpoints<a class="headerlink" href="#ibm_mongo_service_endpoints" title="Permanent link">¤</a></h3>
-<p>MongoDB Service Endpoints type can be either public or private</p>
+<p><strong>Purpose</strong>: Identifies the IBM Cloud service type. This is a fixed value used internally by the role.</p>
+<p><strong>When to use</strong>: This is set automatically by the role and should not be modified.</p>
+<p><strong>Valid values</strong>: <code>databases-for-mongodb</code></p>
+<p><strong>Impact</strong>: Used in IBM Cloud API calls to specify the service type.</p>
+<p><strong>Note</strong>: This is a constant value and does not need to be set by users.</p>
+<h4 id="ibm_mongo_service_endpoints">ibm_mongo_service_endpoints<a class="headerlink" href="#ibm_mongo_service_endpoints" title="Permanent link">¤</a></h4>
+<p>Network endpoint type for MongoDB connectivity.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IBM_MONGO_SERVICE_ENDPOINTS</code></li>
 <li>Default Value: <code>public</code></li>
 </ul>
-<h3 id="ibm_mongo_version">ibm_mongo_version<a class="headerlink" href="#ibm_mongo_version" title="Permanent link">¤</a></h3>
-<p>Specify MongoDB version to be deployed</p>
+<p><strong>Purpose</strong>: Determines whether MongoDB is accessible via public internet or private network only. Private endpoints provide better security and performance for cluster-to-database communication.</p>
+<p><strong>When to use</strong>:
+- Use <code>public</code> for simple deployments or when OpenShift cluster lacks private network connectivity
+- Use <code>private</code> for production deployments with private network connectivity (recommended)
+- Private endpoints require IBM Cloud private network configuration</p>
+<p><strong>Valid values</strong>: <code>public</code>, <code>private</code></p>
+<p><strong>Impact</strong>:
+- <code>public</code>: MongoDB accessible over internet (requires firewall rules)
+- <code>private</code>: MongoDB accessible only via IBM Cloud private network (more secure, lower latency)</p>
+<p><strong>Related variables</strong>: Network configuration must support the chosen endpoint type</p>
+<p><strong>Note</strong>: Private endpoints are recommended for production. Ensure your OpenShift cluster can reach IBM Cloud private network if using <code>private</code>.</p>
+<h4 id="ibm_mongo_version">ibm_mongo_version<a class="headerlink" href="#ibm_mongo_version" title="Permanent link">¤</a></h4>
+<p>MongoDB version to deploy in IBM Cloud.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IBM_MONGO_VERSION</code></li>
 <li>Default Value: <code>4.2</code></li>
 </ul>
-<h3 id="ibm_mongo_memory">ibm_mongo_memory<a class="headerlink" href="#ibm_mongo_memory" title="Permanent link">¤</a></h3>
-<p>Specify MongoDB Memory size</p>
+<p><strong>Purpose</strong>: Specifies which MongoDB version to deploy. Version selection affects available features, performance, and compatibility.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>4.2</code>) for compatibility with older MAS versions
+- Specify newer version (e.g., <code>5.0</code>, <code>6.0</code>) for new deployments
+- Check MAS compatibility matrix before selecting version</p>
+<p><strong>Valid values</strong>: MongoDB versions supported by IBM Cloud Databases (e.g., <code>4.2</code>, <code>4.4</code>, <code>5.0</code>, <code>6.0</code>)</p>
+<p><strong>Impact</strong>: Affects available MongoDB features, performance characteristics, and MAS compatibility. Version cannot be easily downgraded.</p>
+<p><strong>Related variables</strong>:
+- Check MAS compatibility requirements before selecting version</p>
+<p><strong>Note</strong>: Verify version compatibility with your MAS version. Newer MongoDB versions may require MAS updates.</p>
+<h4 id="ibm_mongo_memory">ibm_mongo_memory<a class="headerlink" href="#ibm_mongo_memory" title="Permanent link">¤</a></h4>
+<p>Memory allocation per MongoDB member in MB.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IBM_MONGO_MEMORY</code></li>
-<li>Default Value: <code>3840</code></li>
+<li>Default Value: <code>3840</code> (3.75 GB)</li>
 </ul>
-<h3 id="ibm_mongo_disk">ibm_mongo_disk<a class="headerlink" href="#ibm_mongo_disk" title="Permanent link">¤</a></h3>
-<p>Specify MongoDB Disk size</p>
+<p><strong>Purpose</strong>: Specifies memory allocation for each MongoDB replica set member. Memory affects caching performance and query execution.</p>
+<p><strong>When to use</strong>:
+- Use default (3840 MB) for development or small deployments
+- Increase for production workloads (8192 MB or higher recommended)
+- Increase for large datasets to improve cache hit rates</p>
+<p><strong>Valid values</strong>: Integer in MB, minimum varies by plan (typically 1024 MB minimum)</p>
+<p><strong>Impact</strong>: Higher memory improves performance through better caching but increases costs. Total cost = memory × number of members.</p>
+<p><strong>Related variables</strong>:
+- <code>ibm_mongo_plan</code>: Available memory ranges vary by plan
+- <code>ibm_mongo_disk</code>: Balance memory and disk allocation</p>
+<p><strong>Note</strong>: IBM Cloud charges based on allocated memory. Production deployments typically need 8GB+ per member.</p>
+<h4 id="ibm_mongo_disk">ibm_mongo_disk<a class="headerlink" href="#ibm_mongo_disk" title="Permanent link">¤</a></h4>
+<p>Disk storage allocation per MongoDB member in MB.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IBM_MONGO_DISK</code></li>
-<li>Default Value: <code>30720</code></li>
+<li>Default Value: <code>30720</code> (30 GB)</li>
 </ul>
-<h3 id="ibm_mongo_cpu">ibm_mongo_cpu<a class="headerlink" href="#ibm_mongo_cpu" title="Permanent link">¤</a></h3>
-<p>Specify MongoDB CPU</p>
+<p><strong>Purpose</strong>: Specifies disk storage for each MongoDB replica set member. Storage holds databases, indexes, and operational logs.</p>
+<p><strong>When to use</strong>:
+- Use default (30 GB) for development or small datasets
+- Increase for production workloads based on data volume
+- Plan for data growth and backup storage needs</p>
+<p><strong>Valid values</strong>: Integer in MB, minimum varies by plan (typically 5120 MB minimum)</p>
+<p><strong>Impact</strong>: Affects storage capacity and costs. Disk can be expanded but not shrunk. Total storage = disk × number of members.</p>
+<p><strong>Related variables</strong>:
+- <code>ibm_mongo_plan</code>: Available disk ranges vary by plan
+- <code>ibm_mongo_memory</code>: Balance memory and disk allocation</p>
+<p><strong>Note</strong>: Plan for data growth. Disk can be expanded online but cannot be reduced. Monitor storage usage to avoid running out of space.</p>
+<h4 id="ibm_mongo_cpu">ibm_mongo_cpu<a class="headerlink" href="#ibm_mongo_cpu" title="Permanent link">¤</a></h4>
+<p>Dedicated CPU cores per MongoDB member.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IBM_MONGO_CPU</code></li>
-<li>Default Value: <code>0</code></li>
+<li>Default Value: <code>0</code> (shared CPU)</li>
 </ul>
-<h3 id="ibm_mongo_name_1">ibm_mongo_name<a class="headerlink" href="#ibm_mongo_name_1" title="Permanent link">¤</a></h3>
-<p>Resource Name in IBMCloud for MongoDB</p>
+<p><strong>Purpose</strong>: Specifies dedicated CPU cores for each MongoDB member. Dedicated CPUs provide consistent performance but increase costs.</p>
+<p><strong>When to use</strong>:
+- Use <code>0</code> (default) for shared CPU, suitable for development and light workloads
+- Set to <code>3</code> or higher for production workloads requiring consistent performance
+- Dedicated CPUs recommended for production environments</p>
+<p><strong>Valid values</strong>: <code>0</code> (shared), or integer ≥ 3 for dedicated CPUs</p>
+<p><strong>Impact</strong>:
+- <code>0</code>: Shared CPU, lower cost, variable performance
+- <code>≥3</code>: Dedicated CPUs, higher cost, consistent performance</p>
+<p><strong>Related variables</strong>:
+- <code>ibm_mongo_plan</code>: CPU options vary by plan
+- <code>ibm_mongo_memory</code>: Balance CPU and memory allocation</p>
+<p><strong>Note</strong>: Dedicated CPUs significantly increase costs but provide predictable performance. Production workloads typically need dedicated CPUs.</p>
+<h4 id="ibm_mongo_backup_id">ibm_mongo_backup_id<a class="headerlink" href="#ibm_mongo_backup_id" title="Permanent link">¤</a></h4>
+<p>IBM Cloud backup CRN (Cloud Resource Name) for restore operations.</p>
 <ul>
-<li>Value: <code>mongo-{{mas_instance_id}}</code></li>
-</ul>
-<h3 id="ibm_mongo_backup_id">ibm_mongo_backup_id<a class="headerlink" href="#ibm_mongo_backup_id" title="Permanent link">¤</a></h3>
-<p>Required only if <code>is_restore</code> is <code>True</code> CRN ID for backup resource</p>
-<ul>
+<li><strong>Required</strong> when <code>is_restore=true</code></li>
 <li>Environment Variable: <code>IBM_MONGO_BACKUP_ID</code></li>
-<li>Default Value: ``</li>
+<li>Default Value: None</li>
 </ul>
-<h3 id="is_restore">is_restore<a class="headerlink" href="#is_restore" title="Permanent link">¤</a></h3>
-<p>Whether want to restore from an existing backup resource or not.</p>
+<p><strong>Purpose</strong>: Specifies the IBM Cloud backup resource to restore from. The CRN uniquely identifies a specific backup in IBM Cloud.</p>
+<p><strong>When to use</strong>:
+- Required only when restoring from an IBM Cloud backup
+- Obtain CRN from IBM Cloud console or CLI
+- Leave unset for new deployments</p>
+<p><strong>Valid values</strong>: Valid IBM Cloud CRN for a MongoDB backup (format: <code>crn:v1:...</code>)</p>
+<p><strong>Impact</strong>: Restores MongoDB to the state captured in the specified backup. All current data will be replaced.</p>
+<p><strong>Related variables</strong>:
+- <code>is_restore</code>: Must be set to <code>true</code>
+- <code>restored_mongodb_service_name</code>: Name for the restored service</p>
+<p><strong>Note</strong>: <strong>Verify backup CRN before restoring</strong>. Restore is destructive and replaces all current data. Test restore procedures in non-production first.</p>
+<h4 id="is_restore">is_restore<a class="headerlink" href="#is_restore" title="Permanent link">¤</a></h4>
+<p>Flag to enable restore from IBM Cloud backup.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IS_RESTORE</code></li>
 <li>Default Value: <code>false</code></li>
 </ul>
-<h3 id="restored_mongodb_service_name">restored_mongodb_service_name<a class="headerlink" href="#restored_mongodb_service_name" title="Permanent link">¤</a></h3>
-<p>Required only If <code>is_restore</code> is <code>True</code>.MongoDB Service Name</p>
+<p><strong>Purpose</strong>: Controls whether to create a new MongoDB instance or restore from an existing backup. Acts as a safety flag to prevent accidental restores.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> only when intentionally restoring from backup
+- Leave as <code>false</code> (default) for new deployments
+- Must be explicitly set to perform restore</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: When <code>true</code>, creates MongoDB instance from backup instead of fresh deployment. Requires <code>ibm_mongo_backup_id</code> and <code>restored_mongodb_service_name</code>.</p>
+<p><strong>Related variables</strong>:
+- <code>ibm_mongo_backup_id</code>: Required when <code>true</code>
+- <code>restored_mongodb_service_name</code>: Required when <code>true</code></p>
+<p><strong>Note</strong>: <strong>Always verify backup details before setting to <code>true</code></strong>. Restore operations cannot be undone without another backup.</p>
+<h4 id="restored_mongodb_service_name">restored_mongodb_service_name<a class="headerlink" href="#restored_mongodb_service_name" title="Permanent link">¤</a></h4>
+<p>Name for the MongoDB service when restoring from backup.</p>
 <ul>
+<li><strong>Required</strong> when <code>is_restore=true</code></li>
 <li>Environment Variable: <code>RESTORED_MONGODB_SERVICE_NAME</code></li>
+<li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the name for the new MongoDB service created from backup. This allows restoring to a different service name than the original.</p>
+<p><strong>When to use</strong>:
+- Required only when <code>is_restore=true</code>
+- Can be same as or different from original service name
+- Use different name to restore alongside existing instance for testing</p>
+<p><strong>Valid values</strong>: Valid IBM Cloud resource name</p>
+<p><strong>Impact</strong>: The restored MongoDB instance will have this name in IBM Cloud. Choose carefully as it affects resource identification and billing.</p>
+<p><strong>Related variables</strong>:
+- <code>is_restore</code>: Must be set to <code>true</code>
+- <code>ibm_mongo_backup_id</code>: Backup to restore from
+- <code>ibm_mongo_name</code>: Original service name (can be different)</p>
+<p><strong>Note</strong>: Using a different name allows side-by-side comparison of restored and current instances before switching over.</p>
 <h2 id="role-variables-aws-documentdb">Role Variables - AWS DocumentDB<a class="headerlink" href="#role-variables-aws-documentdb" title="Permanent link">¤</a></h2>
-<h3 id="aws_access_key_id">aws_access_key_id<a class="headerlink" href="#aws_access_key_id" title="Permanent link">¤</a></h3>
-<p>Required.AWS Account Access Key Id</p>
+<h4 id="aws_access_key_id">aws_access_key_id<a class="headerlink" href="#aws_access_key_id" title="Permanent link">¤</a></h4>
+<p>AWS account access key ID for authentication.</p>
 <ul>
+<li><strong>Required</strong> when <code>mongodb_provider=aws</code></li>
 <li>Environment Variable: <code>AWS_ACCESS_KEY_ID</code></li>
+<li>Default Value: None</li>
 </ul>
-<h3 id="aws_secret_access_key">aws_secret_access_key<a class="headerlink" href="#aws_secret_access_key" title="Permanent link">¤</a></h3>
-<p>Required.AWS Account Secret Access Key</p>
+<p><strong>Purpose</strong>: Provides AWS authentication credentials for creating and managing DocumentDB resources. The access key must have sufficient IAM permissions for DocumentDB, VPC, and related services.</p>
+<p><strong>When to use</strong>:
+- Always required when using AWS DocumentDB provider
+- Must have IAM permissions for DocumentDB, EC2 (VPC/subnets/security groups)
+- Should be stored securely (e.g., in Ansible Vault or external secret management)</p>
+<p><strong>Valid values</strong>: Valid AWS access key ID string</p>
+<p><strong>Impact</strong>: This key is used to authenticate all AWS API calls. Insufficient permissions will cause deployment failures.</p>
+<p><strong>Related variables</strong>:
+- <code>aws_secret_access_key</code>: Must be provided together
+- <code>aws_region</code>: Access key must have permissions in the target region</p>
+<p><strong>Note</strong>: <strong>Never commit AWS credentials to source control</strong>. Use secure secret management. Ensure the IAM user/role has appropriate permissions for DocumentDB and VPC operations.</p>
+<h4 id="aws_secret_access_key">aws_secret_access_key<a class="headerlink" href="#aws_secret_access_key" title="Permanent link">¤</a></h4>
+<p>AWS account secret access key for authentication.</p>
 <ul>
+<li><strong>Required</strong> when <code>mongodb_provider=aws</code></li>
 <li>Environment Variable: <code>AWS_SECRET_ACCESS_KEY</code></li>
+<li>Default Value: None</li>
 </ul>
-<h3 id="aws_region">aws_region<a class="headerlink" href="#aws_region" title="Permanent link">¤</a></h3>
-<p>Required.AWS Region where DocumentDB and other resources will be created</p>
+<p><strong>Purpose</strong>: Provides the secret component of AWS authentication credentials. Works together with <code>aws_access_key_id</code> to authenticate AWS API requests.</p>
+<p><strong>When to use</strong>:
+- Always required when using AWS DocumentDB provider
+- Must correspond to the provided <code>aws_access_key_id</code>
+- Should be stored securely</p>
+<p><strong>Valid values</strong>: Valid AWS secret access key string</p>
+<p><strong>Impact</strong>: Used with access key ID to authenticate AWS API calls. Invalid or mismatched credentials will cause authentication failures.</p>
+<p><strong>Related variables</strong>:
+- <code>aws_access_key_id</code>: Must be provided together</p>
+<p><strong>Note</strong>: <strong>Store securely and never commit to source control</strong>. Rotate credentials regularly following AWS security best practices.</p>
+<h4 id="aws_region">aws_region<a class="headerlink" href="#aws_region" title="Permanent link">¤</a></h4>
+<p>AWS region where DocumentDB cluster will be deployed.</p>
 <ul>
+<li><strong>Required</strong> when <code>mongodb_provider=aws</code></li>
 <li>Environment Variable: <code>AWS_REGION</code></li>
 <li>Default Value: <code>us-east-2</code></li>
 </ul>
-<h3 id="vpc_id">vpc_id<a class="headerlink" href="#vpc_id" title="Permanent link">¤</a></h3>
-<p>Required.AWS VPC ID under which documentdb,subnets and security group will be created</p>
+<p><strong>Purpose</strong>: Specifies the geographic AWS region for DocumentDB deployment. Region selection affects latency, data residency, availability zones, and pricing.</p>
+<p><strong>When to use</strong>:
+- Always required when using AWS DocumentDB provider
+- Choose region closest to your OpenShift cluster for lowest latency
+- Consider data residency requirements for compliance
+- Use default (<code>us-east-2</code>) if no specific requirements</p>
+<p><strong>Valid values</strong>: Valid AWS region code (e.g., <code>us-east-1</code>, <code>us-east-2</code>, <code>us-west-2</code>, <code>eu-west-1</code>, <code>ap-southeast-1</code>)</p>
+<p><strong>Impact</strong>: Affects network latency, data residency compliance, available availability zones, and regional pricing. Cannot be changed after creation.</p>
+<p><strong>Related variables</strong>:
+- <code>vpc_id</code>: VPC must exist in the specified region
+- <code>aws_access_key_id</code>: Credentials must have permissions in this region</p>
+<p><strong>Note</strong>: Choose region carefully as it cannot be changed. Deploy DocumentDB in the same region as your OpenShift cluster for best performance.</p>
+<h4 id="vpc_id">vpc_id<a class="headerlink" href="#vpc_id" title="Permanent link">¤</a></h4>
+<p>AWS VPC ID where DocumentDB resources will be created.</p>
 <ul>
+<li><strong>Required</strong> when <code>mongodb_provider=aws</code></li>
 <li>Environment Variable: <code>VPC_ID</code></li>
+<li>Default Value: None</li>
 </ul>
-<h3 id="docdb_cluster_name">docdb_cluster_name<a class="headerlink" href="#docdb_cluster_name" title="Permanent link">¤</a></h3>
-<p>Required.DocumentDB Cluster Name</p>
+<p><strong>Purpose</strong>: Specifies the AWS Virtual Private Cloud where DocumentDB cluster, subnets, and security groups will be created. The VPC provides network isolation and connectivity.</p>
+<p><strong>When to use</strong>:
+- Always required when using AWS DocumentDB provider
+- Use the same VPC as your OpenShift cluster for direct connectivity
+- VPC must exist in the specified <code>aws_region</code></p>
+<p><strong>Valid values</strong>: Valid AWS VPC ID (format: <code>vpc-xxxxxxxxxxxxxxxxx</code>)</p>
+<p><strong>Impact</strong>: Determines network connectivity and security boundaries. DocumentDB will only be accessible from resources within this VPC or connected networks.</p>
+<p><strong>Related variables</strong>:
+- <code>aws_region</code>: VPC must exist in this region
+- <code>docdb_cidr_az1</code>, <code>docdb_cidr_az2</code>, <code>docdb_cidr_az3</code>: Subnets created within this VPC
+- <code>docdb_ingress_cidr</code>, <code>docdb_egress_cidr</code>: Should match VPC CIDR ranges</p>
+<p><strong>Note</strong>: Ensure the VPC has sufficient available IP addresses and appropriate routing for DocumentDB connectivity.</p>
+<h4 id="docdb_cluster_name">docdb_cluster_name<a class="headerlink" href="#docdb_cluster_name" title="Permanent link">¤</a></h4>
+<p>Name for the AWS DocumentDB cluster.</p>
 <ul>
+<li><strong>Required</strong> when <code>mongodb_provider=aws</code></li>
 <li>Environment Variable: <code>DOCDB_CLUSTER_NAME</code></li>
+<li>Default Value: None</li>
 </ul>
-<h3 id="docdb_subnet_group_name">docdb_subnet_group_name<a class="headerlink" href="#docdb_subnet_group_name" title="Permanent link">¤</a></h3>
-<p>DocumentDB Subnet Group Name</p>
+<p><strong>Purpose</strong>: Identifies the DocumentDB cluster in AWS. This name is used for resource identification, tagging, and as a prefix for related resources.</p>
+<p><strong>When to use</strong>:
+- Always required when using AWS DocumentDB provider
+- Choose a descriptive name that identifies the MAS instance and environment
+- Name is used as prefix for subnet groups and security groups</p>
+<p><strong>Valid values</strong>: Valid AWS DocumentDB cluster identifier (lowercase, alphanumeric, hyphens, must start with letter)</p>
+<p><strong>Impact</strong>: This name appears in AWS console, CloudWatch metrics, and billing. Related resources (subnet group, security group) are named based on this value.</p>
+<p><strong>Related variables</strong>:
+- <code>docdb_subnet_group_name</code>: Defaults to <code>docdb-{cluster_name}</code>
+- <code>docdb_security_group_name</code>: Defaults to <code>docdb-{cluster_name}</code>
+- <code>docdb_admin_credentials_secret_name</code>: Defaults to <code>{cluster_name}-admin-credentials</code></p>
+<p><strong>Note</strong>: Choose a meaningful name as it cannot be easily changed. The name must be unique within your AWS account and region.</p>
+<h4 id="docdb_subnet_group_name">docdb_subnet_group_name<a class="headerlink" href="#docdb_subnet_group_name" title="Permanent link">¤</a></h4>
+<p>Name for the DocumentDB subnet group.</p>
 <ul>
-<li>Value: <code>docdb-{{ docdb_cluster_name }}</code></li>
+<li><strong>Optional</strong></li>
+<li>Default Value: <code>docdb-{{ docdb_cluster_name }}</code></li>
 </ul>
-<h3 id="docdb_security_group_name">docdb_security_group_name<a class="headerlink" href="#docdb_security_group_name" title="Permanent link">¤</a></h3>
-<p>DocumentDB Security Group Name</p>
+<p><strong>Purpose</strong>: Specifies the name for the DocumentDB subnet group that defines which subnets the cluster can use. The role creates this subnet group automatically.</p>
+<p><strong>When to use</strong>:
+- Use default naming for standard deployments
+- Customize only if organizational naming standards require it</p>
+<p><strong>Valid values</strong>: Valid AWS subnet group name</p>
+<p><strong>Impact</strong>: The subnet group associates the DocumentDB cluster with specific subnets across availability zones.</p>
+<p><strong>Related variables</strong>:
+- <code>docdb_cluster_name</code>: Default name includes this value
+- <code>docdb_cidr_az1</code>, <code>docdb_cidr_az2</code>, <code>docdb_cidr_az3</code>: Subnets included in this group</p>
+<p><strong>Note</strong>: This is automatically created by the role. Default naming is recommended for consistency.</p>
+<h4 id="docdb_security_group_name">docdb_security_group_name<a class="headerlink" href="#docdb_security_group_name" title="Permanent link">¤</a></h4>
+<p>Name for the DocumentDB security group.</p>
 <ul>
-<li>Value: <code>docdb-{{ docdb_cluster_name }}</code></li>
+<li><strong>Optional</strong></li>
+<li>Default Value: <code>docdb-{{ docdb_cluster_name }}</code></li>
 </ul>
-<h3 id="docdb_admin_credentials_secret_name">docdb_admin_credentials_secret_name<a class="headerlink" href="#docdb_admin_credentials_secret_name" title="Permanent link">¤</a></h3>
-<p>DocumentDB Admin Credentials Secret Name</p>
+<p><strong>Purpose</strong>: Specifies the name for the security group that controls network access to the DocumentDB cluster. The role creates this security group automatically.</p>
+<p><strong>When to use</strong>:
+- Use default naming for standard deployments
+- Customize only if organizational naming standards require it</p>
+<p><strong>Valid values</strong>: Valid AWS security group name</p>
+<p><strong>Impact</strong>: The security group defines firewall rules for DocumentDB access based on <code>docdb_ingress_cidr</code> and <code>docdb_egress_cidr</code>.</p>
+<p><strong>Related variables</strong>:
+- <code>docdb_cluster_name</code>: Default name includes this value
+- <code>docdb_ingress_cidr</code>: Allowed source CIDR for inbound traffic
+- <code>docdb_egress_cidr</code>: Allowed destination CIDR for outbound traffic</p>
+<p><strong>Note</strong>: This is automatically created by the role. Default naming is recommended for consistency.</p>
+<h4 id="docdb_admin_credentials_secret_name">docdb_admin_credentials_secret_name<a class="headerlink" href="#docdb_admin_credentials_secret_name" title="Permanent link">¤</a></h4>
+<p>Name of the Kubernetes secret containing DocumentDB admin credentials.</p>
 <ul>
-<li>Value: <code>{{ docdb_cluster_name }}-admin-credentials</code></li>
+<li><strong>Optional</strong></li>
+<li>Default Value: <code>{{ docdb_cluster_name }}-admin-credentials</code></li>
 </ul>
-<h3 id="docdb_engine_version">docdb_engine_version<a class="headerlink" href="#docdb_engine_version" title="Permanent link">¤</a></h3>
-<p>DocumentDB Engine version. Only version 5.0.0 is supported by Maximo Application Suite.</p>
+<p><strong>Purpose</strong>: Specifies the Kubernetes secret name where DocumentDB administrator credentials are stored. This secret is created automatically by the role.</p>
+<p><strong>When to use</strong>:
+- Use default naming for standard deployments
+- Customize only if organizational naming standards require it</p>
+<p><strong>Valid values</strong>: Valid Kubernetes secret name</p>
+<p><strong>Impact</strong>: The secret contains admin username and password for DocumentDB access. MAS and other applications reference this secret for database connectivity.</p>
+<p><strong>Related variables</strong>:
+- <code>docdb_cluster_name</code>: Default name includes this value
+- <code>docdb_master_username</code>: Username stored in this secret</p>
+<p><strong>Note</strong>: This secret is created in the MAS core namespace. Default naming is recommended for consistency.</p>
+<h4 id="docdb_engine_version">docdb_engine_version<a class="headerlink" href="#docdb_engine_version" title="Permanent link">¤</a></h4>
+<p>DocumentDB engine version to deploy.</p>
 <ul>
-<li>Environment variable: <code>DOCDB_ENGINE_VERSION</code></li>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>DOCDB_ENGINE_VERSION</code></li>
 <li>Default Value: <code>5.0.0</code></li>
 </ul>
-<h3 id="docdb_master_username">docdb_master_username<a class="headerlink" href="#docdb_master_username" title="Permanent link">¤</a></h3>
-<p>DocumentDB master username</p>
+<p><strong>Purpose</strong>: Specifies the DocumentDB engine version. MAS requires DocumentDB 5.0.0 for MongoDB compatibility.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>5.0.0</code>) for MAS deployments (required)
+- Do not change unless specifically required by MAS version</p>
+<p><strong>Valid values</strong>: <code>5.0.0</code> (only version supported by MAS)</p>
+<p><strong>Impact</strong>: Determines MongoDB compatibility and available features. MAS is only certified with DocumentDB 5.0.0.</p>
+<p><strong>Related variables</strong>: None</p>
+<p><strong>Note</strong>: <strong>MAS only supports DocumentDB 5.0.0</strong>. Do not change this value unless MAS documentation explicitly supports other versions.</p>
+<h4 id="docdb_master_username">docdb_master_username<a class="headerlink" href="#docdb_master_username" title="Permanent link">¤</a></h4>
+<p>Master username for DocumentDB cluster administration.</p>
 <ul>
-<li>Environment variable: <code>DOCDB_MASTER_USERNAME</code></li>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>DOCDB_MASTER_USERNAME</code></li>
 <li>Default Value: <code>docdbadmin</code></li>
 </ul>
-<h3 id="docdb_instance_class">docdb_instance_class<a class="headerlink" href="#docdb_instance_class" title="Permanent link">¤</a></h3>
-<p>DocumentDB Instance Class</p>
+<p><strong>Purpose</strong>: Specifies the master administrator username for the DocumentDB cluster. This user has full administrative privileges.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>docdbadmin</code>) for standard deployments
+- Customize if organizational security policies require specific usernames</p>
+<p><strong>Valid values</strong>: Valid DocumentDB username (alphanumeric, must start with letter, 1-63 characters)</p>
+<p><strong>Impact</strong>: This username is used for administrative access and is stored in the Kubernetes secret specified by <code>docdb_admin_credentials_secret_name</code>.</p>
+<p><strong>Related variables</strong>:
+- <code>docdb_admin_credentials_secret_name</code>: Secret where credentials are stored</p>
+<p><strong>Note</strong>: Choose carefully as the master username cannot be changed after cluster creation.</p>
+<h4 id="docdb_instance_class">docdb_instance_class<a class="headerlink" href="#docdb_instance_class" title="Permanent link">¤</a></h4>
+<p>AWS instance class for DocumentDB instances.</p>
 <ul>
-<li>Environment variable: <code>DOCDB_INSTANCE_CLASS</code></li>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>DOCDB_INSTANCE_CLASS</code></li>
 <li>Default Value: <code>db.t3.medium</code></li>
 </ul>
-<h3 id="docdb_instance_number">docdb_instance_number<a class="headerlink" href="#docdb_instance_number" title="Permanent link">¤</a></h3>
-<p>Number of instances required for DocumentDB</p>
+<p><strong>Purpose</strong>: Specifies the compute and memory capacity for each DocumentDB instance. Instance class affects performance, availability, and cost.</p>
+<p><strong>When to use</strong>:
+- Use <code>db.t3.medium</code> (default) for development or small deployments
+- Use <code>db.r5.large</code> or larger for production workloads
+- Consider <code>db.r6g</code> instances for better price/performance (ARM-based)</p>
+<p><strong>Valid values</strong>: Valid DocumentDB instance class (e.g., <code>db.t3.medium</code>, <code>db.r5.large</code>, <code>db.r5.xlarge</code>, <code>db.r6g.large</code>)</p>
+<p><strong>Impact</strong>: Affects CPU, memory, network performance, and cost. Larger instances provide better performance but cost more.</p>
+<p><strong>Related variables</strong>:
+- <code>docdb_instance_number</code>: Total cost = instance class cost × number of instances</p>
+<p><strong>Note</strong>: Production deployments typically need <code>db.r5.large</code> or larger. Review AWS DocumentDB pricing and instance specifications.</p>
+<h4 id="docdb_instance_number">docdb_instance_number<a class="headerlink" href="#docdb_instance_number" title="Permanent link">¤</a></h4>
+<p>Number of DocumentDB instances in the cluster.</p>
 <ul>
-<li>Environment variable: <code>DOCDB_INSTANCE_NUMBER</code></li>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>DOCDB_INSTANCE_NUMBER</code></li>
 <li>Default Value: <code>3</code></li>
 </ul>
-<h3 id="docdb_instance_identifier_prefix">docdb_instance_identifier_prefix<a class="headerlink" href="#docdb_instance_identifier_prefix" title="Permanent link">¤</a></h3>
-<p>Required. Prefix for DocumentDB Instance name</p>
+<p><strong>Purpose</strong>: Determines the number of instances in the DocumentDB cluster. More instances provide higher availability and read scalability.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>3</code>) for production deployments with high availability
+- Use <code>1</code> only for development or testing (no high availability)
+- Use <code>5</code> or more for critical workloads requiring higher availability</p>
+<p><strong>Valid values</strong>: Integer from 1 to 16</p>
+<p><strong>Impact</strong>:
+- More instances = higher availability and read capacity but higher cost
+- Instances are distributed across availability zones for fault tolerance
+- Total cost = instance class cost × number of instances</p>
+<p><strong>Related variables</strong>:
+- <code>docdb_instance_class</code>: Determines per-instance cost and performance
+- <code>docdb_cidr_az1</code>, <code>docdb_cidr_az2</code>, <code>docdb_cidr_az3</code>: Instances distributed across these AZs</p>
+<p><strong>Note</strong>: Production deployments should use 3 or more instances for high availability. Single instance has no failover capability.</p>
+<h4 id="docdb_instance_identifier_prefix">docdb_instance_identifier_prefix<a class="headerlink" href="#docdb_instance_identifier_prefix" title="Permanent link">¤</a></h4>
+<p>Prefix for DocumentDB instance identifiers.</p>
 <ul>
-<li>Environment variable: <code>DOCDB_INSTANCE_IDENTIFIER_PREFIX</code></li>
+<li><strong>Required</strong> when <code>mongodb_provider=aws</code></li>
+<li>Environment Variable: <code>DOCDB_INSTANCE_IDENTIFIER_PREFIX</code></li>
+<li>Default Value: None</li>
 </ul>
-<h3 id="docdb_ingress_cidr">docdb_ingress_cidr<a class="headerlink" href="#docdb_ingress_cidr" title="Permanent link">¤</a></h3>
-<p>Required. IPv4 Address from which incoming connection requests will be allowed to DocumentDB cluster
-e.g Provide IPv4 CIDR address of VPC where ROSA cluster is installed</p>
+<p><strong>Purpose</strong>: Specifies the prefix used to name individual DocumentDB instances. Instance names are formed as <code>{prefix}-{number}</code>.</p>
+<p><strong>When to use</strong>:
+- Always required when using AWS DocumentDB provider
+- Use a descriptive prefix that identifies the cluster and environment
+- Typically matches or relates to <code>docdb_cluster_name</code></p>
+<p><strong>Valid values</strong>: Valid AWS instance identifier prefix (lowercase, alphanumeric, hyphens)</p>
+<p><strong>Impact</strong>: Instance names appear in AWS console and CloudWatch metrics. Choose a meaningful prefix for easy identification.</p>
+<p><strong>Related variables</strong>:
+- <code>docdb_cluster_name</code>: Typically related to cluster name</p>
+<p><strong>Note</strong>: Instance identifiers are formed as <code>{prefix}-1</code>, <code>{prefix}-2</code>, etc. Choose a clear, descriptive prefix.</p>
+<h4 id="docdb_ingress_cidr">docdb_ingress_cidr<a class="headerlink" href="#docdb_ingress_cidr" title="Permanent link">¤</a></h4>
+<p>CIDR block allowed to connect to DocumentDB cluster.</p>
 <ul>
-<li>Environment variable: <code>DOCDB_INGRESS_CIDR</code></li>
+<li><strong>Required</strong> when <code>mongodb_provider=aws</code></li>
+<li>Environment Variable: <code>DOCDB_INGRESS_CIDR</code></li>
+<li>Default Value: None</li>
 </ul>
-<h3 id="docdb_egress_cidr">docdb_egress_cidr<a class="headerlink" href="#docdb_egress_cidr" title="Permanent link">¤</a></h3>
-<p>Required. IPv4 Address at which outgoing connection requests will be allowed to DocumentDB cluster
-e.g Provide IPv4 CIDR address of VPC where ROSA cluster is installed</p>
+<p><strong>Purpose</strong>: Specifies the IPv4 CIDR range from which incoming connections to DocumentDB are allowed. This is used in security group ingress rules.</p>
+<p><strong>When to use</strong>:
+- Always required when using AWS DocumentDB provider
+- Typically set to the CIDR of your OpenShift cluster's VPC
+- Can be set to specific subnet CIDRs for tighter security</p>
+<p><strong>Valid values</strong>: Valid IPv4 CIDR notation (e.g., <code>10.0.0.0/16</code>, <code>172.31.0.0/16</code>)</p>
+<p><strong>Impact</strong>: Only traffic from this CIDR range can connect to DocumentDB. Too restrictive blocks legitimate traffic; too permissive reduces security.</p>
+<p><strong>Related variables</strong>:
+- <code>vpc_id</code>: Should match VPC CIDR or subnet CIDRs within the VPC
+- <code>docdb_egress_cidr</code>: Typically set to same value</p>
+<p><strong>Note</strong>: Set to your OpenShift cluster's VPC CIDR for proper connectivity. Verify CIDR ranges before deployment.</p>
+<h4 id="docdb_egress_cidr">docdb_egress_cidr<a class="headerlink" href="#docdb_egress_cidr" title="Permanent link">¤</a></h4>
+<p>CIDR block for outbound connections from DocumentDB cluster.</p>
 <ul>
-<li>Environment variable: <code>DOCDB_EGRESS_CIDR</code></li>
+<li><strong>Required</strong> when <code>mongodb_provider=aws</code></li>
+<li>Environment Variable: <code>DOCDB_EGRESS_CIDR</code></li>
+<li>Default Value: None</li>
 </ul>
-<h3 id="docdb_cidr_az1">docdb_cidr_az1:<a class="headerlink" href="#docdb_cidr_az1" title="Permanent link">¤</a></h3>
-<p>Required. Provide IPv4 CIDR address for the subnet to be created in one of the 3 availabilty zones of your VPC. If the subnet exists already then it must contain the tag of Name: {{ docdb_cluster_name }}, if the subnet doesn't exist already then one is created.</p>
+<p><strong>Purpose</strong>: Specifies the IPv4 CIDR range to which DocumentDB can send outbound connections. This is used in security group egress rules.</p>
+<p><strong>When to use</strong>:
+- Always required when using AWS DocumentDB provider
+- Typically set to the same value as <code>docdb_ingress_cidr</code>
+- Set to VPC CIDR for standard deployments</p>
+<p><strong>Valid values</strong>: Valid IPv4 CIDR notation (e.g., <code>10.0.0.0/16</code>, <code>172.31.0.0/16</code>)</p>
+<p><strong>Impact</strong>: DocumentDB can only send traffic to this CIDR range. Affects ability to respond to client connections.</p>
+<p><strong>Related variables</strong>:
+- <code>docdb_ingress_cidr</code>: Typically set to same value
+- <code>vpc_id</code>: Should match VPC CIDR</p>
+<p><strong>Note</strong>: Usually set to the same value as <code>docdb_ingress_cidr</code>. Verify CIDR ranges match your network configuration.</p>
+<h4 id="docdb_cidr_az1">docdb_cidr_az1<a class="headerlink" href="#docdb_cidr_az1" title="Permanent link">¤</a></h4>
+<p>CIDR block for DocumentDB subnet in availability zone 1.</p>
 <ul>
-<li>Environment variable: <code>DOCDB_CIDR_AZ1</code></li>
+<li><strong>Required</strong> when <code>mongodb_provider=aws</code></li>
+<li>Environment Variable: <code>DOCDB_CIDR_AZ1</code></li>
+<li>Default Value: None</li>
 </ul>
-<h3 id="docdb_cidr_az2">docdb_cidr_az2:<a class="headerlink" href="#docdb_cidr_az2" title="Permanent link">¤</a></h3>
-<p>Required. Provide IPv4 CIDR address for the subnet to be created in one of the 3 availabilty zones of your VPC. If the subnet exists already then it must contain the tag of Name: {{ docdb_cluster_name }}, if the subnet doesn't exist already then one is created.</p>
+<p><strong>Purpose</strong>: Specifies the IPv4 CIDR for the subnet in the first availability zone. If the subnet exists with tag <code>Name: {{ docdb_cluster_name }}</code>, it's used; otherwise, a new subnet is created.</p>
+<p><strong>When to use</strong>:
+- Always required when using AWS DocumentDB provider
+- Must be within the VPC CIDR range
+- Must not overlap with other subnets in the VPC</p>
+<p><strong>Valid values</strong>: Valid IPv4 CIDR notation within VPC range (e.g., <code>10.0.1.0/24</code>)</p>
+<p><strong>Impact</strong>: Defines the IP address range for DocumentDB instances in AZ1. Subnet size affects number of available IP addresses.</p>
+<p><strong>Related variables</strong>:
+- <code>vpc_id</code>: CIDR must be within this VPC's range
+- <code>docdb_cidr_az2</code>, <code>docdb_cidr_az3</code>: Must not overlap with these subnets</p>
+<p><strong>Note</strong>: Plan subnet sizes carefully. Each DocumentDB instance needs an IP address. Use /24 or larger subnets for flexibility.</p>
+<h4 id="docdb_cidr_az2">docdb_cidr_az2<a class="headerlink" href="#docdb_cidr_az2" title="Permanent link">¤</a></h4>
+<p>CIDR block for DocumentDB subnet in availability zone 2.</p>
 <ul>
-<li>Environment variable: <code>DOCDB_CIDR_AZ2</code></li>
+<li><strong>Required</strong> when <code>mongodb_provider=aws</code></li>
+<li>Environment Variable: <code>DOCDB_CIDR_AZ2</code></li>
+<li>Default Value: None</li>
 </ul>
-<h3 id="docdb_cidr_az3">docdb_cidr_az3:<a class="headerlink" href="#docdb_cidr_az3" title="Permanent link">¤</a></h3>
-<p>Required. Provide IPv4 CIDR address for the subnet to be created in one of the 3 availabilty zones of your VPC. If the subnet exists already then it must contain the tag of Name: {{ docdb_cluster_name }}, if the subnet doesn't exist already then one is created.</p>
+<p><strong>Purpose</strong>: Specifies the IPv4 CIDR for the subnet in the second availability zone. If the subnet exists with tag <code>Name: {{ docdb_cluster_name }}</code>, it's used; otherwise, a new subnet is created.</p>
+<p><strong>When to use</strong>:
+- Always required when using AWS DocumentDB provider
+- Must be within the VPC CIDR range
+- Must not overlap with other subnets in the VPC</p>
+<p><strong>Valid values</strong>: Valid IPv4 CIDR notation within VPC range (e.g., <code>10.0.2.0/24</code>)</p>
+<p><strong>Impact</strong>: Defines the IP address range for DocumentDB instances in AZ2. Required for multi-AZ high availability.</p>
+<p><strong>Related variables</strong>:
+- <code>vpc_id</code>: CIDR must be within this VPC's range
+- <code>docdb_cidr_az1</code>, <code>docdb_cidr_az3</code>: Must not overlap with these subnets</p>
+<p><strong>Note</strong>: Use different availability zones for AZ1, AZ2, and AZ3 to ensure high availability across zones.</p>
+<h4 id="docdb_cidr_az3">docdb_cidr_az3<a class="headerlink" href="#docdb_cidr_az3" title="Permanent link">¤</a></h4>
+<p>CIDR block for DocumentDB subnet in availability zone 3.</p>
 <ul>
-<li>Environment variable: <code>DOCDB_CIDR_AZ3</code></li>
+<li><strong>Required</strong> when <code>mongodb_provider=aws</code></li>
+<li>Environment Variable: <code>DOCDB_CIDR_AZ3</code></li>
+<li>Default Value: None</li>
 </ul>
-<h2 id="aws-documentdb-secret-rotate-role-variables">AWS DocumentDB Secret Rotate role Variables<a class="headerlink" href="#aws-documentdb-secret-rotate-role-variables" title="Permanent link">¤</a></h2>
-<h3 id="docdb_mongo_instance_name">docdb_mongo_instance_name<a class="headerlink" href="#docdb_mongo_instance_name" title="Permanent link">¤</a></h3>
-<p>Required. DocumentDB Instance Name</p>
+<p><strong>Purpose</strong>: Specifies the IPv4 CIDR for the subnet in the third availability zone. If the subnet exists with tag <code>Name: {{ docdb_cluster_name }}</code>, it's used; otherwise, a new subnet is created.</p>
+<p><strong>When to use</strong>:
+- Always required when using AWS DocumentDB provider
+- Must be within the VPC CIDR range
+- Must not overlap with other subnets in the VPC</p>
+<p><strong>Valid values</strong>: Valid IPv4 CIDR notation within VPC range (e.g., <code>10.0.3.0/24</code>)</p>
+<p><strong>Impact</strong>: Defines the IP address range for DocumentDB instances in AZ3. Provides third availability zone for maximum fault tolerance.</p>
+<p><strong>Related variables</strong>:
+- <code>vpc_id</code>: CIDR must be within this VPC's range
+- <code>docdb_cidr_az1</code>, <code>docdb_cidr_az2</code>: Must not overlap with these subnets</p>
+<p><strong>Note</strong>: Three availability zones provide best fault tolerance. Ensure subnets are in different AZs for proper distribution.</p>
+<h3 id="aws-documentdb-secret-rotation-variables">AWS DocumentDB Secret Rotation Variables<a class="headerlink" href="#aws-documentdb-secret-rotation-variables" title="Permanent link">¤</a></h3>
+<p>The following variables are used for rotating DocumentDB credentials. These are typically used with <code>mongodb_action=rotate-secret</code>.</p>
+<h4 id="docdb_mongo_instance_name">docdb_mongo_instance_name<a class="headerlink" href="#docdb_mongo_instance_name" title="Permanent link">¤</a></h4>
+<p>DocumentDB instance name for secret rotation.</p>
 <ul>
-<li>Environment variable: <code>DOCDB_MONGO_INSTANCE_NAME</code></li>
+<li><strong>Required</strong> when rotating secrets</li>
+<li>Environment Variable: <code>DOCDB_MONGO_INSTANCE_NAME</code></li>
+<li>Default Value: None</li>
 </ul>
-<h3 id="docdb_host">docdb_host<a class="headerlink" href="#docdb_host" title="Permanent link">¤</a></h3>
-<p>Required. Any one Host Address out of multiple documentDB Instances</p>
+<p><strong>Purpose</strong>: Identifies the specific DocumentDB instance for credential rotation operations.</p>
+<p><strong>When to use</strong>:
+- Required when performing secret rotation (<code>mongodb_action=rotate-secret</code>)
+- Must match an existing DocumentDB instance name</p>
+<p><strong>Valid values</strong>: Valid DocumentDB instance identifier</p>
+<p><strong>Impact</strong>: Specifies which DocumentDB instance's credentials will be rotated.</p>
+<p><strong>Related variables</strong>:
+- <code>docdb_cluster_name</code>: Instance belongs to this cluster
+- <code>docdb_host</code>: Host address of this instance</p>
+<p><strong>Note</strong>: Verify instance name before rotation to avoid affecting wrong instance.</p>
+<h4 id="docdb_host">docdb_host<a class="headerlink" href="#docdb_host" title="Permanent link">¤</a></h4>
+<p>DocumentDB instance host address for connection.</p>
 <ul>
-<li>Environment variable: <code>DOCDB_HOST</code></li>
+<li><strong>Required</strong> when rotating secrets</li>
+<li>Environment Variable: <code>DOCDB_HOST</code></li>
+<li>Default Value: None</li>
 </ul>
-<h3 id="docdb_port">docdb_port<a class="headerlink" href="#docdb_port" title="Permanent link">¤</a></h3>
-<p>Required. Corresponding port address of DocumentDB Instance Host</p>
+<p><strong>Purpose</strong>: Specifies the host address of a DocumentDB instance for establishing connection during secret rotation.</p>
+<p><strong>When to use</strong>:
+- Required when performing secret rotation
+- Use any one host address from the DocumentDB cluster
+- Obtain from AWS console or DocumentDB cluster endpoint</p>
+<p><strong>Valid values</strong>: Valid DocumentDB instance hostname or endpoint</p>
+<p><strong>Impact</strong>: Used to connect to DocumentDB for credential rotation operations.</p>
+<p><strong>Related variables</strong>:
+- <code>docdb_port</code>: Port for this host
+- <code>docdb_mongo_instance_name</code>: Instance identifier</p>
+<p><strong>Note</strong>: Any instance host from the cluster can be used for rotation operations.</p>
+<h4 id="docdb_port">docdb_port<a class="headerlink" href="#docdb_port" title="Permanent link">¤</a></h4>
+<p>DocumentDB instance port number.</p>
 <ul>
-<li>Environment variable: <code>DOCDB_PORT</code></li>
+<li><strong>Required</strong> when rotating secrets</li>
+<li>Environment Variable: <code>DOCDB_PORT</code></li>
+<li>Default Value: None (typically <code>27017</code>)</li>
 </ul>
-<h3 id="docdb_instance_username">docdb_instance_username<a class="headerlink" href="#docdb_instance_username" title="Permanent link">¤</a></h3>
-<p>Required. Specify username for which password is being changed</p>
+<p><strong>Purpose</strong>: Specifies the port number for connecting to the DocumentDB instance during secret rotation.</p>
+<p><strong>When to use</strong>:
+- Required when performing secret rotation
+- Typically <code>27017</code> (default DocumentDB port)</p>
+<p><strong>Valid values</strong>: Valid port number (typically <code>27017</code>)</p>
+<p><strong>Impact</strong>: Used with <code>docdb_host</code> to establish connection for credential rotation.</p>
+<p><strong>Related variables</strong>:
+- <code>docdb_host</code>: Host address for this port</p>
+<p><strong>Note</strong>: DocumentDB uses port 27017 by default unless customized during cluster creation.</p>
+<h4 id="docdb_instance_username">docdb_instance_username<a class="headerlink" href="#docdb_instance_username" title="Permanent link">¤</a></h4>
+<p>Username for which password is being rotated.</p>
 <ul>
-<li>Environment variable: <code>DOCDB_INSTANCE_USERNAME</code></li>
+<li><strong>Required</strong> when rotating secrets</li>
+<li>Environment Variable: <code>DOCDB_INSTANCE_USERNAME</code></li>
+<li>Default Value: None</li>
 </ul>
-<h3 id="docdb_instance_password_old">docdb_instance_password_old<a class="headerlink" href="#docdb_instance_password_old" title="Permanent link">¤</a></h3>
-<p>Required. Specify the old user password</p>
+<p><strong>Purpose</strong>: Specifies the DocumentDB username whose password will be changed during rotation.</p>
+<p><strong>When to use</strong>:
+- Required when performing secret rotation
+- Typically the application user or admin user
+- Must be an existing DocumentDB user</p>
+<p><strong>Valid values</strong>: Valid DocumentDB username</p>
+<p><strong>Impact</strong>: This user's password will be changed. Applications using this username must be updated with the new password.</p>
+<p><strong>Related variables</strong>:
+- <code>docdb_instance_password_old</code>: Current password for this user
+- <code>docdb_master_username</code>: Master user for performing rotation</p>
+<p><strong>Note</strong>: Ensure applications can handle password rotation. Consider using connection pooling with reconnection logic.</p>
+<h4 id="docdb_instance_password_old">docdb_instance_password_old<a class="headerlink" href="#docdb_instance_password_old" title="Permanent link">¤</a></h4>
+<p>Current password for the user being rotated.</p>
 <ul>
-<li>Environment variable: <code>DOCDB_PASSWORD_OLD</code></li>
+<li><strong>Required</strong> when rotating secrets</li>
+<li>Environment Variable: <code>DOCDB_PASSWORD_OLD</code></li>
+<li>Default Value: None</li>
 </ul>
-<h3 id="docdb_master_password">docdb_master_password<a class="headerlink" href="#docdb_master_password" title="Permanent link">¤</a></h3>
-<p>Required. DocumentDB Master Username</p>
+<p><strong>Purpose</strong>: Provides the current password for authentication before rotation. Used to verify current credentials.</p>
+<p><strong>When to use</strong>:
+- Required when performing secret rotation
+- Must be the current valid password</p>
+<p><strong>Valid values</strong>: Current password string</p>
+<p><strong>Impact</strong>: Used to authenticate before changing password. Incorrect password will cause rotation to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>docdb_instance_username</code>: User for this password</p>
+<p><strong>Note</strong>: Store securely. After rotation, this password will no longer be valid.</p>
+<h4 id="docdb_master_password">docdb_master_password<a class="headerlink" href="#docdb_master_password" title="Permanent link">¤</a></h4>
+<p>DocumentDB master user password for administrative operations.</p>
 <ul>
-<li>Environment variable: <code>DOCDB_MASTER_PASSWORD</code></li>
+<li><strong>Required</strong> when rotating secrets</li>
+<li>Environment Variable: <code>DOCDB_MASTER_PASSWORD</code></li>
+<li>Default Value: None</li>
 </ul>
-<h3 id="docdb_master_username_1">docdb_master_username<a class="headerlink" href="#docdb_master_username_1" title="Permanent link">¤</a></h3>
-<p>Required. DocumentDB Master Password</p>
+<p><strong>Purpose</strong>: Provides master user credentials for performing password rotation operations. Master user has privileges to change other users' passwords.</p>
+<p><strong>When to use</strong>:
+- Required when performing secret rotation
+- Must be the current master password</p>
+<p><strong>Valid values</strong>: Valid master password string</p>
+<p><strong>Impact</strong>: Used to authenticate as master user to perform credential rotation.</p>
+<p><strong>Related variables</strong>:
+- <code>docdb_master_username</code>: Master username for this password</p>
+<p><strong>Note</strong>: <strong>Store master credentials securely</strong>. Never commit to source control.</p>
+<h4 id="docdb_master_username_1">docdb_master_username<a class="headerlink" href="#docdb_master_username_1" title="Permanent link">¤</a></h4>
+<p>DocumentDB master username for administrative operations.</p>
 <ul>
-<li>Environment variable: <code>DOCDB_MASTER_USERNAME</code></li>
+<li><strong>Required</strong> when rotating secrets</li>
+<li>Environment Variable: <code>DOCDB_MASTER_USERNAME</code></li>
+<li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the master username for performing password rotation operations. Master user has administrative privileges.</p>
+<p><strong>When to use</strong>:
+- Required when performing secret rotation
+- Typically <code>docdbadmin</code> or the value set during cluster creation</p>
+<p><strong>Valid values</strong>: Valid DocumentDB master username</p>
+<p><strong>Impact</strong>: Used with <code>docdb_master_password</code> to authenticate for credential rotation.</p>
+<p><strong>Related variables</strong>:
+- <code>docdb_master_password</code>: Password for this master user</p>
+<p><strong>Note</strong>: This should match the master username set during DocumentDB cluster creation.</p>
 <h2 id="aws-documentdb-destroy-data-action-variables">AWS DocumentDB destroy-data action Variables<a class="headerlink" href="#aws-documentdb-destroy-data-action-variables" title="Permanent link">¤</a></h2>
 <h3 id="mas_instance_id_1">mas_instance_id<a class="headerlink" href="#mas_instance_id_1" title="Permanent link">¤</a></h3>
 <p>The specified MAS instance ID</p>
@@ -1613,11 +2450,6 @@ ansible-playbook ibm.mas_devops.run_role
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#ibm_mongo_name_1" class="md-toc__link" data-md-level="2">
-                          ibm_mongo_name
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
                         <a href="#ibm_mongo_backup_id" class="md-toc__link" data-md-level="2">
                           ibm_mongo_backup_id
                         </a>
@@ -1716,59 +2548,22 @@ ansible-playbook ibm.mas_devops.run_role
                       </li>
                       <li class="md-toc__item">
                         <a href="#docdb_cidr_az1" class="md-toc__link" data-md-level="2">
-                          docdb_cidr_az1:
+                          docdb_cidr_az1
                         </a>
                       </li>
                       <li class="md-toc__item">
                         <a href="#docdb_cidr_az2" class="md-toc__link" data-md-level="2">
-                          docdb_cidr_az2:
+                          docdb_cidr_az2
                         </a>
                       </li>
                       <li class="md-toc__item">
                         <a href="#docdb_cidr_az3" class="md-toc__link" data-md-level="2">
-                          docdb_cidr_az3:
-                        </a>
-                      </li>
-                  </ul>
-              </li>
-              <li class="md-toc__item">
-                <a href="#aws-documentdb-secret-rotate-role-variables" class="md-toc__link" data-md-level="1">
-                  AWS DocumentDB Secret Rotate role Variables
-                </a>
-                  <ul class="md-toc__list">
-                      <li class="md-toc__item">
-                        <a href="#docdb_mongo_instance_name" class="md-toc__link" data-md-level="2">
-                          docdb_mongo_instance_name
+                          docdb_cidr_az3
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#docdb_host" class="md-toc__link" data-md-level="2">
-                          docdb_host
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#docdb_port" class="md-toc__link" data-md-level="2">
-                          docdb_port
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#docdb_instance_username" class="md-toc__link" data-md-level="2">
-                          docdb_instance_username
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#docdb_instance_password_old" class="md-toc__link" data-md-level="2">
-                          docdb_instance_password_old
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#docdb_master_password" class="md-toc__link" data-md-level="2">
-                          docdb_master_password
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#docdb_master_username_1" class="md-toc__link" data-md-level="2">
-                          docdb_master_username
+                        <a href="#aws-documentdb-secret-rotation-variables" class="md-toc__link" data-md-level="2">
+                          AWS DocumentDB Secret Rotation Variables
                         </a>
                       </li>
                   </ul>

@@ -741,294 +741,389 @@
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="basic-install">Basic Install<a class="headerlink" href="#basic-install" title="Permanent link">¤</a></h3>
 <h4 id="mas_catalog_source">mas_catalog_source<a class="headerlink" href="#mas_catalog_source" title="Permanent link">¤</a></h4>
-<p>Defines the catalog to be used to install MAS. You can set it to <code>ibm-operator-catalog</code> for both release as well as for development install.</p>
+<p>Specifies the OpenShift operator catalog source containing the MAS operator subscription.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_CATALOG_SOURCE</code></li>
 <li>Default: <code>ibm-operator-catalog</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls which operator catalog is used to locate and install the MAS operator. This determines where OpenShift looks for the operator images and metadata during installation.</p>
+<p><strong>When to use</strong>:
+- Use default <code>ibm-operator-catalog</code> for production installations with official IBM releases
+- Use <code>ibm-operator-catalog</code> for development installations as well (supports both use cases)
+- Only change if directed to use a custom catalog for specific testing or airgap scenarios</p>
+<p><strong>Valid values</strong>: Any valid CatalogSource name present in the <code>openshift-marketplace</code> namespace (typically <code>ibm-operator-catalog</code>)</p>
+<p><strong>Impact</strong>: Changing this value affects which operator versions are available for installation. An invalid catalog source will cause the subscription to fail.</p>
+<p><strong>Related variables</strong>: Works with <code>mas_channel</code> to determine the specific operator version installed.</p>
 <h4 id="mas_channel">mas_channel<a class="headerlink" href="#mas_channel" title="Permanent link">¤</a></h4>
-<p>Defines which channel of MAS to subscribe to.</p>
+<p>Specifies the MAS operator subscription channel, which determines the version stream you'll receive updates from.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_CHANNEL</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Controls which version of MAS will be installed and which updates will be automatically applied. The channel corresponds to major.minor version releases (e.g., <code>8.11.x</code>, <code>9.0.x</code>) and determines the feature set and compatibility level of your MAS installation.</p>
+<p><strong>When to use</strong>:
+- Set to the latest stable channel for new production deployments to receive the newest features
+- Use specific older channels when compatibility with existing applications or dependencies requires it
+- Consult the MAS compatibility matrix before selecting a channel to ensure compatibility with your applications
+- Change channels only during planned upgrade windows as this triggers version updates</p>
+<p><strong>Valid values</strong>: <code>8.9.x</code>, <code>8.10.x</code>, <code>8.11.x</code>, <code>9.0.x</code> (check the IBM Operator Catalog for currently available channels)</p>
+<p><strong>Impact</strong>: The channel determines which MAS version is installed and which automatic updates are applied. Changing channels after installation will trigger an upgrade to the latest version in that channel, which may require application reconfiguration and testing.</p>
+<p><strong>Related variables</strong>: Works with <code>mas_catalog_source</code> to determine available channels.</p>
+<p><strong>Note</strong>: Once installed, changing channels requires careful planning. Review the MAS upgrade documentation before changing this value.</p>
 <h3 id="basic-configuration">Basic Configuration<a class="headerlink" href="#basic-configuration" title="Permanent link">¤</a></h3>
 <h4 id="mas_domain">mas_domain<a class="headerlink" href="#mas_domain" title="Permanent link">¤</a></h4>
-<p>Optional fact, if not provided the role will use the default cluster subdomain.</p>
+<p>Specifies the custom domain name for accessing MAS web interfaces and APIs.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_DOMAIN</code></li>
-<li>Default: None</li>
+<li>Default: None (uses cluster default subdomain)</li>
 </ul>
+<p><strong>Purpose</strong>: Defines the base domain used to construct all MAS URLs (e.g., admin.{mas_domain}, home.{mas_domain}). This allows you to use a custom domain instead of the default OpenShift cluster subdomain, which is important for production environments with specific DNS requirements.</p>
+<p><strong>When to use</strong>:
+- Set for production environments where you need branded or corporate domain names
+- Set when integrating with external DNS providers (Cloudflare, Route53, IBM CIS)
+- Set when using custom SSL certificates tied to specific domains
+- Leave unset for development/testing to use the default cluster subdomain automatically</p>
+<p><strong>Valid values</strong>: Any valid DNS domain name (e.g., <code>mas.mycompany.com</code>, <code>prod-mas.example.org</code>)</p>
+<p><strong>Impact</strong>: When set, MAS will use this domain for all routes and certificates. You must ensure DNS is properly configured to resolve this domain to your cluster. When not set, MAS automatically uses the cluster's default ingress subdomain.</p>
+<p><strong>Related variables</strong>:
+- Used by <code>suite_dns</code> role to configure DNS entries
+- Affects certificate generation when using <code>mas_cluster_issuer</code>
+- Must align with <code>mas_routing_mode</code> configuration</p>
 <h4 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h4>
-<p>Defines the instance id to be used for MAS installation.</p>
+<p>Unique identifier for this MAS installation within the cluster.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides a unique identifier that distinguishes this MAS installation from others that may exist in the same cluster. This ID is used to generate namespace names, resource names, and configuration identifiers throughout the installation.</p>
+<p><strong>When to use</strong>:
+- Always required for any MAS installation
+- Use short, descriptive names (e.g., <code>prod</code>, <code>dev</code>, <code>test</code>, <code>inst1</code>)
+- Must be unique within the cluster if running multiple MAS instances
+- Cannot be changed after installation without reinstalling</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, 3-12 characters, starting with a letter (e.g., <code>prod</code>, <code>dev01</code>, <code>mastest</code>)</p>
+<p><strong>Impact</strong>: This ID becomes part of the core namespace name (<code>mas-{mas_instance_id}-core</code>) and is embedded in many resource names. It cannot be changed after installation. All MAS configurations and applications will reference this instance ID.</p>
+<p><strong>Related variables</strong>:
+- Used by all MAS configuration roles to target the correct instance
+- Referenced in application installation roles
+- Used in backup/restore operations to identify the instance</p>
+<p><strong>Note</strong>: Choose carefully as this cannot be changed after installation. Use consistent naming across environments (e.g., <code>dev</code>, <code>test</code>, <code>prod</code>).</p>
 <h4 id="mas_entitlement_key">mas_entitlement_key<a class="headerlink" href="#mas_entitlement_key" title="Permanent link">¤</a></h4>
-<p>API Key for entitled registry. This password will be used to create the image pull secret. Set to with IBM entitlement key when installing release or use your artifactory <code>apikey</code> for dev.</p>
+<p>IBM entitlement key for authenticating access to IBM Container Registry.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_ENTITLEMENT_KEY</code></li>
 <li>Default: Value of <code>IBM_ENTITLEMENT_KEY</code> if set</li>
 </ul>
+<p><strong>Purpose</strong>: Provides authentication credentials to pull MAS container images from IBM's entitled registry. This key is tied to your IBM Cloud account and product entitlements, proving you have the right to use MAS software.</p>
+<p><strong>When to use</strong>:
+- Required for all production installations using official IBM releases
+- Obtain from IBM Container Library at https://myibm.ibm.com/products-services/containerlibrary
+- For development builds on Artifactory, use your Artifactory API key instead
+- Key must be valid and have active MAS entitlements</p>
+<p><strong>Valid values</strong>:
+- IBM entitlement key string (typically starts with "eyJ...")
+- Must be a valid, non-expired key with MAS product entitlements
+- For development: Artifactory API key</p>
+<p><strong>Impact</strong>: Invalid or expired keys will cause image pull failures during installation. The key is stored in a Kubernetes secret and used to create image pull secrets for all MAS pods. Without a valid key, the installation cannot proceed.</p>
+<p><strong>Related variables</strong>:
+- Falls back to <code>IBM_ENTITLEMENT_KEY</code> environment variable if not set
+- Used with <code>mas_entitlement_username</code> for registry authentication
+- Related to <code>mas_icr_cp</code> and <code>mas_icr_cpopen</code> registry settings</p>
+<p><strong>Note</strong>: Keep this key secure. Do not commit it to source control. Use environment variables or secure secret management.</p>
 <h4 id="mas_config_dir">mas_config_dir<a class="headerlink" href="#mas_config_dir" title="Permanent link">¤</a></h4>
-<p>Directory containing configuration files (<code>*.yaml</code> and <code>*.yml</code>) to be applied to the MAS installation. Intended for creating the various MAS custom resources to configure the suite post-install, but can be used to apply any kubernetes resource you need to customize any aspect of your cluster.</p>
+<p>Local directory path containing additional Kubernetes configuration files to apply during MAS installation.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_CONFIG_DIR</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Allows you to provide custom Kubernetes resources (YAML files) that will be automatically applied to the cluster during MAS installation. This enables advanced configuration scenarios and customization beyond the standard role variables.</p>
+<p><strong>When to use</strong>:
+- Use to apply MAS configuration resources (MongoCfg, BASCfg, JdbcCfg, etc.) generated by other roles
+- Use to apply custom ConfigMaps, Secrets, or other Kubernetes resources
+- Use to pre-configure MAS settings before the suite becomes fully operational
+- Leave unset if you plan to apply configurations manually after installation</p>
+<p><strong>Valid values</strong>: Any valid local filesystem path (e.g., <code>/home/user/masconfig</code>, <code>~/mas-configs</code>, <code>./config</code>)</p>
+<p><strong>Impact</strong>: All <code>*.yaml</code> and <code>*.yml</code> files in this directory will be applied to the cluster using <code>oc apply</code>. Files are processed in alphabetical order. Invalid YAML or resources will cause the role to fail.</p>
+<p><strong>Related variables</strong>:
+- Used by <code>mongodb</code>, <code>db2</code>, <code>sls</code> and other dependency roles to output configuration files
+- Used by <code>suite_config</code> role to apply configurations
+- Must be set if using generated configuration files from dependency roles</p>
+<p><strong>Note</strong>: Ensure all files in this directory are valid Kubernetes resources. The role does not validate file contents before applying.</p>
 <h3 id="advanced-configuration">Advanced Configuration<a class="headerlink" href="#advanced-configuration" title="Permanent link">¤</a></h3>
 <h4 id="mas_annotations">mas_annotations<a class="headerlink" href="#mas_annotations" title="Permanent link">¤</a></h4>
-<p>Provide a list of comma-separated key=value pairs which will be applied as annotations on all resources created. This variable takes a comma separated list of annotations. For example, to deploy your suite in non production mode, set this to <code>mas.ibm.com/operationalMode=nonproduction</code>.</p>
+<p>Comma-separated list of key=value annotations to apply to all MAS resources.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_ANNOTATIONS</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Adds Kubernetes annotations to all resources created by the MAS operator. Annotations are used to attach metadata that can control operator behavior, enable specific features, or provide information to other tools and operators.</p>
+<p><strong>When to use</strong>:
+- Set to <code>mas.ibm.com/operationalMode=nonproduction</code> for non-production environments (reduces resource requirements)
+- Use to add custom metadata for organizational tracking or automation
+- Use to enable specific MAS features controlled by annotations
+- Leave unset for default production configuration</p>
+<p><strong>Valid values</strong>: Comma-separated list of <code>key=value</code> pairs (e.g., <code>key1=value1,key2=value2</code>)</p>
+<p><strong>Impact</strong>: Annotations affect how the MAS operator configures resources. The <code>operationalMode=nonproduction</code> annotation significantly reduces CPU and memory requirements but is not suitable for production workloads.</p>
+<p><strong>Related variables</strong>: Works alongside <code>custom_labels</code> for resource metadata.</p>
+<p><strong>Note</strong>: The <code>operationalMode=nonproduction</code> annotation should only be used in development/test environments. It reduces resource allocations below production requirements.</p>
 <h4 id="mas_img_pull_policy">mas_img_pull_policy<a class="headerlink" href="#mas_img_pull_policy" title="Permanent link">¤</a></h4>
-<p>Sets <code>spec.settings.imagePullPolicy</code>, controlling the pod image pull policies in the suite (<code>Always</code>, <code>IfNotPresent</code>, <code>Never</code>). When not set the built-in operator default image pull policy will be used.</p>
+<p>Controls the image pull policy for all MAS container images.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_IMG_PULL_POLICY</code></li>
-<li>Default: None</li>
+<li>Default: None (uses operator default)</li>
 </ul>
+<p><strong>Purpose</strong>: Determines when Kubernetes will pull container images from the registry. This affects deployment speed, network usage, and whether you get the latest image updates.</p>
+<p><strong>When to use</strong>:
+- Use <code>Always</code> in development to ensure latest images are pulled on every pod restart
+- Use <code>IfNotPresent</code> in production to reduce network traffic and improve pod startup time
+- Use <code>Never</code> in airgap environments where images are pre-loaded
+- Leave unset to use the operator's default policy (typically <code>IfNotPresent</code>)</p>
+<p><strong>Valid values</strong>: <code>Always</code>, <code>IfNotPresent</code>, <code>Never</code></p>
+<p><strong>Impact</strong>:
+- <code>Always</code>: Slower pod starts, higher network usage, always gets latest image
+- <code>IfNotPresent</code>: Faster pod starts, uses cached images, may miss updates
+- <code>Never</code>: Fastest starts, requires images pre-loaded, fails if image not present</p>
+<p><strong>Related variables</strong>: Affects all images pulled by MAS operator and workloads.</p>
 <h4 id="custom_labels">custom_labels<a class="headerlink" href="#custom_labels" title="Permanent link">¤</a></h4>
-<p>Provide a list of comma-separated key=value pairs which will be applied as labels on all resources created.</p>
+<p>Comma-separated list of key=value labels to apply to all MAS resources.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>CUSTOM_LABELS</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Adds Kubernetes labels to all resources created by the MAS operator. Labels are used for resource organization, selection, and filtering. They enable you to query, group, and manage MAS resources using standard Kubernetes tools.</p>
+<p><strong>When to use</strong>:
+- Use to add organizational metadata (e.g., <code>cost-center=engineering</code>, <code>environment=production</code>)
+- Use to enable resource tracking and cost allocation
+- Use to support custom automation or monitoring tools
+- Use to comply with organizational labeling standards</p>
+<p><strong>Valid values</strong>: Comma-separated list of <code>key=value</code> pairs (e.g., <code>env=prod,team=platform,cost-center=12345</code>)</p>
+<p><strong>Impact</strong>: Labels are applied to all MAS resources and can be used for filtering with <code>oc get</code> commands, monitoring queries, and automation scripts. Labels do not affect MAS functionality but are essential for resource management.</p>
+<p><strong>Related variables</strong>: Works alongside <code>mas_annotations</code> for resource metadata.</p>
 <h4 id="mas_manual_cert_mgmt">mas_manual_cert_mgmt<a class="headerlink" href="#mas_manual_cert_mgmt" title="Permanent link">¤</a></h4>
-<p>Boolean variable that, when set to True, enable manual certificate management.</p>
+<p>Enables manual certificate management mode, disabling automatic certificate generation.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_MANUAL_CERT_MGMT</code></li>
-<li>Default: <code>False</code></li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether MAS uses automatic certificate management via cert-manager or requires manually provided certificates. This is critical for environments with specific certificate requirements or where cert-manager cannot be used.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> when you must use certificates from a specific Certificate Authority
+- Set to <code>true</code> in environments where cert-manager is not available or not permitted
+- Set to <code>true</code> when organizational policy requires manual certificate management
+- Leave as <code>false</code> (default) to use automatic certificate management with cert-manager</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: When <code>true</code>, you must manually create and manage all certificates required by MAS. The <code>suite_dns</code> role will not configure automatic certificate issuers. You are responsible for certificate renewal before expiration. When <code>false</code>, cert-manager automatically generates and renews certificates.</p>
+<p><strong>Related variables</strong>:
+- When <code>false</code>: Requires <code>mas_cluster_issuer</code> to be set for automatic certificate generation
+- Affects behavior of <code>suite_dns</code> role
+- Related to <code>mas_certificate_duration</code> and <code>mas_certificate_renew_before</code></p>
+<p><strong>Note</strong>: Manual certificate management requires significant operational overhead. Use automatic management unless you have specific requirements.</p>
 <h4 id="mas_routing_mode">mas_routing_mode<a class="headerlink" href="#mas_routing_mode" title="Permanent link">¤</a></h4>
-<p>String variable either <code>path</code> or <code>subdomain</code> that defines the routing mode used for the suite.</p>
+<p>Defines the URL routing strategy for MAS applications and services.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_ROUTING_MODE</code></li>
 <li>Default: <code>subdomain</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls how MAS constructs URLs for different applications and services. This affects the URL structure users see and how DNS must be configured.</p>
+<p><strong>When to use</strong>:
+- Use <code>subdomain</code> (default) for cleaner URLs and better DNS organization (e.g., <code>admin.mas.example.com</code>, <code>home.mas.example.com</code>)
+- Use <code>path</code> when subdomain routing is not possible due to DNS or certificate limitations (e.g., <code>mas.example.com/admin</code>, <code>mas.example.com/home</code>)
+- Consider DNS provider capabilities and certificate management when choosing</p>
+<p><strong>Valid values</strong>: <code>subdomain</code>, <code>path</code></p>
+<p><strong>Impact</strong>:
+- <code>subdomain</code>: Creates separate DNS entries for each service (requires wildcard DNS or multiple DNS entries)
+- <code>path</code>: Uses single DNS entry with path-based routing (simpler DNS, more complex URL structure)
+- Cannot be changed after installation without reinstalling</p>
+<p><strong>Related variables</strong>:
+- Affects DNS configuration in <code>suite_dns</code> role
+- Impacts certificate requirements (wildcard vs single certificate)
+- Must align with <code>mas_domain</code> configuration</p>
+<p><strong>Note</strong>: Choose carefully as this cannot be changed after installation. Subdomain routing is recommended for production environments.</p>
 <h4 id="mas_trust_default_cas">mas_trust_default_cas<a class="headerlink" href="#mas_trust_default_cas" title="Permanent link">¤</a></h4>
-<p>Boolean variable that defines whether default Certificate Authorities are included in MAS trust stores. This only has an effect with IBM Maximo Application Suite version 8.11 and above.</p>
+<p>Controls whether default system Certificate Authorities are included in MAS trust stores.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_TRUST_DEFAULT_CAS</code></li>
-<li>Default: <code>True</code></li>
+<li>Default: <code>true</code></li>
 </ul>
+<p><strong>Purpose</strong>: Determines if MAS will trust certificates signed by standard public Certificate Authorities (like Let's Encrypt, DigiCert, etc.) in addition to any custom CAs you configure. This affects MAS's ability to connect to external services using standard SSL certificates.</p>
+<p><strong>When to use</strong>:
+- Leave as <code>true</code> (default) for most installations to enable connections to public services
+- Set to <code>false</code> only in highly restricted environments where you want to explicitly control all trusted CAs
+- Set to <code>false</code> in airgap environments where external connections are not permitted</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: When <code>true</code>, MAS can connect to any service using certificates from well-known public CAs. When <code>false</code>, MAS will only trust explicitly configured custom CAs, which may break connections to external services.</p>
+<p><strong>Related variables</strong>: Works with custom CA configuration in MAS.</p>
+<p><strong>Note</strong>: Only available in MAS 8.11 and above. Has no effect in earlier versions.</p>
 <h4 id="mas_pod_templates_dir">mas_pod_templates_dir<a class="headerlink" href="#mas_pod_templates_dir" title="Permanent link">¤</a></h4>
-<p>Provide the directory where supported pod templates configuration files are defined. This role will look for configuration files named <code>ibm-mas-suite.yml</code>, <code>ibm-mas-coreidp.yml</code> and <code>ibm-data-dictionary-assetdatadictionary.yml</code> in the named directory. The content of the configuration file should be the yaml block that you wish to be inserted into the Suite spec under a top level <code>podTemplates</code> element, e.g. <code>podTemplates: {object}</code>. For ibm-data-dictionary the podTemplates will be inserted into the Suite spec under <code>settings-&gt;dataDictionary-&gt;podTemplates</code>. The ibm-mas-suite operator will then pass this on to the AssetDataDictionary CR when available.</p>
-<p>For examples refer to the <a href="https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/ibm-mas-suite.yml">BestEfforts reference configuration in the MAS CLI</a>, for full documentation of the supported options refer to the <a href="https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads">Customizing Pod Templates</a> in the product documentation.</p>
+<p>Directory containing pod template customization files for MAS workloads.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_POD_TEMPLATES_DIR</code></li>
 <li>Default: None</li>
 </ul>
-<h4 id="enable_ipv6">enable_ipv6<a class="headerlink" href="#enable_ipv6" title="Permanent link">¤</a></h4>
-<p>Boolean variable that indicates whether it is to install in an IPv6-enabled environment. If it is true, the suite CR will have the SingleStack for ipFamilyPolicy and ["IPv6"] for ipFamilies. These ipFamily properties will be populated to all the services. This is currently available only in internal fyre clusters at the RTP site for testing purpose.</p>
-<ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>ENABLE_IPV6</code></li>
-<li>Default: <code>False</code></li>
-</ul>
-<h4 id="mas_special_characters">mas_special_characters<a class="headerlink" href="#mas_special_characters" title="Permanent link">¤</a></h4>
-<p>Set this to <code>true</code> to permit special characters in user IDs and usernames. The suite configuration record (CR) will include a property named <code>userDataValidation</code> with the option <code>allowSpecialChars</code> configured.</p>
-<ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>MAS_SPECIAL_CHARACTERS</code></li>
-<li>Default: None</li>
-</ul>
-<h4 id="eck_enable_logstash">eck_enable_logstash<a class="headerlink" href="#eck_enable_logstash" title="Permanent link">¤</a></h4>
-<p>When set to <code>true</code> will result in the creation of <code>filebeat-output</code> Secret in the MAS Core namespace which will reconfigure all pods to send their logs to an instance of Logstash installed by the <a href="../eck/">eck role</a> <strong>instead of</strong> sending them to the pod log.</p>
-<ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>ECK_ENABLE_LOGSTASH</code></li>
-<li>Default: <code>false</code></li>
-</ul>
-<h4 id="mas_enable_walkme">mas_enable_walkme<a class="headerlink" href="#mas_enable_walkme" title="Permanent link">¤</a></h4>
-<p>Boolean variable that indicates whether to enable guided tour.</p>
-<ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>MAS_ENABLE_WALKME</code></li>
-<li>Default: <code>true</code></li>
-</ul>
+<p><strong>Purpose</strong>: Allows you to customize resource requests, limits, node selectors, tolerations, and other pod-level configurations for MAS workloads. This enables you to optimize MAS for your specific cluster configuration and resource availability.</p>
+<p><strong>When to use</strong>:
+- Use to apply resource constraints in resource-limited environments
+- Use to configure node affinity for specific hardware (e.g., GPU nodes)
+- Use to apply tolerations for tainted nodes
+- Use to implement best-effort or guaranteed QoS classes
+- Leave unset to use default MAS pod configurations</p>
+<p><strong>Valid values</strong>: Path to directory containing pod template YAML files:
+- <code>ibm-mas-suite.yml</code> - Core suite workloads
+- <code>ibm-mas-coreidp.yml</code> - Identity provider workloads
+- <code>ibm-data-dictionary-assetdatadictionary.yml</code> - Data dictionary workloads</p>
+<p><strong>Impact</strong>: Pod templates directly affect resource allocation, scheduling, and performance of MAS workloads. Incorrect configurations can cause pods to fail scheduling or perform poorly.</p>
+<p><strong>Related variables</strong>: Similar pod template configuration available in other roles (SLS, applications).</p>
+<p><strong>Note</strong>: See <a href="https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/ibm-mas-suite.yml">MAS CLI pod templates</a> for examples and <a href="https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads">product documentation</a> for full details.</p>
 <h3 id="certificate-management">Certificate Management<a class="headerlink" href="#certificate-management" title="Permanent link">¤</a></h3>
 <h4 id="mas_cluster_issuer">mas_cluster_issuer<a class="headerlink" href="#mas_cluster_issuer" title="Permanent link">¤</a></h4>
-<p>Defines the cluster issuer to use for certificate management.</p>
+<p>Name of the cert-manager ClusterIssuer to use for automatic certificate generation.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_CLUSTER_ISSUER</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which cert-manager ClusterIssuer will generate and manage SSL/TLS certificates for MAS. The ClusterIssuer defines the Certificate Authority and authentication method used for certificate issuance.</p>
+<p><strong>When to use</strong>:
+- Required when <code>mas_manual_cert_mgmt</code> is <code>false</code> (automatic certificate management)
+- Set to the ClusterIssuer created by <code>suite_dns</code> role (e.g., <code>{mas_instance_id}-cloudflare-le-prod</code>)
+- Set to a custom ClusterIssuer if you have specific certificate requirements
+- Leave unset only when using manual certificate management</p>
+<p><strong>Valid values</strong>: Name of any valid ClusterIssuer resource in the cluster (e.g., <code>prod-le-issuer</code>, <code>{mas_instance_id}-cloudflare-le-prod</code>)</p>
+<p><strong>Impact</strong>: The specified ClusterIssuer will be used to generate all MAS certificates. If the ClusterIssuer is not properly configured or lacks necessary credentials, certificate generation will fail and MAS will not be accessible.</p>
+<p><strong>Related variables</strong>:
+- Only used when <code>mas_manual_cert_mgmt</code> is <code>false</code>
+- Created by <code>suite_dns</code> role for Let's Encrypt integration
+- Works with <code>mas_certificate_duration</code> and <code>mas_certificate_renew_before</code></p>
+<p><strong>Note</strong>: Ensure the ClusterIssuer is created and functional before installing MAS. Test certificate generation with a test Certificate resource first.</p>
 <h4 id="mas_certificate_duration">mas_certificate_duration<a class="headerlink" href="#mas_certificate_duration" title="Permanent link">¤</a></h4>
-<p>Defines the duration for certificates.</p>
+<p>Specifies the validity period for MAS certificates.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_CERTIFICATE_DURATION</code></li>
-<li>Default: <code>8760h0m0s</code></li>
+<li>Default: <code>8760h0m0s</code> (1 year)</li>
 </ul>
+<p><strong>Purpose</strong>: Defines how long certificates will be valid before they expire. This affects how often certificates need to be renewed and the security posture of your installation.</p>
+<p><strong>When to use</strong>:
+- Use default (8760h = 1 year) for most installations
+- Reduce for higher security environments requiring frequent rotation
+- Increase only if certificate renewal is problematic in your environment
+- Must be longer than <code>mas_certificate_renew_before</code></p>
+<p><strong>Valid values</strong>: Duration string in format <code>{hours}h{minutes}m{seconds}s</code> (e.g., <code>8760h0m0s</code>, <code>2160h0m0s</code>, <code>17520h0m0s</code>)</p>
+<p><strong>Impact</strong>: Shorter durations increase security but require more frequent renewals. Longer durations reduce renewal frequency but increase risk if certificates are compromised. Cert-manager will automatically renew certificates before expiration.</p>
+<p><strong>Related variables</strong>:
+- Must be greater than <code>mas_certificate_renew_before</code>
+- Only applies when using automatic certificate management
+- Affects all MAS certificates</p>
 <h4 id="mas_certificate_renew_before">mas_certificate_renew_before<a class="headerlink" href="#mas_certificate_renew_before" title="Permanent link">¤</a></h4>
-<p>Defines when to renew certificates before expiration.</p>
+<p>Specifies when to renew certificates before they expire.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_CERTIFICATE_RENEW_BEFORE</code></li>
-<li>Default: <code>720h0m0s</code></li>
+<li>Default: <code>720h0m0s</code> (30 days)</li>
 </ul>
-<h3 id="sso-configuration">SSO Configuration<a class="headerlink" href="#sso-configuration" title="Permanent link">¤</a></h3>
-<h4 id="idle_timeout">idle_timeout<a class="headerlink" href="#idle_timeout" title="Permanent link">¤</a></h4>
-<p>Defines the idle timeout for SSO sessions.</p>
-<ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>IDLE_TIMEOUT</code></li>
-<li>Default: None</li>
-</ul>
-<h4 id="idp_session_timeout">idp_session_timeout<a class="headerlink" href="#idp_session_timeout" title="Permanent link">¤</a></h4>
-<p>Defines the IDP session timeout.</p>
-<ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>IDP_SESSION_TIMEOUT</code></li>
-<li>Default: None</li>
-</ul>
-<h4 id="access_token_timeout">access_token_timeout<a class="headerlink" href="#access_token_timeout" title="Permanent link">¤</a></h4>
-<p>Defines the access token timeout.</p>
-<ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>ACCESS_TOKEN_TIMEOUT</code></li>
-<li>Default: None</li>
-</ul>
-<h4 id="refresh_token_timeout">refresh_token_timeout<a class="headerlink" href="#refresh_token_timeout" title="Permanent link">¤</a></h4>
-<p>Defines the refresh token timeout.</p>
-<ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>REFRESH_TOKEN_TIMEOUT</code></li>
-<li>Default: None</li>
-</ul>
-<h4 id="default_idp">default_idp<a class="headerlink" href="#default_idp" title="Permanent link">¤</a></h4>
-<p>Defines the default identity provider.</p>
-<ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>DEFAULT_IDP</code></li>
-<li>Default: None</li>
-</ul>
-<h4 id="seamless_login">seamless_login<a class="headerlink" href="#seamless_login" title="Permanent link">¤</a></h4>
-<p>Enables seamless login functionality.</p>
-<ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>SEAMLESS_LOGIN</code></li>
-<li>Default: None</li>
-</ul>
-<h4 id="sso_cookie_name">sso_cookie_name<a class="headerlink" href="#sso_cookie_name" title="Permanent link">¤</a></h4>
-<p>Defines the SSO cookie name.</p>
-<ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>SSO_COOKIE_NAME</code></li>
-<li>Default: None</li>
-</ul>
-<h4 id="allow_default_sso_cookie_name">allow_default_sso_cookie_name<a class="headerlink" href="#allow_default_sso_cookie_name" title="Permanent link">¤</a></h4>
-<p>Allows the use of default SSO cookie name.</p>
-<ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>ALLOW_DEFAULT_SSO_COOKIE_NAME</code></li>
-<li>Default: None</li>
-</ul>
-<h4 id="use_only_custom_cookie_name">use_only_custom_cookie_name<a class="headerlink" href="#use_only_custom_cookie_name" title="Permanent link">¤</a></h4>
-<p>Forces the use of only custom cookie name.</p>
-<ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>USE_ONLY_CUSTOM_COOKIE_NAME</code></li>
-<li>Default: None</li>
-</ul>
-<h4 id="disable_ltpa_cookie">disable_ltpa_cookie<a class="headerlink" href="#disable_ltpa_cookie" title="Permanent link">¤</a></h4>
-<p>Disables LTPA cookie.</p>
-<ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>DISABLE_LDAP_COOKIE</code></li>
-<li>Default: None</li>
-</ul>
-<h4 id="allow_custom_cache_key">allow_custom_cache_key<a class="headerlink" href="#allow_custom_cache_key" title="Permanent link">¤</a></h4>
-<p>Allows custom cache key.</p>
-<ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>ALLOW_CUSTOM_CACHE_KEY</code></li>
-<li>Default: None</li>
-</ul>
+<p><strong>Purpose</strong>: Defines the renewal window - how far in advance cert-manager will renew certificates before they expire. This ensures certificates are renewed with sufficient time to handle any renewal issues.</p>
+<p><strong>When to use</strong>:
+- Use default (720h = 30 days) for most installations
+- Increase in environments where certificate renewal may be slow or problematic
+- Decrease only if you need to minimize the number of certificate changes
+- Must be shorter than <code>mas_certificate_duration</code></p>
+<p><strong>Valid values</strong>: Duration string in format <code>{hours}h{minutes}m{seconds}s</code> (e.g., <code>720h0m0s</code>, <code>1440h0m0s</code>, <code>168h0m0s</code>)</p>
+<p><strong>Impact</strong>: Longer renewal windows provide more time to resolve renewal issues but result in more frequent certificate changes. Shorter windows reduce certificate churn but increase risk of expiration if renewal fails.</p>
+<p><strong>Related variables</strong>:
+- Must be less than <code>mas_certificate_duration</code>
+- Only applies when using automatic certificate management
+- Affects all MAS certificates</p>
+<p><strong>Note</strong>: Ensure this value provides adequate time to detect and resolve certificate renewal issues before expiration.</p>
 <h3 id="superuser-account">Superuser Account<a class="headerlink" href="#superuser-account" title="Permanent link">¤</a></h3>
 <p>The MAS Superuser account username and password can be customized during the install by setting <strong>both</strong> of these variables.</p>
 <h4 id="mas_superuser_username">mas_superuser_username<a class="headerlink" href="#mas_superuser_username" title="Permanent link">¤</a></h4>
-<p>Defines the superuser username.</p>
+<p>Custom username for the MAS superuser administrator account.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_SUPERUSER_USERNAME</code></li>
-<li>Default: None</li>
+<li>Default: None (uses MAS default superuser)</li>
 </ul>
+<p><strong>Purpose</strong>: Allows you to set a custom username for the MAS superuser account instead of using the default. The superuser has full administrative access to all MAS functions and applications.</p>
+<p><strong>When to use</strong>:
+- Set both username and password to customize the superuser account
+- Use in environments with specific account naming requirements
+- Leave unset to use the default superuser account
+- Must be set together with <code>mas_superuser_password</code></p>
+<p><strong>Valid values</strong>: Any valid username string (alphanumeric, may include underscores and hyphens)</p>
+<p><strong>Impact</strong>: When set (along with password), creates a superuser account with the specified username. If only one of username/password is set, both are ignored and default account is used.</p>
+<p><strong>Related variables</strong>: Must be set together with <code>mas_superuser_password</code> to take effect.</p>
+<p><strong>Note</strong>: Both username and password must be set for customization to take effect. Setting only one has no effect.</p>
 <h4 id="mas_superuser_password">mas_superuser_password<a class="headerlink" href="#mas_superuser_password" title="Permanent link">¤</a></h4>
-<p>Defines the superuser password.</p>
+<p>Custom password for the MAS superuser administrator account.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_SUPERUSER_PASSWORD</code></li>
-<li>Default: None</li>
+<li>Default: None (uses auto-generated password)</li>
 </ul>
-<h3 id="data-dictionary">Data Dictionary<a class="headerlink" href="#data-dictionary" title="Permanent link">¤</a></h3>
-<h4 id="mas_add_catalog">mas_add_catalog<a class="headerlink" href="#mas_add_catalog" title="Permanent link">¤</a></h4>
-<p>Defines the catalog to be used for the data dictionary add-on.</p>
-<ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>MAS_ADD_CATALOG</code></li>
-<li>Default: <code>ibm-operator-catalog</code></li>
-</ul>
-<h4 id="mas_add_channel">mas_add_channel<a class="headerlink" href="#mas_add_channel" title="Permanent link">¤</a></h4>
-<p>Defines the channel for the data dictionary add-on.</p>
-<ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>MAS_ADD_CHANNEL</code></li>
-<li>Default: None</li>
-</ul>
+<p><strong>Purpose</strong>: Allows you to set a custom password for the MAS superuser account instead of using the auto-generated default. This enables you to control the initial superuser credentials.</p>
+<p><strong>When to use</strong>:
+- Set both username and password to customize the superuser account
+- Use when you need to know the superuser password in advance
+- Use to comply with organizational password policies
+- Must be set together with <code>mas_superuser_username</code></p>
+<p><strong>Valid values</strong>: Any string meeting MAS password requirements (minimum length, complexity requirements)</p>
+<p><strong>Impact</strong>: When set (along with username), creates a superuser account with the specified password. If only one of username/password is set, both are ignored and default account is used with auto-generated password.</p>
+<p><strong>Related variables</strong>: Must be set together with <code>mas_superuser_username</code> to take effect.</p>
+<p><strong>Note</strong>: Both username and password must be set for customization to take effect. Keep the password secure and do not commit to source control.</p>
 <h3 id="developer-mode">Developer Mode<a class="headerlink" href="#developer-mode" title="Permanent link">¤</a></h3>
 <h4 id="artifactory_username">artifactory_username<a class="headerlink" href="#artifactory_username" title="Permanent link">¤</a></h4>
-<p>Required when using this role with development builds on Artifactory.</p>
+<p>Username for authenticating to Artifactory for development builds.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ARTIFACTORY_USERNAME</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides authentication credentials for accessing development builds of MAS stored in Artifactory. This is only used for internal development and testing, not for production installations.</p>
+<p><strong>When to use</strong>:
+- Required only when installing development builds from Artifactory
+- Not needed for production installations using IBM Container Registry
+- Use your IBM w3Id username for Artifactory access
+- Must be set together with <code>artifactory_token</code></p>
+<p><strong>Valid values</strong>: Your IBM w3Id username</p>
+<p><strong>Impact</strong>: Used to create image pull secrets for accessing Artifactory registries. Without valid credentials, development image pulls will fail.</p>
+<p><strong>Related variables</strong>:
+- Must be set with <code>artifactory_token</code>
+- Used with <code>mas_icr_cp</code> and <code>mas_icr_cpopen</code> when pointing to Artifactory
+- Related to <code>mas_entitlement_username</code> for registry authentication</p>
+<p><strong>Note</strong>: Only for development use. Production installations should use IBM Container Registry with entitlement keys.</p>
 <h4 id="artifactory_token">artifactory_token<a class="headerlink" href="#artifactory_token" title="Permanent link">¤</a></h4>
-<p>Required when using this role with development builds on Artifactory.</p>
+<p>API token for authenticating to Artifactory for development builds.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ARTIFACTORY_TOKEN</code></li>
 <li>Default: None</li>
 </ul>
-<h4 id="mas_icr_cp">mas_icr_cp<a class="headerlink" href="#mas_icr_cp" title="Permanent link">¤</a></h4>
-<p>Defines the entitled registry from which the images should be pulled from. Set this to <code>cp.icr.io/cp</code> when installing release version of MAS, <code>docker-na-public.artifactory.swg-devops.com/wiotp-docker-local</code> for dev, unless when on FYRE in which case use <code>docker-na-proxy-svl.artifactory.swg-devops.com/wiotp-docker-local</code> or <code>docker-na-proxy-rtp.artifactory.swg-devops.com/wiotp-docker-local</code> as appropriate.</p>
-<ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>MAS_ICR_CP</code></li>
-<li>Default: <code>cp.icr.io/cp</code></li>
-</ul>
-<h4 id="mas_icr_cpopen">mas_icr_cpopen<a class="headerlink" href="#mas_icr_cpopen" title="Permanent link">¤</a></h4>
-<p>Defines the registry for non-entitled images, such as operators. Set this to <code>icr.io/cpopen</code> when installing release version of MAS or <code>docker-na-public.artifactory.swg-devops.com/wiotp-docker-local/cpopen</code> for dev (or corresponding FYRE proxies as appropriate).</p>
-<ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>MAS_ICR_CPOPEN</code></li>
-<li>Default: <code>icr.io/cpopen</code></li>
-</ul>
-<h4 id="mas_entitlement_username">mas_entitlement_username<a class="headerlink" href="#mas_entitlement_username" title="Permanent link">¤</a></h4>
-<p>Username for the IBM entitled registry. This username will be used to create the image pull secret. Set to <code>cp</code> when installing release or use your <code>w3Id</code> when using Artifactory.</p>
-<ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>MAS_ENTITLEMENT_USERNAME</code></li>
-<li>Default: <code>cp</code></li>
-</ul>
+<p><strong>Purpose</strong>: Provides authentication token for accessing development builds of MAS stored in Artifactory. This is only used for internal development and testing, not for production installations.</p>
+<p><strong>When to use</strong>:
+- Required only when installing development builds from Artifactory
+- Not needed for production installations using IBM Container Registry
+- Use your Artifactory API key
+- Must be set together with <code>artifactory_username</code></p>
+<p><strong>Valid values</strong>: Your Artifactory API key/token</p>
+<p><strong>Impact</strong>: Used to create image pull secrets for accessing Artifactory registries. Without valid credentials, development image pulls will fail.</p>
+<p><strong>Related variables</strong>:
+- Must be set with <code>artifactory_username</code>
+- Used with <code>mas_icr_cp</code> and <code>mas_icr_cpopen</code> when pointing to Artifactory
+- Can be used as <code>mas_entitlement_key</code> for development builds</p>
+<p><strong>Note</strong>: Only for development use. Keep tokens secure. Production installations should use IBM Container Registry with entitlement keys.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
@@ -1111,18 +1206,8 @@
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#sso-configuration" class="md-toc__link" data-md-level="2">
-                          SSO Configuration
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
                         <a href="#superuser-account" class="md-toc__link" data-md-level="2">
                           Superuser Account
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#data-dictionary" class="md-toc__link" data-md-level="2">
-                          Data Dictionary
                         </a>
                       </li>
                       <li class="md-toc__item">

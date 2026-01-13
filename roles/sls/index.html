@@ -750,182 +750,441 @@
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="general-variables">General Variables<a class="headerlink" href="#general-variables" title="Permanent link">¤</a></h3>
 <h4 id="sls_action">sls_action<a class="headerlink" href="#sls_action" title="Permanent link">¤</a></h4>
-<p>Inform the role whether to perform an install, uninstall or gencfg of the Suite License Service.</p>
+<p>Specifies which operation to perform on the Suite License Service (SLS) instance.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>SLS_ACTION</code></li>
 <li>Default: <code>install</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls what action the role executes against the SLS instance. This allows the same role to handle installation, configuration generation, and removal of SLS.</p>
+<p><strong>When to use</strong>:
+- Use <code>install</code> for initial SLS deployment or updates
+- Use <code>gencfg</code> to generate SLS configuration for MAS without installing SLS (when using existing SLS)
+- Use <code>uninstall</code> to remove SLS instance (use with caution)</p>
+<p><strong>Valid values</strong>: <code>install</code>, <code>gencfg</code>, <code>uninstall</code></p>
+<p><strong>Impact</strong>: 
+- <code>install</code>: Deploys or updates SLS operator and instance
+- <code>gencfg</code>: Only generates SLSCfg resource for MAS integration
+- <code>uninstall</code>: Removes SLS instance and operator (destructive operation)</p>
+<p><strong>Related variables</strong>: When using <code>gencfg</code>, requires <code>sls_url</code> to be set to point to existing SLS instance.</p>
+<p><strong>Note</strong>: Always backup license data before using <code>uninstall</code>. The <code>gencfg</code> action is useful when SLS is shared across multiple MAS instances.</p>
 <h2 id="role-variables-installation">Role Variables - Installation<a class="headerlink" href="#role-variables-installation" title="Permanent link">¤</a></h2>
 <p>If <code>sls_url</code> is set then the role will skip the installation of an SLS instance and simply generate the SLSCfg resource for the SLS instance defined.</p>
 <h4 id="artifactory_username">artifactory_username<a class="headerlink" href="#artifactory_username" title="Permanent link">¤</a></h4>
-<p>Provide your artifactory username, primarily used to update the image pull secret in development.</p>
+<p>Username for authenticating to IBM Artifactory to access development builds of SLS.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ARTIFACTORY_USERNAME</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides authentication credentials to pull development/pre-release SLS operator images from IBM's Artifactory registry. Required only when installing development builds for testing or early access.</p>
+<p><strong>When to use</strong>:
+- Required when <code>sls_catalog_source</code> is set to <code>ibm-sls-operators</code> (development catalog)
+- Not needed for production installations using <code>ibm-operator-catalog</code>
+- Use your IBM w3Id username for development builds</p>
+<p><strong>Valid values</strong>: Valid IBM Artifactory username (typically your w3Id)</p>
+<p><strong>Impact</strong>: Without valid credentials, development catalog subscriptions will fail to pull operator images. This variable is ignored when using production catalogs.</p>
+<p><strong>Related variables</strong>:
+- <code>artifactory_token</code>: Must be set together with this username
+- <code>sls_catalog_source</code>: Determines if Artifactory credentials are needed</p>
+<p><strong>Note</strong>: Only required for development/pre-release builds. Production installations use <code>ibm_entitlement_key</code> instead (for SLS 3.7.0 and earlier).</p>
 <h4 id="artifactory_token">artifactory_token<a class="headerlink" href="#artifactory_token" title="Permanent link">¤</a></h4>
-<p>Provide your artifactory api key, primarily used to update the image pull secret in development.</p>
+<p>API token for authenticating to IBM Artifactory to access development builds of SLS.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ARTIFACTORY_TOKEN</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the API token/password credential to authenticate with IBM's Artifactory registry when pulling development/pre-release SLS operator images.</p>
+<p><strong>When to use</strong>:
+- Required when <code>sls_catalog_source</code> is set to <code>ibm-sls-operators</code> (development catalog)
+- Not needed for production installations using <code>ibm-operator-catalog</code>
+- Use your IBM Artifactory API key for development builds</p>
+<p><strong>Valid values</strong>: Valid IBM Artifactory API token</p>
+<p><strong>Impact</strong>: Without a valid token, development catalog subscriptions will fail to pull operator images. This variable is ignored when using production catalogs.</p>
+<p><strong>Related variables</strong>:
+- <code>artifactory_username</code>: Must be set together with this token
+- <code>sls_catalog_source</code>: Determines if Artifactory credentials are needed</p>
+<p><strong>Note</strong>: Only required for development/pre-release builds. Keep this token secure and do not commit to source control.</p>
 <h4 id="sls_catalog_source">sls_catalog_source<a class="headerlink" href="#sls_catalog_source" title="Permanent link">¤</a></h4>
-<p>Defines the OLM catalog to be used to install SLS. Set to <code>ibm-sls-operators</code> if you want to deploy pre-release development builds of SLS or leave as the default <code>ibm-operator-catalog</code> for the released versions.</p>
+<p>Specifies the OpenShift operator catalog source containing the SLS operator subscription.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>SLS_CATALOG_SOURCE</code></li>
 <li>Default: <code>ibm-operator-catalog</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls which operator catalog is used to locate and install the SLS operator. This determines where OpenShift looks for the operator images and metadata during installation.</p>
+<p><strong>When to use</strong>:
+- Use default <code>ibm-operator-catalog</code> for production installations with official IBM releases
+- Use <code>ibm-sls-operators</code> for development builds from Artifactory
+- Only change if directed to use a custom catalog for specific testing or airgap scenarios</p>
+<p><strong>Valid values</strong>: Any valid CatalogSource name present in the <code>openshift-marketplace</code> namespace (typically <code>ibm-operator-catalog</code> or <code>ibm-sls-operators</code>)</p>
+<p><strong>Impact</strong>: Changing this value affects which operator versions are available for installation. An invalid catalog source will cause the subscription to fail. Development catalogs require additional authentication via <code>artifactory_username</code> and <code>artifactory_token</code>.</p>
+<p><strong>Related variables</strong>:
+- <code>sls_channel</code>: Works together to determine the specific operator version installed
+- <code>artifactory_username</code> and <code>artifactory_token</code>: Required when using <code>ibm-sls-operators</code></p>
+<p><strong>Note</strong>: For development catalogs, you must also provide Artifactory credentials.</p>
 <h4 id="sls_channel">sls_channel<a class="headerlink" href="#sls_channel" title="Permanent link">¤</a></h4>
-<p>The SLS OLM subscription channel to be installed.</p>
+<p>Specifies the SLS operator subscription channel, which determines the version stream you'll receive updates from.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>SLS_CHANNEL</code></li>
 <li>Default: <code>3.x</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls which version of SLS will be installed and which updates will be automatically applied. The channel corresponds to major version releases and determines the feature set and compatibility level of your SLS installation.</p>
+<p><strong>When to use</strong>:
+- Use default <code>3.x</code> for latest SLS 3.x releases (recommended for most deployments)
+- Use specific older channels only if required for compatibility with older MAS versions
+- Consult the MAS compatibility matrix before selecting a channel</p>
+<p><strong>Valid values</strong>: <code>3.x</code> (check the IBM Operator Catalog for currently available channels)</p>
+<p><strong>Impact</strong>: The channel determines which SLS version is installed and which automatic updates are applied. Changing channels after installation will trigger an upgrade to the latest version in that channel.</p>
+<p><strong>Related variables</strong>: Works with <code>sls_catalog_source</code> to determine available channels.</p>
+<p><strong>Note</strong>: SLS 3.8.0+ no longer requires IBM entitlement keys as images moved to public registry. Review the SLS release notes before changing this value.</p>
 <h4 id="sls_namespace">sls_namespace<a class="headerlink" href="#sls_namespace" title="Permanent link">¤</a></h4>
-<p>Define the namespace where sls must be installed.</p>
+<p>OpenShift namespace where the SLS operator and instance will be deployed.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>SLS_NAMESPACE</code></li>
 <li>Default: <code>ibm-sls</code></li>
 </ul>
+<p><strong>Purpose</strong>: Defines the Kubernetes namespace for SLS resources, providing isolation and organization for the SLS deployment within the cluster.</p>
+<p><strong>When to use</strong>:
+- Use default <code>ibm-sls</code> for standard deployments
+- Change only if you need multiple SLS instances or have namespace naming requirements
+- Ensure namespace doesn't conflict with existing deployments</p>
+<p><strong>Valid values</strong>: Any valid Kubernetes namespace name (lowercase alphanumeric and hyphens)</p>
+<p><strong>Impact</strong>: All SLS resources (operator, pods, secrets, services, ConfigMaps) will be created in this namespace. Changing this after deployment requires reinstallation.</p>
+<p><strong>Related variables</strong>: Used in SLSCfg generation to reference SLS service endpoints.</p>
+<p><strong>Note</strong>: The namespace will be created if it doesn't exist. Ensure you have permissions to create namespaces in the cluster.</p>
 <h4 id="sls_icr_cpopen">sls_icr_cpopen<a class="headerlink" href="#sls_icr_cpopen" title="Permanent link">¤</a></h4>
-<p>The container registry source for all container images deployed by the SLS operator. From SLS 3.8.0 onwards this will be the only variable to set the registry. Override to use development images.</p>
+<p>Container registry source for SLS operator and component images.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>SLS_ICR_CPOPEN</code></li>
 <li>Default: <code>icr.io/cpopen</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the container registry from which SLS pulls all operator and component images. From SLS 3.8.0 onwards, this is the primary registry variable as images moved to the public IBM Container Registry.</p>
+<p><strong>When to use</strong>:
+- Use default <code>icr.io/cpopen</code> for production installations (SLS 3.8.0+)
+- Override only for development images or airgap/mirror scenarios
+- No authentication required for default public registry</p>
+<p><strong>Valid values</strong>: Any valid container registry URL (e.g., <code>icr.io/cpopen</code>, <code>my-registry.com/sls</code>)</p>
+<p><strong>Impact</strong>: All SLS images will be pulled from this registry. An incorrect or inaccessible registry will cause image pull failures. The default public registry requires no entitlement key (SLS 3.8.0+).</p>
+<p><strong>Related variables</strong>:
+- <code>sls_icr_cp</code>: Deprecated in SLS 3.8.0, only needed for SLS 3.7.0 and earlier
+- <code>ibm_entitlement_key</code>: Not required when using default public registry (SLS 3.8.0+)</p>
+<p><strong>Note</strong>: <strong>SLS 3.8.0+ uses public registry</strong> - no entitlement key needed. For SLS 3.7.0 and earlier, use <code>sls_icr_cp</code> and provide <code>ibm_entitlement_key</code>.</p>
 <h4 id="sls_instance_name">sls_instance_name<a class="headerlink" href="#sls_instance_name" title="Permanent link">¤</a></h4>
-<p>Defines the instance ID to be used for SLS installation.</p>
+<p>Unique identifier for this SLS installation within the cluster.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>SLS_INSTANCE_NAME</code></li>
 <li>Default: <code>sls</code></li>
 </ul>
+<p><strong>Purpose</strong>: Provides a unique identifier that distinguishes this SLS installation from others that may exist in the same cluster. This ID is used to generate resource names throughout the installation.</p>
+<p><strong>When to use</strong>:
+- Use default <code>sls</code> for standard single-SLS deployments
+- Change only if you need multiple SLS instances in the same cluster
+- Must be unique within the cluster if running multiple SLS instances</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string (e.g., <code>sls</code>, <code>sls-prod</code>, <code>sls-dev</code>)</p>
+<p><strong>Impact</strong>: This ID becomes part of resource names and is embedded in many SLS resources. It cannot be changed after installation without reinstalling.</p>
+<p><strong>Related variables</strong>: Used in SLSCfg generation to identify the SLS instance.</p>
+<p><strong>Note</strong>: Choose carefully as this cannot be changed after installation. Most deployments use the default <code>sls</code> value.</p>
 <h4 id="sls_icr_cp">sls_icr_cp<a class="headerlink" href="#sls_icr_cp" title="Permanent link">¤</a></h4>
-<p><strong>Deprecated in SLS 3.8.0</strong></p>
-<p>The container registry source for all container images deployed by the SLS operator. The api-licensing container image has moved to <code>icr.io/cpopen</code> in SLS 3.8.0. Set this variable for SLS 3.7.0 and lower. Override to use development images.</p>
+<p>Container registry source for SLS images (SLS 3.7.0 and earlier only).</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>SLS_ICR_CP</code></li>
 <li>Default: <code>cp.icr.io/cp</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the container registry for SLS images in versions 3.7.0 and earlier. This registry required IBM entitlement key authentication.</p>
+<p><strong>When to use</strong>:
+- Only required for SLS versions 3.7.0 and earlier
+- Not needed for SLS 3.8.0+ (images moved to public registry)
+- Override only for development images or airgap scenarios with older SLS versions</p>
+<p><strong>Valid values</strong>: Any valid container registry URL (e.g., <code>cp.icr.io/cp</code>, <code>my-registry.com/sls</code>)</p>
+<p><strong>Impact</strong>: For SLS 3.7.0 and earlier, all SLS images will be pulled from this registry. Requires <code>ibm_entitlement_key</code> for authentication.</p>
+<p><strong>Related variables</strong>:
+- <code>sls_icr_cpopen</code>: Use this instead for SLS 3.8.0+
+- <code>ibm_entitlement_key</code>: Required when using this registry (SLS 3.7.0 and earlier)</p>
+<p><strong>Note</strong>: <strong>DEPRECATED in SLS 3.8.0</strong> - SLS images moved to public registry (<code>icr.io/cpopen</code>). This variable is only required for SLS versions up to 3.7.0. For SLS 3.8.0+, use <code>sls_icr_cpopen</code> instead (no entitlement key needed).</p>
 <h4 id="ibm_entitlement_key">ibm_entitlement_key<a class="headerlink" href="#ibm_entitlement_key" title="Permanent link">¤</a></h4>
-<p><strong>Deprecated in SLS 3.8.0</strong></p>
-<p>Provide your <a href="https://myibm.ibm.com/products-services/containerlibrary">IBM entitlement key</a>. This is now deprecated in SLS 3.8.0. Provide this only for versions up to 3.7.0.</p>
+<p>IBM entitlement key for accessing IBM Container Registry images (SLS 3.7.0 and earlier only).</p>
 <ul>
-<li><strong>Required</strong> unless <code>sls_url</code> is provided</li>
+<li><strong>Required</strong> for SLS 3.7.0 and earlier (unless <code>sls_url</code> is provided)</li>
 <li>Environment Variable: <code>IBM_ENTITLEMENT_KEY</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Authenticates access to IBM's entitled container registry to pull SLS operator and component images. This key is tied to your IBM Cloud account and product entitlements.</p>
+<p><strong>When to use</strong>:
+- Required for SLS versions 3.7.0 and earlier
+- Not required for SLS 3.8.0 and later (images moved to public registry)
+- Obtain from <a href="https://myibm.ibm.com/products-services/containerlibrary">IBM Container Library</a></p>
+<p><strong>Valid values</strong>: IBM entitlement key string (typically starts with "eyJ...")</p>
+<p><strong>Impact</strong>: Invalid or expired keys will cause image pull failures for SLS 3.7.0 and earlier. The key is stored in a Kubernetes secret in the SLS namespace.</p>
+<p><strong>Related variables</strong>:
+- <code>sls_entitlement_username</code>: Username paired with this key (default: <code>cp</code>)
+- <code>sls_icr_cp</code>: Registry requiring this authentication (SLS 3.7.0 and earlier)</p>
+<p><strong>Note</strong>: <strong>DEPRECATED in SLS 3.8.0</strong> - SLS images moved to public registry (<code>icr.io/cpopen</code>). This variable is only required for SLS versions up to 3.7.0. For SLS 3.8.0+, no entitlement key is needed.</p>
 <h4 id="sls_entitlement_username">sls_entitlement_username<a class="headerlink" href="#sls_entitlement_username" title="Permanent link">¤</a></h4>
-<p><strong>Deprecated in SLS 3.8.0</strong></p>
-<p>Username for entitled registry. This username will be used to create the image pull secret. This is now deprecated in SLS 3.8.0. Provide this only for versions up to 3.7.0.</p>
+<p>Username for authenticating to IBM Container Registry (SLS 3.7.0 and earlier only).</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>SLS_ENTITLEMENT_USERNAME</code></li>
 <li>Default: <code>cp</code></li>
 </ul>
+<p><strong>Purpose</strong>: Provides the username credential for authenticating with IBM's entitled container registry when pulling SLS images for versions 3.7.0 and earlier.</p>
+<p><strong>When to use</strong>:
+- Only needed for SLS versions 3.7.0 and earlier
+- Not required for SLS 3.8.0+ (images moved to public registry)
+- Usually can be left at default <code>cp</code> for production installations</p>
+<p><strong>Valid values</strong>: <code>cp</code> (for production installations with IBM entitlement key)</p>
+<p><strong>Impact</strong>: Used together with <code>ibm_entitlement_key</code> to create image pull secrets for the SLS namespace. Incorrect username will cause image pull authentication failures.</p>
+<p><strong>Related variables</strong>:
+- <code>ibm_entitlement_key</code>: Must be set together with this username (SLS 3.7.0 and earlier)
+- <code>sls_entitlement_key</code>: Alternative entitlement key specific for SLS</p>
+<p><strong>Note</strong>: <strong>DEPRECATED in SLS 3.8.0</strong> - SLS images moved to public registry. This variable is only required for SLS versions up to 3.7.0. For SLS 3.8.0+, no authentication is needed.</p>
 <h4 id="sls_entitlement_key">sls_entitlement_key<a class="headerlink" href="#sls_entitlement_key" title="Permanent link">¤</a></h4>
-<p><strong>Deprecated in SLS 3.8.0</strong></p>
-<p>An IBM entitlement key specific for SLS installation, primarily used to override <code>ibm_entitlement_key</code> in development. This is now deprecated in SLS 3.8.0. Provide this only for versions up to 3.7.0.</p>
+<p>SLS-specific IBM entitlement key override (SLS 3.7.0 and earlier only).</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>SLS_ENTITLEMENT_KEY</code></li>
-<li>Default: None</li>
+<li>Default: None (falls back to <code>ibm_entitlement_key</code>)</li>
 </ul>
+<p><strong>Purpose</strong>: Provides an SLS-specific IBM entitlement key that overrides the global <code>ibm_entitlement_key</code> variable. Primarily used in development scenarios where different keys are needed for different components.</p>
+<p><strong>When to use</strong>:
+- Only needed for SLS versions 3.7.0 and earlier
+- Use when you need a different entitlement key specifically for SLS
+- Leave unset to use the global <code>ibm_entitlement_key</code> value
+- Not required for SLS 3.8.0+ (images moved to public registry)</p>
+<p><strong>Valid values</strong>: IBM entitlement key string (typically starts with "eyJ...")</p>
+<p><strong>Impact</strong>: When set, this key is used instead of <code>ibm_entitlement_key</code> for SLS image authentication. Invalid keys will cause image pull failures.</p>
+<p><strong>Related variables</strong>:
+- <code>ibm_entitlement_key</code>: Global entitlement key that this variable overrides
+- <code>sls_entitlement_username</code>: Username paired with this key</p>
+<p><strong>Note</strong>: <strong>DEPRECATED in SLS 3.8.0</strong> - SLS images moved to public registry. This variable is only required for SLS versions up to 3.7.0. For SLS 3.8.0+, no entitlement key is needed.</p>
 <h2 id="role-variables-configuration">Role Variables - Configuration<a class="headerlink" href="#role-variables-configuration" title="Permanent link">¤</a></h2>
 <h4 id="sls_domain">sls_domain<a class="headerlink" href="#sls_domain" title="Permanent link">¤</a></h4>
-<p>SLS can be configured to be externally accessible through a route by setting the domain. Set the domain if SLS is used by application suites that are installed in separate OpenShift clusters.</p>
+<p>Custom domain name for external access to SLS via OpenShift routes.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>SLS_DOMAIN</code></li>
-<li>Default: None</li>
+<li>Default: None (SLS is only accessible within the cluster)</li>
 </ul>
+<p><strong>Purpose</strong>: Enables external access to SLS through a custom domain route. This is essential when SLS needs to serve multiple MAS instances deployed in separate OpenShift clusters.</p>
+<p><strong>When to use</strong>:
+- Required when SLS serves MAS instances in different OpenShift clusters
+- Required for multi-cluster SLS deployments
+- Leave unset for single-cluster deployments where SLS and MAS are in the same cluster</p>
+<p><strong>Valid values</strong>: Any valid DNS domain name (e.g., <code>sls.mycompany.com</code>, <code>license.example.org</code>)</p>
+<p><strong>Impact</strong>: When set, SLS creates an external route accessible at the specified domain. You must ensure DNS is properly configured to resolve this domain to your cluster. When not set, SLS is only accessible via internal cluster services.</p>
+<p><strong>Related variables</strong>: Affects how MAS instances connect to SLS (internal service vs external route).</p>
+<p><strong>Note</strong>: Ensure proper DNS configuration and SSL certificates for the domain. External access requires appropriate network security controls.</p>
 <h4 id="sls_auth_enforce">sls_auth_enforce<a class="headerlink" href="#sls_auth_enforce" title="Permanent link">¤</a></h4>
-<p>Determines whether authorization is enforced. If set to true, clients must use mTLS with certificates generated from the client registration flow for SLS API calls.</p>
+<p>Controls whether SLS enforces client authentication via mutual TLS (mTLS).</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>SLS_AUTH_ENFORCE</code></li>
 <li>Default: <code>True</code></li>
 </ul>
+<p><strong>Purpose</strong>: Determines whether SLS requires clients to authenticate using mTLS certificates generated through the client registration flow. This provides secure authentication for SLS API access.</p>
+<p><strong>When to use</strong>:
+- Use <code>True</code> (default) for production environments to enforce secure authentication
+- Set to <code>False</code> only in development/testing environments where simplified access is needed
+- Leave as default for standard secure deployments</p>
+<p><strong>Valid values</strong>: <code>True</code>, <code>False</code></p>
+<p><strong>Impact</strong>: 
+- When <code>True</code>: Clients must register with SLS and use mTLS certificates for API calls (secure)
+- When <code>False</code>: Authentication is not enforced, allowing unauthenticated API access (insecure)</p>
+<p><strong>Related variables</strong>: Works with <code>sls_registration_open</code> to control client registration and access.</p>
+<p><strong>Note</strong>: Setting to <code>False</code> removes authentication requirements and should only be used in non-production environments. Production deployments should always enforce authentication.</p>
 <h4 id="sls_mongo_retrywrites">sls_mongo_retrywrites<a class="headerlink" href="#sls_mongo_retrywrites" title="Permanent link">¤</a></h4>
-<p>Set to true if MongoDB support retryable writes. In case if retryable writes is not supported (like in case of Amazon DocumentDB), set to false</p>
+<p>Controls whether SLS uses MongoDB retryable writes feature.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>SLS_MONGO_RETRYWRITES</code></li>
 <li>Default: <code>true</code></li>
 </ul>
+<p><strong>Purpose</strong>: Determines whether SLS enables MongoDB's retryable writes feature, which automatically retries certain write operations that fail due to transient network errors or replica set elections.</p>
+<p><strong>When to use</strong>:
+- Use <code>true</code> (default) when using MongoDB Community Edition or IBM Cloud Databases for MongoDB
+- Set to <code>false</code> when using AWS DocumentDB (which doesn't support retryable writes)
+- Set to <code>false</code> for any MongoDB-compatible database that doesn't support this feature</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: 
+- When <code>true</code>: Enables automatic retry of failed write operations (improves reliability)
+- When <code>false</code>: Disables retryable writes (required for DocumentDB and similar services)</p>
+<p><strong>Related variables</strong>: 
+- <code>sls_mongodb_cfg_file</code> or <code>sls_mongodb.*</code>: Determines which MongoDB service is used
+- Must align with the capabilities of your MongoDB provider</p>
+<p><strong>Note</strong>: AWS DocumentDB does not support retryable writes. Set to <code>false</code> when using DocumentDB to avoid connection errors.</p>
 <h4 id="sls_compliance_enforce">sls_compliance_enforce<a class="headerlink" href="#sls_compliance_enforce" title="Permanent link">¤</a></h4>
-<p>Determines whether compliance is enforced. If there are not enough tokens to support the request. If compliance is not enforced, license checkout requests will be allowed even if there are not enough tokens to support the request.</p>
+<p>Controls whether SLS enforces license token compliance.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>SLS_COMPLIANCE_ENFORCE</code></li>
 <li>Default: <code>True</code></li>
 </ul>
+<p><strong>Purpose</strong>: Determines whether SLS blocks license checkout requests when insufficient tokens are available. This controls whether license limits are strictly enforced or merely tracked.</p>
+<p><strong>When to use</strong>:
+- Use <code>True</code> (default) for production to enforce license compliance and prevent over-consumption
+- Set to <code>False</code> only in development/testing environments or during grace periods
+- Leave as default for standard compliant deployments</p>
+<p><strong>Valid values</strong>: <code>True</code>, <code>False</code></p>
+<p><strong>Impact</strong>: 
+- When <code>True</code>: License checkout requests are denied when insufficient tokens are available (enforces compliance)
+- When <code>False</code>: License checkout requests succeed even without available tokens (tracks but doesn't enforce)</p>
+<p><strong>Related variables</strong>: Works with license entitlement configuration to control token availability.</p>
+<p><strong>Note</strong>: Setting to <code>False</code> allows operation beyond licensed capacity and may result in license compliance issues. Use only in non-production environments or with explicit approval.</p>
 <h4 id="sls_registration_open">sls_registration_open<a class="headerlink" href="#sls_registration_open" title="Permanent link">¤</a></h4>
-<p>Determines whether registration is open. If set to true, clients will be able to register themselves with SLS and use SLS APIs.</p>
+<p>Controls whether SLS allows new client self-registration.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>SLS_REGISTRATION_OPEN</code></li>
 <li>Default: <code>True</code></li>
 </ul>
+<p><strong>Purpose</strong>: Determines whether clients can register themselves with SLS to obtain certificates for API access. This controls the initial onboarding process for new SLS clients.</p>
+<p><strong>When to use</strong>:
+- Use <code>True</code> (default) to allow MAS instances and other clients to self-register
+- Set to <code>False</code> after all clients are registered to prevent unauthorized registrations
+- Leave as default for standard deployments where clients need to register</p>
+<p><strong>Valid values</strong>: <code>True</code>, <code>False</code></p>
+<p><strong>Impact</strong>: 
+- When <code>True</code>: Clients can register themselves and obtain mTLS certificates for SLS API access
+- When <code>False</code>: New client registrations are blocked; only pre-registered clients can access SLS</p>
+<p><strong>Related variables</strong>: Works with <code>sls_auth_enforce</code> to control authentication and registration flow.</p>
+<p><strong>Note</strong>: For production environments, consider setting to <code>False</code> after all legitimate clients are registered to prevent unauthorized access.</p>
 <h4 id="sls_mongodb_cfg_file">sls_mongodb_cfg_file<a class="headerlink" href="#sls_mongodb_cfg_file" title="Permanent link">¤</a></h4>
-<p>Location of a MAS MongoCfg definition (as generated by the <code>mongodb</code> role).  If provided the role will use the information in that config file to configure SLS.</p>
+<p>Local file path to a MongoCfg YAML file for SLS MongoDB configuration.</p>
 <ul>
 <li><strong>Required</strong> (Either <code>sls_mongodb_cfg_file</code> or the <code>sls_mongodb</code> object are required to install SLS)</li>
 <li>Environment Variable: <code>SLS_MONGODB_CFG_FILE</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides MongoDB connection details to SLS by referencing a MongoCfg file generated by the <code>mongodb</code> role. This simplifies configuration by reusing existing MongoDB setup information.</p>
+<p><strong>When to use</strong>:
+- Use when you've deployed MongoDB using the <code>mongodb</code> role (which generates this file)
+- Preferred method as it ensures consistency with MongoDB deployment
+- Alternative to manually specifying <code>sls_mongodb.*</code> variables</p>
+<p><strong>Valid values</strong>: Any valid local filesystem path to a MongoCfg YAML file (e.g., <code>/home/user/masconfig/mongocfg-mongoce-system.yaml</code>)</p>
+<p><strong>Impact</strong>: The role extracts MongoDB connection details (hosts, certificates, credentials) from this file to configure SLS. Invalid or missing file will cause installation to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>sls_mongodb.*</code>: Alternative method to specify MongoDB connection details
+- <code>mas_config_dir</code>: Directory where <code>mongodb</code> role generates this file</p>
+<p><strong>Note</strong>: Either this variable or the <code>sls_mongodb</code> object must be provided. Using this file is recommended for consistency with MongoDB deployment.</p>
 <h4 id="sls_mongodbhosts">sls_mongodb.hosts<a class="headerlink" href="#sls_mongodbhosts" title="Permanent link">¤</a></h4>
-<p>Defines list of host and port pair for MongoDb to be used with SLS.</p>
+<p>List of MongoDB host:port pairs for SLS database connection.</p>
 <ul>
 <li><strong>Required</strong> (Either <code>sls_mongodb_cfg_file</code> or the <code>sls_mongodb</code> object are required to install SLS)</li>
 <li>Environment Variable: None</li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the MongoDB replica set members that SLS will connect to for license data storage. Multiple hosts provide high availability and failover capability.</p>
+<p><strong>When to use</strong>:
+- Use when manually configuring MongoDB connection (not using <code>sls_mongodb_cfg_file</code>)
+- Required for all MongoDB deployment types (Community, IBM Cloud, AWS DocumentDB)
+- Provide all replica set members for high availability</p>
+<p><strong>Valid values</strong>: Array of strings in format <code>["host1:port1", "host2:port2", "host3:port3"]</code> (e.g., <code>["mongo-0.mongo:27017", "mongo-1.mongo:27017", "mongo-2.mongo:27017"]</code>)</p>
+<p><strong>Impact</strong>: SLS uses these hosts to establish database connections. Incorrect hosts will cause SLS installation to fail. Multiple hosts enable automatic failover.</p>
+<p><strong>Related variables</strong>:
+- <code>sls_mongodb.certificates</code>: TLS certificates for secure connection
+- <code>sls_mongodb.username</code> and <code>sls_mongodb.password</code>: Authentication credentials
+- <code>sls_mongodb_cfg_file</code>: Alternative method to provide this information</p>
+<p><strong>Note</strong>: Part of the <code>sls_mongodb</code> object. All <code>sls_mongodb.*</code> variables must be provided together if not using <code>sls_mongodb_cfg_file</code>.</p>
 <h4 id="sls_mongodbcertificates">sls_mongodb.certificates<a class="headerlink" href="#sls_mongodbcertificates" title="Permanent link">¤</a></h4>
-<p>Defines list of Certificates for MongoDb to be used with SLS.</p>
+<p>List of TLS/SSL certificates for secure MongoDB connections.</p>
 <ul>
 <li><strong>Required</strong> (Either <code>sls_mongodb_cfg_file</code> or the <code>sls_mongodb</code> object are required to install SLS)</li>
 <li>Environment Variable: None</li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the TLS/SSL certificates needed to establish secure, encrypted connections between SLS and MongoDB. These certificates verify the MongoDB server's identity and enable encrypted communication.</p>
+<p><strong>When to use</strong>:
+- Required when manually configuring MongoDB connection (not using <code>sls_mongodb_cfg_file</code>)
+- Needed for all MongoDB deployments using TLS/SSL (recommended for production)
+- Obtain from your MongoDB deployment (CA certificate or server certificate)</p>
+<p><strong>Valid values</strong>: Array of certificate strings in PEM format (e.g., <code>["-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"]</code>)</p>
+<p><strong>Impact</strong>: Without valid certificates, SLS cannot establish secure connections to MongoDB. Invalid certificates will cause connection failures.</p>
+<p><strong>Related variables</strong>:
+- <code>sls_mongodb.hosts</code>: MongoDB servers these certificates authenticate
+- <code>sls_mongodb.username</code> and <code>sls_mongodb.password</code>: Used with certificates for authentication
+- <code>sls_mongodb_cfg_file</code>: Alternative method to provide this information</p>
+<p><strong>Note</strong>: Part of the <code>sls_mongodb</code> object. All <code>sls_mongodb.*</code> variables must be provided together if not using <code>sls_mongodb_cfg_file</code>. Certificates must match the MongoDB deployment's TLS configuration.</p>
 <h4 id="sls_mongodbusername">sls_mongodb.username<a class="headerlink" href="#sls_mongodbusername" title="Permanent link">¤</a></h4>
-<p>Defines the MongoDB Username.</p>
+<p>MongoDB username for SLS database authentication.</p>
 <ul>
 <li><strong>Required</strong> (Either <code>sls_mongodb_cfg_file</code> or the <code>sls_mongodb</code> object are required to install SLS)</li>
 <li>Environment Variable: None</li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the username credential for SLS to authenticate with MongoDB. This user must have appropriate permissions to read and write to the SLS database.</p>
+<p><strong>When to use</strong>:
+- Required when manually configuring MongoDB connection (not using <code>sls_mongodb_cfg_file</code>)
+- Must correspond to a valid MongoDB user with SLS database permissions
+- Obtain from your MongoDB deployment configuration</p>
+<p><strong>Valid values</strong>: Valid MongoDB username string</p>
+<p><strong>Impact</strong>: SLS uses this username to authenticate with MongoDB. Invalid username will cause authentication failures and prevent SLS from accessing the database.</p>
+<p><strong>Related variables</strong>:
+- <code>sls_mongodb.password</code>: Password for this username
+- <code>sls_mongodb.hosts</code>: MongoDB servers to authenticate against
+- <code>sls_mongodb.certificates</code>: TLS certificates for secure authentication
+- <code>sls_mongodb_cfg_file</code>: Alternative method to provide this information</p>
+<p><strong>Note</strong>: Part of the <code>sls_mongodb</code> object. All <code>sls_mongodb.*</code> variables must be provided together if not using <code>sls_mongodb_cfg_file</code>. Ensure the user has appropriate database permissions.</p>
 <h4 id="sls_mongodbpassword">sls_mongodb.password<a class="headerlink" href="#sls_mongodbpassword" title="Permanent link">¤</a></h4>
-<p>Defines the MongoDb Password.</p>
+<p>MongoDB password for SLS database authentication.</p>
 <ul>
 <li><strong>Required</strong> (Either <code>sls_mongodb_cfg_file</code> or the <code>sls_mongodb</code> object are required to install SLS)</li>
 <li>Environment Variable: None</li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the password credential for SLS to authenticate with MongoDB. Used together with the username to establish secure database connections.</p>
+<p><strong>When to use</strong>:
+- Required when manually configuring MongoDB connection (not using <code>sls_mongodb_cfg_file</code>)
+- Must correspond to the password for the specified MongoDB username
+- Obtain from your MongoDB deployment configuration</p>
+<p><strong>Valid values</strong>: Valid MongoDB password string</p>
+<p><strong>Impact</strong>: SLS uses this password to authenticate with MongoDB. Invalid password will cause authentication failures and prevent SLS from accessing the database.</p>
+<p><strong>Related variables</strong>:
+- <code>sls_mongodb.username</code>: Username for this password
+- <code>sls_mongodb.hosts</code>: MongoDB servers to authenticate against
+- <code>sls_mongodb.certificates</code>: TLS certificates for secure authentication
+- <code>sls_mongodb_cfg_file</code>: Alternative method to provide this information</p>
+<p><strong>Note</strong>: Part of the <code>sls_mongodb</code> object. All <code>sls_mongodb.*</code> variables must be provided together if not using <code>sls_mongodb_cfg_file</code>. Keep this password secure and do not commit to source control.</p>
 <h4 id="mas_pod_templates_dir">mas_pod_templates_dir<a class="headerlink" href="#mas_pod_templates_dir" title="Permanent link">¤</a></h4>
-<p>Provide the directory where supported pod templates configuration files are defined.  This role will look for a configuration file named <code>ibm-sls-licenseservice.yml</code> in the named directory.  The content of the configuration file should be the yaml block that you wish to be inserted into the LicenseService spec under a top level <code>podTemplates</code> element, e.g. <code>podTemplates: {object}</code>.</p>
-<p>For examples refer to the <a href="https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/ibm-sls-licenseservice.yml">BestEfforts reference configuration in the MAS CLI</a>, for full documentation of the supported options refer to the <a href="https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=sls-supported-pods-workload-customization-in-suite-license-service">Customizing Pod Templates</a> in the product documentation.</p>
+<p>Local directory path containing pod template customization files for SLS.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_POD_TEMPLATES_DIR</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Allows customization of pod specifications for SLS workloads, enabling control over resource limits, node affinity, tolerations, and other Kubernetes pod settings. This is essential for production deployments with specific infrastructure requirements.</p>
+<p><strong>When to use</strong>:
+- Use to set custom resource limits (CPU, memory) for SLS pods
+- Use to configure node affinity or anti-affinity rules
+- Use to add tolerations for tainted nodes
+- Use to apply custom security contexts or service accounts
+- Leave unset for default pod configurations</p>
+<p><strong>Valid values</strong>: Any valid local filesystem path containing <code>ibm-sls-licenseservice.yml</code></p>
+<p><strong>Impact</strong>: The pod template file will be applied to the LicenseService Custom Resource under <code>spec.podTemplates</code>. Invalid templates can cause pod scheduling failures.</p>
+<p><strong>Related variables</strong>: None</p>
+<p><strong>Note</strong>: This role looks for a file named <code>ibm-sls-licenseservice.yml</code> in the specified directory. The file content should be the YAML block to insert under <code>podTemplates: {object}</code>. For examples, see the <a href="https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/ibm-sls-licenseservice.yml">BestEfforts reference configuration</a>. For full documentation, refer to <a href="https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=sls-supported-pods-workload-customization-in-suite-license-service">Customizing Pod Templates</a>.</p>
 <h3 id="bootstrap-variables-sls-370-and-higher">Bootstrap Variables (SLS 3.7.0 and higher)<a class="headerlink" href="#bootstrap-variables-sls-370-and-higher" title="Permanent link">¤</a></h3>
 <h4 id="entitlement_file">entitlement_file<a class="headerlink" href="#entitlement_file" title="Permanent link">¤</a></h4>
-<p>Defines the License File to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on.</p>
+<p>Local file path to the IBM license entitlement file for bootstrapping SLS.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>SLS_ENTITLEMENT_FILE</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the license entitlement file that defines the MAS product licenses and token allocations available in SLS. This file is obtained from IBM and contains your license entitlements.</p>
+<p><strong>When to use</strong>:
+- Use to automatically bootstrap SLS with license entitlements during installation
+- Leave unset if you plan to upload license entitlements manually after SLS installation
+- Required for fully automated SLS deployments</p>
+<p><strong>Valid values</strong>: Any valid local filesystem path to an IBM license entitlement file (e.g., <code>/home/user/licenses/entitlement.dat</code>)</p>
+<p><strong>Impact</strong>: When provided, SLS is automatically configured with the license entitlements from this file. Without this, you must manually upload license entitlements through the SLS UI or API after installation.</p>
+<p><strong>Related variables</strong>: None</p>
+<p><strong>Note</strong>: <strong>Application Support: SLS 3.7.0 and higher</strong>. The license file is obtained from IBM and contains your MAS product entitlements. Keep this file secure as it represents your license rights.</p>
 <h2 id="role-variables-bootstrap-partly-deprecated-in-sls-370">Role Variables - Bootstrap [Partly deprecated in SLS 3.7.0]<a class="headerlink" href="#role-variables-bootstrap-partly-deprecated-in-sls-370" title="Permanent link">¤</a></h2>
 <h4 id="bootstraplicense_file">bootstrap.license_file<a class="headerlink" href="#bootstraplicense_file" title="Permanent link">¤</a></h4>
 <p><strong>Deprecated in SLS 3.7.0</strong></p>
