@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
@@ -25,7 +25,8 @@
     <script type="module" src="https://1.www.s81c.com/common/carbon/web-components/version/v2.15.0/search.min.js"></script>
 
     <!-- HighlightJS code formatting support -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+    <link rel="stylesheet" id="hljs-light" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+    <link rel="stylesheet" id="hljs-dark" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
     <script>hljs.highlightAll();</script>
@@ -46,8 +47,9 @@
     {% endfor %}
   </head>
 
-  <body>
-    <cds-header aria-label="{{ config.site_name }}" class="cds-theme-zone-{{ config.theme.theme_header }}">
+  <body class="md-grid" data-theme-default="{{ config.theme.theme_default | default('g90') }}">
+    <!-- Header -->
+    <cds-header aria-label="{{ config.site_name }}" class="md-header">
       <cds-header-menu-button button-label-active="Close menu" button-label-inactive="Open menu"></cds-header-menu-button>
       <cds-header-name href="{{ base_url }}" prefix="{{ config.theme.prefix }}">{{ config.site_name }}</cds-header-name>
 
@@ -60,6 +62,7 @@
       {%- endif %}
 
       <div class="cds--header__global">
+        {%- include "theme-toggle.html.j2" %}
         <cds-search id="header-search" label-text="Search" cds-search-input="search-event" expandable></cds-search>
       </div>
       <script>
@@ -80,28 +83,56 @@
           <cds-header-nav-item href="{{ page.edit_url }}">Edit on {{ config.repo_name }}</cds-header-nav-item>
         </cds-header-nav>
       {% endif %}
-
     </cds-header>
 
-    <cds-side-nav aria-label="Side navigation" class="cds-theme-zone-{{ config.theme.theme_sidenav }}">
-      <cds-side-nav-items>
-        {% for nav_item in nav %}
-          {% include "nav.html.j2" %}
-        {% endfor %}
-      </cds-side-nav-items>
-    </cds-side-nav>
+    <!-- Main container with three-column layout -->
+    <div class="md-container">
+      <!-- Left sidebar - Navigation -->
+      <aside class="md-sidebar md-sidebar--primary" data-md-component="sidebar">
+        <div class="md-sidebar__scrollwrap">
+          <div class="md-sidebar__inner">
+            <cds-side-nav aria-label="Side navigation">
+              <cds-side-nav-items>
+                {% for nav_item in nav %}
+                  {% include "nav.html.j2" %}
+                {% endfor %}
+              </cds-side-nav-items>
+            </cds-side-nav>
+          </div>
+        </div>
+      </aside>
 
-    <div id="breadcrumbs" class="rst-content">
-      {%- include "breadcrumbs.html.j2" %}
+      <!-- Main content area -->
+      <div class="md-content" data-md-component="content">
+        <article class="md-content__inner">
+          <!-- Breadcrumbs -->
+          <div class="md-breadcrumbs">
+            {%- include "breadcrumbs.html.j2" %}
+          </div>
+
+          <!-- Page content -->
+          <div class="rst-content">
+            {% block content %}
+            {{ page.content }}
+            {% endblock %}
+          </div>
+
+          <!-- Navigation footer (prev/next) -->
+          {%- include "nav-footer.html.j2" %}
+        </article>
+      </div>
+
+      <!-- Right sidebar - Table of Contents -->
+      {%- if page and page.toc and page.toc.items %}
+      <aside class="md-sidebar md-sidebar--secondary" data-md-component="toc">
+        {%- include "toc.html.j2" %}
+      </aside>
+      {%- endif %}
     </div>
 
-    <div id="main-content" class="rst-content">
-      {% block content %}
-      {{ page.content }}
-      {% endblock %}
-    </div>
-    <!-- <div id="footer" class="rst-content">
-      Built with mkdocs v{{ mkdocs_version}} ({{ build_date_utc }})
-    </div> -->
+    <!-- Footer - Full width outside container -->
+    <footer class="md-footer">
+      Built with <a href="https://www.mkdocs.org/">MkDocs</a> using <a href="https://github.com/durera/mkdocs-carbon">Carbon theme</a>
+    </footer>
   </body>
 </html>
