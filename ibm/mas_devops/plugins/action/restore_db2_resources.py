@@ -131,8 +131,8 @@ class ActionModule(ActionBase):
         # =======================================================
         # 2. Restore Db2 Secret resources from backup
         # =======================================================
-        display.v(f"Restoring Db2 Secret resources from backup path '{db2_backup_resource_path}/secrets'")
         db2_secrets_path = os.path.join(db2_backup_resource_path, "secrets")
+        display.v(f"Restoring Db2 Secret resources from backup path '{db2_secrets_path}'")
         secret_files = os.listdir(db2_secrets_path)
         for secret_file in secret_files:
             # Some info files will be kept in secrets folder with NOT_SECRET in the filename
@@ -142,9 +142,31 @@ class ActionModule(ActionBase):
             with open(os.path.join(db2_secrets_path, secret_file), 'r') as f:
                 secret_yaml = f.read()
                 apply_resource(dynClient, secret_yaml, db2_namespace)
+
+        # =======================================================
+        # 3. Restore DB2 Issuer resources from backup
+        # =======================================================
+        db2_issuers_path = os.path.join(db2_backup_resource_path, "issuers")
+        display.v(f"Restoring DB2 Issuer resources from backup path '{db2_issuers_path}'")
+        issuer_files = os.listdir(db2_issuers_path)
+        for issuer_file in issuer_files:
+            with open(os.path.join(db2_issuers_path, issuer_file), 'r') as f:
+                issuer_yaml = f.read()
+                apply_resource(dynClient, issuer_yaml, db2_namespace)
         
         # =======================================================
-        # 3. Gather info from backup files to recreate new Db2u instance
+        # 4. Restore DB2 Certificate resources from backup
+        # =======================================================
+        db2_certs_path = os.path.join(db2_backup_resource_path, "certificates")
+        display.v(f"Restoring DB2 Certificate resources from backup path '{db2_certs_path}'")
+        cert_files = os.listdir(db2_certs_path)
+        for cert_file in cert_files:
+            with open(os.path.join(db2_certs_path, cert_file), 'r') as f:
+                cert_yaml = f.read()
+                apply_resource(dynClient, cert_yaml, db2_namespace)
+        
+        # =======================================================
+        # 5. Gather info from backup files to recreate new Db2u instance
         # =======================================================
 
         db2_info = {}
