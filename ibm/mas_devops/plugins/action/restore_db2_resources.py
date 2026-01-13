@@ -71,7 +71,7 @@ class ActionModule(ActionBase):
             # Check if backup directory exists
             db2_backup_path = os.path.join(mas_backup_dir, f"backup-{db2_backup_version}-db2u")
             checkBackupDirectoryExists(db2_backup_path, db2_backup_version)
-            display.v(f"Db2 backup path {db2_backup_path} exists. Proceeding with restore...")
+            display.v(f"- Db2 backup path {db2_backup_path} exists. Proceeding with restore...")
 
             db2_backup_resource_path = os.path.join(db2_backup_path, "resources")
             # Get DB2 instance name from backed up CR
@@ -80,7 +80,7 @@ class ActionModule(ActionBase):
             # read cr.yaml
             with open(cr_path, 'r') as cr_file:
                 backup_db2u_cr = yaml.safe_load(cr_file)
-            display.v("Successfully read DB2 backup CR file")
+            display.v("- Successfully read DB2 backup CR file")
 
             db2_instance_name = backup_db2u_cr['metadata']['name']
             db2_namespace = backup_db2u_cr['metadata']['namespace']
@@ -88,20 +88,20 @@ class ActionModule(ActionBase):
             # =======================================================
             # 1. Create DB2 namespace if not exists
             # =======================================================
-            display.v(f"Creating Db2 namespace '{db2_namespace}' if it does not already exist")
+            display.v(f"- Creating Db2 namespace '{db2_namespace}' if it does not already exist")
             createNamespace(dynClient, db2_namespace)
 
             # =======================================================
             # 2. Restore Db2 Secret resources from backup
             # =======================================================
             db2_secrets_path = os.path.join(db2_backup_resource_path, "secrets")
-            display.v(f"Restoring Db2 Secret resources from backup path '{db2_secrets_path}'")
+            display.v(f"- Restoring Db2 Secret resources from backup path '{db2_secrets_path}'")
             secret_files = os.listdir(db2_secrets_path)
             for secret_file in secret_files:
                 # Some info files will be kept in secrets folder with NOT_SECRET in the filename
                 if "NOT_SECRET" in secret_file:
                     continue
-                display.v(f"Restoring Db2 Secret resource from backup file '{secret_file}'")
+                display.v(f"- Restoring Db2 Secret resource from backup file '{secret_file}'")
                 with open(os.path.join(db2_secrets_path, secret_file), 'r') as f:
                     secret_yaml = f.read()
                     apply_resource(dynClient, secret_yaml, db2_namespace)
@@ -110,7 +110,7 @@ class ActionModule(ActionBase):
             # 3. Restore DB2 Issuer resources from backup
             # =======================================================
             db2_issuers_path = os.path.join(db2_backup_resource_path, "issuers")
-            display.v(f"Restoring DB2 Issuer resources from backup path '{db2_issuers_path}'")
+            display.v(f"- Restoring DB2 Issuer resources from backup path '{db2_issuers_path}'")
             issuer_files = os.listdir(db2_issuers_path)
             for issuer_file in issuer_files:
                 with open(os.path.join(db2_issuers_path, issuer_file), 'r') as f:
@@ -121,7 +121,7 @@ class ActionModule(ActionBase):
             # 4. Restore DB2 Certificate resources from backup
             # =======================================================
             db2_certs_path = os.path.join(db2_backup_resource_path, "certificates")
-            display.v(f"Restoring DB2 Certificate resources from backup path '{db2_certs_path}'")
+            display.v(f"- Restoring DB2 Certificate resources from backup path '{db2_certs_path}'")
             cert_files = os.listdir(db2_certs_path)
             for cert_file in cert_files:
                 with open(os.path.join(db2_certs_path, cert_file), 'r') as f:
@@ -154,6 +154,12 @@ class ActionModule(ActionBase):
             db2_info['db2_cpu_limits'] = db2_pod_config.get('limits', {}).get('cpu', None)
             db2_info['db2_memory_limits'] = db2_pod_config.get('limits', {}).get('memory', None)
 
+            # Get timezone if present
+            db2_info['db2_timezone'] = backup_db2u_cr['spec'].get('advOpts', {}).get('timezone', '')
+
+            # Get number of db2 pods
+            db2_info['db2_num_pods'] = backup_db2u_cr['spec']['size']
+
             # Get LDAP user info if present
             ldap_info_file_path = os.path.join(db2_backup_resource_path, "ldapuser-NOT_SECRET.yaml")
             if os.path.exists(ldap_info_file_path):
@@ -161,7 +167,7 @@ class ActionModule(ActionBase):
                     ldap_info = yaml.safe_load(ldap_info_file)
                     db2_info['db2_ldap_username'] = ldap_info['db2_ldap_username']
                     db2_info['db2_ldap_password'] = ldap_info['db2_ldap_password']
-                display.v(f"Successfully read LDAP user info from {ldap_info_file_path}")
+                display.v(f"- Successfully read LDAP user info from {ldap_info_file_path}")
         
             # Get DB2 backup info file
             db2_info_file_path = os.path.join(db2_backup_resource_path, "db2-backup-info.yaml")
@@ -170,13 +176,13 @@ class ActionModule(ActionBase):
                     backup_db2_info = yaml.safe_load(info_file)
                     db2_info['db2_version'] = backup_db2_info['db2_version']
                     db2_info['db2_channel'] = backup_db2_info['db2_channel']
-                display.v(f"Successfully read Db2 backup info from {db2_info_file_path}")
+                display.v(f"- Successfully read Db2 backup info from {db2_info_file_path}")
             else:
                 db2_info['db2_version'] = getDb2VersionFromCR(backup_db2u_cr)
                 if "s11.5.9.0" in db2_info['db2_version']:
                     db2_info['db2_channel'] = "v110509.0"
                 else:
-                    display.v("Warning: Could not find Db2 backup info file. Using default channel for the version from CR.")
+                    display.v("- Warning: Could not find Db2 backup info file. Using default channel for the version from CR.")
         
             return dict(
                 message=f"Successfully restored Db2 instance's resources from backup paths.",
@@ -186,7 +192,7 @@ class ActionModule(ActionBase):
                 **db2_info
             )
         except Exception as e:
-            display.v(f"Failed to restore Db2 instance. Exception occurred: {e}")
+            display.v(f"- Failed to restore Db2 instance. Exception occurred: {e}")
             return dict(
                 message=f"Exception occurred while restoring DB2 instance's resources from backup paths. {e}",
                 failed=True,
