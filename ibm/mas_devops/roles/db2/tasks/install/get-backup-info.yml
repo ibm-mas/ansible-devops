@@ -16,45 +16,35 @@
     mas_backup_dir: "{{ mas_backup_dir }}"
   register: restore_db2_instance_result
 
-- name: "Assert Restore Db2 Universal operator Instance Kubernetes Resources result"
+- name: Assert if restoring DB2 instance resources succeeeded
   assert:
     that:
       - restore_db2_instance_result is defined
+      - restore_db2_instance_result.success is defined
       - restore_db2_instance_result.success == true
-    fail_msg: "Restoring Db2 Universal operator Instance Kubernetes Resources failed."
-
-- name: "Set flag to skip db2 install when db2 instance already exist"
-  set_fact:
-    skip_db2_install: true
-  when:
-    - not restore_db2_instance_result.proceed | bool
+    fail_msg: "Failed to restore DB2 instance resources"
 
 # Create Db2 Instance using info from backup CR if required
 # -------------------------------------------------------------------------
-- name: "Create Db2 Instance if not present"
-  block:
-    - name: "Set fact from Db2 info"
-      set_fact:
-        db2_database_db_config: "{{ restore_db2_instance_result.db2_database_db_config }}"
-        db2_instance_dbm_config: "{{ restore_db2_instance_result.db2_instance_dbm_config }}"
-        db2_instance_registry: "{{ restore_db2_instance_result.db2_instance_registry }}"
-        db2_channel: "{{ restore_db2_instance_result.db2_channel }}"
-        db2_version: "{{ restore_db2_instance_result.db2_version }}"
-        db2_instance_name: "{{ restore_db2_instance_result.db2_instance_name }}"
-        db2_namespace: "{{ restore_db2_instance_result.db2_namespace }}"
-        db2_type: "{{ restore_db2_instance_result.db2_type }}"
-        db2_dbname: "{{ restore_db2_instance_result.db2_database_name }}"
-        db2_table_org: "{{ restore_db2_instance_result.db2_table_org }}"
-        db2_cpu_requests: "{{ restore_db2_instance_result.db2_cpu_requests }}"
-        db2_memory_requests: "{{ restore_db2_instance_result.db2_memory_requests }}"
-        db2_cpu_limits: "{{ restore_db2_instance_result.db2_cpu_limits }}"
-        db2_memory_limits: "{{ restore_db2_instance_result.db2_memory_limits }}"
-        skip_db2_install: false
+- name: "Set fact from DB2 backup"
+  set_fact:
+    db2_database_db_config: "{{ restore_db2_instance_result.db2_database_db_config }}"
+    db2_instance_dbm_config: "{{ restore_db2_instance_result.db2_instance_dbm_config }}"
+    db2_instance_registry: "{{ restore_db2_instance_result.db2_instance_registry }}"
+    db2_channel: "{{ restore_db2_instance_result.db2_channel }}"
+    db2_version: "{{ restore_db2_instance_result.db2_version }}"
+    db2_instance_name: "{{ restore_db2_instance_result.db2_instance_name }}"
+    db2_namespace: "{{ restore_db2_instance_result.db2_namespace }}"
+    db2_type: "{{ restore_db2_instance_result.db2_type }}"
+    db2_dbname: "{{ restore_db2_instance_result.db2_database_name }}"
+    db2_table_org: "{{ restore_db2_instance_result.db2_table_org }}"
+    db2_cpu_requests: "{{ restore_db2_instance_result.db2_cpu_requests }}"
+    db2_memory_requests: "{{ restore_db2_instance_result.db2_memory_requests }}"
+    db2_cpu_limits: "{{ restore_db2_instance_result.db2_cpu_limits }}"
+    db2_memory_limits: "{{ restore_db2_instance_result.db2_memory_limits }}"
 
-    - name: "Set fact LDAP credentials if exist."
-      set_fact:
-        db2_ldap_username: "{{ restore_db2_instance_result.db2_ldap_username }}"
-        db2_ldap_password: "{{ restore_db2_instance_result.db2_ldap_password }}"
-      when: restore_db2_instance_result.db2_ldap_username is defined and restore_db2_instance_result.db2_ldap_password is defined
-
-  when: restore_db2_instance_result.proceed == true
+- name: "Set fact LDAP credentials if exist."
+  set_fact:
+    db2_ldap_username: "{{ restore_db2_instance_result.db2_ldap_username }}"
+    db2_ldap_password: "{{ restore_db2_instance_result.db2_ldap_password }}"
+  when: restore_db2_instance_result.db2_ldap_username is defined and restore_db2_instance_result.db2_ldap_password is defined
