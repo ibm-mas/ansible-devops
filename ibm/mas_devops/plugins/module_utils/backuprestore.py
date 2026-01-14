@@ -42,6 +42,7 @@ def filterResourceData(data: dict) -> dict:
         'resourceVersion',
         'selfLink',
         'uid',
+        'ownerReferences'
         'managedFields'
     ]
     filteredCopy = data.copy()

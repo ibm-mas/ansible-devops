@@ -934,12 +934,7 @@ If you encounter issues not covered in this troubleshooting guide:
 3. **Verify prerequisites**: Ensure all required variables are set correctly
 4. **Test connectivity**: Verify network access to storage (S3 or PVC)
 5. **Check resources**: Ensure adequate CPU, memory, and storage are available
-6. **Consult documentation**: See [Backup and Restore Playbook](../../docs/playbooks/backup-restore.md#backuprestore-for-db2)
-7. **Open an issue**: Report problems at the project repository with logs and configuration details
-
-For detailed backup and restore documentation, see [Backup and Restore Playbook](../../docs/playbooks/backup-restore.md#backuprestore-for-db2).
-
-
+6. **Open an issue**: Report problems at the project repository with logs and configuration details
 
 License
 -------------------------------------------------------------------------------

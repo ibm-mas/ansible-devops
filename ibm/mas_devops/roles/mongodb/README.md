@@ -295,10 +295,6 @@ The MongoDB backup operation creates a backup of your MongoDB instance and datab
 5. **Retention Policy**: Implement and document backup retention policies
 6. **Disaster Recovery**: Include MongoDB backup/restore in your DR plan
 
-For detailed backup and restore documentation, see the [Backup and Restore Playbook](../../docs/playbooks/backup-restore.md).
-
-
-
 ### Backup and Restore Issues
 
 **Backup Failures:**
