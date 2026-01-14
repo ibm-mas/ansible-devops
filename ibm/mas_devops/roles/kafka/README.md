@@ -1,5 +1,4 @@
-kafka
-=====
+# kafka
 
 This role provides support to install a Kafka Cluster using [Strimzi](https://strimzi.io/), [Red Hat AMQ Streams](https://www.redhat.com/en/resources/amq-streams-datasheet), [IBM Event Streams](https://www.ibm.com/cloud/event-streams) or [AWS MSK](https://aws.amazon.com/msk/) and generate configuration that can be directly applied to Maximo Application Suite.
 
@@ -16,26 +15,30 @@ This role provides support to install a Kafka Cluster using [Strimzi](https://st
 
     This file can be directly applied using `oc apply -f $MAS_CONFIG_DIR/kafkacfg-amqstreams-system.yaml` or used in conjunction with the [suite_config](suite_config.md) role.
 
-Role Variables
---------------
-### kafka_action
+## Role Variables
+
+### General Variables
+
+#### kafka_action
 Action to be performed by Kafka role. Valid values are `install`, `upgrade` or `uninstall`.  The `upgrade` action applies only to the `strimzi` and `redhat` providers.
 
 - Environment Variable: `KAFKA_ACTION`
 - Default Value: `install`
 
-### kafka_provider
+#### kafka_provider
 Valid kafka providers are `strimzi` (opensource), `redhat` (installs AMQ Streams which requires a license that is not included with MAS entitlement), `ibm` (provisions a paid Event Streams instance in the target IBM Cloud account) and `aws` (provisions a paid MSK instance in the target AWS account).
 
+- **Optional**
 - Environment Variable: `KAFKA_PROVIDER`
 - Default Value: `strimzi`
 
-Red Hat AMQ Streams & Strimzi Role Variables
--------------------------------------
-### kafka_version
+### Red Hat AMQ Streams & Strimzi Variables
+
+#### kafka_version
 The version of Kafka to deploy by the operator. Before changing the kafka_version make the version is supported
 by the [amq-streams operator version](https://access.redhat.com/documentation/en-us/red_hat_amq_streams) or [strimzi operator version](https://strimzi.io/downloads/).
 
+- **Optional**
 - Environment Variable: `KAFKA_VERSION`
 - Default Value: `3.8.0` for AMQ Streams and `3.9.0` for Strimzi.
 
@@ -183,8 +186,7 @@ List of comma separated key=value pairs for setting custom labels on instance sp
 - Default Value: None
 
 
-Example Playbook
-----------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -200,8 +202,7 @@ Example Playbook
     - ibm.mas_devops.kafka
 ```
 
-AWS MSK Role Variables
--------------------------------------
+### AWS MSK Variables
 
 ## Prerequisites
 To run this role successfully you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
@@ -329,8 +330,7 @@ AWS MSK Secret name. The secret name must begin with the prefix AmazonMSK_. If t
 - Environment Variable: `AWS_MSK_SECRET`
 - Default Value: `AmazonMSK_SECRET_{{kafka_cluster_name}}'`
 
-Example Playbook to install AWS MSK
-----------------
+### Install AWS MSK
 
 ```yaml
 - hosts: localhost
@@ -361,8 +361,7 @@ Example Playbook to install AWS MSK
     - ibm.mas_devops.kafka
 ```
 
-Example Playbook to uninstall AWS MSK
-----------------
+### Uninstall AWS MSK
 
 ```yaml
 - hosts: localhost
@@ -382,7 +381,15 @@ Example Playbook to uninstall AWS MSK
     - ibm.mas_devops.kafka
 ```
 
-License
--------
+## Run Role Playbook
+
+```bash
+export KAFKA_STORAGE_CLASS=ibmc-block-gold
+export MAS_INSTANCE_ID=masinst1
+export MAS_CONFIG_DIR=~/masconfig
+ansible-playbook ibm.mas_devops.run_role
+```
+
+## License
 
 EPL-2.0

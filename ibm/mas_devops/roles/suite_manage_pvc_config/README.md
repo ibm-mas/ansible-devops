@@ -1,78 +1,83 @@
-suite_manage_pvc_config
-===
+# suite_manage_pvc_config
+
 This role extends support for configuring persistent volume claims for **Manage** application.
 
 !!! note
     This role should be executed **after** Manage application is deployed and activated because it needs Manage up and running prior to configuring the additional persistent volume claims.
 
-The are two options to setup new Manage PVCS:
+There are two options to setup new Manage PVCs:
 
 - Exporting Manage PVCs variables
 - Loading Manage PVCs variables from a file
 
-Role Variables
---------------
+## Role Variables
 
 ### mas_instance_id
-Required. The instance ID of Maximo Application Suite. This will be used to lookup for Manage application resources.
+The instance ID of Maximo Application Suite. This will be used to lookup for Manage application resources.
 
+- **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
+- Default: None
 
 ### mas_workspace_id
-Required. The workspace ID of Maximo Application Suite. This will be used to lookup for Manage application resources.
+The workspace ID of Maximo Application Suite. This will be used to lookup for Manage application resources.
 
+- **Required**
 - Environment Variable: `MAS_WORKSPACE_ID`
-- Default Value: None
+- Default: None
 
 ### manage_workspace_cr_name
-Optional. Name of the `ManageWorkspace` Custom Resource that will be targeted to configure the new PVC definitions.
+Name of the `ManageWorkspace` Custom Resource that will be targeted to configure the new PVC definitions.
 
+- **Optional**
 - Environment Variable: `MANAGE_WORKSPACE_CR_NAME`
-- Default Value: `$MAS_INSTANCE_ID-$MAS_WORKSPACE_ID`
+- Default: `$MAS_INSTANCE_ID-$MAS_WORKSPACE_ID`
 
 ### mas_app_settings_custom_persistent_volume_pvc_name
-Optional. Name of the Persistent Volume Claim to be configured.
+Name of the Persistent Volume Claim to be configured.
 
+- **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_CUSTOM_PVC_NAME`
-- Default Value: `$MAS_INSTANCE_ID-$MAS_WORKSPACE_ID-cust-files-pvc`
+- Default: `$MAS_INSTANCE_ID-$MAS_WORKSPACE_ID-cust-files-pvc`
 
 ### mas_app_settings_custom_persistent_volume_pv_name
-Optional. Name of the volume that will be created to store data from the PVC.
-Make sure your storage class provider supports the name you define.
-If not sure about what to set, you can leave it unset then a random name will the defined.
+Name of the volume that will be created to store data from the PVC. Make sure your storage class provider supports the name you define. If not sure about what to set, you can leave it unset then a random name will be defined.
 
+- **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_CUSTOM_PV_NAME`
-- Default Value: None.
+- Default: None
 
 ### mas_app_settings_custom_persistent_volume_pvc_size
-Optional. Size of the Persistent Volume Claim.
+Size of the Persistent Volume Claim.
 
+- **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_CUSTOM_PVC_SIZE`
-- Default Value: `100Gi`
+- Default: `100Gi`
 
 ### mas_app_settings_custom_persistent_volume_mount_path
-Optional. Mouth path of the Persistent Volume in the Manage server container.
+Mount path of the Persistent Volume in the Manage server container.
 
+- **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_CUSTOM_MOUNT_PATH`
-- Default Value: `/MeaGlobalDirs`
+- Default: `/MeaGlobalDirs`
 
 ### mas_app_settings_custom_persistent_volume_sc_name
-Optional. Persistent Volume Claim Storage Class. If not set, it will be automatically defined accordingly to your cluster's available storage classes.
-          Both ReadWriteMany(RWX) and ReadWriteOnce(RWO) are supported.
+Persistent Volume Claim Storage Class. If not set, it will be automatically defined accordingly to your cluster's available storage classes. Both ReadWriteMany(RWX) and ReadWriteOnce(RWO) are supported.
 
+- **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_CUSTOM_PV_STORAGE_CLASS`
-- Default Value: None.
+- Default: None
 
 ### mas_app_settings_custom_persistent_volume_file_path
-Optional. Alternatively, this defines a local path pointing the persistent volume definition from a custom file. Sample file definition can be found in `files/manage-persistent-volumes-sample.yml`.
+Alternatively, this defines a local path pointing the persistent volume definition from a custom file. Sample file definition can be found in `files/manage-persistent-volumes-sample.yml`.
 
+- **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_CUSTOM_PV_FILE_PATH`
-- Default Value: None.
+- Default: None
 
+## Example Playbook
 
-Example Playbook
-----------------
+### Using Variables
 The following sample can be used to configure new PVCs for an existing Manage application instance.
 
 ```yaml
@@ -89,6 +94,7 @@ The following sample can be used to configure new PVCs for an existing Manage ap
     - ibm.mas_devops.suite_manage_pvc_config
 ```
 
+### Using File Definition
 The following sample can be used to configure new PVCs for an existing Manage application instance from a custom file definition.
 
 ```yaml
@@ -102,8 +108,7 @@ The following sample can be used to configure new PVCs for an existing Manage ap
     - ibm.mas_devops.suite_manage_pvc_config
 ```
 
-Run Role Playbook
-----------------
+## Run Role Playbook
 After installing the Ansible Collection you can easily run the role standalone using the `run_role` playbook provided.
 
 ```bash
@@ -114,9 +119,8 @@ export MAS_APP_SETTINGS_CUSTOM_MOUNT_PATH=/MyOwnDir
 export MAS_APP_SETTINGS_CUSTOM_PV_FILE_PATH=/my-path/manage-pv.yml
 
 ROLE_NAME='suite_manage_pvc_config' ansible-playbook playbooks/run_role.yml
+```
 
-
-License
--------
+## License
 
 EPL-2.0

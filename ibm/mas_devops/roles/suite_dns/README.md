@@ -1,28 +1,27 @@
-suite_dns
-=========
+# suite_dns
 
-This role will manage MAS and DNS provider integration.  IBM Cloud Internet Services is the only supported DNS provider currently. It will also create a secure route (https://cp4d.<mas_domain>) to the CP4D web client using the custom domain used in this role.
+This role will manage MAS and DNS provider integration. IBM Cloud Internet Services, Cloudflare, and AWS Route 53 are the supported DNS providers. It will also create a secure route (https://cp4d.<mas_domain>) to the CP4D web client using the custom domain used in this role.
 
-**Note**: this role will take no action when `mas_manual_cert_mgmt`is set to `True`
+**Note**: this role will take no action when `mas_manual_cert_mgmt` is set to `True`
 
-## DNS management
+## DNS Management
+
 There are two different ways this role controls DNS entries in the provider:
 
-### Top Level DNS entries
-This mode will create the entries directly under your DNS zone. Use this when the DNS zone matches the MAS domain exactly.  If your MAS installation will be using the domain **mymas.mycompany.com** and you have a DNS zone for **mymas.mycompany.com** then you will be creating top-level DNS entries for MAS, e.g. **admin**, **home**, & **api**.
+### Top Level DNS Entries
+This mode will create the entries directly under your DNS zone. Use this when the DNS zone matches the MAS domain exactly. If your MAS installation will be using the domain **mymas.mycompany.com** and you have a DNS zone for **mymas.mycompany.com** then you will be creating top-level DNS entries for MAS, e.g. **admin**, **home**, & **api**.
 
-
-### Subdomain DNS entries
+### Subdomain DNS Entries
 This mode will create DNS entries in the zone under a subdomain. Use this when your DNS zone will be used for more than just one MAS instance. If your MAS installation will be using the domain **mymas.mycompany.com** and you have a DNS zone for **mycompany.com** then you will be creating subdomain DNS entries for MAS, e.g. **admin.mymas**, **home.mymas**, & **api.mymas**.
 
-CIS and Cloudflare integrations support both mode of DNS management. A single optional variable is required to enable subdomain DNS management, in the examples above you would set these to **mymas**:
+CIS and Cloudflare integrations support both modes of DNS management. A single optional variable is required to enable subdomain DNS management, in the examples above you would set these to **mymas**:
 
 - [cis_subdomain](#cis_subdomain)
 - [cloudflare_subdomain](#cloudflare_subdomain)
 
-
 ## Let's Encrypt Integration
-Both the CIS and Cloudflare options also enable integration with [Let's Encrypt](https://letsencrypt.org/) for automatic certificate management via IBM Certificate Manager.  Each will create a new [ClusterIssuer](https://cert-manager.io/docs/reference/api-docs/#cert-manager.io/v1.ClusterIssuer) which can be used when installing Maximo Application Suite:
+
+Both the CIS and Cloudflare options also enable integration with [Let's Encrypt](https://letsencrypt.org/) for automatic certificate management via IBM Certificate Manager. Each will create a new [ClusterIssuer](https://cert-manager.io/docs/reference/api-docs/#cert-manager.io/v1.ClusterIssuer) which can be used when installing Maximo Application Suite:
 
 - Cloudflare Let's Encrypt ClusterIssuer: `{{ mas_instance_id }}-cloudflare-le-prod`
 - IBM Cloud Internet Services Let's Encrypt ClusterIssuer: `{{ mas_instance_id }}-cis-le-prod`
@@ -34,207 +33,204 @@ If you want to use Let's Encrypt certificates in your MAS installation you will 
 
     At present there is no workaround for this, so do not use the LetsEncrypt staging certificate issuer.
 
+## Role Variables
 
-Role Variables - General
-------------------------
-### dns_provider
+### General
+
+#### dns_provider
+Defines which DNS provider to use for DNS management. Supported values are `cis`, `cloudflare`, or `route53`.
 
 - **Required**
 - Environment Variable: `DNS_PROVIDER`
 - Default: None
 
-### mas_instance_id:
+#### mas_instance_id
+The instance ID of the MAS installation.
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default: None
 
-### mas_workspace_id:
+#### mas_workspace_id
+The workspace ID for the MAS installation.
 
 - **Required**
 - Environment Variable: `MAS_WORKSPACE_ID`
 - Default: None
 
-### mas_domain
+#### mas_domain
+The domain name to be used for MAS.
 
 - **Required**
 - Environment Variable: `MAS_DOMAIN`
 - Default: None
 
-### ocp_ingress
+#### ocp_ingress
+Override the OCP ingress used in DNS entries.
 
-- Optional
+- **Optional**
 - Environment Variable: `OCP_INGRESS`
 - Default: None
 
-### cert_manager_namespace
+#### cert_manager_namespace
 Namespace where Certificate Manager is installed.
 
-- Optional
+- **Optional**
 - Environment Variable: `CERT_MANAGER_NAMESPACE`
 - Default: None
 
-### custom_labels
+#### custom_labels
 List of comma separated key=value pairs for setting custom labels on instance specific resources.
 
-- Optional
+- **Optional**
 - Environment Variable: `CUSTOM_LABELS`
 - Default: None
 
-Role Variables - Cloudflare DNS Integration
--------------------------------------------
-### cloudflare_email
+#### mas_manual_cert_mgmt
+Boolean variable that, when set to True, disables automatic certificate management.
+
+- **Optional**
+- Environment Variable: `MAS_MANUAL_CERT_MGMT`
+- Default: `false`
+
+#### output_dir
+Location to output the edge-routes-{mas_instance_id}.txt file.
+
+- **Optional**
+- Environment Variable: `OUTPUT_DIR`
+- Default: `.` (current directory)
+
+### Cloudflare DNS Integration
+
+#### cloudflare_email
+Email address for Cloudflare account.
 
 - **Required** if `dns_provider` is set to `cloudflare`
 - Environment Variable: `CLOUDFLARE_EMAIL`
 - Default: None
 
-### cloudflare_apitoken
+#### cloudflare_apitoken
 To generate an API token follow the [Cloudflare documentation](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/).
 
 - **Required** if `dns_provider` is set to `cloudflare`
 - Environment Variable: `CLOUDFLARE_APITOKEN`
 - Default: None
 
-### cloudflare_zone
+#### cloudflare_zone
 This is your domain name that is managed by Cloudflare (e.g. `mydomain.com`).
 
 - **Required** if `dns_provider` is set to `cloudflare`
 - Environment Variable: `CLOUDFLARE_ZONE`
 - Default: None
 
-### cloudflare_subdomain
-Set this to the name of the subdomain under your Cloudflare domain where you would like to manage the MAS DNS entires if you don't want MAS to use the top-level domain itself.  In other words `cloudflare_subdomain.cloudflare_zone` should equal `mas_domain`.
+#### cloudflare_subdomain
+Set this to the name of the subdomain under your Cloudflare domain where you would like to manage the MAS DNS entries if you don't want MAS to use the top-level domain itself. In other words `cloudflare_subdomain.cloudflare_zone` should equal `mas_domain`.
 
-- Optional
+- **Optional**
 - Environment Variable: `CLOUDFLARE_SUBDOMAIN`
 - Default: None
 
-Role Variables - IBM Cloud Internet Services DNS Integration
-------------------------------------------------------------
+### IBM Cloud Internet Services DNS Integration
 
 !!! note
-  When using CIS integration, some resources will be installed in the cluster such as RBACs, API Services and CIS Webhook deployments.
-  In OCP 4.12+, to avoid CIS webhook deployment failure at start up, this role will grant `anyuid` permission to `cert-manager-webhook-ibm-cis` service account so it can fully access the cert-manager-webhook-ibm-cis deployment pod as a workaround:
-  ```
-  oc adm policy add-scc-to-user anyuid -z cert-manager-webhook-ibm-cis -n ibm-common-services
-  ```
+    When using CIS integration, some resources will be installed in the cluster such as RBACs, API Services and CIS Webhook deployments.
+    In OCP 4.12+, to avoid CIS webhook deployment failure at start up, this role will grant `anyuid` permission to `cert-manager-webhook-ibm-cis` service account so it can fully access the cert-manager-webhook-ibm-cis deployment pod as a workaround:
 
-### cis_email
+```bash
+oc adm policy add-scc-to-user anyuid -z cert-manager-webhook-ibm-cis -n ibm-common-services
+```
 
-- **Required** if `dns_provider` is set to `cis`. This is the e-mail that will be used in the Cluster Issuer resource, created by this role, to connect with the certificate manager (i.e. Let's Encrypt).
+#### cis_email
+This is the e-mail that will be used in the Cluster Issuer resource, created by this role, to connect with the certificate manager (i.e. Let's Encrypt).
+
+- **Required** if `dns_provider` is set to `cis`
 - Environment Variable: `CIS_EMAIL`
 - Default: None
 
-### cis_apikey
+#### cis_apikey
+IBM Cloud API key for CIS service.
 
 - **Required** if `dns_provider` is set to `cis`
 - Environment Variable: `CIS_APIKEY`
 - Default: None
 
-### cis_crn
+#### cis_crn
+Cloud Resource Name (CRN) for the CIS instance.
 
 - **Required** if `dns_provider` is set to `cis`
 - Environment Variable: `CIS_CRN`
 - Default: None
 
-### cis_subdomain
+#### cis_subdomain
+Set this to the name of the subdomain under your CIS domain where you would like to manage the MAS DNS entries.
 
-- Optional
+- **Optional**
 - Environment Variable: `CIS_SUBDOMAIN`
 - Default: None
 
-### cis_enhanced_security
-Set this to true to enable the enhanced IBM CIS DNS integration security - which includes:
-- Enabling WAF firewall disabling rules that affect MAS application functionalities
-- Enabling Proxy for DNS entries
-- Using an expanded list of DNS entries
-- Ensuring there are no wildcard DNS entry in CIS
-- Creating Edge Certificates in CIS instance
-See https://cloud.ibm.com/docs/cis?topic=cis-manage-your-ibm-cis-for-optimal-security for more details.
+#### cis_enhanced_security
+Set this to true to enable the enhanced IBM CIS DNS integration security - which includes: Enabling WAF firewall disabling rules that affect MAS application functionalities, Enabling Proxy for DNS entries, Using an expanded list of DNS entries, Ensuring there are no wildcard DNS entry in CIS, and Creating Edge Certificates in CIS instance. See https://cloud.ibm.com/docs/cis?topic=cis-manage-your-ibm-cis-for-optimal-security for more details.
 
-- Optional
+- **Optional**
 - Environment Variable: `CIS_ENHANCED_SECURITY`
-- Default: false
+- Default: `false`
 
+### Enhanced IBM CIS DNS Integration Security
 
-Role Variables - Enhanced IBM CIS DNS Integration Secruity
-------------------------------------------------------------
-See the "cis_enhanced_security" variable above for details.
+See the `cis_enhanced_security` variable above for details.
 
-### cis_waf
+#### cis_waf
+Enable Web Application Firewall for CIS.
 
-- Optional
+- **Optional**
 - Environment Variable: `CIS_WAF`
-- Default: true
+- Default: `true`
 
-### cis_proxy
+#### cis_proxy
+Enable proxy for DNS entries in CIS.
 
-- Optional
+- **Optional**
 - Environment Variable: `CIS_PROXY`
-- Default: false
+- Default: `false`
 
-### cis_service_name
-Set this to override the default CIS service name that would otherwise be created as {ClusterName}-cis-{mas_instance_id} (where Cluster Name is derived automatically from the cluster)
+#### cis_service_name
+Set this to override the default CIS service name that would otherwise be created as {ClusterName}-cis-{mas_instance_id} (where Cluster Name is derived automatically from the cluster).
 
-- Optional
+- **Optional**
 - Environment Variable: `CIS_SERVICE_NAME`
+- Default: None
 
-### update_dns
-Set this to false if you want to not update DNS entries if they already exist
+#### update_dns
+Set this to false if you want to not update DNS entries if they already exist.
 
-- Optional
+- **Optional**
 - Environment Variable: `UPDATE_DNS_ENTRIES`
-- Default: true
+- Default: `true`
 
-### delete_wildcards
-Set this to true to force deletion of wildcard dns entries in cis
+#### delete_wildcards
+Set this to true to force deletion of wildcard dns entries in cis.
 
-- Optional
+- **Optional**
 - Environment Variable: `DELETE_WILDCARDS`
-- Default: false
+- Default: `false`
 
-### override_edge_certs
-Set this to false to not override and delete any existing edge certificates in cis instance when creating new edge certificates
+#### override_edge_certs
+Set this to false to not override and delete any existing edge certificates in cis instance when creating new edge certificates.
 
-- Optional
+- **Optional**
 - Environment Variable: `OVERRIDE_EDGE_CERTS`
-- Default: true
+- Default: `true`
 
+#### cis_entries_to_add
+Comma separated list of entries to add for edge certificates. These are broken down into functional areas of MAS. The options are: `all` (include all entries - default), `core` (MAS Core), `health` (MAS Health App), `iot` (MAS IoT app), `manage` (MAS Manage app), `monitor` (MAS Monitor app), `predict` (MAS Predict app), `visualinspection` (MAS VisualInspection app), `optimizer` (MAS Optimizer app), `assist` (MAS Assist app), `arcgis` (MAS Arcgis), `reportdb` (MAS ReportDB), `facilities` (MAS Facilities app).
 
-### output_dir
-Location to output the edge-routes-{mas_instance_id}.txt
-
-- Optional
-- Environment Variable: `OUTPUT_DIR`
-- Default: `.` (which will set the directory file in ibm/mas_devops)
-
-### cis_entries_to_add
-Comma seperated list of entries to add for edge certificates. These are broken down into functional areas of MAS. The options are:
-
-  - `all` to include all entries (this is the default behaviour)
-  - `core` to include the MAS Core edge certificates
-  - `health` to include the MAS Health App edge certificates
-  - `iot` to include the MAS IoT app edge certificates
-  - `manage` to include the MAS Manage app edge certificates
-  - `monitor` to include the MAS Monitor app edge certificates
-  - `predict` to include the MAS Predict app edge certificates
-  - `visualinspection` to include the MAS VisualInspection app edge certificates
-  - `optimizer` to include the MAS Optimizer app edge certificates
-  - `assist` to include the MAS Assist app edge certificates
-  - `arcgis` to include the MAS Arcgis edge certificates
-  - `reportdb` to include the MAS ReportDB edge certificates
-  - `facilities` to include the MAS Facilities app edge certificates
-
-- Optional
+- **Optional**
 - Environment Variable: `CIS_ENTRIES_TO_ADD`
 - Default: `all`
 
-Role Variables - AWS Route 53
-------------------------------------------------------------
+### AWS Route 53
 
-## Prerequisites
-To run this role successfully you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
+**Prerequisites:** To run this role successfully you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
 Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role.
 
 !!! note
@@ -244,80 +240,83 @@ Also, you need to have AWS user credentials configured via `aws configure` comma
 
     This workaround is not automated, as most of the times this is not needed, but when it is, it requires the `cert-manager-controller` pod to be stopped, thus we want to avoid making this behavior as standard approach.
 
-
-### route53_hosted_zone_name
+#### route53_hosted_zone_name
 AWS Route53 Hosted Zone name.
 
-- Required.
+- **Required** if `dns_provider` is set to `route53`
 - Environment Variable: `ROUTE53_HOSTED_ZONE_NAME`
-- Default Value: None
+- Default: None
 
-### route53_hosted_zone_region
+#### route53_hosted_zone_region
 AWS Route53 Hosted Zone region.
 
-- Required.
+- **Optional**
 - Environment Variable: `ROUTE53_HOSTED_ZONE_REGION`
-- Default Value: Same value as defined in `AWS_REGION`, or if none defined, then `us-east-2` is the defaulted region.
+- Default: Same value as defined in `AWS_REGION`, or if none defined, then `us-east-2` is the defaulted region
 
-### route53_subdomain
-If a subdomain is defined, this will be used to create the corresponding CNAME entries in the targeted Route53 hosted zone instance.
-Therefore, the Route53 subdomain + the Route53 hosted zone name defined, when combined, needs to match with the chosen MAS Domain, otherwise the DNS records won't be able to get resolved.
+#### route53_subdomain
+If a subdomain is defined, this will be used to create the corresponding CNAME entries in the targeted Route53 hosted zone instance. Therefore, the Route53 subdomain + the Route53 hosted zone name defined, when combined, needs to match with the chosen MAS Domain, otherwise the DNS records won't be able to get resolved. Example: MAS Top Level Domain `my-mas-instance.mycompany.com`, AWS Route53 hosted zone name `mycompany.com`, AWS Route53 subdomain `my-mas-instance`.
 
-```
-Example:
-MAS Top Level Domain: my-mas-instance.mycompany.com
-AWS Route53 hosted zone name: mycompany.com
-AWS Route53 subdomain: my-mas-instance
-```
-
-- Optional.
+- **Optional**
 - Environment Variable: `ROUTE53_SUBDOMAIN`
-- Default Value: None
+- Default: None
 
-### route53_email
+#### route53_email
 AWS Route53 contact e-mail. Will be set in the cluster issuer created in order to receive alerts.
 
-- Optional.
+- **Optional**
 - Environment Variable: `ROUTE53_EMAIL`
-- Default Value: None.
+- Default: None
 
-Role Variables - CloudPak for Data
-------------------------------------------------------------
+#### aws_access_key_id
+AWS access key ID for authentication.
 
-### cpd_instance_namespace
+- **Required** if `dns_provider` is set to `route53`
+- Environment Variable: `AWS_ACCESS_KEY_ID`
+- Default: None
+
+#### aws_secret_access_key
+AWS secret access key for authentication.
+
+- **Required** if `dns_provider` is set to `route53`
+- Environment Variable: `AWS_SECRET_ACCESS_KEY`
+- Default: None
+
+### CloudPak for Data
+
+#### cpd_instance_namespace
 Namespace where the Cloud Pak for Data is installed and the `cpd` route exists.
 If set, then this role will also attempt to configure public certificates to the CPD route using the DNS provider defined.
 
-- Optional
+- **Optional**
 - Environment Variable: `CPD_INSTANCE_NAMESPACE`
-- Default Value: None.
+- Default: None
 
-### cpd_prod_issuer_name
+#### cpd_prod_issuer_name
 Define the certificate issuer responsible for generating the public certificate for your CPD route.
 If not set, then it will use same issuer set for MAS instance.
 
-
-- Optional
+- **Optional**
 - Environment Variable: `CPD_PROD_ISSUER_NAME`
-- Default Value: Same certificate issuer used for MAS instance.
+- Default: Same certificate issuer used for MAS instance
 
-### cpd_custom_domain
+#### cpd_custom_domain
 Define the custom domain for your CPD route.
 If not set, then it will use same domain set for MAS instance.
 
-- Optional
+- **Optional**
 - Environment Variable: `CPD_CUSTOM_DOMAIN`
-- Default Value: `cp4d.{{ mas_domain }}`.
+- Default: `cp4d.{{ mas_domain }}`
 
-Example Playbook - CIS or Cloudflare
-----------------
+## Example Playbook
+
+### CIS or Cloudflare
 
 ```yaml
----
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    dns_provider: cis OR cloudflare
+    dns_provider: cis  # or cloudflare
     mas_instance_id: inst1
     mas_domain: mydomain.com
     cis_crn: xxx
@@ -327,11 +326,9 @@ Example Playbook - CIS or Cloudflare
     - ibm.mas_devops.suite_dns
 ```
 
-Example Playbook - AWS Route 53
-----------------
+### AWS Route 53
 
 ```yaml
----
 - hosts: localhost
   any_errors_fatal: true
   vars:
@@ -348,7 +345,6 @@ Example Playbook - AWS Route 53
     - ibm.mas_devops.suite_dns
 ```
 
-License
--------
+## License
 
 EPL-2.0

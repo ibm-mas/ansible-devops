@@ -1,26 +1,24 @@
-suite_verify
-============
+# suite_verify
 
-Verify a MAS installation is ready to use.  This role will also print out the Admin Dashboard URL and the username and password of the superuser.  If you want to disable these credentials being written to the output set the `mas_hide_superuser_credentials` to `True`.
+Verify a MAS installation is ready to use. This role will also print out the Admin Dashboard URL and the username and password of the superuser. If you want to disable these credentials being written to the output set the `mas_hide_superuser_credentials` to `True`.
 
-Role Variables
---------------
+## Role Variables
 
 ### mas_instance_id
-Required.  The instance ID of the Maximo Application Suite installation to verify.
+The instance ID of the Maximo Application Suite installation to verify.
 
+- **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
+- Default: None
 
 ### mas_hide_superuser_credentials
-Set this to `True` if you want to disable the display of the superuser credentials as part of the verify.  When this is enabled the debug will only identify the name of the secret containing the credentials rather than displaying the actual values.
+Set this to `True` if you want to disable the display of the superuser credentials as part of the verify. When this is enabled the debug will only identify the name of the secret containing the credentials rather than displaying the actual values.
 
+- **Optional**
 - Environment Variable: `MAS_HIDE_SUPERUSER_CREDENTIALS`
-- Default Value: `False`
+- Default: `True`
 
-
-Example Playbook
-----------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -30,11 +28,8 @@ Example Playbook
     mas_hide_superuser_credentials: True
   roles:
     - ibm.mas_devops.suite_verify
-
 ```
 
-
-License
--------
+## License
 
 EPL-2.0

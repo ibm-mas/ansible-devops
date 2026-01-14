@@ -24,7 +24,7 @@ mirror:
         - name: gpu-operator-certified  # Required by ibm.mas_devops.nvidia_gpu role
           channels:
             - name: v23.3
-            # We don't use the v25.3 channel, but oc-mirror fails when the default channel is not included
+            # We don't use the v25.10 channel, but oc-mirror fails when the default channel is not included
             # - https://access.redhat.com/solutions/7013461
             # - https://issues.redhat.com/browse/OCPBUGS-385
             - name: v24.9
@@ -46,17 +46,13 @@ mirror:
       packages:
         - name: grafana-operator  #  Required by ibm.mas_devops.grafana role
           channels:
-{% if ocp_release < "4.16" %}
-            - name: v4
-{% endif %}
             - name: v5
-        - name: opentelemetry-operator  # Required by ibm.mas_devops.opentelemetry role
-          channels:
-            - name: alpha
         - name: strimzi-kafka-operator  #  Required by ibm.mas_devops.kafka role
           channels:
-            - name: stable
             - name: strimzi-0.45.x
+        - name: opendatahub-operator
+          channels:
+            - name: fast
 
     # redhat-operators
     - catalog: registry.redhat.io/redhat/redhat-operator-index:v{{ ocp_release }}
@@ -86,8 +82,21 @@ mirror:
           channels:
             - name: stable-{{ ocp_release }}
 {% if ocp_release >= "4.18" %}
+        - name: serverless-operator
+          channels:
+            - name: stable
+        - name: servicemeshoperator
+          channels:
+            - name: stable
+        - name: authorino-operator
+          channels:
+            - name: stable
         - name: odf-dependencies  # Required by ibm.mas_devops.ocs role
           channels:
             - name: stable-{{ ocp_release }}
 {% endif %}
+  additionalImages:
+    - name: "registry.redhat.io/openshift-service-mesh/istio-operator-bundle@sha256:deb5e82c55ed09614827736ae7b38fab6b14281cd57929b246479b035cad8ec5"
+    - name: "quay.io/community-operator-pipeline-prod/opendatahub-operator:2.32.0"
+    - name: "quay.io/opendatahub/opendatahub-operator:v2.32.0"
 {% endif %}
