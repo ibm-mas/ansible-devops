@@ -1,19 +1,62 @@
 ---
 # Backup Mongodb Community edition cluster Instance
 # -----------------------------------------------------------------------------
+- name: "Set fact: MongoDB CE backup resources"
+  set_fact:
+    mongoce_backup_resources:
+      - namespace: "{{ mongodb_namespace }}"
+        resources:
+          # mongodbcommunity.mongodb.com
+          - kind: MongoDBCommunity
+            api_version: mongodbcommunity.mongodb.com/v1
+            name: "{{ mongodb_instance_name }}"
+          # Issuers
+          - kind: Issuer
+            api_version: cert-manager.io/v1
+          # Certificates
+          - kind: Certificate
+            api_version: cert-manager.io/v1
+          # secrets
+          - kind: Secret
+            api_version: v1
+            name: "{{ mongodb_instance_name }}-scram-scram-credentials"
 
-# Backup Mongodb instance Resources
-# -------------------------------------------------------------------------
-- name: "Start Mongo Instance backup process."
-  ibm.mas_devops.backup_mongo_instance:
-    mongodb_backup_path: "{{ mongodb_backup_path }}"
-    mongodb_namespace: "{{ mongodb_namespace }}"
-    mongodb_instance_name: "{{ mongodb_instance_name }}"
-  register: mongo_instance_backup_result
+# Call the backup_resources plugin to execute the backup to the path provided
+# -----------------------------------------------------------------------------
+- name: "Backup MongoCE resources (referenced secrets are auto-discovered)"
+  ibm.mas_devops.backup_resource:
+    backup_resources: "{{ mongoce_backup_resources }}"
+    backup_path: "{{ mongodb_backup_path }}"
+  register: backup_result
 
-- name: "Assert Mongo Instance backup success"
-  assert:
-    that:
-      - mongo_instance_backup_result is defined
-      - mongo_instance_backup_result.success == true
-    fail_msg: "MongoDB Instance resources backup failed."
+# Show the results
+# -----------------------------------------------------------------------------
+- name: "Display backup results"
+  debug:
+    msg:
+      - "Backup completed{{ ' with failures' if backup_result.failed_count > 0 else ' successfully' }}"
+      - "Total resources backed up: {{ backup_result.backed_up_count }}"
+      - "Total resources failed: {{ backup_result.failed_count }}"
+      - "Resources not found: {{ backup_result.not_found_count }}"
+      - "Secrets auto-discovered: {{ backup_result.discovered_secrets_count }}"
+      - "Backup location: {{ mongodb_backup_path }}"
+
+# Fail task if any errors occurred.
+# -----------------------------------------------------------------------------
+- name: "Display failed resources"
+  debug:
+    msg:
+      - "Failed resources:"
+      - "{{ backup_result.failed_resources | to_nice_yaml }}"
+  when: backup_result.failed_count > 0
+
+- name: "Fail if backup had errors"
+  fail:
+    msg: |
+      Backup failed for {{ backup_result.failed_count }} resource(s):
+      {% for resource in backup_result.failed_resources %}
+      - {{ resource.description }} in {{ resource.scope }}
+      {% endfor %}
+  when: backup_result.failed_count > 0
+
+

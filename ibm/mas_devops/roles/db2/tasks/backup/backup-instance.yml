@@ -1,41 +1,81 @@
 ---
-- name: DB2 Instance backup configuration summary
-  ansible.builtin.debug:
+- name: "Set fact: DB2 universal operator backup resources"
+  set_fact:
+    db2_backup_resources:
+      - namespace: "{{ db2_namespace }}"
+        resources:
+          # db2u.databases.ibm.com
+          - kind: Db2uCluster
+            api_version: db2u.databases.ibm.com/v1
+            name: "{{ db2_instance_name }}"
+          # subscription
+          - kind: Subscription
+            api_version: operators.coreos.com/v1alpha1
+            name: db2u-operator
+          # secrets
+          - kind: Secret
+            api_version: v1
+            name: ibm-registry
+          - kind: Secret
+            api_version: v1
+            name: "c-{{ db2_instance_name }}-instancepassword"
+          # Issuers
+          - kind: Issuer
+            api_version: cert-manager.io/v1
+            name: db2u-issuer
+          - kind: Issuer
+            api_version: cert-manager.io/v1
+            name: db2u-ca-issuer
+          # Certificates
+          - kind: Certificate
+            api_version: cert-manager.io/v1
+            name: "db2u-certificate-{{ db2_instance_name }}"
+          - kind: Certificate
+            api_version: cert-manager.io/v1
+            name: db2u-ca-certificate
+      - namespace: "mas-{{ mas_instance_id }}-core"
+        resources:
+          # secrets
+          - kind: Secret
+            api_version: v1
+            name: "jdbc-{{ db2_instance_name }}-credentials"
+
+# Call the backup_resources plugin to execute the backup to the path provided
+# -----------------------------------------------------------------------------
+- name: "Backup DB2 resources (referenced secrets are auto-discovered)"
+  ibm.mas_devops.backup_resource:
+    backup_resources: "{{ db2_backup_resources }}"
+    backup_path: "{{ db2_backup_path }}"
+  register: backup_result
+
+# Show the results
+# -----------------------------------------------------------------------------
+- name: "Display backup results"
+  debug:
     msg:
-      - "================== BACKUP DB2 INSTANCE CONFIGURATION SUMMARY =================="
-      - "MAS INSTANCE ID   : {{ mas_instance_id | default('UNDEFINED') }}"
-      - "DB2 INSTANCE NAME : {{ db2_instance_name | default('UNDEFINED') }}"
-      - "NAMESPACE         : {{ db2_namespace | default('UNDEFINED') }}"
-      - "DB NAME           : {{ db2_dbname | default('UNDEFINED') }}"
-      - "BACKUP VERSION    : {{ db2_backup_version | default('UNDEFINED') }}"
-      - "BACKUP DIR        : {{ db2_backup_path | default('UNDEFINED') }}"
-      - "================================================================================"
+      - "Backup completed{{ ' with failures' if backup_result.failed_count > 0 else ' successfully' }}"
+      - "Total resources backed up: {{ backup_result.backed_up_count }}"
+      - "Total resources failed: {{ backup_result.failed_count }}"
+      - "Resources not found: {{ backup_result.not_found_count }}"
+      - "Secrets auto-discovered: {{ backup_result.discovered_secrets_count }}"
+      - "Backup location: {{ db2_backup_path }}"
 
-- name: "Start Db2 Instance backup process."
-  ibm.mas_devops.backup_db2_instance:
-    db2_backup_path: "{{ db2_backup_path }}"
-    db2_namespace: "{{ db2_namespace }}"
-    db2_instance_name: "{{ db2_instance_name }}"
-    mas_instance_id: "{{ mas_instance_id }}"
-    db2_dbname: "{{ db2_dbname }}"
-  register: db2_instance_backup_result
-
-- name: "Assert Db2 Instance backup success"
-  assert:
-    that:
-      - db2_instance_backup_result is defined
-      - db2_instance_backup_result.success == true
-    fail_msg: "Db2 Instance resources backup failed."
-
-- name: DB2 Instance backup summary
-  ansible.builtin.debug:
+# Fail task if any errors occurred.
+# -----------------------------------------------------------------------------
+- name: "Display failed resources"
+  debug:
     msg:
-      - "================== BACKUP DB2 INSTANCE CONFIGURATION SUMMARY =================="
-      - "MAS INSTANCE ID   : {{ mas_instance_id | default('UNDEFINED') }}"
-      - "DB2 INSTANCE NAME : {{ db2_instance_name | default('UNDEFINED') }}"
-      - "NAMESPACE         : {{ db2_namespace | default('UNDEFINED') }}"
-      - "DB NAME           : {{ db2_dbname | default('UNDEFINED') }}"
-      - "BACKUP VERSION    : {{ db2_backup_version | default('UNDEFINED') }}"
-      - "BACKUP DIR        : {{ db2_backup_path | default('UNDEFINED') }}"
-      - "STATUS            : SUCCESS"
-      - "================================================================================"
+      - "Failed resources:"
+      - "{{ backup_result.failed_resources | to_nice_yaml }}"
+  when: backup_result.failed_count > 0
+
+- name: "Fail if backup had errors"
+  fail:
+    msg: |
+      Backup failed for {{ backup_result.failed_count }} resource(s):
+      {% for resource in backup_result.failed_resources %}
+      - {{ resource.description }} in {{ resource.scope }}
+      {% endfor %}
+  when: backup_result.failed_count > 0
+
+
