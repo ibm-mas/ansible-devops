@@ -12,14 +12,29 @@ Certificate Manager provides certificate management capabilities for Kubernetes 
 ### General Variables
 
 #### cert_manager_action
-Inform the role whether to perform an `install` or `uninstall` of the Certificate Manager service. Action can also be set to `none` to instruct the role to take no action.
+Specifies which operation to perform on the Certificate Manager operator.
 
 - **Optional**
 - Environment Variable: `CERT_MANAGER_ACTION`
 - Default Value: `install`
 
-!!! warning
-    Certificate Manager is a cluster-wide dependency. Be careful when uninstalling it as it might be used by several applications and dependencies installed in the cluster.
+**Purpose**: Controls what action the role executes against the Certificate Manager operator. This allows the same role to handle installation, removal, or no action on the cert-manager deployment.
+
+**When to use**:
+- Use `install` (default) for initial deployment or to ensure cert-manager is present
+- Use `uninstall` to remove cert-manager (use with extreme caution)
+- Use `none` to skip cert-manager operations while running broader playbooks
+
+**Valid values**: `install`, `uninstall`, `none`
+
+**Impact**: 
+- `install`: Deploys Red Hat Certificate Manager Operator to `cert-manager-operator` namespace and creates operand in `cert-manager` namespace
+- `uninstall`: Removes cert-manager operator and operand (destructive operation)
+- `none`: Role takes no action
+
+**Related variables**: None
+
+**Note**: **WARNING** - Certificate Manager is a cluster-wide dependency used by MAS, SLS, and other components. Uninstalling it will break certificate management for all dependent applications. Only use `uninstall` if you are certain no applications depend on it.
 
 ## Example Playbook
 After installing the Ansible Collection you can include this role in your own custom playbooks.
