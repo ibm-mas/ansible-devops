@@ -8,8 +8,9 @@ from ansible.errors import AnsibleError
 from ansible.utils.display import Display
 from kubernetes.dynamic import DynamicClient
 from kubernetes.dynamic.exceptions import NotFoundError
+from mas.devops.backup import backupResources, createBackupDirectories 
 
-from ansible_collections.ibm.mas_devops.plugins.module_utils.backuprestore import createBackupDirectories, backupSecret, getSubscription, getDb2uInstance, getDb2VersionFromCR, isDb2uReady
+from ansible_collections.ibm.mas_devops.plugins.module_utils.backuprestore import backupSecret, getSubscription, getDb2uInstance, getDb2VersionFromCR, isDb2uReady
 
 import yaml
 import os
@@ -99,9 +100,22 @@ def processUserCredentialsSecret(dynClient: DynamicClient, mas_instance_id: str,
                 with open(ldap_info_file_path, 'w') as ldap_info_file:
                     yaml.dump(ldap_user_info, ldap_info_file)
                 display.v(f"Wrote LDAP user info to {ldap_info_file_path}")
+                return True
             else:
                 display.v(f"JDBC credentials secret '{jdbc_core_secret_name}' uses default admin user. No additional user backup needed.")
-        return False
+    return False
+
+def backupCertsResources(dynClient: DynamicClient, namespace: str, kind: str, api_version: str, backup_path: str, name: str, all_discovered_secrets=None):
+    backed_up, not_found, failed, discovered_secrets = backupResources(dynClient=dynClient, namespace=namespace, kind=kind, name=name, api_version=api_version, backup_path=backup_path)
+    if backed_up > 0:
+        if discovered_secrets and all_discovered_secrets!=None:
+            display.v(f"Discovered secret(s) '{discovered_secrets}' in {kind}")
+            all_discovered_secrets.update(discovered_secrets)
+        display.v(f"Backed up resource '{kind}' '{name}'")
+    elif not_found > 0:
+        display.v(f"Resource '{kind}' '{name}' is not found.")
+    else:
+        raise AnsibleError("Failed to backup Resource '{kind}' '{name}'")
 
 class ActionModule(ActionBase):
     
@@ -141,10 +155,11 @@ class ActionModule(ActionBase):
         # Prepare backup resource path
         db2_backup_resource_path = f"{db2_backup_path}/resources"
         db2_backup_secrets_path = f"{db2_backup_resource_path}/secrets"
-        #db2_backup_issuers_path = f"{db2_backup_resource_path}/issuers"
+        db2_backup_issuers_path = f"{db2_backup_resource_path}/issuers"
+        db2_backup_certs_path = f"{db2_backup_resource_path}/certificates"
 
         # Create backup directory if it does not exist
-        createBackupDirectories([db2_backup_path, db2_backup_resource_path, db2_backup_secrets_path])
+        createBackupDirectories([db2_backup_path, db2_backup_resource_path, db2_backup_secrets_path, db2_backup_issuers_path, db2_backup_certs_path])
 
         # Get Db2uCluster or Db2uInstance CR
         db2u_cr = getDb2uInstance(dynClient=dynClient, db2_instance_name=db2_instance_name, db2_namespace=db2_namespace)
@@ -184,7 +199,29 @@ class ActionModule(ActionBase):
         # this will be used during restore to set the correct user
         # If secret does not exist or uses default user, no action is taken.
         # Restore process will use default instance user in that case
-        processUserCredentialsSecret(dynClient=dynClient, mas_instance_id=mas_instance_id, db2_instance_name=db2_instance_name, backup_path=db2_backup_secrets_path)
+        if mas_instance_id:
+            processUserCredentialsSecret(dynClient=dynClient, mas_instance_id=mas_instance_id, db2_instance_name=db2_instance_name, backup_path=db2_backup_secrets_path)
+
+        # Backup following Issuers and Certificates
+        # these are hardcoded as these are hardcoded in the templates.
+        ca_issuer = "db2u-ca-issuer"
+        ca_certificate = "db2u-ca-certificate"
+        server_issuer = "db2u-issuer"
+        server_certificate = f"db2u-certificate-{db2_instance_name}"
+
+        all_discovered_secrets = set()
+        backupCertsResources(dynClient=dynClient, namespace=db2_namespace, kind="Issuer", name=ca_issuer, api_version="cert-manager.io/v1", backup_path=db2_backup_issuers_path, all_discovered_secrets=all_discovered_secrets)
+        backupCertsResources(dynClient=dynClient, namespace=db2_namespace, kind="Certificate", name=ca_certificate, api_version="cert-manager.io/v1", backup_path=db2_backup_certs_path, all_discovered_secrets=all_discovered_secrets)
+        backupCertsResources(dynClient=dynClient, namespace=db2_namespace, kind="Issuer", name=server_issuer, api_version="cert-manager.io/v1", backup_path=db2_backup_issuers_path, all_discovered_secrets=all_discovered_secrets)
+        backupCertsResources(dynClient=dynClient, namespace=db2_namespace, kind="Certificate", name=server_certificate, api_version="cert-manager.io/v1", backup_path=db2_backup_certs_path, all_discovered_secrets=all_discovered_secrets)
+
+        if len(all_discovered_secrets)>0:
+            # Backup discovered secrets from Issuers/certs
+            display.v(f"Backing up the discovered secrets from Issuers/certs - {all_discovered_secrets}")
+            for secret in all_discovered_secrets:
+                backed_up, not_found, failed, discovered_secrets = backupResources(dynClient=dynClient, namespace=db2_namespace, kind="Secret", name=secret, api_version="v1", backup_path=db2_backup_secrets_path)
+                if failed > 0:
+                    display.v(f"Failed to backup secret '{secret}'")
 
         # Get Channel details from Subscription
         # Package name hardcoded to db2u-operator

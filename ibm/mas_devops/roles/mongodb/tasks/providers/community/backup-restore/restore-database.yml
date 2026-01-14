@@ -48,8 +48,8 @@
 - name: "Assert if target mongoce version match backup mongoce version"
   assert:
     that:
-      - mongodb_version == mongodb_backup_info.source_mongodb_version
-    fail_msg: "Target MongoCE version {{ mongodb_version }} does NOT match backup MongoCE version {{ mongodb_backup_info.source_mongodb_version }}. Restore cannot proceed."
+      - mongodb_version.split('.')[:2] == mongodb_backup_info.source_mongodb_version.split('.')[:2]
+    fail_msg: "MongoDB major.minor version mismatch.. Target MongoCE version {{ mongodb_version }} does NOT match backup MongoCE version {{ mongodb_backup_info.source_mongodb_version }}. Restore cannot proceed."
 
 - name: "debug facts"
   debug:
@@ -65,13 +65,13 @@
 - block:
   - name: Create create-role-user.sh script in local /tmp
     ansible.builtin.template:
-      src: create-role-user.sh.j2
+      src: community/backup-restore/create-role-user.sh.j2
       dest: /tmp/create-role-user.sh
       mode: '777'
 
   - name: Create database-restore.sh script in local /tmp
     ansible.builtin.template:
-      src: database-restore.sh.j2
+      src: community/backup-restore/database-restore.sh.j2
       dest: /tmp/database-restore.sh
       mode: '777'
 

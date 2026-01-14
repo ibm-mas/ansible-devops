@@ -1,10 +1,20 @@
 ---
-
-# Prepare for restore
+# Check mongodb restore required variables
 # -----------------------------------------------------------------------------
+- name: "Fail if require variables for Mongodb {{ mongodb_action }} are not provided"
+  ibm.mas_devops.verify_backup_restore_vars:
+    mas_instance_id: "{{ mas_instance_id }}"
+    mas_backup_dir: "{{ mas_backup_dir }}"
+    mongodb_backup_version: "{{ mongodb_backup_version }}"
+    action: "restore"
+    component: "mongodb"
 
-# Get mongodb backup CR information
-# -----------------------------------------------------------------------------
+- name: "Set fact: backup dir paths"
+  set_fact:
+    mongodb_backup_dir: "{{ mas_backup_dir }}/backup-{{ mongodb_backup_version }}-mongoce"
+    mongodb_resource_path: "{{ mas_backup_dir }}/backup-{{ mongodb_backup_version }}-mongoce/resources"
+    mongodb_data_path: "{{ mas_backup_dir }}/backup-{{ mongodb_backup_version }}-mongoce/data"
+
 - name: "Check and get mongodb backup cr.yml"
   ibm.mas_devops.get_mongodb_cr_to_restore:
     mongodb_resource_path: "{{ mongodb_resource_path }}"
@@ -15,10 +25,13 @@
   set_fact:
     mongodb_cr: "{{ mongodb_backup_cr_result.mongodb_cr }}"
 
-- name: "Set fact: Retrieve information from backup CR"
+- name: "Set fact: Retrieve namespace and instance from backup CR"
   set_fact:
     mongodb_namespace: "{{ mongodb_cr.metadata.namespace }}"
     mongodb_instance_name: "{{ mongodb_cr.metadata.name }}"
+
+- name: "Set fact: Retrieve information from backup CR"
+  set_fact:
     mongo_extras_version: "{{ mongodb_cr.spec.version }}"
     target_mongodb_version: "{{ mongodb_cr.spec.version }}"
     mongodb_security: "{{ mongodb_cr.spec.security }}"
@@ -28,15 +41,14 @@
     mongodb_memory_limits: "{{ mongodb_cr.spec.statefulSet.spec.template.spec.containers[0].resources.limits.cpu | default('1Gi') }}"
     mongodb_cpu_requests: "{{ mongodb_cr.spec.statefulSet.spec.template.spec.containers[0].resources.requests.cpu | default('250m') }}"
     mongodb_memory_requests: "{{ mongodb_cr.spec.statefulSet.spec.template.spec.containers[0].resources.requests.cpu | default('512Mi') }}"
-    backup_mongodb_storage_class: "{{ mongodb_cr.spec.statefulSet.spec.volumeClaimTemplates[0].spec.storageClassName }}"
     mongodb_storage_capacity_data: "{{ mongodb_cr.spec.statefulSet.spec.volumeClaimTemplates[0].spec.resources.requests.storage }}"
     mongodb_storage_capacity_logs: "{{ mongodb_cr.spec.statefulSet.spec.volumeClaimTemplates[1].spec.resources.requests.storage }}"
 
 - name: "Debug: Mongodb restore variables"
   debug:
     msg:
-      - "mongodb_namespace: {{ mongodb_namespace }}"
       - "mongodb_instance_name: {{ mongodb_instance_name }}"
+      - "mongodb_namespace: {{ mongodb_namespace }}"
       - "mongo_extras_version: {{ mongo_extras_version }}"
       - "target_mongodb_version: {{ target_mongodb_version }}"
       - "mongodb_security: {{ mongodb_security }}"
@@ -46,29 +58,8 @@
       - "mongodb_memory_limits: {{ mongodb_memory_limits }}"
       - "mongodb_cpu_requests: {{ mongodb_cpu_requests }}"
       - "mongodb_memory_requests: {{ mongodb_memory_requests }}"
-      - "backup_mongodb_storage_class: {{ backup_mongodb_storage_class }}"
       - "mongodb_storage_capacity_data: {{ mongodb_storage_capacity_data }}"
       - "mongodb_storage_capacity_logs: {{ mongodb_storage_capacity_logs }}"
-
-# Prepare storage class
-# -----------------------------------------------------------------------------
-# Set storage class name to use for mongodb restore.
-# If existing mongo instance found, use its storage class.
-# Else use storage class from backup CR.
-# If that does not exist, use default storage class.
-- name: "Determine storage class to use for MongoDB restore"
-  ibm.mas_devops.verify_mongoce_version:
-    mongodb_instance_name: "{{ mongodb_instance_name }}"
-    mongodb_namespace: "{{ mongodb_namespace }}"
-    backup_mongodb_storage_class: "{{ backup_mongodb_storage_class }}"
-  register: storage_class_check_result
-
-- name: "Set fact: mongodb_storage_class to use for restore"
-  set_fact:
-    mongodb_storage_class: "{{ storage_class_check_result.storage_class }}"
-  when:
-    - storage_class_check_result is defined
-    - storage_class_check_result.storage_class is defined
 
 # Restore MongoDb instance's resources from backup
 # We will restore the following resources from backup:
@@ -93,8 +84,3 @@
       - restore_mongoce_resources_result.restored is defined
       - restore_mongoce_resources_result.restored == True
     fail_msg: "Failed to restore MongoDB instance resources from backup."
-
-# Install the selected MongoDb version for restore
-# -----------------------------------------------------------------------------
-- name: "community : Setup mongo version {{ target_mongodb_version }} for restore"
-  include_tasks: tasks/providers/community/install-mongo.yml

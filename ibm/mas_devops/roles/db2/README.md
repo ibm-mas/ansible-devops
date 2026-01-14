@@ -418,20 +418,11 @@ This is only used when both `mas_config_dir` and `mas_instance_id` are set, and 
 - Environment Variable: `'MAS_APP_ID`
 - Default: None
 
-
 Role Variables - Backup and Restore
 -------------------------------------------------------------------------------
 
-### db2_action
-When set to `backup` or `restore`, the role will perform backup or restore operations on the DB2 instance and database.
-
-- Optional
-- Environment Variable: `DB2_ACTION`
-- Default: `install`
-- Supported values: `install`, `upgrade`, `backup`, `restore`
-
 ### mas_backup_dir
-The local directory path where backup files will be stored (for backup) or read from (for restore).
+Local directory path where backups will be stored or restored from.
 
 - **Required** for backup and restore operations
 - Environment Variable: `MAS_BACKUP_DIR`
@@ -439,47 +430,44 @@ The local directory path where backup files will be stored (for backup) or read 
 - Example: `/tmp/mas_backups`
 
 ### db2_backup_version
-Version identifier for the backup. For backup operations, if not provided, it defaults to `YYMMDD-HHMMSS` format. For restore operations, this is required to identify which backup to restore.
+The backup version timestamp to restore from. This is automatically generated during backup in the format `YYMMDD-HHMMSS`.
 
-- Optional for backup (auto-generated if not provided)
-- **Required** for restore
+- **Required** for restore operations
 - Environment Variable: `DB2_BACKUP_VERSION`
-- Default: Auto-generated timestamp in `YYMMDD-HHMMSS` format for backup operations
-
-### br_skip_instance
-Set to `false` to back up or restore the DB2 instance Kubernetes resources.
-
-- Optional
-- Environment Variable: `BR_SKIP_INSTANCE`
-- Default: `true` (only backup/restore the database data)
-
-### backup_vendor
-Specifies where the database backup will be stored or retrieved from.
-
-- Optional
-- Environment Variable: `BACKUP_VENDOR`
-- Default: `disk`
-- Supported values: `s3`, `disk`
+- Default: Auto-generated for backup operations
+- Example: `251212-021316`
 
 ### backup_type
-Type of database backup to perform.
+Type of backup to perform. Online backups keep the database available during backup, while offline backups require database downtime but are faster.
+If your DB2 instance has got circular logging enabled i.e `LOGARCHMETH1: OFF or/and LOGARCHMETH2: OFF`, you can only use `offline` backup type. 
+If your DB2 instance has got circular logging disabled, you can use either `online` or `offline` backup type. 
+If you are unsure, you can use default `online` backup type.
 
 - Optional
 - Environment Variable: `DB2_BACKUP_TYPE`
 - Default: `online`
 - Supported values: `online`, `offline`
 
-### backup_s3_alias
-Alias name for the S3 storage configuration in DB2.
+### backup_vendor
+Storage vendor for backup files. Use `disk` for local storage or `s3` for S3-compatible object storage.
+*Note* : Only database backup is stored in S3, instance backup is always stored in local disk.
 
-- **Required** when `backup_vendor=s3`
-- Environment Variable: `BACKUP_S3_ALIAS`
-- Default: `S3DB2COS`
+- Optional
+- Environment Variable: `BACKUP_VENDOR`
+- Default: `disk`
+- Supported values: `disk`, `s3`
+
+### br_skip_instance
+When set to `false`, includes Db2 instance resources (secrets, certificates, custom resources) in the backup.
+
+- Optional
+- Environment Variable: `BR_SKIP_INSTANCE`
+- Default: `true`
 
 ### backup_s3_endpoint
-S3-compatible storage endpoint URL.
+S3 endpoint URL for S3-compatible object storage.
 
-- **Required** when `backup_vendor=s3`
+- **Required** when `backup_vendor` is `s3`
 - Environment Variable: `BACKUP_S3_ENDPOINT`
 - Default: None
 - Example: `https://s3.us-east.cloud-object-storage.appdomain.cloud`
@@ -487,248 +475,466 @@ S3-compatible storage endpoint URL.
 ### backup_s3_bucket
 S3 bucket name where backups will be stored.
 
-- **Required** when `backup_vendor=s3`
+- **Required** when `backup_vendor` is `s3`
 - Environment Variable: `BACKUP_S3_BUCKET`
 - Default: None
+- Example: `mas-db2-backups`
 
 ### backup_s3_access_key
 S3 access key for authentication.
 
-- **Required** when `backup_vendor=s3`
+- **Required** when `backup_vendor` is `s3`
 - Environment Variable: `BACKUP_S3_ACCESS_KEY`
 - Default: None
 
 ### backup_s3_secret_key
 S3 secret key for authentication.
 
-- **Required** when `backup_vendor=s3`
+- **Required** when `backup_vendor` is `s3`
 - Environment Variable: `BACKUP_S3_SECRET_KEY`
 - Default: None
 
+### backup_s3_alias
+S3 alias name used in Db2 configuration.
 
-Backup and Restore Operations
+- Optional
+- Environment Variable: `BACKUP_S3_ALIAS`
+- Default: `S3DB2COS`
+
+
+Example Usage - Backup and Restore
 -------------------------------------------------------------------------------
 
-### Overview
-The DB2 role supports comprehensive backup and restore operations for both DB2 instance configuration and database data. The backup process creates a snapshot of necessary resources that can be used to restore the DB2 instance to a previous state.
+### Backup Db2 Database to Disk
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_backup_dir: /tmp/masbr
+    db2_action: backup
+    db2_instance_name: db2u-manage
+    db2_namespace: db2u
+    backup_type: online
+    backup_vendor: disk
+  roles:
+    - ibm.mas_devops.db2
+```
 
-### Backup Components
-The backup operation consists of two main components:
+### Backup Db2 Database to S3
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_backup_dir: /tmp/masbr
+    db2_action: backup
+    db2_instance_name: db2u-manage
+    backup_type: online
+    backup_vendor: s3
+    backup_s3_endpoint: https://s3.us-east.cloud-object-storage.appdomain.cloud
+    backup_s3_bucket: mas-db2-backups # your bucket name
+    backup_s3_access_key: "{{ lookup('env', 'S3_ACCESS_KEY') }}"
+    backup_s3_secret_key: "{{ lookup('env', 'S3_SECRET_KEY') }}"
+  roles:
+    - ibm.mas_devops.db2
+```
 
-1. **Instance Backup**: Backs up Kubernetes resources including:
-   - DB2UCluster custom resource
-   - Secrets (instance password, LDAP credentials if configured)
-   - ConfigMaps
-   - Other DB2 instance metadata
+### Backup with Instance Resources and Database to disk
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_backup_dir: /tmp/masbr
+    db2_action: backup
+    db2_instance_name: db2u-manage
+    br_skip_instance: false  # Include instance resources
+    backup_vendor: disk
+  roles:
+    - ibm.mas_devops.db2
+```
 
-2. **Database Backup**: Backs up the actual database data using DB2's native backup utilities
+### Restore Db2 Database from Disk
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    db2_action: restore_database
+    mas_instance_id: masinst1
+    db2_backup_version: 251212-021316
+    mas_backup_dir: /tmp/masbr
+    db2_instance_name: db2u-manage
+    db2_namespace: db2u
+    backup_vendor: disk
+  roles:
+    - ibm.mas_devops.db2
+```
+
+### Restore Db2 Database from S3
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    db2_action: restore_database
+    mas_instance_id: masinst1
+    db2_backup_version: 251212-021316
+    mas_backup_dir: /tmp/masbr
+    db2_instance_name: db2u-manage
+    backup_vendor: s3
+    backup_s3_endpoint: https://s3.us-east.cloud-object-storage.appdomain.cloud
+    backup_s3_bucket: mas-db2-backups # your bucket name
+    backup_s3_access_key: "{{ lookup('env', 'S3_ACCESS_KEY') }}"
+    backup_s3_secret_key: "{{ lookup('env', 'S3_SECRET_KEY') }}"
+  roles:
+    - ibm.mas_devops.db2
+```
+
+### Install Db2 from Backup (Instance + Database)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    db2_action: install
+    mas_instance_id: masinst1
+    db2_backup_version: 251212-021316
+    mas_backup_dir: /tmp/masbr
+    backup_vendor: disk
+  roles:
+    - ibm.mas_devops.db2
+```
+
+### Install Db2 from Backup (Instance + Database(S3))
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    db2_action: install
+    mas_instance_id: masinst1
+    db2_backup_version: 251212-021316
+    mas_backup_dir: /tmp/masbr
+    backup_vendor: s3
+    backup_s3_endpoint: https://s3.us-east.cloud-object-storage.appdomain.cloud
+    backup_s3_bucket: mas-db2-backups # your bucket name
+    backup_s3_access_key: "{{ lookup('env', 'S3_ACCESS_KEY') }}"
+    backup_s3_secret_key: "{{ lookup('env', 'S3_SECRET_KEY') }}"
+  roles:
+    - ibm.mas_devops.db2
+```
+
+Backup and Restore Details
+-------------------------------------------------------------------------------
 
 ### Backup Process
+1. Validates Db2 instance is running
+2. Prepares backup scripts and copies them to the Db2 pod
+3. Configures S3 storage access (if using S3)
+4. Executes Db2 backup command (online or offline)
+5. Compresses and transfers backup files (for disk storage)
+6. Creates metadata file (`db2-backup-info.yaml`) with backup details
 
-#### Prerequisites
-- DB2 instance must be running and healthy
-- Sufficient storage space in the backup location
-- For S3 backups: Valid S3 credentials and accessible S3 bucket
-- For disk backups: Sufficient local disk space
+### Database Restore Process
+1. Validates backup files and Db2 version compatibility
+2. Prepares restore scripts and copies them to the Db2 pod
+3. Configures S3 storage access (if restoring from S3)
+4. Copies backup files to the Db2 pod (for disk restores)
+5. Executes Db2 restore command
+6. Verifies restore completion
 
-#### Backup Workflow
-1. **Validation**: Verifies all required variables are set
-2. **Instance Backup** (when `BR_SKIP_INSTANCE=false`):
-   - Exports DB2UCluster CR and related Kubernetes resources
-   - Saves instance configuration and secrets
-3. **Database Backup**:
-   - Prepares backup scripts and copies them to the DB2 pod
-   - For S3: Configures S3 storage access in DB2
-   - Executes DB2 backup command (online or offline)
-   - For disk backups: Copies backup files to local storage
-   - Creates `db2-backup-info.yaml` with backup metadata
+### Install From Backup Process
+1. Validates backup files
+2. Creates namespace and copies resources to namespace
+3. Gets Db2 instance details from backup metadata
+4. Installs Db2 instance using the backup details
+5. Waits for Db2 instance to be ready
+6. Performs post deployment actions like restoring instance password
+7. Performs Database restore process as mentioned above
 
-#### Backup Storage Locations
-- **Disk**: `<mas_backup_dir>/backup-<backup_version>-db2u/data/`
-- **S3**: `s3://<bucket>/backups-db2/<backup_version>/`
+### Backup Directory Structure (Disk)
+```
+/tmp/masbr/
+└── backup-<YYMMDD-HHMMSS>-db2u/
+    ├── data/
+    │   ├── db2-BLUDB-backup-<YYMMDD-HHMMSS>.tar.gz
+    │   └── db2-backup-info.yaml
+    └── resources/
+        ├── cr.yaml
+        ├── secrets/
+        ├── certificates/
+        └── issuers/
+```
 
-### Restore Process
-
-#### Prerequisites
-- Valid backup files exist in the specified location
-- For instance restore: DB2 operator must be installed
-- For database restore: DB2 instance must be running with matching version
-- For S3 restores: Valid S3 credentials and accessible S3 bucket
-
-#### Restore Workflow
-1. **Validation**: Verifies backup version and required variables
-2. **Instance Restore** (when `BR_SKIP_INSTANCE=false`):
-   - Checks if DB2 instance exists and is healthy
-   - If not present or unhealthy: Creates new instance from backup configuration
-   - Restores secrets and configuration
-3. **Database Restore**:
-   - For disk: Validates DB2 version matches backup version
-   - Prepares restore scripts
-   - For S3: Configures S3 storage access
-   - For disk: Copies backup archive to DB2 pod
-   - Executes DB2 restore command
-   - Validates restore completion
-
-### Backup Metadata
-Each backup creates a `db2-backup-info.yaml` file containing:
+### Database backup Metadata (db2-backup-info.yaml)
 ```yaml
-source_db2_backup_version: "241225-143022"
-source_db2_backup_timestamp: "20241225143022"
+source_db2_backup_version: "251212-021316"
+source_db2_backup_timestamp: "20251212021316"
 source_db2_instance_name: "db2u-manage"
 source_db2_instance_version: "11.5.8.0-cn7"
 database: "BLUDB"
-backup_vendor: "s3"
-vendor_backup_path: "DB2REMOTE://S3DB2COS/my-bucket/backups-db2/241225-143022"
+backup_vendor: "disk"
+vendor_backup_path: "/mnt/backup/251212-021316/data"
+local_backup_path: "/tmp/masbr/backup-251212-021316-db2u/data/db2-BLUDB-backup-251212-021316.tar.gz"
 status: "SUCCESS"
 ```
 
-### Example: Database-Only Backup (Skip Instance) to S3
-```bash
-export DB2_ACTION=backup
-export MAS_INSTANCE_ID=inst1
-export MAS_BACKUP_DIR=/tmp/mas_backups
-export DB2_INSTANCE_NAME=db2u-manage
-export DB2_NAMESPACE=db2u
-export BR_SKIP_INSTANCE=true
-export BACKUP_VENDOR=s3
-export BACKUP_S3_ENDPOINT=https://s3.us-east.cloud-object-storage.appdomain.cloud
-export BACKUP_S3_BUCKET=mas-db2-backups
-export BACKUP_S3_ACCESS_KEY=<access_key>
-export BACKUP_S3_SECRET_KEY=<secret_key>
+### Important Considerations
 
-ROLE_NAME=db2 ansible-playbook ibm.mas_devops.run_role
-```
+**Version Compatibility:**
+- The restore operation requires the target Db2 version to match the backup version
+- Always verify version compatibility before attempting a restore
 
-### Example: Database-Only Backup (Skip Instance) to Disk
-```bash
-export DB2_ACTION=backup
-export MAS_INSTANCE_ID=inst1
-export MAS_BACKUP_DIR=/tmp/mas_backups
-export DB2_INSTANCE_NAME=db2u-manage
-export DB2_NAMESPACE=db2u
-export BR_SKIP_INSTANCE=true
-export BACKUP_VENDOR=disk
+**Backup Types:**
+If your DB2 instance has got circular logging enabled i.e `LOGARCHMETH1: OFF or/and LOGARCHMETH2: OFF`, you can only use `offline` backup type. 
+If your DB2 instance has got circular logging disabled, you can use either `online` or `offline` backup type. 
+If you are unsure, you can use default `online` backup type.
+- **Online Backup**: Database remains available during backup (recommended for production)
+- **Offline Backup**: Database is taken offline during backup (faster but requires downtime)
 
-ROLE_NAME=db2 ansible-playbook ibm.mas_devops.run_role
-```
+**Storage Options:**
+- **Disk Storage**: Backups stored locally and copied to backup directory
+- **S3 Storage**: Backups stored directly to S3-compatible object storage (no local storage required)
 
-### Example: Backup both Instance and Database to S3 (only database backup is uploaded to S3)
-```bash
-export DB2_ACTION=backup
-export MAS_INSTANCE_ID=inst1
-export MAS_BACKUP_DIR=/tmp/mas_backups 
-export DB2_INSTANCE_NAME=db2u-manage
-export DB2_NAMESPACE=db2u
-export BR_SKIP_INSTANCE=false
-export BACKUP_VENDOR=s3
-export BACKUP_S3_ENDPOINT=https://s3.us-east.cloud-object-storage.appdomain.cloud
-export BACKUP_S3_BUCKET=mas-db2-backups
-export BACKUP_S3_ACCESS_KEY=<access_key>
-export BACKUP_S3_SECRET_KEY=<secret_key>
-export DB2_BACKUP_TYPE=online
+**Security:**
+- Backup files contain sensitive data and credentials
+- Secure the backup directory with appropriate permissions
+- Consider encrypting backup files for long-term storage
 
-ROLE_NAME=db2 ansible-playbook ibm.mas_devops.run_role
-```
+**Performance:**
+- Online backups may impact Db2 performance during execution
+- Schedule backups during low-usage periods
+- Monitor Db2 resource utilization during backup
 
-### Example: Backup both Instance and Database to Disk
-```bash
-export DB2_ACTION=backup
-export MAS_INSTANCE_ID=inst1
-export MAS_BACKUP_DIR=/tmp/mas_backups
-export DB2_INSTANCE_NAME=db2u-manage
-export BR_SKIP_INSTANCE=false
-export DB2_NAMESPACE=db2u
-export BACKUP_VENDOR=disk
-export DB2_BACKUP_TYPE=online
 
-ROLE_NAME=db2 ansible-playbook ibm.mas_devops.run_role
-```
+Backup and Restore Troubleshooting
+-------------------------------------------------------------------------------
 
-### Example: Restore Database from S3
-```bash
-export DB2_ACTION=restore
-export MAS_INSTANCE_ID=inst1
-export MAS_BACKUP_DIR=/tmp/mas_backups
-export DB2_INSTANCE_NAME=db2u-manage
-export DB2_NAMESPACE=db2u
-export DB2_BACKUP_VERSION=241225-143022
-export BR_SKIP_INSTANCE=true
-export BACKUP_VENDOR=s3
-export BACKUP_S3_ENDPOINT=https://s3.us-east.cloud-object-storage.appdomain.cloud
-export BACKUP_S3_BUCKET=mas-db2-backups
-export BACKUP_S3_ACCESS_KEY=<access_key>
-export BACKUP_S3_SECRET_KEY=<secret_key>
-
-ROLE_NAME=db2 ansible-playbook ibm.mas_devops.run_role
-```
-
-### Example: Restore Database from Disk
-```bash
-export DB2_ACTION=restore
-export MAS_INSTANCE_ID=inst1
-export MAS_BACKUP_DIR=/tmp/mas_backups
-export DB2_INSTANCE_NAME=db2u-manage
-export BR_SKIP_INSTANCE=true
-export DB2_NAMESPACE=db2u
-export DB2_BACKUP_VERSION=241225-143022
-export BACKUP_VENDOR=disk
-
-ROLE_NAME=db2 ansible-playbook ibm.mas_devops.run_role
-```
-
-### Example: Restore Instance and database from Disk
-```bash
-export DB2_ACTION=restore
-export MAS_INSTANCE_ID=inst1
-export MAS_BACKUP_DIR=/tmp/mas_backups
-export DB2_INSTANCE_NAME=db2u-manage
-export BR_SKIP_INSTANCE=false
-export DB2_NAMESPACE=db2u
-export DB2_BACKUP_VERSION=241225-143022
-export BACKUP_VENDOR=disk
-
-ROLE_NAME=db2 ansible-playbook ibm.mas_devops.run_role
-```
-
-### Backup Types
-
-#### Online Backup
-- Database remains available during backup
-- Recommended for production environments
-- Requires archive logging to be enabled
-- Set `DB2_BACKUP_TYPE=online`
-
-#### Offline Backup
-- Database is taken offline during backup
-- Faster than online backup
-- Requires downtime
-- Set `DB2_BACKUP_TYPE=offline`
-
-### Important Notes
-
-1. **Version Compatibility**: The DB2 version of the restore target must match the backup source version
-2. **Storage Requirements**: Ensure sufficient storage space for backups (typically 1-2x database size)
-3. **S3 Credentials**: Keep S3 credentials secure and use appropriate IAM policies
-4. **Backup Retention**: Implement a backup retention policy to manage storage costs
-5. **Testing**: Regularly test restore procedures to ensure backup integrity
-6. **Archive Logging**: For online backups, ensure DB2 archive logging is properly configured
-7. **Network Connectivity**: For S3 backups, ensure DB2 pod has network access to S3 endpoint
-
-### Troubleshooting
+### Common Issues and Solutions
 
 #### Backup Failures
+
 - Check DB2 pod logs: `oc logs -n <namespace> <db2-pod-name> -c db2u`
 - Review backup script logs in the pod: `/tmp/db2_backup.log`
 - Verify S3 credentials and connectivity (for S3 backups)
-- Ensure sufficient storage space
+- Ensure sufficient storage space in the backup PVC(/mnt/backup)
+
+**Issue: Backup fails with "insufficient storage space"**
+```
+Error: SQL2062N  An error occurred while accessing media "backup_path"
+```
+**Solution:**
+- Check available disk space on the Db2 pod: `oc exec -n <namespace> <db2-pod> -- df -h`
+- Verify backup storage PVC has sufficient capacity
+- For S3 backups, ensure bucket has adequate space and proper permissions
+- Consider using compression or incremental backups to reduce storage requirements
+
+**Issue: Backup fails with "database is in use"**
+```
+Error: SQL1035N  The database is currently in use. SQLSTATE=57019
+```
+**Solution:**
+- For offline backups, ensure all applications are disconnected
+- Use online backup instead: `export DB2_BACKUP_TYPE=online`
+- Check active connections: `oc exec -n <namespace> <db2-pod> -- su - db2inst1 -c "db2 list applications"`
+- Force disconnect if necessary: `db2 force applications all`
+
+**Issue: S3 backup fails with authentication errors**
+```
+Error: Unable to authenticate with S3 endpoint
+```
+**Solution:**
+- Verify S3 credentials are correct: `BACKUP_S3_ACCESS_KEY` and `BACKUP_S3_SECRET_KEY`
+- Test S3 connectivity from the Db2 pod
+- Ensure S3 endpoint URL is correct and accessible
+- Check firewall rules and network policies allow S3 access
+- Verify bucket exists and credentials have write permissions
+
+**Issue: Backup script execution timeout**
+```
+Error: Backup operation timed out after 3600 seconds
+```
+**Solution:**
+- Large databases may require extended timeout periods
+- Monitor backup progress: `oc logs -n <namespace> <db2-pod> -f`
+- Check Db2 performance and resource utilization
+- Consider scheduling backups during low-usage periods
+- For very large databases, use incremental backups
 
 #### Restore Failures
+
 - Verify backup version exists and is complete
 - Check DB2 version compatibility
 - Review restore script logs: `/tmp/db2_restore_disk.log` or `/tmp/db2_restore_s3.log`
 - Ensure DB2 instance is running and healthy before database restore
 - For S3 restores, verify S3 connectivity and credentials
 
+**Issue: Restore fails with version mismatch**
+```
+Error: DB2 version mismatch. Backup version: 11.5.8.0, Target version: 11.5.9.0
+```
+**Solution:**
+- Ensure target Db2 version matches backup version
+- Check backup metadata: `cat <backup_dir>/data/db2-backup-info.yaml`
+- Install matching Db2 version: `export DB2_VERSION=11.5.8.0-cn7`
+- Alternatively, upgrade backup to target version (requires manual intervention)
+
+**Issue: Restore fails with "database already exists"**
+```
+Error: SQL1005N  The database alias "BLUDB" already exists
+```
+**Solution:**
+- Drop existing database before restore:
+  ```bash
+  oc exec -n <namespace> <db2-pod> -- su - db2inst1 -c "db2 drop database BLUDB"
+  ```
+- Or use a different database name during restore
+- Verify database state: `db2 list database directory`
+
+**Issue: Restore fails with corrupted backup files**
+```
+Error: SQL2025N  The database cannot be restored from backup image
+```
+**Solution:**
+- Verify backup file integrity:
+  ```bash
+  tar -tzf <backup-file>.tar.gz > /dev/null
+  ```
+- Check backup metadata for status: `status: SUCCESS`
+- Re-run backup if corruption detected
+- For S3 restores, verify file was completely uploaded
+- Check storage system for hardware errors
+
+**Issue: Restore fails with insufficient permissions**
+```
+Error: SQL0551N  User does not have required authorization
+```
+**Solution:**
+- Verify db2inst1 user has proper permissions
+- Check pod security context and service account
+- Ensure restore scripts have execute permissions
+- Review OpenShift security policies (SCC)
+
+**Issue: S3 restore fails to download backup files**
+```
+Error: Failed to download backup from S3 bucket
+```
+**Solution:**
+- Verify S3 credentials have read permissions
+- Check S3 bucket name and path are correct
+- Test S3 connectivity: `aws s3 ls s3://<bucket-name>/`
+- Ensure network policies allow outbound S3 access
+- Verify backup files exist in S3 bucket
+
+#### Performance Issues
+
+**Issue: Backup taking too long**
+**Solution:**
+- Use online backups to avoid database downtime
+- Schedule backups during low-usage periods
+- Increase Db2 pod resources (CPU/memory)
+- Use compression to reduce backup size
+- Consider incremental backups for large databases
+- Check network bandwidth for S3 backups
+
+**Issue: Restore taking too long**
+**Solution:**
+- Ensure adequate resources allocated to Db2 pod
+- Monitor pod resource utilization during restore
+- Check storage performance (IOPS, throughput)
+- For S3 restores, verify network bandwidth
+- Consider using faster storage classes
+
+#### Validation and Verification
+
+**Issue: How to verify backup completed successfully**
+**Solution:**
+1. Check backup metadata file:
+   ```bash
+   cat <backup_dir>/data/db2-backup-info.yaml
+   ```
+   Verify `status: SUCCESS`
+
+2. Verify backup file exists and has reasonable size:
+   ```bash
+   ls -lh <backup_dir>/data/db2-*.tar.gz
+   ```
+
+3. For S3 backups, verify files in bucket:
+   ```bash
+   aws s3 ls s3://<bucket-name>/<backup-version>/
+   ```
+
+4. Check Db2 backup history:
+   ```bash
+   oc exec -n <namespace> <db2-pod> -- su - db2inst1 -c "db2 list history backup all for BLUDB"
+   ```
+
+**Issue: How to verify restore completed successfully**
+**Solution:**
+1. Check database is online:
+   ```bash
+   oc exec -n <namespace> <db2-pod> -- su - db2inst1 -c "db2 connect to BLUDB"
+   ```
+
+2. Verify table counts and data integrity:
+   ```bash
+   oc exec -n <namespace> <db2-pod> -- su - db2inst1 -c "db2 'select count(*) from <table_name>'"
+   ```
+
+3. Check database configuration:
+   ```bash
+   oc exec -n <namespace> <db2-pod> -- su - db2inst1 -c "db2 get db cfg for BLUDB"
+   ```
+
+4. Review restore logs for errors:
+   ```bash
+   oc logs -n <namespace> <db2-pod> | grep -i error
+   ```
+
+### Diagnostic Commands
+
+**Check Db2 pod status:**
+```bash
+oc get pods -n <namespace> | grep db2
+oc describe pod <db2-pod> -n <namespace>
+```
+
+**Check Db2 instance status:**
+```bash
+oc exec -n <namespace> <db2-pod> -- su - db2inst1 -c "db2pd -"
+```
+
+**Check database status:**
+```bash
+oc exec -n <namespace> <db2-pod> -- su - db2inst1 -c "db2 list active databases"
+```
+
+**Check backup storage:**
+```bash
+oc get pvc -n <namespace>
+oc exec -n <namespace> <db2-pod> -- df -h /mnt/backup
+```
+
+**View Db2 diagnostic logs:**
+```bash
+oc exec -n <namespace> <db2-pod> -- tail -f /var/log/db2u.log
+oc exec -n <namespace> <db2-pod> -- cat /database/config/db2inst1/sqllib/db2dump/db2diag.log
+```
+
+**Check S3 configuration (if using S3):**
+```bash
+oc exec -n <namespace> <db2-pod> -- su - db2inst1 -c "db2 list storage access"
+```
+
+### Getting Help
+
+If you encounter issues not covered in this troubleshooting guide:
+
+1. **Check Db2 logs**: Review `/var/log/db2u.log` and `db2diag.log` for detailed error messages
+2. **Review backup metadata**: Check `db2-backup-info.yaml` for backup details and status
+3. **Verify prerequisites**: Ensure all required variables are set correctly
+4. **Test connectivity**: Verify network access to storage (S3 or PVC)
+5. **Check resources**: Ensure adequate CPU, memory, and storage are available
+6. **Open an issue**: Report problems at the project repository with logs and configuration details
 
 License
 -------------------------------------------------------------------------------
