@@ -11,6 +11,7 @@ from ansible_collections.ibm.mas_devops.plugins.module_utils.backuprestore impor
 
 import yaml
 import os
+import base64
 
 from mas.devops.ocp import createNamespace, apply_resource
 
@@ -82,8 +83,12 @@ class ActionModule(ActionBase):
                 backup_db2u_cr = yaml.safe_load(cr_file)
             display.v("- Successfully read DB2 backup CR file")
 
+            db2_info = {}
+
             db2_instance_name = backup_db2u_cr['metadata']['name']
             db2_namespace = backup_db2u_cr['metadata']['namespace']
+            db2_info['db2_instance_name'] = db2_instance_name
+            db2_info['db2_namespace'] = db2_namespace
 
             # =======================================================
             # 1. Create DB2 namespace if not exists
@@ -105,6 +110,29 @@ class ActionModule(ActionBase):
                 with open(os.path.join(db2_secrets_path, secret_file), 'r') as f:
                     secret_yaml = f.read()
                     apply_resource(dynClient, secret_yaml, db2_namespace)
+
+            # Get instance password to use for post-install restoration
+            inst_pwd_filepath = os.path.join(db2_secrets_path, f"c-{db2_instance_name}-instancepassword.yaml")
+            if os.path.exists(inst_pwd_filepath):
+                with open(inst_pwd_filepath, 'r') as instpwd_file:
+                    instpwd_data = yaml.safe_load(instpwd_file)
+                    if 'data' in instpwd_data and 'password' in instpwd_data['data']:
+                        pwd_encoded = instpwd_data['data']['password'] # base64 encoded
+                        db2_info['db2_instance_password'] = base64.b64decode(pwd_encoded).decode('utf-8')
+                    else:
+                        display.v(f"Unable to find instance password in {inst_pwd_filepath}")
+            else:
+                display.v(f"Unable to find instance password file {inst_pwd_filepath}")
+            
+            # Get LDAP user info if present
+            ldap_info_file_path = os.path.join(db2_secrets_path, "ldapuser-NOT_SECRET.yaml")
+            if os.path.exists(ldap_info_file_path):
+                with open(ldap_info_file_path, 'r') as ldap_info_file:
+                    ldap_info = yaml.safe_load(ldap_info_file)
+                    db2_info['db2_ldap_username'] = base64.b64decode(ldap_info['db2_ldap_username']).decode('utf-8')
+                    db2_info['db2_ldap_password'] = base64.b64decode(ldap_info['db2_ldap_password']).decode('utf-8')
+                display.v(f"- Successfully read LDAP user info from {ldap_info_file_path}")
+
 
             # =======================================================
             # 3. Restore DB2 Issuer resources from backup
@@ -132,9 +160,6 @@ class ActionModule(ActionBase):
             # 5. Gather info from backup files to recreate new Db2u instance
             # =======================================================
 
-            db2_info = {}
-            db2_info['db2_instance_name'] = db2_instance_name
-            db2_info['db2_namespace'] = db2_namespace
             db2_info['db2_type'] = backup_db2u_cr['spec'].get('environment', {}).get('dbType', 'db2wh')
             # Get DB name from backup CR
             db2_info['db2_database_name'] = backup_db2u_cr['spec'].get('environment', {}).get('database', {}).get('name', 'BLUDB')
@@ -160,15 +185,6 @@ class ActionModule(ActionBase):
             # Get number of db2 pods
             db2_info['db2_num_pods'] = backup_db2u_cr['spec']['size']
 
-            # Get LDAP user info if present
-            ldap_info_file_path = os.path.join(db2_backup_resource_path, "ldapuser-NOT_SECRET.yaml")
-            if os.path.exists(ldap_info_file_path):
-                with open(ldap_info_file_path, 'r') as ldap_info_file:
-                    ldap_info = yaml.safe_load(ldap_info_file)
-                    db2_info['db2_ldap_username'] = ldap_info['db2_ldap_username']
-                    db2_info['db2_ldap_password'] = ldap_info['db2_ldap_password']
-                display.v(f"- Successfully read LDAP user info from {ldap_info_file_path}")
-        
             # Get DB2 backup info file
             db2_info_file_path = os.path.join(db2_backup_resource_path, "db2-backup-info.yaml")
             if os.path.exists(db2_info_file_path):

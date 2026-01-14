@@ -55,7 +55,7 @@ class ActionModule(ActionBase):
             pods = podAPI.get(namespace=db2_namespace, label_selector=label_selector)
             if pods.items:
                 pod_name = pods.items[0]["metadata"]["name"]
-                display.v(f"Found Pod '{pod_name}' in namespace '{db2_namespace}' with labels '{label_selector}'")
+                display.v(f"- Found Pod '{pod_name}' in namespace '{db2_namespace}' with labels '{label_selector}'")
                 return dict(
                     failed=False,
                     success=True,
@@ -64,8 +64,8 @@ class ActionModule(ActionBase):
                     msg="Db2u Pod found"
                 )
             else:
-                display.v(f"No Pods found in namespace '{db2_namespace}' with labels '{label_selector}'")
+                display.v(f"- No Pods found in namespace '{db2_namespace}' with labels '{label_selector}'")
         except NotFoundError:
-            display.v(f"No Pods found in namespace '{db2_namespace}' with labels '{label_selector}'")
+            display.v(f"- No Pods found in namespace '{db2_namespace}' with labels '{label_selector}'")
         return dict(failed=True, success=False, pod_name="", db2version="", msg="Db2u Pod not found")
 
