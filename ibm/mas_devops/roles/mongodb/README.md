@@ -228,9 +228,9 @@ Backup and Restore Operations (authored by IBM Bob)
 
 ### Backup Process
 
-The MongoDB backup operation creates a complete backup of your MongoDB instance:
+The MongoDB backup operation creates a backup of your MongoDB instance and databases associated with your MAS instance:
 
-1. **Database Backup**: Uses `mongodump` to export all databases, collections, and indexes
+1. **Database Backup**: Uses `mongodump` to export databases with filter `"^(mas|iot)(_|-){{ mas_instance_id }}(_|-)(?!.*monitor$)"` to match databases like `mas-<instance-id>-<app-id>` or `iot-<instance-id>-<app-id>`.
 2. **Instance Resources** (optional): Backs up Kubernetes resources including:
    - MongoDB Custom Resource (CR)
    - Secrets (TLS certificates, credentials)
@@ -256,12 +256,14 @@ The MongoDB backup operation creates a complete backup of your MongoDB instance:
 **Database Restore (`restore_database` action):**
 - Restores database data to an existing MongoDB instance
 - Requires MongoDB version to match the backup version
-- Uses `mongorestore` to import all databases
+- Uses `mongorestore` to import required databases
 
 **Install from Backup (`install` action):**
-- Deploys a new MongoDB instance
-- Restores instance resources (secrets, certificates)
-- Installs MongoDB with configuration from backup
+- Validates backup files
+- Creates namespace and restores resources to namespace
+- Gets MongoDbCE instance details from backup data
+- Installs MongoDb with configuration from backup
+- Waits for instance to be ready
 - Restores database data after instance is ready
 
 ### Important Considerations
@@ -377,7 +379,7 @@ Restore MongoDB databases from a backup to an existing MongoDB instance.
 ```
 
 ### Install from Backup (CE Operator)
-Deploy a new MongoDB instance and restore data from a backup. This is useful for disaster recovery or migrating MongoDB to a new cluster.
+Deploy a new MongoDB instance using configuration from a backup and restore data from a backup. This is useful for disaster recovery or migrating MongoDB to a new cluster.
 
 ```yaml
 - hosts: localhost
