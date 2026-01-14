@@ -1,12 +1,182 @@
 ---
-# Check mas core backup/restore required variables
+# 1. Check mas core backup required variables
 # -----------------------------------------------------------------------------
 - name: "Fail if mas_instance_id is not provided"
   assert:
     that: mas_instance_id is defined and mas_instance_id != ""
     fail_msg: "mas_instance_id is required"
 
+- name: "Fail if mas_backup_dir is not provided"
+  assert:
+    that: mas_backup_dir is defined and mas_backup_dir != ""
+    fail_msg: "mas_backup_dir is required"
+
+- name: "Check if SUITE_BACKUP_VERSION is provided, if not set to default 'YYMMDD-HHMMSS' format"
+  set_fact:
+    suite_backup_version: "{{ lookup('pipe', 'date +%y%m%d-%H%M%S') }}"
+  when: suite_backup_version is not defined or suite_backup_version == "" or suite_backup_version == "None"
+
 - name: "Set fact: mas core namespace name"
   set_fact:
     mas_core_namespace: "mas-{{ mas_instance_id }}-core"
 
+- name: "Set fact: mas suite backup base directory path"
+  set_fact:
+    suite_backup_path: "{{ mas_backup_dir }}/backup-{{ suite_backup_version }}-suite"
+
+# 2. Determine version of cert-manager in use on the cluster
+# -----------------------------------------------------------------------------
+- name: Detect Certificate Manager installation
+  include_tasks: "{{ role_path }}/../../common_tasks/detect_cert_manager.yml"
+
+# 3. Determine if a public clusterissuer is being used
+# -----------------------------------------------------------------------------
+- name: Detect MAS Public Cluster Issuer
+  ibm.mas_devops.get_mas_cluster_issuer:
+    instance_id: "{{ mas_instance_id }}"
+  register: mas_cluster_issuer
+
+- name: "Display detected MAS cluster issuer"
+  debug:
+    msg: "Detected MAS cluster issuer: {{ mas_cluster_issuer.issuer_name }}"
+  when: mas_cluster_issuer.success
+
+- name: "Fail if MAS cluster issuer detection failed"
+  fail:
+    msg: "Failed to detect MAS cluster issuer"
+  when: mas_cluster_issuer.failed
+
+# 4. Set the backup_resources we want to backup. Note that if the resource doesn't
+#    exist, the backup will still succeed. If a resource contains `secretName` key
+#    then the secret will be backed up as well.
+# -----------------------------------------------------------------------------
+- name: "Set fact: mas suite backup resources"
+  set_fact:
+    suite_backup_resources:
+      - resources:
+          - kind: ClusterIssuer
+            api_version: cert-manager.io/v1
+            name: "{{ mas_cluster_issuer.issuer_name }}"
+          - kind: ClusterIssuer
+            api_version: cert-manager.io/v1
+            name: "mas-{{ mas_instance_id }}-core-internal-issuer"
+          - kind: ClusterIssuer
+            api_version: cert-manager.io/v1
+            name: "mas-{{ mas_instance_id }}-ca"
+      - namespace: "{{ cert_manager_cluster_resource_namespace }}"
+        resources:
+          - kind: Issuer
+            api_version: cert-manager.io/v1
+            name: "mas-{{ mas_instance_id }}-core-internal-ca-issuer"
+          - kind: Issuer
+            api_version: cert-manager.io/v1
+            name: "mas-{{ mas_instance_id }}-core-public-ca-issuer"
+          - kind: Certificate
+            api_version: cert-manager.io/v1
+            name: "{{ mas_instance_id }}-cert-internal-ca"
+          - kind: Certificate
+            api_version: cert-manager.io/v1
+            name: "{{ mas_instance_id }}-cert-public-ca"
+      - namespace: "{{ mas_core_namespace }}"
+        resources:
+          # subscription
+          - kind: Subscription
+            api_version: operators.coreos.com/v1alpha1
+            name: ibm-mas-operator
+          - kind: OperatorGroup
+            api_version: operators.coreos.com/v1
+            name: ibm-mas-operator-group
+          # secrets
+          - kind: Secret
+            api_version: v1
+            name: ibm-entitlement
+          - kind: Secret
+            api_version: v1
+            name: "{{ mas_instance_id }}-credentials-superuser"
+          # public cert in case of manual managed certs
+          - kind: Secret
+            api_version: v1
+            name: "{{ mas_instance_id }}-cert-public"
+          # certificates
+          - kind: Certificate
+            api_version: cert-manager.io/v1
+            labels:
+              - "mas.ibm.com/instanceId={{ mas_instance_id }}"
+          # addons.mas.ibm.com
+          - kind: MVIEdge
+            api_version: addons.mas.ibm.com/v1
+          - kind: ReplicaDB
+            api_version: addons.mas.ibm.com/v1
+          - kind: GenericAddon
+            api_version: addons.mas.ibm.com/v1
+          # config.mas.ibm.com
+          - kind: AppCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: BasCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: IDPCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: JdbcCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: KafkaCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: MongoCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: ObjectStorageCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: PushNotificationCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: ScimCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: SlsCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: SmtpCfg
+            api_version: config.mas.ibm.com/v1
+          - kind: WatsonStudioCfg
+            api_version: config.mas.ibm.com/v1
+          # core.mas.ibm.com
+          - kind: Suite
+            api_version: core.mas.ibm.com/v1
+          - kind: Workspace
+            api_version: core.mas.ibm.com/v1
+          # internal.mas.ibm.com
+          - kind: CoreIDP
+            api_version: internal.mas.ibm.com/v1
+
+# 5. Call the backup_resources plugin to execute the backup to the path provided
+# -----------------------------------------------------------------------------
+- name: "Backup MAS Suite resources (referenced secrets are auto-discovered)"
+  ibm.mas_devops.backup_resource:
+    backup_resources: "{{ suite_backup_resources }}"
+    backup_path: "{{ suite_backup_path }}"
+  register: backup_result
+
+# 6. Show the results
+# -----------------------------------------------------------------------------
+- name: "Display backup results"
+  debug:
+    msg:
+      - "Backup completed{{ ' with failures' if backup_result.failed_count > 0 else ' successfully' }}"
+      - "Total resources backed up: {{ backup_result.backed_up_count }}"
+      - "Total resources failed: {{ backup_result.failed_count }}"
+      - "Resources not found: {{ backup_result.not_found_count }}"
+      - "Secrets auto-discovered: {{ backup_result.discovered_secrets_count }}"
+      - "Backup location: {{ suite_backup_path }}"
+
+# 7. Fail task if any errors occurred.
+# -----------------------------------------------------------------------------
+- name: "Display failed resources"
+  debug:
+    msg:
+      - "Failed resources:"
+      - "{{ backup_result.failed_resources | to_nice_yaml }}"
+  when: backup_result.failed_count > 0
+
+- name: "Fail if backup had errors"
+  fail:
+    msg: |
+      Backup failed for {{ backup_result.failed_count }} resource(s):
+      {% for resource in backup_result.failed_resources %}
+      - {{ resource.description }} in {{ resource.scope }}
+      {% endfor %}
+  when: backup_result.failed_count > 0
