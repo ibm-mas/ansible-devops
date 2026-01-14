@@ -78,23 +78,25 @@ class ActionModule(ActionBase):
         total_not_found = 0
         all_discovered_secrets = set()
         secrets_by_namespace = {}  # Track secrets per namespace
+        failed_resources = []  # Track failed resources with details
 
         # Process each namespace and its resources
         for namespace_config in backup_resources:
             namespace = namespace_config.get('namespace')
             resources = namespace_config.get('resources', [])
             
-            if not namespace:
-                display.v(f"Warning: Skipping namespace config without namespace defined")
-                continue
+            # Namespace can be blank for cluster-scoped resources
+            if namespace:
+                display.v(f"Processing namespace: {namespace}")
+            else:
+                display.v(f"Processing cluster-scoped resources")
             
-            display.v(f"Processing namespace: {namespace}")
-            
-            # Process each resource in the namespace
+            # Process each resource in the namespace (or cluster-scoped)
             for resource_def in resources:
                 kind = resource_def.get('kind')
                 api_version = resource_def.get('api_version')
                 name = resource_def.get('name')
+                labels = resource_def.get('labels', [])
                 
                 if not kind:
                     display.v(f"Warning: Skipping resource without kind defined")
@@ -103,20 +105,32 @@ class ActionModule(ActionBase):
                 if not api_version:
                     raise AnsibleError(f"Error: api_version is required for resource kind '{kind}'")
                 
-                # Create backup directory for this resource kind
-                resource_backup_path = f"{backup_path}/{namespace}/{kind.lower()}"
-                createBackupDirectories([resource_backup_path])
-                
                 # Backup resources (either specific or all of that kind)
+                # Pass namespace, name, and labels as named optional arguments
                 backed_up, not_found, failed, discovered_secrets = backupResources(
-                    dynClient, namespace, kind, api_version, resource_backup_path, name
+                    dynClient, kind, api_version, backup_path,
+                    namespace=namespace, name=name, labels=labels
                 )
                 total_backed_up += backed_up
                 total_not_found += not_found
                 total_failed += failed
                 
-                # Track discovered secrets by namespace
-                if discovered_secrets:
+                # Track failed resources with details
+                if failed > 0:
+                    scope = namespace if namespace else 'cluster-scoped'
+                    resource_desc = f"{kind}/{name}" if name else f"{kind} (all)"
+                    if labels:
+                        resource_desc += f" with labels {labels}"
+                    failed_resources.append({
+                        'scope': scope,
+                        'kind': kind,
+                        'name': name if name else 'all',
+                        'api_version': api_version,
+                        'description': resource_desc
+                    })
+                
+                # Track discovered secrets by namespace (only if namespace is provided)
+                if discovered_secrets and namespace:
                     if namespace not in secrets_by_namespace:
                         secrets_by_namespace[namespace] = set()
                     secrets_by_namespace[namespace].update(discovered_secrets)
@@ -128,32 +142,46 @@ class ActionModule(ActionBase):
         for ns, secret_names in secrets_by_namespace.items():
             if secret_names:
                 display.v(f"Backing up {len(secret_names)} discovered secret(s) in namespace '{ns}': {', '.join(sorted(secret_names))}")
-                secret_backup_path = f"{backup_path}/{ns}/secret"
-                createBackupDirectories([secret_backup_path])
-                
+
                 for secret_name in sorted(secret_names):
                     display.v(f"Backing up discovered secret: {secret_name}")
                     backed_up, not_found, failed, _ = backupResources(
-                        dynClient, ns, 'Secret', 'v1', secret_backup_path, secret_name
+                        dynClient, 'Secret', 'v1', backup_path,
+                        namespace=ns, name=secret_name
                     )
                     total_backed_up += backed_up
                     total_not_found += not_found
                     total_failed += failed
+                    
+                    # Track failed secret backups
+                    if failed > 0:
+                        failed_resources.append({
+                            'scope': ns,
+                            'kind': 'Secret',
+                            'name': secret_name,
+                            'api_version': 'v1',
+                            'description': f"Secret/{secret_name} (auto-discovered)"
+                        })
+                    
                     if not_found:
                         display.v(f"Warning: Referenced secret '{secret_name}' not found in namespace '{ns}'")
 
         display.v(f"Backup complete for all: {total_backed_up} resources backed up, {total_not_found} not found, {total_failed} failed")
 
+        # Determine if the backup was successful
+        has_failures = total_failed > 0
+        
         return dict(
-            message=f"Successfully backed up {total_backed_up} MAS Suite resources",
-            failed=False,
+            message=f"Backed up {total_backed_up} MAS Suite resources" + (f" with {total_failed} failures" if has_failures else ""),
+            failed=has_failures,
             changed=False,
-            success=True,
+            success=not has_failures,
             backed_up_count=total_backed_up,
             not_found_count=total_not_found,
             failed_count=total_failed,
             discovered_secrets_count=len(all_discovered_secrets),
-            discovered_secrets=sorted(list(all_discovered_secrets))
+            discovered_secrets=sorted(list(all_discovered_secrets)),
+            failed_resources=failed_resources
         )
 
 # Made with Bob
