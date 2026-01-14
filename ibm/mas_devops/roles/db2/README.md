@@ -439,6 +439,9 @@ The backup version timestamp to restore from. This is automatically generated du
 
 ### backup_type
 Type of backup to perform. Online backups keep the database available during backup, while offline backups require database downtime but are faster.
+If your DB2 instance has got circular logging enabled i.e `LOGARCHMETH1: OFF or/and LOGARCHMETH2: OFF`, you can only use `offline` backup type. 
+If your DB2 instance has got circular logging disabled, you can use either `online` or `offline` backup type. 
+If you are unsure, you can use default `online` backup type.
 
 - Optional
 - Environment Variable: `DB2_BACKUP_TYPE`
@@ -447,6 +450,7 @@ Type of backup to perform. Online backups keep the database available during bac
 
 ### backup_vendor
 Storage vendor for backup files. Use `disk` for local storage or `s3` for S3-compatible object storage.
+*Note* : Only database backup is stored in S3, instance backup is always stored in local disk.
 
 - Optional
 - Environment Variable: `BACKUP_VENDOR`
@@ -529,14 +533,14 @@ Example Usage - Backup and Restore
     backup_type: online
     backup_vendor: s3
     backup_s3_endpoint: https://s3.us-east.cloud-object-storage.appdomain.cloud
-    backup_s3_bucket: mas-db2-backups
+    backup_s3_bucket: mas-db2-backups # your bucket name
     backup_s3_access_key: "{{ lookup('env', 'S3_ACCESS_KEY') }}"
     backup_s3_secret_key: "{{ lookup('env', 'S3_SECRET_KEY') }}"
   roles:
     - ibm.mas_devops.db2
 ```
 
-### Backup with Instance Resources
+### Backup with Instance Resources and Database to disk
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
@@ -579,14 +583,14 @@ Example Usage - Backup and Restore
     db2_instance_name: db2u-manage
     backup_vendor: s3
     backup_s3_endpoint: https://s3.us-east.cloud-object-storage.appdomain.cloud
-    backup_s3_bucket: mas-db2-backups
+    backup_s3_bucket: mas-db2-backups # your bucket name
     backup_s3_access_key: "{{ lookup('env', 'S3_ACCESS_KEY') }}"
     backup_s3_secret_key: "{{ lookup('env', 'S3_SECRET_KEY') }}"
   roles:
     - ibm.mas_devops.db2
 ```
 
-### Install Db2 from Backup
+### Install Db2 from Backup (Instance + Database)
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
@@ -595,47 +599,30 @@ Example Usage - Backup and Restore
     mas_instance_id: masinst1
     db2_backup_version: 251212-021316
     mas_backup_dir: /tmp/masbr
-    db2_meta_storage_class: ibmc-file-gold
-    db2_data_storage_class: ibmc-block-gold
     backup_vendor: disk
   roles:
     - ibm.mas_devops.db2
 ```
 
-### Using Environment Variables
-```bash
-# Backup to disk
-export MAS_INSTANCE_ID=masinst1
-export MAS_BACKUP_DIR=/tmp/masbr
-export DB2_ACTION=backup
-export DB2_INSTANCE_NAME=db2u-manage
-export DB2_BACKUP_TYPE=online
-export BACKUP_VENDOR=disk
-ansible-playbook ibm.mas_devops.br_db2
-
-# Backup to S3
-export MAS_INSTANCE_ID=masinst1
-export MAS_BACKUP_DIR=/tmp/masbr
-export DB2_ACTION=backup
-export DB2_INSTANCE_NAME=db2u-manage
-export BACKUP_VENDOR=s3
-export BACKUP_S3_ENDPOINT=https://s3.us-east.cloud-object-storage.appdomain.cloud
-export BACKUP_S3_BUCKET=mas-db2-backups
-export BACKUP_S3_ACCESS_KEY=your-access-key
-export BACKUP_S3_SECRET_KEY=your-secret-key
-ansible-playbook ibm.mas_devops.br_db2
-
-# Restore from disk
-export MAS_INSTANCE_ID=masinst1
-export MAS_BACKUP_DIR=/tmp/masbr
-export DB2_ACTION=restore_database
-export DB2_BACKUP_VERSION=251212-021316
-export DB2_INSTANCE_NAME=db2u-manage
-export BACKUP_VENDOR=disk
-ansible-playbook ibm.mas_devops.br_db2
+### Install Db2 from Backup (Instance + Database(S3))
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    db2_action: install
+    mas_instance_id: masinst1
+    db2_backup_version: 251212-021316
+    mas_backup_dir: /tmp/masbr
+    backup_vendor: s3
+    backup_s3_endpoint: https://s3.us-east.cloud-object-storage.appdomain.cloud
+    backup_s3_bucket: mas-db2-backups # your bucket name
+    backup_s3_access_key: "{{ lookup('env', 'S3_ACCESS_KEY') }}"
+    backup_s3_secret_key: "{{ lookup('env', 'S3_SECRET_KEY') }}"
+  roles:
+    - ibm.mas_devops.db2
 ```
 
-Backup and Restore Details (Authored by IBM Bob)
+Backup and Restore Details
 -------------------------------------------------------------------------------
 
 ### Backup Process
@@ -646,13 +633,22 @@ Backup and Restore Details (Authored by IBM Bob)
 5. Compresses and transfers backup files (for disk storage)
 6. Creates metadata file (`db2-backup-info.yaml`) with backup details
 
-### Restore Process
+### Database Restore Process
 1. Validates backup files and Db2 version compatibility
 2. Prepares restore scripts and copies them to the Db2 pod
 3. Configures S3 storage access (if restoring from S3)
 4. Copies backup files to the Db2 pod (for disk restores)
 5. Executes Db2 restore command
 6. Verifies restore completion
+
+### Install From Backup Process
+1. Validates backup files
+2. Creates namespace and copies resources to namespace
+3. Gets Db2 instance details from backup metadata
+4. Installs Db2 instance using the backup details
+5. Waits for Db2 instance to be ready
+6. Performs post deployment actions like restoring instance password
+7. Performs Database restore process as mentioned above
 
 ### Backup Directory Structure (Disk)
 ```
@@ -662,13 +658,13 @@ Backup and Restore Details (Authored by IBM Bob)
     │   ├── db2-BLUDB-backup-<YYMMDD-HHMMSS>.tar.gz
     │   └── db2-backup-info.yaml
     └── resources/
-        ├── db2ucluster.yaml
+        ├── cr.yaml
         ├── secrets/
         ├── certificates/
-        └── configmaps/
+        └── issuers/
 ```
 
-### Backup Metadata (db2-backup-info.yaml)
+### Database backup Metadata (db2-backup-info.yaml)
 ```yaml
 source_db2_backup_version: "251212-021316"
 source_db2_backup_timestamp: "20251212021316"
@@ -688,6 +684,9 @@ status: "SUCCESS"
 - Always verify version compatibility before attempting a restore
 
 **Backup Types:**
+If your DB2 instance has got circular logging enabled i.e `LOGARCHMETH1: OFF or/and LOGARCHMETH2: OFF`, you can only use `offline` backup type. 
+If your DB2 instance has got circular logging disabled, you can use either `online` or `offline` backup type. 
+If you are unsure, you can use default `online` backup type.
 - **Online Backup**: Database remains available during backup (recommended for production)
 - **Offline Backup**: Database is taken offline during backup (faster but requires downtime)
 
