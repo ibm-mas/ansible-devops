@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)-20s %(leveln
 
 display = Display()
 
-def checkBackupDirectoryExists(db2_backup_path: str, db2_backup_version: str):
+def checkBackupDirectoryExists(db2_backup_path: str):
 
     if not os.path.exists(db2_backup_path):
         raise AnsibleError(f"DB2 Backup path {db2_backup_path} does not exist.")
@@ -71,7 +71,7 @@ class ActionModule(ActionBase):
 
             # Check if backup directory exists
             db2_backup_path = os.path.join(mas_backup_dir, f"backup-{db2_backup_version}-db2u")
-            checkBackupDirectoryExists(db2_backup_path, db2_backup_version)
+            checkBackupDirectoryExists(db2_backup_path)
             display.v(f"- Db2 backup path {db2_backup_path} exists. Proceeding with restore...")
 
             db2_backup_resource_path = os.path.join(db2_backup_path, "resources")
