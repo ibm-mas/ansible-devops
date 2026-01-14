@@ -1,0 +1,79 @@
+
+- name: "Create IBM Entitlement Key in namespace {{ tenant_cr.metadata.name }}"
+  ibm.mas_devops.update_ibm_entitlement:
+    namespace: "{{ tenant_cr.metadata.name }}"
+    icr_username: "{{ mas_entitlement_username }}"
+    icr_password: "{{ mas_entitlement_key }}"
+    artifactory_username: "{{ artifactory_username }}"
+    artifactory_password: "{{ artifactory_token }}"
+    namespace_kyverno_label: "audit"
+
+- name: "Create ibm-aiservice-tenant subscription in namespace {{ tenant_cr.metadata.name }}"
+  ibm.mas_devops.apply_subscription:
+    namespace: "{{ tenant_cr.metadata.name }}"
+    package_name: ibm-aiservice-tenant
+    package_channel: "{{ aiservice_channel }}"
+    catalog_source: "{{ mas_catalog_source }}"
+  register: subscription
+
+- name: Find SLS secret
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ tenant_cr.metadata.name }}----sls-secret"
+    namespace:  "{{ aiservice_namespace }}"
+  register: sls_secret
+
+# TODO copy other tenant secrets when it is safe to do so, that is, when
+# API broker and model code is updated.
+
+- name: Set target resources
+  ansible.builtin.set_fact:
+    sls_secret: "{{ sls_secret.resources[0] }}"
+
+- name: "Copy AIServiceTenant CR to namespace {{ tenant_cr.metadata.name }}"
+  include_tasks: tenant/copy_resource.yml
+  vars:
+    resource_description: AIServiceTenant CR
+    resource: "{{ tenant_cr }}"
+    target_namespace: "{{ tenant_cr.metadata.name }}"
+
+- name: "Copy SLS secret to namespace {{ tenant_cr.metadata.name }}"
+  include_tasks: tenant/copy_resource.yml
+  vars:
+    resource_description: SLS secret
+    resource: "{{ sls_secret }}"
+    target_namespace: "{{ tenant_cr.metadata.name }}"
+
+# Wait until the operator's special reconciliation configmap is available which
+# tells us that the operator is now running
+- name: "Wait until operator reconcilation configmap is available"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: aiservice-reconcile
+    namespace: "{{ tenant_cr.metadata.name }}"
+    kind: ConfigMap
+  register: configmap_result
+  retries: "{{ aiservice_install_num_retries }}"
+  delay: "{{ aiservice_install_wait_sec }}"
+  until: configmap_result.resources | length > 0
+
+- name: "Confirm AIServiceTenant CR is ready"
+  kubernetes.core.k8s_info:
+    api_version: aiservice.ibm.com/v1
+    name: "{{ tenant_cr.metadata.name }}"
+    namespace: "{{ tenant_cr.metadata.name }}"
+    kind: AIServiceTenant
+  retries: "{{ aiservice_install_num_retries }}"
+  delay: "{{ aiservice_install_wait_sec }}"
+  register: tenant_cr_info
+  until:
+    - tenant_cr_info.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
+  
+- name: "Delete AIServiceTenant CR from namespace {{ aiservice_namespace }}"
+  kubernetes.core.k8s:
+    api_version: aiservice.ibm.com/v1
+    kind: AIServiceTenant
+    state: absent
+    namespace: "{{ aiservice_namespace }}"
+    name: "{{ tenant_cr.metadata.name }}"

@@ -1,5 +1,6 @@
 import yaml
 import re
+import copy
 
 
 def private_vlan(vlans):
@@ -438,15 +439,79 @@ def is_channel_upgrade_path_valid(current: str, target: str, valid_paths: dict) 
     :valid_paths: A dictionary of supported upgrade paths. See ibm/mas_devops/common_vars/compatibility_matrix.yml.
     :return: True if the upgrade path is supported, False otherwise.
   """
+<<<<<<< HEAD
+  valid = False
+  if current not in valid_paths.keys():
+      print(f'Current channel {current} is not supported for upgrade')
+  else:
+=======
   valid = True
   if current not in valid_paths.keys():
       print(f'Current channel {current} is not supported for upgrade')
       valid = False
   elif target:
+>>>>>>> 57f3be5143e612c2402efa4eaecd2ebe2ecfe9ad
       allowed_targets = valid_paths[current]
       if isinstance(allowed_targets, str):
           if target != allowed_targets:
               print(f'Upgrading from channel {current} to {target} is not supported')
+<<<<<<< HEAD
+          else:
+              valid = True
+      elif isinstance(allowed_targets, list):
+          if target not in allowed_targets:
+              print(f'Upgrading from channel {current} to {target} is not supported')
+          else:
+              valid = True
+      else:
+          print(f'Error: channel upgrade compatibility matrix is incorrectly defined')
+  return valid
+
+def remove_dict_keys(data: dict, keys: list[str], deep_copy: bool = True) -> dict:
+  """
+    Deletes keys from a dictionary. This has an advantage over Ansible's ansible.utils.remove_keys filter
+    in that nested keys are given explicitly in dot notation, for example 'a.b.c'.
+    :data: The input dictionary.
+    :keys: A list of key strings in dot notation, e.g. ['a.b', 'c.d.e'].
+    :deep_copy: Set to False to modify the input dictionary in-place, otherwise a copy will be modified.
+    :return: The dictionary with keys removed.
+  """
+  if deep_copy:
+    data = copy.deepcopy(data)
+  for key in keys:
+    parts = key.split('.')
+    ref = 'data'
+    for part in parts:
+      ref += f'["{part}"]'
+    try:
+      exec(f'del {ref}')
+    except KeyError as ex:
+      print(f'Could not delete key from dictionary: {ex}')
+  return data
+
+def is_operator_upgraded_by_version(cr_reconciled_version: str, opcon_version: str, sub_installed_version: str) -> bool:
+  """
+    Checks if an operator was upgraded successfully by comparing versions. Typically we just compare the version reported as
+    reconciled in the operator's custom resource with the OperatorCondition, however, this poses a problem for certain images
+    that are not tagged with a build number but the build number is used in other places within its bundle. For example, an
+    upgraded operator might have the CR reconciled version as "9.2.0-pre.1450" (derived from its image tag) but the version
+    from the OperatorCondition resource is "9.2.0-pre.1450-5075" which includes the build number. In this case where they
+    don't match we do our best effort by also checking the version reported as installed in the Subscription.
+    :cr_reconciled_version: Version number from the "versions.reconciled" field in the CR.
+    :opcon_version: Version derived from the operator's OperatorCondition.
+    :sub_installed_version: Version derived from the Subscription's "status.installedCSV" field.
+    :return: True if the operator was successfully upgraded (at least by checking various versions)
+  """
+  print(f'{cr_reconciled_version} --- {opcon_version} --- {sub_installed_version}')
+  upgraded = False
+  opcon_version = opcon_version.replace('+', '-')
+  prefix = f'{cr_reconciled_version}-'
+  if cr_reconciled_version == opcon_version:
+    upgraded = True
+  elif opcon_version.startswith(prefix) and sub_installed_version.startswith(prefix) and (opcon_version == sub_installed_version):
+      upgraded = True
+  return upgraded
+=======
               valid = False
       elif isinstance(allowed_targets, list):
           if target not in allowed_targets:
@@ -473,6 +538,7 @@ def get_default_upgrade_channel(current: str, valid_paths: dict) -> str:
   else:
       print(f'Error: channel upgrade compatibility matrix is incorrectly defined')
   return default
+>>>>>>> 57f3be5143e612c2402efa4eaecd2ebe2ecfe9ad
 
 class FilterModule(object):
   def filters(self):
@@ -497,5 +563,10 @@ class FilterModule(object):
       'get_db2_instance_name': get_db2_instance_name,
       'get_ecr_repositories': get_ecr_repositories,
       'is_channel_upgrade_path_valid': is_channel_upgrade_path_valid,
+<<<<<<< HEAD
+      'remove_dict_keys': remove_dict_keys,
+      'is_operator_upgraded_by_version': is_operator_upgraded_by_version,
+=======
       'get_default_upgrade_channel': get_default_upgrade_channel
+>>>>>>> 57f3be5143e612c2402efa4eaecd2ebe2ecfe9ad
     }
