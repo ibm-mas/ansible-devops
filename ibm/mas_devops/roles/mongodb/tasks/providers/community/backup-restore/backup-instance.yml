@@ -6,20 +6,59 @@
     mongoce_backup_resources:
       - namespace: "{{ mongodb_namespace }}"
         resources:
+          # CRD - mongodbcommunity.mongodbcommunity.mongodb.com
+          - kind: CustomResourceDefinition
+            api_version: apiextensions.k8s.io/v1
+            name: mongodbcommunity.mongodbcommunity.mongodb.com
           # mongodbcommunity.mongodb.com
           - kind: MongoDBCommunity
             api_version: mongodbcommunity.mongodb.com/v1
             name: "{{ mongodb_instance_name }}"
+          # Role
+          - kind: Role
+            api_version: rbac.authorization.k8s.io/v1
+            name: mongodb-kubernetes-operator
+          - kind: Role
+            api_version: rbac.authorization.k8s.io/v1
+            name: mongodb-database
+          # RoleBinding
+          - kind: RoleBinding
+            api_version: rbac.authorization.k8s.io/v1
+            name: mongodb-kubernetes-operator
+          - kind: RoleBinding
+            api_version: rbac.authorization.k8s.io/v1
+            name: mongodb-database
+          # ServiceAccount
+          - kind: ServiceAccount
+            api_version: v1
+            name: mongodb-kubernetes-operator
+          - kind: ServiceAccount
+            api_version: v1
+            name: mongodb-database
           # Issuers
           - kind: Issuer
             api_version: cert-manager.io/v1
           # Certificates
           - kind: Certificate
             api_version: cert-manager.io/v1
+          # Deployment
+          - kind: Deployment
+            api_version: apps/v1
+            name: mongodb-kubernetes-operator
           # secrets
           - kind: Secret
             api_version: v1
             name: "{{ mongodb_instance_name }}-scram-scram-credentials"
+          - kind: Secret
+            api_version: v1
+            name: "{{ mongodb_instance_name }}-admin-password"
+          # Configmap
+          - kind: ConfigMap
+            api_version: v1
+            name: "{{ mongodb_instance_name }}-cert-map"
+          # grafanaDashboard
+          - kind: GrafanaDashboard
+            api_version: grafana.integreatly.org/v1beta1
 
 # Call the backup_resources plugin to execute the backup to the path provided
 # -----------------------------------------------------------------------------
@@ -58,5 +97,3 @@
       - {{ resource.description }} in {{ resource.scope }}
       {% endfor %}
   when: backup_result.failed_count > 0
-
-
