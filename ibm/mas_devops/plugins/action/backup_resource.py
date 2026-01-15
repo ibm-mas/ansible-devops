@@ -19,7 +19,7 @@ display = Display()
 
 class ActionModule(ActionBase):
     """
-    Backup MAS Suite resources based on a list of resource definitions
+    Backup Kubernetes resources based on a list of resource definitions
     
     Usage Example
     -------------
