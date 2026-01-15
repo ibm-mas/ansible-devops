@@ -7,151 +7,451 @@ This role is used to configure specific components of the application workspace 
 ### General Variables
 
 #### mas_instance_id
-Defines the instance id that was used for the MAS installation.
+MAS instance identifier for the target installation.
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default: None
 
+**Purpose**: Identifies which MAS instance to configure. This must match the instance ID used during MAS Core installation.
+
+**When to use**:
+- Always required when configuring application workspaces
+- Must match the instance ID from suite_install role
+- Used to locate the correct Suite and Workspace resources
+
+**Valid values**: Lowercase alphanumeric string, 3-12 characters (e.g., `prod`, `dev`, `inst1`)
+
+**Impact**: Determines which MAS instance's application workspace will be configured. Incorrect instance ID will cause configuration to fail.
+
+**Related variables**:
+- `mas_app_id`: Specifies which application to configure
+- `mas_workspace_id`: Specifies which workspace to configure
+
+**Note**: This must be an existing MAS instance. The role does not create new instances.
+
 #### mas_app_id
-Defines the application that will be configured, valid settings are: `assist`, `iot`, `facilities`, `manage`, `monitor`, `optimizer`, `predict`, and `visualinspection`.
+MAS application to configure.
 
 - **Required**
 - Environment Variable: `MAS_APP_ID`
 - Default: None
 
+**Purpose**: Specifies which MAS application workspace to configure. Different applications have different configuration options and requirements.
+
+**When to use**:
+- Always required when configuring application workspaces
+- Must match an installed application in the MAS instance
+- Determines which application-specific configuration is applied
+
+**Valid values**: `assist`, `iot`, `facilities`, `manage`, `monitor`, `optimizer`, `predict`, `visualinspection`
+
+**Impact**: Determines which application workspace is configured and which configuration options are available. Each application has unique configuration requirements.
+
+**Related variables**:
+- `mas_instance_id`: The MAS instance containing this application
+- `mas_workspace_id`: The workspace to configure
+- `mas_appws_components`: Application-specific components to configure
+
+**Note**: The application must already be installed via suite_app_install role before configuration. Different applications support different configuration variables.
+
 #### mas_workspace_id
-MAS application workspace to use to configure app components.
+Workspace identifier for the application workspace to configure.
 
 - **Required**
 - Environment Variable: `MAS_WORKSPACE_ID`
 - Default: None
 
+**Purpose**: Identifies which workspace within the application to configure. Workspaces allow multiple isolated environments within a single application.
+
+**When to use**:
+- Always required when configuring application workspaces
+- Must match an existing workspace created during application installation
+- Typically matches the workspace ID used in suite_app_install
+
+**Valid values**: Lowercase alphanumeric string (e.g., `masdev`, `prod`, `test`)
+
+**Impact**: Determines which workspace is configured. Each workspace has its own configuration, data, and users.
+
+**Related variables**:
+- `mas_instance_id`: The MAS instance containing this workspace
+- `mas_app_id`: The application containing this workspace
+- `mas_appws_components`: Components to configure in this workspace
+
+**Note**: The workspace must already exist (created during suite_app_install). This role configures existing workspaces, it does not create new ones.
+
 #### aiservice_instance_id
-AI Service instance ID to integrate with Manage application. When set, the role will automatically configure AI Service integration including API key retrieval, URL configuration, and TLS certificate import.
+AI Service instance ID for Manage integration (Manage only).
 
 - **Optional**
 - Environment Variable: `AISERVICE_INSTANCE_ID`
 - Default: None
 
+**Purpose**: Enables automatic AI Service integration with Manage application. When set, the role retrieves credentials, configures connection, and imports certificates.
+
+**When to use**:
+- Only when configuring Manage application (`mas_app_id=manage`)
+- When you want to integrate AI Service capabilities into Manage
+- Requires AI Service to be installed and running in the cluster
+- Must be used together with `aiservice_tenant_id`
+
+**Valid values**: Valid AI Service instance ID (e.g., `aiservice1`, `ai-prod`)
+
+**Impact**: When configured, automatically:
+- Retrieves API key from tenant-specific secret
+- Extracts AI Service URL from aibroker route
+- Imports AI Service TLS certificate into Manage
+- Configures AI Service connection properties
+- Verifies AI Service health before proceeding
+
+**Related variables**:
+- `aiservice_tenant_id`: Required tenant ID for the integration
+- `mas_app_id`: Must be `manage` for this to apply
+
+**Note**: AI Service must be installed and healthy before configuration. The role performs automatic health checks and credential retrieval from cluster resources.
+
 #### aiservice_tenant_id
-AI Service tenant ID to use for the integration. Required when `aiservice_instance_id` is set.
+AI Service tenant ID for the integration (Manage only).
 
 - **Optional**
 - Environment Variable: `AISERVICE_TENANT_ID`
 - Default: None
 
+**Purpose**: Specifies which AI Service tenant to use for Manage integration. Combined with instance ID to form the fully qualified tenant identifier.
+
+**When to use**:
+- Required when `aiservice_instance_id` is set
+- Only applies to Manage application
+- Must match an existing tenant in the AI Service instance
+
+**Valid values**: Valid AI Service tenant ID string (e.g., `tenant1`, `prod-tenant`)
+
+**Impact**: Combined with `aiservice_instance_id` to locate tenant-specific resources (API key secret, configuration). Incorrect tenant ID will cause integration to fail.
+
+**Related variables**:
+- `aiservice_instance_id`: Required instance ID for the integration
+- Forms secret name: `aiservice-{instance_id}-{tenant_id}----apikey-secret`
+
+**Note**: The tenant must already exist in the AI Service instance. The role retrieves credentials from the tenant-specific secret in the cluster.
+
 #### custom_labels
-List of comma separated key=value pairs for setting custom labels on instance specific resources.
+Comma-separated list of key=value labels to apply to workspace resources.
 
 - **Optional**
 - Environment Variable: `CUSTOM_LABELS`
 - Default: None
 
+**Purpose**: Adds Kubernetes labels to application workspace resources for organization, selection, and filtering. Labels enable resource tracking, cost allocation, and custom automation.
+
+**When to use**:
+- Use to add organizational metadata (e.g., `cost-center=engineering`, `environment=production`)
+- Use to enable resource tracking and cost allocation
+- Use to support custom automation or monitoring tools
+- Use to comply with organizational labeling standards
+
+**Valid values**: Comma-separated list of `key=value` pairs (e.g., `env=prod,team=platform,app=manage`)
+
+**Impact**: Labels are applied to workspace-specific resources and can be used for filtering with `oc get` commands, monitoring queries, and automation scripts. Labels do not affect workspace functionality.
+
+**Related variables**: Works alongside Kubernetes resource labels for comprehensive resource management.
+
+**Note**: Labels help with resource organization and are especially useful in multi-tenant or multi-workspace environments.
+
 ### Workspace Configuration Variables
 
 #### mas_appws_spec
-The application workspace deployment spec used to configure various aspects of the application workspace configuration. Note that use of this will override anything set in `mas_appws_components`.
+Custom workspace deployment specification (overrides component-based configuration).
 
 - **Optional**
 - Environment Variable: `MAS_APPWS_SPEC`
-- Default: defaults are specified in `vars/defaultspecs/{mas_app_id}.yml`
+- Default: Application-specific defaults in `vars/defaultspecs/{mas_app_id}.yml`
+
+**Purpose**: Provides complete control over workspace deployment specification. Allows advanced customization beyond what component-based configuration offers.
+
+**When to use**:
+- Use for advanced workspace customization
+- Use when you need full control over the workspace spec
+- Use when component-based configuration is insufficient
+- Leave unset for standard deployments using `mas_appws_components`
+
+**Valid values**: Valid workspace specification YAML/JSON matching the application's workspace CR schema
+
+**Impact**: **WARNING** - Overrides all settings from `mas_appws_components`. Provides complete control but requires deep knowledge of workspace CR structure. Incorrect specs can cause deployment failures.
+
+**Related variables**:
+- `mas_appws_components`: Simpler component-based configuration (overridden by this)
+- Application-specific default specs in `vars/defaultspecs/`
+
+**Note**: Use `mas_appws_components` for standard deployments. Only use this variable when you need advanced customization or have specific requirements not covered by component-based configuration.
 
 #### mas_appws_bindings_jdbc
-Set the binding scope for the application workspace's JDBC binding (`system`, `application`, `workspace`, or `workspace-application`). Note: For Maximo Real estate and facilities, we recommend to use workspace-application.
+JDBC binding scope for the workspace.
 
 - **Optional**
 - Environment Variable: `MAS_APPWS_BINDINGS_JDBC`
 - Default: `system`
 
+**Purpose**: Controls the scope of JDBC database binding for the workspace. Different scopes provide different levels of isolation and sharing.
+
+**When to use**:
+- Use `system` (default) for shared system-level database configuration
+- Use `application` for application-level database configuration
+- Use `workspace` for workspace-specific database configuration
+- Use `workspace-application` for Maximo Real Estate and Facilities (recommended)
+
+**Valid values**: `system`, `application`, `workspace`, `workspace-application`
+
+**Impact**: 
+- `system`: Uses system-level JDBC configuration (shared across all workspaces)
+- `application`: Uses application-level JDBC configuration
+- `workspace`: Uses workspace-specific JDBC configuration
+- `workspace-application`: Combines workspace and application scopes
+
+**Related variables**: JDBC configuration must exist at the specified scope level.
+
+**Note**: **IMPORTANT** - For Maximo Real Estate and Facilities applications, use `workspace-application` scope. The default `system` scope is suitable for most other applications.
+
 #### mas_appws_components
-Defines the app components and versions to configure in the application workspace. Takes the form of key=value pairs separated by a comma i.e. To install health within Manage set `base=latest,health=latest`.
+Application components and versions to configure in the workspace.
 
 - **Optional**
 - Environment Variable: `MAS_APPWS_COMPONENTS`
-- Default: Application specific
+- Default: Application-specific defaults
+
+**Purpose**: Specifies which application components to configure and their versions. Different applications have different available components.
+
+**When to use**:
+- Use to enable specific application components
+- Use to control component versions
+- Leave unset to use application-specific defaults
+- Overridden by `mas_appws_spec` if that is set
+
+**Valid values**: Comma-separated `component=version` pairs (e.g., `base=latest,health=latest`, `base=latest,civil=latest`)
+
+**Impact**: Determines which components are configured in the workspace. Available components vary by application (e.g., Manage has base, health, civil, etc.).
+
+**Related variables**:
+- `mas_appws_spec`: Overrides this if set
+- `mas_app_id`: Determines available components
+
+**Note**: Component availability depends on the application. For Manage: `base`, `health`, `civil`, etc. Refer to application documentation for available components. Use `latest` for most recent version or specify exact version.
 
 #### mas_pod_templates_dir
-This role will look for configuration files in the specified directory.
+Directory containing pod template configuration files (Manage only).
 
 - **Optional**
 - Environment Variable: `MAS_POD_TEMPLATES_DIR`
 - Default: None
 
-Configuration files named:
-- `ibm-mas-manage-manageworkspace.yml`
-- `ibm-mas-manage-imagestitching.yml`
-- `ibm-mas-manage-slackproxy.yml`
-- `ibm-mas-manage-healthextworkspace.yml`
+**Purpose**: Specifies a directory containing pod template YAML files for customizing Manage workspace and component workloads. Enables resource requests/limits, node selectors, tolerations, and other pod-level customizations.
 
-The content of the configuration file should be the yaml block that you wish to be inserted into the ManageWorkspace CR. `ibm-mas-manage-manageworkspace.yml` will be inserted into the ManageWorkspace CR `spec -> podTemplates` whereas the component ones e.g, `ibm-mas-manage-imagestitching.yml` will be under `spec -> components -> civil -> podTemplates`. The ibm-mas-manage-ws operator will then pass this on to the corresponding component CR when available.
+**When to use**:
+- Only for Manage application (`mas_app_id=manage`)
+- Use to customize pod resources (CPU, memory)
+- Use to apply node selectors or tolerations
+- Use to configure pod-level settings beyond defaults
 
-This is an example of one of the components (civil) - refer to the [BestEfforts reference configuration in the MAS CLI](https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/ibm-mas-manage-imagestitching.yml). For full documentation of the supported options refer to the [Customizing Pod Templates](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads) in the product documentation.
+**Valid values**: Absolute path to directory containing pod template files
+
+**Impact**: Pod templates from this directory are merged into the ManageWorkspace CR. Files are applied to specific components or the workspace itself based on filename.
+
+**Related variables**:
+- `mas_app_id`: Must be `manage` for this to apply
+- Files must follow specific naming convention
+
+**Note**: Expected filenames:
+- `ibm-mas-manage-manageworkspace.yml` → workspace-level pod templates
+- `ibm-mas-manage-imagestitching.yml` → civil component pod templates
+- `ibm-mas-manage-slackproxy.yml` → component pod templates
+- `ibm-mas-manage-healthextworkspace.yml` → health component pod templates
+
+Refer to [MAS CLI BestEfforts templates](https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/) and [Customizing Pod Templates](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads) documentation.
 
 ### Predict Configuration Variables
 
 #### mas_appws_settings_deployment_size
-Controls the workload size of predict containers. Available options are `developer`, `small`, `medium` and `large`.
+Workload size for Predict containers (Predict only).
 
-- **Optional**, only supported when configuring **Predict**
+- **Optional** (Predict only)
 - Environment Variable: `MAS_APPWS_SETTINGS_DEPLOYMENT_SIZE`
 - Default: `small`
 
-| Deployment_size | Replica |
-| --------------- | :-----: |
-| developer       |    1    |
-| small           |    2    |
-| medium          |    3    |
+**Purpose**: Controls the deployment size and replica count for Predict application containers. Different sizes provide different levels of availability and performance.
+
+**When to use**:
+- Only for Predict application (`mas_app_id=predict`)
+- Use `developer` for single-node development environments
+- Use `small` (default) for standard production deployments
+- Use `medium` for higher availability requirements
+- Use `large` for maximum availability (if supported)
+
+**Valid values**: `developer`, `small`, `medium`, `large`
+
+**Impact**: 
+- `developer`: 1 replica (no high availability)
+- `small`: 2 replicas (basic high availability)
+- `medium`: 3 replicas (enhanced high availability)
+- `large`: Higher replica count (if supported)
+
+**Related variables**:
+- `mas_app_id`: Must be `predict` for this to apply
+
+**Note**: The `developer` size is suitable only for development/testing. Production environments should use `small` or larger for high availability.
 
 ### Watson Studio Local Variables
 
 These variables are only used when using this role to configure **Predict**, or **Health & Predict Utilities**.
 
 #### cpd_wsl_project_id
-The ID of the analytics project created in Watson Studio and used to configure `hputilities` application.
+Watson Studio analytics project ID (Predict/HP Utilities only).
 
-- **Required** unless `cpd_wsl_project_name` and `mas_config_dir` are set
+- **Required** (unless `cpd_wsl_project_name` and `mas_config_dir` are set)
 - Environment Variable: `CPD_WSL_PROJECT_ID`
 - Default: None
 
+**Purpose**: Specifies the ID of the Watson Studio analytics project to use for Predict or Health & Predict Utilities configuration.
+
+**When to use**:
+- Required for Predict or HP Utilities configuration
+- Use when you know the project ID directly
+- Alternative: use `cpd_wsl_project_name` + `mas_config_dir` to retrieve ID from saved file
+
+**Valid values**: Valid Watson Studio project ID (UUID format)
+
+**Impact**: Links the MAS application to the specified Watson Studio project for analytics capabilities. Incorrect project ID will cause configuration to fail.
+
+**Related variables**:
+- `cpd_wsl_project_name`: Alternative method using project name
+- `mas_config_dir`: Required with `cpd_wsl_project_name`
+
+**Note**: The project must already exist in Watson Studio (created by cp4d_service role). Either provide this ID directly or use the name-based alternative.
+
 #### cpd_wsl_project_name
-Specifies the name of the file in `mas_config_dir` where the id of the analytics project is saved. Must be used in conjunction with `mas_config_dir` as an alternative to `cpd_wsl_project_id`.
+Filename containing Watson Studio project ID (Predict/HP Utilities only).
 
 - **Optional**
 - Environment Variable: `CPD_WSL_PROJECT_NAME`
 - Default: `wsl-mas-${mas_instance_id}-hputilities`
 
+**Purpose**: Specifies the filename in `mas_config_dir` where the Watson Studio project ID is saved. Alternative to providing `cpd_wsl_project_id` directly.
+
+**When to use**:
+- Use with `mas_config_dir` as alternative to `cpd_wsl_project_id`
+- Use when project ID was saved by cp4d_service role
+- Allows retrieving project ID from saved configuration
+
+**Valid values**: Filename (without path) where project ID is stored
+
+**Impact**: Role reads the project ID from this file in `mas_config_dir`. File must exist and contain valid project ID.
+
+**Related variables**:
+- `mas_config_dir`: Required directory containing this file
+- `cpd_wsl_project_id`: Alternative direct ID specification
+
+**Note**: The default filename matches the pattern used by cp4d_service role. The file should contain the Watson Studio project ID created during CP4D service setup.
+
 #### mas_config_dir
-Local directory where generated resource definitions are saved into. Used in conjunction with `cpd_wsl_project_name` to retrieve the ID of a Watson Studio project previously created by the [cp4d_service](cp4d_service.md) role.
+Local directory for configuration files (Predict/HP Utilities only).
 
 - **Optional**
 - Environment Variable: `MAS_CONFIG_DIR`
 - Default: None
+
+**Purpose**: Specifies directory containing configuration files, particularly Watson Studio project ID files. Used with `cpd_wsl_project_name` to retrieve project IDs.
+
+**When to use**:
+- Use with `cpd_wsl_project_name` to retrieve Watson Studio project ID
+- Use when project ID was saved by cp4d_service role
+- Should match the directory used in cp4d_service role
+
+**Valid values**: Absolute path to existing directory (e.g., `/home/user/masconfig`, `~/masconfig`)
+
+**Impact**: Role reads Watson Studio project ID from files in this directory. Directory must exist and contain the specified project file.
+
+**Related variables**:
+- `cpd_wsl_project_name`: Filename to read from this directory
+- `cpd_wsl_project_id`: Alternative direct ID specification
+
+**Note**: Use the same directory across all MAS setup roles for consistency. The cp4d_service role saves project IDs here, and this role retrieves them.
 
 ### Watson Machine Learning Variables
 
 These variables are only used when using this role to configure **Predict**.
 
 #### cpd_product_version
-The version of Cloud Pak for Data installed in the cluster, which is used to infer the version of Watson Machine Learning that must be passed into the Predict workspace configuration.
+Cloud Pak for Data version (Predict only).
 
-- **Required**
+- **Required** (Predict only)
 - Environment Variable: `CPD_PRODUCT_VERSION`
 - Default: None
 
-#### cpd_wml_instance_id
-Identifier of wml instance to be configured in Predict.
+**Purpose**: Specifies the CP4D version to infer the correct Watson Machine Learning version for Predict workspace configuration.
 
-- **Optional**
+**When to use**:
+- Required when configuring Predict application
+- Must match the installed CP4D version in the cluster
+- Used to determine compatible WML version
+
+**Valid values**: Valid CP4D version string (e.g., `4.8.0`, `4.8.5`, `5.0.0`)
+
+**Impact**: Determines which Watson Machine Learning version is configured in Predict. Incorrect version may cause compatibility issues.
+
+**Related variables**:
+- `cpd_wml_instance_id`: WML instance to configure
+- `cpd_wml_url`: WML service URL
+- `mas_app_id`: Must be `predict` for this to apply
+
+**Note**: This must match the actual CP4D version installed in your cluster. The role uses this to select the appropriate WML version for Predict configuration.
+
+#### cpd_wml_instance_id
+Watson Machine Learning instance identifier (Predict only).
+
+- **Optional** (Predict only)
 - Environment Variable: `CPD_WML_INSTANCE_ID`
 - Default: `openshift`
 
-#### cpd_wml_url
-URL to access WML service (same as Cloud Pak for Data URL).
+**Purpose**: Specifies the Watson Machine Learning instance identifier to configure in Predict workspace.
 
-- **Optional**
+**When to use**:
+- Only for Predict application configuration
+- Use default (`openshift`) for standard deployments
+- Set custom value if using non-default WML instance
+
+**Valid values**: Valid WML instance identifier string
+
+**Impact**: Identifies which WML instance Predict will use for machine learning operations. Must match an existing WML instance in CP4D.
+
+**Related variables**:
+- `cpd_product_version`: CP4D version for WML compatibility
+- `cpd_wml_url`: WML service URL
+- `mas_app_id`: Must be `predict` for this to apply
+
+**Note**: The default `openshift` value is suitable for most deployments. Only change if you have a specific WML instance identifier.
+
+#### cpd_wml_url
+Watson Machine Learning service URL (Predict only).
+
+- **Optional** (Predict only)
 - Environment Variable: `CPD_WML_URL`
-- Default: `https://internal-nginx-svc.ibm-cpd.svc:12443` (assumes CPD WML is installed the `ibm-cpd` namespace)
+- Default: `https://internal-nginx-svc.ibm-cpd.svc:12443`
+
+**Purpose**: Specifies the URL to access Watson Machine Learning service. Typically the same as the Cloud Pak for Data URL.
+
+**When to use**:
+- Only for Predict application configuration
+- Use default if CP4D is in `ibm-cpd` namespace
+- Set custom URL if CP4D is in different namespace or uses custom service name
+
+**Valid values**: Valid HTTPS URL to WML service (e.g., `https://internal-nginx-svc.{namespace}.svc:12443`)
+
+**Impact**: Determines how Predict connects to Watson Machine Learning. Incorrect URL will prevent Predict from accessing WML services.
+
+**Related variables**:
+- `cpd_product_version`: CP4D version
+- `cpd_wml_instance_id`: WML instance identifier
+- `mas_app_id`: Must be `predict` for this to apply
+
+**Note**: The default assumes CP4D is installed in the `ibm-cpd` namespace. If CP4D is in a different namespace, update the URL accordingly (e.g., `https://internal-nginx-svc.my-cpd-namespace.svc:12443`).
 
 ### Manage Workspace Variables
 
@@ -188,16 +488,52 @@ The integration also performs a health check to verify AI Service is running bef
 ### Health Integration
 
 #### mas_appws_bindings_health_wsl_flag
-Boolean value indicating if Watson Studio must be bound to Manage. It is expected a system level WatsonStudioCfg applied in the cluster.
+Enable Watson Studio binding for Health (Manage only).
 
-- **Optional**
+- **Optional** (Manage Health only)
 - Environment Variable: `MAS_APPWS_BINDINGS_HEALTH_WSL_FLAG`
 - Default: `false`
 
-#### mas_appws_bindings_health_wsl
-Set as `system` to indicate Watson Studio must be installed and bound to Health.
+**Purpose**: Controls whether Watson Studio should be bound to the Manage Health component. Requires a system-level WatsonStudioCfg to be applied in the cluster.
 
-- **Optional**
+**When to use**:
+- Only for Manage application with Health component
+- Set to `true` to enable Watson Studio integration with Health
+- Leave as `false` (default) if Watson Studio integration is not needed
+
+**Valid values**: `true`, `false`
+
+**Impact**: When `true`, binds Watson Studio to Health component, enabling advanced analytics capabilities. Requires Watson Studio to be configured at system level.
+
+**Related variables**:
+- `mas_appws_bindings_health_wsl`: Binding scope (typically `system`)
+- `mas_app_id`: Must be `manage` with Health component
+
+**Note**: A system-level WatsonStudioCfg must exist in the cluster before enabling this. Watson Studio must be installed and configured via CP4D.
+
+#### mas_appws_bindings_health_wsl
+Watson Studio binding scope for Health (Manage only).
+
+- **Optional** (Manage Health only)
+- Environment Variable: `MAS_APPWS_BINDINGS_HEALTH_WSL`
+- Default: None
+
+**Purpose**: Specifies the binding scope for Watson Studio integration with Manage Health component.
+
+**When to use**:
+- Only for Manage application with Health component
+- Set to `system` when Watson Studio is configured at system level
+- Used together with `mas_appws_bindings_health_wsl_flag=true`
+
+**Valid values**: `system`
+
+**Impact**: Binds Watson Studio at the specified scope to Health component, enabling advanced analytics and AI capabilities.
+
+**Related variables**:
+- `mas_appws_bindings_health_wsl_flag`: Must be `true` to enable binding
+- `mas_app_id`: Must be `manage` with Health component
+
+**Note**: Watson Studio must be installed and configured via CP4D with a system-level WatsonStudioCfg before using this binding.
 - Environment Variable: `MAS_APPWS_BINDINGS_HEALTH_WSL`
 - Default: None
 
