@@ -755,50 +755,129 @@
 <p>Fyre clusters will be automatically reconfigured to enable NFS storage.  By default this is made available via the <code>nfs-client</code> storage class and supports both <code>ReadWriteOnce</code> and <code>ReadWriteMany</code> access modes.  The <code>image-registry-storage</code> PVC used by the OpenShift image registry component will also be reconfigured to use this storage class.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="cluster_type">cluster_type<a class="headerlink" href="#cluster_type" title="Permanent link">¤</a></h3>
-<p>Specify the cluster type, supported values are <code>fyre</code>, <code>roks</code>, <code>rosa</code>, and <code>ipi</code>.</p>
+<p>Infrastructure provider type for cluster provisioning.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>CLUSTER_TYPE</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which infrastructure provider to use for provisioning the OpenShift cluster. Determines provisioning method and required variables.</p>
+<p><strong>When to use</strong>:
+- Always required for cluster provisioning
+- Each type requires different provider-specific variables
+- Determines available features (e.g., GPU support for ROKS)</p>
+<p><strong>Valid values</strong>: <code>fyre</code>, <code>roks</code>, <code>rosa</code>, <code>ipi</code>
+- <code>fyre</code>: IBM DevIT Fyre clusters (internal development)
+- <code>roks</code>: IBM Cloud Red Hat OpenShift Kubernetes Service
+- <code>rosa</code>: AWS Red Hat OpenShift Service on AWS
+- <code>ipi</code>: Installer-Provisioned Infrastructure (bare metal/on-premises)</p>
+<p><strong>Impact</strong>: Determines provisioning workflow and which provider-specific variables are required. Each type has different capabilities and configuration options.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_name</code>: Name for the new cluster
+- <code>ocp_version</code>: OpenShift version to install
+- Provider-specific variables (ibmcloud_apikey, rosa_token, fyre_apikey, etc.)</p>
+<p><strong>Note</strong>: Fyre clusters automatically configure NFS storage. ROKS requires version format like <code>4.19_openshift</code>.</p>
 <h3 id="cluster_name">cluster_name<a class="headerlink" href="#cluster_name" title="Permanent link">¤</a></h3>
-<p>Specify the name of the cluster</p>
+<p>Name for the new cluster.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>CLUSTER_NAME</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the name for the OpenShift cluster to be provisioned. Used as the cluster identifier in the provider's system.</p>
+<p><strong>When to use</strong>:
+- Always required for cluster provisioning
+- Must be unique within the provider's account/region
+- Used for cluster identification and resource naming</p>
+<p><strong>Valid values</strong>: String following provider naming conventions (typically lowercase alphanumeric with hyphens)</p>
+<p><strong>Impact</strong>: Determines the cluster name in the provider's system. Used for DNS, resource naming, and cluster identification.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_type</code>: Provider where cluster will be created
+- <code>ocp_version</code>: OpenShift version for the cluster</p>
+<p><strong>Note</strong>: Name must follow provider-specific naming rules. Some providers have length limits or character restrictions.</p>
 <h3 id="ocp_version">ocp_version<a class="headerlink" href="#ocp_version" title="Permanent link">¤</a></h3>
-<p>The version of OCP to use.  A specific version can be set, minor and patch level versions can be used, e.g. <code>4.19</code>, or <code>4.19.14</code>.  Additionally, two version aliases are available; <code>default</code> will auto-select the newest version of OCP currently supported by IBM Maximo Application Suite, <code>rotate</code> will auto-select a predetermined version of OCP currently supported by IBM Maximo Application Suite based on the day of the week.  This latter option is primarily useful for testing purposes.</p>
+<p>OpenShift version to install.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>OCP_VERSION</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>When using the IBMCloud Red Hat OpenShift Service (ROKS) the version must be followed by <code>_openshift</code>, e.g. <strong>4.19_openshift</strong> or <strong>4.19.14_openshift</strong></p>
-</div>
+<p><strong>Purpose</strong>: Specifies which version of OpenShift Container Platform to install on the provisioned cluster.</p>
+<p><strong>When to use</strong>:
+- Always required for cluster provisioning
+- Use specific version for production (e.g., <code>4.19.14</code>)
+- Use <code>default</code> for latest MAS-supported version
+- Use <code>rotate</code> for testing (version changes by day of week)</p>
+<p><strong>Valid values</strong>: 
+- Specific version: <code>4.19</code>, <code>4.19.14</code>
+- Alias: <code>default</code> (newest MAS-supported version)
+- Alias: <code>rotate</code> (predetermined version by day, for testing)
+- <strong>ROKS format</strong>: Must append <code>_openshift</code> (e.g., <code>4.19_openshift</code>, <code>4.19.14_openshift</code>)</p>
+<p><strong>Impact</strong>: Determines OpenShift version installed. Version must be compatible with MAS and available from the provider.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_type</code>: ROKS requires <code>_openshift</code> suffix</p>
+<p><strong>Note</strong>: <strong>IMPORTANT</strong> - For ROKS (<code>cluster_type=roks</code>), version MUST include <code>_openshift</code> suffix. The <code>default</code> alias selects the newest MAS-supported version. The <code>rotate</code> alias is for testing only.</p>
 <h3 id="ocp_storage_provider">ocp_storage_provider<a class="headerlink" href="#ocp_storage_provider" title="Permanent link">¤</a></h3>
-<p>Setting this to <code>nfs</code> when <code>cluster_type</code> is set to <code>fyre</code> will create an <code>nfs-client</code> storage class connected to the infrastucture node. When enabled, the existing image registry PVC will also be deleted and recreated configured to use the newly available NFS storage class.</p>
-<p>Currently, this setting has no effect when <code>cluster_type</code> is set to <code>roks</code>, <code>rosa</code>, or <code>ipi</code>.
-- Optional
-- Environment Variable: <code>OCP_STORAGE_PROVIDER</code>
-- Default Value: ``</p>
+<p>Storage provider configuration for Fyre clusters.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>OCP_STORAGE_PROVIDER</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Configures NFS storage for Fyre clusters, creating an nfs-client storage class and reconfiguring the image registry.</p>
+<p><strong>When to use</strong>:
+- Set to <code>nfs</code> for Fyre clusters to enable NFS storage
+- Only applies when <code>cluster_type=fyre</code>
+- Leave unset for other cluster types (ROKS, ROSA, IPI)</p>
+<p><strong>Valid values</strong>: <code>nfs</code> (for Fyre clusters only)</p>
+<p><strong>Impact</strong>: 
+- <code>nfs</code>: Creates nfs-client storage class connected to infrastructure node, reconfigures image registry PVC to use NFS
+- Unset: No storage configuration changes</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_type</code>: Must be <code>fyre</code> for this to have effect</p>
+<p><strong>Note</strong>: Only functional for Fyre clusters. When enabled, the existing image registry PVC is deleted and recreated with NFS storage. NFS storage class supports both ReadWriteOnce (RWO) and ReadWriteMany (RWX) access modes.</p>
 <h2 id="role-variables-gpu-node-support">Role Variables - GPU Node Support<a class="headerlink" href="#role-variables-gpu-node-support" title="Permanent link">¤</a></h2>
 <h3 id="ocp_provision_gpu">ocp_provision_gpu<a class="headerlink" href="#ocp_provision_gpu" title="Permanent link">¤</a></h3>
-<p>Flag that determines if GPU worker nodes should be added during cluster creation (eg. needed for MVI application). This is currently only set up for ROKS clusters.</p>
+<p>Enable GPU worker nodes during provisioning.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>OCP_PROVISION_GPU</code></li>
-<li>Default Value: <code>false</code></li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether GPU-enabled worker nodes are provisioned with the cluster. Required for GPU-intensive applications like MAS Visual Inspection (MVI).</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> for MAS Visual Inspection deployments
+- Set to <code>true</code> for other GPU-intensive workloads
+- Leave as <code>false</code> (default) for standard deployments
+- Currently only supported for ROKS clusters</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: 
+- <code>true</code>: Provisions GPU worker pool with specified number of GPU nodes
+- <code>false</code>: No GPU nodes provisioned (standard cluster)</p>
+<p><strong>Related variables</strong>:
+- <code>gpu_workerpool_name</code>: Name of GPU worker pool
+- <code>gpu_workers</code>: Number of GPU nodes to provision
+- <code>cluster_type</code>: Must be <code>roks</code> for GPU support</p>
+<p><strong>Note</strong>: GPU support is currently only available for ROKS clusters. GPU nodes use mg4c.32x384.2xp100-GPU flavor with P100 GPUs.</p>
 <h3 id="gpu_workerpool_name">gpu_workerpool_name<a class="headerlink" href="#gpu_workerpool_name" title="Permanent link">¤</a></h3>
-<p>The name of the gpu worker pool to added to or modify in the cluster. If already existing, use the existing name to avoid recreating another gpu worker pool unless that is the goal.</p>
+<p>Name for GPU worker pool.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>GPU_WORKERPOOL_NAME</code></li>
-<li>Default Value: <code>gpu</code></li>
+<li>Default: <code>gpu</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the name for the GPU worker pool to be created or modified in the cluster.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>gpu</code>) for new GPU deployments
+- Set to existing pool name to modify rather than create new
+- Only applies when <code>ocp_provision_gpu=true</code></p>
+<p><strong>Valid values</strong>: String following worker pool naming conventions</p>
+<p><strong>Impact</strong>: Determines GPU worker pool name. Using an existing name modifies that pool; using a new name creates a new pool.</p>
+<p><strong>Related variables</strong>:
+- <code>ocp_provision_gpu</code>: Must be <code>true</code> for this to apply
+- <code>gpu_workers</code>: Number of nodes in this pool
+- <code>cluster_type</code>: Must be <code>roks</code></p>
+<p><strong>Note</strong>: If a GPU worker pool already exists with this name, it will be modified rather than creating a duplicate. Use the existing name to avoid multiple GPU pools.</p>
 <h3 id="gpu_workers">gpu_workers<a class="headerlink" href="#gpu_workers" title="Permanent link">¤</a></h3>
 <p>The number of GPU worker nodes that will be deploy in the cluster. The node created will have mg4c.32x384.2xp100-GPU flavor. This variable depends on <code>ocp_provision_gpu</code> and is currently supported on ROKS clusters only.</p>
 <ul>

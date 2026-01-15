@@ -758,100 +758,289 @@
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="general-variables">General Variables<a class="headerlink" href="#general-variables" title="Permanent link">¤</a></h3>
 <h4 id="kafka_action">kafka_action<a class="headerlink" href="#kafka_action" title="Permanent link">¤</a></h4>
-<p>Action to be performed by Kafka role. Valid values are <code>install</code>, <code>upgrade</code> or <code>uninstall</code>.  The <code>upgrade</code> action applies only to the <code>strimzi</code> and <code>redhat</code> providers.</p>
+<p>Specifies which operation to perform on the Kafka cluster.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>KAFKA_ACTION</code></li>
 <li>Default Value: <code>install</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls what action the role executes against Kafka deployments. This allows the same role to handle installation, upgrades, and removal of Kafka clusters.</p>
+<p><strong>When to use</strong>:
+- Use <code>install</code> (default) for initial Kafka deployment
+- Use <code>upgrade</code> to upgrade existing Kafka cluster (Strimzi and Red Hat AMQ Streams only)
+- Use <code>uninstall</code> to remove Kafka cluster and operator</p>
+<p><strong>Valid values</strong>: <code>install</code>, <code>upgrade</code>, <code>uninstall</code></p>
+<p><strong>Impact</strong>: 
+- <code>install</code>: Deploys Kafka operator and creates cluster
+- <code>upgrade</code>: Upgrades existing Kafka cluster (only for Strimzi and Red Hat providers)
+- <code>uninstall</code>: Removes Kafka cluster and operator</p>
+<p><strong>Related variables</strong>:
+- <code>kafka_provider</code>: Upgrade action only supported for <code>strimzi</code> and <code>redhat</code> providers
+- <code>kafka_version</code>: Target version when upgrading</p>
+<p><strong>Note</strong>: The <code>upgrade</code> action is only available for Strimzi and Red Hat AMQ Streams providers. IBM Event Streams and AWS MSK do not support in-place upgrades through this role.</p>
 <h4 id="kafka_provider">kafka_provider<a class="headerlink" href="#kafka_provider" title="Permanent link">¤</a></h4>
-<p>Valid kafka providers are <code>strimzi</code> (opensource), <code>redhat</code> (installs AMQ Streams which requires a license that is not included with MAS entitlement), <code>ibm</code> (provisions a paid Event Streams instance in the target IBM Cloud account) and <code>aws</code> (provisions a paid MSK instance in the target AWS account).</p>
+<p>Specifies which Kafka provider to use for deployment.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>KAFKA_PROVIDER</code></li>
 <li>Default Value: <code>strimzi</code></li>
 </ul>
+<p><strong>Purpose</strong>: Determines which Kafka implementation to deploy. Different providers offer different features, licensing models, and deployment targets (on-cluster vs cloud-managed).</p>
+<p><strong>When to use</strong>:
+- Use <code>strimzi</code> (default) for open-source Kafka on OpenShift (recommended, no additional license required)
+- Use <code>redhat</code> for Red Hat AMQ Streams (requires separate license not included with MAS)
+- Use <code>ibm</code> for IBM Event Streams on IBM Cloud (managed service, additional cost)
+- Use <code>aws</code> for AWS MSK (managed service, additional cost)</p>
+<p><strong>Valid values</strong>: <code>strimzi</code>, <code>redhat</code>, <code>ibm</code>, <code>aws</code></p>
+<p><strong>Impact</strong>: 
+- <code>strimzi</code>: Deploys open-source Kafka using Strimzi operator (no additional license)
+- <code>redhat</code>: Deploys AMQ Streams (requires Red Hat AMQ license)
+- <code>ibm</code>: Provisions IBM Event Streams in IBM Cloud (requires IBM Cloud account and incurs costs)
+- <code>aws</code>: Provisions AWS MSK in AWS account (requires AWS account and incurs costs)</p>
+<p><strong>Related variables</strong>:
+- Different providers require different additional variables
+- <code>kafka_action=upgrade</code> only supported for <code>strimzi</code> and <code>redhat</code></p>
+<p><strong>Note</strong>: <strong>IMPORTANT</strong> - MAS license does NOT include entitlement for Red Hat AMQ Streams. Strimzi is recommended for open-source Kafka. IBM and AWS providers provision managed cloud services with additional costs.</p>
 <h3 id="red-hat-amq-streams-strimzi-variables">Red Hat AMQ Streams &amp; Strimzi Variables<a class="headerlink" href="#red-hat-amq-streams-strimzi-variables" title="Permanent link">¤</a></h3>
 <h4 id="kafka_version">kafka_version<a class="headerlink" href="#kafka_version" title="Permanent link">¤</a></h4>
-<p>The version of Kafka to deploy by the operator. Before changing the kafka_version make the version is supported
-by the <a href="https://access.redhat.com/documentation/en-us/red_hat_amq_streams">amq-streams operator version</a> or <a href="https://strimzi.io/downloads/">strimzi operator version</a>.</p>
+<p>Kafka version to deploy (Strimzi and Red Hat AMQ Streams only).</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>KAFKA_VERSION</code></li>
-<li>Default Value: <code>3.8.0</code> for AMQ Streams and <code>3.9.0</code> for Strimzi.</li>
+<li>Default Value: <code>3.8.0</code> for AMQ Streams, <code>3.9.0</code> for Strimzi</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which Apache Kafka version to deploy when using Strimzi or Red Hat AMQ Streams providers. The version must be supported by the installed operator.</p>
+<p><strong>When to use</strong>:
+- Leave as default for standard deployments
+- Set explicitly when you need a specific Kafka version
+- Verify version compatibility with operator before changing</p>
+<p><strong>Valid values</strong>: Valid Kafka version supported by the operator (e.g., <code>3.8.0</code>, <code>3.9.0</code>)</p>
+<p><strong>Impact</strong>: Determines which Kafka version is deployed. Incompatible versions will cause deployment failures.</p>
+<p><strong>Related variables</strong>:
+- <code>kafka_provider</code>: Only applies to <code>strimzi</code> and <code>redhat</code> providers
+- Operator version determines available Kafka versions</p>
+<p><strong>Note</strong>: Before changing this value, verify the version is supported by your <a href="https://access.redhat.com/documentation/en-us/red_hat_amq_streams">AMQ Streams operator</a> or <a href="https://strimzi.io/downloads/">Strimzi operator</a>. This variable does not apply to IBM Event Streams or AWS MSK providers.</p>
 <h3 id="kafka_namespace">kafka_namespace<a class="headerlink" href="#kafka_namespace" title="Permanent link">¤</a></h3>
-<p>The namespace where the operator and Kafka cluster will be deployed.</p>
+<p>OpenShift namespace where Kafka operator and cluster will be deployed.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>KAFKA_NAMESPACE</code></li>
-<li>Default Value: <code>amq-streams</code> for AMQ Streams and <code>strimzi</code> for Strimzi.</li>
+<li>Default Value: <code>amq-streams</code> for AMQ Streams, <code>strimzi</code> for Strimzi</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the namespace for deploying the Kafka operator and Kafka cluster resources. This isolates Kafka resources from other applications.</p>
+<p><strong>When to use</strong>:
+- Use default for standard single-cluster deployments
+- Set to custom namespace when organizing multiple Kafka deployments
+- Must be unique if deploying multiple Kafka clusters</p>
+<p><strong>Valid values</strong>: Any valid Kubernetes namespace name (e.g., <code>strimzi</code>, <code>amq-streams</code>, <code>kafka-prod</code>)</p>
+<p><strong>Impact</strong>: All Kafka resources (operator, cluster, topics, users) are created in this namespace.</p>
+<p><strong>Related variables</strong>:
+- <code>kafka_provider</code>: Default namespace depends on provider (<code>strimzi</code> or <code>amq-streams</code>)
+- <code>kafka_cluster_name</code>: Cluster created within this namespace</p>
+<p><strong>Note</strong>: The default namespace differs by provider: <code>strimzi</code> for Strimzi provider, <code>amq-streams</code> for Red Hat AMQ Streams. This variable only applies to Strimzi and Red Hat providers.</p>
 <h3 id="kafka_cluster_name">kafka_cluster_name<a class="headerlink" href="#kafka_cluster_name" title="Permanent link">¤</a></h3>
-<p>The name of the Kafka cluster that will be created</p>
+<p>Name for the Kafka cluster resource.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>KAFKA_CLUSTER_NAME</code></li>
 <li>Default Value: <code>maskafka</code></li>
 </ul>
+<p><strong>Purpose</strong>: Defines the name of the Kafka custom resource that will be created. This name is used to identify the Kafka cluster and is embedded in resource names.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>maskafka</code>) for standard MAS deployments
+- Set to custom name when deploying multiple Kafka clusters
+- Use descriptive names for multi-cluster environments</p>
+<p><strong>Valid values</strong>: Valid Kubernetes resource name (lowercase alphanumeric with hyphens, e.g., <code>maskafka</code>, <code>kafka-prod</code>, <code>mas-kafka</code>)</p>
+<p><strong>Impact</strong>: This name is used throughout the Kafka deployment in resource names (services, pods, secrets). It appears in the generated KafkaCfg for MAS.</p>
+<p><strong>Related variables</strong>:
+- <code>kafka_namespace</code>: Cluster created within this namespace
+- Used in generated KafkaCfg when <code>mas_instance_id</code> is provided</p>
+<p><strong>Note</strong>: Choose a meaningful name as it appears in many resource names. The default <code>maskafka</code> is suitable for single-cluster MAS deployments.</p>
 <h3 id="kafka_cluster_size">kafka_cluster_size<a class="headerlink" href="#kafka_cluster_size" title="Permanent link">¤</a></h3>
-<p>The configuration to apply, there are two configurations available: small and large.</p>
+<p>Predefined configuration size for the Kafka cluster.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>KAFKA_CLUSTER_SIZE</code></li>
 <li>Default Value: <code>small</code></li>
 </ul>
+<p><strong>Purpose</strong>: Selects a predefined resource configuration for the Kafka cluster. Different sizes allocate different amounts of CPU, memory, and replicas for Kafka brokers and Zookeeper nodes.</p>
+<p><strong>When to use</strong>:
+- Use <code>small</code> (default) for development, test, or small production environments
+- Use <code>large</code> for production environments with higher throughput requirements
+- Choose based on expected message volume and performance needs</p>
+<p><strong>Valid values</strong>: <code>small</code>, <code>large</code></p>
+<p><strong>Impact</strong>: 
+- <code>small</code>: Fewer resources, suitable for dev/test or small workloads
+- <code>large</code>: More resources (CPU, memory, replicas) for production workloads</p>
+<p><strong>Related variables</strong>:
+- <code>kafka_storage_size</code>: Storage size should align with cluster size
+- <code>zookeeper_storage_size</code>: Zookeeper storage should align with cluster size</p>
+<p><strong>Note</strong>: The <code>small</code> configuration is suitable for development and testing. Production environments typically require the <code>large</code> configuration for adequate performance and reliability.</p>
 <h3 id="kafka_storage_class">kafka_storage_class<a class="headerlink" href="#kafka_storage_class" title="Permanent link">¤</a></h3>
-<p>The name of the storage class to configure the AMQStreams operator to use for persistent storage in the Kafka cluster. Storage class must support ReadWriteOnce(RWO) access mode.</p>
+<p>Storage class for Kafka broker persistent storage (must support ReadWriteOnce).</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>KAFKA_STORAGE_CLASS</code></li>
-<li>Default Value: lookup supported storage classes in the cluster</li>
+<li>Default Value: Auto-detected from available storage classes in cluster</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the storage class for Kafka broker persistent storage, which requires ReadWriteOnce (RWO) access mode. This is where Kafka stores message logs and data.</p>
+<p><strong>When to use</strong>:
+- Leave unset for automatic detection (recommended)
+- Set explicitly when you need a specific storage class
+- Must be a storage class supporting RWO access mode
+- Typically block-based storage for performance</p>
+<p><strong>Valid values</strong>: Any storage class name supporting ReadWriteOnce access mode</p>
+<p><strong>Impact</strong>: Kafka broker performance depends heavily on storage performance. Choose high-performance storage for production workloads. Incorrect storage class or one not supporting RWO will cause deployment to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>kafka_storage_size</code>: Size of storage for Kafka brokers
+- <code>zookeeper_storage_class</code>: Separate storage class for Zookeeper</p>
+<p><strong>Note</strong>: Block-based storage classes typically provide better performance for Kafka (e.g., <code>ibmc-block-gold</code>, <code>ocs-storagecluster-ceph-rbd</code>). This variable only applies to Strimzi and Red Hat AMQ Streams providers.</p>
 <h3 id="kafka_storage_size">kafka_storage_size<a class="headerlink" href="#kafka_storage_size" title="Permanent link">¤</a></h3>
-<p>The size of the storage to configure the AMQStreams operator to use for persistent storage in the Kafka cluster.</p>
+<p>Size of persistent storage for Kafka brokers.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>KAFKA_STORAGE_SIZE</code></li>
 <li>Default Value: <code>100Gi</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the size of persistent volumes for Kafka broker storage. This is where Kafka stores all message logs and topic data.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>100Gi</code>) for development/test environments
+- Increase significantly for production based on message volume and retention
+- Plan for message throughput and retention period
+- Monitor usage and expand as needed</p>
+<p><strong>Valid values</strong>: Kubernetes storage size format (e.g., <code>100Gi</code>, <code>500Gi</code>, <code>1Ti</code>, <code>2Ti</code>)</p>
+<p><strong>Impact</strong>: Insufficient storage will cause Kafka to stop accepting messages when volumes fill up. Size appropriately for your message volume and retention requirements.</p>
+<p><strong>Related variables</strong>:
+- <code>kafka_storage_class</code>: Storage class for these volumes
+- <code>kafka_cluster_size</code>: Larger clusters may need more storage
+- Message retention settings affect storage requirements</p>
+<p><strong>Note</strong>: The default <code>100Gi</code> is suitable for small deployments only. Production environments typically require 500Gi or more depending on message volume and retention. Plan storage based on daily message volume × retention days.</p>
 <h3 id="zookeeper_storage_class">zookeeper_storage_class<a class="headerlink" href="#zookeeper_storage_class" title="Permanent link">¤</a></h3>
-<p>The name of the storage class to configure the AMQStreams operator to use for persistent storage in the Zookeeper cluster. Storage class must support ReadWriteOnce(RWO) access mode.</p>
+<p>Storage class for Zookeeper persistent storage (must support ReadWriteOnce).</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ZOOKEEPER_STORAGE_CLASS</code></li>
-<li>Default Value: lookup supported storage classes in the cluster</li>
+<li>Default Value: Auto-detected from available storage classes in cluster</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the storage class for Zookeeper persistent storage, which requires ReadWriteOnce (RWO) access mode. Zookeeper stores cluster metadata and coordination data.</p>
+<p><strong>When to use</strong>:
+- Leave unset for automatic detection (recommended)
+- Set explicitly when you need a specific storage class
+- Must be a storage class supporting RWO access mode
+- Can be same as or different from <code>kafka_storage_class</code></p>
+<p><strong>Valid values</strong>: Any storage class name supporting ReadWriteOnce access mode</p>
+<p><strong>Impact</strong>: Zookeeper is critical for Kafka cluster coordination. Reliable storage is essential. Incorrect storage class or one not supporting RWO will cause deployment to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>zookeeper_storage_size</code>: Size of storage for Zookeeper
+- <code>kafka_storage_class</code>: Separate storage class for Kafka brokers</p>
+<p><strong>Note</strong>: Zookeeper storage requirements are typically much smaller than Kafka broker storage. This variable only applies to Strimzi and Red Hat AMQ Streams providers.</p>
 <h3 id="zookeeper_storage_size">zookeeper_storage_size<a class="headerlink" href="#zookeeper_storage_size" title="Permanent link">¤</a></h3>
-<p>The size of the storage to configure the AMQStreams operator to use for persistent storage in the Zookeeper cluster.</p>
+<p>Size of persistent storage for Zookeeper nodes.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ZOOKEEPER_STORAGE_SIZE</code></li>
 <li>Default Value: <code>10Gi</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the size of persistent volumes for Zookeeper storage. Zookeeper stores cluster metadata, configuration, and coordination data.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>10Gi</code>) for most deployments
+- Increase only for very large Kafka clusters with many topics/partitions
+- Zookeeper storage needs are typically much smaller than Kafka broker storage</p>
+<p><strong>Valid values</strong>: Kubernetes storage size format (e.g., <code>10Gi</code>, <code>20Gi</code>, <code>50Gi</code>)</p>
+<p><strong>Impact</strong>: Insufficient Zookeeper storage can cause cluster coordination issues. However, Zookeeper storage requirements are typically modest.</p>
+<p><strong>Related variables</strong>:
+- <code>zookeeper_storage_class</code>: Storage class for these volumes
+- <code>kafka_storage_size</code>: Kafka broker storage (typically much larger)</p>
+<p><strong>Note</strong>: The default <code>10Gi</code> is sufficient for most deployments. Zookeeper storage requirements grow slowly with cluster size. Only increase if you have a very large number of topics and partitions.</p>
 <h3 id="kafka_user_name">kafka_user_name<a class="headerlink" href="#kafka_user_name" title="Permanent link">¤</a></h3>
-<p>The name of the user to setup in the cluster for MAS.</p>
+<p>Username for MAS to authenticate with Kafka.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>KAFKA_USER_NAME</code></li>
 <li>Default Value: <code>masuser</code></li>
 </ul>
-<h3 id="kafka_user_password-supported-in-strimzi-operator-verion-0250-amq-streams-operator-version-2x">kafka_user_password (supported in Strimzi operator verion <a href="https://github.com/strimzi/strimzi-kafka-operator/blob/main/CHANGELOG.md#0250">0.25.0</a> - amq streams operator version 2.x)<a class="headerlink" href="#kafka_user_password-supported-in-strimzi-operator-verion-0250-amq-streams-operator-version-2x" title="Permanent link">¤</a></h3>
-<p>The password of the user to setup in the cluster for MAS.</p>
+<p><strong>Purpose</strong>: Defines the Kafka user that will be created for MAS to authenticate with the Kafka cluster. This user is configured with appropriate permissions for MAS operations.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>masuser</code>) for standard MAS deployments
+- Set to custom name when organizational policies require specific usernames
+- Must be unique within the Kafka cluster</p>
+<p><strong>Valid values</strong>: Valid Kafka username string (e.g., <code>masuser</code>, <code>mas-kafka-user</code>)</p>
+<p><strong>Impact</strong>: This user is created in Kafka with necessary permissions and credentials are included in the generated KafkaCfg for MAS.</p>
+<p><strong>Related variables</strong>:
+- <code>kafka_user_password</code>: Password for this user (Strimzi 0.25.0+/AMQ Streams 2.x+)
+- Used in generated KafkaCfg when <code>mas_instance_id</code> is provided</p>
+<p><strong>Note</strong>: The default <code>masuser</code> is suitable for most deployments. This variable only applies to Strimzi and Red Hat AMQ Streams providers.</p>
+<h3 id="kafka_user_password">kafka_user_password<a class="headerlink" href="#kafka_user_password" title="Permanent link">¤</a></h3>
+<p>Password for the Kafka user (Strimzi 0.25.0+/AMQ Streams 2.x+).</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>KAFKA_USER_PASSWORD</code></li>
-<li>Default Value: a randomly generated password is used if one is not specified</li>
+<li>Default Value: Randomly generated if not specified</li>
 </ul>
+<p><strong>Purpose</strong>: Sets the password for the Kafka user specified in <code>kafka_user_name</code>. This password is used for SCRAM-SHA authentication.</p>
+<p><strong>When to use</strong>:
+- Leave unset for automatic random password generation (recommended)
+- Set explicitly when you need a specific password
+- Requires Strimzi operator 0.25.0+ or AMQ Streams 2.x+</p>
+<p><strong>Valid values</strong>: Strong password string meeting security requirements</p>
+<p><strong>Impact</strong>: This password is stored in Kafka secrets and included in the generated KafkaCfg for MAS. If not set, a secure random password is generated automatically.</p>
+<p><strong>Related variables</strong>:
+- <code>kafka_user_name</code>: User for which this password is set
+- Used in generated KafkaCfg when <code>mas_instance_id</code> is provided</p>
+<p><strong>Note</strong>: Automatic password generation is recommended for security. This feature requires Strimzi operator version <a href="https://github.com/strimzi/strimzi-kafka-operator/blob/main/CHANGELOG.md#0250">0.25.0</a> or AMQ Streams 2.x+. Keep passwords secure and do not commit to source control.</p>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
-<p>The instance ID of Maximo Application Suite that the KafkaCfg configuration will target.  If this or <code>mas_config_dir</code> are not set then the role will not generate a KafkaCfg template.</p>
+<p>MAS instance ID for generating KafkaCfg configuration.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
 <li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies which MAS instance the generated KafkaCfg will target. When set (along with <code>mas_config_dir</code>), the role generates a KafkaCfg resource for configuring MAS to use this Kafka cluster.</p>
+<p><strong>When to use</strong>:
+- Set when you want to generate MAS configuration automatically
+- Must match the instance ID of your MAS installation
+- Required together with <code>mas_config_dir</code> for KafkaCfg generation</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>inst1</code>)</p>
+<p><strong>Impact</strong>: When set with <code>mas_config_dir</code>, generates a KafkaCfg YAML file that can be applied to configure MAS. Without this, no MAS configuration is generated.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_config_dir</code>: Required together with this for KafkaCfg generation
+- Generated KafkaCfg targets this MAS instance</p>
+<p><strong>Note</strong>: If either <code>mas_instance_id</code> or <code>mas_config_dir</code> is not set, the role will not generate a KafkaCfg template. You'll need to configure MAS manually.</p>
 <h3 id="mas_config_dir">mas_config_dir<a class="headerlink" href="#mas_config_dir" title="Permanent link">¤</a></h3>
-<p>Local directory to save the generated KafkaCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Kafka cluster, or used as an input to the <a href="../suite_config/">suite_config</a> role. If this or <code>mas_instance_id</code> are not set then the role will not generate a KafkaCfg template.</p>
+<p>Local directory path where generated KafkaCfg will be saved.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_CONFIG_DIR</code></li>
 <li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies where to save the generated KafkaCfg YAML file. This file can be manually applied to configure MAS or used with the suite_config role for automated configuration.</p>
+<p><strong>When to use</strong>:
+- Set when you want to generate MAS configuration automatically
+- Use the same directory across all MAS setup roles for consistency
+- Required together with <code>mas_instance_id</code> for KafkaCfg generation</p>
+<p><strong>Valid values</strong>: Any valid local filesystem path (e.g., <code>/home/user/masconfig</code>, <code>~/masconfig</code>, <code>./config</code>)</p>
+<p><strong>Impact</strong>: When set with <code>mas_instance_id</code>, generates <code>kafkacfg-{provider}-system.yaml</code> in this directory. The file can be applied with <code>oc apply</code> or used with suite_config role.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_instance_id</code>: Required together with this for KafkaCfg generation
+- <code>kafka_provider</code>: Affects the generated filename</p>
+<p><strong>Note</strong>: If either <code>mas_instance_id</code> or <code>mas_config_dir</code> is not set, no KafkaCfg template is generated. Ensure the directory exists and is writable.</p>
 <h3 id="custom_labels">custom_labels<a class="headerlink" href="#custom_labels" title="Permanent link">¤</a></h3>
-<p>List of comma separated key=value pairs for setting custom labels on instance specific resources.</p>
+<p>Comma-separated list of key=value labels to apply to Kafka resources.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>CUSTOM_LABELS</code></li>
 <li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Adds Kubernetes labels to Kafka-related resources for organization, selection, and filtering. Labels enable resource tracking, cost allocation, and custom automation.</p>
+<p><strong>When to use</strong>:
+- Use to add organizational metadata (e.g., <code>cost-center=engineering</code>, <code>environment=production</code>)
+- Use to enable resource tracking and cost allocation
+- Use to support custom automation or monitoring tools
+- Use to comply with organizational labeling standards</p>
+<p><strong>Valid values</strong>: Comma-separated list of <code>key=value</code> pairs (e.g., <code>env=prod,team=platform,component=kafka</code>)</p>
+<p><strong>Impact</strong>: Labels are applied to Kafka-related resources and can be used for filtering with <code>oc get</code> commands, monitoring queries, and automation scripts. Labels do not affect Kafka functionality.</p>
+<p><strong>Related variables</strong>: Works alongside Kubernetes resource labels for comprehensive resource management.</p>
+<p><strong>Note</strong>: This variable applies to Strimzi and Red Hat AMQ Streams providers. Labels help with resource organization and are especially useful in multi-tenant environments.</p>
 <h2 id="ibm-cloud-evenstreams-role-variables">IBM Cloud Evenstreams Role Variables<a class="headerlink" href="#ibm-cloud-evenstreams-role-variables" title="Permanent link">¤</a></h2>
 <h3 id="ibmcloud_apikey">ibmcloud_apikey<a class="headerlink" href="#ibmcloud_apikey" title="Permanent link">¤</a></h3>
 <p>Defines IBM Cloud API Key. This API Key needs to have access to manage (provision/deprovision) IBM Cloud Event Streams.</p>
@@ -1209,8 +1398,8 @@ ansible-playbook ibm.mas_devops.run_role
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#kafka_user_password-supported-in-strimzi-operator-verion-0250-amq-streams-operator-version-2x" class="md-toc__link" data-md-level="2">
-                          kafka_user_password (supported in Strimzi operator verion 0.25.0 - amq streams operator version 2.x)
+                        <a href="#kafka_user_password" class="md-toc__link" data-md-level="2">
+                          kafka_user_password
                         </a>
                       </li>
                       <li class="md-toc__item">

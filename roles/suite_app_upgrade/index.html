@@ -745,40 +745,102 @@
 </ul>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
-<p>Set the instance ID for the MAS installation where you wish to upgrade the application.</p>
+<p>MAS instance identifier for application upgrade.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies which MAS instance contains the application to upgrade. Used to locate and validate the application installation.</p>
+<p><strong>When to use</strong>:
+- Always required for application upgrades
+- Must match the instance ID from MAS installation
+- Used to validate application health before upgrade</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>inst1</code>)</p>
+<p><strong>Impact</strong>: Determines which MAS instance's application will be upgraded. Incorrect instance ID will cause upgrade to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_app_id</code>: Application to upgrade in this instance
+- <code>mas_app_channel</code>: Target upgrade channel</p>
+<p><strong>Note</strong>: The role validates that the application is installed and healthy in this instance before proceeding with the upgrade.</p>
 <h3 id="mas_app_id">mas_app_id<a class="headerlink" href="#mas_app_id" title="Permanent link">¤</a></h3>
-<p>The application ID to upgrade (e.g., <code>iot</code>, <code>manage</code>, <code>monitor</code>).</p>
+<p>MAS application identifier to upgrade.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_APP_ID</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which MAS application to upgrade. The role validates the application is installed and healthy before upgrading.</p>
+<p><strong>When to use</strong>:
+- Always required for application upgrades
+- Must match an installed application in the instance
+- Application must be in healthy state for upgrade</p>
+<p><strong>Valid values</strong>: Valid MAS application ID (e.g., <code>iot</code>, <code>manage</code>, <code>monitor</code>, <code>predict</code>, <code>health</code>, <code>assist</code>, <code>visualinspection</code>, <code>optimizer</code>)</p>
+<p><strong>Impact</strong>: Determines which application's subscription channel will be upgraded. The role validates compatibility and upgrade path before proceeding.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_instance_id</code>: Instance containing this application
+- <code>mas_app_channel</code>: Target upgrade channel for this application</p>
+<p><strong>Note</strong>: The role performs comprehensive validation including application health, upgrade path compatibility, and MAS core platform compatibility before upgrading.</p>
 <h3 id="mas_app_channel">mas_app_channel<a class="headerlink" href="#mas_app_channel" title="Permanent link">¤</a></h3>
-<p>Select the subscription channel you wish to upgrade to. Built-in validation will ensure that the upgrade will only proceed if a supportable upgrade path is chosen.</p>
+<p>Target subscription channel for application upgrade.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_APP_CHANNEL</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the target subscription channel to upgrade the application to. The role validates that a supported upgrade path exists from the current version.</p>
+<p><strong>When to use</strong>:
+- Always required for application upgrades
+- Must be a valid channel for the application
+- Should represent a newer version than currently installed</p>
+<p><strong>Valid values</strong>: Valid subscription channel for the application (e.g., <code>8.5.x</code>, <code>8.6.x</code>, <code>8.7.x</code> for IoT; <code>8.4.x</code>, <code>8.5.x</code>, <code>8.6.x</code> for Manage)</p>
+<p><strong>Impact</strong>: Determines the target version for the application upgrade. The role validates:
+- Upgrade path compatibility (can upgrade from current to target)
+- MAS core platform compatibility (target version works with current MAS)
+- Application health before proceeding</p>
+<p><strong>Related variables</strong>:
+- <code>mas_app_id</code>: Application being upgraded
+- <code>skip_compatibility_check</code>: Whether to skip validation (not recommended)</p>
+<p><strong>Note</strong>: Built-in validation ensures safe upgrades. The role will fail if the upgrade path is not supported or if the target version is incompatible with the current MAS core platform.</p>
 <h3 id="mas_upgrade_dryrun">mas_upgrade_dryrun<a class="headerlink" href="#mas_upgrade_dryrun" title="Permanent link">¤</a></h3>
-<p>When set to <code>true</code> will ensure that the role only performs upgrade validation checks and does not make any changes to the target installation.</p>
+<p>Dry-run mode for upgrade validation only.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_UPGRADE_DRYRUN</code></li>
-<li>Default: <code>False</code></li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Enables dry-run mode where the role performs all validation checks without making any changes to the installation. Useful for testing upgrade paths.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> to validate upgrade without executing it
+- Use for testing and planning upgrade paths
+- Recommended before production upgrades
+- Leave as <code>false</code> (default) to perform actual upgrade</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: 
+- <code>true</code>: Performs validation only (health check, compatibility check, upgrade path validation) without modifying the installation
+- <code>false</code>: Performs validation and executes the upgrade if validation passes</p>
+<p><strong>Related variables</strong>:
+- <code>skip_compatibility_check</code>: Controls whether compatibility validation is performed</p>
+<p><strong>Note</strong>: Dry-run mode is highly recommended before production upgrades to identify potential issues. All validation checks are performed, but no changes are made to the subscription channel or application.</p>
 <h3 id="skip_compatibility_check">skip_compatibility_check<a class="headerlink" href="#skip_compatibility_check" title="Permanent link">¤</a></h3>
-<p>When set to <code>true</code> will skip compatibility check before the upgrade install. By default, compatibility check will be performed to validate the specific target mas_app_channel is valid or not based on the existing mas and apps version.</p>
+<p>Skip compatibility validation before upgrade.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>SKIP_COMPATIBILITY_CHECK</code></li>
-<li>Default: <code>False</code></li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether compatibility validation is performed before upgrade. Validation checks if the target channel is compatible with current MAS and application versions.</p>
+<p><strong>When to use</strong>:
+- Leave as <code>false</code> (default) for safe upgrades with validation
+- Set to <code>true</code> only in exceptional cases (not recommended)
+- Use only when you have verified compatibility manually</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: 
+- <code>false</code> (default): Performs compatibility validation before upgrade (recommended)
+- <code>true</code>: Skips compatibility validation, allowing potentially incompatible upgrades</p>
+<p><strong>Related variables</strong>:
+- <code>mas_upgrade_dryrun</code>: Controls whether upgrade is executed or only validated
+- <code>mas_app_channel</code>: Target channel being validated</p>
+<p><strong>Note</strong>: <strong>WARNING</strong> - Skipping compatibility checks can lead to failed upgrades or unstable installations. Only skip validation if you have manually verified the upgrade path is supported. The default validation protects against incompatible upgrades.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true

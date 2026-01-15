@@ -745,63 +745,157 @@
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="general">General<a class="headerlink" href="#general" title="Permanent link">¤</a></h3>
 <h4 id="masbr_action">masbr_action<a class="headerlink" href="#masbr_action" title="Permanent link">¤</a></h4>
-<p>Set <code>backup</code> or <code>restore</code> to indicate the role to create a backup or restore job.</p>
+<p>Action to perform on MAS Core namespace.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MASBR_ACTION</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies whether to create a backup of MAS Core namespace resources or restore from a previous backup.</p>
+<p><strong>When to use</strong>:
+- Set to <code>backup</code> to create a backup of MAS Core namespace resources
+- Set to <code>restore</code> to restore MAS Core namespace from a backup
+- Always required to indicate the operation type</p>
+<p><strong>Valid values</strong>: <code>backup</code>, <code>restore</code></p>
+<p><strong>Impact</strong>: 
+- <code>backup</code>: Creates backup job (on-demand or scheduled) for MAS Core namespace resources
+- <code>restore</code>: Restores MAS Core namespace from specified backup version</p>
+<p><strong>Related variables</strong>:
+- <code>masbr_restore_from_version</code>: Required when action is <code>restore</code>
+- <code>masbr_backup_schedule</code>: Optional for scheduled backups
+- <code>mas_instance_id</code>: Instance to backup/restore</p>
+<p><strong>Note</strong>: <strong>IMPORTANT</strong> - This role handles MAS Core namespace resources only. MongoDB data must be backed up/restored separately using the <code>mongodb</code> role. A backup can only be restored to an instance with the same MAS instance ID.</p>
 <h4 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h4>
-<p>Defines the MAS instance ID for the backup or restore action.</p>
+<p>MAS instance identifier for backup/restore operations.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies which MAS instance to backup or restore. Used to locate MAS Core namespace resources and ensure restore compatibility.</p>
+<p><strong>When to use</strong>:
+- Always required for backup and restore operations
+- Must match the instance ID from MAS installation
+- Critical for restore operations (must match original backup instance ID)</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>main</code>)</p>
+<p><strong>Impact</strong>: Determines which MAS instance's Core namespace will be backed up or restored. <strong>CRITICAL</strong> - A backup can only be restored to an instance with the same MAS instance ID.</p>
+<p><strong>Related variables</strong>:
+- <code>masbr_action</code>: Whether backing up or restoring this instance
+- <code>masbr_restore_from_version</code>: Backup version to restore (for restore action)</p>
+<p><strong>Note</strong>: <strong>IMPORTANT</strong> - The instance ID must match between backup and restore operations. Attempting to restore a backup to an instance with a different ID will fail.</p>
 <h4 id="masbr_confirm_cluster">masbr_confirm_cluster<a class="headerlink" href="#masbr_confirm_cluster" title="Permanent link">¤</a></h4>
-<p>Set <code>true</code> or <code>false</code> to indicate the role whether to confirm the currently connected cluster before running the backup or restore job.</p>
+<p>Confirm cluster connection before backup/restore.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MASBR_CONFIRM_CLUSTER</code></li>
 <li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether the role prompts for confirmation of the currently connected cluster before executing backup or restore operations. Safety feature to prevent accidental operations on wrong cluster.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> for interactive confirmation (recommended for production)
+- Leave as <code>false</code> (default) for automated/non-interactive operations
+- Use <code>true</code> when manually running backup/restore to verify correct cluster</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: 
+- <code>true</code>: Role prompts for cluster confirmation before proceeding
+- <code>false</code>: Role proceeds without confirmation (suitable for automation)</p>
+<p><strong>Related variables</strong>:
+- <code>masbr_action</code>: Operation requiring cluster confirmation</p>
+<p><strong>Note</strong>: Enabling cluster confirmation is recommended for manual operations, especially in production environments, to prevent accidental backup/restore on the wrong cluster.</p>
 <h4 id="masbr_copy_timeout_sec">masbr_copy_timeout_sec<a class="headerlink" href="#masbr_copy_timeout_sec" title="Permanent link">¤</a></h4>
-<p>Set the transfer files timeout in seconds.</p>
+<p>File transfer timeout in seconds.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MASBR_COPY_TIMEOUT_SEC</code></li>
 <li>Default: <code>43200</code> (12 hours)</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the maximum time allowed for transferring backup files between cluster and local storage. Prevents operations from hanging indefinitely.</p>
+<p><strong>When to use</strong>:
+- Use default (12 hours) for most deployments
+- Increase for very large backups or slow network connections
+- Decrease for smaller backups to fail faster on issues</p>
+<p><strong>Valid values</strong>: Positive integer (seconds), e.g., <code>3600</code> (1 hour), <code>43200</code> (12 hours), <code>86400</code> (24 hours)</p>
+<p><strong>Impact</strong>: Operations exceeding this timeout will fail. Insufficient timeout for large backups will cause failures. Excessive timeout delays error detection.</p>
+<p><strong>Related variables</strong>:
+- <code>masbr_storage_local_folder</code>: Destination for file transfers</p>
+<p><strong>Note</strong>: The default 12 hours is suitable for most deployments. Adjust based on backup size and network speed. Monitor actual transfer times to optimize this setting.</p>
 <h4 id="masbr_job_timezone">masbr_job_timezone<a class="headerlink" href="#masbr_job_timezone" title="Permanent link">¤</a></h4>
-<p>Set the <a href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones">time zone</a> for creating scheduled backup job. If not set a value for this variable, this role will use UTC time zone when creating a CronJob for running scheduled backup job.</p>
+<p>Time zone for scheduled backup jobs.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MASBR_JOB_TIMEZONE</code></li>
-<li>Default: None</li>
+<li>Default: UTC</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the time zone for scheduled backup CronJobs. Ensures backups run at the intended local time rather than UTC.</p>
+<p><strong>When to use</strong>:
+- Leave unset to use UTC (default)
+- Set when you need backups to run at specific local times
+- Only applies to scheduled backups (when <code>masbr_backup_schedule</code> is set)</p>
+<p><strong>Valid values</strong>: Valid <a href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones">tz database time zone</a> (e.g., <code>America/New_York</code>, <code>Europe/London</code>, <code>Asia/Tokyo</code>)</p>
+<p><strong>Impact</strong>: Determines when scheduled backups execute. Incorrect time zone may cause backups to run at unexpected times.</p>
+<p><strong>Related variables</strong>:
+- <code>masbr_backup_schedule</code>: Cron expression interpreted in this time zone</p>
+<p><strong>Note</strong>: Only relevant for scheduled backups. On-demand backups ignore this setting. Use standard tz database names (e.g., <code>America/New_York</code>, not <code>EST</code>).</p>
 <h4 id="masbr_storage_local_folder">masbr_storage_local_folder<a class="headerlink" href="#masbr_storage_local_folder" title="Permanent link">¤</a></h4>
-<p>Set local path to save the backup files.</p>
+<p>Local filesystem path for backup storage.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MASBR_STORAGE_LOCAL_FOLDER</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the local filesystem path where backup files are stored (for backups) or retrieved from (for restores). This is the persistent storage location for backup data.</p>
+<p><strong>When to use</strong>:
+- Always required for backup and restore operations
+- Must be accessible from the system running the role
+- Should have sufficient space for backup files
+- Must be persistent across operations for restore capability</p>
+<p><strong>Valid values</strong>: Absolute filesystem path (e.g., <code>/tmp/masbr</code>, <code>/backup/mas</code>, <code>/mnt/backup</code>)</p>
+<p><strong>Impact</strong>: Backup files are written to or read from this location. Insufficient space will cause backup failures. Path must exist and be writable.</p>
+<p><strong>Related variables</strong>:
+- <code>masbr_copy_timeout_sec</code>: Timeout for transferring files to/from this location
+- <code>masbr_restore_from_version</code>: Backup version stored in this location</p>
+<p><strong>Note</strong>: Ensure the path has sufficient disk space for backups. For production, use a dedicated backup volume with appropriate retention policies. The path must be accessible during both backup and restore operations.</p>
 <h3 id="backup">Backup<a class="headerlink" href="#backup" title="Permanent link">¤</a></h3>
 <h4 id="masbr_backup_schedule">masbr_backup_schedule<a class="headerlink" href="#masbr_backup_schedule" title="Permanent link">¤</a></h4>
-<p>Set <a href="https://en.wikipedia.org/wiki/Cron">Cron expression</a> to create a scheduled backup. If not set a value for this variable, this role will create an on-demand backup.</p>
+<p>Cron expression for scheduled backups.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MASBR_BACKUP_SCHEDULE</code></li>
-<li>Default: None</li>
+<li>Default: None (on-demand backup)</li>
 </ul>
+<p><strong>Purpose</strong>: Defines a schedule for automatic recurring backups using Cron syntax. When set, creates a Kubernetes CronJob for automated backups.</p>
+<p><strong>When to use</strong>:
+- Leave unset for on-demand backups (manual execution)
+- Set to create scheduled/recurring backups
+- Use for automated backup strategies</p>
+<p><strong>Valid values</strong>: Valid <a href="https://en.wikipedia.org/wiki/Cron">Cron expression</a> (e.g., <code>0 2 * * *</code> for daily at 2 AM, <code>0 2 * * 0</code> for weekly on Sunday at 2 AM)</p>
+<p><strong>Impact</strong>: 
+- When set: Creates a Kubernetes CronJob that runs backups automatically on schedule
+- When unset: Creates an on-demand backup job that runs immediately</p>
+<p><strong>Related variables</strong>:
+- <code>masbr_job_timezone</code>: Time zone for interpreting the cron schedule
+- <code>masbr_action</code>: Must be <code>backup</code> for scheduled backups</p>
+<p><strong>Note</strong>: Scheduled backups only apply when <code>masbr_action=backup</code>. The cron expression is interpreted in the time zone specified by <code>masbr_job_timezone</code> (defaults to UTC). Common patterns: <code>0 2 * * *</code> (daily 2 AM), <code>0 2 * * 0</code> (weekly Sunday 2 AM), <code>0 2 1 * *</code> (monthly 1st at 2 AM).</p>
 <h3 id="restore">Restore<a class="headerlink" href="#restore" title="Permanent link">¤</a></h3>
 <h4 id="masbr_restore_from_version">masbr_restore_from_version<a class="headerlink" href="#masbr_restore_from_version" title="Permanent link">¤</a></h4>
-<p>Set the backup version to use in the restore, this will be in the format of a <code>YYYMMDDHHMMSS</code> timestamp (e.g. <code>20240621021316</code>).</p>
+<p>Backup version timestamp for restore operations.</p>
 <ul>
-<li><strong>Required</strong> only when <code>MASBR_ACTION=restore</code></li>
+<li><strong>Required</strong> (when <code>masbr_action=restore</code>)</li>
 <li>Environment Variable: <code>MASBR_RESTORE_FROM_VERSION</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which backup version to restore from. The version is a timestamp identifying a specific backup.</p>
+<p><strong>When to use</strong>:
+- Required when <code>masbr_action=restore</code>
+- Not used for backup operations
+- Must match an existing backup version in storage</p>
+<p><strong>Valid values</strong>: Timestamp in <code>YYYYMMDDHHMMSS</code> format (e.g., <code>20240621021316</code> for June 21, 2024 at 02:13:16)</p>
+<p><strong>Impact</strong>: Determines which backup is restored. Incorrect or non-existent version will cause restore to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>masbr_action</code>: Must be <code>restore</code> for this variable to be used
+- <code>masbr_storage_local_folder</code>: Location where backup versions are stored
+- <code>mas_instance_id</code>: Must match the instance ID from the backup</p>
+<p><strong>Note</strong>: The backup version timestamp is generated automatically during backup creation. List available backups in <code>masbr_storage_local_folder</code> to find valid version timestamps. <strong>IMPORTANT</strong> - The backup can only be restored to an instance with the same MAS instance ID as the original backup.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <h3 id="backup_1">Backup<a class="headerlink" href="#backup_1" title="Permanent link">¤</a></h3>
 <p>Backup MAS Core namespace resources, note that this does not include backup of any data in MongoDb, see the <code>backup</code> action in the <a href="../mongodb/">mongodb</a> role.</p>

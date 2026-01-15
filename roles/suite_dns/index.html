@@ -769,97 +769,237 @@
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="general">General<a class="headerlink" href="#general" title="Permanent link">¤</a></h3>
 <h4 id="dns_provider">dns_provider<a class="headerlink" href="#dns_provider" title="Permanent link">¤</a></h4>
-<p>Defines which DNS provider to use for DNS management. Supported values are <code>cis</code>, <code>cloudflare</code>, or <code>route53</code>.</p>
+<p>Specifies which DNS provider to use for managing MAS domain DNS entries.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>DNS_PROVIDER</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Determines which DNS service will be used to create and manage DNS records for MAS routes and endpoints. Different providers offer different features and integration capabilities.</p>
+<p><strong>When to use</strong>:
+- Set to <code>cloudflare</code> when using Cloudflare DNS service
+- Set to <code>cis</code> when using IBM Cloud Internet Services
+- Set to <code>route53</code> when using AWS Route 53
+- Choose based on your organization's DNS infrastructure</p>
+<p><strong>Valid values</strong>: <code>cis</code>, <code>cloudflare</code>, <code>route53</code></p>
+<p><strong>Impact</strong>: The selected provider determines which additional variables are required and which features are available (e.g., Let's Encrypt integration is available for CIS and Cloudflare but not Route53).</p>
+<p><strong>Related variables</strong>:
+- When <code>cloudflare</code>: Requires <code>cloudflare_email</code>, <code>cloudflare_apitoken</code>, <code>cloudflare_zone</code>
+- When <code>cis</code>: Requires <code>cis_email</code>, <code>cis_apikey</code>, <code>cis_crn</code>
+- When <code>route53</code>: Requires AWS Route53 specific variables</p>
+<p><strong>Note</strong>: This role takes no action when <code>mas_manual_cert_mgmt</code> is set to <code>True</code>. CIS and Cloudflare support Let's Encrypt integration for automatic certificate management.</p>
 <h4 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h4>
-<p>The instance ID of the MAS installation.</p>
+<p>Unique identifier for the MAS instance requiring DNS configuration.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies which MAS instance to configure DNS entries for. This ID is used to generate DNS record names and ClusterIssuer resources specific to this MAS installation.</p>
+<p><strong>When to use</strong>:
+- Always required for DNS configuration
+- Must match the instance ID used during MAS core installation
+- Used to create unique ClusterIssuer names for Let's Encrypt integration</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>inst1</code>)</p>
+<p><strong>Impact</strong>: This ID is embedded in DNS record names and ClusterIssuer names (e.g., <code>{mas_instance_id}-cloudflare-le-prod</code>). Incorrect ID will create DNS entries for the wrong instance.</p>
+<p><strong>Related variables</strong>: Works with <code>mas_domain</code> to construct full DNS names for MAS routes.</p>
+<p><strong>Note</strong>: Must match the instance ID from MAS core installation. Used in ClusterIssuer names for Let's Encrypt integration.</p>
 <h4 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link">¤</a></h4>
-<p>The workspace ID for the MAS installation.</p>
+<p>Workspace identifier for the MAS installation requiring DNS configuration.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_WORKSPACE_ID</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies which MAS workspace to configure DNS entries for. Workspaces are logical divisions within a MAS instance that can have separate configurations and applications.</p>
+<p><strong>When to use</strong>:
+- Always required for DNS configuration
+- Must match a workspace ID configured in your MAS instance
+- Typically set to the primary workspace ID (e.g., <code>masdev</code>, <code>prod</code>)</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string (e.g., <code>masdev</code>, <code>prod</code>, <code>ws1</code>)</p>
+<p><strong>Impact</strong>: This ID is used to generate workspace-specific DNS entries and routes. Incorrect workspace ID may result in DNS entries that don't match your MAS workspace configuration.</p>
+<p><strong>Related variables</strong>: Works with <code>mas_instance_id</code> and <code>mas_domain</code> to construct workspace-specific DNS names.</p>
+<p><strong>Note</strong>: Must match an existing workspace in your MAS instance. Each workspace can have its own DNS configuration.</p>
 <h4 id="mas_domain">mas_domain<a class="headerlink" href="#mas_domain" title="Permanent link">¤</a></h4>
-<p>The domain name to be used for MAS.</p>
+<p>Custom domain name for accessing MAS web interfaces and APIs.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_DOMAIN</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Defines the base domain used to construct all MAS URLs and DNS entries (e.g., admin.{mas_domain}, home.{mas_domain}, api.{mas_domain}). This domain must be managed by your chosen DNS provider.</p>
+<p><strong>When to use</strong>:
+- Always required for DNS configuration
+- Must match the domain configured in your DNS provider's zone
+- Should align with your organization's domain naming conventions
+- Must be the same domain used in MAS core installation</p>
+<p><strong>Valid values</strong>: Any valid DNS domain name (e.g., <code>mas.mycompany.com</code>, <code>prod-mas.example.org</code>)</p>
+<p><strong>Impact</strong>: DNS entries will be created for this domain in your DNS provider. The domain must be properly configured in your DNS provider's zone. All MAS routes will use this domain.</p>
+<p><strong>Related variables</strong>:
+- Must align with DNS provider zone configuration (<code>cloudflare_zone</code>, <code>cis_crn</code>, etc.)
+- Works with <code>mas_instance_id</code> to create unique DNS entries
+- May use subdomain mode with <code>cloudflare_subdomain</code> or <code>cis_subdomain</code></p>
+<p><strong>Note</strong>: Ensure this domain is properly configured in your DNS provider before running this role. DNS propagation may take time after entries are created.</p>
 <h4 id="ocp_ingress">ocp_ingress<a class="headerlink" href="#ocp_ingress" title="Permanent link">¤</a></h4>
-<p>Override the OCP ingress used in DNS entries.</p>
+<p>Override for the OpenShift cluster ingress domain used in DNS entries.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>OCP_INGRESS</code></li>
-<li>Default: None</li>
+<li>Default: None (automatically detected from cluster)</li>
 </ul>
+<p><strong>Purpose</strong>: Allows manual specification of the OpenShift cluster's ingress domain when automatic detection fails or when you need to use a specific ingress controller. The ingress domain is used as the target for DNS CNAME records.</p>
+<p><strong>When to use</strong>:
+- Leave unset to allow automatic detection (recommended)
+- Set only when automatic detection fails
+- Set when using a non-default ingress controller
+- Set in airgap or restricted network environments where detection may not work</p>
+<p><strong>Valid values</strong>: Valid OpenShift ingress domain (e.g., <code>apps.cluster-name.domain.com</code>)</p>
+<p><strong>Impact</strong>: When set, this value is used as the target for DNS CNAME records instead of the automatically detected ingress. Incorrect value will cause DNS entries to point to the wrong location.</p>
+<p><strong>Related variables</strong>: Works with DNS provider variables to create CNAME records pointing to this ingress.</p>
+<p><strong>Note</strong>: Automatic detection is usually sufficient. Only override if you encounter issues or have specific ingress requirements.</p>
 <h4 id="cert_manager_namespace">cert_manager_namespace<a class="headerlink" href="#cert_manager_namespace" title="Permanent link">¤</a></h4>
-<p>Namespace where Certificate Manager is installed.</p>
+<p>OpenShift namespace where Certificate Manager is installed.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>CERT_MANAGER_NAMESPACE</code></li>
-<li>Default: None</li>
+<li>Default: None (automatically detected)</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the namespace where Certificate Manager is deployed. This is needed to create ClusterIssuer resources for Let's Encrypt integration in the correct location.</p>
+<p><strong>When to use</strong>:
+- Leave unset to allow automatic detection (recommended)
+- Set only if Certificate Manager is installed in a non-standard namespace
+- Set if automatic detection fails</p>
+<p><strong>Valid values</strong>: Any valid Kubernetes namespace name where Certificate Manager is installed</p>
+<p><strong>Impact</strong>: ClusterIssuer resources for Let's Encrypt will be created referencing this namespace. Incorrect namespace will cause ClusterIssuer creation to fail.</p>
+<p><strong>Related variables</strong>: Used when creating ClusterIssuer for Cloudflare or CIS Let's Encrypt integration.</p>
+<p><strong>Note</strong>: Automatic detection typically finds Certificate Manager in standard namespaces. Only override if using a custom installation.</p>
 <h4 id="custom_labels">custom_labels<a class="headerlink" href="#custom_labels" title="Permanent link">¤</a></h4>
-<p>List of comma separated key=value pairs for setting custom labels on instance specific resources.</p>
+<p>Comma-separated list of key=value labels to apply to DNS-related resources.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>CUSTOM_LABELS</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Adds Kubernetes labels to DNS-related resources for organization, selection, and filtering. Labels enable resource tracking, cost allocation, and custom automation.</p>
+<p><strong>When to use</strong>:
+- Use to add organizational metadata (e.g., <code>cost-center=engineering</code>, <code>environment=production</code>)
+- Use to enable resource tracking and cost allocation
+- Use to support custom automation or monitoring tools
+- Use to comply with organizational labeling standards</p>
+<p><strong>Valid values</strong>: Comma-separated list of <code>key=value</code> pairs (e.g., <code>env=prod,team=platform,component=dns</code>)</p>
+<p><strong>Impact</strong>: Labels are applied to DNS-related resources and can be used for filtering with <code>oc get</code> commands, monitoring queries, and automation scripts. Labels do not affect DNS functionality.</p>
+<p><strong>Related variables</strong>: Works alongside Kubernetes resource labels for comprehensive resource management.</p>
 <h4 id="mas_manual_cert_mgmt">mas_manual_cert_mgmt<a class="headerlink" href="#mas_manual_cert_mgmt" title="Permanent link">¤</a></h4>
-<p>Boolean variable that, when set to True, disables automatic certificate management.</p>
+<p>Controls whether to disable automatic DNS and certificate management.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_MANUAL_CERT_MGMT</code></li>
 <li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Allows you to opt out of automatic DNS entry creation and certificate management when you prefer to manage these manually or through alternative methods.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> when managing DNS entries manually
+- Set to <code>true</code> when using custom certificate management solutions
+- Set to <code>true</code> when DNS provider integration is not available
+- Leave as <code>false</code> (default) for automated DNS and certificate management</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: 
+- When <code>true</code>: This role takes no action; DNS entries and certificates must be managed manually
+- When <code>false</code>: Role automatically creates DNS entries and optionally configures Let's Encrypt integration</p>
+<p><strong>Related variables</strong>: When <code>true</code>, all other DNS provider variables are ignored.</p>
+<p><strong>Note</strong>: Setting to <code>true</code> means you are responsible for creating all required DNS entries and managing certificates manually. Ensure proper DNS configuration before MAS installation.</p>
 <h4 id="output_dir">output_dir<a class="headerlink" href="#output_dir" title="Permanent link">¤</a></h4>
-<p>Location to output the edge-routes-{mas_instance_id}.txt file.</p>
+<p>Local directory path where the edge routes output file will be saved.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>OUTPUT_DIR</code></li>
 <li>Default: <code>.</code> (current directory)</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies where to save the <code>edge-routes-{mas_instance_id}.txt</code> file containing information about the DNS entries and routes created by this role. This file is useful for verification and troubleshooting.</p>
+<p><strong>When to use</strong>:
+- Set to a specific directory for organized output file management
+- Use default (current directory) for simple deployments
+- Set to a shared location for team access to route information</p>
+<p><strong>Valid values</strong>: Any valid local filesystem path (e.g., <code>/home/user/mas-output</code>, <code>~/masconfig</code>, <code>./output</code>)</p>
+<p><strong>Impact</strong>: The edge routes file will be created in this directory. The file contains DNS entry details and can be used to verify DNS configuration.</p>
+<p><strong>Related variables</strong>: Output filename includes <code>mas_instance_id</code> for identification.</p>
+<p><strong>Note</strong>: Ensure the directory exists and is writable. The file provides useful information for verifying DNS setup and troubleshooting connectivity issues.</p>
 <h3 id="cloudflare-dns-integration">Cloudflare DNS Integration<a class="headerlink" href="#cloudflare-dns-integration" title="Permanent link">¤</a></h3>
 <h4 id="cloudflare_email">cloudflare_email<a class="headerlink" href="#cloudflare_email" title="Permanent link">¤</a></h4>
-<p>Email address for Cloudflare account.</p>
+<p>Email address associated with your Cloudflare account.</p>
 <ul>
 <li><strong>Required</strong> if <code>dns_provider</code> is set to <code>cloudflare</code></li>
 <li>Environment Variable: <code>CLOUDFLARE_EMAIL</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the email address for authenticating with Cloudflare API. This email must be associated with a Cloudflare account that has access to manage the DNS zone.</p>
+<p><strong>When to use</strong>:
+- Required when <code>dns_provider=cloudflare</code>
+- Must be the email address used to log into Cloudflare
+- Account must have permissions to manage DNS records in the target zone</p>
+<p><strong>Valid values</strong>: Valid email address associated with a Cloudflare account</p>
+<p><strong>Impact</strong>: Used together with <code>cloudflare_apitoken</code> to authenticate API requests. Incorrect email will cause authentication failures.</p>
+<p><strong>Related variables</strong>:
+- <code>cloudflare_apitoken</code>: Must be set together with this email
+- <code>cloudflare_zone</code>: Zone that this account has access to manage</p>
+<p><strong>Note</strong>: Ensure the Cloudflare account has appropriate permissions to create and manage DNS records in the target zone.</p>
 <h4 id="cloudflare_apitoken">cloudflare_apitoken<a class="headerlink" href="#cloudflare_apitoken" title="Permanent link">¤</a></h4>
-<p>To generate an API token follow the <a href="https://developers.cloudflare.com/fundamentals/api/get-started/create-token/">Cloudflare documentation</a>.</p>
+<p>API token for authenticating with Cloudflare API.</p>
 <ul>
 <li><strong>Required</strong> if <code>dns_provider</code> is set to <code>cloudflare</code></li>
 <li>Environment Variable: <code>CLOUDFLARE_APITOKEN</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the API token credential for authenticating with Cloudflare to create and manage DNS records. This token must have appropriate permissions for DNS management.</p>
+<p><strong>When to use</strong>:
+- Required when <code>dns_provider=cloudflare</code>
+- Generate from Cloudflare dashboard with DNS edit permissions
+- Token must have access to the target DNS zone</p>
+<p><strong>Valid values</strong>: Valid Cloudflare API token string</p>
+<p><strong>Impact</strong>: Used together with <code>cloudflare_email</code> to authenticate API requests. Invalid or insufficient permissions will cause DNS operations to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>cloudflare_email</code>: Must be set together with this token
+- <code>cloudflare_zone</code>: Zone that this token has permissions to manage</p>
+<p><strong>Note</strong>: Generate the API token following the <a href="https://developers.cloudflare.com/fundamentals/api/get-started/create-token/">Cloudflare documentation</a>. Ensure the token has DNS edit permissions for the target zone. Keep this token secure and do not commit to source control.</p>
 <h4 id="cloudflare_zone">cloudflare_zone<a class="headerlink" href="#cloudflare_zone" title="Permanent link">¤</a></h4>
-<p>This is your domain name that is managed by Cloudflare (e.g. <code>mydomain.com</code>).</p>
+<p>DNS zone name managed by Cloudflare where MAS DNS entries will be created.</p>
 <ul>
 <li><strong>Required</strong> if <code>dns_provider</code> is set to <code>cloudflare</code></li>
 <li>Environment Variable: <code>CLOUDFLARE_ZONE</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the Cloudflare DNS zone (domain) where MAS DNS records will be created. This must be a domain that is already configured and active in your Cloudflare account.</p>
+<p><strong>When to use</strong>:
+- Required when <code>dns_provider=cloudflare</code>
+- Must match a zone configured in your Cloudflare account
+- Should be the parent domain of <code>mas_domain</code> (or equal to it for top-level entries)</p>
+<p><strong>Valid values</strong>: Valid domain name managed in Cloudflare (e.g., <code>mydomain.com</code>, <code>example.org</code>)</p>
+<p><strong>Impact</strong>: DNS entries will be created in this zone. The zone must exist in Cloudflare and be accessible with the provided credentials. Incorrect zone will cause DNS operations to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_domain</code>: Should be within this zone (e.g., if zone is <code>mydomain.com</code>, mas_domain could be <code>mas.mydomain.com</code>)
+- <code>cloudflare_subdomain</code>: Optional subdomain within this zone for MAS entries
+- <code>cloudflare_email</code> and <code>cloudflare_apitoken</code>: Must have access to this zone</p>
+<p><strong>Note</strong>: Ensure the zone is active in Cloudflare and DNS is properly delegated before running this role.</p>
 <h4 id="cloudflare_subdomain">cloudflare_subdomain<a class="headerlink" href="#cloudflare_subdomain" title="Permanent link">¤</a></h4>
-<p>Set this to the name of the subdomain under your Cloudflare domain where you would like to manage the MAS DNS entries if you don't want MAS to use the top-level domain itself. In other words <code>cloudflare_subdomain.cloudflare_zone</code> should equal <code>mas_domain</code>.</p>
+<p>Subdomain within the Cloudflare zone for MAS DNS entries (subdomain mode).</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>CLOUDFLARE_SUBDOMAIN</code></li>
-<li>Default: None</li>
+<li>Default: None (uses top-level DNS entries)</li>
 </ul>
+<p><strong>Purpose</strong>: Enables subdomain mode for DNS management, where MAS DNS entries are created under a subdomain rather than at the top level of the zone. This allows multiple MAS instances or other services to share the same DNS zone.</p>
+<p><strong>When to use</strong>:
+- Use when your DNS zone will host multiple MAS instances or other services
+- Use when <code>mas_domain</code> is a subdomain of <code>cloudflare_zone</code>
+- Leave unset when <code>mas_domain</code> equals <code>cloudflare_zone</code> (top-level mode)</p>
+<p><strong>Valid values</strong>: Subdomain name (e.g., if <code>cloudflare_zone=mycompany.com</code> and <code>mas_domain=mas.mycompany.com</code>, set to <code>mas</code>)</p>
+<p><strong>Impact</strong>: 
+- When set: DNS entries created as <code>admin.{cloudflare_subdomain}</code>, <code>home.{cloudflare_subdomain}</code>, etc.
+- When unset: DNS entries created as <code>admin</code>, <code>home</code>, etc. directly in the zone</p>
+<p><strong>Related variables</strong>:
+- <code>cloudflare_zone</code>: Parent zone for this subdomain
+- <code>mas_domain</code>: Should equal <code>{cloudflare_subdomain}.{cloudflare_zone}</code></p>
+<p><strong>Note</strong>: The relationship must be: <code>cloudflare_subdomain.cloudflare_zone</code> = <code>mas_domain</code>. For example, if zone is <code>mycompany.com</code> and mas_domain is <code>mas.mycompany.com</code>, set subdomain to <code>mas</code>.</p>
 <h3 id="ibm-cloud-internet-services-dns-integration">IBM Cloud Internet Services DNS Integration<a class="headerlink" href="#ibm-cloud-internet-services-dns-integration" title="Permanent link">¤</a></h3>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -869,63 +1009,162 @@ In OCP 4.12+, to avoid CIS webhook deployment failure at start up, this role wil
 <pre><code class="language-bash">oc adm policy add-scc-to-user anyuid -z cert-manager-webhook-ibm-cis -n ibm-common-services
 </code></pre>
 <h4 id="cis_email">cis_email<a class="headerlink" href="#cis_email" title="Permanent link">¤</a></h4>
-<p>This is the e-mail that will be used in the Cluster Issuer resource, created by this role, to connect with the certificate manager (i.e. Let's Encrypt).</p>
+<p>Email address for Let's Encrypt ClusterIssuer registration when using IBM CIS.</p>
 <ul>
 <li><strong>Required</strong> if <code>dns_provider</code> is set to <code>cis</code></li>
 <li>Environment Variable: <code>CIS_EMAIL</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the email address that will be registered with Let's Encrypt when creating the ClusterIssuer for automatic certificate management. Let's Encrypt uses this email for certificate expiration notifications and account recovery.</p>
+<p><strong>When to use</strong>:
+- Required when <code>dns_provider=cis</code>
+- Use a monitored email address to receive Let's Encrypt notifications
+- Typically use a team or service email rather than personal email</p>
+<p><strong>Valid values</strong>: Valid email address</p>
+<p><strong>Impact</strong>: This email is embedded in the ClusterIssuer resource and registered with Let's Encrypt. You'll receive notifications about certificate renewals and any issues at this address.</p>
+<p><strong>Related variables</strong>:
+- <code>cis_apikey</code> and <code>cis_crn</code>: Required together for CIS integration
+- Used in ClusterIssuer: <code>{mas_instance_id}-cis-le-prod</code></p>
+<p><strong>Note</strong>: Use a monitored email address as Let's Encrypt sends important notifications about certificate expiration and renewal issues.</p>
 <h4 id="cis_apikey">cis_apikey<a class="headerlink" href="#cis_apikey" title="Permanent link">¤</a></h4>
-<p>IBM Cloud API key for CIS service.</p>
+<p>IBM Cloud API key for authenticating with IBM Cloud Internet Services.</p>
 <ul>
 <li><strong>Required</strong> if <code>dns_provider</code> is set to <code>cis</code></li>
 <li>Environment Variable: <code>CIS_APIKEY</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the IBM Cloud API key credential for authenticating with IBM Cloud Internet Services to create and manage DNS records and configure Let's Encrypt integration.</p>
+<p><strong>When to use</strong>:
+- Required when <code>dns_provider=cis</code>
+- Generate from IBM Cloud IAM with appropriate CIS permissions
+- Key must have access to the CIS instance specified by <code>cis_crn</code></p>
+<p><strong>Valid values</strong>: Valid IBM Cloud API key string</p>
+<p><strong>Impact</strong>: Used to authenticate all CIS API operations including DNS record management and ClusterIssuer configuration. Invalid key or insufficient permissions will cause operations to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>cis_crn</code>: CIS instance that this API key has access to
+- <code>cis_email</code>: Email for Let's Encrypt registration</p>
+<p><strong>Note</strong>: Generate the API key from IBM Cloud IAM. Ensure it has appropriate permissions for the CIS instance. Keep this key secure and do not commit to source control.</p>
 <h4 id="cis_crn">cis_crn<a class="headerlink" href="#cis_crn" title="Permanent link">¤</a></h4>
-<p>Cloud Resource Name (CRN) for the CIS instance.</p>
+<p>Cloud Resource Name (CRN) identifying the IBM Cloud Internet Services instance.</p>
 <ul>
 <li><strong>Required</strong> if <code>dns_provider</code> is set to <code>cis</code></li>
 <li>Environment Variable: <code>CIS_CRN</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Uniquely identifies the specific IBM Cloud Internet Services instance where DNS records will be managed. The CRN ensures operations target the correct CIS instance when multiple instances exist.</p>
+<p><strong>When to use</strong>:
+- Required when <code>dns_provider=cis</code>
+- Obtain from IBM Cloud CIS instance details
+- Must correspond to the CIS instance containing your DNS zone</p>
+<p><strong>Valid values</strong>: Valid IBM Cloud CRN string (format: <code>crn:v1:bluemix:public:internet-svcs:...</code>)</p>
+<p><strong>Impact</strong>: All DNS operations will target this CIS instance. Incorrect CRN will cause operations to fail or target the wrong instance.</p>
+<p><strong>Related variables</strong>:
+- <code>cis_apikey</code>: Must have permissions for this CIS instance
+- DNS zone must be configured in this CIS instance</p>
+<p><strong>Note</strong>: Find the CRN in the IBM Cloud console under your CIS instance details. Ensure the CRN matches the instance containing your target DNS zone.</p>
 <h4 id="cis_subdomain">cis_subdomain<a class="headerlink" href="#cis_subdomain" title="Permanent link">¤</a></h4>
-<p>Set this to the name of the subdomain under your CIS domain where you would like to manage the MAS DNS entries.</p>
+<p>Subdomain within the CIS zone for MAS DNS entries (subdomain mode).</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>CIS_SUBDOMAIN</code></li>
-<li>Default: None</li>
+<li>Default: None (uses top-level DNS entries)</li>
 </ul>
+<p><strong>Purpose</strong>: Enables subdomain mode for DNS management, where MAS DNS entries are created under a subdomain rather than at the top level of the CIS zone. This allows multiple MAS instances or other services to share the same DNS zone.</p>
+<p><strong>When to use</strong>:
+- Use when your CIS zone will host multiple MAS instances or other services
+- Use when <code>mas_domain</code> is a subdomain of your CIS zone domain
+- Leave unset when <code>mas_domain</code> equals the CIS zone domain (top-level mode)</p>
+<p><strong>Valid values</strong>: Subdomain name (e.g., if CIS zone is <code>mycompany.com</code> and <code>mas_domain=mas.mycompany.com</code>, set to <code>mas</code>)</p>
+<p><strong>Impact</strong>: 
+- When set: DNS entries created as <code>admin.{cis_subdomain}</code>, <code>home.{cis_subdomain}</code>, etc.
+- When unset: DNS entries created as <code>admin</code>, <code>home</code>, etc. directly in the zone</p>
+<p><strong>Related variables</strong>:
+- CIS zone domain: Parent zone for this subdomain
+- <code>mas_domain</code>: Should equal <code>{cis_subdomain}.{cis_zone_domain}</code></p>
+<p><strong>Note</strong>: The relationship must be: <code>cis_subdomain.{cis_zone_domain}</code> = <code>mas_domain</code>. For example, if CIS zone is <code>mycompany.com</code> and mas_domain is <code>mas.mycompany.com</code>, set subdomain to <code>mas</code>.</p>
 <h4 id="cis_enhanced_security">cis_enhanced_security<a class="headerlink" href="#cis_enhanced_security" title="Permanent link">¤</a></h4>
-<p>Set this to true to enable the enhanced IBM CIS DNS integration security - which includes: Enabling WAF firewall disabling rules that affect MAS application functionalities, Enabling Proxy for DNS entries, Using an expanded list of DNS entries, Ensuring there are no wildcard DNS entry in CIS, and Creating Edge Certificates in CIS instance. See https://cloud.ibm.com/docs/cis?topic=cis-manage-your-ibm-cis-for-optimal-security for more details.</p>
+<p>Enables enhanced security features for IBM CIS DNS integration.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>CIS_ENHANCED_SECURITY</code></li>
 <li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Activates a comprehensive set of security enhancements for CIS including WAF configuration, proxy mode, expanded DNS entries, wildcard prevention, and edge certificates. This provides optimal security for MAS deployments using CIS.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> for production environments requiring enhanced security
+- Set to <code>true</code> when security compliance requires WAF and proxy protection
+- Leave as <code>false</code> for development/test environments or when enhanced features aren't needed</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: When enabled, this configures:
+- WAF firewall with rules optimized for MAS
+- Proxy mode for DNS entries (traffic routed through CIS)
+- Expanded list of DNS entries for comprehensive coverage
+- Prevention of wildcard DNS entries
+- Edge certificates in CIS instance</p>
+<p><strong>Related variables</strong>:
+- <code>cis_waf</code>: Controls WAF specifically (when enhanced_security is true)
+- <code>cis_proxy</code>: Controls proxy mode (when enhanced_security is true)</p>
+<p><strong>Note</strong>: See <a href="https://cloud.ibm.com/docs/cis?topic=cis-manage-your-ibm-cis-for-optimal-security">IBM Cloud CIS security documentation</a> for details. Enhanced security may impact performance due to proxy routing.</p>
 <h3 id="enhanced-ibm-cis-dns-integration-security">Enhanced IBM CIS DNS Integration Security<a class="headerlink" href="#enhanced-ibm-cis-dns-integration-security" title="Permanent link">¤</a></h3>
 <p>See the <code>cis_enhanced_security</code> variable above for details.</p>
 <h4 id="cis_waf">cis_waf<a class="headerlink" href="#cis_waf" title="Permanent link">¤</a></h4>
-<p>Enable Web Application Firewall for CIS.</p>
+<p>Controls Web Application Firewall (WAF) configuration for CIS.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>CIS_WAF</code></li>
 <li>Default: <code>true</code></li>
 </ul>
+<p><strong>Purpose</strong>: Enables or disables WAF configuration with rules optimized for MAS application functionality. WAF provides protection against common web attacks while ensuring MAS features work correctly.</p>
+<p><strong>When to use</strong>:
+- Leave as <code>true</code> (default) for production environments requiring WAF protection
+- Set to <code>false</code> only if WAF causes issues or conflicts with other security tools
+- Typically used in conjunction with <code>cis_enhanced_security</code></p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: 
+- When <code>true</code>: Configures WAF with rules that protect MAS while allowing required functionality
+- When <code>false</code>: WAF is not configured (less security protection)</p>
+<p><strong>Related variables</strong>:
+- <code>cis_enhanced_security</code>: When true, this setting is part of enhanced security features
+- <code>cis_proxy</code>: Often used together for comprehensive security</p>
+<p><strong>Note</strong>: WAF rules are specifically tuned to avoid blocking legitimate MAS application traffic. Default is <code>true</code> for security best practices.</p>
 <h4 id="cis_proxy">cis_proxy<a class="headerlink" href="#cis_proxy" title="Permanent link">¤</a></h4>
-<p>Enable proxy for DNS entries in CIS.</p>
+<p>Controls whether DNS entries use CIS proxy mode (traffic routed through CIS).</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>CIS_PROXY</code></li>
 <li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Enables proxy mode for DNS entries, routing traffic through IBM CIS infrastructure. This provides additional security, DDoS protection, and performance optimization but adds latency.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> for production environments requiring DDoS protection
+- Set to <code>true</code> when using CIS security features (WAF, rate limiting)
+- Set to <code>false</code> for direct routing (lower latency, less protection)
+- Typically enabled with <code>cis_enhanced_security</code></p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: 
+- When <code>true</code>: Traffic routes through CIS (orange cloud icon in CIS console), enabling security features but adding latency
+- When <code>false</code>: DNS entries point directly to OpenShift ingress (grey cloud icon), lower latency but no CIS protection</p>
+<p><strong>Related variables</strong>:
+- <code>cis_enhanced_security</code>: When true, proxy is typically enabled
+- <code>cis_waf</code>: Requires proxy mode to function</p>
+<p><strong>Note</strong>: Proxy mode is required for WAF and other CIS security features to work. Consider the latency vs. security tradeoff for your use case.</p>
 <h4 id="cis_service_name">cis_service_name<a class="headerlink" href="#cis_service_name" title="Permanent link">¤</a></h4>
-<p>Set this to override the default CIS service name that would otherwise be created as {ClusterName}-cis-{mas_instance_id} (where Cluster Name is derived automatically from the cluster).</p>
+<p>Custom name for the CIS service resources created in the cluster.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>CIS_SERVICE_NAME</code></li>
-<li>Default: None</li>
+<li>Default: <code>{ClusterName}-cis-{mas_instance_id}</code> (auto-generated)</li>
 </ul>
+<p><strong>Purpose</strong>: Allows customization of the CIS service name used for resources created in the OpenShift cluster. The default name is automatically generated from the cluster name and MAS instance ID.</p>
+<p><strong>When to use</strong>:
+- Leave unset to use the auto-generated name (recommended)
+- Set only when you need a specific naming convention
+- Set when the auto-generated name conflicts with existing resources</p>
+<p><strong>Valid values</strong>: Valid Kubernetes resource name (lowercase alphanumeric with hyphens)</p>
+<p><strong>Impact</strong>: This name is used for CIS-related resources in the cluster. Changing it after initial deployment may cause issues with resource management.</p>
+<p><strong>Related variables</strong>: Works with <code>mas_instance_id</code> in the default naming pattern.</p>
+<p><strong>Note</strong>: The default auto-generated name is usually sufficient. Only override if you have specific naming requirements or conflicts.
+- Default: None</p>
 <h4 id="update_dns">update_dns<a class="headerlink" href="#update_dns" title="Permanent link">¤</a></h4>
 <p>Set this to false if you want to not update DNS entries if they already exist.</p>
 <ul>

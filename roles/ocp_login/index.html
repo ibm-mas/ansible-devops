@@ -746,87 +746,238 @@
 <p>This role provides support to login to a cluster using the <code>oc</code> CLI by looking up cluster information from the infrastructure provider's APIs, it also supports setting <code>ocp_server</code> and <code>ocp_token</code> directly to support login to any Kubernetes cluster.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="cluster_name">cluster_name<a class="headerlink" href="#cluster_name" title="Permanent link">¤</a></h3>
-<p>The name of the cluster to login to.  This will be used to lookup the actual login credentials of the system.</p>
+<p>Cluster name for credential lookup.</p>
 <ul>
-<li><strong>Required</strong> unless <code>ocp_server</code> and <code>ocp_token</code> are set</li>
+<li><strong>Required</strong> (unless <code>ocp_server</code> and <code>ocp_token</code> are set)</li>
 <li>Environment Variable: <code>CLUSTER_NAME</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies the cluster to login to by name. Used to automatically lookup login credentials from the infrastructure provider's API.</p>
+<p><strong>When to use</strong>:
+- Use with <code>cluster_type</code> for automatic credential lookup
+- Alternative to manually providing <code>ocp_server</code> and <code>ocp_token</code>
+- Recommended for managed clusters (ROKS, ROSA, Fyre)</p>
+<p><strong>Valid values</strong>: String matching your cluster name in the provider's system</p>
+<p><strong>Impact</strong>: Combined with <code>cluster_type</code>, automatically retrieves cluster server URL and login token from provider API.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_type</code>: Required with this variable (roks, fyre, rosa)
+- <code>ocp_server</code>/<code>ocp_token</code>: Alternative manual login method</p>
+<p><strong>Note</strong>: Requires provider-specific credentials (e.g., <code>ibmcloud_apikey</code> for ROKS, <code>rosa_token</code> for ROSA, <code>fyre_apikey</code> for Fyre).</p>
 <h3 id="cluster_type">cluster_type<a class="headerlink" href="#cluster_type" title="Permanent link">¤</a></h3>
-<p>The type of cluster to login to (<code>roks</code>, <code>fyre</code>, or <code>rosa</code>)</p>
+<p>Infrastructure provider type for cluster.</p>
 <ul>
-<li><strong>Required</strong> unless <code>ocp_server</code> and <code>ocp_token</code> are set</li>
+<li><strong>Required</strong> (unless <code>ocp_server</code> and <code>ocp_token</code> are set)</li>
 <li>Environment Variable: <code>CLUSTER_TYPE</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the infrastructure provider type to determine which API to use for credential lookup.</p>
+<p><strong>When to use</strong>:
+- Use with <code>cluster_name</code> for automatic credential lookup
+- Required for managed cluster login
+- Each type requires specific provider credentials</p>
+<p><strong>Valid values</strong>: <code>roks</code>, <code>fyre</code>, <code>rosa</code>
+- <code>roks</code>: IBM Cloud Red Hat OpenShift Kubernetes Service
+- <code>fyre</code>: IBM DevIT Fyre clusters
+- <code>rosa</code>: AWS Red Hat OpenShift Service on AWS</p>
+<p><strong>Impact</strong>: Determines which provider API is called to retrieve cluster credentials. Each type requires different authentication variables.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_name</code>: Cluster to lookup
+- <code>ibmcloud_apikey</code>: Required for <code>roks</code>
+- <code>fyre_username</code>/<code>fyre_apikey</code>: Required for <code>fyre</code>
+- <code>rosa_token</code>: Required for <code>rosa</code></p>
+<p><strong>Note</strong>: Alternative to using <code>ocp_server</code> and <code>ocp_token</code> for direct login.</p>
 <h3 id="ocp_server">ocp_server<a class="headerlink" href="#ocp_server" title="Permanent link">¤</a></h3>
-<p>The OCP server address to perform oc login against</p>
+<p>OpenShift server URL for direct login.</p>
 <ul>
-<li><strong>Required</strong> unless <code>cluster_name</code> and <code>cluster_type</code> are set</li>
+<li><strong>Required</strong> (unless <code>cluster_name</code> and <code>cluster_type</code> are set)</li>
 <li>Environment Variable: <code>OCP_SERVER</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the OpenShift API server URL for direct cluster login without provider API lookup.</p>
+<p><strong>When to use</strong>:
+- Use with <code>ocp_token</code> for direct login
+- When cluster is not managed by supported providers
+- For custom or on-premises clusters
+- Alternative to <code>cluster_name</code>/<code>cluster_type</code> approach</p>
+<p><strong>Valid values</strong>: Full OpenShift API server URL (e.g., <code>https://api.cluster.example.com:6443</code>)</p>
+<p><strong>Impact</strong>: Used directly for <code>oc login</code> command. Bypasses provider API credential lookup.</p>
+<p><strong>Related variables</strong>:
+- <code>ocp_token</code>: Required with this variable
+- <code>cluster_name</code>/<code>cluster_type</code>: Alternative automatic lookup method</p>
+<p><strong>Note</strong>: Both <code>ocp_server</code> and <code>ocp_token</code> must be provided together for direct login. This method works with any Kubernetes cluster.</p>
 <h3 id="ocp_token">ocp_token<a class="headerlink" href="#ocp_token" title="Permanent link">¤</a></h3>
-<p>The login token to use for oc login</p>
+<p>Authentication token for direct login.</p>
 <ul>
-<li><strong>Required</strong> unless <code>cluster_name</code> and <code>cluster_type</code> are set</li>
+<li><strong>Required</strong> (unless <code>cluster_name</code> and <code>cluster_type</code> are set)</li>
 <li>Environment Variable: <code>OCP_TOKEN</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the authentication token for direct cluster login without provider API lookup.</p>
+<p><strong>When to use</strong>:
+- Use with <code>ocp_server</code> for direct login
+- When cluster is not managed by supported providers
+- For service account tokens or manually obtained tokens
+- Alternative to <code>cluster_name</code>/<code>cluster_type</code> approach</p>
+<p><strong>Valid values</strong>: Valid OpenShift authentication token string</p>
+<p><strong>Impact</strong>: Used directly for <code>oc login --token</code> command. Bypasses provider API credential lookup.</p>
+<p><strong>Related variables</strong>:
+- <code>ocp_server</code>: Required with this variable
+- <code>cluster_name</code>/<code>cluster_type</code>: Alternative automatic lookup method</p>
+<p><strong>Note</strong>: <strong>SECURITY</strong> - Both <code>ocp_server</code> and <code>ocp_token</code> must be provided together. Token should be kept secure and not committed to version control. This method works with any Kubernetes cluster.</p>
 <h2 id="role-variables-ibmcloud-roks">Role Variables - IBMCloud ROKS<a class="headerlink" href="#role-variables-ibmcloud-roks" title="Permanent link">¤</a></h2>
 <h3 id="ibmcloud_apikey">ibmcloud_apikey<a class="headerlink" href="#ibmcloud_apikey" title="Permanent link">¤</a></h3>
-<p>APIKey to be used by ibmcloud login comand</p>
+<p>IBM Cloud API key for ROKS authentication.</p>
 <ul>
-<li><strong>Required</strong> when <code>cluster_type</code> is <code>roks</code></li>
+<li><strong>Required</strong> (when <code>cluster_type=roks</code>)</li>
 <li>Environment Variable: <code>IBMCLOUD_APIKEY</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides IBM Cloud API key for authenticating with IBM Cloud to retrieve ROKS cluster credentials.</p>
+<p><strong>When to use</strong>:
+- Required when <code>cluster_type=roks</code>
+- Used to authenticate with IBM Cloud API
+- Enables automatic cluster credential lookup</p>
+<p><strong>Valid values</strong>: Valid IBM Cloud API key string</p>
+<p><strong>Impact</strong>: Used to authenticate with IBM Cloud and retrieve cluster server URL and login token for ROKS clusters.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_type</code>: Must be <code>roks</code>
+- <code>cluster_name</code>: ROKS cluster name to lookup
+- <code>ibmcloud_endpoint</code>: Optional API endpoint override</p>
+<p><strong>Note</strong>: <strong>SECURITY</strong> - API key should be kept secure and not committed to version control. Obtain from IBM Cloud IAM.</p>
 <h3 id="ibmcloud_endpoint">ibmcloud_endpoint<a class="headerlink" href="#ibmcloud_endpoint" title="Permanent link">¤</a></h3>
-<p>Override the default IBMCloud API endpoint.</p>
+<p>IBM Cloud API endpoint URL.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IBMCLOUD_ENDPOINT</code></li>
-<li>Default Value: <code>https://cloud.ibm.com</code></li>
+<li>Default: <code>https://cloud.ibm.com</code></li>
 </ul>
+<p><strong>Purpose</strong>: Overrides the default IBM Cloud API endpoint for ROKS cluster credential lookup.</p>
+<p><strong>When to use</strong>:
+- Use default for public IBM Cloud
+- Override for private or regional endpoints
+- Only applies when <code>cluster_type=roks</code></p>
+<p><strong>Valid values</strong>: Valid IBM Cloud API endpoint URL</p>
+<p><strong>Impact</strong>: Determines which IBM Cloud API endpoint is used for authentication and cluster lookup.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_type</code>: Must be <code>roks</code>
+- <code>ibmcloud_apikey</code>: Required for authentication</p>
+<p><strong>Note</strong>: The default public endpoint works for most deployments. Override only for specific regional or private cloud requirements.</p>
 <h2 id="role-variables-ibm-devit-fyre">Role Variables - IBM DevIT Fyre<a class="headerlink" href="#role-variables-ibm-devit-fyre" title="Permanent link">¤</a></h2>
 <h3 id="fyre_username">fyre_username<a class="headerlink" href="#fyre_username" title="Permanent link">¤</a></h3>
-<p>Your FYRE username</p>
+<p>IBM DevIT Fyre username.</p>
 <ul>
-<li><strong>Required</strong> when <code>cluster_type</code> is <code>fyre</code></li>
+<li><strong>Required</strong> (when <code>cluster_type=fyre</code>)</li>
+<li>Environment Variable: <code>FYRE_USERNAME</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Provides Fyre username for authenticating with IBM DevIT Fyre to retrieve cluster credentials.</p>
+<p><strong>When to use</strong>:
+- Required when <code>cluster_type=fyre</code>
+- Used with <code>fyre_apikey</code> for Fyre authentication
+- Enables automatic cluster credential lookup</p>
+<p><strong>Valid values</strong>: Valid Fyre username string</p>
+<p><strong>Impact</strong>: Used to authenticate with Fyre API and retrieve cluster server URL and login token.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_type</code>: Must be <code>fyre</code>
+- <code>fyre_apikey</code>: Required for authentication
+- <code>cluster_name</code>: Fyre cluster name to lookup
+- <code>fyre_site</code>: Fyre site location</p>
+<p><strong>Note</strong>: Fyre is IBM's internal development and test infrastructure. Requires IBM internal credentials.</p>
+<h3 id="fyre_apikey">fyre_apikey<a class="headerlink" href="#fyre_apikey" title="Permanent link">¤</a></h3>
+<p>IBM DevIT Fyre API key.</p>
+<ul>
+<li><strong>Required</strong> (when <code>cluster_type=fyre</code>)</li>
 <li>Environment Variable: <code>FYRE_APIKEY</code></li>
 <li>Default: None</li>
 </ul>
-<h3 id="fyre_apikey">fyre_apikey<a class="headerlink" href="#fyre_apikey" title="Permanent link">¤</a></h3>
-<p>Your FYRE API Key
-- <strong>Required</strong> when <code>cluster_type</code> is <code>fyre</code>
-- Environment Variable: <code>FYRE_APIKEY</code>
-- Default: None</p>
+<p><strong>Purpose</strong>: Provides Fyre API key for authenticating with IBM DevIT Fyre to retrieve cluster credentials.</p>
+<p><strong>When to use</strong>:
+- Required when <code>cluster_type=fyre</code>
+- Used with <code>fyre_username</code> for Fyre authentication
+- Enables automatic cluster credential lookup</p>
+<p><strong>Valid values</strong>: Valid Fyre API key string</p>
+<p><strong>Impact</strong>: Used to authenticate with Fyre API and retrieve cluster server URL and login token.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_type</code>: Must be <code>fyre</code>
+- <code>fyre_username</code>: Required for authentication
+- <code>cluster_name</code>: Fyre cluster name to lookup
+- <code>fyre_site</code>: Fyre site location</p>
+<p><strong>Note</strong>: <strong>SECURITY</strong> - API key should be kept secure. Fyre is IBM's internal development and test infrastructure.</p>
 <h3 id="fyre_site">fyre_site<a class="headerlink" href="#fyre_site" title="Permanent link">¤</a></h3>
-<p>Site where cluster had been provisioned in Fyre</p>
+<p>Fyre site location for cluster.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>FYRE_SITE</code></li>
-<li>Default Value: <code>svl</code></li>
+<li>Default: <code>svl</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which Fyre site the cluster was provisioned in for proper API routing.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>svl</code>) for most Fyre clusters
+- Override for clusters in other sites (e.g., <code>rtp</code>)
+- Only applies when <code>cluster_type=fyre</code></p>
+<p><strong>Valid values</strong>: Fyre site codes (e.g., <code>svl</code>, <code>rtp</code>)</p>
+<p><strong>Impact</strong>: Determines which Fyre site API endpoint is used for cluster lookup.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_type</code>: Must be <code>fyre</code>
+- <code>enable_ipv6</code>: Required for RTP site</p>
+<p><strong>Note</strong>: SVL (San Jose Valley) is the default site. RTP (Research Triangle Park) requires IPv6 enablement.</p>
 <h3 id="enable_ipv6">enable_ipv6<a class="headerlink" href="#enable_ipv6" title="Permanent link">¤</a></h3>
-<p>Enable IPv6.  This is for Fyre at RTP site only
-- Environment Variable: <code>ENABLE_IPV6</code>
-- Default: False</p>
+<p>Enable IPv6 for Fyre RTP site.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>ENABLE_IPV6</code></li>
+<li>Default: <code>false</code></li>
+</ul>
+<p><strong>Purpose</strong>: Enables IPv6 networking for Fyre clusters at the RTP (Research Triangle Park) site.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> only for Fyre RTP site clusters
+- Leave as <code>false</code> for all other sites (including SVL)
+- Only applies when <code>cluster_type=fyre</code></p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: Configures network settings for IPv6 connectivity to RTP site clusters.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_type</code>: Must be <code>fyre</code>
+- <code>fyre_site</code>: Should be <code>rtp</code> when this is <code>true</code></p>
+<p><strong>Note</strong>: Only required for Fyre RTP site. SVL and other sites use IPv4.</p>
 <h2 id="role-variables-aws-rosa">Role Variables - AWS ROSA<a class="headerlink" href="#role-variables-aws-rosa" title="Permanent link">¤</a></h2>
 <h3 id="rosa_token">rosa_token<a class="headerlink" href="#rosa_token" title="Permanent link">¤</a></h3>
-<p>Your ROSA secure token.</p>
+<p>AWS ROSA authentication token.</p>
 <ul>
-<li><strong>Required</strong> when <code>cluster_type</code> is <code>rosa</code></li>
+<li><strong>Required</strong> (when <code>cluster_type=rosa</code>)</li>
 <li>Environment Variable: <code>ROSA_TOKEN</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides ROSA (Red Hat OpenShift Service on AWS) authentication token for retrieving cluster credentials.</p>
+<p><strong>When to use</strong>:
+- Required when <code>cluster_type=rosa</code>
+- Used to authenticate with ROSA API
+- Enables automatic cluster credential lookup</p>
+<p><strong>Valid values</strong>: Valid ROSA authentication token string</p>
+<p><strong>Impact</strong>: Used to authenticate with ROSA API and retrieve cluster server URL and login credentials.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_type</code>: Must be <code>rosa</code>
+- <code>cluster_name</code>: ROSA cluster name to lookup
+- <code>rosa_cluster_admin_password</code>: Required for cluster-admin login</p>
+<p><strong>Note</strong>: <strong>SECURITY</strong> - Token should be kept secure and not committed to version control. Obtain from Red Hat Hybrid Cloud Console.</p>
 <h3 id="rosa_cluster_admin_password">rosa_cluster_admin_password<a class="headerlink" href="#rosa_cluster_admin_password" title="Permanent link">¤</a></h3>
-<p>The password for the <code>cluster-admin</code> account (created when the cluster was provisioned).</p>
+<p>ROSA cluster-admin account password.</p>
 <ul>
-<li><strong>Required</strong> when <code>cluster_type</code> is <code>rosa</code></li>
+<li><strong>Required</strong> (when <code>cluster_type=rosa</code>)</li>
 <li>Environment Variable: <code>ROSA_CLUSTER_ADMIN_PASSWORD</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the password for the cluster-admin account to login to ROSA clusters.</p>
+<p><strong>When to use</strong>:
+- Required when <code>cluster_type=rosa</code>
+- Password created during cluster provisioning
+- Used for cluster-admin level access</p>
+<p><strong>Valid values</strong>: Valid cluster-admin password string</p>
+<p><strong>Impact</strong>: Used to authenticate as cluster-admin user on ROSA clusters.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_type</code>: Must be <code>rosa</code>
+- <code>rosa_token</code>: Required for ROSA API authentication
+- <code>cluster_name</code>: ROSA cluster name to login to</p>
+<p><strong>Note</strong>: <strong>SECURITY</strong> - Password should be kept secure and not committed to version control. This is the cluster-admin account password set during ROSA cluster provisioning.</p>
 <h2 id="example-playbooks">Example Playbooks<a class="headerlink" href="#example-playbooks" title="Permanent link">¤</a></h2>
 <h3 id="direct-login">Direct Login<a class="headerlink" href="#direct-login" title="Permanent link">¤</a></h3>
 <pre><code class="language-yaml">- hosts: localhost

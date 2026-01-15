@@ -744,52 +744,115 @@
 </div>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="grafana_action">grafana_action<a class="headerlink" href="#grafana_action" title="Permanent link">¤</a></h3>
-<p>Inform the role whether to perform an <code>install</code>, <code>uninstall</code>, or <code>update</code> of Grafana.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>When using this role to upgrade from Grafana 4 to 5, the Grafana 5 instance will have a new URL and will not inherit the user database from the old v4 installation, the admin password will be new, and user accounts set up in the v4 instance will need to be recreated in the v5 instance.</p>
-</div>
+<p>Action to perform on Grafana installation.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>GRAFANA_ACTION</code></li>
 <li>Default: <code>install</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies whether to install, uninstall, or upgrade Grafana for use with MAS monitoring.</p>
+<p><strong>When to use</strong>:
+- Use <code>install</code> (default) for new Grafana deployments
+- Use <code>update</code> to upgrade from Grafana v4 to v5
+- Use <code>uninstall</code> to remove Grafana</p>
+<p><strong>Valid values</strong>: <code>install</code>, <code>uninstall</code>, <code>update</code></p>
+<p><strong>Impact</strong>: 
+- <code>install</code>: Deploys Grafana operator and instance
+- <code>update</code>: Upgrades from v4 to v5 (creates new instance with new URL)
+- <code>uninstall</code>: Removes Grafana operator and instance</p>
+<p><strong>Related variables</strong>:
+- <code>grafana_major_version</code>: Version to install/upgrade to
+- <code>grafana_v4_namespace</code>/<code>grafana_v5_namespace</code>: Namespaces for different versions</p>
+<p><strong>Note</strong>: <strong>IMPORTANT</strong> - When upgrading from v4 to v5, the new instance will have a different URL and will NOT inherit the user database. Admin password will be reset, and user accounts must be recreated. The v4 instance remains until manually removed.</p>
 <h3 id="grafana_major_version">grafana_major_version<a class="headerlink" href="#grafana_major_version" title="Permanent link">¤</a></h3>
-<p>Sets the major version of the grafana operator to install. <code>4</code> or <code>5</code></p>
+<p>Grafana operator major version.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>GRAFANA_MAJOR_VERSION</code></li>
-<li>Default Value: <code>5</code></li>
+<li>Default: <code>5</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which major version of the Grafana operator to install.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>5</code>) for new installations (recommended)
+- Set to <code>4</code> only for legacy deployments
+- Version 5 is the current supported version</p>
+<p><strong>Valid values</strong>: <code>4</code>, <code>5</code></p>
+<p><strong>Impact</strong>: Determines which Grafana operator version is deployed. Version 5 uses a different namespace and has breaking changes from version 4.</p>
+<p><strong>Related variables</strong>:
+- <code>grafana_action</code>: Use <code>update</code> to upgrade from v4 to v5
+- <code>grafana_v4_namespace</code>: Namespace for v4 installation
+- <code>grafana_v5_namespace</code>: Namespace for v5 installation</p>
+<p><strong>Note</strong>: Version 5 is recommended for all new deployments. Upgrading from v4 to v5 requires using <code>grafana_action=update</code> and results in a new instance with different URL and no user database migration.</p>
 <h3 id="grafana_v4_namespace">grafana_v4_namespace<a class="headerlink" href="#grafana_v4_namespace" title="Permanent link">¤</a></h3>
-<p>Sets the namespace to install the grafana operator V4 and grafana instance</p>
+<p>Namespace for Grafana v4 installation.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>GRAFANA_NAMESPACE</code></li>
-<li>Default Value: <code>grafana</code></li>
+<li>Default: <code>grafana</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the Kubernetes namespace where Grafana operator v4 and instance are installed.</p>
+<p><strong>When to use</strong>:
+- Only applies when <code>grafana_major_version=4</code>
+- Use default (<code>grafana</code>) for standard deployments
+- Override only if namespace conflicts exist</p>
+<p><strong>Valid values</strong>: Valid Kubernetes namespace name</p>
+<p><strong>Impact</strong>: Determines where Grafana v4 resources are created. Namespace must not conflict with v5 installation.</p>
+<p><strong>Related variables</strong>:
+- <code>grafana_major_version</code>: Must be <code>4</code> for this to apply
+- <code>grafana_v5_namespace</code>: Separate namespace for v5</p>
+<p><strong>Note</strong>: When upgrading from v4 to v5, both namespaces coexist. The v4 instance remains in this namespace until manually removed.</p>
 <h3 id="grafana_v5_namespace">grafana_v5_namespace<a class="headerlink" href="#grafana_v5_namespace" title="Permanent link">¤</a></h3>
-<p>Sets the namespace to install the grafana operator V5 and grafana instance</p>
+<p>Namespace for Grafana v5 installation.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>GRAFANA_V5_NAMESPACE</code></li>
-<li>Default Value: <code>grafana5</code></li>
+<li>Default: <code>grafana5</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the Kubernetes namespace where Grafana operator v5 and instance are installed.</p>
+<p><strong>When to use</strong>:
+- Applies when <code>grafana_major_version=5</code> (default)
+- Use default (<code>grafana5</code>) for standard deployments
+- Override only if namespace conflicts exist</p>
+<p><strong>Valid values</strong>: Valid Kubernetes namespace name</p>
+<p><strong>Impact</strong>: Determines where Grafana v5 resources are created. Uses separate namespace from v4 to allow coexistence during upgrades.</p>
+<p><strong>Related variables</strong>:
+- <code>grafana_major_version</code>: Must be <code>5</code> for this to apply
+- <code>grafana_v4_namespace</code>: Separate namespace for v4</p>
+<p><strong>Note</strong>: The separate namespace allows v4 and v5 to coexist during upgrades. After upgrading, the v4 instance remains in its namespace until manually removed.</p>
 <h3 id="grafana_instance_storage_class">grafana_instance_storage_class<a class="headerlink" href="#grafana_instance_storage_class" title="Permanent link">¤</a></h3>
-<p>Declare the storage class for Grafana Instance user data persistent volume.</p>
+<p>Storage class for Grafana user data.</p>
 <ul>
-<li><strong>Required</strong> if one of the known supported storage classes is not installed in the cluster. Storage classes must support ReadWriteOnce (RWO) access mode.</li>
-<li>Note: RWX storage classes (such as <code>ibmc-file-gold-gid</code>, <code>ocs-storagecluster-cephfs</code>, <code>azurefiles-premium</code>) also work, but RWO is sufficient.</li>
+<li><strong>Required</strong> (if supported storage class not available)</li>
 <li>Environment Variable: <code>GRAFANA_INSTANCE_STORAGE_CLASS</code></li>
-<li>Default Value: <code>ibmc-file-gold-gid</code>, <code>ocs-storagecluster-cephfs</code>, <code>azurefiles-premium</code> (if available)</li>
+<li>Default: Auto-detected from <code>ibmc-file-gold-gid</code>, <code>ocs-storagecluster-cephfs</code>, <code>azurefiles-premium</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the storage class for Grafana's persistent volume that stores user data, dashboards, and configurations.</p>
+<p><strong>When to use</strong>:
+- Leave unset to auto-detect from supported storage classes
+- Set explicitly if none of the default classes are available
+- Required if cluster has no supported storage classes</p>
+<p><strong>Valid values</strong>: Any storage class supporting ReadWriteOnce (RWO) access mode. ReadWriteMany (RWX) classes also work.</p>
+<p><strong>Impact</strong>: Determines where Grafana user data is stored. Incorrect or unavailable storage class will cause deployment to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>grafana_instance_storage_size</code>: Size of the storage volume</p>
+<p><strong>Note</strong>: RWO access mode is sufficient for Grafana. RWX classes (like <code>ibmc-file-gold-gid</code>, <code>ocs-storagecluster-cephfs</code>, <code>azurefiles-premium</code>) also work but are not required. The role auto-detects these common classes if available.</p>
 <h3 id="grafana_instance_storage_size">grafana_instance_storage_size<a class="headerlink" href="#grafana_instance_storage_size" title="Permanent link">¤</a></h3>
-<p>Adjust the size of the volume used to store Grafana user data.</p>
+<p>Storage volume size for Grafana user data.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>GRAFANA_INSTANCE_STORAGE_SIZE</code></li>
-<li>Default Value: <code>10Gi</code></li>
+<li>Default: <code>10Gi</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the size of the persistent volume used to store Grafana user data, dashboards, and configurations.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>10Gi</code>) for most deployments
+- Increase for environments with many dashboards or extensive data
+- Consider growth over time for dashboard storage</p>
+<p><strong>Valid values</strong>: Kubernetes storage size format (e.g., <code>10Gi</code>, <code>20Gi</code>, <code>50Gi</code>)</p>
+<p><strong>Impact</strong>: Determines available storage for Grafana data. Insufficient size may limit dashboard creation. Excessive size wastes storage resources.</p>
+<p><strong>Related variables</strong>:
+- <code>grafana_instance_storage_class</code>: Storage class for the volume</p>
+<p><strong>Note</strong>: The default 10Gi is sufficient for typical MAS monitoring deployments. When upgrading from v4 to v5, the new instance inherits the v4 storage size unless explicitly overridden.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   vars:

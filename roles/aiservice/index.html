@@ -748,91 +748,233 @@
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="general-variables">General Variables<a class="headerlink" href="#general-variables" title="Permanent link">¤</a></h3>
 <h4 id="tenant_action">tenant_action<a class="headerlink" href="#tenant_action" title="Permanent link">¤</a></h4>
-<p>Action to be performed by the AI Service role. Valid values are <code>install</code> or <code>remove</code>.</p>
+<p>Action to perform on AI Service tenant.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>TENANT_ACTION</code></li>
-<li>Default Value: <code>install</code></li>
+<li>Default: <code>install</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies whether to install or remove an AI Service tenant. Controls tenant lifecycle management.</p>
+<p><strong>When to use</strong>:
+- Use <code>install</code> (default) to create a new AI Service tenant
+- Use <code>remove</code> to delete an existing AI Service tenant
+- Required for tenant management operations</p>
+<p><strong>Valid values</strong>: <code>install</code>, <code>remove</code></p>
+<p><strong>Impact</strong>: 
+- <code>install</code>: Creates tenant with specified configuration
+- <code>remove</code>: Deletes tenant and associated resources</p>
+<p><strong>Related variables</strong>:
+- <code>tenantName</code>: Name of tenant to install/remove
+- All other variables apply only when action is <code>install</code></p>
+<p><strong>Note</strong>: <strong>WARNING</strong> - <code>remove</code> action permanently deletes the tenant and all associated data. Ensure you have backups before removing a tenant.</p>
 <h4 id="tenantname">tenantName<a class="headerlink" href="#tenantname" title="Permanent link">¤</a></h4>
-<p>The tenant name for the AI Service role.</p>
+<p>AI Service tenant identifier.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>AISERVICE_TENANT_NAME</code></li>
-<li>Default Value: <code>user</code></li>
+<li>Default: <code>user</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the name/identifier for the AI Service tenant. Tenants provide isolation between different users or environments.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>user</code>) for single-tenant deployments
+- Set custom name for multi-tenant environments
+- Use descriptive names (e.g., <code>production</code>, <code>development</code>, <code>team-a</code>)</p>
+<p><strong>Valid values</strong>: Valid tenant name string (alphanumeric, lowercase recommended)</p>
+<p><strong>Impact</strong>: Tenant name is used in resource names, API keys, and configuration. Must be unique within the AI Service instance.</p>
+<p><strong>Related variables</strong>:
+- <code>tenant_action</code>: Whether to install or remove this tenant
+- Tenant name is used in generated API key secrets</p>
+<p><strong>Note</strong>: Choose meaningful tenant names for multi-tenant scenarios. The default <code>user</code> is suitable for single-tenant deployments.</p>
 <h4 id="app_domain">app_domain<a class="headerlink" href="#app_domain" title="Permanent link">¤</a></h4>
-<p>The application domain for AI Service role. Specify the domain string in the format <code>apps.domain</code>.</p>
+<p>Application domain for AI Service routes.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>APP_DOMAIN</code></li>
-<li>Default Value: None</li>
+<li>Default: Auto-detected from cluster</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the application domain for AI Service routes and endpoints. Used to construct the full URL for AI Service API access.</p>
+<p><strong>When to use</strong>:
+- Leave unset for automatic detection from cluster configuration
+- Set explicitly when cluster domain cannot be auto-detected
+- Required for custom domain configurations</p>
+<p><strong>Valid values</strong>: Domain string in format <code>apps.domain</code> (e.g., <code>apps.mycluster.example.com</code>)</p>
+<p><strong>Impact</strong>: Determines the URL where AI Service API is accessible. Incorrect domain will prevent API access.</p>
+<p><strong>Related variables</strong>:
+- <code>aiservice_domain</code>: Custom domain override (takes precedence if set)</p>
+<p><strong>Note</strong>: The role automatically detects the cluster's application domain. Only set this if auto-detection fails or you need a custom domain. Format must be <code>apps.&lt;domain&gt;</code>.</p>
 <h4 id="aiservice_domain">aiservice_domain<a class="headerlink" href="#aiservice_domain" title="Permanent link">¤</a></h4>
-<p>Provide a custom domain for AI Service. If not specified, the default cluster domain will be used.</p>
+<p>Custom domain override for AI Service.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>AISERVICE_DOMAIN</code></li>
-<li>Default Value: None</li>
+<li>Default: None (uses <code>app_domain</code> or cluster default)</li>
 </ul>
+<p><strong>Purpose</strong>: Provides a custom domain specifically for AI Service, overriding the general application domain. Useful for custom DNS configurations.</p>
+<p><strong>When to use</strong>:
+- Leave unset to use <code>app_domain</code> or cluster default
+- Set when AI Service needs a different domain than other applications
+- Required for custom DNS or external domain configurations</p>
+<p><strong>Valid values</strong>: Valid domain string (e.g., <code>aiservice.example.com</code>)</p>
+<p><strong>Impact</strong>: When set, this domain is used instead of <code>app_domain</code> for AI Service routes. Takes precedence over <code>app_domain</code>.</p>
+<p><strong>Related variables</strong>:
+- <code>app_domain</code>: General application domain (used if this is not set)</p>
+<p><strong>Note</strong>: This is an advanced configuration option. Most deployments should use <code>app_domain</code> or cluster auto-detection. Only set this if AI Service requires a separate domain.</p>
 <h3 id="s3-storage-configuration-variables">S3 Storage Configuration Variables<a class="headerlink" href="#s3-storage-configuration-variables" title="Permanent link">¤</a></h3>
 <h4 id="aiservice_s3_host">aiservice_s3_host<a class="headerlink" href="#aiservice_s3_host" title="Permanent link">¤</a></h4>
-<p>The storage host for AI Service S3-compatible object storage.</p>
+<p>S3-compatible storage host endpoint.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>AISERVICE_S3_HOST</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the endpoint URL for S3-compatible object storage used by AI Service for storing models, data, and artifacts.</p>
+<p><strong>When to use</strong>:
+- Required when configuring S3 storage integration
+- Set to AWS S3 endpoint (e.g., <code>s3.amazonaws.com</code>) or compatible service
+- Must be accessible from the cluster</p>
+<p><strong>Valid values</strong>: Valid S3 endpoint URL (e.g., <code>s3.amazonaws.com</code>, <code>s3.us-east-1.amazonaws.com</code>, MinIO endpoint)</p>
+<p><strong>Impact</strong>: AI Service uses this storage for persistent data. Without proper S3 configuration, AI Service functionality will be limited.</p>
+<p><strong>Related variables</strong>:
+- <code>aiservice_s3_accesskey</code>: Access credentials for this host
+- <code>aiservice_s3_secretkey</code>: Secret credentials for this host
+- <code>aiservice_s3_region</code>: Region for this host</p>
+<p><strong>Note</strong>: All S3 variables (<code>aiservice_s3_*</code>) must be configured together for S3 integration. Supports AWS S3 and S3-compatible services like MinIO, IBM Cloud Object Storage.</p>
 <h4 id="aiservice_s3_accesskey">aiservice_s3_accesskey<a class="headerlink" href="#aiservice_s3_accesskey" title="Permanent link">¤</a></h4>
-<p>The storage access key for AI Service S3-compatible object storage.</p>
+<p>S3 storage access key ID.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>AISERVICE_S3_ACCESSKEY</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the access key ID for authenticating to S3-compatible object storage. Part of the credential pair for S3 access.</p>
+<p><strong>When to use</strong>:
+- Required when configuring S3 storage integration
+- Obtain from your S3 provider (AWS IAM, MinIO, etc.)
+- Must have permissions to create/read/write buckets and objects</p>
+<p><strong>Valid values</strong>: Valid S3 access key ID string</p>
+<p><strong>Impact</strong>: Without valid credentials, AI Service cannot access S3 storage, limiting functionality.</p>
+<p><strong>Related variables</strong>:
+- <code>aiservice_s3_secretkey</code>: Secret key paired with this access key
+- <code>aiservice_s3_host</code>: S3 endpoint to authenticate against
+- <code>aiservice_s3_region</code>: Region for the S3 service</p>
+<p><strong>Note</strong>: <strong>SECURITY</strong> - Keep access keys secure. Do not commit to source control. Use environment variables or secure secret management. Ensure the access key has appropriate S3 permissions for AI Service operations.</p>
 <h4 id="aiservice_s3_secretkey">aiservice_s3_secretkey<a class="headerlink" href="#aiservice_s3_secretkey" title="Permanent link">¤</a></h4>
-<p>The storage secret key for AI Service S3-compatible object storage.</p>
+<p>S3 storage secret access key.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>AISERVICE_S3_SECRETKEY</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the secret access key for authenticating to S3-compatible object storage. Part of the credential pair for S3 access.</p>
+<p><strong>When to use</strong>:
+- Required when configuring S3 storage integration
+- Obtain from your S3 provider (AWS IAM, MinIO, etc.)
+- Must be paired with corresponding <code>aiservice_s3_accesskey</code></p>
+<p><strong>Valid values</strong>: Valid S3 secret access key string</p>
+<p><strong>Impact</strong>: Without valid credentials, AI Service cannot access S3 storage, limiting functionality.</p>
+<p><strong>Related variables</strong>:
+- <code>aiservice_s3_accesskey</code>: Access key ID paired with this secret key
+- <code>aiservice_s3_host</code>: S3 endpoint to authenticate against
+- <code>aiservice_s3_region</code>: Region for the S3 service</p>
+<p><strong>Note</strong>: <strong>SECURITY</strong> - Keep secret keys secure. Never commit to source control or expose in logs. Use environment variables or secure secret management. The secret key must match the access key ID.</p>
 <h4 id="aiservice_s3_region">aiservice_s3_region<a class="headerlink" href="#aiservice_s3_region" title="Permanent link">¤</a></h4>
-<p>The storage region for AI Service S3-compatible object storage.</p>
+<p>S3 storage region.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>AISERVICE_S3_REGION</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the AWS region or region identifier for S3-compatible object storage. Required for proper S3 API operations.</p>
+<p><strong>When to use</strong>:
+- Required when configuring S3 storage integration
+- Set to AWS region (e.g., <code>us-east-1</code>, <code>eu-west-1</code>) or compatible service region
+- Must match the region where your S3 buckets are located</p>
+<p><strong>Valid values</strong>: Valid AWS region code or S3-compatible service region identifier</p>
+<p><strong>Impact</strong>: Incorrect region will cause S3 API calls to fail. Must match the actual bucket location.</p>
+<p><strong>Related variables</strong>:
+- <code>aiservice_s3_host</code>: S3 endpoint (may include region in URL)
+- <code>aiservice_s3_accesskey</code>: Access credentials for this region
+- <code>aiservice_s3_secretkey</code>: Secret credentials for this region</p>
+<p><strong>Note</strong>: For AWS S3, use standard region codes (e.g., <code>us-east-1</code>). For S3-compatible services, use the region identifier provided by your service. Some services may not require a region.</p>
 <h3 id="watsonx-ai-configuration-variables">WatsonX AI Configuration Variables<a class="headerlink" href="#watsonx-ai-configuration-variables" title="Permanent link">¤</a></h3>
 <h4 id="aiservice_watsonx_action">aiservice_watsonx_action<a class="headerlink" href="#aiservice_watsonx_action" title="Permanent link">¤</a></h4>
-<p>Action to be performed for WatsonX AI integration. Valid values are <code>install</code> or <code>remove</code>.</p>
+<p>Action to perform on WatsonX AI integration.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>AISERVICE_WATSONX_ACTION</code></li>
-<li>Default Value: <code>install</code></li>
+<li>Default: <code>install</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies whether to install or remove WatsonX AI integration with AI Service. Controls WatsonX integration lifecycle.</p>
+<p><strong>When to use</strong>:
+- Use <code>install</code> (default) to configure WatsonX AI integration
+- Use <code>remove</code> to delete WatsonX AI integration
+- Required for WatsonX integration management</p>
+<p><strong>Valid values</strong>: <code>install</code>, <code>remove</code></p>
+<p><strong>Impact</strong>: 
+- <code>install</code>: Configures AI Service to use WatsonX AI for AI/ML capabilities
+- <code>remove</code>: Removes WatsonX AI integration configuration</p>
+<p><strong>Related variables</strong>:
+- <code>aiservice_watsonxai_apikey</code>: API key for WatsonX (required for install)
+- <code>aiservice_watsonxai_url</code>: WatsonX endpoint (required for install)
+- <code>aiservice_watsonxai_project_id</code>: WatsonX project (required for install)</p>
+<p><strong>Note</strong>: WatsonX AI integration enables advanced AI capabilities in AI Service. All WatsonX variables must be configured together for successful integration.</p>
 <h4 id="aiservice_watsonxai_apikey">aiservice_watsonxai_apikey<a class="headerlink" href="#aiservice_watsonxai_apikey" title="Permanent link">¤</a></h4>
-<p>The WatsonX AI API key for AI Service integration.</p>
+<p>WatsonX AI API key for authentication.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>AISERVICE_WATSONXAI_APIKEY</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the API key for authenticating AI Service with IBM WatsonX AI platform. Required for WatsonX AI integration.</p>
+<p><strong>When to use</strong>:
+- Required when <code>aiservice_watsonx_action</code> is <code>install</code>
+- Obtain from IBM Cloud WatsonX AI service
+- Must have appropriate WatsonX AI permissions</p>
+<p><strong>Valid values</strong>: Valid IBM WatsonX AI API key string</p>
+<p><strong>Impact</strong>: Without valid API key, AI Service cannot access WatsonX AI capabilities. Integration will fail.</p>
+<p><strong>Related variables</strong>:
+- <code>aiservice_watsonxai_url</code>: WatsonX AI endpoint to authenticate against
+- <code>aiservice_watsonxai_project_id</code>: WatsonX project to access
+- <code>aiservice_watsonx_action</code>: Whether to install or remove integration</p>
+<p><strong>Note</strong>: <strong>SECURITY</strong> - Keep API keys secure. Do not commit to source control. Use environment variables or secure secret management. Obtain from IBM Cloud IAM or WatsonX AI service credentials.</p>
 <h4 id="aiservice_watsonxai_url">aiservice_watsonxai_url<a class="headerlink" href="#aiservice_watsonxai_url" title="Permanent link">¤</a></h4>
-<p>The WatsonX AI URL for AI Service integration.</p>
+<p>WatsonX AI service endpoint URL.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>AISERVICE_WATSONXAI_URL</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the endpoint URL for IBM WatsonX AI service. Required for AI Service to connect to WatsonX AI platform.</p>
+<p><strong>When to use</strong>:
+- Required when <code>aiservice_watsonx_action</code> is <code>install</code>
+- Set to your WatsonX AI region endpoint
+- Must be accessible from the cluster</p>
+<p><strong>Valid values</strong>: Valid WatsonX AI endpoint URL (e.g., <code>https://us-south.ml.cloud.ibm.com</code>, <code>https://eu-de.ml.cloud.ibm.com</code>)</p>
+<p><strong>Impact</strong>: AI Service uses this URL to access WatsonX AI APIs. Incorrect URL will prevent WatsonX integration.</p>
+<p><strong>Related variables</strong>:
+- <code>aiservice_watsonxai_apikey</code>: API key for authenticating to this endpoint
+- <code>aiservice_watsonxai_project_id</code>: Project to access at this endpoint
+- <code>aiservice_watsonx_action</code>: Whether to install or remove integration</p>
+<p><strong>Note</strong>: Use the WatsonX AI endpoint for your IBM Cloud region. Common endpoints: <code>https://us-south.ml.cloud.ibm.com</code> (Dallas), <code>https://eu-de.ml.cloud.ibm.com</code> (Frankfurt), <code>https://jp-tok.ml.cloud.ibm.com</code> (Tokyo).</p>
 <h4 id="aiservice_watsonxai_project_id">aiservice_watsonxai_project_id<a class="headerlink" href="#aiservice_watsonxai_project_id" title="Permanent link">¤</a></h4>
-<p>The WatsonX AI project ID for AI Service integration.</p>
+<p>WatsonX AI project identifier.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>AISERVICE_WATSONXAI_PROJECT_ID</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the WatsonX AI project ID that AI Service will use for AI/ML operations. Projects organize resources and control access in WatsonX AI.</p>
+<p><strong>When to use</strong>:
+- Required when <code>aiservice_watsonx_action</code> is <code>install</code>
+- Obtain from your WatsonX AI project in IBM Cloud
+- Project must have appropriate models and resources configured</p>
+<p><strong>Valid values</strong>: Valid WatsonX AI project ID (UUID format)</p>
+<p><strong>Impact</strong>: AI Service uses this project for accessing WatsonX AI models and resources. Incorrect project ID will prevent access to AI capabilities.</p>
+<p><strong>Related variables</strong>:
+- <code>aiservice_watsonxai_apikey</code>: API key must have access to this project
+- <code>aiservice_watsonxai_url</code>: WatsonX endpoint where this project exists
+- <code>aiservice_watsonx_action</code>: Whether to install or remove integration</p>
+<p><strong>Note</strong>: The project ID is found in your WatsonX AI project settings in IBM Cloud. Ensure the API key has appropriate permissions for the project. The project should have the required AI models and resources configured.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <p>After installing the Ansible Collection you can include this role in your own custom playbooks.</p>
 <pre><code class="language-yaml">- hosts: localhost

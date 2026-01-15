@@ -740,19 +740,41 @@
 <p>Verify a MAS installation is ready to use. This role will also print out the Admin Dashboard URL and the username and password of the superuser. If you want to disable these credentials being written to the output set the <code>mas_hide_superuser_credentials</code> to <code>True</code>.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
-<p>The instance ID of the Maximo Application Suite installation to verify.</p>
+<p>MAS instance identifier to verify.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies which MAS instance to verify. The role checks that the instance is ready to use and retrieves access credentials.</p>
+<p><strong>When to use</strong>:
+- Always required for verification operations
+- Must match the instance ID from MAS installation
+- Used after installation to confirm readiness</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>masinst1</code>)</p>
+<p><strong>Impact</strong>: Determines which MAS instance is verified. The role checks instance status and retrieves the Admin Dashboard URL and superuser credentials.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_hide_superuser_credentials</code>: Controls credential display in output</p>
+<p><strong>Note</strong>: This role verifies that the MAS instance is ready to use and provides access information. Run after installation or upgrade to confirm successful deployment.</p>
 <h3 id="mas_hide_superuser_credentials">mas_hide_superuser_credentials<a class="headerlink" href="#mas_hide_superuser_credentials" title="Permanent link">¤</a></h3>
-<p>Set this to <code>True</code> if you want to disable the display of the superuser credentials as part of the verify. When this is enabled the debug will only identify the name of the secret containing the credentials rather than displaying the actual values.</p>
+<p>Hide superuser credentials in output.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_HIDE_SUPERUSER_CREDENTIALS</code></li>
-<li>Default: <code>True</code></li>
+<li>Default: <code>true</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether superuser credentials are displayed in the verification output. When enabled, only the secret name is shown instead of actual credentials.</p>
+<p><strong>When to use</strong>:
+- Leave as <code>true</code> (default) for security (recommended)
+- Set to <code>false</code> only when you need to see credentials in output
+- Use <code>true</code> in CI/CD pipelines and shared environments</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: 
+- <code>true</code>: Displays only the secret name containing credentials (secure)
+- <code>false</code>: Displays actual username and password in output (insecure)</p>
+<p><strong>Related variables</strong>:
+- <code>mas_instance_id</code>: Instance whose credentials are being verified</p>
+<p><strong>Note</strong>: <strong>SECURITY</strong> - The default <code>true</code> is recommended for security. Only set to <code>false</code> in secure, private environments where you need immediate access to credentials. Credentials can always be retrieved from the Kubernetes secret.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true

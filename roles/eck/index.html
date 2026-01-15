@@ -747,75 +747,222 @@
 </code></pre>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="eck_action">eck_action<a class="headerlink" href="#eck_action" title="Permanent link">¤</a></h3>
-<p>Action to be performed by the role. The only valid value currently is <code>install</code>.</p>
+<p>Action to perform on ECK installation.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ECK_ACTION</code></li>
-<li>Default Value: <code>install</code></li>
+<li>Default: <code>install</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the action to perform on the Elastic Cloud on Kubernetes (ECK) deployment.</p>
+<p><strong>When to use</strong>:
+- Use <code>install</code> (default and only supported value) to deploy ECK
+- Future versions may support additional actions</p>
+<p><strong>Valid values</strong>: <code>install</code></p>
+<p><strong>Impact</strong>: Determines the operation performed on ECK. Currently only installation is supported.</p>
+<p><strong>Related variables</strong>:
+- <code>eck_enable_elasticsearch</code>: Enable Elasticsearch component
+- <code>eck_enable_kibana</code>: Enable Kibana component
+- <code>eck_enable_logstash</code>: Enable Logstash component
+- <code>eck_enable_filebeat</code>: Enable Filebeat component</p>
+<p><strong>Note</strong>: This role installs ECK operator and optionally deploys Elasticsearch, Kibana, Logstash, and Filebeat components based on enable flags.</p>
 <h3 id="eck_enable_elasticsearch">eck_enable_elasticsearch<a class="headerlink" href="#eck_enable_elasticsearch" title="Permanent link">¤</a></h3>
-<p>Whether to include Elasticsearch when performing the desired action.</p>
+<p>Enable Elasticsearch deployment.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ECK_ENABLE_ELASTICSEARCH</code></li>
-<li>Default Value: <code>false</code></li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether Elasticsearch is deployed as part of the ECK installation.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> to deploy Elasticsearch for log storage and search
+- Leave as <code>false</code> if using external Elasticsearch or not needed
+- Required for Kibana and Logstash functionality</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: 
+- <code>true</code>: Deploys Elasticsearch cluster in ECK namespace
+- <code>false</code>: Skips Elasticsearch deployment</p>
+<p><strong>Related variables</strong>:
+- <code>eck_enable_kibana</code>: Kibana requires Elasticsearch
+- <code>eck_enable_logstash</code>: Logstash can send to local or remote Elasticsearch
+- <code>es_domain</code>: Custom domain for Elasticsearch access</p>
+<p><strong>Note</strong>: Default user <code>elastic</code> is created. Retrieve password with: <code>oc -n eck get secret mas-es-elastic-user -o go-template='{{.data.elastic | base64decode}}'</code></p>
 <h3 id="eck_enable_kibana">eck_enable_kibana<a class="headerlink" href="#eck_enable_kibana" title="Permanent link">¤</a></h3>
-<p>Whether to include Kibana when performing the desired action.</p>
+<p>Enable Kibana deployment.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ECK_ENABLE_KIBANA</code></li>
-<li>Default Value: <code>false</code></li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether Kibana is deployed as part of the ECK installation for log visualization and analysis.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> to deploy Kibana for log visualization
+- Leave as <code>false</code> if not using Kibana UI
+- Requires Elasticsearch to be enabled</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: 
+- <code>true</code>: Deploys Kibana instance connected to Elasticsearch
+- <code>false</code>: Skips Kibana deployment</p>
+<p><strong>Related variables</strong>:
+- <code>eck_enable_elasticsearch</code>: Must be <code>true</code> for Kibana to function
+- <code>kibana_domain</code>: Custom domain for Kibana access
+- <code>letsencrypt_email</code>: For LetsEncrypt certificate</p>
+<p><strong>Note</strong>: Kibana requires Elasticsearch. Ensure <code>eck_enable_elasticsearch=true</code> when enabling Kibana.</p>
 <h3 id="eck_enable_logstash">eck_enable_logstash<a class="headerlink" href="#eck_enable_logstash" title="Permanent link">¤</a></h3>
-<p>Whether to include Logstash when performing the desired action.</p>
+<p>Enable Logstash deployment.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ECK_ENABLE_LOGSTASH</code></li>
-<li>Default Value: <code>false</code></li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether Logstash is deployed as part of the ECK installation for log processing and forwarding.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> to deploy Logstash for log processing
+- Leave as <code>false</code> if not using Logstash pipeline
+- Can send logs to local or remote Elasticsearch</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: 
+- <code>true</code>: Deploys Logstash instance for log processing
+- <code>false</code>: Skips Logstash deployment</p>
+<p><strong>Related variables</strong>:
+- <code>eck_remote_es_hosts</code>: Remote Elasticsearch hosts for log forwarding
+- <code>eck_remote_es_username</code>: Username for remote Elasticsearch
+- <code>eck_remote_es_password</code>: Password for remote Elasticsearch</p>
+<p><strong>Note</strong>: When remote Elasticsearch variables are set, Logstash forwards logs to the remote instance. Otherwise, logs are sent to local Elasticsearch (if enabled).</p>
 <h3 id="eck_enable_filebeat">eck_enable_filebeat<a class="headerlink" href="#eck_enable_filebeat" title="Permanent link">¤</a></h3>
-<p>Whether to include Filebeat when performing the desired action.</p>
+<p>Enable Filebeat deployment.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ECK_ENABLE_FILEBEAT</code></li>
-<li>Default Value: <code>false</code></li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether Filebeat is deployed as part of the ECK installation for log collection from cluster nodes.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> to deploy Filebeat for log collection
+- Leave as <code>false</code> if not collecting node logs
+- Filebeat collects logs from Kubernetes nodes</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: 
+- <code>true</code>: Deploys Filebeat DaemonSet for log collection
+- <code>false</code>: Skips Filebeat deployment</p>
+<p><strong>Related variables</strong>:
+- <code>eck_enable_elasticsearch</code>: Filebeat sends logs to Elasticsearch
+- <code>eck_enable_logstash</code>: Alternative log processing pipeline</p>
+<p><strong>Note</strong>: Filebeat runs as a DaemonSet on cluster nodes to collect logs and forward them to Elasticsearch or Logstash.</p>
 <h2 id="role-variables-remote-elasticsearch">Role Variables - Remote Elasticsearch<a class="headerlink" href="#role-variables-remote-elasticsearch" title="Permanent link">¤</a></h2>
 <p>When <code>eck_remote_es_hosts</code>, <code>eck_remote_es_username</code>, and <code>eck_remote_es_password</code> are all set, and <code>eck_enable_logstash</code> is <code>true</code>, the Logstash server will be configured to send log messages to the remote Elasticsearch instance defined.</p>
 <h3 id="eck_remote_es_hosts">eck_remote_es_hosts<a class="headerlink" href="#eck_remote_es_hosts" title="Permanent link">¤</a></h3>
-<p>A list of one or more hosts for the remote Elasticsearch instance.  When using an environment varible, the value should be in the format of a comma-seperated list.</p>
+<p>Remote Elasticsearch host list.</p>
 <ul>
-<li>Environment Variable: <code>ECK_ENABLE_FILEBEAT</code></li>
-<li>Default Value: <code>false</code></li>
+<li><strong>Optional</strong> (required for remote Elasticsearch)</li>
+<li>Environment Variable: <code>ECK_REMOTE_ES_HOSTS</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies one or more remote Elasticsearch hosts for Logstash to forward logs to instead of local Elasticsearch.</p>
+<p><strong>When to use</strong>:
+- Set when forwarding logs to external Elasticsearch cluster
+- Required along with <code>eck_remote_es_username</code> and <code>eck_remote_es_password</code>
+- Only applies when <code>eck_enable_logstash=true</code></p>
+<p><strong>Valid values</strong>: Comma-separated list of Elasticsearch hosts (e.g., <code>https://es1.example.com:9200,https://es2.example.com:9200</code>)</p>
+<p><strong>Impact</strong>: When set with credentials, Logstash forwards logs to remote Elasticsearch instead of local instance.</p>
+<p><strong>Related variables</strong>:
+- <code>eck_remote_es_username</code>: Username for remote Elasticsearch
+- <code>eck_remote_es_password</code>: Password for remote Elasticsearch
+- <code>eck_enable_logstash</code>: Must be <code>true</code> for remote forwarding</p>
+<p><strong>Note</strong>: All three remote Elasticsearch variables must be set together for remote forwarding to work.</p>
 <h3 id="eck_remote_es_username">eck_remote_es_username<a class="headerlink" href="#eck_remote_es_username" title="Permanent link">¤</a></h3>
-<p>The username that will be used to authenticate with the remote Elasticsearch instance.</p>
+<p>Remote Elasticsearch username.</p>
 <ul>
-<li>Environment Variable: <code>ECK_ENABLE_FILEBEAT</code></li>
-<li>Default Value: <code>false</code></li>
+<li><strong>Optional</strong> (required for remote Elasticsearch)</li>
+<li>Environment Variable: <code>ECK_REMOTE_ES_USERNAME</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the username for authenticating with remote Elasticsearch when forwarding logs via Logstash.</p>
+<p><strong>When to use</strong>:
+- Set when forwarding logs to external Elasticsearch cluster
+- Required along with <code>eck_remote_es_hosts</code> and <code>eck_remote_es_password</code>
+- Only applies when <code>eck_enable_logstash=true</code></p>
+<p><strong>Valid values</strong>: Valid Elasticsearch username string</p>
+<p><strong>Impact</strong>: Used by Logstash to authenticate with remote Elasticsearch. Without valid credentials, log forwarding will fail.</p>
+<p><strong>Related variables</strong>:
+- <code>eck_remote_es_hosts</code>: Remote Elasticsearch hosts
+- <code>eck_remote_es_password</code>: Password for authentication
+- <code>eck_enable_logstash</code>: Must be <code>true</code> for remote forwarding</p>
+<p><strong>Note</strong>: <strong>SECURITY</strong> - All three remote Elasticsearch variables must be set together. Credentials are stored securely in Kubernetes secrets.</p>
 <h3 id="eck_remote_es_password">eck_remote_es_password<a class="headerlink" href="#eck_remote_es_password" title="Permanent link">¤</a></h3>
-<p>The password that will be used to authenticate with the remote Elasticsearch instance.</p>
+<p>Remote Elasticsearch password.</p>
 <ul>
-<li>Environment Variable: <code>ECK_ENABLE_FILEBEAT</code></li>
-<li>Default Value: <code>false</code></li>
+<li><strong>Optional</strong> (required for remote Elasticsearch)</li>
+<li>Environment Variable: <code>ECK_REMOTE_ES_PASSWORD</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the password for authenticating with remote Elasticsearch when forwarding logs via Logstash.</p>
+<p><strong>When to use</strong>:
+- Set when forwarding logs to external Elasticsearch cluster
+- Required along with <code>eck_remote_es_hosts</code> and <code>eck_remote_es_username</code>
+- Only applies when <code>eck_enable_logstash=true</code></p>
+<p><strong>Valid values</strong>: Valid Elasticsearch password string</p>
+<p><strong>Impact</strong>: Used by Logstash to authenticate with remote Elasticsearch. Without valid credentials, log forwarding will fail.</p>
+<p><strong>Related variables</strong>:
+- <code>eck_remote_es_hosts</code>: Remote Elasticsearch hosts
+- <code>eck_remote_es_username</code>: Username for authentication
+- <code>eck_enable_logstash</code>: Must be <code>true</code> for remote forwarding</p>
+<p><strong>Note</strong>: <strong>SECURITY</strong> - Store password securely. All three remote Elasticsearch variables must be set together. Credentials are stored in Kubernetes secrets.</p>
 <h2 id="role-variables-domains-and-certificates">Role Variables - Domains and Certificates<a class="headerlink" href="#role-variables-domains-and-certificates" title="Permanent link">¤</a></h2>
 <p>Elasticsearch and Kibana can be configured with a custom domain and a certificate signed by <a href="https://letsencrypt.org/">LetsEncrypt</a>.</p>
 <h3 id="es_domain">es_domain<a class="headerlink" href="#es_domain" title="Permanent link">¤</a></h3>
-<p>The domain that Elasticsearch will be accessed from, must be routable to the target OCP cluster.</p>
+<p>Custom domain for Elasticsearch access.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ECK_ELASTICSEARCH_DOMAIN</code></li>
-<li>Default Value: <code>None</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies a custom domain for accessing Elasticsearch, enabling external access with proper DNS routing.</p>
+<p><strong>When to use</strong>:
+- Set when external access to Elasticsearch is required
+- Must be routable to the target OCP cluster
+- Used with LetsEncrypt for automatic certificate generation</p>
+<p><strong>Valid values</strong>: Valid domain name routable to the cluster (e.g., <code>es.example.com</code>)</p>
+<p><strong>Impact</strong>: When set, creates a route with custom domain for Elasticsearch access. Without it, uses default cluster route.</p>
+<p><strong>Related variables</strong>:
+- <code>letsencrypt_email</code>: Required for automatic certificate generation
+- <code>eck_enable_elasticsearch</code>: Must be <code>true</code></p>
+<p><strong>Note</strong>: Domain must be routable to the cluster. When combined with <code>letsencrypt_email</code>, automatically provisions LetsEncrypt certificate using HTTP solver.</p>
 <h3 id="kibana_domain">kibana_domain<a class="headerlink" href="#kibana_domain" title="Permanent link">¤</a></h3>
-<p>The domain that Kibana will be accessed from, must be routable to the target OCP cluster.</p>
+<p>Custom domain for Kibana access.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ECK_KIBANA_DOMAIN</code></li>
-<li>Default Value: <code>None</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies a custom domain for accessing Kibana UI, enabling external access with proper DNS routing.</p>
+<p><strong>When to use</strong>:
+- Set when external access to Kibana is required
+- Must be routable to the target OCP cluster
+- Used with LetsEncrypt for automatic certificate generation</p>
+<p><strong>Valid values</strong>: Valid domain name routable to the cluster (e.g., <code>kibana.example.com</code>)</p>
+<p><strong>Impact</strong>: When set, creates a route with custom domain for Kibana access. Without it, uses default cluster route.</p>
+<p><strong>Related variables</strong>:
+- <code>letsencrypt_email</code>: Required for automatic certificate generation
+- <code>eck_enable_kibana</code>: Must be <code>true</code></p>
+<p><strong>Note</strong>: Domain must be routable to the cluster. When combined with <code>letsencrypt_email</code>, automatically provisions LetsEncrypt certificate using HTTP solver.</p>
 <h3 id="letsencrypt_email">letsencrypt_email<a class="headerlink" href="#letsencrypt_email" title="Permanent link">¤</a></h3>
-<p>Provide the email address which will be used to register the certificates with LetsEncrypt.  When this is provided and one or both domains are set, an <code>Issuer</code> will be configured for LetsEncrypt production using a HTTP solver that will installed automatically by Cert-Manager in the ECK namespace.</p>
+<p>Email for LetsEncrypt certificate registration.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>LETSENCRYPT_EMAIL</code></li>
-<li>Default Value: <code>None</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the email address for registering LetsEncrypt certificates when using custom domains for Elasticsearch or Kibana.</p>
+<p><strong>When to use</strong>:
+- Set when using custom domains (<code>es_domain</code> or <code>kibana_domain</code>)
+- Required for automatic LetsEncrypt certificate provisioning
+- Email receives certificate expiration notifications</p>
+<p><strong>Valid values</strong>: Valid email address</p>
+<p><strong>Impact</strong>: When set with custom domains, automatically configures LetsEncrypt Issuer and provisions certificates using HTTP solver via Cert-Manager.</p>
+<p><strong>Related variables</strong>:
+- <code>es_domain</code>: Elasticsearch custom domain
+- <code>kibana_domain</code>: Kibana custom domain</p>
+<p><strong>Note</strong>: Requires Cert-Manager to be installed in the cluster. The Issuer uses LetsEncrypt production environment with HTTP-01 challenge solver. Email receives important certificate notifications.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true

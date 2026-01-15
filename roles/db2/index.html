@@ -756,182 +756,479 @@ db2u-db01   Ready   None               29m
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="installation-variables">Installation Variables<a class="headerlink" href="#installation-variables" title="Permanent link">¤</a></h3>
 <h4 id="common_services_namespace">common_services_namespace<a class="headerlink" href="#common_services_namespace" title="Permanent link">¤</a></h4>
-<p>Namespace where IBM Common Services is installed.</p>
+<p>OpenShift namespace where IBM Common Services is installed.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>COMMON_SERVICES_NAMESPACE</code></li>
 <li>Default Value: <code>ibm-common-services</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the namespace containing IBM Common Services, which provides shared services used by Db2 operator. This is needed for the role to locate and interact with Common Services components.</p>
+<p><strong>When to use</strong>:
+- Leave as default (<code>ibm-common-services</code>) for standard installations
+- Set only if Common Services is installed in a non-standard namespace
+- Required when Common Services namespace differs from default</p>
+<p><strong>Valid values</strong>: Any valid Kubernetes namespace name where IBM Common Services is installed</p>
+<p><strong>Impact</strong>: The role uses this to locate Common Services resources. Incorrect namespace will cause the role to fail when trying to access Common Services components.</p>
+<p><strong>Related variables</strong>: Works with <code>db2_namespace</code> to manage operator and instance placement.</p>
+<p><strong>Note</strong>: The default <code>ibm-common-services</code> is the standard namespace for Common Services. Only change if your installation uses a different namespace.</p>
 <h4 id="db2_action">db2_action<a class="headerlink" href="#db2_action" title="Permanent link">¤</a></h4>
-<p>Inform the role whether to perform an install, upgrade, backup or restore of DB2 Database. This can be set to <code>install</code>, <code>upgrade</code>, <code>backup</code> or <code>restore</code>. When <code>DB2_ACTION</code> is set to upgrade, then all instances in the <code>DB2_NAMESPACE</code> will be upgraded to the <code>DB2_VERSION</code>.</p>
+<p>Specifies which operation to perform on the Db2 database.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_ACTION</code></li>
 <li>Default: <code>install</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls what action the role executes against Db2 instances. This allows the same role to handle installation, upgrades, backups, and restores of Db2 databases.</p>
+<p><strong>When to use</strong>:
+- Use <code>install</code> (default) for initial Db2 deployment
+- Use <code>upgrade</code> to upgrade all Db2 instances in the namespace to a new version
+- Use <code>backup</code> to create a backup of Db2 data
+- Use <code>restore</code> to restore Db2 from a backup</p>
+<p><strong>Valid values</strong>: <code>install</code>, <code>upgrade</code>, <code>backup</code>, <code>restore</code></p>
+<p><strong>Impact</strong>: 
+- <code>install</code>: Creates new Db2 operator and instance
+- <code>upgrade</code>: Upgrades ALL instances in <code>db2_namespace</code> to <code>db2_version</code> (affects all instances in namespace)
+- <code>backup</code>: Creates backup of Db2 data
+- <code>restore</code>: Restores Db2 from backup</p>
+<p><strong>Related variables</strong>:
+- <code>db2_version</code>: Required for upgrade action to specify target version
+- <code>db2_namespace</code>: All instances in this namespace are affected by upgrade</p>
+<p><strong>Note</strong>: <strong>WARNING</strong> - When using <code>upgrade</code>, ALL Db2 instances in the specified namespace will be upgraded. Plan accordingly and ensure <code>db2_version</code> matches the operator channel.</p>
 <h4 id="db2_namespace">db2_namespace<a class="headerlink" href="#db2_namespace" title="Permanent link">¤</a></h4>
-<p>Name of the namespace where Db2 operators and Db2 instances (DB2UCluster custom resources) will be created</p>
+<p>OpenShift namespace where Db2 operator and instances will be deployed.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_NAMESPACE</code></li>
 <li>Default: <code>db2u</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the namespace for deploying the Db2u operator and Db2 instances (Db2uCluster custom resources). Starting with recent versions, the operator is installed in the same namespace as the instances.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>db2u</code>) for standard single-instance deployments
+- Set to a custom namespace when organizing multiple Db2 deployments
+- Must match existing namespace when upgrading Db2 instances</p>
+<p><strong>Valid values</strong>: Any valid Kubernetes namespace name (e.g., <code>db2u</code>, <code>db2-prod</code>, <code>mas-db2</code>)</p>
+<p><strong>Impact</strong>: All Db2 resources (operator, instances, secrets, services) are created in this namespace. When upgrading, ALL instances in this namespace will be upgraded together.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_action</code>: When set to <code>upgrade</code>, affects all instances in this namespace
+- <code>db2_instance_name</code>: Instance created within this namespace</p>
+<p><strong>Note</strong>: The role handles migration of operators from <code>ibm-common-services</code> to this namespace if needed. All instances in the namespace are upgraded together when using <code>db2_action=upgrade</code>.</p>
 <h4 id="db2_channel">db2_channel<a class="headerlink" href="#db2_channel" title="Permanent link">¤</a></h4>
-<p>The subscription channel for the DB2 Universal Operator.</p>
+<p>Subscription channel for the Db2 Universal Operator.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_CHANNEL</code></li>
-<li>Default: The default channel, as defined in the operator package, will be used if this is not set.</li>
+<li>Default: The default channel from the operator package (automatically selected)</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which operator channel to subscribe to, determining which Db2 operator version stream you receive. Channels typically correspond to major Db2 versions (e.g., <code>v2.2</code>, <code>v3.0</code>).</p>
+<p><strong>When to use</strong>:
+- Leave unset to use the default channel (recommended for new installations)
+- Set explicitly when you need a specific operator version stream
+- Must match <code>db2_version</code> when upgrading (version must be available in the channel)</p>
+<p><strong>Valid values</strong>: Valid Db2 operator channel names (e.g., <code>v2.2</code>, <code>v3.0</code>, <code>v3.1</code>)</p>
+<p><strong>Impact</strong>: Determines which operator version is installed and which Db2 engine versions are available. Changing channels may require operator migration.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_version</code>: Must be compatible with the selected channel
+- When upgrading, version must match channel</p>
+<p><strong>Note</strong>: The operator channel determines available Db2 engine versions. Check the operator package for available channels and their supported versions.</p>
 <h4 id="db2_instance_name">db2_instance_name<a class="headerlink" href="#db2_instance_name" title="Permanent link">¤</a></h4>
-<p>Name of the database instance, note that this is the instance <strong>name</strong>.</p>
+<p>Unique name for the Db2 instance (Db2uCluster resource).</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>DB2_INSTANCE_NAME</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Defines the name of the Db2uCluster custom resource that will be created. This name is used to identify the Db2 instance and is embedded in resource names (services, pods, secrets).</p>
+<p><strong>When to use</strong>:
+- Always required for Db2 installation
+- Use descriptive names that indicate purpose (e.g., <code>maximo-db</code>, <code>iot-db</code>, <code>manage-db</code>)
+- Must be unique within the namespace</p>
+<p><strong>Valid values</strong>: Valid Kubernetes resource name (lowercase alphanumeric with hyphens, e.g., <code>db01</code>, <code>mas-db</code>, <code>manage-db</code>)</p>
+<p><strong>Impact</strong>: This name is used throughout the Db2 deployment:
+- Db2uCluster resource name
+- Service names (e.g., <code>{instance_name}-db2u-engn-svc</code>)
+- Pod names (e.g., <code>c-{instance_name}-db2u-0</code>)
+- Secret names</p>
+<p><strong>Related variables</strong>:
+- <code>db2_dbname</code>: Name of the database within this instance
+- Used in generated JdbcCfg when <code>mas_instance_id</code> is provided</p>
+<p><strong>Note</strong>: Choose a meaningful name as it appears in many resource names and cannot be easily changed after creation.</p>
 <h4 id="ibm_entitlement_key">ibm_entitlement_key<a class="headerlink" href="#ibm_entitlement_key" title="Permanent link">¤</a></h4>
-<p>Provide your <a href="https://myibm.ibm.com/products-services/containerlibrary">IBM entitlement key</a>.</p>
+<p>IBM Container Library entitlement key for accessing Db2 container images.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>IBM_ENTITLEMENT_KEY</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides authentication credentials to pull Db2 container images from the IBM Container Registry. This key is associated with your IBM entitlement and grants access to licensed software.</p>
+<p><strong>When to use</strong>:
+- Always required for Db2 installation
+- Obtain from <a href="https://myibm.ibm.com/products-services/containerlibrary">IBM Container Library</a>
+- Same key used across all IBM MAS components</p>
+<p><strong>Valid values</strong>: Valid IBM entitlement key string</p>
+<p><strong>Impact</strong>: Without a valid key, Db2 container images cannot be pulled and installation will fail. The key is stored in an image pull secret in the Db2 namespace.</p>
+<p><strong>Related variables</strong>: Used across multiple roles for accessing IBM container images.</p>
+<p><strong>Note</strong>: Keep this key secure and do not commit to source control. The key is tied to your IBM entitlement and should be treated as a credential. Obtain from the IBM Container Library using your IBM ID.</p>
 <h4 id="db2_dbname">db2_dbname<a class="headerlink" href="#db2_dbname" title="Permanent link">¤</a></h4>
-<p>Name of the database within the instance.</p>
+<p>Name of the database to create within the Db2 instance.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_DBNAME</code></li>
 <li>Default: <code>BLUDB</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the name of the database that will be created inside the Db2 instance. A Db2 instance can contain multiple databases, and this defines the primary database name.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>BLUDB</code>) for standard MAS deployments
+- Set to a custom name when organizational standards require specific naming
+- Must match the database name expected by applications connecting to Db2</p>
+<p><strong>Valid values</strong>: Valid Db2 database name (uppercase alphanumeric, up to 8 characters, e.g., <code>BLUDB</code>, <code>MAXDB</code>, <code>MASDB</code>)</p>
+<p><strong>Impact</strong>: This database name is used in connection strings and JDBC configurations. Applications must use this exact name to connect to the database.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_instance_name</code>: The instance containing this database
+- Used in generated JdbcCfg for MAS configuration</p>
+<p><strong>Note</strong>: The default <code>BLUDB</code> is standard for Db2 Warehouse. Db2 database names are typically uppercase and limited to 8 characters.</p>
 <h4 id="db2_version">db2_version<a class="headerlink" href="#db2_version" title="Permanent link">¤</a></h4>
-<p>Version of the DB2 engine to be used while creating/upgrading the DB2 instances.</p>
+<p>Db2 engine version to use for installation or upgrade.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_VERSION</code></li>
-<li>Default: The default db2 engine version will be automatically defined to the latest version supported by the installed DB2 operator if this is not set. The DB2 engine versions supported by the installed DB2 operator are stored in <code>db2u-release</code> configmap under <code>ibm-common-services</code> namespace.</li>
+<li>Default: Latest version supported by the installed Db2 operator (auto-detected from <code>db2u-release</code> configmap)</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which Db2 engine version to deploy or upgrade to. The version must be compatible with the installed operator channel.</p>
+<p><strong>When to use</strong>:
+- Leave unset for new installations to use the latest supported version (recommended)
+- Set explicitly when you need a specific Db2 version
+- Required when upgrading to specify the target version
+- Must match the operator channel capabilities</p>
+<p><strong>Valid values</strong>: Valid Db2 engine version supported by the operator (e.g., <code>11.5.8.0</code>, <code>11.5.9.0</code>)</p>
+<p><strong>Impact</strong>: Determines which Db2 engine version is deployed. When upgrading, ALL instances in <code>db2_namespace</code> will be upgraded to this version. Version must be available in the operator's supported versions list.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_channel</code>: Version must be compatible with the operator channel
+- <code>db2_action</code>: When set to <code>upgrade</code>, this version is the target
+- <code>db2_namespace</code>: All instances in namespace upgraded to this version</p>
+<p><strong>Note</strong>: Supported versions are listed in the <code>db2u-release</code> configmap in <code>ibm-common-services</code> namespace. Ensure the version matches your operator channel. When upgrading, all instances in the namespace are upgraded together.</p>
 <h4 id="db2_type">db2_type<a class="headerlink" href="#db2_type" title="Permanent link">¤</a></h4>
-<p>Type of the DB2 instance. Available options are <code>db2wh</code> and <code>db2oltp</code>.</p>
+<p>Db2 instance type optimized for specific workload patterns.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_TYPE</code></li>
 <li>Default: <code>db2wh</code></li>
 </ul>
+<p><strong>Purpose</strong>: Determines the Db2 instance configuration optimized for either data warehouse (analytical) or online transaction processing workloads. This affects resource allocation and database tuning.</p>
+<p><strong>When to use</strong>:
+- Use <code>db2wh</code> (default) for MAS Manage and analytical workloads
+- Use <code>db2oltp</code> for high-transaction workloads requiring OLTP optimization
+- Choose based on your primary use case</p>
+<p><strong>Valid values</strong>: <code>db2wh</code>, <code>db2oltp</code></p>
+<p><strong>Impact</strong>: 
+- <code>db2wh</code>: Optimized for data warehouse/analytical queries (recommended for MAS Manage)
+- <code>db2oltp</code>: Optimized for online transaction processing with high concurrency</p>
+<p><strong>Related variables</strong>:
+- <code>db2_workload</code>: Further refines workload optimization
+- <code>db2_table_org</code>: Table organization should align with instance type</p>
+<p><strong>Note</strong>: MAS Manage typically uses <code>db2wh</code> for optimal performance with its analytical workload patterns.</p>
 <h4 id="db2_timezone">db2_timezone<a class="headerlink" href="#db2_timezone" title="Permanent link">¤</a></h4>
-<p>Server timezone code of the DB2 instance. If you want to align the same timezone with Manage's DB2 database, you also need to must also set <code>MAS_APP_SETTINGS_SERVER_TIMEZONE</code> variable to the same value.</p>
+<p>Server timezone for the Db2 instance.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_TIMEZONE</code></li>
 <li>Default: <code>GMT</code></li>
 </ul>
+<p><strong>Purpose</strong>: Sets the timezone used by the Db2 server for timestamp operations and scheduling. This affects how Db2 interprets and stores timestamp data.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>GMT</code>) for globally distributed systems
+- Set to local timezone when all users are in the same timezone
+- Must match MAS Manage timezone if using Manage with this database</p>
+<p><strong>Valid values</strong>: Valid timezone codes (e.g., <code>GMT</code>, <code>EST</code>, <code>PST</code>, <code>CET</code>, <code>UTC</code>)</p>
+<p><strong>Impact</strong>: Affects timestamp interpretation and storage in the database. Mismatched timezones between Db2 and applications can cause data inconsistencies.</p>
+<p><strong>Related variables</strong>:
+- <code>MAS_APP_SETTINGS_SERVER_TIMEZONE</code>: Must be set to the same value for MAS Manage
+- Affects all timestamp operations in the database</p>
+<p><strong>Note</strong>: <strong>IMPORTANT</strong> - If using this Db2 instance with MAS Manage, you must also set <code>MAS_APP_SETTINGS_SERVER_TIMEZONE</code> to the same value to ensure consistent timestamp handling.</p>
 <h4 id="db2_4k_device_support">db2_4k_device_support<a class="headerlink" href="#db2_4k_device_support" title="Permanent link">¤</a></h4>
-<p>Whether 4K device support is turned on or not.</p>
+<p>Controls 4K sector device support in Db2.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_4K_DEVICE_SUPPORT</code></li>
 <li>Default: <code>ON</code></li>
 </ul>
+<p><strong>Purpose</strong>: Enables or disables support for storage devices with 4K sector sizes. Modern storage systems often use 4K sectors instead of traditional 512-byte sectors.</p>
+<p><strong>When to use</strong>:
+- Leave as <code>ON</code> (default) for modern storage systems with 4K sectors
+- Set to <code>OFF</code> only if using legacy storage with 512-byte sectors
+- Check your storage specifications if unsure</p>
+<p><strong>Valid values</strong>: <code>ON</code>, <code>OFF</code></p>
+<p><strong>Impact</strong>: 
+- <code>ON</code>: Enables 4K sector support (required for most modern storage)
+- <code>OFF</code>: Uses traditional 512-byte sector mode (legacy storage only)</p>
+<p><strong>Related variables</strong>: Works with storage class configuration to ensure compatibility.</p>
+<p><strong>Note</strong>: Most modern storage systems use 4K sectors. Keep this <code>ON</code> unless you have specific legacy storage requirements.</p>
 <h4 id="db2_workload">db2_workload<a class="headerlink" href="#db2_workload" title="Permanent link">¤</a></h4>
-<p>The workload profile of the db2 instance, possible values are <code>PUREDATA_OLAP</code> or <code>ANALYTICS</code>.</p>
+<p>Workload profile for Db2 instance optimization.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_WORKLOAD</code></li>
 <li>Default: <code>ANALYTICS</code></li>
 </ul>
+<p><strong>Purpose</strong>: Configures Db2 with predefined settings optimized for specific workload patterns. This affects memory allocation, query optimization, and other performance parameters.</p>
+<p><strong>When to use</strong>:
+- Use <code>ANALYTICS</code> (default) for general analytical and MAS workloads
+- Use <code>PUREDATA_OLAP</code> for pure data warehouse/OLAP workloads
+- Choose based on your primary query patterns</p>
+<p><strong>Valid values</strong>: <code>ANALYTICS</code>, <code>PUREDATA_OLAP</code></p>
+<p><strong>Impact</strong>: 
+- <code>ANALYTICS</code>: Balanced optimization for mixed analytical workloads (recommended for MAS)
+- <code>PUREDATA_OLAP</code>: Optimized specifically for OLAP/data warehouse queries</p>
+<p><strong>Related variables</strong>:
+- <code>db2_type</code>: Should align with workload choice
+- <code>db2_table_org</code>: Table organization should match workload pattern</p>
+<p><strong>Note</strong>: The default <code>ANALYTICS</code> is suitable for most MAS deployments. Only change if you have specific OLAP requirements.</p>
 <h4 id="db2_table_org">db2_table_org<a class="headerlink" href="#db2_table_org" title="Permanent link">¤</a></h4>
-<p>The way database tables will be organized. It can be set to either <code>ROW</code> or <code>COLUMN</code>.</p>
+<p>Default table organization for database tables.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_TABLE_ORG</code></li>
 <li>Default: <code>ROW</code></li>
 </ul>
+<p><strong>Purpose</strong>: Determines the default storage organization for tables in the database. Row-organized tables are optimized for transactional workloads, while column-organized tables are optimized for analytical queries.</p>
+<p><strong>When to use</strong>:
+- Use <code>ROW</code> (default) for MAS Manage and mixed workloads
+- Use <code>COLUMN</code> only for pure analytical/reporting workloads
+- Choose based on your primary query patterns</p>
+<p><strong>Valid values</strong>: <code>ROW</code>, <code>COLUMN</code></p>
+<p><strong>Impact</strong>: 
+- <code>ROW</code>: Tables stored row-by-row (better for OLTP, updates, and mixed workloads)
+- <code>COLUMN</code>: Tables stored column-by-column (better for analytical queries and aggregations)</p>
+<p><strong>Related variables</strong>:
+- <code>db2_type</code>: Should align with table organization choice
+- <code>db2_workload</code>: Workload profile should match table organization</p>
+<p><strong>Note</strong>: MAS Manage requires <code>ROW</code> organization. Only use <code>COLUMN</code> for dedicated analytical databases. This sets the default; individual tables can override this setting.</p>
 <h4 id="db2_ldap_username">db2_ldap_username<a class="headerlink" href="#db2_ldap_username" title="Permanent link">¤</a></h4>
-<p>Define the username of db2 in the local LDAP registry. If this is defined, the LDAP user will be the user identity passed into the MAS JDBC configuration.</p>
+<p>Username for Db2 LDAP authentication.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_LDAP_USERNAME</code></li>
-<li>Default: None</li>
+<li>Default: None (uses default <code>db2inst1</code> user)</li>
 </ul>
+<p><strong>Purpose</strong>: Defines a custom LDAP username for Db2 authentication instead of the default <code>db2inst1</code> user. When set, this user is configured in Db2's local LDAP registry and used in MAS JDBC configuration.</p>
+<p><strong>When to use</strong>:
+- Set when you need a custom database user for MAS connections
+- Set when organizational policies require specific usernames
+- Leave unset to use the default <code>db2inst1</code> user
+- Must be set together with <code>db2_ldap_password</code></p>
+<p><strong>Valid values</strong>: Valid LDAP username string</p>
+<p><strong>Impact</strong>: When set, this user is created in Db2's LDAP registry and used in the generated JdbcCfg for MAS. The user will have necessary database permissions configured.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_ldap_password</code>: Required when this is set
+- <code>db2_rotate_password</code>: Can auto-generate password for this user
+- Used in generated JdbcCfg for MAS configuration</p>
+<p><strong>Note</strong>: If not set, MAS will use the default <code>db2inst1</code> user. When set, you must also provide <code>db2_ldap_password</code>.</p>
 <h4 id="db2_ldap_password">db2_ldap_password<a class="headerlink" href="#db2_ldap_password" title="Permanent link">¤</a></h4>
-<p>Define the password of above db2 user in the local LDAP registry. Must define when <code>db2_ldap_username</code> is used.</p>
+<p>Password for the Db2 LDAP user.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_LDAP_PASSWORD</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Sets the password for the LDAP user specified in <code>db2_ldap_username</code>. This password is configured in Db2's local LDAP registry and used for database authentication.</p>
+<p><strong>When to use</strong>:
+- Required when <code>db2_ldap_username</code> is set
+- Set to a strong password meeting security requirements
+- Can be omitted if using <code>db2_rotate_password</code> for auto-generation</p>
+<p><strong>Valid values</strong>: Strong password string meeting security requirements</p>
+<p><strong>Impact</strong>: This password is stored in Db2's LDAP registry and used for database authentication. It's also included in the generated JdbcCfg for MAS.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_ldap_username</code>: Must be set together with this password
+- <code>db2_rotate_password</code>: Alternative to manually setting password</p>
+<p><strong>Note</strong>: Keep this password secure and do not commit to source control. If using <code>db2_rotate_password=true</code>, this password will be auto-generated and you don't need to provide it.</p>
 <h4 id="db2_rotate_password">db2_rotate_password<a class="headerlink" href="#db2_rotate_password" title="Permanent link">¤</a></h4>
-<p>Determines if the role should rotate the LDAP password for current LDAP user configured within Db2 for MAS. When using this capability, LDAP user password will auto generated by this role and configured with MAS.</p>
+<p>Enables automatic password generation and rotation for Db2 LDAP user.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_LDAP_ROTATE_PASSWORD</code></li>
-<li>Default: False</li>
+<li>Default: <code>False</code></li>
 </ul>
+<p><strong>Purpose</strong>: Automates password management by generating a new random password for the Db2 LDAP user and updating both Db2 and MAS configurations. This improves security by enabling regular password rotation.</p>
+<p><strong>When to use</strong>:
+- Set to <code>True</code> for automated password management
+- Set to <code>True</code> for regular password rotation as a security practice
+- Leave as <code>False</code> when manually managing passwords
+- Useful for automated deployments where manual password management is impractical</p>
+<p><strong>Valid values</strong>: <code>True</code>, <code>False</code></p>
+<p><strong>Impact</strong>: 
+- When <code>True</code>: Role generates a strong random password, configures it in Db2, and updates MAS JdbcCfg
+- When <code>False</code>: You must provide <code>db2_ldap_password</code> manually</p>
+<p><strong>Related variables</strong>:
+- <code>db2_ldap_username</code>: User whose password will be rotated
+- <code>db2_ldap_password</code>: Not needed when rotation is enabled</p>
+<p><strong>Note</strong>: When enabled, the role handles all password management automatically. The generated password is stored securely in Kubernetes secrets and MAS configuration.</p>
 <h3 id="storage-variables">Storage Variables<a class="headerlink" href="#storage-variables" title="Permanent link">¤</a></h3>
 <p>We recommend reviewing the Db2 documentation about the certified storage options for Db2 on Red Hat OpenShift. Please ensure your storage class meets the specified deployment requirements for Db2. <a href="https://www.ibm.com/docs/en/db2/11.5?topic=storage-certified-options">https://www.ibm.com/docs/en/db2/11.5?topic=storage-certified-options</a></p>
 <h4 id="db2_meta_storage_class">db2_meta_storage_class<a class="headerlink" href="#db2_meta_storage_class" title="Permanent link">¤</a></h4>
-<p>Storage class used for metadata. This must support ReadWriteMany(RWX) access mode.</p>
+<p>Storage class for Db2 metadata storage (must support ReadWriteMany).</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>DB2_META_STORAGE_CLASS</code></li>
-<li>Default: Defaults to <code>ibmc-file-gold</code> if the storage class is available in the cluster.</li>
+<li>Default: <code>ibmc-file-gold</code> (if available in cluster)</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the storage class for Db2 metadata storage, which requires ReadWriteMany (RWX) access mode for shared access across Db2 pods.</p>
+<p><strong>When to use</strong>:
+- Always required for Db2 installation
+- Must be a storage class supporting RWX access mode
+- Typically file-based storage (NFS, IBM Cloud File Storage, etc.)</p>
+<p><strong>Valid values</strong>: Any storage class name supporting ReadWriteMany access mode</p>
+<p><strong>Impact</strong>: Metadata storage is critical for Db2 operation. Incorrect storage class or one not supporting RWX will cause Db2 deployment to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_meta_storage_size</code>: Size of metadata volume
+- <code>db2_meta_storage_accessmode</code>: Should be <code>ReadWriteMany</code></p>
+<p><strong>Note</strong>: See <a href="https://www.ibm.com/docs/en/db2/11.5?topic=storage-certified-options">Db2 certified storage options</a> for supported storage. File-based storage classes typically support RWX (e.g., <code>ibmc-file-gold</code>, <code>ocs-storagecluster-cephfs</code>).</p>
 <h4 id="db2_meta_storage_size">db2_meta_storage_size<a class="headerlink" href="#db2_meta_storage_size" title="Permanent link">¤</a></h4>
-<p>Size of the metadata persistent volume, in gigabytes</p>
+<p>Size of the metadata persistent volume.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_META_STORAGE_SIZE</code></li>
 <li>Default: <code>10Gi</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the size of the persistent volume for Db2 metadata storage. Metadata includes system catalogs, configuration files, and other operational data.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>10Gi</code>) for most deployments
+- Increase for large-scale deployments with many databases or complex configurations
+- Monitor usage and adjust if metadata volume fills up</p>
+<p><strong>Valid values</strong>: Kubernetes storage size format (e.g., <code>10Gi</code>, <code>20Gi</code>, <code>50Gi</code>)</p>
+<p><strong>Impact</strong>: Insufficient metadata storage can cause Db2 operational issues. The volume must have enough space for system catalogs and configuration data.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_meta_storage_class</code>: Storage class for this volume
+- <code>db2_meta_storage_accessmode</code>: Access mode for this volume</p>
+<p><strong>Note</strong>: The default <code>10Gi</code> is sufficient for most deployments. Metadata storage requirements are typically much smaller than data storage.</p>
 <h4 id="db2_meta_storage_accessmode">db2_meta_storage_accessmode<a class="headerlink" href="#db2_meta_storage_accessmode" title="Permanent link">¤</a></h4>
-<p>The access mode for the storage.</p>
+<p>Access mode for metadata storage volume.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_META_STORAGE_ACCESSMODE</code></li>
 <li>Default: <code>ReadWriteMany</code></li>
 </ul>
+<p><strong>Purpose</strong>: Defines the Kubernetes access mode for the metadata persistent volume. ReadWriteMany (RWX) is required for Db2 metadata to be accessible from multiple pods.</p>
+<p><strong>When to use</strong>:
+- Leave as default (<code>ReadWriteMany</code>) for standard Db2 deployments
+- RWX is required for Db2 high availability and proper operation</p>
+<p><strong>Valid values</strong>: <code>ReadWriteMany</code> (RWX)</p>
+<p><strong>Impact</strong>: Db2 requires RWX access mode for metadata storage. Using a different access mode will cause deployment failures.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_meta_storage_class</code>: Must support the specified access mode
+- <code>db2_meta_storage_size</code>: Size of this volume</p>
+<p><strong>Note</strong>: Do not change from the default <code>ReadWriteMany</code>. Db2 metadata requires RWX access mode for proper operation.</p>
 <h4 id="db2_data_storage_class">db2_data_storage_class<a class="headerlink" href="#db2_data_storage_class" title="Permanent link">¤</a></h4>
-<p>Storage class used for user data. This must support ReadWriteOnce(RWO) access mode.</p>
+<p>Storage class for Db2 user data storage (must support ReadWriteOnce).</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>DB2_DATA_STORAGE_CLASS</code></li>
-<li>Default: Defaults to <code>ibmc-block-gold</code> if the storage class is available in the cluster.</li>
+<li>Default: <code>ibmc-block-gold</code> (if available in cluster)</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the storage class for Db2 user data storage, which requires ReadWriteOnce (RWO) access mode. This is where database tables and user data are stored.</p>
+<p><strong>When to use</strong>:
+- Always required for Db2 installation
+- Must be a storage class supporting RWO access mode
+- Typically block-based storage for performance (SAN, IBM Cloud Block Storage, etc.)</p>
+<p><strong>Valid values</strong>: Any storage class name supporting ReadWriteOnce access mode</p>
+<p><strong>Impact</strong>: Data storage is critical for Db2 performance and capacity. Choose high-performance storage for production workloads. Incorrect storage class or one not supporting RWO will cause Db2 deployment to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_data_storage_size</code>: Size of data volume
+- <code>db2_data_storage_accessmode</code>: Should be <code>ReadWriteOnce</code></p>
+<p><strong>Note</strong>: See <a href="https://www.ibm.com/docs/en/db2/11.5?topic=storage-certified-options">Db2 certified storage options</a> for supported storage. Block-based storage classes typically provide better performance for databases (e.g., <code>ibmc-block-gold</code>, <code>ocs-storagecluster-ceph-rbd</code>).</p>
 <h4 id="db2_data_storage_size">db2_data_storage_size<a class="headerlink" href="#db2_data_storage_size" title="Permanent link">¤</a></h4>
-<p>Size of data persistent volume.</p>
+<p>Size of the user data persistent volume.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_DATA_STORAGE_SIZE</code></li>
 <li>Default: <code>50Gi</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the size of the persistent volume for Db2 user data storage. This is where database tables, indexes, and all user data are stored.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>50Gi</code>) for development/test environments
+- Increase significantly for production based on data volume estimates
+- Plan for data growth over time
+- Monitor usage and expand as needed</p>
+<p><strong>Valid values</strong>: Kubernetes storage size format (e.g., <code>50Gi</code>, <code>100Gi</code>, <code>500Gi</code>, <code>1Ti</code>)</p>
+<p><strong>Impact</strong>: Insufficient data storage will cause database operations to fail when the volume fills up. Size appropriately for your data volume plus growth.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_data_storage_class</code>: Storage class for this volume
+- <code>db2_data_storage_accessmode</code>: Access mode for this volume</p>
+<p><strong>Note</strong>: The default <code>50Gi</code> is suitable for small deployments only. Production MAS Manage deployments typically require 500Gi or more. Plan storage capacity based on expected data volume and growth.</p>
 <h4 id="db2_data_storage_accessmode">db2_data_storage_accessmode<a class="headerlink" href="#db2_data_storage_accessmode" title="Permanent link">¤</a></h4>
-<p>The access mode for the storage.</p>
+<p>Access mode for user data storage volume.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_DATA_STORAGE_ACCESSMODE</code></li>
 <li>Default: <code>ReadWriteOnce</code></li>
 </ul>
+<p><strong>Purpose</strong>: Defines the Kubernetes access mode for the user data persistent volume. ReadWriteOnce (RWO) is standard for Db2 data storage as it's accessed by a single pod at a time.</p>
+<p><strong>When to use</strong>:
+- Leave as default (<code>ReadWriteOnce</code>) for standard Db2 deployments
+- RWO is the correct mode for Db2 data storage</p>
+<p><strong>Valid values</strong>: <code>ReadWriteOnce</code> (RWO)</p>
+<p><strong>Impact</strong>: Db2 data storage uses RWO access mode. Using a different access mode may cause deployment issues or performance problems.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_data_storage_class</code>: Must support the specified access mode
+- <code>db2_data_storage_size</code>: Size of this volume</p>
+<p><strong>Note</strong>: Do not change from the default <code>ReadWriteOnce</code>. Db2 data storage is designed for RWO access mode.</p>
 <h4 id="db2_backup_storage_class">db2_backup_storage_class<a class="headerlink" href="#db2_backup_storage_class" title="Permanent link">¤</a></h4>
-<p>Storage class used for backup. This must support ReadWriteMany(RWX) access mode.</p>
+<p>Storage class for Db2 backup storage (must support ReadWriteMany).</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_BACKUP_STORAGE_CLASS</code></li>
-<li>Default: Defaults to <code>ibmc-file-gold</code> if the storage class is available in the cluster. Set to <code>None</code> will drop the backup storage on DB2ucluster CR.</li>
+<li>Default: <code>ibmc-file-gold</code> (if available in cluster)</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the storage class for Db2 backup storage, which requires ReadWriteMany (RWX) access mode for shared access during backup operations.</p>
+<p><strong>When to use</strong>:
+- Use default for standard backup storage configuration
+- Must be a storage class supporting RWX access mode
+- Set to <code>None</code> to disable backup storage (not recommended for production)
+- Typically file-based storage (NFS, IBM Cloud File Storage, etc.)</p>
+<p><strong>Valid values</strong>: Any storage class name supporting ReadWriteMany access mode, or <code>None</code> to disable</p>
+<p><strong>Impact</strong>: 
+- When set: Backup storage is configured for Db2 backups
+- When set to <code>None</code>: Backup storage is dropped from Db2uCluster CR (backups not possible)</p>
+<p><strong>Related variables</strong>:
+- <code>db2_backup_storage_size</code>: Size of backup volume
+- <code>db2_backup_storage_accessmode</code>: Should be <code>ReadWriteMany</code></p>
+<p><strong>Note</strong>: <strong>WARNING</strong> - Setting to <code>None</code> disables backup capability. Only do this for non-production environments. Production systems should always have backup storage configured.</p>
 <h4 id="db2_backup_storage_size">db2_backup_storage_size<a class="headerlink" href="#db2_backup_storage_size" title="Permanent link">¤</a></h4>
-<p>Size of backup persistent volume.</p>
+<p>Size of the backup persistent volume.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_BACKUP_STORAGE_SIZE</code></li>
 <li>Default: <code>50Gi</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the size of the persistent volume for Db2 backup storage. This volume stores database backups for disaster recovery and point-in-time recovery.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>50Gi</code>) for small databases or development environments
+- Increase based on database size and backup retention requirements
+- Plan for multiple full backups plus transaction logs
+- Monitor usage and expand as database grows</p>
+<p><strong>Valid values</strong>: Kubernetes storage size format (e.g., <code>50Gi</code>, <code>100Gi</code>, <code>500Gi</code>, <code>1Ti</code>)</p>
+<p><strong>Impact</strong>: Insufficient backup storage will cause backup operations to fail. Size should accommodate multiple full backups based on your retention policy.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_backup_storage_class</code>: Storage class for this volume
+- <code>db2_backup_storage_accessmode</code>: Access mode for this volume
+- <code>db2_data_storage_size</code>: Backup storage should be sized relative to data storage</p>
+<p><strong>Note</strong>: Plan backup storage as a multiple of your data storage size. A common practice is 2-3x the data storage size to accommodate multiple full backups and transaction logs.</p>
 <h4 id="db2_backup_storage_accessmode">db2_backup_storage_accessmode<a class="headerlink" href="#db2_backup_storage_accessmode" title="Permanent link">¤</a></h4>
-<p>The access mode for the storage.</p>
+<p>Access mode for backup storage volume.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_BACKUP_STORAGE_ACCESSMODE</code></li>
 <li>Default: <code>ReadWriteMany</code></li>
 </ul>
+<p><strong>Purpose</strong>: Defines the Kubernetes access mode for the backup persistent volume. ReadWriteMany (RWX) is required for Db2 backup operations to be accessible from multiple pods.</p>
+<p><strong>When to use</strong>:
+- Leave as default (<code>ReadWriteMany</code>) for standard Db2 backup configuration
+- RWX is required for Db2 backup operations</p>
+<p><strong>Valid values</strong>: <code>ReadWriteMany</code> (RWX)</p>
+<p><strong>Impact</strong>: Db2 backup storage requires RWX access mode. Using a different access mode will cause backup operations to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_backup_storage_class</code>: Must support the specified access mode
+- <code>db2_backup_storage_size</code>: Size of this volume</p>
+<p><strong>Note</strong>: Do not change from the default <code>ReadWriteMany</code>. Db2 backup operations require RWX access mode for proper operation.
+- Default: <code>ReadWriteMany</code></p>
 <h4 id="db2_logs_storage_class">db2_logs_storage_class<a class="headerlink" href="#db2_logs_storage_class" title="Permanent link">¤</a></h4>
 <p>Storage class used for transaction logs. This must support ReadWriteOnce(RWO) access mode.</p>
 <ul>
