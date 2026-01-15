@@ -35,23 +35,6 @@ def get_mongoce_admin_secretname(mongoDBCommunityCR):
           return user['passwordSecretRef']['name']
   return None
 
-def get_tlscertkey_secretname_from_mongoce(mongoDBCommunityCR : dict) -> str:
-  if 'security' in mongoDBCommunityCR['spec']:
-    if 'tls' in mongoDBCommunityCR['spec']['security']:
-      if 'certificateKeySecretRef' in mongoDBCommunityCR['spec']['security']['tls']:
-        return mongoDBCommunityCR['spec']['security']['tls']['certificateKeySecretRef']['name']
-    else:
-      return None
-
-def get_usersecrets_from_mongoce(mongoDBCommunityCR : dict) -> list:
-  user_secrets = []
-  for user in mongoDBCommunityCR['spec'].get('users', []):
-    if 'passwordSecretRef' in user:
-      user_secrets.append(user['passwordSecretRef']['name'])
-    if 'scramCredentialsSecretName' in user:
-      user_secrets.append(f"{user['scramCredentialsSecretName']}-scram-credentials")
-  return user_secrets
-
 def isMongoRunning(mongoCR: dict) -> bool:
     """
     Check if MongoDB Community instance is running
