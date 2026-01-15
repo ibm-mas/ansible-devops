@@ -29,10 +29,6 @@
     path: "{{ ansible_env.HOME }}/.ibm-mas"
     state: directory
 
-# - name: "{{ package_name }} : Set XDG_RUNTIME_DIR environment variable"
-#   set_fact:
-#     XDG_RUNTIME_DIR: "{{ ansible_env.HOME}) }}"
-
 # 2. Create directory for auth.json
 # -----------------------------------------------------------------------------
 - name: "{{ package_name }} : Create working directory"
@@ -48,7 +44,7 @@
     dest: "{{ ansible_env.HOME }}/containers/auth.json"
   environment:
     XDG_RUNTIME_DIR: "{{ ansible_env.HOME }}"
-  #no_log: true
+  no_log: true
 
 # 3. Modify the manifest
 # -----------------------------------------------------------------------------
@@ -106,7 +102,7 @@
     dest: "{{ ansible_env.HOME }}/.ibm-mas/isc-{{ package_name }}-{{ package_version }}-amd64.yaml"
     mode: '755'
     headers:
-      Authorization: "Bearer {{ registry_password }}"
+      Authorization: "Bearer {{ artifactory_token }}"
   #no_log: true
 
 # 4A. Execute the mirror (to filesystem)
@@ -136,46 +132,45 @@
 
 # 4B. Create AWS ECR Repositories if required
 # -----------------------------------------------------------------------------
-# - name: "Create AWS ECR Repositories - direct mode"
-#   when:
-#     - mirror_mode == "direct"
-#     - registry_is_ecr == true
-#   block:
-#     - name: "{{ manifest_name }} : dry mode mirror command - direct"
-#       shell: |
-#         oc image mirror \
-#           -a {{ auth_file }} \
-#           -f {{ mirror_working_dir }}/manifests/direct/{{ manifest_name }}_{{ manifest_version }}.txt \
-#           --filter-by-os '.*'  \
-#           --insecure  \
-#           --skip-multiple-scopes \
-#           --max-per-registry=1 \
-#           --dry-run=true
-#       register: ocimagemirror_dryrun_result
-#       ignore_errors: true
-#       when: mirror_mode == "direct"
+- name: "Create AWS ECR Repositories - direct mode"
+  when:
+    - mirror_mode == "direct"
+    - registry_is_ecr == true
+  block:
+    - name: "{{ manifest_name }} : dry mode mirror command - direct"
+      shell: |
+        oc image mirror \
+          -c "{{ ansible_env.HOME }}/.ibm-mas/isc-{{ package_name }}-{{ package_version }}-amd64.yaml" \
+          --workspace {{ ansible_env.HOME }}/.ibm-mas \
+          docker://051826726580.dkr.ecr.us-east-1.amazonaws.com/testisc \
+          --dest-tls-verify false \
+          --src-tls-verify false \
+          --dry-run --v2
+      register: ocimagemirror_dryrun_result
+      ignore_errors: true
+      when: mirror_mode == "direct"
 
-#     - name: "{{ manifest_name }} : Debug dry mode mirror command - direct"
-#       debug:
-#         msg: "{{ (ocimagemirror_dryrun_result.rc == 0) | ternary(ocimagemirror_dryrun_result.stdout_lines, ocimagemirror_dryrun_result.stderr_lines) }}"
+    - name: "{{ manifest_name }} : Debug dry mode mirror command - direct"
+      debug:
+        msg: "{{ (ocimagemirror_dryrun_result.rc == 0) | ternary(ocimagemirror_dryrun_result.stdout_lines, ocimagemirror_dryrun_result.stderr_lines) }}"
 
-#     - name: "{{ manifest_name }} : Fail if dry mode mirror is not successful - direct"
-#       assert:
-#         that: ocimagemirror_dryrun_result.rc == 0
-#         fail_msg: "mirror command in dry mode failed."
+    - name: "{{ manifest_name }} : Fail if dry mode mirror is not successful - direct"
+      assert:
+        that: ocimagemirror_dryrun_result.rc == 0
+        fail_msg: "mirror command in dry mode failed."
 
-#     - name: Filter out repository names that must be created in ECR - direct
-#       set_fact:
-#         repos_to_add: "{{ ocimagemirror_dryrun_result.stderr_lines | ibm.mas_devops.get_ecr_repositories }}"
+    - name: Filter out repository names that must be created in ECR - direct
+      set_fact:
+        repos_to_add: "{{ ocimagemirror_dryrun_result.stderr_lines | ibm.mas_devops.get_ecr_repositories }}"
 
-#     - name: Repositories that will be created in ECR - direct
-#       debug:
-#         msg: "{{ repos_to_add }}"
+    - name: Repositories that will be created in ECR - direct
+      debug:
+        msg: "{{ repos_to_add }}"
 
-#     - name: Create ECR Repositories - direct
-#       ansible.builtin.shell: "aws ecr create-repository --repository-name {{ item }} --region {{ registry_ecr_aws_region }}"
-#       ignore_errors: true
-#       loop: "{{ repos_to_add }}"
+    #- name: Create ECR Repositories - direct
+    #  ansible.builtin.shell: "aws ecr create-repository --repository-name {{ item }} --region {{ registry_ecr_aws_region }}"
+    #  ignore_errors: true
+    #  loop: "{{ repos_to_add }}"
 
 
 # # 4B. Create AWS ECR Repositories if required
