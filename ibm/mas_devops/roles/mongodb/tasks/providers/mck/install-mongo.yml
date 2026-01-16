@@ -83,6 +83,21 @@
     - existing_mongodb.resources[0].spec.version is defined
     - existing_mongodb.resources[0].spec.version != target_mongodb_version
 
+- name: "mck : install : begin controlled upgrade process"
+  include_tasks: tasks/providers/mck/controlled-upgrade.yml
+  vars:
+    current_mongodb_version: "{{ existing_mongodb.resources[0].spec.version }}"
+    current_mongodb_image: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.template.spec.containers[0].image }}"
+    current_mongo_operator_image: "{{ existing_mongo_operator.resources[0].spec.containers[0].image }}"
+  when:
+    - not controlled_upgrade
+    - existing_mongodb is defined
+    - existing_mongodb.resources[0] is defined
+    - existing_mongodb.resources[0].spec.version is defined
+    - existing_mongodb.resources[0].spec.version != target_mongodb_version
+    - existing_mongo_operator is defined
+    - existing_mongo_operator.resources[0] is defined
+    - existing_mongo_operator.resources[0].spec.containers[0].image != target_mongodb_operator_image
 
 # 3. Install the CRD ( MCK Community)
 # -----------------------------------------------------------------------------
@@ -261,6 +276,10 @@
     - existing_mongodb.resources[0].status.version is defined
     - not mongodb_override_spec
 
+- name: "mck: install : Set expected MongoDb version to {{ current_mongodb_version }}"
+  set_fact:
+    expected_mongodb_version: "{{ current_mongodb_version }}"
+  when: controlled_upgrade
 
 - name: "mck : install : Set expected MongoDb version to {{ target_mongodb_version }}"
   set_fact:
