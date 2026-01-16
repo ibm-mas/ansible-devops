@@ -58,7 +58,25 @@
   set_fact:
     db2_temp_storage_class: "{{ defaultStorageClasses.rwo }}"
 
-# 7. Debug storage class configuration
+# 7. Archive Logs Storage (Optional)
+# -----------------------------------------------------------------------------
+- name: Default Archive Logs Storage for ROKS if not set by user (ReadWriteOnce)
+  when:
+    - db2_archivelogs_storage_class is not defined or db2_archivelogs_storage_class == ""
+    - defaultStorageClasses.success
+  set_fact:
+    db2_archivelogs_storage_class: "{{ defaultStorageClasses.rwo }}"
+
+# 8. Audit Logs Storage (Optional)
+# -----------------------------------------------------------------------------
+- name: Default Audit Logs Storage for ROKS if not set by user (ReadWriteOnce)
+  when:
+    - db2_audit_logs_storage_class is not defined or db2_audit_logs_storage_class == ""
+    - defaultStorageClasses.success
+  set_fact:
+    db2_audit_logs_storage_class: "{{ defaultStorageClasses.rwo }}"
+
+# 9. Debug storage class configuration
 # -----------------------------------------------------------------------------
 - name: "Debug DB2U storage class configuration"
   debug:
@@ -68,3 +86,6 @@
       - "Storage class (backup) ................. {{ db2_backup_storage_class | default('<undefined>', true) }}"
       - "Storage class (logs) ................... {{ db2_logs_storage_class | default('<undefined>', true) }}"
       - "Storage class (temp) ................... {{ db2_temp_storage_class | default('<undefined>', true) }}"
+      - "Storage class (archive lgos) ........... {{ db2_archivelogs_storage_class | default('<undefined>', true) }}"
+      - "Storage class (audit logs) ............. {{ db2_audit_logs_storage_class | default('<undefined>', true) }}"
+

@@ -81,6 +81,8 @@
       - "Backup ................................. {{ db2_backup_storage_class }} - {{ db2_backup_storage_size }} @ {{ db2_backup_storage_accessmode }}"
       - "Logs ................................... {{ db2_logs_storage_class }} - {{ db2_logs_storage_size }} @ {{ db2_logs_storage_accessmode }}"
       - "Temp ................................... {{ db2_temp_storage_class }} - {{ db2_temp_storage_size }} @ {{ db2_temp_storage_accessmode }}"
+      - "Archive Logs ............................{{ db2_archivelogs_storage_class }} - {{ db2_archivelogs_storage_size }} @ {{ db2_archivelogs_storage_accessmode }}"
+      - "Audit Logs ..............................{{ db2_audit_logs_storage_class }} - {{ db2_audit_logs_storage_size }} @ {{ db2_audit_logs_storage_accessmode }}"
 
 # Lookup db2 operator group
 - name: "Check if operator group is present in {{ db2_namespace }} namespace already"
@@ -297,9 +299,20 @@
       - "Db2 Channel ............................ {{ db2_channel }}"
       - "Db2 Version ............................ {{ db2_version }}"
 
-# 12. Lookup db2 instance to see if it exists already
+- name: Notice of deprecation of Db2uCluster
+  when:
+    - initial_db2_cluster_lookup.resources is defined
+    - initial_db2_cluster_lookup.resources | length == 1
+  ansible.builtin.debug:
+    msg:
+      - "Db2uCluster CR is being deprecated and replaced by Db2uInstance."
+      - "Your existing Db2uCluster will continue to work but cannot be automatically converted."
+      - "For migration guidance, refer to the db2uinstance_migration role documentation."
+
+
+# 12. Lookup Db2uCluster to see if it exists already
 # -----------------------------------------------------------------------------
-- name: "See if db2u instance already exists"
+- name: "Detect Db2Cluster CR"
   kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ db2_instance_name | lower }}"
@@ -307,12 +320,28 @@
     kind: Db2uCluster
   register: initial_db2_cluster_lookup
 
-# 13. Create a Db2 instance
+# 13. Create a Db2 Cluster
 # -----------------------------------------------------------------------------
-- name: "Create db2 instance"
+- name: "Create Db2uCluster - DEPRECATED"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/db2ucluster.yml.j2"
+  when:
+    - initial_db2_cluster_lookup.resources is defined
+    - initial_db2_cluster_lookup.resources | length == 1
+
+  
+- name: Create the configuration file from template
+  ansible.builtin.template:
+    src: templates/db2uinstance.yml.j2
+    dest: ~/Desktop/db2uinstance.yml
+
+- name: "Create Db2uInstance"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/db2uinstance.yml.j2"
+  when:
+    - initial_db2_cluster_lookup.resources is not defined or initial_db2_cluster_lookup.resources | length == 0
 
 - name: "Set db2 instance timezone"
   include_tasks: "tasks/install/setup_timezone.yml"
@@ -320,9 +349,12 @@
     - db2_timezone is defined
     - db2_timezone != ""
 
-# 14. Wait for the cluster to be ready
+# 14. Wait for the Db2uCluster to be ready - DEPRECATED
 # -----------------------------------------------------------------------------
-- name: "Wait for db2u instance to be ready (5m delay)"
+- name: "Wait for Db2uCluster instance to be ready (5m delay) - DEPRECATED"
+  when:
+    - initial_db2_cluster_lookup.resources is defined
+    - initial_db2_cluster_lookup.resources | length == 1
   kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ db2_instance_name | lower }}"
@@ -335,6 +367,25 @@
     - db2_cluster_lookup.resources[0].status is defined
     - db2_cluster_lookup.resources[0].status.state is defined
     - db2_cluster_lookup.resources[0].status.state == "Ready"
+  retries: 24 # Approximately 2 hours before we give up
+  delay: 300 # 5 minutes
+
+# 14. Wait for the Db2uInstance to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for Db2uInstance instance to be ready (5m delay)"
+  when: initial_db2_cluster_lookup.resources is not defined or initial_db2_cluster_lookup.resources | length == 0
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    name: "{{ db2_instance_name | lower }}"
+    namespace: "{{db2_namespace}}"
+    kind: Db2uInstance
+  register: db2_instance_lookup
+  until:
+    - db2_instance_lookup.resources is defined
+    - db2_instance_lookup.resources | length == 1
+    - db2_instance_lookup.resources[0].status is defined
+    - db2_instance_lookup.resources[0].status.state is defined
+    - db2_instance_lookup.resources[0].status.state == "Ready"
   retries: 24 # Approximately 2 hours before we give up
   delay: 300 # 5 minutes
 
