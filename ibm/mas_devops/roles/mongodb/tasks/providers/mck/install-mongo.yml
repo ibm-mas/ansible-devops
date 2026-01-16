@@ -60,7 +60,7 @@
 
 # 2. Debug Properties
 # -----------------------------------------------------------------------------
-- name: "community : install : Debug properties"
+- name: "mck : install : Debug properties"
   debug:
     msg:
       - "MongoDb namespace ......................... {{ mongodb_namespace }}"
@@ -248,7 +248,7 @@
     - metrics_endpoint_secret_info.resources | length == 0
   kubernetes.core.k8s:
     apply: yes
-    template: "templates/community/metrics-endpoint-secret.yml.j2"
+    template: "templates/mck/metrics-endpoint-secret.yml.j2"
 
 # 10. Deploy the cluster ( MCK )
 # -----------------------------------------------------------------------------
@@ -281,7 +281,7 @@
     expected_mongodb_version: "{{ current_mongodb_version }}"
   when: controlled_upgrade
 
-- name: "community : install : Set expected MongoDb version to {{ target_mongodb_version }}"
+- name: "mck : install : Set expected MongoDb version to {{ target_mongodb_version }}"
   set_fact:
     expected_mongodb_version: "{{ target_mongodb_version }}"
   when:
@@ -318,14 +318,14 @@
     - debug:
         var: delete_mongo_ss_output.stdout
 
-    - name: "community : install : Delete mas-mongo-mck-arb statefulset so next time it recreates with right image"
+    - name: "mck : install : Delete mas-mongo-mck-arb statefulset so next time it recreates with right image"
       shell: oc delete statefulset mas-mongo-mck-arb -n {{ mongodb_namespace }}
       register: delete_mongo_ss_arb_output
 
     - debug:
         var: delete_mongo_ss_arb_output.stdout
 
-    - name: "community : install : Scale up mongodb-kubernetes-operator"
+    - name: "mck : install : Scale up mongodb-kubernetes-operator"
       shell: oc patch deployment mongodb-kubernetes-operator --subresource='scale' --type='merge' -p '{"spec":{"replicas":1}}' -n {{ mongodb_namespace }}
       register: scale_up_mongo_deployment_output
 
@@ -384,7 +384,7 @@
     namespace: "{{ mongodb_namespace }}"
   register: mongomck_servicemonitor_info
 
-- name: "community : install : Create new MongoDb service monitor"
+- name: "mck : install : Create new MongoDb service monitor"
   when:
     - mongoce_servicemonitor_info.resources is defined
     - mongoce_servicemonitor_info.resources | length == 0
@@ -426,7 +426,7 @@
   when:
     - supports_grafanav4
 
-- name: "community : install : Create new MongoDb Grafana v4 dashboard"
+- name: "mck : install : Create new MongoDb Grafana v4 dashboard"
   when:
     - supports_grafanav4
     - mongomck_grafana_dashboard_info.resources is defined
@@ -452,7 +452,7 @@
     - mongomck_grafana_dashboard_v5__info.resources | length == 0
   kubernetes.core.k8s:
     apply: yes
-    template: "templates/community/dashboards/mongodb-overview-v5.yml.j2"
+    template: "templates/mck/dashboards/mongodb-overview-v5.yml.j2"
 
 # 14. Create MAS MongoCfg
 # -----------------------------------------------------------------------------
@@ -460,7 +460,7 @@
 - name: Create the MAS MongoCfg only if we are not in a controlled-upgrade flow
   when: not controlled_upgrade
   block:
-    - name: "community : install : Lookup mongo pods"
+    - name: "mck : install : Lookup mongo pods"
       kubernetes.core.k8s_info:
         api_version: v1
         kind: Pod
@@ -480,10 +480,10 @@
     # Load mongo-hosts template to dynamically set as many mongo hosts:port as identified
     - name: Load mongo-hosts template to dynamically set as many mongo 'hosts:port' as identified
       set_fact:
-        mongo_hosts: "{{ lookup('ansible.builtin.template', 'templates/community/mongo-hosts.yml.j2') }}"
+        mongo_hosts: "{{ lookup('ansible.builtin.template', 'templates/mck/mongo-hosts.yml.j2') }}"
 
     # Lookup the admin password that was used
-    - name: "community : install : Lookup admin password"
+    - name: "mck : install : Lookup admin password"
       kubernetes.core.k8s_info:
         api_version: v1
         kind: Secret
@@ -497,7 +497,7 @@
         - admin_password_lookup.resources[0].data.password is defined
 
     # Lookup the CA PEM
-    - name: "community : install : Lookup the ca.pem"
+    - name: "mck : install : Lookup the ca.pem"
       kubernetes.core.k8s_info:
         api_version: v1
         kind: ConfigMap
@@ -506,7 +506,7 @@
       register: mongodb_ca_lookup
 
     # Lookup the server certificate
-    - name: "community : install : Lookup the server.crt"
+    - name: "mck : install : Lookup the server.crt"
       kubernetes.core.k8s_info:
         api_version: v1
         kind: Secret
@@ -514,14 +514,14 @@
         namespace: "{{ mongodb_namespace }}"
       register: mongodb_crt_lookup
 
-    - name: "community : install : Create MAS MongoCfg"
+    - name: "mck : install : Create MAS MongoCfg"
       when:
         - mas_instance_id is defined
         - mas_instance_id != ""
         - mas_config_dir is defined
         - mas_config_dir != ""
       ansible.builtin.template:
-        src: community/suite_mongocfg.yml.j2
+        src: mck/suite_mongocfg.yml.j2
         dest: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
         mode: "664"
       vars:
