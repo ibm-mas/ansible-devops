@@ -72,32 +72,7 @@
       - "MongoDb feature compatibility version ..... {{ mongodb_feature_compatibility_version }}"
       - "MAS instance ID ........................... {{ mas_instance_id | default('<undefined>', True) }}"
       - "MAS config directory ...................... {{ mas_config_dir | default('<undefined>', True)  }}"
-      - "Controlled Upgrade ........................ {{ controlled_upgrade }}"
       - "Override Spec over existing MongoDB ....... {{ mongodb_override_spec }}"
-
-# Validate if upgrade has been issued by user
-# Only needed when there is an existing mongo instance and its version does not match with the target version to be installed
-- name: "mck: install : validate upgrade process"
-  include_tasks: tasks/providers/mck/validate-upgrade.yml
-  when:
-    - existing_mongodb.resources[0].spec.version is defined
-    - existing_mongodb.resources[0].spec.version != target_mongodb_version
-
-- name: "mck : install : begin controlled upgrade process"
-  include_tasks: tasks/providers/mck/controlled-upgrade.yml
-  vars:
-    current_mongodb_version: "{{ existing_mongodb.resources[0].spec.version }}"
-    current_mongodb_image: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.template.spec.containers[0].image }}"
-    current_mongo_operator_image: "{{ existing_mongo_operator.resources[0].spec.containers[0].image }}"
-  when:
-    - not controlled_upgrade
-    - existing_mongodb is defined
-    - existing_mongodb.resources[0] is defined
-    - existing_mongodb.resources[0].spec.version is defined
-    - existing_mongodb.resources[0].spec.version != target_mongodb_version
-    - existing_mongo_operator is defined
-    - existing_mongo_operator.resources[0] is defined
-    - existing_mongo_operator.resources[0].spec.containers[0].image != target_mongodb_operator_image
 
 # 3. Install the CRD ( MCK Community)
 # -----------------------------------------------------------------------------
@@ -276,17 +251,9 @@
     - existing_mongodb.resources[0].status.version is defined
     - not mongodb_override_spec
 
-- name: "mck: install : Set expected MongoDb version to {{ current_mongodb_version }}"
-  set_fact:
-    expected_mongodb_version: "{{ current_mongodb_version }}"
-  when: controlled_upgrade
-
 - name: "mck : install : Set expected MongoDb version to {{ target_mongodb_version }}"
   set_fact:
     expected_mongodb_version: "{{ target_mongodb_version }}"
-  when:
-    - not controlled_upgrade
-
 
 # 11. Wait for the cluster to be ready
 # status.version on the mongo cr is not available with older mongo operators
@@ -296,7 +263,6 @@
     - existing_mongodb.resources[0].status.version is defined
     - target_mongodb_version is defined
     - existing_mongodb.resources[0].status.version is version(target_mongodb_version, '<') # when upgrade to happen, delete statefulsets to ensure recreation with right image digests
-    - not controlled_upgrade # we don't need to run that twice during controlled upgrade
   block:
     - debug:
         msg:
@@ -458,7 +424,6 @@
 # -----------------------------------------------------------------------------
 # Lookup the mongo pods
 - name: Create the MAS MongoCfg only if we are not in a controlled-upgrade flow
-  when: not controlled_upgrade
   block:
     - name: "mck : install : Lookup mongo pods"
       kubernetes.core.k8s_info:
