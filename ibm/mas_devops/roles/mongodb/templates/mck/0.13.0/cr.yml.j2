@@ -6,10 +6,12 @@ metadata:
 spec:
   members: {{ mongodb_replicas }}
   type: ReplicaSet
+{% if controlled_upgrade %}
+  version: "{{ current_mongodb_version }}"
+{% else %}
   version: "{{ target_mongodb_version }}"
   featureCompatibilityVersion: "{{ mongodb_feature_compatibility_version }}"
-
-
+{% endif %}
   security:
     tls:
       enabled: true
@@ -21,7 +23,6 @@ spec:
       modes:
         - SCRAM-SHA-256
         - SCRAM-SHA-1
-
   prometheus:
     username: metrics-endpoint-user
     passwordSecretRef:
@@ -47,7 +48,6 @@ spec:
     storage.wiredTiger.engineConfig.journalCompressor: snappy
     net.tls.allowInvalidCertificates: true
     net.tls.allowInvalidHostnames: true
-
   statefulSet:
     spec:
       serviceName: mas-mongo-mck-svc
@@ -59,7 +59,11 @@ spec:
             runAsUser: 2000
           containers:
             - name: mongod
+{% if controlled_upgrade %}
+              image: "{{ current_mongodb_image }}"
+{% else %}
               image: "{{ target_mongodb_image }}"
+{% endif %}
               resources:
                 limits:
                   cpu: "{{ mongodb_cpu_limits }}"
@@ -67,23 +71,19 @@ spec:
                 requests:
                   cpu: "{{ mongodb_cpu_requests }}"
                   memory: "{{ mongodb_mem_requests }}"
-
   volumeClaimTemplates:
     - metadata:
         name: data-volume
       spec:
-        accessModes:
-          - ReadWriteOnce
+            accessModes: [ "ReadWriteOnce" ]
         storageClassName: "{{ mongodb_storage_class }}"
         resources:
           requests:
             storage: "{{ mongodb_storage_capacity_data }}"
-
     - metadata:
         name: logs-volume
       spec:
-        accessModes:
-          - ReadWriteOnce
+            accessModes: [ "ReadWriteOnce" ]
         storageClassName: "{{ mongodb_storage_class }}"
         resources:
           requests:
