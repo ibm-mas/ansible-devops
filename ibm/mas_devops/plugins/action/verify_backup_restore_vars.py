@@ -7,6 +7,18 @@ from ansible.errors import AnsibleError
 class ActionModule(ActionBase):
 
     REQUIRED = {
+        "catalog": {
+            "backup": ["mas_backup_dir"]
+        },
+        "certmanager": {
+            "backup": ["mas_backup_dir"]
+        },
+        "grafana": {
+            "backup": ["mas_backup_dir"]
+        },
+        "sls": {
+            "backup": ["mas_backup_dir", "sls_namespace", "sls_instance_name"]
+        },
         "mongodb": {
             "backup":  ["mongodb_instance_name", "mas_backup_dir", "mas_instance_id"], # mongodb_instance_name has a default value
             "restore": ["mas_backup_dir", "mongodb_backup_version"]

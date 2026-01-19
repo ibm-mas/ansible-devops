@@ -1,0 +1,134 @@
+---
+- name: "Fail if require variables for Grafana backup are not provided"
+  ibm.mas_devops.verify_backup_restore_vars:
+    mas_backup_dir: "{{ mas_backup_dir }}"
+    action: "backup"
+    component: "grafana"
+
+- name: "Check if GRAFANA_BACKUP_VERSION is provided, if not set to default 'YYMMDD-HHMMSS' format"
+  set_fact:
+    grafana_backup_version: "{{ lookup('pipe', 'date +%y%m%d-%H%M%S') }}"
+  when: grafana_backup_version is not defined or grafana_backup_version == "" or grafana_backup_version == "None"
+
+- name: "Set fact: Grafana backup base directory path"
+  set_fact:
+    grafana_backup_path: "{{ mas_backup_dir }}/backup-{{ grafana_backup_version }}-grafana"
+
+- name: "Set fact: cert-manager backup resources"
+  set_fact:
+    grafana_backup_resources:
+      - namespace: "{{ grafana_v5_namespace }}"
+        resources:
+          # Secret
+          - kind: Secret
+            api_version: v1
+            name: prometheus-serviceaccount-token
+          # Service account
+          - kind: ServiceAccount
+            api_version: v1
+            name: prometheus-serviceaccount
+          # Subscription
+          - kind: Subscription
+            api_version: operators.coreos.com/v1alpha1
+            name: grafana-operator
+          # Clusterrole
+          - kind: ClusterRole
+            api_version: rbac.authorization.k8s.io/v1
+            name: grafana-operator
+          - kind: ClusterRole
+            api_version: rbac.authorization.k8s.io/v1
+            name: prometheus-role
+          # Clusterrolebinding
+          - kind: ClusterRoleBinding
+            api_version: rbac.authorization.k8s.io/v1
+            name: prometheus-rolebinding
+          - kind: ClusterRoleBinding
+            api_version: rbac.authorization.k8s.io/v1
+            name: grafana-operator
+          # Grafana CR
+          - kind: Grafana
+            api_version: grafana.integreatly.org/v1beta1
+            name: mas-grafana
+          # Dashboard
+          - kind: GrafanaDashboard
+            api_version: grafana.integreatly.org/v1beta1
+      - namespace: "{{ grafana_v4_namespace }}"
+        resources:
+          # Secret
+          - kind: Secret
+            api_version: v1
+            name: prometheus-serviceaccount-token
+          # ServiceAccount
+          - kind: ServiceAccount
+            api_version: v1
+            name: prometheus-serviceaccount
+          # Subscription
+          - kind: Subscription
+            api_version: operators.coreos.com/v1alpha1
+            name: grafana-operator
+          # ClusterRole
+          - kind: ClusterRole
+            api_version: rbac.authorization.k8s.io/v1
+            name: grafana-operator
+          - kind: ClusterRole
+            api_version: rbac.authorization.k8s.io/v1
+            name: prometheus-role
+          # Clusterrolebinding
+          - kind: ClusterRoleBinding
+            api_version: rbac.authorization.k8s.io/v1
+            name: prometheus-rolebinding
+          - kind: ClusterRoleBinding
+            api_version: rbac.authorization.k8s.io/v1
+            name: grafana-operator
+          # Grafana CR
+          - kind: Grafana
+            api_version: integreatly.org/v1alpha1
+            name: mas-grafana
+          # Dashboard
+          - kind: GrafanaDashboard
+            api_version: grafana.integreatly.org/v1beta1
+      - namespace: openshift-monitoring
+        resources:
+          # Configmap
+          - kind: ConfigMap
+            api_version: v1
+            name: cluster-monitoring-config
+
+# Call the backup_resources plugin to execute the backup to the path provided
+# -----------------------------------------------------------------------------
+- name: "Backup Grafana resources (referenced secrets are auto-discovered)"
+  ibm.mas_devops.backup_resource:
+    backup_resources: "{{ grafana_backup_resources }}"
+    backup_path: "{{ grafana_backup_path }}"
+  register: backup_result
+
+# Show the results
+# -----------------------------------------------------------------------------
+- name: "Display backup results"
+  debug:
+    msg:
+      - "Backup completed{{ ' with failures' if backup_result.failed_count > 0 else ' successfully' }}"
+      - "Total resources backed up: {{ backup_result.backed_up_count }}"
+      - "Total resources failed: {{ backup_result.failed_count }}"
+      - "Resources not found: {{ backup_result.not_found_count }}"
+      - "Secrets auto-discovered: {{ backup_result.discovered_secrets_count }}"
+      - "Backup location: {{ grafana_backup_path }}"
+
+# Fail task if any errors occurred.
+# -----------------------------------------------------------------------------
+- name: "Display failed resources"
+  debug:
+    msg:
+      - "Failed resources:"
+      - "{{ backup_result.failed_resources | to_nice_yaml }}"
+  when: backup_result.failed_count > 0
+
+- name: "Fail if backup had errors"
+  fail:
+    msg: |
+      Backup failed for {{ backup_result.failed_count }} resource(s):
+      {% for resource in backup_result.failed_resources %}
+      - {{ resource.description }} in {{ resource.scope }}
+      {% endfor %}
+  when: backup_result.failed_count > 0
+
