@@ -1,43 +1,148 @@
 ---
-# Remove finalizers on namespaces and delete them
-- name: Ensure namespaces exist then clear finalizers and delete
-  vars:
-    target_namespaces:
-      - ibm-cpd
-      - ibm-cpd-operators
+# delete_namespaces.yml (updated)
+# Purpose: safely remove finalizers and delete CP4D namespaces (uses cp4d_namespaces from defaults/main.yml)
+# Optional aggressive oc fallback can be enabled by setting enable_oc_fallback: true
+
+- name: Ensure cp4d_namespaces fact and fallback flag exist
+  set_fact:
+    cp4d_namespaces: "{{ cp4d_namespaces | default(['ibm-cpd','ibm-cpd-operators']) }}"
+    enable_oc_fallback: "{{ enable_oc_fallback | default(false) }}"
+
+- name: Get current namespace objects for targets
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ ns }}"
+  loop: "{{ cp4d_namespaces }}"
+  loop_control:
+    loop_var: ns
+    label: "{{ ns }}"
+  register: ns_info
+  failed_when: false
+  changed_when: false
+
+- name: Patch namespace.metadata.finalizers -> [] (merge) for all targets
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: "{{ ns }}"
+    definition:
+      metadata:
+        finalizers: []
+    state: present
+    merge_type: merge
+  loop: "{{ cp4d_namespaces }}"
+  loop_control:
+    loop_var: ns
+    label: "{{ ns }}"
+  register: ns_patch_results
+  failed_when: false
+  changed_when: false
+
+- name: Delete namespaces (normal delete, wait up to 120s)
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: "{{ ns }}"
+    state: absent
+    wait: yes
+    wait_timeout: 120
+  loop: "{{ cp4d_namespaces }}"
+  loop_control:
+    loop_var: ns
+    label: "{{ ns }}"
+  register: ns_delete_results
+  failed_when: false
+  changed_when: false
+
+- name: Short summary - patch/delete attempts
+  debug:
+    msg: >-
+      Namespace patch attempts: {{ (ns_patch_results.results | default([]) | length) }}
+      ; Delete attempts: {{ (ns_delete_results.results | default([]) | length) }}
+  changed_when: false
+
+- name: Build list of namespaces that are still present (if any)
+  set_fact:
+    remaining_namespaces: >-
+      {{
+        (
+          (ns_info.results | default([]) | map(attribute='resources') | list | flatten(1) | default([]))
+          | map(attribute='metadata')
+          | map(attribute='name')
+          | list
+        )
+        | intersect(cp4d_namespaces)
+      }}
+  failed_when: false
+  changed_when: false
+
+- name: Short summary - remaining target namespaces after delete attempts
+  debug:
+    msg: "Remaining target namespaces: {{ remaining_namespaces | default([]) }}"
+  changed_when: false
+
+- name: Optional oc fallback for Terminating namespaces (enable_oc_fallback=true)
+  when: enable_oc_fallback | bool and (remaining_namespaces | length) > 0
   block:
-    - name: Get namespace info
-      k8s_info:
+    - name: Re-patch finalizers for remaining namespaces (merge)
+      kubernetes.core.k8s:
         api_version: v1
         kind: Namespace
-        name: "{{ item }}"
-      loop: "{{ target_namespaces }}"
+        name: "{{ ns }}"
+        definition:
+          metadata:
+            finalizers: []
+        state: present
+        merge_type: merge
+      loop: "{{ remaining_namespaces | default([]) }}"
       loop_control:
-        loop_var: item
-      register: ns_info
+        loop_var: ns
+        label: "{{ ns }}"
+      register: extra_ns_patch
       failed_when: false
+      changed_when: false
 
-    - name: Remove namespace finalizers with oc if present
+    - name: Force-delete remaining namespaces via oc (grace-period=0)
       shell: |
-        for ns in {{ target_namespaces | to_json }}; do
-          if oc get ns $ns &>/dev/null; then
-            oc get ns $ns -o json | jq 'del(.spec.finalizers)' | oc replace --raw "/api/v1/namespaces/$ns/finalize" -f - || true
-          fi
+        for n in {{ remaining_namespaces | to_json }}; do
+          oc delete namespace "$n" --ignore-not-found --grace-period=0 --force || true
         done
-      register: ns_finalize
+      register: oc_force_delete
       failed_when: false
+      changed_when: false
 
-    - name: Delete namespaces
-      k8s:
+    - name: Small pause to let API reflect deletions
+      pause:
+        seconds: 6
+
+    - name: Re-check which target namespaces remain after oc fallback
+      kubernetes.core.k8s_info:
         api_version: v1
         kind: Namespace
-        name: "{{ item }}"
-        state: absent
-      loop: "{{ target_namespaces }}"
-      loop_control:
-        loop_var: item
-      register: ns_delete_results
+      register: final_ns_all
       failed_when: false
+      changed_when: false
 
-    - debug:
-        msg: "Namespace delete results: {{ ns_delete_results.results | map(attribute='msg') | list | default(ns_delete_results) }}"
+    - name: Final remaining targets after oc fallback
+      set_fact:
+        final_remaining_namespaces: >-
+          {{
+            (final_ns_all.resources | default([]) | map(attribute='metadata') | map(attribute='name') | list)
+            | intersect(cp4d_namespaces)
+          }}
+      failed_when: false
+      changed_when: false
+
+    - name: Debug - oc fallback summary
+      debug:
+        msg: >-
+          oc_force_delete_stdout_lines: {{ oc_force_delete.stdout_lines | default([]) }};
+          final_remaining_namespaces: {{ final_remaining_namespaces | default([]) }}
+      changed_when: false
+
+- name: Final result - nothing left? (conservative check)
+  debug:
+    msg: >-
+      Completed namespace cleanup. Remaining (if any): {{ final_remaining_namespaces | default(remaining_namespaces | default([])) }}
+  changed_when: false

@@ -1,25 +1,24 @@
 ---
-- name: Remove finalizers from CP4D operator CRs
-  include_tasks: remove_finalizers.yml
-
-- name: Delete CatalogSources
-  include_tasks: cleanup_catalogs.yml
-
-- name: Delete OLM objects
+- name: 1. Delete OLM objects (Subscriptions / CSVs / InstallPlans)
   include_tasks: cleanup_olm_objects.yml
 
-- name: Delete operator workloads
+- name: 2. Delete CatalogSources (marketplace)
+  include_tasks: cleanup_catalogs.yml
+
+- name: 3. Delete operator workloads (deployments/statefulsets/jobs)
   include_tasks: delete_operator_workloads.yml
 
-- name: Remove finalizers (oc fallback)
+- name: 4. Remove finalizers from operator CRs (k8s module)
+  include_tasks: remove_operator_cr_finalizers.yml
+
+- name: 5. Remove finalizers (oc fallback + force deletes)
   include_tasks: remove_finalizers.yml
 
-- name: Cleanup operand CRs
+- name: 6. Cleanup operand CRs (force delete operand-* CRs)
   include_tasks: cleanup_operand_resources.yml
 
-- name: Delete CRDs
+- name: 7. Delete CP4D-related CRDs
   include_tasks: delete_crds.yml
 
-- name: Delete namespaces
+- name: 8. Delete namespaces (with fallback retry loop)
   include_tasks: delete_namespaces.yml
-  

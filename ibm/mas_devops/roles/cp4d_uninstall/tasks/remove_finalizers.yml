@@ -1,28 +1,52 @@
 ---
+# remove_finalisers.yml
 # Generic finalizer removal helper for problematic CR kinds using oc (safer on broken CRs)
-# Use this when k8s module can't remove finalizers reliably.
+# Also attempts to delete remaining CR instances forcibly after finalizer removal.
 
-- name: Remove finalizers from listed CR kinds (retry)
-  vars:
+- name: Prepare cr kinds list for oc fallback
+  set_fact:
     cr_kinds:
       - operandrequest
       - operandconfig
       - operandregistry
       - operandbindinfo
       - operandbindinfos
-  block:
-    - name: Loop through cr kinds and patch finalizers remove
-      shell: |
-        for k in {{ cr_kinds | to_json }}; do
-          kind=$k
-          for obj in $(oc get $kind -n ibm-cpd-operators -o name 2>/dev/null || true); do
-            oc patch $obj -n ibm-cpd-operators --type=json -p='[{"op":"remove","path":"/metadata/finalizers"}]' || true
-          done
-        done
-      register: patch_finalizers
-      failed_when: false
-      changed_when: patch_finalizers.rc == 0
+      - namespacescope
+      - commonservice
+      - operandregistries
 
-    - name: Debug finalizer patch output
-      debug:
-        msg: "Finalizer patch stdout: {{ patch_finalizers.stdout_lines }}"
+- name: Remove finalizers from listed CR kinds (oc patch)
+  shell: |
+    set -e
+    for k in {{ cr_kinds | to_json }}; do
+      for obj in $(oc get $k -n ibm-cpd-operators -o name 2>/dev/null || true); do
+        echo "patching finalizers for $obj"
+        oc patch "$obj" -n ibm-cpd-operators --type=json -p='[{"op":"remove","path":"/metadata/finalizers"}]' || true
+      done
+    done
+  register: patch_finalizers
+  failed_when: false
+  changed_when: false
+
+- name: Debug finalizer patch stdout
+  debug:
+    msg:
+      - "oc patch finalizers stdout: {{ patch_finalizers.stdout_lines | default([]) }}"
+
+- name: Attempt to delete any remaining objects (force) for common CR kinds (oc delete)
+  shell: |
+    set -e
+    for k in {{ cr_kinds | to_json }}; do
+      for obj in $(oc get $k -n ibm-cpd-operators -o name 2>/dev/null || true); do
+        echo "force-deleting $obj"
+        oc delete "$obj" -n ibm-cpd-operators --ignore-not-found --force --grace-period=0 || true
+      done
+    done
+  register: oc_force_delete
+  failed_when: false
+  changed_when: false
+
+- name: Debug oc force-delete stdout
+  debug:
+    msg:
+      - "oc force-delete stdout: {{ oc_force_delete.stdout_lines | default([]) }}"

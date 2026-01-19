@@ -1,44 +1,188 @@
 ---
-- name: "Fetch all CP4D CRDs"
-  k8s_info:
+# delete_crd.yml
+# Purpose: find CP4D-related CRs in ibm-cpd namespace, remove them, then delete matching CRDs.
+# Uses kubernetes.core.k8s_info and kubernetes.core.k8s (no shell).
+
+- name: Set CP4D target namespace
+  set_fact:
+    cp4d_ns: "ibm-cpd"
+
+- name: Fetch all CRDs
+  kubernetes.core.k8s_info:
     api_version: apiextensions.k8s.io/v1
     kind: CustomResourceDefinition
-  register: crds
+  register: all_crds
+  failed_when: false
+  changed_when: false
 
-- name: "Get all CRs for each CP4D CRD"
-  k8s_info:
-    api_version: "{{ item.spec.group }}/{{ item.spec.versions[0].name }}"
+- name: Filter CRDs to CP4D-related set
+  set_fact:
+    cp4d_crds: >-
+      {{ (all_crds.resources | default([]))
+         | selectattr('metadata.name','search','(ibm|cpd|zen|commonservice|operand)') 
+         | list }}
+  changed_when: false
+
+- name: Debug - CRDs found to process
+  debug:
+    msg:
+      - "CP4D CRDs found: {{ cp4d_crds | length }}"
+      - "{{ cp4d_crds | map(attribute='metadata.name') | list }}"
+  changed_when: false
+
+# Gather CRs per CRD (namespaced to ibm-cpd)
+- name: Gather CRs for each CP4D CRD in {{ cp4d_ns }}
+  kubernetes.core.k8s_info:
+    api_version: "{{ item.spec.group }}/{{ (item.spec.versions[0].name | default('v1')) }}"
     kind: "{{ item.spec.names.kind }}"
-    namespace: ibm-cpd
-  loop: "{{ crds.resources | selectattr('metadata.name', 'search', 'ibm') | list }}"
+    namespace: "{{ cp4d_ns }}"
+  loop: "{{ cp4d_crds }}"
   loop_control:
-    label: "{{ item.metadata.name }}"
+    label: "{{ item.metadata.name | default('unknown-crd') }}"
   register: crs_per_crd
-  ignore_errors: true
+  failed_when: false
+  changed_when: false
+  when: cp4d_crds | length > 0
 
-- name: "Delete all CRs per CRD"
-  k8s:
+- name: Consolidate found CR resources into one list
+  set_fact:
+    cp4d_found_crs: >-
+      {{ (crs_per_crd.results | default([]) | map(attribute='resources') | list | flatten(1)) | default([]) }}
+  changed_when: false
+
+- name: No CP4D CRs found — set skip flag so we still delete namespaces
+  set_fact:
+    skip_cp4d_cr_cleanup: true
+  when: cp4d_found_crs | length == 0
+
+# Patch finalizers/ownerReferences to empty arrays (merge)
+- name: Patch finalizers and ownerReferences to empty for each found CR
+  kubernetes.core.k8s:
     api_version: "{{ item.apiVersion }}"
     kind: "{{ item.kind }}"
     name: "{{ item.metadata.name }}"
-    namespace: ibm-cpd
+    namespace: "{{ item.metadata.namespace | default(cp4d_ns) }}"
+    merge_type: merge
+    definition:
+      metadata:
+        finalizers: []
+        ownerReferences: []
+    wait: no
+  loop: "{{ cp4d_found_crs }}"
+  loop_control:
+    label: "{{ item.metadata.namespace | default(cp4d_ns) }}/{{ item.metadata.name }}"
+  register: patch_cr_results
+  failed_when: false
+  when: not (skip_cp4d_cr_cleanup | default(false))
+
+- name: Pause briefly to allow API to persist patches
+  pause:
+    seconds: 5
+
+# Delete CRs (normal delete, wait)
+- name: Delete CRs (state= absent)
+  kubernetes.core.k8s:
+    state: absent
+    api_version: "{{ item.apiVersion | string }}"
+    kind: "{{ item.kind | string }}"
+    namespace: "{{ item.metadata.namespace | default(cp4d_ns) | string }}"
+    name: "{{ item.metadata.name | string }}"
+    wait: true
+    wait_timeout: 120
+    force: true
+  loop: "{{ cp4d_found_crs | default([]) }}"
+  loop_control:
+    label: "{{ (item.metadata.namespace | default(cp4d_ns)) | string }}/{{ item.metadata.name | string }}"
+  register: delete_cr_results
+  failed_when: false
+
+- name: Refresh CR lists after delete attempts
+  kubernetes.core.k8s_info:
+    api_version: "{{ item.spec.group }}/{{ (item.spec.versions[0].name | default('v1')) }}"
+    kind: "{{ item.spec.names.kind }}"
+    namespace: "{{ cp4d_ns }}"
+  loop: "{{ cp4d_crds }}"
+  loop_control:
+    label: "{{ item.metadata.name | default('unknown-crd') }}"
+  register: refreshed_after_delete
+  failed_when: false
+  changed_when: false
+  when: cp4d_crds | length > 0
+
+- name: Set remaining CRs fact
+  set_fact:
+    cp4d_remaining_crs: >-
+      {{ (refreshed_after_delete.results | default([]) | map(attribute='resources') | list | flatten(1)) | default([]) }}
+  changed_when: false
+
+# If some CRs remain, try force delete
+- name: Force delete remaining CRs (best-effort)
+  kubernetes.core.k8s:
+    api_version: "{{ item.apiVersion }}"
+    kind: "{{ item.kind }}"
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ item.metadata.namespace | default(cp4d_ns) }}"
     state: absent
     wait: yes
+    wait_timeout: 60
     force: yes
-  loop: "{{ crs_per_crd.results | map(attribute='resources') | flatten | default([]) }}"
+  loop: "{{ cp4d_remaining_crs }}"
   loop_control:
-    label: "{{ item.metadata.name }}"
-  ignore_errors: true
+    label: "{{ item.metadata.namespace | default(cp4d_ns) }}/{{ item.metadata.name }}"
+  register: force_delete_results
+  failed_when: false
+  when: cp4d_remaining_crs is defined and (cp4d_remaining_crs | length) > 0
 
-- name: "Delete CP4D CRDs"
-  k8s:
+- name: Re-check remaining CRs after force-deletes
+  kubernetes.core.k8s_info:
+    api_version: "{{ item.spec.group }}/{{ (item.spec.versions[0].name | default('v1')) }}"
+    kind: "{{ item.spec.names.kind }}"
+    namespace: "{{ cp4d_ns }}"
+  loop: "{{ cp4d_crds }}"
+  loop_control:
+    label: "{{ item.metadata.name | default('unknown-crd') }}"
+  register: final_refresh
+  failed_when: false
+  changed_when: false
+  when: cp4d_crds | length > 0
+
+- name: Set final remaining CR list
+  set_fact:
+    cp4d_final_remaining: >-
+      {{ (final_refresh.results | default([]) | map(attribute='resources') | list | flatten(1)) | default([]) }}
+  changed_when: false
+
+# - name: Debug - final leftover CRs
+#   debug:
+#     msg:
+#       - "Final remaining CP4D CRs count: {{ cp4d_final_remaining | length }}"
+#       - "{{ cp4d_final_remaining | map(attribute='metadata') | map('extract',['namespace','name']) | list | slice(0,30) }}"
+#   changed_when: false
+
+# - name: Fail if any CP4D CRs still remain after attempts
+#   fail:
+#     msg: "CP4D CRs still present after attempts: {{ cp4d_final_remaining | map(attribute='metadata') | map('extract',['namespace','name']) | list }}"
+#   when: cp4d_final_remaining is defined and (cp4d_final_remaining | length) > 0
+
+# Delete CP4D-related CRDs (force)
+- name: Delete CP4D-related CRDs (force)
+  kubernetes.core.k8s:
     api_version: apiextensions.k8s.io/v1
     kind: CustomResourceDefinition
     name: "{{ item.metadata.name }}"
     state: absent
     wait: yes
     force: yes
-  loop: "{{ crds.resources | selectattr('metadata.name', 'search', 'ibm') | list }}"
+  loop: "{{ cp4d_crds }}"
   loop_control:
-    label: "{{ item.metadata.name }}"
-  ignore_errors: true
+    label: "{{ item.metadata.name | default('unknown-crd') }}"
+  register: delete_crd_results
+  failed_when: false
+  when: cp4d_crds | length > 0
+
+- name: Debug - CRD deletion summary
+  debug:
+    msg:
+      - "Attempted deletion for CRDs count: {{ delete_crd_results.results | length if delete_crd_results is defined else 0 }}"
+      - "{{ (delete_crd_results.results | map(attribute='result') | list) if delete_crd_results is defined else [] }}"
+  changed_when: false
