@@ -1,0 +1,294 @@
+---
+# 1. Check mas core restore required variables
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  ansible.builtin.assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id is required"
+
+- name: "Fail if mas_backup_dir is not provided"
+  ansible.builtin.assert:
+    that: mas_backup_dir is defined and mas_backup_dir != ""
+    fail_msg: "mas_backup_dir is required"
+
+- name: "Fail if suite_backup_version is not provided"
+  ansible.builtin.assert:
+    that: suite_backup_version is defined and suite_backup_version != ""
+    fail_msg: "suite_backup_version is required"
+- name: "Set fact: mas core namespace name"
+  set_fact:
+    mas_core_namespace: "mas-{{ mas_instance_id }}-core"
+
+- name: "Set fact: mas suite backup path"
+  set_fact:
+    suite_backup_path: "{{ mas_backup_dir }}/backup-{{ suite_backup_version }}-suite"
+
+# 2. Verify backup archive exists
+# -----------------------------------------------------------------------------
+- name: "Check if backup archive exists"
+  stat:
+    path: "{{ suite_backup_path }}"
+  register: backup_path_stat
+
+- name: "Fail if backup archive does not exist"
+  fail:
+    msg: "Backup archive not found at: {{ suite_backup_path }}"
+  when: not backup_path_stat.stat.exists or not backup_path_stat.stat.isdir
+
+- name: "Check if backup resources directory exists"
+  stat:
+    path: "{{ suite_backup_path }}/resources"
+  register: backup_resources_stat
+
+- name: "Fail if backup resources directory does not exist"
+  fail:
+    msg: "Backup resources directory not found at: {{ suite_backup_path }}/resources"
+  when: not backup_resources_stat.stat.exists or not backup_resources_stat.stat.isdir
+
+# 3. Verify cert-manager exists
+# -----------------------------------------------------------------------------
+- name: Detect Certificate Manager installation
+  include_tasks: "{{ role_path }}/../../common_tasks/detect_cert_manager.yml"
+
+# 4. Display restore information
+# -----------------------------------------------------------------------------
+- name: "Display restore information"
+  debug:
+    msg:
+      - "MAS Instance ID: {{ mas_instance_id }}"
+      - "MAS Core Namespace: {{ mas_core_namespace }}"
+      - "Backup Version: {{ suite_backup_version }}"
+      - "Backup Path: {{ suite_backup_path }}"
+
+# 5. Restore resources in correct order
+# -----------------------------------------------------------------------------
+# Step 1: Restore Projects first
+- name: "Restore Projects"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ suite_backup_path }}"
+    resource_kinds:
+      - Project
+    replace_resource: false
+  register: projects_result
+
+- name: "Display Projects restore results"
+  debug:
+    msg: "Projects: {{ projects_result.created_count }} created, {{ projects_result.updated_count }} updated, {{ projects_result.skipped_count }} skipped, {{ projects_result.failed_count }} failed"
+
+# Step 2: Restore Secrets and ConfigMaps
+- name: "Restore Secrets and ConfigMaps"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ suite_backup_path }}"
+    resource_kinds:
+      - Secret
+      - ConfigMap
+  register: secrets_configmaps_result
+  when: projects_result.success
+
+- name: "Display Secrets and ConfigMaps restore results"
+  debug:
+    msg: "Secrets and ConfigMaps: {{ secrets_configmaps_result.created_count }} created, {{ secrets_configmaps_result.updated_count }} updated, {{ secrets_configmaps_result.skipped_count }} skipped, {{ secrets_configmaps_result.failed_count }} failed"
+  when: projects_result.success
+
+# Step 3: Restore OperatorGroups and Subscriptions
+- name: "Restore OperatorGroups"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ suite_backup_path }}"
+    resource_kinds:
+      - OperatorGroup
+  register: operatorgroups_result
+  when: projects_result.success
+
+- name: "Display OperatorGroups restore results"
+  debug:
+    msg: "OperatorGroups: {{ operatorgroups_result.created_count }} created, {{ operatorgroups_result.updated_count }} updated, {{ operatorgroups_result.skipped_count }} skipped, {{ operatorgroups_result.failed_count }} failed"
+  when: projects_result.success
+
+- name: "Restore Subscriptions"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ suite_backup_path }}"
+    resource_kinds:
+      - Subscription
+  register: subscriptions_result
+  when: projects_result.success
+
+- name: "Display Subscriptions restore results"
+  debug:
+    msg: "Subscriptions: {{ subscriptions_result.created_count }} created, {{ subscriptions_result.updated_count }} updated, {{ subscriptions_result.skipped_count }} skipped, {{ subscriptions_result.failed_count }} failed"
+  when: projects_result.success
+
+# Wait for subscriptions to be ready
+- name: "Wait for Subscriptions to be ready (60s delay)"
+  ibm.mas_devops.verify_subscriptions:
+    retries: 30
+    delay: 60
+  when:
+    - projects_result.success
+    - subscriptions_result.created_count > 0 or subscriptions_result.updated_count > 0 or subscriptions_result.skipped_count > 0
+
+# Step 4: Restore Certificate Manager resources (ClusterIssuers, Issuers, Certificates)
+- name: "Restore Certificate Manager resources"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ suite_backup_path }}"
+    resource_kinds:
+      - ClusterIssuer
+      - Issuer
+      - Certificate
+  register: certmanager_result
+  when: projects_result.success
+
+- name: "Display Certificate Manager restore results"
+  debug:
+    msg: "Certificate Manager resources: {{ certmanager_result.created_count }} created, {{ certmanager_result.updated_count }} updated, {{ certmanager_result.skipped_count }} skipped, {{ certmanager_result.failed_count }} failed"
+  when: projects_result.success
+
+# Step 5: Restore MAS Addon resources (addons.mas.ibm.com)
+- name: "Restore MAS Addon resources"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ suite_backup_path }}"
+    resource_kinds:
+      - MVIEdge
+      - ReplicaDB
+      - GenericAddon
+  register: addons_result
+  when: projects_result.success
+
+- name: "Display MAS Addons restore results"
+  debug:
+    msg: "MAS Addons: {{ addons_result.created_count }} created, {{ addons_result.updated_count }} updated, {{ addons_result.skipped_count }} skipped, {{ addons_result.failed_count }} failed"
+  when: projects_result.success
+
+# Step 6: Restore MAS Config resources (config.mas.ibm.com)
+- name: "Restore MAS Config resources"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ suite_backup_path }}"
+    resource_kinds:
+      - AppCfg
+      - BasCfg
+      - IDPCfg
+      - JdbcCfg
+      - KafkaCfg
+      - MongoCfg
+      - ObjectStorageCfg
+      - PushNotificationCfg
+      - ScimCfg
+      - SlsCfg
+      - SmtpCfg
+      - WatsonStudioCfg
+    override_values:
+      SlsCfg:
+        - spec.config.url: "{{ sls_url }}"
+      BasCfg:
+        - spec.config.url: "{{ bas_url }}"
+  register: configs_result
+  when: projects_result.success
+
+- name: "Display MAS Configs restore results"
+  debug:
+    msg: "MAS Configs: {{ configs_result.created_count }} created, {{ configs_result.updated_count }} updated, {{ configs_result.skipped_count }} skipped, {{ configs_result.failed_count }} failed"
+  when: projects_result.success
+
+# Step 7: Restore MAS Internal resources (internal.mas.ibm.com)
+- name: "Restore MAS Internal resources"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ suite_backup_path }}"
+    resource_kinds:
+      - CoreIDP
+  register: internal_result
+  when: projects_result.success
+
+- name: "Display MAS Internal restore results"
+  debug:
+    msg: "MAS Internal: {{ internal_result.created_count }} created, {{ internal_result.updated_count }} updated, {{ internal_result.skipped_count }} skipped, {{ internal_result.failed_count }} failed"
+  when: projects_result.success
+
+# Step 8: Restore Suite
+- name: "Restore Suite"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ suite_backup_path }}"
+    resource_kinds:
+      - Suite
+    override_values:
+      Suite:
+        - spec.domain: "{{ mas_domain }}"
+  register: suite_result
+  when: projects_result.success
+
+- name: "Display Suite restore results"
+  debug:
+    msg: "Suite: {{ suite_result.created_count }} created, {{ suite_result.updated_count }} updated, {{ suite_result.skipped_count }} skipped, {{ suite_result.failed_count }} failed"
+  when: projects_result.success
+
+# Wait for Suite to be ready before restoring Workspaces
+- name: "Wait for Suite to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: core.mas.ibm.com/v1
+    kind: Suite
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_core_namespace }}"
+  register: suite_status
+  retries: 60
+  delay: 60
+  until:
+    - suite_status.resources is defined
+    - suite_status.resources | length > 0
+    - suite_status.resources[0].status is defined
+    - suite_status.resources[0].status.conditions is defined
+    - suite_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True') | list | length > 0
+  when:
+    - projects_result.success
+    - suite_result.created_count > 0 or suite_result.updated_count > 0 or suite_result.skipped_count > 0
+
+# Step 9: Restore Workspaces
+- name: "Restore Workspaces"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ suite_backup_path }}"
+    resource_kinds:
+      - Workspace
+  register: workspace_result
+  when: projects_result.success
+
+- name: "Display Workspace restore results"
+  debug:
+    msg: "Workspaces: {{ workspace_result.created_count }} created, {{ workspace_result.updated_count }} updated, {{ workspace_result.skipped_count }} skipped, {{ workspace_result.failed_count }} failed"
+  when: projects_result.success
+
+# 6. Calculate total results
+# -----------------------------------------------------------------------------
+- name: "Calculate total restore results"
+  set_fact:
+    total_created: "{{ (projects_result.created_count | default(0)) + (secrets_configmaps_result.created_count | default(0)) + (operatorgroups_result.created_count | default(0)) + (subscriptions_result.created_count | default(0)) + (certmanager_result.created_count | default(0)) + (addons_result.created_count | default(0)) + (configs_result.created_count | default(0)) + (internal_result.created_count | default(0)) + (suite_result.created_count | default(0)) + (workspace_result.created_count | default(0)) }}"
+    total_updated: "{{ (projects_result.updated_count | default(0)) + (secrets_configmaps_result.updated_count | default(0)) + (operatorgroups_result.updated_count | default(0)) + (subscriptions_result.updated_count | default(0)) + (certmanager_result.updated_count | default(0)) + (addons_result.updated_count | default(0)) + (configs_result.updated_count | default(0)) + (internal_result.updated_count | default(0)) + (suite_result.updated_count | default(0)) + (workspace_result.updated_count | default(0)) }}"
+    total_skipped: "{{ (projects_result.skipped_count | default(0)) + (secrets_configmaps_result.skipped_count | default(0)) + (operatorgroups_result.skipped_count | default(0)) + (subscriptions_result.skipped_count | default(0)) + (certmanager_result.skipped_count | default(0)) + (addons_result.skipped_count | default(0)) + (configs_result.skipped_count | default(0)) + (internal_result.skipped_count | default(0)) + (suite_result.skipped_count | default(0)) + (workspace_result.skipped_count | default(0)) }}"
+    total_failed: "{{ (projects_result.failed_count | default(0)) + (secrets_configmaps_result.failed_count | default(0)) + (operatorgroups_result.failed_count | default(0)) + (subscriptions_result.failed_count | default(0)) + (certmanager_result.failed_count | default(0)) + (addons_result.failed_count | default(0)) + (configs_result.failed_count | default(0)) + (internal_result.failed_count | default(0)) + (suite_result.failed_count | default(0)) + (workspace_result.failed_count | default(0)) }}"
+
+- name: "Display total restore results"
+  debug:
+    msg:
+      - "Restore completed{{ ' with failures' if total_failed | int > 0 else ' successfully' }}"
+      - "Total resources created: {{ total_created }}"
+      - "Total resources updated: {{ total_updated }}"
+      - "Total resources skipped: {{ total_skipped }}"
+      - "Total resources failed: {{ total_failed }}"
+
+# 7. Fail task if any errors occurred
+# -----------------------------------------------------------------------------
+- name: "Collect all failed resources"
+  set_fact:
+    all_failed_resources: "{{ (projects_result.failed_resources | default([])) + (secrets_configmaps_result.failed_resources | default([])) + (operatorgroups_result.failed_resources | default([])) + (subscriptions_result.failed_resources | default([])) + (certmanager_result.failed_resources | default([])) + (addons_result.failed_resources | default([])) + (configs_result.failed_resources | default([])) + (internal_result.failed_resources | default([])) + (suite_result.failed_resources | default([])) + (workspace_result.failed_resources | default([])) }}"
+
+- name: "Display failed resources"
+  debug:
+    msg:
+      - "Failed resources:"
+      - "{{ all_failed_resources | to_nice_yaml }}"
+  when: total_failed | int > 0
+
+- name: "Fail if restore had errors"
+  fail:
+    msg: |
+      Restore failed for {{ total_failed }} resource(s):
+      {% for resource in all_failed_resources %}
+      - {{ resource.description }}: {{ resource.error }}
+      {% endfor %}
+  when: total_failed | int > 0
