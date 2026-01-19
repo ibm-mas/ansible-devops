@@ -37,7 +37,7 @@ class ActionModule(ActionBase):
         registrationDetails = getSLSRegistrationDetails(name=slsName, namespace=slsNamespace, dynClient=dynClient)
 
         if registrationDetails:
-            with open(os.path.join(backupPath, 'sls-registration.yml'), 'w') as outfile:
+            with open(os.path.join(backupPath, 'sls-registration.yaml'), 'w') as outfile:
                 yaml.dump(registrationDetails, outfile, default_flow_style=False)
                 return dict(
                     msg=f"Successfully stored SLS registration details to {os.path.join(backupPath, 'sls-registration.yml')}",
