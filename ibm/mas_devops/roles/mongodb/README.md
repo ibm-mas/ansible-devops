@@ -582,10 +582,10 @@ For backup and restore operations, set `mongodb_action` to one of the following:
 - Example: `251212-021316`
 
 ### br_skip_instance
-Controls whether to backup MongoDB instance resources (secrets, certificates, issuers) along with database data. Set to `false` to include instance resources in the backup.
+Controls whether to backup MongoDB instance resources (secrets, certificates, issuers) along with database data. Set to `true` to skip instance resources in the backup.
 
 - Environment Variable: `BR_SKIP_INSTANCE`
-- Default Value: `true`
+- Default Value: `false`
 
 ### mongodb_instance_name
 The name of the MongoDB instance to backup.
