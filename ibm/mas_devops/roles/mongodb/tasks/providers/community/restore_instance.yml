@@ -1,0 +1,256 @@
+---
+# Check mongodb restore required variables
+# -----------------------------------------------------------------------------
+- name: "Fail if required variables for Mongodb database restore are not provided"
+  ibm.mas_devops.verify_backup_restore_vars:
+    mas_instance_id: "{{ mas_instance_id }}"
+    mas_backup_dir: "{{ mas_backup_dir }}"
+    mongodb_backup_version: "{{ mongodb_backup_version }}"
+    action: "restore"
+    component: "mongodb"
+
+# Set backup path facts
+- name: "Set fact: backup dir paths"
+  set_fact:
+    mongodb_backup_path: "{{ mas_backup_dir }}/backup-{{ mongodb_backup_version }}-mongoce"
+    mongodb_resources_path: "{{ mas_backup_dir }}/backup-{{ mongodb_backup_version }}-mongoce/resources"
+
+- name: "Check mongodb resource path exist"
+  stat:
+    path: "{{ mongodb_resources_path }}"
+  register: resources_backup_path_stat
+
+- name: "Fail if backup archive does not exist"
+  fail:
+    msg: "Mongodb resources archive not found at: {{ mongodb_resources_path }}"
+  when: not resources_backup_path_stat.stat.exists or not resources_backup_path_stat.stat.isdir
+
+# Verify cert-manager exists
+# -----------------------------------------------------------------------------
+- name: Detect Certificate Manager installation
+  include_tasks: "{{ role_path }}/../../common_tasks/detect_cert_manager.yml"
+
+# Verify only one MongoCE instance file is present in backup archive
+# -----------------------------------------------------------------------------
+- name: Get files from {{ mongodb_resources_path }}/mongodbcommunitys directory
+  set_fact:
+    instance_files: "{{ lookup('fileglob', '{{ mongodb_resources_path }}/mongodbcommunitys/*', wantlist=True) }}"
+
+- name: Assert exactly one MongoDBCommunity CR exists
+  assert:
+    that:
+      - instance_files | length == 1
+    fail_msg: "MongoDBCommunity Directory must contain exactly one file"
+
+- name: Set fact mongodb cr
+  set_fact:
+    mongodbcr_cfg: "{{ lookup('file', '{{ instance_files[0] }}') | from_yaml }}"
+
+# Get Mongodb details from backup CR
+# -----------------------------------------------------------------------------
+- name: Set fact mongo namespace and instance name from backup CR
+  set_fact:
+    mongodb_namespace: "{{ mongodbcr_cfg.metadata.namespace }}"
+    mongodb_instance_name: "{{ mongodbcr_cfg.metadata.name }}"
+    source_mongodb_replicas_check: "{{ mongodbcr_cfg.spec.members }}"
+    source_mongodb_version: "{{ mongodbcr_cfg.spec.version }}"
+
+- name: "Mongo restore information"
+  debug:
+    msg:
+      - "MAS Instance ID ................ {{ mas_instance_id }}"
+      - "MongoDB Namespace .............. {{ mongodb_namespace }}"
+      - "MongoDB Instance Name .......... {{ mongodb_instance_name }}"
+      - "Backup Version ................. {{ mongodb_backup_version }}"
+      - "Backup Path .................... {{ mongodb_backup_path }}"
+
+# 1. Restore Namespace
+# -----------------------------------------------------------------------------
+- name: Restore namespace
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ mongodb_backup_path }}"
+    resource_kinds:
+      - Project
+    replace_resource: false
+  register: namespace_result
+
+# 2. Restore Secrets and ConfigMaps
+# -----------------------------------------------------------------------------
+- name: Restore Secrets and ConfigMaps
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ mongodb_backup_path }}"
+    resource_kinds:
+      - Secret
+      - ConfigMap
+  register: secrets_configmaps_result
+  when: namespace_result.success
+
+# 3. Restore CRD
+# -----------------------------------------------------------------------------
+- name: Restore CRD
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ mongodb_backup_path }}"
+    resource_kinds:
+      - CustomResourceDefinition
+  register: crd_result
+  when: secrets_configmaps_result.success
+
+# 4. Restore RBAC
+# -----------------------------------------------------------------------------
+- name: Restore ServiceAccount, Role, RoleBinding
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ mongodb_backup_path }}"
+    resource_kinds:
+      - ServiceAccount
+      - Role
+      - RoleBinding
+  register: rbac_result
+  when: crd_result.success
+
+# 5. Configure anyuid permissions in the MongoDb namespace
+# -----------------------------------------------------------------------------
+- name: "Configure anyuid permissions in the MongoDb namespace(s)"
+  shell: |
+    oc adm policy add-scc-to-user anyuid system:serviceaccount:{{ mongodb_namespace }}:default
+    oc adm policy add-scc-to-user anyuid system:serviceaccount:{{ mongodb_namespace }}:mongodb-kubernetes-operator
+    oc adm policy add-scc-to-user anyuid system:serviceaccount:{{ mongodb_namespace }}:mongodb-database
+  when:
+    - mongodb_namespace is defined
+
+# 6. Restore the MongoDb Operator deployment
+# -----------------------------------------------------------------------------
+- name: Restore the MongoDb Operator
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ mongodb_backup_path }}"
+    resource_kinds:
+      - Deployment
+  register: operator_result
+  when: rbac_result.success
+
+- name: "Wait for Mongodb operator to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: mongodb-kubernetes-operator
+    namespace: "{{ mongodb_namespace }}"
+  register: mongodb_operator_status
+  retries: 60
+  delay: 60
+  until:
+    - mongodb_operator_status.resources is defined
+    - mongodb_operator_status.resources | length > 0
+    - mongodb_operator_status.resources[0].status is defined
+    - mongodb_operator_status.resources[0].status.conditions is defined
+    - mongodb_operator_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | selectattr('status', 'equalto', 'True') | list | length > 0
+
+# 7. Restore Certficate Manager resources
+# -----------------------------------------------------------------------------
+- name: "Restore Certificate Manager resources"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ mongodb_backup_path }}"
+    resource_kinds:
+      - Issuer
+      - Certificate
+  register: certmanager_result
+  when: operator_result.success
+
+# Load default storage classes (if not provided by the user and not an update)
+# -----------------------------------------------------------------------------
+- name: Use chosen (or default) storage class
+  when: existing_mongo_storage_class is not defined
+  include_tasks: tasks/providers/community/determine-storage-classes.yml
+
+# 8. Restore MongodbCE CR resource
+# -----------------------------------------------------------------------------
+- name: "Restore MongodbCE CR resource"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ mongodb_backup_path }}"
+    resource_kinds:
+      - MongoDBCommunity
+#    override_values:
+#      MongoDBCommunity:
+#        - spec.statefulSet.spec.volumeClaimTemplates[0].spec.storageClassName: mongodb_storage_class
+#        - spec.statefulSet.spec.volumeClaimTemplates[1].spec.storageClassName: mongodb_storage_class
+  register: cr_result
+  when: certmanager_result.success
+
+- name: "Wait for {{ mongodb_instance_name }} stateful set to be ready"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: StatefulSet
+    name: "{{ mongodb_instance_name }}"
+    namespace: "{{ mongodb_namespace }}"
+  vars:
+    mongodb_replicas_check: "{{ source_mongodb_replicas_check }}"
+  register: mongodb_statefulset
+  retries: 45 # Approx 90 minutes
+  delay: 120 # 2 minutes
+  until:
+    - mongodb_statefulset.resources is defined
+    - mongodb_statefulset.resources | length > 0
+    - mongodb_statefulset.resources[0].status.readyReplicas is defined
+    - mongodb_statefulset.resources[0].status.readyReplicas ==  (mongodb_replicas_check|int)
+
+- name: "Wait for {{ mongodb_instance_name }}-arb stateful set to be ready"
+  when: source_mongodb_version is version('4.4.0','>=') # this statefulset will only exist in Mongo v4.4+
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: StatefulSet
+    name: "{{ mongodb_instance_name }}-arb"
+    namespace: "{{ mongodb_namespace }}"
+  register: mongodb_arb_statefulset
+  retries: 45 # Approx 90 minutes
+  delay: 120 # 2 minutes
+  until:
+    - mongodb_arb_statefulset.resources is defined
+    - mongodb_arb_statefulset.resources | length > 0
+    - mongodb_arb_statefulset.resources[0].status.availableReplicas is defined
+    - mongodb_arb_statefulset.resources[0].status.availableReplicas == 0
+
+- name: "Wait for Mongo CR to report expected version {{ source_mongodb_version }}"
+  kubernetes.core.k8s_info:
+    api_version: mongodbcommunity.mongodb.com/v1
+    kind: MongoDBCommunity
+    name: "{{ mongodb_instance_name }}"
+    namespace: "{{ mongodb_namespace }}"
+  register: mongodb_cr
+  retries: 45 # Approx 45 minutes
+  delay: 60 # 1 minute
+  until:
+    - mongodb_cr.resources[0].status.version is defined
+    - mongodb_cr.resources[0].status.version == source_mongodb_version
+
+# Restore MongoDb service monitor
+# -----------------------------------------------------------------------------
+- name: "Restore Service Monitor resources"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ mongodb_backup_path }}"
+    resource_kinds:
+      - ServiceMonitor
+  register: servicemonitor_result
+  when: cr_result.success
+
+# Restore Grafana Dashboard if cluster has grafana v5 capability
+# -----------------------------------------------------------------------------
+- name: Get cluster info
+  kubernetes.core.k8s_cluster_info:
+  register: api_status
+  no_log: true
+
+- name: Determine cluster grafana capabilities
+  set_fact:
+    supports_grafanav5: "{{
+      api_status is defined and
+      api_status.apis is defined and
+      api_status.apis['grafana.integreatly.org/v1beta1'] is defined }}"
+
+- name: "Restore Grafana Dashboards"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ mongodb_backup_path }}"
+    resource_kinds:
+      - GrafanaDashboard
+  register: grafdash_result
+  when:
+    - servicemonitor_result.success
+    - supports_grafanav5
+
