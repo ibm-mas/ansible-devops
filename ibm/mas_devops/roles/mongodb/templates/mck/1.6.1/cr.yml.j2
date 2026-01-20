@@ -3,12 +3,13 @@ apiVersion: mongodbcommunity.mongodb.com/v1
 kind: MongoDBCommunity
 metadata:
   name: mas-mongo-mck
-  namespace: "{{mongodb_namespace}}"
+  namespace: "{{ mongodb_namespace }}"
 spec:
   members: {{mongodb_replicas}}
   type: ReplicaSet
   version: "{{ target_mongodb_version }}"
   featureCompatibilityVersion: "{{ mongodb_feature_compatibility_version }}"
+
   security:
     tls:
       enabled: true
@@ -41,6 +42,7 @@ spec:
         - name: readWriteAnyDatabase
           db: admin
       scramCredentialsSecretName: mas-mongo-mck-scram
+
   additionalMongodConfig:
     storage.wiredTiger.engineConfig.journalCompressor: snappy
     net.tls.allowInvalidCertificates: true
@@ -60,25 +62,27 @@ spec:
               image: "{{ target_mongodb_image }}"
               resources:
                 limits:
-                  cpu: "{{mongodb_cpu_limits}}"
-                  memory: "{{mongodb_mem_limits}}"
+                  cpu: "{{ mongodb_cpu_limits }}"
+                  memory: "{{ mongodb_mem_limits }}"
                 requests:
-                  cpu: "{{mongodb_cpu_requests}}"
-                  memory: "{{mongodb_mem_requests}}"
+                  cpu: "{{ mongodb_cpu_requests }}"
+                  memory: "{{ mongodb_mem_requests }}"
+
       volumeClaimTemplates:
         - metadata:
             name: data-volume
           spec:
-            accessModes: [ "ReadWriteOnce" ]
-            storageClassName: "{{mongodb_storage_class}}"
+            accessModes: ["ReadWriteOnce"]
+            storageClassName: "{{ mongodb_storage_class }}"
             resources:
               requests:
-                storage: "{{mongodb_storage_capacity_data}}"
+                storage: "{{ mongodb_storage_capacity_data }}"
+
         - metadata:
             name: logs-volume
           spec:
-            accessModes: [ "ReadWriteOnce" ]
-            storageClassName: "{{mongodb_storage_class}}"
+            accessModes: ["ReadWriteOnce"]
+            storageClassName: "{{ mongodb_storage_class }}"
             resources:
               requests:
-                storage: "{{mongodb_storage_capacity_logs}}"
+                storage: "{{ mongodb_storage_capacity_logs }}"
