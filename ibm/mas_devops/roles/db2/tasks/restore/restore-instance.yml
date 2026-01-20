@@ -153,21 +153,39 @@
       Db2uCluster: >-
         {{
           [
-            'spec.environment.database.ssl.secretName: db2u-certificate-' ~ db2_instance_name
+            {
+              'spec.environment.database.ssl.secretName':
+                'db2u-certificate-' ~ db2_instance_name
+            }
           ]
           + (
-              ['spec.environment.instance.password: ' ~ db2_instance_password]
-              if db2_instance_password is defined
+              [
+                {
+                  'spec.environment.ldap.password':
+                    db2_ldap_password
+                }
+              ]
+              if db2_ldap_password is defined and db2_ldap_password | length > 0
               else []
             )
           + (
-              ['spec.environment.ldap.password: ' ~ db2_ldap_password]
-              if db2_ldap_password is defined
+              [
+                {
+                  'spec.environment.ldap.blueAdminPassword':
+                    db2_ldapblueadmin_password
+                }
+              ]
+              if db2_ldapblueadmin_password is defined and db2_ldapblueadmin_password | length > 0
               else []
             )
           + (
-              ['spec.environment.ldap.blueAdminPassword: ' ~ db2_ldapblueadmin_password]
-              if db2_ldapblueadmin_password is defined
+              [
+                {
+                  'spec.environment.instance.password':
+                    db2_instance_password
+                }
+              ]
+              if db2_instance_password is defined and db2_instance_password | length > 0
               else []
             )
         }}
