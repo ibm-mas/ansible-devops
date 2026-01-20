@@ -182,10 +182,12 @@
     backup_path: "{{ mongodb_backup_path }}"
     resource_kinds:
       - MongoDBCommunity
-#    override_values:
-#      MongoDBCommunity:
-#        - spec.statefulSet.spec.volumeClaimTemplates[0].spec.storageClassName: mongodb_storage_class
-#        - spec.statefulSet.spec.volumeClaimTemplates[1].spec.storageClassName: mongodb_storage_class
+    filter_values:
+      MongoDBCommunity:
+        - spec.replicaSetHorizons
+    override_values:
+      MongoDBCommunity:
+        - spec.statefulSet.spec.volumeClaimTemplates: "{{ mongodbcr_cfg.spec.statefulSet.spec.volumeClaimTemplates | ibm.mas_devops.set_storage_class_name(mongodb_storage_class, mongodb_storage_class) }}"
   register: cr_result
   when:
     - namespace_result.success

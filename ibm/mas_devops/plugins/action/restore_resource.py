@@ -59,6 +59,54 @@ def setup_logging():
 # Initialize logging
 setup_logging()
 
+def filter_fields(resource_data: dict, fields_to_filter: dict, resource_kind: str) -> dict:
+    """
+    Filter out specified fields from a resource based on key paths, filtered by resource kind.
+
+    Args:
+
+        resource_data: The resource dictionary to modify
+        fields_to_filter: Dictionary mapping resource kinds to lists of field paths to filter out
+        resource_kind: The kind of the current resource (e.g., 'Suite', 'Secret', 'ConfigMap')
+    
+    Returns:
+        dict: Modified resource data with specified fields removed
+
+    Example:
+        fields_to_filter = {
+            'Suite': [
+                'spec.domain', 'spec.clusterIssuer.name'
+
+            ]
+        }
+    """
+    
+    if not fields_to_filter or resource_kind not in fields_to_filter:
+        return resource_data
+
+    kind_fields = fields_to_filter[resource_kind]
+
+    if not kind_fields:
+        return resource_data
+
+    for field_path in kind_fields:
+        # Split the field path into parts
+        keys = field_path.split('.')
+        # Traverse the dictionary to find the parent of the field to remove
+        current = resource_data
+
+        for key in keys[:-1]:
+            if key not in current:
+                # If any part of the path doesn't exist, skip this field
+                break
+            current = current[key]
+
+        # Remove the field if it exists
+        if keys[-1] in current:
+            del current[keys[-1]]
+
+    return resource_data
+
 
 def apply_overrides(resource_data: dict, override_values: dict, resource_kind: str) -> dict:
     """
@@ -154,6 +202,10 @@ class ActionModule(ActionBase):
             - Secret
             - ConfigMap
           replace_resource: true
+          filter_values:
+            Suite:
+              - spec.domain
+              - spec.clusterIssuer.name
           override_values:
             Suite:
               - spec.domain: mydomain.com
@@ -190,6 +242,7 @@ class ActionModule(ActionBase):
         replace_resource = self._task.args.get('replace_resource', True)
         resource_kinds = self._task.args.get('resource_kinds', None)
         override_values = self._task.args.get('override_values', None)
+        filter_values = self._task.args.get('filter_values', None)
 
         if backup_path is None or backup_path == "":
             raise AnsibleError(f"Error: backup_path argument was not provided")
@@ -208,6 +261,10 @@ class ActionModule(ActionBase):
         if override_values:
             override_kinds = ', '.join(override_values.keys())
             display.v(f"Override values will be applied for resource kinds: {override_kinds}")
+        
+        if filter_values:
+            filter_kinds = ', '.join(filter_values.keys())
+            display.v(f"Filter values will be applied for resource kinds: {filter_kinds}")
 
         total_created = 0
         total_updated = 0
@@ -306,6 +363,11 @@ class ActionModule(ActionBase):
                 if override_values:
                     resource_kind = resource_data.get('kind', 'Unknown')
                     resource_data = apply_overrides(resource_data, override_values, resource_kind)
+                
+                # Filter values if provided
+                if filter_values:
+                    resource_kind = resource_data.get('kind', 'Unknown')
+                    resource_data = filter_fields(resource_data, filter_values, resource_kind)
                 
                 # Restore the resource
                 success, resource_name, status_msg = restoreResource(
