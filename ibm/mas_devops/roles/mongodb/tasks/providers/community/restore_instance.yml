@@ -93,7 +93,9 @@
     resource_kinds:
       - CustomResourceDefinition
   register: crd_result
-  when: secrets_configmaps_result.success
+  when:
+    - namespace_result.success
+    - secrets_configmaps_result is defined and secrets_configmaps_result.success
 
 # 4. Restore RBAC
 # -----------------------------------------------------------------------------
@@ -105,7 +107,9 @@
       - Role
       - RoleBinding
   register: rbac_result
-  when: crd_result.success
+  when:
+    - namespace_result.success
+    - crd_result is defined and crd_result.success
 
 # 5. Configure anyuid permissions in the MongoDb namespace
 # -----------------------------------------------------------------------------
@@ -115,7 +119,7 @@
     oc adm policy add-scc-to-user anyuid system:serviceaccount:{{ mongodb_namespace }}:mongodb-kubernetes-operator
     oc adm policy add-scc-to-user anyuid system:serviceaccount:{{ mongodb_namespace }}:mongodb-database
   when:
-    - mongodb_namespace is defined
+    - mongodb_namespace is defined and namespace_result.success
 
 # 6. Restore the MongoDb Operator deployment
 # -----------------------------------------------------------------------------
@@ -125,7 +129,9 @@
     resource_kinds:
       - Deployment
   register: operator_result
-  when: rbac_result.success
+  when:
+    - namespace_result.success
+    - rbac_result is defined and rbac_result.success
 
 - name: "Wait for Mongodb operator to be ready (60s delay)"
   kubernetes.core.k8s_info:
@@ -142,6 +148,10 @@
     - mongodb_operator_status.resources[0].status is defined
     - mongodb_operator_status.resources[0].status.conditions is defined
     - mongodb_operator_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | selectattr('status', 'equalto', 'True') | list | length > 0
+  when:
+    - namespace_result.success
+    - operator_result is defined and operator_result.success
+
 
 # 7. Restore Certficate Manager resources
 # -----------------------------------------------------------------------------
@@ -152,13 +162,18 @@
       - Issuer
       - Certificate
   register: certmanager_result
-  when: operator_result.success
+  when:
+    - namespace_result.success
+    - operator_result is defined and operator_result.success
 
 # Load default storage classes (if not provided by the user and not an update)
 # -----------------------------------------------------------------------------
 - name: Use chosen (or default) storage class
-  when: existing_mongo_storage_class is not defined
   include_tasks: tasks/providers/community/determine-storage-classes.yml
+  when:
+    - namespace_result.success
+    - certmanager_result is defined and certmanager_result.success
+    - existing_mongo_storage_class is not defined
 
 # 8. Restore MongodbCE CR resource
 # -----------------------------------------------------------------------------
@@ -172,7 +187,9 @@
 #        - spec.statefulSet.spec.volumeClaimTemplates[0].spec.storageClassName: mongodb_storage_class
 #        - spec.statefulSet.spec.volumeClaimTemplates[1].spec.storageClassName: mongodb_storage_class
   register: cr_result
-  when: certmanager_result.success
+  when:
+    - namespace_result.success
+    - certmanager_result is defined and certmanager_result.success
 
 - name: "Wait for {{ mongodb_instance_name }} stateful set to be ready"
   kubernetes.core.k8s_info:
@@ -190,9 +207,11 @@
     - mongodb_statefulset.resources | length > 0
     - mongodb_statefulset.resources[0].status.readyReplicas is defined
     - mongodb_statefulset.resources[0].status.readyReplicas ==  (mongodb_replicas_check|int)
+  when:
+    - namespace_result.success
+    - cr_result is defined and cr_result.success
 
 - name: "Wait for {{ mongodb_instance_name }}-arb stateful set to be ready"
-  when: source_mongodb_version is version('4.4.0','>=') # this statefulset will only exist in Mongo v4.4+
   kubernetes.core.k8s_info:
     api_version: apps/v1
     kind: StatefulSet
@@ -206,6 +225,10 @@
     - mongodb_arb_statefulset.resources | length > 0
     - mongodb_arb_statefulset.resources[0].status.availableReplicas is defined
     - mongodb_arb_statefulset.resources[0].status.availableReplicas == 0
+  when:
+    - namespace_result.success
+    - cr_result is defined and cr_result.success
+    - source_mongodb_version is version('4.4.0','>=') # this statefulset will only exist in Mongo v4.4+
 
 - name: "Wait for Mongo CR to report expected version {{ source_mongodb_version }}"
   kubernetes.core.k8s_info:
@@ -219,6 +242,9 @@
   until:
     - mongodb_cr.resources[0].status.version is defined
     - mongodb_cr.resources[0].status.version == source_mongodb_version
+  when:
+    - namespace_result.success
+    - cr_result is defined and cr_result.success
 
 # Restore MongoDb service monitor
 # -----------------------------------------------------------------------------
@@ -228,7 +254,9 @@
     resource_kinds:
       - ServiceMonitor
   register: servicemonitor_result
-  when: cr_result.success
+  when:
+    - namespace_result.success
+    - cr_result is defined and cr_result.success
 
 # Restore Grafana Dashboard if cluster has grafana v5 capability
 # -----------------------------------------------------------------------------
@@ -236,6 +264,9 @@
   kubernetes.core.k8s_cluster_info:
   register: api_status
   no_log: true
+  when:
+    - namespace_result.success
+    - servicemonitor_result is defined and servicemonitor_result.success
 
 - name: Determine cluster grafana capabilities
   set_fact:
@@ -243,6 +274,9 @@
       api_status is defined and
       api_status.apis is defined and
       api_status.apis['grafana.integreatly.org/v1beta1'] is defined }}"
+  when:
+    - namespace_result.success
+    - servicemonitor_result is defined and servicemonitor_result.success
 
 - name: "Restore Grafana Dashboards"
   ibm.mas_devops.restore_resource:
@@ -251,6 +285,104 @@
       - GrafanaDashboard
   register: grafdash_result
   when:
-    - servicemonitor_result.success
+    - namespace_result.success
+    - servicemonitor_result is defined and servicemonitor_result.success
     - supports_grafanav5
+
+# Calculate total results
+# -----------------------------------------------------------------------------
+- name: "Calculate total restore results"
+  set_fact:
+    total_created: >-
+      {{
+        (namespace_result.created_count | default(0)) +
+        (secrets_configmaps_result.created_count | default(0)) +
+        (crd_result.created_count | default(0)) +
+        (operator_result.created_count | default(0)) +
+        (rbac_result.created_count | default(0)) +
+        (certmanager_result.created_count | default(0)) +
+        (cr_result.created_count | default(0)) +
+        (servicemonitor_result.created_count | default(0)) +
+        (grafdash_result.created_count | default(0))
+      }}
+    total_updated: >-
+      {{
+        (namespace_result.updated_count | default(0)) +
+        (secrets_configmaps_result.updated_count | default(0)) +
+        (crd_result.updated_count | default(0)) +
+        (operator_result.updated_count | default(0)) +
+        (rbac_result.updated_count | default(0)) +
+        (certmanager_result.updated_count | default(0)) +
+        (cr_result.updated_count | default(0)) +
+        (servicemonitor_result.updated_count | default(0)) +
+        (grafdash_result.updated_count | default(0)) 
+      }}
+    total_skipped: >-
+      {{
+        (namespace_result.skipped_count | default(0)) +
+        (secrets_configmaps_result.skipped_count | default(0)) +
+        (crd_result.skipped_count | default(0)) +
+        (operator_result.skipped_count | default(0)) +
+        (rbac_result.skipped_count | default(0)) +
+        (certmanager_result.skipped_count | default(0)) +
+        (cr_result.skipped_count | default(0)) +
+        (servicemonitor_result.skipped_count | default(0)) +
+        (grafdash_result.skipped_count | default(0)) 
+      }}
+    total_failed: >-
+      {{
+        (namespace_result.failed_count | default(0)) +
+        (secrets_configmaps_result.failed_count | default(0)) +
+        (crd_result.failed_count | default(0)) +
+        (operator_result.failed_count | default(0)) +
+        (rbac_result.failed_count | default(0)) +
+        (certmanager_result.failed_count | default(0)) +
+        (cr_result.failed_count | default(0)) +
+        (servicemonitor_result.failed_count | default(0)) +
+        (grafdash_result.failed_count | default(0)) 
+      }}
+
+- name: "Display total restore results"
+  debug:
+    msg:
+      - >-
+        Restore completed{{ ' with failures' if total_failed | int > 0
+        else ' successfully' }}
+      - "Total resources created: {{ total_created }}"
+      - "Total resources updated: {{ total_updated }}"
+      - "Total resources skipped: {{ total_skipped }}"
+      - "Total resources failed: {{ total_failed }}"
+
+# Fail task if any errors occurred
+# -----------------------------------------------------------------------------
+- name: "Collect all failed resources"
+  set_fact:
+    all_failed_resources: >-
+      {{
+        (namespace_result.failed_resources | default([])) +
+        (secrets_configmaps_result.failed_resources | default([])) +
+        (crd_result.failed_resources | default([])) +
+        (operator_result.failed_resources | default([])) +
+        (rbac_result.failed_resources | default([])) +
+        (certmanager_result.failed_resources | default([])) +
+        (cr_result.failed_resources | default([])) +
+        (servicemonitor_result.failed_resources | default([])) +
+        (grafdash_result.failed_resources | default([]))
+      }}
+
+- name: "Display failed resources"
+  debug:
+    msg:
+      - "Failed resources:"
+      - "{{ all_failed_resources | to_nice_yaml }}"
+  when: total_failed | int > 0
+
+- name: "Fail if restore had errors"
+  fail:
+    msg: |
+      Restore failed for {{ total_failed }} resource(s):
+      {% for resource in all_failed_resources %}
+      - {{ resource.description }}: {{ resource.error }}
+      {% endfor %}
+  when: total_failed | int > 0
 
