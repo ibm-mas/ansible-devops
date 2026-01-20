@@ -121,7 +121,7 @@ Specifies which operation to perform on the MongoDB instance.
 - Use `create-mongo-service-credentials` to generate service credentials (ibm only)
 
 **Valid values** (provider-specific):
-- **community**: `install`, `uninstall`, `backup`, `restore`
+- **community**: `install`, `uninstall`, `backup`, `restore`, `restore_database`
 - **aws**: `install`, `uninstall`, `docdb_secret_rotate`, `destroy-data`
 - **ibm**: `install`, `uninstall`, `backup`, `restore`, `create-mongo-service-credentials`
 
@@ -550,17 +550,22 @@ Confirmation flag to upgrade MongoDB from version 7 to version 8.
 - Environment Variable: `MONGODB_V8_UPGRADE`
 - Default Value: `false`
 
-Role Variables - Backup and Restore (CE Operator)
+Role Variables - Backup and Restore (CE Operator) - (authored by IBM Bob)
 -------------------------------------------------------------------------------
 
 ### mongodb_action
 For backup and restore operations, set `mongodb_action` to one of the following:
 - `backup`: Create a backup of MongoDB databases and optionally instance resources
-- `restore_database`: Restore MongoDB databases from a backup to an existing instance
-- `install`: Deploy a new MongoDB instance and restore data from backup
+- `restore`: Restore both MongoDB instance resources and databases from a backup (full restore)
+- `restore_database`: Restore only MongoDB databases from a backup to an existing instance (database-only restore)
 
 - Environment Variable: `MONGODB_ACTION`
 - Default Value: `install`
+
+**Action Details:**
+- **backup**: Creates a complete backup including database data and optionally Kubernetes resources (secrets, certificates, CRs)
+- **restore**: Performs a full restore by recreating the MongoDB instance from backup resources and then restoring database data
+- **restore_database**: Restores only the database data to an already running MongoDB instance without touching instance resources
 
 ### mas_backup_dir
 **Required for backup/restore operations**. Local directory path where backup files will be stored or read from.
@@ -595,19 +600,33 @@ Optional. Specific MAS application ID for targeted backup/restore operations.
 - Default Value: None
 
 
-Backup and Restore Operations (authored by IBM Bob)
+Backup and Restore Operations - (authored by IBM Bob)
 -------------------------------------------------------------------------------
+
+This section provides comprehensive information about MongoDB backup and restore operations for the Community Edition (CE) operator.
+
+### Action Comparison
+
+| Action | Purpose | Instance Resources | Database Data | Prerequisites | Use Case |
+|--------|---------|-------------------|---------------|---------------|----------|
+| `backup` | Create backup | Optional (controlled by `br_skip_instance`) | Yes | Running MongoDB instance | Regular backups, disaster recovery preparation |
+| `restore` | Full restore | Yes (recreates instance) | Yes | Backup with instance resources | Disaster recovery, cluster migration, complete restoration |
+| `restore_database` | Database-only restore | No (preserves existing) | Yes | Running MongoDB instance with matching version | Data recovery, selective restore, testing |
 
 ### Backup Process
 
 The MongoDB backup operation creates a backup of your MongoDB instance and databases associated with your MAS instance:
 
-1. **Database Backup**: Uses `mongodump` to export databases with filter `"^(mas|iot)(_|-){{ mas_instance_id }}(_|-)(?!.*monitor$)"` to match databases like `mas-<instance-id>-<app-id>` or `iot-<instance-id>-<app-id>`.
-2. **Instance Resources** (optional): Backs up Kubernetes resources including:
-   - MongoDB Custom Resource (CR)
+1. **Database Backup**: Uses `mongodump` to export databases with filter `"^(mas|iot|sls|ibm-sls)(_|-)({{ mas_instance_id }}|sls)(_|-)(?!.*monitor$)"` to match databases like `mas-<instance-id>-<app-id>` or `iot-<instance-id>-<app-id>` or `ibm-sls_sls_licensing` or `sls-<instance-id>_sls_licensing`.
+2. **Instance Resources** : Backs up Kubernetes resources including:
+   - CustomResourceDefinition (CRD)
+   - MongoDBCommunity Custom Resource (CR)
    - Secrets (TLS certificates, credentials)
    - Certificate resources
    - Issuer resources
+   - Mongodb operator deployment
+   - service monitoring
+   - grafana dashboards
 
 **Backup Directory Structure:**
 ```
@@ -617,46 +636,102 @@ The MongoDB backup operation creates a backup of your MongoDB instance and datab
     │   ├── mongodump-<YYMMDD-HHMMSS>.tar.gz
     │   └── mongodb-info.yaml
     └── resources/
-        ├── cr.yml
+        ├── mongodbcommunitys/
         ├── secrets/
         ├── certificates/
         └── issuers/
+        └── {kind}s/
 ```
 
 ### Restore Process
 
-**Database Restore (`restore_database` action):**
-- Restores database data to an existing MongoDB instance
-- Requires MongoDB version to match the backup version
-- Uses `mongorestore` to import required databases
+The MongoDB role supports two types of restore operations:
 
-**Install from Backup (`install` action):**
-- Validates backup files
-- Creates namespace and restores resources to namespace
-- Gets MongoDbCE instance details from backup data
-- Installs MongoDb with configuration from backup
-- Waits for instance to be ready
-- Restores database data after instance is ready
+#### 1. Full Restore (`restore` action)
+Performs a complete restoration of both the MongoDB instance and its databases:
+
+**Steps:**
+1. Validates backup files and required variables
+2. Restores the namespace (Project)
+3. Restores Secrets and ConfigMaps
+4. Restores CustomResourceDefinitions (CRDs)
+5. Restores RBAC resources (ServiceAccount, Role, RoleBinding)
+6. Configures anyuid permissions for MongoDB service accounts
+7. Restores the MongoDB Operator Deployment
+8. Waits for MongoDB operator to be ready
+9. Restores Certificate Manager resources (Issuer, Certificate)
+10. Restores the MongoDBCommunity Custom Resource
+11. Waits for MongoDB StatefulSets to be ready
+12. Restores ServiceMonitor and GrafanaDashboard resources
+13. Restores database data using `mongorestore`
+
+**When to use:**
+- Disaster recovery scenarios
+- Migrating MongoDB to a new cluster
+- Recreating a deleted MongoDB instance
+- Setting up a new environment from backup
+
+**Requirements:**
+- `mas_instance_id`: MAS instance identifier
+- `mas_backup_dir`: Directory containing the backup
+- `mongodb_backup_version`: Timestamp of the backup to restore
+- `br_skip_instance`: Set to `false` to restore instance resources
+
+#### 2. Database-Only Restore (`restore_database` action)
+Restores only the database data to an existing MongoDB instance:
+
+**Steps:**
+1. Validates backup files and required variables
+2. Verifies existing MongoDB installation is running
+3. Checks MongoDB version compatibility
+4. Restores database data using `mongorestore`
+
+**When to use:**
+- Restoring data to an existing MongoDB instance
+- Recovering from data corruption without recreating the instance
+- Selective database restoration
+- Testing data restoration without affecting instance configuration
+
+**Requirements:**
+- `mas_instance_id`: MAS instance identifier
+- `mas_backup_dir`: Directory containing the backup
+- `mongodb_backup_version`: Timestamp of the backup to restore
+- `mongodb_namespace`: Namespace where MongoDB is running
+- `mongodb_instance_name`: Name of the existing MongoDB instance
+- MongoDB instance must already be running and accessible
 
 ### Important Considerations
 
 **Version Compatibility:**
-- Target MongoDB version must match the backup version
+- Target MongoDB version must match the backup version exactly
 - Version upgrades should be performed separately, not during restore
+- The restore process validates version compatibility before proceeding
+- For `restore_database` action, the existing MongoDB instance must be running the same version as the backup
 
 **Storage Requirements:**
 - Ensure sufficient storage in the backup directory
 - Plan for at least 2x the database size for backup storage
+- Backup directory structure: `/tmp/masbr/backup-<YYMMDD-HHMMSS>-mongoce/`
+- Monitor disk space during backup operations
 
 **Security:**
 - Backup files contain sensitive data and credentials
-- Secure backup directory with appropriate permissions
+- Secure backup directory with appropriate permissions (chmod 700 recommended)
 - Consider encrypting backups for long-term storage
+- Backup includes TLS certificates and admin credentials
+- Restrict access to backup files to authorized personnel only
 
 **Performance:**
 - Backup operations may impact MongoDB performance
 - Schedule backups during low-usage periods
 - Monitor resource utilization during backup/restore
+- Large databases may take significant time to backup/restore
+- Network bandwidth may affect backup/restore speed
+
+**Restore Action Differences:**
+- **`restore` action**: Recreates the entire MongoDB instance from scratch, including all Kubernetes resources
+- **`restore_database` action**: Only restores database data to an existing instance, preserving current configuration
+- Use `br_skip_instance` variable to control whether instance resources are included in backup/restore
 
 ### Backup and Restore Best Practices
 
@@ -730,7 +805,14 @@ Create a complete backup including both database data and instance resources (se
 ```
 
 ### Restore Database (CE Operator)
-Restore MongoDB databases from a backup to an existing MongoDB instance.
+Restore MongoDB databases from a backup to an existing MongoDB instance without recreating the instance resources.
+
+**Use Case**: This action is ideal when you need to restore database data to an already running MongoDB instance, such as recovering from data corruption or restoring specific databases.
+
+**Prerequisites**:
+- MongoDB instance must already be installed and running
+- MongoDB version must match the backup version
+- Backup files must be available in the specified backup directory
 
 ```yaml
 - hosts: localhost
@@ -745,6 +827,51 @@ Restore MongoDB databases from a backup to an existing MongoDB instance.
   roles:
     - ibm.mas_devops.mongodb
 ```
+
+**What this does**:
+1. Validates that the backup exists at the specified location
+2. Verifies the MongoDB instance is running in the specified namespace
+3. Checks version compatibility between backup and running instance
+4. Restores database data using `mongorestore` command
+5. Preserves all existing instance configuration and resources
+
+**Note**: This action does NOT restore instance resources (secrets, certificates, CRs). Use the `restore` action for full instance restoration.
+
+### Full Restore (CE Operator)
+Perform a complete restoration of MongoDB instance including all Kubernetes resources and database data from a backup.
+
+**Use Case**: This action is ideal for disaster recovery scenarios where you need to recreate the entire MongoDB instance from scratch, including all configuration, secrets, certificates, and data.
+
+**Prerequisites**:
+- Backup files must be available in the specified backup directory
+- Backup must include instance resources (created with `br_skip_instance: false`)
+- Target cluster must have cert-manager installed
+- Sufficient storage and resources available
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_action: restore
+    mas_instance_id: masinst1
+    mongodb_backup_version: 251212-021316
+    mas_backup_dir: /tmp/masbr
+    br_skip_instance: false
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
+**What this does**:
+1. Validates backup files and required variables
+2. Restores namespace, secrets, and ConfigMaps
+3. Restores CRDs and RBAC resources
+4. Restores MongoDB Operator deployment
+5. Restores Certificate Manager resources
+6. Restores MongoDBCommunity Custom Resource
+7. Waits for MongoDB instance to be fully operational
+8. Restores database data using `mongorestore`
+
+**Note**: This is a complete restoration that recreates the MongoDB instance from scratch. Use `restore_database` action if you only need to restore data to an existing instance.
 
 ### Install from Backup (CE Operator)
 Deploy a new MongoDB instance using configuration from a backup and restore data from a backup. This is useful for disaster recovery or migrating MongoDB to a new cluster.
