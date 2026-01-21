@@ -12,7 +12,8 @@ class ActionModule(ActionBase):
             "restore": ["mas_backup_dir", "catalog_backup_version"]
         },
         "certmanager": {
-            "backup": ["mas_backup_dir"]
+            "backup": ["mas_backup_dir"],
+            "restore": ["mas_backup_dir", "certmanager_backup_version"]
         },
         "grafana": {
             "backup": ["mas_backup_dir"]
