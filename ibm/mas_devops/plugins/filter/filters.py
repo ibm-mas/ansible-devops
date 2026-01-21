@@ -474,10 +474,11 @@ def get_default_upgrade_channel(current: str, valid_paths: dict) -> str:
       print(f'Error: channel upgrade compatibility matrix is incorrectly defined')
   return default
 
-def set_storage_class_name(storage_data: list, storage_class_name_rwo: str, storage_class_name_rwx: str):
+def set_storage_classes_names(storage_list: list, storage_class_name_rwo: str, storage_class_name_rwx: str):
   """
-  Iterate through the storage_data list and set the storage_class_name for each storage item.
-  Expects each item to have a spec field like below
+  Iterate through the storage_list list and set the storage_class_name for each storage item based on the access mode.
+  Expects data to be
+  storage:
   - name: meta
     spec:
       accessModes:
@@ -487,15 +488,66 @@ def set_storage_class_name(storage_data: list, storage_class_name_rwo: str, stor
           storage: 20Gi
       storageClassName: nfs-client
     type: create
+  - name: backup
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 20Gi
+      storageClassName: nfs-client
+    type: create
   """
 
-  for storage_item in storage_data:
+  for storage_item in storage_list:
     if 'spec' in storage_item and 'accessModes' in storage_item['spec'] and 'storageClassName' in storage_item['spec']: 
       if storage_item['spec']['accessModes'][0] == 'ReadWriteMany':
         storage_item['spec']['storageClassName'] = storage_class_name_rwx
       else:
         storage_item['spec']['storageClassName'] = storage_class_name_rwo
-  return storage_data
+  return storage_list
+
+def override_db2_storage_classes_names(storage_list: list, storage_class_name_meta: str, storage_class_name_data: str, storage_class_name_backup: str, storage_class_name_logs: str, storage_class_name_temp: str):
+  """
+  Iterate through the storage_list list and set the storage_class_name for each storage item based on the storage name.
+  Expects data to be
+  storage:
+  - name: meta
+    spec:
+      accessModes:
+      - ReadWriteMany
+      resources:
+        requests:
+          storage: 20Gi
+      storageClassName: nfs-client
+    type: create
+  - name: backup
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 20Gi
+      storageClassName: nfs-client
+    type: create
+  """
+  for storage_item in storage_list:
+    if 'name' in storage_item and 'spec' in storage_item and 'storageClassName' in storage_item['spec']: 
+      if storage_item['name'] == 'meta':
+        storage_item['spec']['storageClassName'] = storage_class_name_meta
+      elif storage_item['name'] == 'data':
+        storage_item['spec']['storageClassName'] = storage_class_name_data
+      elif storage_item['name'] == 'backup':
+        storage_item['spec']['storageClassName'] = storage_class_name_backup
+      elif storage_item['name'] == 'tempts':
+        storage_item['spec']['storageClassName'] = storage_class_name_temp
+      elif storage_item['name'] == 'activelogs':
+        storage_item['spec']['storageClassName'] = storage_class_name_logs
+      else:
+        print(f'WARNING: Unhandled db2 storage name for {storage_item["name"]}')
+      
+  return storage_list
+
 
 class FilterModule(object):
   def filters(self):
@@ -521,5 +573,6 @@ class FilterModule(object):
       'get_ecr_repositories': get_ecr_repositories,
       'is_channel_upgrade_path_valid': is_channel_upgrade_path_valid,
       'get_default_upgrade_channel': get_default_upgrade_channel,
-      'set_storage_class_name': set_storage_class_name
+      'set_storage_classes_names': set_storage_classes_names,
+      'override_db2_storage_classes_names': override_db2_storage_classes_names
     }

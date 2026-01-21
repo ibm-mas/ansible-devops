@@ -140,6 +140,11 @@
 # 7. Restore Db2uCluster
 # -----------------------------------------------------------------------------
 
+- name: "Overriding storage class name with default storage class in CR"
+  include_tasks: "tasks/restore/determine-storage-classes.yml"
+  when: 
+    - override_storageclass | bool
+
 - name: "Retrieve db2 passwords from secrets to restore via Db2uCluster CR"
   include_tasks: "tasks/restore/retrieve_db2_passwords.yml"
   no_log: true
@@ -150,52 +155,18 @@
     resource_kinds:
       - Db2uCluster
     override_values:
-      Db2uCluster: >-
-        {{
-          [
-            {
-              'spec.environment.database.ssl.secretName':
-                'db2u-certificate-' ~ db2_instance_name
-            }
-          ]
-          + (
-              [
-                {
-                  'spec.environment.ldap.password':
-                    db2_ldap_password
-                }
-              ]
-              if db2_ldap_password is defined and db2_ldap_password | length > 0
-              else []
-            )
-          + (
-              [
-                {
-                  'spec.environment.ldap.blueAdminPassword':
-                    db2_ldapblueadmin_password
-                }
-              ]
-              if db2_ldapblueadmin_password is defined and db2_ldapblueadmin_password | length > 0
-              else []
-            )
-          + (
-              [
-                {
-                  'spec.environment.instance.password':
-                    db2_instance_password
-                }
-              ]
-              if db2_instance_password is defined and db2_instance_password | length > 0
-              else []
-            )
-        }}
+      Db2uCluster:
+        - spec.environment.database.ssl.secretName: "db2u-certificate-{{ db2_instance_name | lower }}"
+        - spec.environment.instance.password: "{{ _db2_instance_password }}"
+        - spec.environment.ldap.password: "{{ _db2_ldappassword }}"
+        - spec.environment.ldap.blueAdminPassword: "{{ _db2_ldapblueadmin_password }}"
+        - spec.storage: "{{ _db2_storages }}"
   register: cr_result
   when:
     - namespace_result.success
 
 # 8. Set timezone
 # -----------------------------------------------------------------------------
-
 - name: "Determine if timezone is set in the CR"
   set_fact:
     db2_timezone: "{{ db2ucluster_cr_cfg.spec.advOpts.timezone | default('') }}"
@@ -203,8 +174,7 @@
 - name: "Set db2 instance timezone"
   include_tasks: "tasks/install/setup_timezone.yml"
   when:
-    - db2_timezone is defined
-    - db2_timezone != ""
+    - db2_timezone is defined and db2_timezone != ""
 
 # 9. Wait for the cluster to be ready
 # -----------------------------------------------------------------------------
@@ -251,8 +221,13 @@
     - namespace_result.success
     - subscriptions_result is defined and subscriptions_result.success
 
-# TODO 11. Restore LDAP user
-
+# 11. Restore LDAP user
+# -----------------------------------------------------------------------------
+- name: Restore LDAP user if username and password is provided
+  include_tasks: tasks/install/create_ldap_user.yml
+  when:
+    - db2_ldap_username is defined and db2_ldap_username != ""
+    - db2_ldap_password is defined and db2_ldap_password != ""
 
 # 12. Wait for the statefulset to be ready
 # -----------------------------------------------------------------------------
@@ -273,3 +248,91 @@
   retries: 20 # approx 10 minutes before we give up
   delay: 30 # seconds
   no_log: true # no_log because spits out big json object
+
+# Calculate total results
+# -----------------------------------------------------------------------------
+- name: "Calculate total restore results"
+  set_fact:
+    total_created: >-
+      {{
+        (namespace_result.created_count | default(0)) +
+        (secrets_configmaps_result.created_count | default(0)) +
+        (operatorgroups_result.created_count | default(0)) +
+        (subscriptions_result.created_count | default(0)) +
+        (certmanager_result.created_count | default(0)) +
+        (cr_result.created_count | default(0)) +
+        (routes_result.created_count | default(0))
+      }}
+    total_updated: >-
+      {{
+        (namespace_result.updated_count | default(0)) +
+        (secrets_configmaps_result.updated_count | default(0)) +
+        (operatorgroups_result.updated_count | default(0)) +
+        (subscriptions_result.updated_count | default(0)) +
+        (certmanager_result.updated_count | default(0)) +
+        (cr_result.updated_count | default(0)) +
+        (routes_result.updated_count | default(0))
+      }}
+    total_skipped: >-
+      {{
+        (namespace_result.skipped_count | default(0)) +
+        (secrets_configmaps_result.skipped_count | default(0)) +
+        (operatorgroups_result.skipped_count | default(0)) +
+        (subscriptions_result.skipped_count | default(0)) +
+        (certmanager_result.skipped_count | default(0)) +
+        (cr_result.skipped_count | default(0)) +
+        (routes_result.skipped_count | default(0))
+      }}
+    total_failed: >-
+      {{
+        (namespace_result.failed_count | default(0)) +
+        (secrets_configmaps_result.failed_count | default(0)) +
+        (operatorgroups_result.failed_count | default(0)) +
+        (subscriptions_result.failed_count | default(0)) +
+        (certmanager_result.failed_count | default(0)) +
+        (cr_result.failed_count | default(0)) +
+        (routes_result.failed_count | default(0))
+      }}
+
+- name: "Display total restore results"
+  debug:
+    msg:
+      - >-
+        Restore completed{{ ' with failures' if total_failed | int > 0
+        else ' successfully' }}
+      - "Total resources created: {{ total_created }}"
+      - "Total resources updated: {{ total_updated }}"
+      - "Total resources skipped: {{ total_skipped }}"
+      - "Total resources failed: {{ total_failed }}"
+
+# Fail task if any errors occurred
+# -----------------------------------------------------------------------------
+- name: "Collect all failed resources"
+  set_fact:
+    all_failed_resources: >-
+      {{
+        (namespace_result.failed_resources | default([])) +
+        (secrets_configmaps_result.failed_resources | default([])) +
+        (operatorgroups_result.failed_resources | default([])) +
+        (subscriptions_result.failed_resources | default([])) +
+        (certmanager_result.failed_resources | default([])) +
+        (cr_result.failed_resources | default([])) +
+        (routes_result.failed_resources | default([]))
+      }}
+
+- name: "Display failed resources"
+  debug:
+    msg:
+      - "Failed resources:"
+      - "{{ all_failed_resources | to_nice_yaml }}"
+  when: total_failed | int > 0
+
+- name: "Fail if restore had errors"
+  fail:
+    msg: |
+      Restore failed for {{ total_failed }} resource(s):
+      {% for resource in all_failed_resources %}
+      - {{ resource.description }}: {{ resource.error }}
+      {% endfor %}
+  when: total_failed | int > 0
+
