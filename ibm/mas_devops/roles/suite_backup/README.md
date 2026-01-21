@@ -33,3 +33,19 @@ Set version to override the default `YYMMDD-HHMMSS` timestamp version used in th
 - **Optional**
 - Default: `YYMMDD-HHMMSS` timestamp.
 - Environment Variable: `SUITE_BACKUP_VERSION`
+
+### include_sls
+Controls whether to include the Suite SLS (Suite License Service) configuration in the backup archive. If you plan to install a new SLS in any
+recovery action then you should set this to `false`.
+
+- **Optional**
+- Default: `true`
+- Environment Variable: `INCLUDE_SLS`
+
+### include_dro
+Controls whether to include the Suite DRO configuration in the backup archive. If you plan to install a new DRO in any
+recovery action then you should set this to `false`.
+
+- **Optional**
+- Default: `true`
+- Environment Variable: `INCLUDE_DRO`

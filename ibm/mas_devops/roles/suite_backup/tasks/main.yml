@@ -46,7 +46,97 @@
     msg: "Failed to detect MAS cluster issuer"
   when: mas_cluster_issuer.failed
 
-# 4. Set the backup_resources we want to backup. Note that if the resource doesn't
+# 4. Build the config.mas.ibm.com resource list based on include flags
+# -----------------------------------------------------------------------------
+- name: "Set fact: base config resources list"
+  set_fact:
+    config_resources:
+      - kind: AppCfg
+        api_version: config.mas.ibm.com/v1
+      - kind: IDPCfg
+        api_version: config.mas.ibm.com/v1
+      - kind: JdbcCfg
+        api_version: config.mas.ibm.com/v1
+      - kind: KafkaCfg
+        api_version: config.mas.ibm.com/v1
+      - kind: MongoCfg
+        api_version: config.mas.ibm.com/v1
+      - kind: ObjectStorageCfg
+        api_version: config.mas.ibm.com/v1
+      - kind: PushNotificationCfg
+        api_version: config.mas.ibm.com/v1
+      - kind: ScimCfg
+        api_version: config.mas.ibm.com/v1
+      - kind: SmtpCfg
+        api_version: config.mas.ibm.com/v1
+      - kind: WatsonStudioCfg
+        api_version: config.mas.ibm.com/v1
+
+- name: "Add BasCfg to config resources if include_dro is true"
+  set_fact:
+    config_resources: "{{ config_resources + [{'kind': 'BasCfg', 'api_version': 'config.mas.ibm.com/v1'}] }}"
+  when: include_dro | bool
+
+- name: "Add SlsCfg to config resources if include_sls is true"
+  set_fact:
+    config_resources: "{{ config_resources + [{'kind': 'SlsCfg', 'api_version': 'config.mas.ibm.com/v1'}] }}"
+  when: include_sls | bool
+
+# 5. Build the core namespace resources list
+# -----------------------------------------------------------------------------
+- name: "Set fact: mas core namespace resources"
+  set_fact:
+    mas_core_namespace_resources:
+      - kind: Project
+        api_version: project.openshift.io/v1
+        name: "{{ mas_core_namespace }}"
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_instance_id }}-credentials-superuser"
+      # subscription
+      - kind: Subscription
+        api_version: operators.coreos.com/v1alpha1
+        name: ibm-mas
+      - kind: OperatorGroup
+        api_version: operators.coreos.com/v1
+        name: operatorgroup
+      # secrets
+      - kind: Secret
+        api_version: v1
+        name: ibm-entitlement
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_instance_id }}-credentials-superuser"
+      # public cert in case of manual managed certs
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_instance_id }}-cert-public"
+      # certificates
+      - kind: Certificate
+        api_version: cert-manager.io/v1
+        labels:
+          - "mas.ibm.com/instanceId={{ mas_instance_id }}"
+      # addons.mas.ibm.com
+      - kind: MVIEdge
+        api_version: addons.mas.ibm.com/v1
+      - kind: ReplicaDB
+        api_version: addons.mas.ibm.com/v1
+      - kind: GenericAddon
+        api_version: addons.mas.ibm.com/v1
+      # core.mas.ibm.com
+      - kind: Suite
+        api_version: core.mas.ibm.com/v1
+      - kind: Workspace
+        api_version: core.mas.ibm.com/v1
+      # internal.mas.ibm.com
+      - kind: CoreIDP
+        api_version: internal.mas.ibm.com/v1
+
+- name: "Combine core namespace resources with config resources"
+  set_fact:
+    mas_core_namespace_resources: "{{ mas_core_namespace_resources + config_resources }}"
+
+# 6. Set the backup_resources we want to backup. Note that if the resource doesn't
 #    exist, the backup will still succeed. If a resource contains `secretName` key
 #    then the secret will be backed up as well.
 # -----------------------------------------------------------------------------
@@ -78,78 +168,9 @@
             api_version: cert-manager.io/v1
             name: "{{ mas_instance_id }}-cert-public-ca"
       - namespace: "{{ mas_core_namespace }}"
-        resources:
-          - kind: Project
-            api_version: project.openshift.io/v1
-            name: "{{ mas_core_namespace }}"
-          - kind: Secret
-            api_version: v1
-            name: "{{ mas_instance_id }}-credentials-superuser"
-          # subscription
-          - kind: Subscription
-            api_version: operators.coreos.com/v1alpha1
-            name: ibm-mas
-          - kind: OperatorGroup
-            api_version: operators.coreos.com/v1
-            name: operatorgroup
-          # secrets
-          - kind: Secret
-            api_version: v1
-            name: ibm-entitlement
-          - kind: Secret
-            api_version: v1
-            name: "{{ mas_instance_id }}-credentials-superuser"
-          # public cert in case of manual managed certs
-          - kind: Secret
-            api_version: v1
-            name: "{{ mas_instance_id }}-cert-public"
-          # certificates
-          - kind: Certificate
-            api_version: cert-manager.io/v1
-            labels:
-              - "mas.ibm.com/instanceId={{ mas_instance_id }}"
-          # addons.mas.ibm.com
-          - kind: MVIEdge
-            api_version: addons.mas.ibm.com/v1
-          - kind: ReplicaDB
-            api_version: addons.mas.ibm.com/v1
-          - kind: GenericAddon
-            api_version: addons.mas.ibm.com/v1
-          # config.mas.ibm.com
-          - kind: AppCfg
-            api_version: config.mas.ibm.com/v1
-          - kind: BasCfg
-            api_version: config.mas.ibm.com/v1
-          - kind: IDPCfg
-            api_version: config.mas.ibm.com/v1
-          - kind: JdbcCfg
-            api_version: config.mas.ibm.com/v1
-          - kind: KafkaCfg
-            api_version: config.mas.ibm.com/v1
-          - kind: MongoCfg
-            api_version: config.mas.ibm.com/v1
-          - kind: ObjectStorageCfg
-            api_version: config.mas.ibm.com/v1
-          - kind: PushNotificationCfg
-            api_version: config.mas.ibm.com/v1
-          - kind: ScimCfg
-            api_version: config.mas.ibm.com/v1
-          - kind: SlsCfg
-            api_version: config.mas.ibm.com/v1
-          - kind: SmtpCfg
-            api_version: config.mas.ibm.com/v1
-          - kind: WatsonStudioCfg
-            api_version: config.mas.ibm.com/v1
-          # core.mas.ibm.com
-          - kind: Suite
-            api_version: core.mas.ibm.com/v1
-          - kind: Workspace
-            api_version: core.mas.ibm.com/v1
-          # internal.mas.ibm.com
-          - kind: CoreIDP
-            api_version: internal.mas.ibm.com/v1
+        resources: "{{ mas_core_namespace_resources }}"
 
-# 5. Call the backup_resources plugin to execute the backup to the path provided
+# 7. Call the backup_resources plugin to execute the backup to the path provided
 # -----------------------------------------------------------------------------
 - name: "Backup MAS Suite resources (referenced secrets are auto-discovered)"
   ibm.mas_devops.backup_resource:
@@ -157,7 +178,7 @@
     backup_path: "{{ suite_backup_path }}"
   register: backup_result
 
-# 6. Show the results
+# 8. Show the results
 # -----------------------------------------------------------------------------
 - name: "Display backup results"
   debug:
@@ -169,7 +190,7 @@
       - "Secrets auto-discovered: {{ backup_result.discovered_secrets_count }}"
       - "Backup location: {{ suite_backup_path }}"
 
-# 7. Fail task if any errors occurred.
+# 9. Fail task if any errors occurred.
 # -----------------------------------------------------------------------------
 - name: "Display failed resources"
   debug:
