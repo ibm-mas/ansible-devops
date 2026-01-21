@@ -194,7 +194,7 @@ class ActionModule(ActionBase):
           backup_path: "/backup/backup-250115-120000-suite"
           replace_resource: false
       
-      - name: "Restore resources with overrides"
+      - name: "Restore resources with overrides, filter_values and skip_files"
         ibm.mas_devops.restore_resource:
           backup_path: "/backup/backup-250115-120000-suite"
           resource_kinds:
@@ -212,6 +212,9 @@ class ActionModule(ActionBase):
               - spec.clusterIssuer.name: bob
             Secret:
               - data.value: newvalue
+          skip_files: #skip applying these files
+            Secret:
+              - jdbc-credentials.yaml
     """
     def run(self, tmp=None, task_vars=None):
         super(ActionModule, self).run(tmp, task_vars)
@@ -243,6 +246,7 @@ class ActionModule(ActionBase):
         resource_kinds = self._task.args.get('resource_kinds', None)
         override_values = self._task.args.get('override_values', None)
         filter_values = self._task.args.get('filter_values', None)
+        skip_files = self._task.args.get('skip_files', None)
 
         if backup_path is None or backup_path == "":
             raise AnsibleError(f"Error: backup_path argument was not provided")
@@ -265,6 +269,11 @@ class ActionModule(ActionBase):
         if filter_values:
             filter_kinds = ', '.join(filter_values.keys())
             display.v(f"Filter values will be applied for resource kinds: {filter_kinds}")
+        
+        skip_files_lower = None
+        if skip_files:
+            display.v(f"Skip files will be applied for resource kinds: {', '.join(skip_files.keys())}")
+            skip_files_lower = {f"{k.lower()}s": v for k, v in skip_files.items()}
 
         total_created = 0
         total_updated = 0
@@ -328,6 +337,10 @@ class ActionModule(ActionBase):
         # Process each resource directory
         for resource_dir in sorted(resource_dirs):
             resource_dir_path = os.path.join(resources_path, resource_dir)
+            files_to_skip= []
+
+            if skip_files_lower:
+                files_to_skip = skip_files_lower[resource_dir]
             
             # Get all YAML files in this directory
             try:
@@ -344,6 +357,12 @@ class ActionModule(ActionBase):
             
             # Process each YAML file
             for yaml_file in sorted(yaml_files):
+
+                if yaml_file in files_to_skip:
+                    display.v(f"Skipping {yaml_file} as it is in the skip list")
+                    total_skipped += 1
+                    continue
+
                 yaml_file_path = os.path.join(resource_dir_path, yaml_file)
                 
                 # Load the resource data

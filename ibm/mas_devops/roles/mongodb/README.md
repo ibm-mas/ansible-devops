@@ -581,17 +581,18 @@ For backup and restore operations, set `mongodb_action` to one of the following:
 - Default Value: YYMMDD-HHMMSS
 - Example: `251212-021316`
 
-### br_skip_instance
-Controls whether to backup MongoDB instance resources (secrets, certificates, issuers) along with database data. Set to `true` to skip instance resources in the backup.
-
-- Environment Variable: `BR_SKIP_INSTANCE`
-- Default Value: `false`
-
 ### mongodb_instance_name
 The name of the MongoDB instance to backup.
 
 - Environment Variable: `MONGODB_INSTANCE_NAME`
 - Default Value: `mas-mongo-ce`
+
+### override_storageclass
+Controls whether to override storage class for the MongoDB instance during restore.
+Set to `true` to override the storage class with `MONGODB_STORAGE_CLASS` value or cluster's default storageclass.
+
+- Environment Variable: `OVERRIDE_STORAGECLASS`
+- Default Value: `false`
 
 ### mas_app_id
 Optional. Specific MAS application ID for targeted backup/restore operations.
@@ -609,7 +610,8 @@ This section provides comprehensive information about MongoDB backup and restore
 
 | Action | Purpose | Instance Resources | Database Data | Prerequisites | Use Case |
 |--------|---------|-------------------|---------------|---------------|----------|
-| `backup` | Create backup | Optional (controlled by `br_skip_instance`) | Yes | Running MongoDB instance | Regular backups, disaster recovery preparation |
+| `backup` | Create backup | Yes | Yes | Running MongoDB instance | Regular backups, disaster recovery preparation |
+| `backup_database` | Database-only backup | No | Yes | Running MongoDB instance | Regular backups, disaster recovery preparation |
 | `restore` | Full restore | Yes (recreates instance) | Yes | Backup with instance resources | Disaster recovery, cluster migration, complete restoration |
 | `restore_database` | Database-only restore | No (preserves existing) | Yes | Running MongoDB instance with matching version | Data recovery, selective restore, testing |
 
@@ -660,7 +662,7 @@ Performs a complete restoration of both the MongoDB instance and its databases:
 7. Restores the MongoDB Operator Deployment
 8. Waits for MongoDB operator to be ready
 9. Restores Certificate Manager resources (Issuer, Certificate)
-10. Restores the MongoDBCommunity Custom Resource
+10. Restores the MongoDBCommunity Custom Resource (Overrides storageclass if flag is set)
 11. Waits for MongoDB StatefulSets to be ready
 12. Restores ServiceMonitor and GrafanaDashboard resources
 13. Restores database data using `mongorestore`
@@ -675,7 +677,7 @@ Performs a complete restoration of both the MongoDB instance and its databases:
 - `mas_instance_id`: MAS instance identifier
 - `mas_backup_dir`: Directory containing the backup
 - `mongodb_backup_version`: Timestamp of the backup to restore
-- `br_skip_instance`: Set to `false` to restore instance resources
+- `override_storageclass`: Set to `true` to override storage class during instance restore
 
 #### 2. Database-Only Restore (`restore_database` action)
 Restores only the database data to an existing MongoDB instance:
@@ -729,9 +731,8 @@ Restores only the database data to an existing MongoDB instance:
 - Network bandwidth may affect backup/restore speed
 
 **Restore Action Differences:**
-- **`restore` action**: Recreates the entire MongoDB instance from scratch, including all Kubernetes resources
+- **`restore` action**: Recreates the entire MongoDB instance from scratch, including all Kubernetes resources and restores database
 - **`restore_database` action**: Only restores database data to an existing instance, preserving current configuration
-- Use `br_skip_instance` variable to control whether instance resources are included in backup/restore
 
 ### Backup and Restore Best Practices
 
@@ -799,7 +800,20 @@ Create a complete backup including both database data and instance resources (se
     mas_instance_id: masinst1
     mas_backup_dir: /tmp/masbr
     mongodb_action: backup
-    br_skip_instance: false
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
+### Backup Database (CE Operator)
+Create a backup of database data.
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_backup_dir: /tmp/masbr
+    mongodb_action: backup_database
   roles:
     - ibm.mas_devops.mongodb
 ```
@@ -844,7 +858,7 @@ Perform a complete restoration of MongoDB instance including all Kubernetes reso
 
 **Prerequisites**:
 - Backup files must be available in the specified backup directory
-- Backup must include instance resources (created with `br_skip_instance: false`)
+- Backup must include instance resources (secrets, certificates, CRs)
 - Target cluster must have cert-manager installed
 - Sufficient storage and resources available
 
@@ -856,7 +870,6 @@ Perform a complete restoration of MongoDB instance including all Kubernetes reso
     mas_instance_id: masinst1
     mongodb_backup_version: 251212-021316
     mas_backup_dir: /tmp/masbr
-    br_skip_instance: false
   roles:
     - ibm.mas_devops.mongodb
 ```
