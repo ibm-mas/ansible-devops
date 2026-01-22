@@ -63,31 +63,31 @@
 # Prepare shell scripts for restore and transfer scripts to mongo pod
 # -----------------------------------------------------------------------------
 - block:
-  - name: Create create-role-user.sh script in local /tmp
-    ansible.builtin.template:
-      src: community/backup-restore/create-role-user.sh.j2
-      dest: /tmp/create-role-user.sh
-      mode: '777'
+    - name: Create create-role-user.sh script in local /tmp
+      ansible.builtin.template:
+        src: community/backup-restore/create-role-user.sh.j2
+        dest: /tmp/create-role-user.sh
+        mode: '777'
 
-  - name: Create database-restore.sh script in local /tmp
-    ansible.builtin.template:
-      src: community/backup-restore/database-restore.sh.j2
-      dest: /tmp/database-restore.sh
-      mode: '777'
+    - name: Create database-restore.sh script in local /tmp
+      ansible.builtin.template:
+        src: community/backup-restore/database-restore.sh.j2
+        dest: /tmp/database-restore.sh
+        mode: '777'
 
-  - name: Copy the create-role-user.sh script into the mongodb pod
-    shell: "oc cp --retries=50 /tmp/create-role-user.sh {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/create-role-user.sh -c mongod"
-    register: copy_result
-    retries: 2
-    delay: 15 # seconds
-    until: copy_result.rc == 0
+    - name: Copy the create-role-user.sh script into the mongodb pod
+      shell: "oc cp --retries=50 /tmp/create-role-user.sh {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/create-role-user.sh -c mongod"
+      register: copy_result
+      retries: 2
+      delay: 15 # seconds
+      until: copy_result.rc == 0
 
-  - name: Copy the database-restore.sh script into the mongodb pod
-    shell: "oc cp --retries=50 /tmp/database-restore.sh {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/database-restore.sh -c mongod"
-    register: copy_result
-    retries: 2
-    delay: 15 # seconds
-    until: copy_result.rc == 0
+    - name: Copy the database-restore.sh script into the mongodb pod
+      shell: "oc cp --retries=50 /tmp/database-restore.sh {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/database-restore.sh -c mongod"
+      register: copy_result
+      retries: 2
+      delay: 15 # seconds
+      until: copy_result.rc == 0
 
 # The log file will also be available inside the pod /tmp/create-role-user.log
 - name: Exec into mongo pod and run create-role-user.sh to setup restore role and user in Mongodb.

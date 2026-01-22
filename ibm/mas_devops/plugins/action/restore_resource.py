@@ -2,7 +2,6 @@
 
 import logging
 import os
-import yaml
 import urllib3
 
 from ansible.plugins.action import ActionBase
