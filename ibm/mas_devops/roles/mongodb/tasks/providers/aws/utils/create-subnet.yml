@@ -20,29 +20,29 @@
     subnet_id: "{{ subnet_info.stdout | from_json | json_query('Subnets[0].SubnetId') }}"
 
 - name: Create subnet in availability zone if it doen't exists
-  when: not subnet_id
+  when: subnet_id is not defined or subnet_id | length == 0
   command: >
     aws ec2 create-subnet \
       --vpc-id '{{ vpc_id }}' \
       --cidr-block '{{item[1]}}' \
-      --availability-zone '{{ item[0] }}'
+      --availability-zone '{{ item[0] }}' \
       --tag-specifications ResourceType=subnet,Tags=[{Key=Name,Value='{{ docdb_cluster_name }}'}]
   register: create_subnet_info
 
 - name: Fail if Subnet not created successfully
-  when: not subnet_id
+  when: subnet_id is not defined or subnet_id | length == 0
   assert:
     that:
       - create_subnet_info is defined and create_subnet_info != ''
-      - create_subnet_info.stdout
+      - create_subnet_info.stdout | length > 0
       - create_subnet_info.stdout | from_json | json_query('Subnet.SubnetId')
 
 - name: If subnet Id already exists add it to list
-  when: subnet_id
+  when: subnet_id | length > 0
   set_fact:
     subnet_id_list: "{{ subnet_id_list|default([]) + [subnet_id] }}"
 
 - name: Add Newly created subnet Id to list
-  when: not subnet_id
+  when: subnet_id is not defined or subnet_id | length == 0
   set_fact:
     subnet_id_list: "{{ subnet_id_list | default([]) + [create_subnet_info.stdout | from_json | json_query('Subnet.SubnetId')] }}"
