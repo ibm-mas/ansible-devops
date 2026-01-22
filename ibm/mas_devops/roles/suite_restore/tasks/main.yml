@@ -1,20 +1,14 @@
 ---
 # 1. Check mas core restore required variables
 # -----------------------------------------------------------------------------
-- name: "Fail if mas_instance_id is not provided"
-  ansible.builtin.assert:
-    that: mas_instance_id is defined and mas_instance_id != ""
-    fail_msg: "mas_instance_id is required"
+- name: "Verify required variables for suite restore"
+  ibm.mas_devops.verify_backup_restore_vars:
+    component: suite
+    action: restore
+    mas_instance_id: "{{ mas_instance_id }}"
+    mas_backup_dir: "{{ mas_backup_dir }}"
+    suite_backup_version: "{{ suite_backup_version }}"
 
-- name: "Fail if mas_backup_dir is not provided"
-  ansible.builtin.assert:
-    that: mas_backup_dir is defined and mas_backup_dir != ""
-    fail_msg: "mas_backup_dir is required"
-
-- name: "Fail if suite_backup_version is not provided"
-  ansible.builtin.assert:
-    that: suite_backup_version is defined and suite_backup_version != ""
-    fail_msg: "suite_backup_version is required"
 - name: "Set fact: mas core namespace name"
   set_fact:
     mas_core_namespace: "mas-{{ mas_instance_id }}-core"
@@ -185,13 +179,11 @@
       {{ addons_result.failed_count }} failed
   when: projects_result.success
 
-# Step 6: Restore MAS Config resources (config.mas.ibm.com)
-- name: "Restore MAS Config resources"
-  ibm.mas_devops.restore_resource:
-    backup_path: "{{ suite_backup_path }}"
-    resource_kinds:
+# Step 6: Build MAS Config resource kinds list based on include flags
+- name: "Set fact: base config resource kinds"
+  set_fact:
+    config_resource_kinds:
       - AppCfg
-      - BasCfg
       - IDPCfg
       - JdbcCfg
       - KafkaCfg
@@ -199,14 +191,80 @@
       - ObjectStorageCfg
       - PushNotificationCfg
       - ScimCfg
-      - SlsCfg
       - SmtpCfg
       - WatsonStudioCfg
-    override_values:
-      SlsCfg:
-        - spec.config.url: "{{ sls_url }}"
-      BasCfg:
-        - spec.config.url: "{{ bas_url }}"
+    config_override_values: {}
+
+- name: "Add BasCfg to restore if include_dro_from_backup is true"
+  block:
+    - name: "Add BasCfg to config resource kinds"
+      set_fact:
+        config_resource_kinds: "{{ config_resource_kinds + ['BasCfg'] }}"
+
+    - name: "Add BasCfg override values"
+      set_fact:
+        config_override_values: "{{ config_override_values | combine({'BasCfg': [{'spec.config.url': bas_url}]}) }}"
+  when: include_dro_from_backup | bool
+
+- name: "Apply external DRO config if include_dro_from_backup is false and dro_cfg_file is provided"
+  block:
+    - name: "Verify dro_cfg_file exists"
+      stat:
+        path: "{{ dro_cfg_file }}"
+      register: dro_cfg_file_stat
+
+    - name: "Fail if dro_cfg_file does not exist"
+      fail:
+        msg: "DRO config file not found at: {{ dro_cfg_file }}"
+      when: not dro_cfg_file_stat.stat.exists or not dro_cfg_file_stat.stat.isreg
+
+    - name: "Apply DRO config file"
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ dro_cfg_file }}"
+  when:
+    - not (include_dro_from_backup | bool)
+    - dro_cfg_file is defined
+    - dro_cfg_file != ""
+
+- name: "Add SlsCfg to restore if include_sls_from_backup is true"
+  block:
+    - name: "Add SlsCfg to config resource kinds"
+      set_fact:
+        config_resource_kinds: "{{ config_resource_kinds + ['SlsCfg'] }}"
+
+    - name: "Add SlsCfg override values"
+      set_fact:
+        config_override_values: "{{ config_override_values | combine({'SlsCfg': [{'spec.config.url': sls_url}]}) }}"
+  when: include_sls_from_backup | bool
+
+- name: "Apply external SLS config if include_sls_from_backup is false and sls_cfg_file is provided"
+  block:
+    - name: "Verify sls_cfg_file exists"
+      stat:
+        path: "{{ sls_cfg_file }}"
+      register: sls_cfg_file_stat
+
+    - name: "Fail if sls_cfg_file does not exist"
+      fail:
+        msg: "SLS config file not found at: {{ sls_cfg_file }}"
+      when: not sls_cfg_file_stat.stat.exists or not sls_cfg_file_stat.stat.isreg
+
+    - name: "Apply SLS config file"
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ sls_cfg_file }}"
+  when:
+    - not (include_sls_from_backup | bool)
+    - sls_cfg_file is defined
+    - sls_cfg_file != ""
+
+# Step 7: Restore MAS Config resources (config.mas.ibm.com)
+- name: "Restore MAS Config resources"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ suite_backup_path }}"
+    resource_kinds: "{{ config_resource_kinds }}"
+    override_values: "{{ config_override_values }}"
   register: configs_result
   when: projects_result.success
 
@@ -219,7 +277,7 @@
       {{ configs_result.failed_count }} failed
   when: projects_result.success
 
-# Step 7: Restore MAS Internal resources (internal.mas.ibm.com)
+# Step 8: Restore MAS Internal resources (internal.mas.ibm.com)
 - name: "Restore MAS Internal resources"
   ibm.mas_devops.restore_resource:
     backup_path: "{{ suite_backup_path }}"
@@ -237,7 +295,7 @@
       {{ internal_result.failed_count }} failed
   when: projects_result.success
 
-# Step 8: Restore Suite
+# Step 9: Restore Suite
 - name: "Restore Suite"
   ibm.mas_devops.restore_resource:
     backup_path: "{{ suite_backup_path }}"
@@ -285,7 +343,7 @@
       suite_result.updated_count > 0 or
       suite_result.skipped_count > 0
 
-# Step 9: Restore Workspaces
+# Step 10: Restore Workspaces
 - name: "Restore Workspaces"
   ibm.mas_devops.restore_resource:
     backup_path: "{{ suite_backup_path }}"

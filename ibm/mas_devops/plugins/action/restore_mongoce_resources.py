@@ -10,7 +10,6 @@ from ansible.utils.display import Display
 from kubernetes.dynamic import DynamicClient
 from kubernetes.dynamic.exceptions import NotFoundError
 
-import yaml
 import os
 from mas.devops.ocp import createNamespace, apply_resource
 

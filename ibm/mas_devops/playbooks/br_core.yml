@@ -1,0 +1,144 @@
+---
+- name: "MAS Core Backup and Restore"
+  hosts: localhost
+  any_errors_fatal: true
+  vars:
+    # Define the target for backup/restore
+    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+
+    # Set the action for this playbook of either backup or restore
+    br_action: "{{ lookup('env', 'BR_ACTION') | default('backup', true) }}"
+
+    # The top level location to save (on backup) or retrieve (on restore) the archive files
+    mas_backup_dir: "{{ lookup('env', 'MAS_BACKUP_DIR') }}" # eg: /tmp/mas_backups
+
+    # Backup version to use for all during backup action
+    # Note: The default timestamp will be set in pre_tasks to ensure consistency across all roles
+    backup_version: "{{ lookup('env', 'BACKUP_VERSION') }}"
+
+    # Required for restore action, the backup version to use on restore
+    backup_version_to_restore: "{{ lookup('env', 'BACKUP_VERSION_TO_RESTORE') }}"
+
+    # Computed variable: use backup_version for backup action, backup_version_to_restore for restore action
+    br_action_version: "{{ backup_version if br_action == 'backup' else backup_version_to_restore }}"
+
+    # Configurable flags for SLS and DRO. You should not include SLS or DRO if theses are configured externally
+    # the the cluster running the Suite. When these values are false then the slscfg and bascfg (for DRO) will
+    # be restored from what is defined in the backup config for the suite.
+    include_sls: "{{ lookup('env', 'INCLUDE_SLS') | default('true', true) | bool }}" # Set to false to skip SLS
+    include_dro: "{{ lookup('env', 'INCLUDE_DRO') | default('true', true) | bool }}" # Set to false to skip DRO
+
+    # Required for DRO install
+    ibm_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
+    dro_contact_email: "{{ lookup('env', 'DRO_CONTACT_EMAIL') }}"
+    dro_contact_firstname: "{{ lookup('env', 'DRO_CONTACT_FIRSTNAME') }}"
+    dro_contact_lastname: "{{ lookup('env', 'DRO_CONTACT_LASTNAME') }}"
+
+    # Set the following vars to control the domain and urls used on the restore.
+    # This is used when you are restoring to a different cluster than the one that was backed up,
+    # and the domain will be different.
+    mas_domain_on_restore: "{{ lookup('env', 'MAS_DOMAIN_ON_RESTORE') }}"
+    # If `include_sls` is false. The URL for the Suite License Service (SLS). If not provided, the
+    # URL from the backup will be used. This is used when the domain has changed for SLS but SLS was restored
+    # from a backup and so the regristration key is the same.
+    sls_url_on_restore: "{{ lookup('env', 'SLS_URL_ON_RESTORE') }}"
+    # Same setting as above but for dro when `include_dro` is false.
+    dro_url_on_restore: "{{ lookup('env', 'MAS_DOMAIN_ON_RESTORE') }}"
+
+    # For DRO and SLS set the mas_config_dir for when these are either restored or installed new.
+    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+
+  pre_tasks:
+    - name: "Set backup_version with timestamp if not provided"
+      ansible.builtin.set_fact:
+        backup_version: "{{ lookup('pipe', 'date +%y%m%d-%H%M%S') }}"
+      when: backup_version is not defined or backup_version == ''
+
+    - name: "Fail if mas_instance_id is not set to"
+      ansible.builtin.assert:
+        that:
+          - mas_instance_id is defined
+        fail_msg: "mas_instance_id is required and must be set"
+
+    - name: "Fail if mas_backup_dir is not set to"
+      ansible.builtin.assert:
+        that:
+          - mas_backup_dir is defined
+        fail_msg: "mas_backup_dir is required and must be set"
+
+    - name: "Fail if br_action is not set to backup|restore"
+      ansible.builtin.assert:
+        that:
+          - br_action is defined
+          - br_action in ["backup", "restore"]
+        fail_msg: "br_action is required and must be set to 'backup' or 'restore'"
+
+    - name: "Fail if backup_version_to_restore is not set on restore"
+      ansible.builtin.assert:
+        that:
+          - backup_version_to_restore is defined
+        fail_msg: "backup_version_to_restore is required when running 'restore'"
+      when: br_action == "restore"
+
+    - name: Check for required DRO environment variables
+      assert:
+        that:
+          # DRO.
+          - lookup('env', 'IBM_ENTITLEMENT_KEY') != ""
+          - lookup('env', 'DRO_CONTACT_EMAIL') != ""
+          - lookup('env', 'DRO_CONTACT_FIRSTNAME') != ""
+          - lookup('env', 'DRO_CONTACT_LASTNAME') != ""
+        fail_msg: "One or more required environment variables are not defined for DRO"
+      when:
+        - include_dro | bool
+        - br_action == "restore"
+
+  roles:
+    - role: ibm.mas_devops.ibm_catalogs
+      vars:
+        ibm_catalogs_action: "{{ br_action }}"
+        catalog_backup_version: "{{ br_action_version }}"
+
+    - role: ibm.mas_devops.cert_manager
+      vars:
+        cert_manager_action: "{{ br_action }}"
+        certmanager_backup_version: "{{ br_action_version }}"
+
+    - role: ibm.mas_devops.mongodb
+      vars:
+        mongodb_action: "{{ br_action }}"
+        mongodb_backup_version: "{{ br_action_version }}"
+        mongodb_instance_name: "{{ lookup('env', 'MONGODB_INSTANCE_NAME') | default('mas-mongo-ce', true) }}"
+        mongodb_provider: "community" # only community is supported
+
+    - role: ibm.mas_devops.sls
+      when: include_sls | bool
+      vars:
+        sls_action: "{{ br_action }}"
+        sls_backup_version: "{{ br_action_version }}"
+
+    - role: ibm.mas_devops.suite_backup
+      when: br_action == "backup"
+      vars:
+        suite_backup_version: "{{ br_action_version }}"
+
+    - role: ibm.mas_devops.dro
+      when:
+        - include_dro | bool
+        - br_action == "restore"
+      vars:
+        dro_action: "install"
+
+    - role: ibm.mas_devops.suite_restore
+      when: br_action == "restore"
+      vars:
+        # SLS skiped in this play so include the config in the restore from the backup
+        include_sls_from_backup: "{{ not (include_sls | bool) }}"
+        # DRO skiped in this play so include the config in the restore from the backup
+        include_dro_from_backup: "{{ not (include_dro | bool) }}"
+        suite_backup_version: "{{ br_action_version }}"
+        sls_cfg_file: "{{ (mas_config_dir + '/sls.yml') if (include_sls | bool) else omit }}"
+        dro_cfg_file: "{{ (mas_config_dir + '/dro.yml') if (include_dro | bool) else omit }}"
+        mas_domain: "{{ mas_domain_on_restore if (mas_domain_on_restore is defined and mas_domain_on_restore != '') else omit }}"
+        sls_url: "{{ sls_url_on_restore if (sls_url_on_restore is defined and sls_url_on_restore != '') else omit }}"
+        dro_url: "{{ dro_url_on_restore if (dro_url_on_restore is defined and dro_url_on_restore != '') else omit }}"
