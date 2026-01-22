@@ -15,7 +15,7 @@
 
 - name: "Fail if OCS Cluster is not provided"
   assert:
-    that: ocsavailable is defined and ocsavailable
+    that: ocsavailable is defined and ocsavailable | length > 0
     fail_msg: "OCS Cluster is not ready, pls install OCS first."
 
 - name: "Print If there's OCS cluster"
@@ -26,7 +26,7 @@
 # 2. Create the object store
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage : Create objectstore in OSC Cluster"
-  when: ocsavailable is defined and ocsavailable
+  when: ocsavailable is defined and ocsavailable | length > 0
   kubernetes.core.k8s:
     apply: yes
     template: "templates/ocs/object.yaml"
@@ -34,7 +34,7 @@
 # 3. Create the object User
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage : Create objectstore User"
-  when: ocsavailable is defined and ocsavailable
+  when: ocsavailable is defined and ocsavailable | length > 0
   kubernetes.core.k8s:
     apply: yes
     template: "templates/ocs/objectuser.yaml"
@@ -53,7 +53,7 @@
 # 4. Set up the domain name for object storage route
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage : Get cluster subdomain"
-  when: ocsavailable is defined and ocsavailable
+  when: ocsavailable is defined and ocsavailable | length > 0
   kubernetes.core.k8s_info:
     api_version: config.openshift.io/v1
     kind: Ingress
@@ -61,14 +61,14 @@
   register: _cluster_subdomain
 
 - name: "ocs/objectstorage : Configure domain"
-  when: ocsavailable is defined and ocsavailable
+  when: ocsavailable is defined and ocsavailable | length > 0
   set_fact:
     cos_domain: "rgw-openshift-storage.{{ _cluster_subdomain.resources[0].spec.domain }}"
 
 # 5. Create route for cos
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage : Create objectstore route"
-  when: ocsavailable is defined and ocsavailable
+  when: ocsavailable is defined and ocsavailable | length > 0
   kubernetes.core.k8s:
     apply: yes
     template: "templates/ocs/rgw.yaml"
@@ -76,7 +76,7 @@
 # 6. Query the object User crdential
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage : Lookup if cos user secret is there"
-  when: ocsavailable is defined and ocsavailable
+  when: ocsavailable is defined and ocsavailable | length > 0
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
@@ -105,7 +105,7 @@
 
 - name: "ocs/objectstorage : Query cos secret based on existing secret/cm"
   when:
-    - ocsavailable is defined and ocsavailable
+    - ocsavailable is defined and ocsavailable | length > 0
     - objectuserSecret.resources| length != 0
   set_fact:
     ocscos_url: "https://{{ cos_domain }}"
