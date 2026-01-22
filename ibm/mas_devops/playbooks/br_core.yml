@@ -28,6 +28,23 @@
     include_sls: "{{ lookup('env', 'INCLUDE_SLS') | default('true', true) | bool }}" # Set to false to skip SLS
     include_dro: "{{ lookup('env', 'INCLUDE_DRO') | default('true', true) | bool }}" # Set to false to skip DRO
 
+    # Required for DRO install
+    ibm_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
+    dro_contact_email: "{{ lookup('env', 'DRO_CONTACT_EMAIL') }}"
+    dro_contact_firstname: "{{ lookup('env', 'DRO_CONTACT_FIRSTNAME') }}"
+    dro_contact_lastname: "{{ lookup('env', 'DRO_CONTACT_LASTNAME') }}"
+
+    # Set the following vars to control the domain and urls used on the restore.
+    # This is used when you are restoring to a different cluster than the one that was backed up,
+    # and the domain will be different.
+    mas_domain_on_restore: "{{ lookup('env', 'MAS_DOMAIN_ON_RESTORE') }}"
+    # If `include_sls` is false. The URL for the Suite License Service (SLS). If not provided, the
+    # URL from the backup will be used. This is used when the domain has changed for SLS but SLS was restored
+    # from a backup and so the regristration key is the same.
+    sls_url_on_restore: "{{ lookup('env', 'SLS_URL_ON_RESTORE') }}"
+    # Same setting as above but for dro when `include_dro` is false.
+    dro_url_on_restore: "{{ lookup('env', 'MAS_DOMAIN_ON_RESTORE') }}"
+
     # For DRO and SLS set the mas_config_dir for when these are either restored or installed new.
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
@@ -62,6 +79,19 @@
           - backup_version_to_restore is defined
         fail_msg: "backup_version_to_restore is required when running 'restore'"
       when: br_action == "restore"
+
+    - name: Check for required DRO environment variables
+      assert:
+        that:
+          # DRO.
+          - lookup('env', 'IBM_ENTITLEMENT_KEY') != ""
+          - lookup('env', 'DRO_CONTACT_EMAIL') != ""
+          - lookup('env', 'DRO_CONTACT_FIRSTNAME') != ""
+          - lookup('env', 'DRO_CONTACT_LASTNAME') != ""
+        fail_msg: "One or more required environment variables are not defined for DRO"
+      when: 
+        - include_dro | bool
+        - br_action == "restore"
 
   roles:
     - role: ibm.mas_devops.ibm_catalogs
@@ -109,3 +139,6 @@
         suite_backup_version: "{{ br_action_version }}"
         sls_cfg_file: "{{ (mas_config_dir + '/sls.yml') if (include_sls | bool) else omit }}"
         dro_cfg_file: "{{ (mas_config_dir + '/dro.yml') if (include_dro | bool) else omit }}"
+        mas_domain: "{{ mas_domain_on_restore if (mas_domain_on_restore is defined and mas_domain_on_restore != '') else omit }}"
+        sls_url: "{{ sls_url_on_restore if (sls_url_on_restore is defined and sls_url_on_restore != '') else omit }}"
+        dro_url: "{{ dro_url_on_restore if (dro_url_on_restore is defined and dro_url_on_restore != '') else omit }}"
