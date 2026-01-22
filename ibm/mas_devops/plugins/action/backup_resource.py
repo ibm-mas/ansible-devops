@@ -9,7 +9,7 @@ from ansible.utils.display import Display
 from kubernetes import client, config
 from kubernetes.dynamic import DynamicClient
 
-from mas.devops.backup import createBackupDirectories, backupResources 
+from mas.devops.backup import backupResources 
 
 urllib3.disable_warnings()  # Disabling warnings will prevent InsecureRequestWarnings from dynClient
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)-20s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
