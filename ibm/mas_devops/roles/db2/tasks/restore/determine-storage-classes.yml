@@ -1,0 +1,15 @@
+---
+- name: "Determining storage class name to override"
+  include_tasks: "tasks/install/determine-storage-classes.yml"
+
+# Get Storage from DB2 CR
+- name: Override storage class names in the db2 spec.storage
+  set_fact:
+    _db2_storages: "{{ db2ucluster_cr_cfg.spec.storage | ibm.mas_devops.override_db2_storage_classes_names(db2_meta_storage_class, db2_data_storage_class, db2_backup_storage_class, db2_logs_storage_class, db2_temp_storage_class) }}"
+  when:
+    - db2_meta_storage_class is defined
+    - db2_data_storage_class is defined
+    - db2_backup_storage_class is defined
+    - db2_logs_storage_class is defined
+    - db2_temp_storage_class is defined
+

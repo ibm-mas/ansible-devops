@@ -168,12 +168,19 @@
 
 # Load default storage classes (if not provided by the user and not an update)
 # -----------------------------------------------------------------------------
-- name: Use chosen (or default) storage class
+- name: Use chosen (or default) storage class when override_storageclass is true
   include_tasks: tasks/providers/community/determine-storage-classes.yml
   when:
     - namespace_result.success
     - certmanager_result is defined and certmanager_result.success
-    - existing_mongo_storage_class is not defined
+    - override_storageclass | bool
+
+- name: Replace mongo storageclass names when override_storageclass is true
+  when:
+    - override_storageclass | bool
+    - mongodb_storage_class is defined
+  set_fact:
+    _mongodb_storage: "{{ mongodbcr_cfg.spec.statefulSet.spec.volumeClaimTemplates | ibm.mas_devops.set_storage_classes_names(mongodb_storage_class, mongodb_storage_class) }}"
 
 # 8. Restore MongodbCE CR resource
 # -----------------------------------------------------------------------------
@@ -182,10 +189,12 @@
     backup_path: "{{ mongodb_backup_path }}"
     resource_kinds:
       - MongoDBCommunity
-#    override_values:
-#      MongoDBCommunity:
-#        - spec.statefulSet.spec.volumeClaimTemplates[0].spec.storageClassName: mongodb_storage_class
-#        - spec.statefulSet.spec.volumeClaimTemplates[1].spec.storageClassName: mongodb_storage_class
+    filter_values:
+      MongoDBCommunity:
+        - spec.replicaSetHorizons
+    override_values:
+      MongoDBCommunity:
+        - spec.statefulSet.spec.volumeClaimTemplates: "{{ _mongodb_storage }}"
   register: cr_result
   when:
     - namespace_result.success
@@ -315,7 +324,7 @@
         (certmanager_result.updated_count | default(0)) +
         (cr_result.updated_count | default(0)) +
         (servicemonitor_result.updated_count | default(0)) +
-        (grafdash_result.updated_count | default(0)) 
+        (grafdash_result.updated_count | default(0))
       }}
     total_skipped: >-
       {{
@@ -327,7 +336,7 @@
         (certmanager_result.skipped_count | default(0)) +
         (cr_result.skipped_count | default(0)) +
         (servicemonitor_result.skipped_count | default(0)) +
-        (grafdash_result.skipped_count | default(0)) 
+        (grafdash_result.skipped_count | default(0))
       }}
     total_failed: >-
       {{
@@ -339,7 +348,7 @@
         (certmanager_result.failed_count | default(0)) +
         (cr_result.failed_count | default(0)) +
         (servicemonitor_result.failed_count | default(0)) +
-        (grafdash_result.failed_count | default(0)) 
+        (grafdash_result.failed_count | default(0))
       }}
 
 - name: "Display total restore results"

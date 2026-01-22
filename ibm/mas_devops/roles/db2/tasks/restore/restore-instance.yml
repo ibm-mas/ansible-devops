@@ -1,0 +1,338 @@
+---
+# Check db2 Restore required variables
+# -----------------------------------------------------------------------------
+- name: Verify DB2 restore variables
+  ibm.mas_devops.verify_backup_restore_vars:
+    component: "db2"
+    action: "restore_instance"
+    db2_backup_version: "{{ db2_backup_version }}"
+    mas_backup_dir: "{{ mas_backup_dir }}"
+
+# Set backup path facts
+- name: "Set fact: backup dir paths"
+  set_fact:
+    db2_backup_path: "{{ mas_backup_dir }}/backup-{{ db2_backup_version }}-db2u"
+    db2_resources_path: "{{ mas_backup_dir }}/backup-{{ db2_backup_version }}-db2u/resources"
+
+- name: "Check Db2u resource path exist"
+  stat:
+    path: "{{ db2_resources_path }}"
+  register: resources_backup_path_stat
+
+- name: "Fail if backup archive does not exist"
+  fail:
+    msg: "Db2 backup resources archive not found at: {{ db2_resources_path }}"
+  when: not resources_backup_path_stat.stat.exists or not resources_backup_path_stat.stat.isdir
+
+# Verify cert-manager exists
+# -----------------------------------------------------------------------------
+- name: Detect Certificate Manager installation
+  include_tasks: "{{ role_path }}/../../common_tasks/detect_cert_manager.yml"
+
+# Verify only one db2ucluster instance file is present in backup archive
+# -----------------------------------------------------------------------------
+- name: Get files from {{ db2_resources_path }}/db2uclusters directory
+  set_fact:
+    instance_files: "{{ lookup('fileglob', '{{ db2_resources_path }}/db2uclusters/*', wantlist=True) }}"
+
+- name: Assert exactly one Db2uCluster CR exists
+  assert:
+    that:
+      - instance_files | length == 1
+    fail_msg: "Db2uCluster Directory must contain exactly one file"
+
+- name: Set fact db2ucluster cr
+  set_fact:
+    db2ucluster_cr_cfg: "{{ lookup('file', '{{ instance_files[0] }}') | from_yaml }}"
+
+# Get Db2u details from backup CR
+# -----------------------------------------------------------------------------
+- name: Set fact db2u namespace and instance name from backup CR
+  set_fact:
+    db2_namespace: "{{ db2ucluster_cr_cfg.metadata.namespace }}"
+    db2_instance_name: "{{ db2ucluster_cr_cfg.metadata.name }}"
+    db2_version: "{{ db2ucluster_cr_cfg.spec.version }}"
+    db2_dbname: "{{ db2ucluster_cr_cfg.spec.environment.database.name }}"
+    db2_type: "{{ db2ucluster_cr_cfg.spec.environment.dbType }}"
+
+- name: "Db2uCluster restore information"
+  debug:
+    msg:
+      - "Db2u Namespace ................. {{ db2_namespace }}"
+      - "Db2u Instance Name ............. {{ db2_instance_name }}"
+      - "Db2u version ................... {{ db2_version }}"
+      - "Db2u Database Name ............. {{ db2_dbname }}"
+      - "Db2u Database Type ............. {{ db2_type }}"
+      - "MAS Instance ID ................ {{ mas_instance_id | default('undefined') }}"
+      - "Backup Version ................. {{ db2_backup_version }}"
+      - "Backup Path .................... {{ db2_backup_path }}"
+
+# 1. Restore Namespace
+# -----------------------------------------------------------------------------
+- name: Restore namespace
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ db2_backup_path }}"
+    resource_kinds:
+      - Project
+    replace_resource: false
+  register: namespace_result
+
+# 2. Restore Secrets & configmaps
+# -----------------------------------------------------------------------------
+- name: Restore Secrets and configmaps
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ db2_backup_path }}"
+    resource_kinds:
+      - Secret
+      - ConfigMap
+    replace_resource: false
+  register: secrets_configmaps_result
+  when:
+    - namespace_result.success
+
+
+# 3. Restore Operatorgroups
+# -----------------------------------------------------------------------------
+- name: Restore Operatorgroups
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ db2_backup_path }}"
+    resource_kinds:
+      - OperatorGroup
+    replace_resource: false
+  register: operatorgroups_result
+  when:
+    - namespace_result.success
+    - secrets_configmaps_result is defined and secrets_configmaps_result.success
+
+# 4. Restore Subscription
+# -----------------------------------------------------------------------------
+- name: Restore Subscriptions
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ db2_backup_path }}"
+    resource_kinds:
+      - Subscription
+    replace_resource: false
+  register: subscriptions_result
+  when:
+    - namespace_result.success
+    - operatorgroups_result is defined and operatorgroups_result.success
+
+# 5. Restore Certs and Issuers
+# -----------------------------------------------------------------------------
+- name: "Restore Certificate Manager resources"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ db2_backup_path }}"
+    resource_kinds:
+      - Issuer
+      - Certificate
+  register: certmanager_result
+  when:
+    - namespace_result.success
+    - subscriptions_result is defined and subscriptions_result.success
+
+# 6. Wait until the Db2uCluster CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the Db2uCluster CRD is available"
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: "db2uclusters.db2u.databases.ibm.com"
+
+# 7. Restore Db2uCluster
+# -----------------------------------------------------------------------------
+
+- name: "Overriding storage class name with default storage class in CR"
+  include_tasks: "tasks/restore/determine-storage-classes.yml"
+  when:
+    - override_storageclass | bool
+
+- name: "Retrieve db2 passwords from secrets to restore via Db2uCluster CR"
+  include_tasks: "tasks/restore/retrieve_db2_passwords.yml"
+  no_log: true
+
+- name: "Restore Db2uCluster resources"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ db2_backup_path }}"
+    resource_kinds:
+      - Db2uCluster
+    override_values:
+      Db2uCluster:
+        - spec.environment.database.ssl.secretName: "db2u-certificate-{{ db2_instance_name | lower }}"
+        - spec.environment.instance.password: "{{ _db2_instance_password }}"
+        - spec.environment.ldap.password: "{{ _db2_ldappassword }}"
+        - spec.environment.ldap.blueAdminPassword: "{{ _db2_ldapblueadmin_password }}"
+        - spec.storage: "{{ _db2_storages }}"
+  register: cr_result
+  when:
+    - namespace_result.success
+
+# 8. Set timezone
+# -----------------------------------------------------------------------------
+- name: "Determine if timezone is set in the CR"
+  set_fact:
+    db2_timezone: "{{ db2ucluster_cr_cfg.spec.advOpts.timezone | default('') }}"
+
+- name: "Set db2 instance timezone"
+  include_tasks: "tasks/install/setup_timezone.yml"
+  when:
+    - db2_timezone is defined and db2_timezone != ""
+
+# 9. Wait for the cluster to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for db2u instance to be ready (5m delay)"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    name: "{{ db2_instance_name | lower }}"
+    namespace: "{{db2_namespace}}"
+    kind: Db2uCluster
+  register: db2_cluster_lookup
+  until:
+    - db2_cluster_lookup.resources is defined
+    - db2_cluster_lookup.resources | length == 1
+    - db2_cluster_lookup.resources[0].status is defined
+    - db2_cluster_lookup.resources[0].status.state is defined
+    - db2_cluster_lookup.resources[0].status.state == "Ready"
+  retries: 24 # Approximately 2 hours before we give up
+  delay: 300 # 5 minutes
+  when:
+    - namespace_result.success
+    - cr_result.success
+  no_log: true # no_log because spits out big json object
+
+# 10. Restore route
+- name: "Get cluster subdomain"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: _cluster_subdomain
+  no_log: true # no_log because spits out big json object
+
+# Apply cluster domain in tls route
+- name: "Restore routes"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ db2_backup_path }}"
+    resource_kinds:
+      - Route
+    override_values:
+      Route:
+        - spec.host: "{{db2_instance_name | lower }}-{{db2_namespace}}.{{_cluster_subdomain.resources[0].spec.domain}}"
+  register: routes_result
+  when:
+    - namespace_result.success
+    - subscriptions_result is defined and subscriptions_result.success
+
+# 11. Restore LDAP user
+# -----------------------------------------------------------------------------
+- name: Restore LDAP user if username and password is provided
+  include_tasks: tasks/install/create_ldap_user.yml
+  when:
+    - db2_ldap_username is defined and db2_ldap_username != ""
+    - db2_ldap_password is defined and db2_ldap_password != ""
+
+# 12. Wait for the statefulset to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for Db2 Stateful set to be ready"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: StatefulSet
+    name: "c-{{ db2_instance_name | lower }}-db2u"
+    namespace: "{{ db2_namespace }}"
+  register: db2_sts
+  until:
+    - db2_sts.resources is defined
+    - db2_sts.resources | length > 0
+    - db2_sts.resources[0].status is defined
+    - db2_sts.resources[0].status.replicas is defined
+    - db2_sts.resources[0].status.readyReplicas is defined
+    - db2_sts.resources[0].status.readyReplicas == db2_sts.resources[0].status.replicas
+  retries: 20 # approx 10 minutes before we give up
+  delay: 30 # seconds
+  no_log: true # no_log because spits out big json object
+
+# Calculate total results
+# -----------------------------------------------------------------------------
+- name: "Calculate total restore results"
+  set_fact:
+    total_created: >-
+      {{
+        (namespace_result.created_count | default(0)) +
+        (secrets_configmaps_result.created_count | default(0)) +
+        (operatorgroups_result.created_count | default(0)) +
+        (subscriptions_result.created_count | default(0)) +
+        (certmanager_result.created_count | default(0)) +
+        (cr_result.created_count | default(0)) +
+        (routes_result.created_count | default(0))
+      }}
+    total_updated: >-
+      {{
+        (namespace_result.updated_count | default(0)) +
+        (secrets_configmaps_result.updated_count | default(0)) +
+        (operatorgroups_result.updated_count | default(0)) +
+        (subscriptions_result.updated_count | default(0)) +
+        (certmanager_result.updated_count | default(0)) +
+        (cr_result.updated_count | default(0)) +
+        (routes_result.updated_count | default(0))
+      }}
+    total_skipped: >-
+      {{
+        (namespace_result.skipped_count | default(0)) +
+        (secrets_configmaps_result.skipped_count | default(0)) +
+        (operatorgroups_result.skipped_count | default(0)) +
+        (subscriptions_result.skipped_count | default(0)) +
+        (certmanager_result.skipped_count | default(0)) +
+        (cr_result.skipped_count | default(0)) +
+        (routes_result.skipped_count | default(0))
+      }}
+    total_failed: >-
+      {{
+        (namespace_result.failed_count | default(0)) +
+        (secrets_configmaps_result.failed_count | default(0)) +
+        (operatorgroups_result.failed_count | default(0)) +
+        (subscriptions_result.failed_count | default(0)) +
+        (certmanager_result.failed_count | default(0)) +
+        (cr_result.failed_count | default(0)) +
+        (routes_result.failed_count | default(0))
+      }}
+
+- name: "Display total restore results"
+  debug:
+    msg:
+      - >-
+        Restore completed{{ ' with failures' if total_failed | int > 0
+        else ' successfully' }}
+      - "Total resources created: {{ total_created }}"
+      - "Total resources updated: {{ total_updated }}"
+      - "Total resources skipped: {{ total_skipped }}"
+      - "Total resources failed: {{ total_failed }}"
+
+# Fail task if any errors occurred
+# -----------------------------------------------------------------------------
+- name: "Collect all failed resources"
+  set_fact:
+    all_failed_resources: >-
+      {{
+        (namespace_result.failed_resources | default([])) +
+        (secrets_configmaps_result.failed_resources | default([])) +
+        (operatorgroups_result.failed_resources | default([])) +
+        (subscriptions_result.failed_resources | default([])) +
+        (certmanager_result.failed_resources | default([])) +
+        (cr_result.failed_resources | default([])) +
+        (routes_result.failed_resources | default([]))
+      }}
+
+- name: "Display failed resources"
+  debug:
+    msg:
+      - "Failed resources:"
+      - "{{ all_failed_resources | to_nice_yaml }}"
+  when: total_failed | int > 0
+
+- name: "Fail if restore had errors"
+  fail:
+    msg: |
+      Restore failed for {{ total_failed }} resource(s):
+      {% for resource in all_failed_resources %}
+      - {{ resource.description }}: {{ resource.error }}
+      {% endfor %}
+  when: total_failed | int > 0
+
