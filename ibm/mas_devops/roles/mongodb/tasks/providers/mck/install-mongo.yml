@@ -286,7 +286,6 @@
     expected_mongodb_version: "{{ target_mongodb_version }}"
   when:
     - not controlled_upgrade
-    - mongodb_ce_version is version('0.7.8', '>=')
 # 11. Wait for the cluster to be ready
 # status.version on the mongo cr is not available with older mongo operators
 # -----------------------------------------------------------------------------
@@ -331,7 +330,7 @@
     - debug:
         var: scale_up_mongo_deployment_output.stdout
 
-- name: "mck : install : Wait for mas-mongo-ce stateful set to be ready"
+- name: "mck : install : Wait for mas-mongo-mck stateful set to be ready"
   kubernetes.core.k8s_info:
     api_version: apps/v1
     kind: StatefulSet
@@ -348,7 +347,7 @@
     - mongodb_statefulset.resources[0].status.readyReplicas is defined
     - mongodb_statefulset.resources[0].status.readyReplicas ==  (mongodb_replicas_check|int)
 
-- name: "community : install : Wait for mas-mongo-ce-arb stateful set to be ready"
+- name: "mck : install : Wait for mas-mongo-ce-arb stateful set to be ready"
   when: target_mongodb_version is version('4.4.0','>=') # this statefulset will only exist in Mongo v4.4+
   kubernetes.core.k8s_info:
     api_version: apps/v1
