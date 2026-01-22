@@ -12,15 +12,19 @@
     sls_backup_version: "{{ lookup('pipe', 'date +%y%m%d-%H%M%S') }}"
   when: sls_backup_version is not defined or sls_backup_version == "" or sls_backup_version == "None"
 
-- name: "Set fact: cert-manager backup base directory path"
+- name: "Set fact: SLS backup base directory path"
   set_fact:
     sls_backup_path: "{{ mas_backup_dir }}/backup-{{ sls_backup_version }}-sls"
 
-- name: "Set fact: cert-manager backup resources"
+- name: "Set fact: SLS backup resources"
   set_fact:
     sls_backup_resources:
       - namespace: "{{ sls_namespace }}"
         resources:
+          # project
+          - kind: Project
+            api_version: project.openshift.io/v1
+            name: "{{ sls_namespace }}"
           # secret
           - kind: Secret
             api_version: v1
@@ -50,6 +54,17 @@
           - kind: LicenseService
             api_version: sls.ibm.com/v1
             name: "{{ sls_instance_name }}"
+          # Issuers
+          - kind: Issuer
+            api_version: cert-manager.io/v1
+            name: "{{ sls_instance_name }}-issuer"
+          - kind: Issuer
+            api_version: cert-manager.io/v1
+            name: "{{ sls_instance_name }}-ca-issuer"
+          # Certificates
+          - kind: Certificate
+            api_version: cert-manager.io/v1
+            name: "{{ sls_instance_name }}-cert-ca"
 
 # Call the backup_resources plugin to execute the backup to the path provided
 # -----------------------------------------------------------------------------

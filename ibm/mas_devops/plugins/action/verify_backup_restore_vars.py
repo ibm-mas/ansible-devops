@@ -29,7 +29,8 @@ class ActionModule(ActionBase):
             "restore": ["mas_backup_dir", "mongodb_backup_version"]
         },
         "sls": {
-            "backup": ["mas_backup_dir", "sls_namespace", "sls_instance_name"]
+            "backup": ["mas_backup_dir", "sls_namespace", "sls_instance_name"],
+            "restore": ["mas_backup_dir", "sls_backup_version"]
         },
         "suite": {
             "backup": ["mas_instance_id", "mas_backup_dir"],
