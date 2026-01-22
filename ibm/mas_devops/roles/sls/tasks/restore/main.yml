@@ -1,0 +1,247 @@
+---
+- name: "Fail if require variables for SLS backup are not provided"
+  ibm.mas_devops.verify_backup_restore_vars:
+    mas_backup_dir: "{{ mas_backup_dir }}"
+    sls_backup_version: "{{ sls_backup_version }}"
+    action: "restore"
+    component: "sls"
+
+- name: "Set fact: SLS backup base directory path"
+  set_fact:
+    sls_backup_path: "{{ mas_backup_dir }}/backup-{{ sls_backup_version }}-sls"
+    sls_backup_resource_path: "{{ mas_backup_dir }}/backup-{{ sls_backup_version }}-sls/resources"
+
+- name: "Check SLS backup resource path exist"
+  stat:
+    path: "{{ sls_backup_resource_path }}"
+  register: resources_backup_path_stat
+
+- name: "Fail if backup archive does not exist"
+  fail:
+    msg: "SLS resources archive not found at: {{ sls_backup_resource_path }}"
+  when: not resources_backup_path_stat.stat.exists or not resources_backup_path_stat.stat.isdir
+
+# Verify only one LicenseService instance file is present in backup archive
+# -----------------------------------------------------------------------------
+- name: Get files from {{ sls_backup_resource_path }}/licenseservices directory
+  set_fact:
+    instance_files: "{{ lookup('fileglob', '{{ sls_backup_resource_path }}/licenseservices/*', wantlist=True) }}"
+
+- name: Assert exactly one LicenseService CR exists
+  assert:
+    that:
+      - instance_files | length == 1
+    fail_msg: "LicenseService Directory must contain exactly one file"
+
+- name: Set fact LicenseService cr
+  set_fact:
+    sls_cr_cfg: "{{ lookup('file', '{{ instance_files[0] }}') | from_yaml }}"
+
+- name: "Set fact: SLS details"
+  set_fact:
+    sls_instance_name: "{{ sls_cr_cfg.metadata.name }}"
+    sls_namespace: "{{ sls_cr_cfg.metadata.namespace }}"
+
+# Verify sls-registration.yaml exists in backup archive
+# -----------------------------------------------------------------------------
+- name: "Check sls-registration.yaml exists in {{ sls_backup_path }}"
+  stat:
+    path: "{{ sls_backup_path }}/sls-registration.yaml"
+  register: registrationfile_stat
+
+- name: "Fail if sls-registration.yaml does not exist"
+  fail:
+    msg: "sls-registration.yaml not found at: {{ sls_backup_path }}"
+  when: not registrationfile_stat.stat.exists
+
+- name: "SLS restore information"
+  debug:
+    msg:
+      - "Backup Version ................. {{ sls_backup_version }}"
+      - "Backup Path .................... {{ sls_backup_path }}"
+      - "SLS Instance Name .............. {{ sls_instance_name }}"
+      - "SLS Namespace .................. {{ sls_namespace }}"
+
+# Verify cert-manager exists
+# -----------------------------------------------------------------------------
+- name: Detect Certificate Manager installation
+  include_tasks: "{{ role_path }}/../../common_tasks/detect_cert_manager.yml"
+
+# Restore Projects
+# -------------------------------------------------------------------------
+- name: "Restore Projects"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ sls_backup_path }}"
+    resource_kinds:
+      - Project
+  register: projects_result
+
+# Restore Secrets and ConfigMaps
+- name: "Restore Secrets and ConfigMaps"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ sls_backup_path }}"
+    resource_kinds:
+      - Secret
+      - ConfigMap
+  register: secrets_configmaps_result
+  when: projects_result.success
+
+# Restore OperatorGroups and Subscriptions
+- name: "Restore OperatorGroups"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ sls_backup_path }}"
+    resource_kinds:
+      - OperatorGroup
+  register: operatorgroups_result
+  when: projects_result.success
+
+- name: "Restore Subscriptions"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ sls_backup_path }}"
+    resource_kinds:
+      - Subscription
+  register: subscriptions_result
+  when: projects_result.success
+
+# Restore Certificate Manager resources (Issuers, Certificates)
+- name: "Restore Certificate Manager resources"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ sls_backup_path }}"
+    resource_kinds:
+      - Issuer
+      - Certificate
+  register: certmanager_result
+  when: projects_result.success
+
+# Create Bootstrap secret
+# -----------------------------------------------------------------------------
+- name: "Load sls-registration.yaml"
+  include_vars:
+    file: "{{ sls_backup_path }}/sls-registration.yaml"
+    name: sls_registration
+
+# refer: https://www.ibm.com/docs/en/masv-and-l/cd?topic=service-backing-up-restoring
+- name: Create SLS Bootstrap secret
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{ sls_instance_name }}-bootstrap"
+        namespace: "{{ sls_namespace }}"
+      stringData:
+        licensingId: "{{ (sls_registration.licenseId is defined and sls_registration.licenseId != '') | ternary(sls_registration.licenseId, omit) }}"
+        registrationKey: "{{ (sls_registration.registrationKey is defined and sls_registration.registrationKey != '') | ternary(sls_registration.registrationKey, omit) }}"
+  when: projects_result.success
+
+# Restore SLS resources
+# -----------------------------------------------------------------------------
+# Setting NO_OVERRIDE to sls_domain here since its being used by other actions.
+- name: "Set NO_OVERRIDE to sls_domain if its not defined"
+  set_fact:
+    sls_domain: "{{ sls_domain | default('NO_OVERRIDE', true) }}"
+
+- name: "Restore LicenseService"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ sls_backup_path }}"
+    resource_kinds:
+      - LicenseService
+    override_values:
+      LicenseService:
+        - spec.domain: "{{ sls_domain }}"
+        - ca.secretName: "{{ sls_instance_name }}-cert-ca"
+  register: sls_result
+  when: projects_result.success
+
+# Verify SLS
+# -----------------------------------------------------------------------------
+- name: Verify LicenseService CR
+  ansible.builtin.include_tasks: "tasks/install/sls-verify.yml"
+  when:
+    - projects_result.success
+    - sls_result is defined and sls_result.success
+
+# Calculate total results
+# -----------------------------------------------------------------------------
+- name: "Calculate total restore results"
+  set_fact:
+    total_created: >-
+      {{
+        (projects_result.created_count | default(0)) +
+        (secrets_configmaps_result.created_count | default(0)) +
+        (operatorgroups_result.created_count | default(0)) +
+        (subscriptions_result.created_count | default(0)) +
+        (certmanager_result.created_count | default(0)) +
+        (sls_result.created_count | default(0))
+      }}
+    total_updated: >-
+      {{
+        (projects_result.updated_count | default(0)) +
+        (secrets_configmaps_result.updated_count | default(0)) +
+        (operatorgroups_result.updated_count | default(0)) +
+        (subscriptions_result.updated_count | default(0)) +
+        (certmanager_result.updated_count | default(0)) +
+        (sls_result.updated_count | default(0))
+      }}
+    total_skipped: >-
+      {{
+        (projects_result.skipped_count | default(0)) +
+        (secrets_configmaps_result.skipped_count | default(0)) +
+        (operatorgroups_result.skipped_count | default(0)) +
+        (subscriptions_result.skipped_count | default(0)) +
+        (certmanager_result.skipped_count | default(0)) +
+        (sls_result.skipped_count | default(0))
+      }}
+    total_failed: >-
+      {{
+        (projects_result.failed_count | default(0)) +
+        (secrets_configmaps_result.failed_count | default(0)) +
+        (operatorgroups_result.failed_count | default(0)) +
+        (subscriptions_result.failed_count | default(0)) +
+        (certmanager_result.failed_count | default(0)) +
+        (sls_result.failed_count | default(0))
+      }}
+
+- name: "Display total restore results"
+  debug:
+    msg:
+      - >-
+        Restore completed{{ ' with failures' if total_failed | int > 0
+        else ' successfully' }}
+      - "Total resources created: {{ total_created }}"
+      - "Total resources updated: {{ total_updated }}"
+      - "Total resources skipped: {{ total_skipped }}"
+      - "Total resources failed: {{ total_failed }}"
+
+# Fail task if any errors occurred
+# -----------------------------------------------------------------------------
+- name: "Collect all failed resources"
+  set_fact:
+    all_failed_resources: >-
+      {{
+        (projects_result.failed_resources | default([])) +
+        (secrets_configmaps_result.failed_resources | default([])) +
+        (operatorgroups_result.failed_resources | default([])) +
+        (subscriptions_result.failed_resources | default([])) +
+        (certmanager_result.failed_resources | default([])) +
+        (sls_result.failed_resources | default([]))
+      }}
+
+- name: "Display failed resources"
+  debug:
+    msg:
+      - "Failed resources:"
+      - "{{ all_failed_resources | to_nice_yaml }}"
+  when: total_failed | int > 0
+
+- name: "Fail if restore had errors"
+  fail:
+    msg: |
+      Restore failed for {{ total_failed }} resource(s):
+      {% for resource in all_failed_resources %}
+      - {{ resource.description }}: {{ resource.error }}
+      {% endfor %}
+  when: total_failed | int > 0
+
+

@@ -19,7 +19,8 @@ class ActionModule(ActionBase):
             "backup": ["mas_backup_dir"]
         },
         "sls": {
-            "backup": ["mas_backup_dir", "sls_namespace", "sls_instance_name"]
+            "backup": ["mas_backup_dir", "sls_namespace", "sls_instance_name"],
+            "restore": ["mas_backup_dir", "sls_backup_version"]
         },
         "mongodb": {
             "backup":  ["mongodb_instance_name", "mas_backup_dir", "mas_instance_id"], # mongodb_instance_name has a default value

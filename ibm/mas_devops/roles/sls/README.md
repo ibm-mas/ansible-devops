@@ -15,21 +15,28 @@ Specifies which operation to perform on the Suite License Service (SLS) instance
 - Environment Variable: `SLS_ACTION`
 - Default: `install`
 
-**Purpose**: Controls what action the role executes against the SLS instance. This allows the same role to handle installation, configuration generation, and removal of SLS.
+**Purpose**: Controls what action the role executes against the SLS instance. This allows the same role to handle installation, configuration generation, backup, restore, and removal of SLS.
 
 **When to use**:
 - Use `install` for initial SLS deployment or updates
 - Use `gencfg` to generate SLS configuration for MAS without installing SLS (when using existing SLS)
+- Use `backup` to create a backup of SLS instance and its configuration
+- Use `restore` to restore SLS instance from a backup
 - Use `uninstall` to remove SLS instance (use with caution)
 
-**Valid values**: `install`, `gencfg`, `uninstall`
+**Valid values**: `install`, `gencfg`, `backup`, `restore`, `uninstall`
 
-**Impact**: 
+**Impact**:
 - `install`: Deploys or updates SLS operator and instance
 - `gencfg`: Only generates SLSCfg resource for MAS integration
+- `backup`: Creates a backup of all SLS resources, secrets, and registration data
+- `restore`: Restores SLS from a previously created backup
 - `uninstall`: Removes SLS instance and operator (destructive operation)
 
-**Related variables**: When using `gencfg`, requires `sls_url` to be set to point to existing SLS instance.
+**Related variables**:
+- When using `gencfg`, requires `sls_url` to be set to point to existing SLS instance
+- When using `backup`, requires `mas_backup_dir` and optionally `sls_backup_version`
+- When using `restore`, requires `mas_backup_dir` and `sls_backup_version`
 
 **Note**: Always backup license data before using `uninstall`. The `gencfg` action is useful when SLS is shared across multiple MAS instances.
 
@@ -688,6 +695,240 @@ For examples refer to the [BestEfforts reference configuration in the MAS CLI](h
 - **Optional**
 - Environment Variable: `MAS_POD_TEMPLATES_DIR`
 - Default: None
+
+
+## Backup and Restore
+
+The SLS role supports backup and restore operations to protect your license service configuration and data. This is essential for disaster recovery, migration, and upgrade scenarios.
+
+### Backup Variables
+
+#### mas_backup_dir
+Directory path where SLS backup files will be stored.
+
+- **Required** for backup and restore operations
+- Environment Variable: `MAS_BACKUP_DIR`
+- Default: None
+
+**Purpose**: Specifies the local filesystem directory where backup archives will be created (for backup) or read from (for restore). This directory serves as the central location for all SLS backup data.
+
+**When to use**:
+- Required when `sls_action` is set to `backup` or `restore`
+- Should be a persistent location with sufficient storage space
+- Ensure the directory is accessible and has appropriate permissions
+
+**Valid values**: Any valid local filesystem path (e.g., `/backup/mas`, `/home/user/sls-backups`)
+
+**Impact**: All backup files and metadata will be stored in subdirectories under this path. The backup creates a timestamped directory structure: `{mas_backup_dir}/backup-{version}-sls/`
+
+**Related variables**: Works with `sls_backup_version` to create unique backup directories.
+
+**Note**: Ensure this directory has sufficient space for backup data and is regularly backed up to external storage for disaster recovery.
+
+#### sls_backup_version
+Version identifier for the backup, used to create unique backup directories.
+
+- **Optional** for backup (auto-generated if not provided)
+- **Required** for restore
+- Environment Variable: `SLS_BACKUP_VERSION`
+- Default: Auto-generated timestamp in format `YYMMDD-HHMMSS`
+
+**Purpose**: Provides a unique identifier for each backup, allowing multiple backups to coexist and enabling point-in-time restore operations.
+
+**When to use**:
+- For backup: Leave unset to auto-generate a timestamp-based version, or provide a custom identifier
+- For restore: Must specify the exact version identifier of the backup to restore
+
+**Valid values**: Any string suitable for directory names (alphanumeric, hyphens, underscores). Auto-generated format: `YYMMDD-HHMMSS` (e.g., `260122-131500`)
+
+**Impact**:
+- For backup: Creates directory `{mas_backup_dir}/backup-{version}-sls/`
+- For restore: Looks for backup in `{mas_backup_dir}/backup-{version}-sls/`
+
+**Related variables**: Works with `mas_backup_dir` to determine backup location.
+
+**Note**: When restoring, you must know the exact backup version identifier. List the contents of `mas_backup_dir` to see available backups.
+
+### What Gets Backed Up
+
+The SLS backup operation captures all critical resources needed to restore a complete SLS instance:
+
+**Kubernetes Resources:**
+- **Project/Namespace**: The SLS namespace configuration
+- **Secrets**:
+  - IBM entitlement credentials (`ibm-entitlement`)
+  - MongoDB connection credentials (`ibm-sls-mongo-credentials`)
+  - Bootstrap configuration (`{instance-name}-bootstrap`)
+  - License entitlement data (`ibm-sls-{instance-name}-entitlement`)
+  - All referenced secrets (auto-discovered)
+- **ConfigMaps**: Suite registration configuration
+- **Operator Resources**:
+  - Subscription (`ibm-sls`)
+  - OperatorGroup
+- **SLS Custom Resources**:
+  - LicenseService CR (the main SLS instance)
+- **Certificate Manager Resources**:
+  - Issuers (self-signed and CA issuers)
+  - Certificates (CA certificate)
+
+**Registration Data:**
+- License ID
+- Registration key
+- Suite registration information
+
+### Backup Process
+
+The backup operation performs the following steps:
+
+1. **Validation**: Verifies required variables (`mas_backup_dir`, `sls_namespace`, `sls_instance_name`)
+2. **Version Generation**: Creates or uses provided backup version identifier
+3. **Resource Discovery**: Identifies all SLS resources and auto-discovers referenced secrets
+4. **Backup Execution**: Exports all resources to YAML files in the backup directory
+5. **Registration Capture**: Saves SLS registration details for restore
+6. **Verification**: Reports backup statistics and any failures
+
+**Backup Directory Structure:**
+```
+{mas_backup_dir}/
+└── backup-{version}-sls/
+    ├── resources/
+    │   ├── projects/
+    │   ├── secrets/
+    │   ├── configmaps/
+    │   ├── subscriptions/
+    │   ├── operatorgroups/
+    │   ├── licenseservices/
+    │   ├── issuers/
+    │   └── certificates/
+    └── sls-registration.yaml
+```
+
+### Restore Process
+
+The restore operation performs the following steps:
+
+1. **Validation**: Verifies required variables and backup existence
+2. **Backup Verification**: Checks for valid backup structure and required files
+3. **Certificate Manager Check**: Ensures cert-manager is installed in the cluster
+4. **Sequential Restoration**:
+   - Projects/Namespaces
+   - Secrets and ConfigMaps
+   - OperatorGroups
+   - Subscriptions (triggers operator installation)
+   - Certificate Manager resources
+   - Bootstrap secret (recreated from registration data)
+   - LicenseService CR (with optional domain override)
+5. **Verification**: Waits for SLS to become ready and reports restore statistics
+
+**Important Restore Considerations:**
+- The target cluster must have Certificate Manager installed
+- MongoDB must be available and accessible (not restored by this role)
+- The restore can optionally override the `sls_domain` if deploying to a different cluster
+- All secrets and credentials are restored exactly as backed up
+
+### Backup Example
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    sls_action: backup
+    mas_backup_dir: /backup/mas
+    sls_namespace: ibm-sls
+    sls_instance_name: sls
+    # Optional: specify custom backup version
+    # sls_backup_version: "pre-upgrade-backup"
+
+  roles:
+    - ibm.mas_devops.sls
+```
+
+**Using environment variables:**
+```bash
+export SLS_ACTION=backup
+export MAS_BACKUP_DIR=/backup/mas
+export SLS_NAMESPACE=ibm-sls
+export SLS_INSTANCE_NAME=sls
+# Optional: export SLS_BACKUP_VERSION=pre-upgrade-backup
+
+ansible-playbook ibm.mas_devops.run_role
+```
+
+### Restore Example
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    sls_action: restore
+    mas_backup_dir: /backup/mas
+    sls_backup_version: "260122-131500"
+    # Optional: override domain for different cluster
+    # sls_domain: sls.newcluster.example.com
+
+  roles:
+    - ibm.mas_devops.sls
+```
+
+**Using environment variables:**
+```bash
+export SLS_ACTION=restore
+export MAS_BACKUP_DIR=/backup/mas
+export SLS_BACKUP_VERSION=260122-131500
+# Optional: export SLS_DOMAIN=sls.newcluster.example.com
+
+ansible-playbook ibm.mas_devops.run_role
+```
+
+### Best Practices
+
+1. **Regular Backups**: Schedule regular backups before:
+   - SLS upgrades
+   - License entitlement changes
+   - Cluster maintenance
+   - MAS upgrades
+
+2. **Backup Storage**:
+   - Store backups in a location separate from the cluster
+   - Implement backup retention policies
+   - Test restore procedures regularly
+
+3. **MongoDB Backup**:
+   - SLS backup does NOT include MongoDB data
+   - Ensure MongoDB is backed up separately using the `mongodb` role backup functionality
+   - Coordinate SLS and MongoDB backups for consistency
+
+4. **Pre-Restore Checklist**:
+   - Verify Certificate Manager is installed
+   - Ensure MongoDB is available and accessible
+   - Confirm backup version exists and is complete
+   - Review and adjust `sls_domain` if restoring to different cluster
+
+5. **Disaster Recovery**:
+   - Document backup locations and procedures
+   - Test restore process in non-production environment
+   - Keep backup version identifiers in a safe location
+   - Maintain MongoDB connection details separately
+
+6. **Migration Scenarios**:
+   - When migrating to a new cluster, restore MongoDB first
+   - Update `sls_domain` if cluster ingress domain changed
+   - Verify network connectivity between restored SLS and MAS instances
+
+### Troubleshooting
+
+**Backup Issues:**
+- **"Required variables not provided"**: Ensure `mas_backup_dir`, `sls_namespace`, and `sls_instance_name` are set
+- **"Resource not found"**: Some resources may not exist in your deployment (this is normal)
+- **Permission errors**: Ensure write access to `mas_backup_dir`
+
+**Restore Issues:**
+- **"Backup archive not found"**: Verify `sls_backup_version` matches an existing backup directory
+- **"Certificate Manager not found"**: Install cert-manager before restoring SLS
+- **"LicenseService not ready"**: Check operator logs and ensure MongoDB is accessible
+- **Domain mismatch**: Use `sls_domain` variable to override domain for new cluster
+
+For more information on backup and restore, refer to the [IBM Documentation on Backing up and Restoring SLS](https://www.ibm.com/docs/en/masv-and-l/cd?topic=service-backing-up-restoring).
 
 ## Example Playbook
 
