@@ -1,0 +1,151 @@
+---
+- name: "Fail if require variables for IBM operator catalog backup are not provided"
+  ibm.mas_devops.verify_backup_restore_vars:
+    mas_backup_dir: "{{ mas_backup_dir }}"
+    catalog_backup_version: "{{ catalog_backup_version }}"
+    action: "restore"
+    component: "catalog"
+
+- name: "Set fact: Catalog backup base directory path"
+  set_fact:
+    catalog_backup_path: "{{ mas_backup_dir }}/backup-{{ catalog_backup_version }}-catalog"
+    catalog_resources_path: "{{ mas_backup_dir }}/backup-{{ catalog_backup_version }}-catalog/resources"
+
+- name: "Check catalog backup resource path exist"
+  stat:
+    path: "{{ catalog_resources_path }}"
+  register: resources_backup_path_stat
+
+- name: "Fail if backup archive does not exist"
+  fail:
+    msg: "Catalog resources archive not found at: {{ catalog_resources_path }}"
+  when: not resources_backup_path_stat.stat.exists or not resources_backup_path_stat.stat.isdir
+
+- name: "MAS Catalog restore information"
+  debug:
+    msg:
+      - "Backup Version ................. {{ catalog_backup_version }}"
+      - "Backup Path .................... {{ catalog_backup_path }}"
+
+# 1. Restore Secrets (required for dev catalog)
+# -----------------------------------------------------------------------------
+- name: Create wiotp-docker-local secret if artifactory details are provided.
+  when:
+    - artifactory_username is defined and artifactory_username != ""
+    - artifactory_token is defined and artifactory_token != ""
+  include_tasks: tasks/restore/create-wiotp-secret.yml
+
+- name: Restore secrets
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ catalog_backup_path }}"
+    resource_kinds:
+      - Secret
+  register: secret_result
+  when:
+    - artifactory_username is not defined
+    - artifactory_token is not defined
+
+# 2. Restore Service Accounts (required for dev catalog)
+# -----------------------------------------------------------------------------
+- name: Restore ServiceAccounts
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ catalog_backup_path }}"
+    resource_kinds:
+      - ServiceAccount
+  register: sa_result
+
+# 3. Restore CatalogSource
+# -----------------------------------------------------------------------------
+- name: Restore CatalogSource
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ catalog_backup_path }}"
+    resource_kinds:
+      - CatalogSource
+  register: catalog_result
+
+# Calculate total results
+# -----------------------------------------------------------------------------
+- name: "Calculate total restore results"
+  set_fact:
+    total_created: >-
+      {{
+        (secret_result.created_count | default(0)) +
+        (sa_result.created_count | default(0)) +
+        (catalog_result.created_count | default(0))
+      }}
+    total_updated: >-
+      {{
+        (secret_result.updated_count | default(0)) +
+        (sa_result.updated_count | default(0)) +
+        (catalog_result.updated_count | default(0))
+      }}
+    total_skipped: >-
+      {{
+        (secret_result.skipped_count | default(0)) +
+        (sa_result.skipped_count | default(0)) +
+        (catalog_result.skipped_count | default(0))
+      }}
+    total_failed: >-
+      {{
+        (secret_result.failed_count | default(0)) +
+        (sa_result.failed_count | default(0)) +
+        (catalog_result.failed_count | default(0))
+      }}
+
+- name: "Display total restore results"
+  debug:
+    msg:
+      - >-
+        Restore completed{{ ' with failures' if total_failed | int > 0
+        else ' successfully' }}
+      - "Total resources created: {{ total_created }}"
+      - "Total resources updated: {{ total_updated }}"
+      - "Total resources skipped: {{ total_skipped }}"
+      - "Total resources failed: {{ total_failed }}"
+
+# Fail task if any errors occurred
+# -----------------------------------------------------------------------------
+- name: "Collect all failed resources"
+  set_fact:
+    all_failed_resources: >-
+      {{
+        (secret_result.failed_resources | default([])) +
+        (sa_result.failed_resources | default([])) +
+        (catalog_result.failed_resources | default([]))
+      }}
+
+- name: "Display failed resources"
+  debug:
+    msg:
+      - "Failed resources:"
+      - "{{ all_failed_resources | to_nice_yaml }}"
+  when: total_failed | int > 0
+
+- name: "Fail if restore had errors"
+  fail:
+    msg: |
+      Restore failed for {{ total_failed }} resource(s):
+      {% for resource in all_failed_resources %}
+      - {{ resource.description }}: {{ resource.error }}
+      {% endfor %}
+  when: total_failed | int > 0
+
+# 4. Wait until ready
+# -----------------------------------------------------------------------------
+- name: "Wait until CatalogSource/ibm-operator-catalog is Ready"
+  when: catalog_result.success
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: CatalogSource
+    name: ibm-operator-catalog
+    namespace: openshift-marketplace
+  register: ibm_catalog_lookup
+  retries: 30 # Up to 30 min
+  delay: 60 # Every minute
+  until:
+    - ibm_catalog_lookup.resources is defined
+    - ibm_catalog_lookup.resources | length == 1
+    - ibm_catalog_lookup.resources[0].status is defined
+    - ibm_catalog_lookup.resources[0].status.connectionState is defined
+    - ibm_catalog_lookup.resources[0].status.connectionState.lastObservedState is defined
+    - ibm_catalog_lookup.resources[0].status.connectionState.lastObservedState == "READY"

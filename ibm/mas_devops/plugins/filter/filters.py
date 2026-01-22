@@ -430,26 +430,6 @@ def get_ecr_repositories(image_mirror_output):
         repositories.append(repo_to_add)
   return repositories
 
-def get_tlscert_configmapname_from_mongoce(mongoDBCommunityCR):
-  """
-    filter: get_tlscert_configmapname_from_mongoce
-    author: Sanjay Prabhakar
-    version_added: 0.1
-    short_description: Get the name of TLS Cert configmap from MongoDBCommunity CR
-    description:
-        - This filter returns the name of TLS Cert configmap from MongoDBCommunity CR
-    options:
-      mongoDBCommunityCR:
-        description: MongoDBCommunity CR definition
-        required: True
-  """
-  if 'security' in mongoDBCommunityCR['spec']:
-    if 'tls' in mongoDBCommunityCR['spec']['security']:
-      if 'caConfigMapRef' in mongoDBCommunityCR['spec']['security']['tls']:
-        return mongoDBCommunityCR['spec']['security']['tls']['caConfigMapRef']['name']
-    else:
-      return None
-
 def is_channel_upgrade_path_valid(current: str, target: str, valid_paths: dict) -> bool:
   """
     Checks if a given current channel version can be upgraded to a target channel version.
@@ -494,6 +474,81 @@ def get_default_upgrade_channel(current: str, valid_paths: dict) -> str:
       print(f'Error: channel upgrade compatibility matrix is incorrectly defined')
   return default
 
+def set_storage_classes_names(storage_list: list, storage_class_name_rwo: str, storage_class_name_rwx: str):
+  """
+  Iterate through the storage_list list and set the storage_class_name for each storage item based on the access mode.
+  Expects data to be
+  storage:
+  - name: meta
+    spec:
+      accessModes:
+      - ReadWriteMany
+      resources:
+        requests:
+          storage: 20Gi
+      storageClassName: nfs-client
+    type: create
+  - name: backup
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 20Gi
+      storageClassName: nfs-client
+    type: create
+  """
+
+  for storage_item in storage_list:
+    if 'spec' in storage_item and 'accessModes' in storage_item['spec'] and 'storageClassName' in storage_item['spec']: 
+      if storage_item['spec']['accessModes'][0] == 'ReadWriteMany':
+        storage_item['spec']['storageClassName'] = storage_class_name_rwx
+      else:
+        storage_item['spec']['storageClassName'] = storage_class_name_rwo
+  return storage_list
+
+def override_db2_storage_classes_names(storage_list: list, storage_class_name_meta: str, storage_class_name_data: str, storage_class_name_backup: str, storage_class_name_logs: str, storage_class_name_temp: str):
+  """
+  Iterate through the storage_list list and set the storage_class_name for each storage item based on the storage name.
+  Expects data to be
+  storage:
+  - name: meta
+    spec:
+      accessModes:
+      - ReadWriteMany
+      resources:
+        requests:
+          storage: 20Gi
+      storageClassName: nfs-client
+    type: create
+  - name: backup
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 20Gi
+      storageClassName: nfs-client
+    type: create
+  """
+  for storage_item in storage_list:
+    if 'name' in storage_item and 'spec' in storage_item and 'storageClassName' in storage_item['spec']: 
+      if storage_item['name'] == 'meta':
+        storage_item['spec']['storageClassName'] = storage_class_name_meta
+      elif storage_item['name'] == 'data':
+        storage_item['spec']['storageClassName'] = storage_class_name_data
+      elif storage_item['name'] == 'backup':
+        storage_item['spec']['storageClassName'] = storage_class_name_backup
+      elif storage_item['name'] == 'tempts':
+        storage_item['spec']['storageClassName'] = storage_class_name_temp
+      elif storage_item['name'] == 'activelogs':
+        storage_item['spec']['storageClassName'] = storage_class_name_logs
+      else:
+        print(f'WARNING: Unhandled db2 storage name for {storage_item["name"]}')
+      
+  return storage_list
+
+
 class FilterModule(object):
   def filters(self):
     return {
@@ -516,7 +571,8 @@ class FilterModule(object):
       'format_pre_version_with_buildid': format_pre_version_with_buildid,
       'get_db2_instance_name': get_db2_instance_name,
       'get_ecr_repositories': get_ecr_repositories,
-      'get_tlscert_configmapname_from_mongoce': get_tlscert_configmapname_from_mongoce,
       'is_channel_upgrade_path_valid': is_channel_upgrade_path_valid,
-      'get_default_upgrade_channel': get_default_upgrade_channel
+      'get_default_upgrade_channel': get_default_upgrade_channel,
+      'set_storage_classes_names': set_storage_classes_names,
+      'override_db2_storage_classes_names': override_db2_storage_classes_names
     }

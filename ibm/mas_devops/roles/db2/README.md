@@ -56,20 +56,24 @@ Specifies which operation to perform on the Db2 database.
 **When to use**:
 - Use `install` (default) for initial Db2 deployment
 - Use `upgrade` to upgrade all Db2 instances in the namespace to a new version
-- Use `backup` to create a backup of Db2 data
-- Use `restore` to restore Db2 from a backup
+- Use `backup` to create a backup of Db2 instance and/or database
+- Use `restore` to restore a backup of db2 instance and database
+- Use `restore_database` to restore only the database to an existing Db2 instance
 
-**Valid values**: `install`, `upgrade`, `backup`, `restore`
+**Valid values**: `install`, `upgrade`, `backup`, `restore`, `restore_database`
 
-**Impact**: 
-- `install`: Creates new Db2 operator and instance
+**Impact**:
+- `install`: Creates new Db2 operator and instance. When `db2_backup_version` is provided, installs from backup (instance + database)
 - `upgrade`: Upgrades ALL instances in `db2_namespace` to `db2_version` (affects all instances in namespace)
-- `backup`: Creates backup of Db2 data
-- `restore`: Restores Db2 from backup
+- `backup`: Creates backup of Db2 instance resources and/or database data
+- `restore`: Creates new Db2 operator and instance from the backup of Db2 instance resources and restores database data to the created instance
+- `restore_database`: Restores database to an existing running Db2 instance (does not restore instance resources)
 
 **Related variables**:
 - `db2_version`: Required for upgrade action to specify target version
 - `db2_namespace`: All instances in this namespace are affected by upgrade
+- `db2_backup_version`: Required for restore/restore_database action; optional for backup, defaults to YYMMDD-HHMMSS
+- `override_storageclass`: In Restore, controls whether storage classes are overridden
 
 **Note**: **WARNING** - When using `upgrade`, ALL Db2 instances in the specified namespace will be upgraded. Plan accordingly and ensure `db2_version` matches the operator channel.
 
@@ -863,79 +867,265 @@ Local directory path where backups will be stored or restored from.
 - **Required** for backup and restore operations
 - Environment Variable: `MAS_BACKUP_DIR`
 - Default: None
-- Example: `/tmp/mas_backups`
+
+**Purpose**: Specifies the local filesystem directory for storing Db2 backup files and metadata. This directory serves as the staging area for all backup and restore operations.
+
+**When to use**:
+- Always required when performing backup or restore operations
+- Must be accessible from the system running the Ansible playbook
+- Should have sufficient disk space for database backups
+
+**Valid values**: Any valid local filesystem path (e.g., `/tmp/mas_backups`, `/backup/db2`)
+
+**Impact**:
+- Backup files and metadata are stored in subdirectories under this path
+- Directory structure: `<mas_backup_dir>/backup-<version>-db2u/`
+- Insufficient space will cause backup failures
+
+**Related variables**:
+- `db2_backup_version`: Used to create versioned backup subdirectories
+- `backup_vendor`: When set to `s3`, database backups go to S3 but instance resources still use this directory
+
+**Example**: `/tmp/masbr`
 
 ### db2_backup_version
-The backup version timestamp to restore from. This is automatically generated during backup in the format `YYMMDD-HHMMSS`.
+The backup version timestamp identifier for backup and restore operations.
 
-- **Required** for restore operations
+- **Required** for `restore` and `restore_database` actions
+- **Auto-generated** for backup operations
 - Environment Variable: `DB2_BACKUP_VERSION`
-- Default: Auto-generated for backup operations
-- Example: `251212-021316`
+- Default: Auto-generated in format `YYMMDD-HHMMSS`
+
+**Purpose**: Uniquely identifies a specific backup version using a timestamp. This allows multiple backups to coexist and enables point-in-time restore operations.
+
+**When to use**:
+- Automatically generated during backup (no need to set manually)
+- Must be specified when restoring to identify which backup to use
+- Must be specified when installing Db2 from an existing backup
+
+**Valid values**: Timestamp string in format `YYMMDD-HHMMSS` (e.g., `251212-021316` for December 12, 2025 at 02:13:16)
+
+**Impact**:
+- Determines the backup directory name: `backup-<version>-db2u`
+- Used to locate backup files during restore operations
+- Recorded in backup metadata file for verification
+
+**Related variables**:
+- `mas_backup_dir`: Parent directory containing versioned backups
+- `db2_action`: Required when action is `restore_database` or `restore`(instance & database)
+
+**Example**: `251212-021316`
+
+### override_storageclass
+Controls whether to override storage classes during Db2 installation from backup.
+Only used in Db2 instance restore.
+
+- **Optional**
+- Environment Variable: `OVERRIDE_STORAGECLASS`
+- Default: `false`
+
+**Purpose**: Allows changing storage classes when restoring Db2 to a different cluster or when the original storage classes are not available. When enabled, uses specified storage class variables or cluster defaults instead of backup metadata values.
+
+**When to use**:
+- Set to `true` when restoring to a cluster with different storage classes
+- Set to `true` when original storage classes are not available in target cluster
+- Leave as `false` to use the same storage classes as the original instance
+
+**Valid values**: `true`, `false`
+
+**Impact**:
+- When `true`: Uses `DB2_META_STORAGE_CLASS`, `DB2_DATA_STORAGE_CLASS`, `DB2_BACKUP_STORAGE_CLASS`, `DB2_LOGS_STORAGE_CLASS`, `DB2_TEMP_STORAGE_CLASS` if set, otherwise uses cluster default storage classes
+- When `false`: Uses storage classes from backup metadata (original instance configuration)
+
+**Related variables**:
+- `db2_meta_storage_class`: Override for metadata storage
+- `db2_data_storage_class`: Override for data storage
+- `db2_backup_storage_class`: Override for backup storage
+- `db2_logs_storage_class`: Override for logs storage
+- `db2_temp_storage_class`: Override for temp storage
 
 ### backup_type
-Type of backup to perform. Online backups keep the database available during backup, while offline backups require database downtime but are faster.
-If your DB2 instance has got circular logging enabled i.e `LOGARCHMETH1: OFF or/and LOGARCHMETH2: OFF`, you can only use `offline` backup type. 
-If your DB2 instance has got circular logging disabled, you can use either `online` or `offline` backup type. 
-If you are unsure, you can use default `online` backup type.
+Type of backup operation to perform on the Db2 database.
 
-- Optional
+- **Optional**
 - Environment Variable: `DB2_BACKUP_TYPE`
 - Default: `online`
-- Supported values: `online`, `offline`
+
+**Purpose**: Determines whether the database remains available during backup. Online backups allow continued database access but may impact performance, while offline backups require downtime but complete faster.
+
+**When to use**:
+- Use `online` (default) for production systems requiring high availability
+- Use `offline` when downtime is acceptable and faster backup is desired
+- **Must use `offline`** if circular logging is enabled (`LOGARCHMETH1: OFF` and/or `LOGARCHMETH2: OFF`)
+
+**Valid values**: `online`, `offline`
+
+**Impact**:
+- `online`: Database remains accessible during backup; requires archive logging enabled; may impact performance
+- `offline`: Database is unavailable during backup; faster completion; works with circular logging
+
+**Related variables**:
+- `db2_database_db_config`: Check `LOGARCHMETH1` and `LOGARCHMETH2` settings to determine if online backup is supported
+
+**Important**: If your Db2 instance has circular logging enabled (default configuration), you can only use `offline` backup type. If archive logging is enabled, you can use either type.
 
 ### backup_vendor
-Storage vendor for backup files. Use `disk` for local storage or `s3` for S3-compatible object storage.
-*Note* : Only database backup is stored in S3, instance backup is always stored in local disk.
+Storage backend for database backup files only.
 
-- Optional
+- **Optional**
 - Environment Variable: `BACKUP_VENDOR`
 - Default: `disk`
-- Supported values: `disk`, `s3`
 
-### br_skip_instance
-When set to `false`, includes Db2 instance resources (secrets, certificates, custom resources) in the backup.
+**Purpose**: Determines where database backup files are stored. Disk storage keeps backups locally, while S3 storage sends them directly to S3-compatible object storage.
 
-- Optional
-- Environment Variable: `BR_SKIP_INSTANCE`
-- Default: `true`
+**When to use**:
+- Use `disk` (default) for local backups or when S3 is not available
+- Use `s3` for cloud-based backups, long-term retention, or disaster recovery scenarios
+
+**Valid values**: `disk`, `s3`
+
+**Impact**:
+- `disk`: Database Backup files stored locally and copied to `mas_backup_dir`; requires sufficient local storage
+- `s3`: Database backup sent directly to S3 bucket; instance resources still stored locally; requires S3 credentials
+
+**Related variables**:
+- When `s3`: Requires `backup_s3_endpoint`, `backup_s3_bucket`, `backup_s3_access_key`, `backup_s3_secret_key`
+- `mas_backup_dir`: Always required for metadata and instance resources
+
+**Note**: Instance resources (secrets, certificates, CRs) are always stored locally in `mas_backup_dir`, regardless of vendor setting. Only database backup files go to S3.
+
+**Purpose**: Determines if Kubernetes resources (secrets, certificates, Db2uCluster CR, etc.) are backed up along with the database. When `false`, enables full disaster recovery by backing up both instance configuration and data.
+
+**When to use**:
+- Set to `false` when you need complete disaster recovery capability (instance + database)
+- Set to `false` when migrating Db2 to a new cluster
+- Leave as `true` (default) for database-only backups when instance already exists
+
+**Valid values**: `true`, `false`
+
+**Impact**:
+- `true`: Only database data is backed up; faster backup; requires existing Db2 instance for restore
+- `false`: Both instance resources and database are backed up; enables full recovery; allows install from backup
+
+**Note**: Instance resources include: Db2uCluster CR, secrets (passwords, certificates), ConfigMaps, and other Kubernetes resources needed to recreate the Db2 instance.
 
 ### backup_s3_endpoint
-S3 endpoint URL for S3-compatible object storage.
+S3-compatible object storage endpoint URL.
 
 - **Required** when `backup_vendor` is `s3`
 - Environment Variable: `BACKUP_S3_ENDPOINT`
 - Default: None
-- Example: `https://s3.us-east.cloud-object-storage.appdomain.cloud`
+
+**Purpose**: Specifies the S3 API endpoint for storing database backups. Supports AWS S3, IBM Cloud Object Storage, MinIO, and other S3-compatible services.
+
+**When to use**:
+- Required when using S3 storage for backups (`backup_vendor: s3`)
+- Must be accessible from the Db2 pod
+
+**Valid values**: HTTPS URL to S3-compatible endpoint (e.g., `https://s3.us-east.cloud-object-storage.appdomain.cloud`, `https://s3.amazonaws.com`)
+
+**Impact**: Db2 connects to this endpoint to upload/download backup files. Incorrect endpoint will cause backup/restore failures.
+
+**Related variables**:
+- `backup_vendor`: Must be set to `s3`
+- `backup_s3_bucket`: Bucket at this endpoint
+- `backup_s3_access_key`, `backup_s3_secret_key`: Credentials for this endpoint
+
+**Example**: `https://s3.us-east.cloud-object-storage.appdomain.cloud`
 
 ### backup_s3_bucket
-S3 bucket name where backups will be stored.
+S3 bucket name for storing database backups.
 
 - **Required** when `backup_vendor` is `s3`
 - Environment Variable: `BACKUP_S3_BUCKET`
 - Default: None
-- Example: `mas-db2-backups`
+
+**Purpose**: Specifies the S3 bucket where database backup files will be stored. The bucket must exist and credentials must have read/write permissions.
+
+**When to use**:
+- Required when using S3 storage for backups (`backup_vendor: s3`)
+- Bucket must be created before running backup
+
+**Valid values**: Valid S3 bucket name following S3 naming conventions
+
+**Impact**: Backup files are stored in this bucket under path `<backup_version>/`. Incorrect bucket name or insufficient permissions will cause failures.
+
+**Related variables**:
+- `backup_vendor`: Must be set to `s3`
+- `backup_s3_endpoint`: S3 service hosting this bucket
+- `backup_s3_access_key`, `backup_s3_secret_key`: Must have permissions for this bucket
+
+**Example**: `mas-db2-backups`
 
 ### backup_s3_access_key
-S3 access key for authentication.
+S3 access key ID for authentication.
 
 - **Required** when `backup_vendor` is `s3`
 - Environment Variable: `BACKUP_S3_ACCESS_KEY`
 - Default: None
 
+**Purpose**: Provides the access key ID for authenticating to S3-compatible object storage. Used together with secret key for S3 API authentication.
+
+**When to use**:
+- Required when using S3 storage for backups (`backup_vendor: s3`)
+- Must have read/write permissions to the specified bucket
+
+**Valid values**: Valid S3 access key ID from your S3 provider
+
+**Impact**: Used for S3 authentication. Invalid credentials will cause backup/restore to fail with authentication errors.
+
+**Related variables**:
+- `backup_vendor`: Must be set to `s3`
+- `backup_s3_secret_key`: Corresponding secret key
+- `backup_s3_bucket`: Bucket these credentials can access
+
+**Security**: Store securely using Ansible Vault or environment variables. Never commit to version control.
+
 ### backup_s3_secret_key
-S3 secret key for authentication.
+S3 secret access key for authentication.
 
 - **Required** when `backup_vendor` is `s3`
 - Environment Variable: `BACKUP_S3_SECRET_KEY`
 - Default: None
 
-### backup_s3_alias
-S3 alias name used in Db2 configuration.
+**Purpose**: Provides the secret access key for authenticating to S3-compatible object storage. Used together with access key for S3 API authentication.
 
-- Optional
+**When to use**:
+- Required when using S3 storage for backups (`backup_vendor: s3`)
+- Must correspond to the access key ID
+
+**Valid values**: Valid S3 secret access key from your S3 provider
+
+**Impact**: Used for S3 authentication. Invalid credentials will cause backup/restore to fail with authentication errors.
+
+**Related variables**:
+- `backup_vendor`: Must be set to `s3`
+- `backup_s3_access_key`: Corresponding access key ID
+- `backup_s3_bucket`: Bucket these credentials can access
+
+**Security**: Store securely using Ansible Vault or environment variables. Never commit to version control.
+
+### backup_s3_alias
+Db2 storage access alias name for S3 configuration.
+
+- **Optional**
 - Environment Variable: `BACKUP_S3_ALIAS`
 - Default: `S3DB2COS`
+
+**Purpose**: Defines the alias name used in Db2's storage access configuration for S3. This is an internal Db2 identifier for the S3 connection.
+
+**When to use**:
+- Usually leave as default unless you have specific Db2 storage access naming requirements
+- Change only if you need to match existing Db2 storage access configurations
+
+**Valid values**: Valid Db2 storage access alias name (alphanumeric, no spaces)
+
+**Impact**: Used internally by Db2 to reference the S3 storage configuration. Changing this is rarely necessary.
+
+**Related variables**:
+- `backup_vendor`: Only used when set to `s3`
+
+**Default**: `S3DB2COS`
 
 
 Example Usage - Backup and Restore
@@ -948,7 +1138,7 @@ Example Usage - Backup and Restore
   vars:
     mas_instance_id: masinst1
     mas_backup_dir: /tmp/masbr
-    db2_action: backup
+    db2_action: backup_database
     db2_instance_name: db2u-manage
     db2_namespace: db2u
     backup_type: online
@@ -964,7 +1154,7 @@ Example Usage - Backup and Restore
   vars:
     mas_instance_id: masinst1
     mas_backup_dir: /tmp/masbr
-    db2_action: backup
+    db2_action: backup_database
     db2_instance_name: db2u-manage
     backup_type: online
     backup_vendor: s3
@@ -985,7 +1175,7 @@ Example Usage - Backup and Restore
     mas_backup_dir: /tmp/masbr
     db2_action: backup
     db2_instance_name: db2u-manage
-    br_skip_instance: false  # Include instance resources
+    db2_namespace: db2u
     backup_vendor: disk
   roles:
     - ibm.mas_devops.db2
@@ -1026,12 +1216,12 @@ Example Usage - Backup and Restore
     - ibm.mas_devops.db2
 ```
 
-### Install Db2 from Backup (Instance + Database)
+### Restore Db2 from Backup (Instance + Database)
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    db2_action: install
+    db2_action: restore
     mas_instance_id: masinst1
     db2_backup_version: 251212-021316
     mas_backup_dir: /tmp/masbr
@@ -1040,12 +1230,36 @@ Example Usage - Backup and Restore
     - ibm.mas_devops.db2
 ```
 
-### Install Db2 from Backup (Instance + Database(S3))
+### Restore Db2 from Backup (Instance + Database) w/ storage class override
+# This will override the storage class for all Db2 PVCs
+# If you want to override specific PVCs, use the following variables:
+# db2_meta_storage_class, db2_data_storage_class, db2_backup_storage_class, db2_logs_storage_class, db2_temp_storage_class
+# or cluster's default storage class will be used to override.
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    db2_action: install
+    db2_action: restore
+    mas_instance_id: masinst1
+    db2_backup_version: 251212-021316
+    mas_backup_dir: /tmp/masbr
+    backup_vendor: disk
+    override_storageclass: true
+    db2_meta_storage_class: nfs-client # optional 
+    db2_data_storage_class: nfs-client # optional
+    db2_backup_storage_class: nfs-client # optional
+    db2_logs_storage_class: nfs-client # optional
+    db2_temp_storage_class: nfs-client # optional
+  roles:
+    - ibm.mas_devops.db2
+```
+
+### Restore Db2 from Backup (Instance + Database(S3))
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    db2_action: restore
     mas_instance_id: masinst1
     db2_backup_version: 251212-021316
     mas_backup_dir: /tmp/masbr
@@ -1058,34 +1272,6 @@ Example Usage - Backup and Restore
     - ibm.mas_devops.db2
 ```
 
-Backup and Restore Details
--------------------------------------------------------------------------------
-
-### Backup Process
-1. Validates Db2 instance is running
-2. Prepares backup scripts and copies them to the Db2 pod
-3. Configures S3 storage access (if using S3)
-4. Executes Db2 backup command (online or offline)
-5. Compresses and transfers backup files (for disk storage)
-6. Creates metadata file (`db2-backup-info.yaml`) with backup details
-
-### Database Restore Process
-1. Validates backup files and Db2 version compatibility
-2. Prepares restore scripts and copies them to the Db2 pod
-3. Configures S3 storage access (if restoring from S3)
-4. Copies backup files to the Db2 pod (for disk restores)
-5. Executes Db2 restore command
-6. Verifies restore completion
-
-### Install From Backup Process
-1. Validates backup files
-2. Creates namespace and copies resources to namespace
-3. Gets Db2 instance details from backup metadata
-4. Installs Db2 instance using the backup details
-5. Waits for Db2 instance to be ready
-6. Performs post deployment actions like restoring instance password
-7. Performs Database restore process as mentioned above
-
 ### Backup Directory Structure (Disk)
 ```
 /tmp/masbr/
@@ -1094,10 +1280,11 @@ Backup and Restore Details
     │   ├── db2-BLUDB-backup-<YYMMDD-HHMMSS>.tar.gz
     │   └── db2-backup-info.yaml
     └── resources/
-        ├── cr.yaml
+        ├── db2uclusters/
         ├── secrets/
         ├── certificates/
         └── issuers/
+        └── {kind}s/
 ```
 
 ### Database backup Metadata (db2-backup-info.yaml)

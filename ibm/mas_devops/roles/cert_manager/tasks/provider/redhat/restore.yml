@@ -1,0 +1,179 @@
+---
+- name: "Fail if require variables for Redhat cert-manager backup are not provided"
+  ibm.mas_devops.verify_backup_restore_vars:
+    mas_backup_dir: "{{ mas_backup_dir }}"
+    certmanager_backup_version: "{{ certmanager_backup_version }}"
+    action: "restore"
+    component: "certmanager"
+
+- name: "Set fact: cert-manager backup base directory path"
+  set_fact:
+    certmgr_backup_path="{{ mas_backup_dir }}/backup-{{ certmanager_backup_version }}-certmanager"
+    certmgr_backup_resource_path="{{ mas_backup_dir }}/backup-{{ certmanager_backup_version }}-certmanager/resources"
+
+- name: "Check cert-manager backup resource path exist"
+  stat:
+    path: "{{ certmgr_backup_resource_path }}"
+  register: resources_backup_path_stat
+
+- name: "Fail if backup archive does not exist"
+  fail:
+    msg: "Cert-manager resources archive not found at: {{ certmgr_backup_resource_path }}"
+  when: not resources_backup_path_stat.stat.exists or not resources_backup_path_stat.stat.isdir
+
+- name: "Cert-manager restore information"
+  debug:
+    msg:
+      - "Backup Version ................. {{ certmanager_backup_version }}"
+      - "Backup Path .................... {{ certmgr_backup_path }}"
+
+# Restore Projects
+# -------------------------------------------------------------------------
+- name: "Restore Projects"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ certmgr_backup_path }}"
+    resource_kinds:
+      - Project
+  register: project_result
+
+# Restore OperatorGroups and Subscriptions
+# -------------------------------------------------------------------------
+- name: "Restore OperatorGroups"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ certmgr_backup_path }}"
+    resource_kinds:
+      - OperatorGroup
+  register: operatorgroups_result
+  when: project_result.success
+
+- name: "Restore Subscriptions"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ certmgr_backup_path }}"
+    resource_kinds:
+      - Subscription
+  register: subscriptions_result
+  when: operatorgroups_result.success
+
+# Wait for Subscription to be processed
+# -----------------------------------------------------------------------------
+- name: "Wait for Red Hat cert-manager-operator-controller-manager to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: cert-manager-operator-controller-manager
+    namespace: "{{ cert_manager_operator_namespace }}"
+    kind: Deployment
+  register: certmanager_deployment
+  until:
+    - certmanager_deployment.resources is defined
+    - certmanager_deployment.resources | length > 0
+    - certmanager_deployment.resources[0].status is defined
+    - certmanager_deployment.resources[0].status.replicas is defined
+    - certmanager_deployment.resources[0].status.readyReplicas is defined
+    - certmanager_deployment.resources[0].status.readyReplicas == certmanager_deployment.resources[0].status.replicas
+  retries: 30 # Approximately 1/2 hour before we give up
+  delay: 60 # 1 minute
+  when: subscriptions_result.success
+
+# Wait for CertManager instance to be created
+# -----------------------------------------------------------------------------
+- name: "Wait for CertManager Cluster Custom Resource to be created"
+  kubernetes.core.k8s_info:
+    api_version: operator.openshift.io/v1alpha1
+    name: cluster
+    kind: CertManager
+  register: certmanager_cluster_cr
+  until:
+    - certmanager_cluster_cr.resources is defined
+    - certmanager_cluster_cr.resources | length > 0
+  retries: 10 # Approximately 5 minutes before we give up
+  delay: 30 # 30 seconds
+  when: subscriptions_result.success
+
+
+# Wait for Cert Manager's webhook to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for cert-manager-webhook deployment to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: cert-manager-webhook
+    namespace: "{{ cert_manager_namespace }}"
+    kind: Deployment
+  register: certmanager_webhook_deployment
+  until:
+    - certmanager_webhook_deployment.resources is defined
+    - certmanager_webhook_deployment.resources | length > 0
+    - certmanager_webhook_deployment.resources[0].status is defined
+    - certmanager_webhook_deployment.resources[0].status.replicas is defined
+    - certmanager_webhook_deployment.resources[0].status.readyReplicas is defined
+    - certmanager_webhook_deployment.resources[0].status.readyReplicas == certmanager_webhook_deployment.resources[0].status.replicas
+  retries: 60 # Approximately 1/2 hour before we give up
+  delay: 60 # 1 minute
+  when: subscriptions_result.success
+
+# Calculate total results
+# -----------------------------------------------------------------------------
+- name: "Calculate total restore results"
+  set_fact:
+    total_created: >-
+      {{
+        (project_result.created_count | default(0)) +
+        (operatorgroups_result.created_count | default(0)) +
+        (subscriptions_result.created_count | default(0))
+      }}
+    total_updated: >-
+      {{
+        (project_result.updated_count | default(0)) +
+        (operatorgroups_result.updated_count | default(0)) +
+        (subscriptions_result.updated_count | default(0))
+      }}
+    total_skipped: >-
+      {{
+        (project_result.skipped_count | default(0)) +
+        (operatorgroups_result.skipped_count | default(0)) +
+        (subscriptions_result.skipped_count | default(0))
+      }}
+    total_failed: >-
+      {{
+        (project_result.failed_count | default(0)) +
+        (operatorgroups_result.failed_count | default(0)) +
+        (subscriptions_result.failed_count | default(0))
+      }}
+
+- name: "Display total restore results"
+  debug:
+    msg:
+      - >-
+        Restore completed{{ ' with failures' if total_failed | int > 0
+        else ' successfully' }}
+      - "Total resources created: {{ total_created }}"
+      - "Total resources updated: {{ total_updated }}"
+      - "Total resources skipped: {{ total_skipped }}"
+      - "Total resources failed: {{ total_failed }}"
+
+# Fail task if any errors occurred
+# -----------------------------------------------------------------------------
+- name: "Collect all failed resources"
+  set_fact:
+    all_failed_resources: >-
+      {{
+        (project_result.failed_resources | default([])) +
+        (operatorgroups_result.failed_resources | default([])) +
+        (subscriptions_result.failed_resources | default([]))
+      }}
+
+- name: "Display failed resources"
+  debug:
+    msg:
+      - "Failed resources:"
+      - "{{ all_failed_resources | to_nice_yaml }}"
+  when: total_failed | int > 0
+
+- name: "Fail if restore had errors"
+  fail:
+    msg: |
+      Restore failed for {{ total_failed }} resource(s):
+      {% for resource in all_failed_resources %}
+      - {{ resource.description }}: {{ resource.error }}
+      {% endfor %}
+  when: total_failed | int > 0
+
