@@ -72,7 +72,32 @@
       - "MongoDb feature compatibility version ..... {{ mongodb_feature_compatibility_version }}"
       - "MAS instance ID ........................... {{ mas_instance_id | default('<undefined>', True) }}"
       - "MAS config directory ...................... {{ mas_config_dir | default('<undefined>', True)  }}"
+      - "Controlled Upgrade ........................ {{ controlled_upgrade }}"
       - "Override Spec over existing MongoDB ....... {{ mongodb_override_spec }}"
+
+# Validate if upgrade has been issued by user
+# Only needed when there is an existing mongo instance and its version does not match with the target version to be installed
+- name: "community : install : validate upgrade process"
+  include_tasks: tasks/providers/mck/validate-upgrade.yml
+  when:
+    - existing_mongodb.resources[0].spec.version is defined
+    - existing_mongodb.resources[0].spec.version != target_mongodb_version
+
+- name: "community : install : begin controlled upgrade process"
+  include_tasks: tasks/mck/controlled-upgrade.yml
+  vars:
+    current_mongodb_version: "{{ existing_mongodb.resources[0].spec.version }}"
+    current_mongodb_image: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.template.spec.containers[0].image }}"
+    current_mongo_operator_image: "{{ existing_mongo_operator.resources[0].spec.containers[0].image }}"
+  when:
+    - not controlled_upgrade
+    - existing_mongodb is defined
+    - existing_mongodb.resources[0] is defined
+    - existing_mongodb.resources[0].spec.version is defined
+    - existing_mongodb.resources[0].spec.version != target_mongodb_version
+    - existing_mongo_operator is defined
+    - existing_mongo_operator.resources[0] is defined
+    - existing_mongo_operator.resources[0].spec.containers[0].image != target_mongodb_operator_image
 
 # 3. Install the CRD ( MCK Community)
 # -----------------------------------------------------------------------------
@@ -251,11 +276,62 @@
     - existing_mongodb.resources[0].status.version is defined
     - not mongodb_override_spec
 
+- name: "mck : install : Set expected MongoDb version to {{ current_mongodb_version }}"
+  set_fact:
+    expected_mongodb_version: "{{ current_mongodb_version }}"
+  when: controlled_upgrade
+
 - name: "mck : install : Set expected MongoDb version to {{ target_mongodb_version }}"
   set_fact:
     expected_mongodb_version: "{{ target_mongodb_version }}"
+  when:
+    - not controlled_upgrade
+    - mongodb_ce_version is version('0.7.8', '>=')
+# 11. Wait for the cluster to be ready
+# status.version on the mongo cr is not available with older mongo operators
+# -----------------------------------------------------------------------------
+- name: Delete existing mongo statefulsets if running mongo upgrade
+  when:
+    - existing_mongodb.resources[0].status.version is defined
+    - target_mongodb_version is defined
+    - existing_mongodb.resources[0].status.version is version(target_mongodb_version, '<') # when upgrade to happen, delete statefulsets to ensure recreation with right image digests
+    - not controlled_upgrade # we don't need to run that twice during controlled upgrade
+  block:
+    - debug:
+        msg:
+          - "Existing mongo version .................... {{ existing_mongodb.resources[0].status.version }}"
+          - "Target mongo version ...................... {{ target_mongodb_version }}"
+          - "Deleting existing mongo statefulsets while performing mongo upgrade to ensure recreation with right image digests..."
 
-- name: "mck : install : Wait for mas-mongo-mck stateful set to be ready"
+    - name: "mck : install : Scale down mongodb-kubernetes-operator"
+      shell: oc patch deployment mongodb-kubernetes-operator --subresource='scale' --type='merge' -p '{"spec":{"replicas":0}}' -n {{ mongodb_namespace }}
+      register: scale_down_mongo_deployment_output
+
+    - debug:
+        var: scale_down_mongo_deployment_output.stdout
+
+    - name: "mck : install : Delete mas-mongo-mck statefulset so next time it recreates with right image"
+      shell: oc delete statefulset mas-mongo-ce -n {{ mongodb_namespace }}
+      register: delete_mongo_ss_output
+
+    - debug:
+        var: delete_mongo_ss_output.stdout
+
+    - name: "mck: install : Delete mas-mongo-mck-arb statefulset so next time it recreates with right image"
+      shell: oc delete statefulset mas-mongo-mck-arb -n {{ mongodb_namespace }}
+      register: delete_mongo_ss_arb_output
+
+    - debug:
+        var: delete_mongo_ss_arb_output.stdout
+
+    - name: "mck : install : Scale up mongodb-kubernetes-operator"
+      shell: oc patch deployment mongodb-kubernetes-operator --subresource='scale' --type='merge' -p '{"spec":{"replicas":1}}' -n {{ mongodb_namespace }}
+      register: scale_up_mongo_deployment_output
+
+    - debug:
+        var: scale_up_mongo_deployment_output.stdout
+
+- name: "mck : install : Wait for mas-mongo-ce stateful set to be ready"
   kubernetes.core.k8s_info:
     api_version: apps/v1
     kind: StatefulSet
@@ -272,6 +348,21 @@
     - mongodb_statefulset.resources[0].status.readyReplicas is defined
     - mongodb_statefulset.resources[0].status.readyReplicas ==  (mongodb_replicas_check|int)
 
+- name: "community : install : Wait for mas-mongo-ce-arb stateful set to be ready"
+  when: target_mongodb_version is version('4.4.0','>=') # this statefulset will only exist in Mongo v4.4+
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: StatefulSet
+    name: mas-mongo-mck-arb
+    namespace: "{{ mongodb_namespace }}"
+  register: mongodb_arb_statefulset
+  retries: 45 # Approx 90 minutes
+  delay: 120 # 2 minutes
+  until:
+    - mongodb_arb_statefulset.resources is defined
+    - mongodb_arb_statefulset.resources | length > 0
+    - mongodb_arb_statefulset.resources[0].status.availableReplicas is defined
+    - mongodb_arb_statefulset.resources[0].status.availableReplicas == 0
 
 - name: "mck : install : Wait for Mongo CR to report expected version {{ expected_mongodb_version }}"
   kubernetes.core.k8s_info:
@@ -282,6 +373,9 @@
   register: mongodb_cr
   retries: 45 # Approx 45 minutes
   delay: 60 # 1 minute
+  until:
+    - (mongodb_mck_version is version('0.7.8', '>=') and mongodb_cr.resources[0].status.version is defined) or mongodb_mck_version is version('0.7.0', '==')
+    - (mongodb_mck_version is version('0.7.8', '>=') and mongodb_cr.resources[0].status.version == expected_mongodb_version) or mongodb_mck_version is version('0.7.0', '==')
 
 # 12. Create MongoDb service monitor
 # -----------------------------------------------------------------------------
