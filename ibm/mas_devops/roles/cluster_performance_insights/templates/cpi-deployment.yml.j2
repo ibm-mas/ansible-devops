@@ -1,0 +1,35 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcpi-deployment
+  namespace: "{{ cpi_namespace }}"
+  labels:
+    app: mcpi
+spec:
+  replicas: 1
+  imagePullPolicy: Always
+  selector:
+    matchLabels:
+      app: mcpi
+  template:
+    metadata:
+      labels:
+        app: mcpi
+    spec:
+      securityContext:
+        runAsUser: 1002  # no specify, the openshift uses the restricted by default
+      serviceAccountName: mcpi
+      containers:
+        - name: mcpi
+          image: 'quay.io/ibmmas/mcpi:latest'
+          ports:
+            - name: http
+              containerPort: 8888
+              protocol: TCP
+          resources:
+            limits:
+              ephemeral-storage: "30Gi"             
+          env:
+            - name: INCLUSTER
+              value: "true"
