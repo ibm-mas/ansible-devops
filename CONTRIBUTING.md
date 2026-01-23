@@ -113,6 +113,220 @@ This test layer covers:
 - Integration Verification Tests (Dependencies): exercise integration points between application and their dependencies (e.g. predict x watson studion, assist x watson discovery, manage x db2)
 - Build Verification Test: functional tests that guarantee application is accessible and basically working
 
+## README Documentation Standards
+
+### Overview
+All role README files must follow standardized structure and formatting guidelines to ensure consistency and quality across the collection.
+
+### Standard README Structure
+
+Every README must follow this structure:
+
+```markdown
+# role_name
+Description
+
+## Prerequisites (optional)
+## Role Variables
+### Category 1
+#### variable_name
+### Category 2
+#### variable_name
+## Example Playbook
+## Run Role Playbook
+## License
+```
+
+### Variable Documentation Format
+
+Each variable must follow this enhanced format:
+
+```markdown
+#### variable_name
+One-line summary of what the variable does.
+
+- **Required** or **Optional**
+- Environment Variable: `ENV_VAR_NAME`
+- Default: `value` or `None`
+
+**Purpose**: Detailed explanation of why this variable exists and what it accomplishes.
+
+**When to use**: Guidance on when to set this variable vs. using defaults.
+- Scenario 1
+- Scenario 2
+- Scenario 3
+
+**Valid values**: Specific values, ranges, or format requirements.
+
+**Impact**: What happens when this variable is set/changed.
+
+**Related variables**: List of variables that interact with this one.
+
+**Note**: Any warnings, version-specific behavior, or deprecation notices (if applicable).
+```
+
+### Variable Documentation Guidelines
+
+#### 1. One-Line Summary
+- Clear, concise description of what the variable controls
+- Start with action verbs when appropriate
+- Focus on the "what" not the "how"
+
+**Examples**:
+- ✅ "Specifies the MAS operator subscription channel"
+- ✅ "Controls the image pull policy for all MAS container images"
+- ❌ "Defines the channel" (too vague)
+- ❌ "This variable is for the channel" (wordy, unclear)
+
+#### 2. Metadata (Required/Optional, Environment Variable, Default)
+- Must appear immediately after the one-line summary
+- Always include all three items
+- Use exact environment variable names
+- Specify actual default values or `None`
+
+#### 3. Purpose Statement
+- Explain **why** the variable exists
+- Describe what problem it solves
+- Provide context about its role in the system
+- 2-4 sentences typically sufficient
+
+**Example**:
+```markdown
+**Purpose**: Controls which version of MAS will be installed and which updates will be automatically applied. The channel corresponds to major.minor version releases (e.g., `8.11.x`, `9.0.x`) and determines the feature set and compatibility level of your MAS installation.
+```
+
+#### 4. When to Use Guidance
+- Provide specific scenarios for setting the variable
+- Explain when to use defaults vs. custom values
+- Include decision criteria
+- Use bulleted list format
+
+**Example**:
+```markdown
+**When to use**:
+- Set to the latest stable channel for new production deployments
+- Use specific older channels when compatibility requires it
+- Consult the MAS compatibility matrix before selecting
+- Change channels only during planned upgrade windows
+```
+
+#### 5. Valid Values
+- Specify exact acceptable values for enumerations
+- Document format requirements (URLs, version strings, etc.)
+- Include value ranges for numeric variables
+- Provide pattern requirements for strings
+
+**Examples**:
+```markdown
+**Valid values**: `community`, `ibm`, `aws` (case-sensitive)
+
+**Valid values**: Any valid Kubernetes storage size (e.g., `20Gi`, `100Gi`, `1Ti`)
+
+**Valid values**: Duration string in format `{hours}h{minutes}m{seconds}s` (e.g., `8760h0m0s`)
+```
+
+#### 6. Impact Description
+- Explain what happens when the variable is set
+- Describe effects of changing from default
+- Note any side effects or cascading changes
+- Mention performance or resource implications
+
+**Example**:
+```markdown
+**Impact**: When set, MAS will use this domain for all routes and certificates. You must ensure DNS is properly configured to resolve this domain to your cluster. When not set, MAS automatically uses the cluster's default ingress subdomain.
+```
+
+#### 7. Related Variables
+- List variables that must be set together
+- Identify mutually exclusive variables
+- Note variables that affect or are affected by this one
+- Explain the relationships
+
+**Example**:
+```markdown
+**Related variables**:
+- Must be set together with `mas_superuser_password`
+- Used by all MAS configuration roles to target the correct instance
+- Works with `mas_catalog_source` to determine available channels
+```
+
+#### 8. Notes and Warnings
+- Include version-specific behavior
+- Mark deprecated variables clearly
+- Add important warnings
+- Document known limitations
+- Note breaking changes
+
+**Examples**:
+```markdown
+**Note**: Only available in MAS 8.11 and above. Has no effect in earlier versions.
+
+**Note**: **DEPRECATED in SLS 3.8.0** - Use `sls_icr_cpopen` instead. This variable is only required for SLS versions up to 3.7.0.
+
+**Note**: Choose carefully as this cannot be changed after installation.
+```
+
+### Variable Categories
+
+Organize variables into logical groups using level 3 headings:
+
+- **General Variables** or **Basic Install**: Common variables used across the role
+- **Basic Configuration**: Core configuration settings
+- **Advanced Configuration**: Optional advanced settings
+- **Certificate Management**: Certificate-related variables
+- **Provider-Specific Variables**: Variables for specific providers (AWS, IBM Cloud, etc.)
+- **Feature-Specific Variables**: Variables for optional features
+
+### Quality Checklist for Variables
+
+Before submitting, verify each variable has:
+
+- [x] Clear one-sentence summary
+- [x] Metadata immediately after summary (Required/Optional, Env Var, Default)
+- [x] Purpose statement explaining the "why"
+- [x] When to use guidance (for optional variables)
+- [x] Valid values clearly specified
+- [x] Impact description
+- [x] Related variables documented (if applicable)
+- [x] Notes/warnings for special cases (if applicable)
+- [x] No technical jargon without explanation
+- [x] Consistent terminology
+- [x] Proper grammar and spelling
+
+### Example Playbook and Run Role Playbook Sections
+
+#### Example Playbook
+```markdown
+## Example Playbook
+After installing the Ansible Collection you can include this role in your own custom playbooks.
+
+\`\`\`yaml
+- hosts: localhost
+  vars:
+    mas_instance_id: inst1
+    mas_channel: 8.11.x
+  roles:
+    - ibm.mas_devops.suite_install
+\`\`\`
+```
+
+#### Run Role Playbook
+```markdown
+## Run Role Playbook
+After installing the Ansible Collection you can easily run the role standalone using the `run_role` playbook provided.
+
+\`\`\`bash
+export MAS_INSTANCE_ID=inst1
+export MAS_CHANNEL=8.11.x
+ROLE_NAME=suite_install ansible-playbook ibm.mas_devops.run_role
+\`\`\`
+```
+
+### Reference Example
+
+See the enhanced `suite_install` README for a complete reference:
+- `ibm/mas_devops/roles/suite_install/README.md`
+
 ## Style Guide
 Failure to adhere to the style guide will result in a PR being rejected!
 
