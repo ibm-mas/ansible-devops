@@ -13,12 +13,12 @@
 
 # 1. Validate odh model deployment type
 # -----------------------------------------------------------------------------
-- name: Validate rhods model deployment type
+- name: Validate rhoai model deployment type
   ansible.builtin.assert:
     that:
-      - aiservice_rhods_model_deployment_type in ['raw', 'serverless']
-    fail_msg: 'AISERVICE_RHODS_MODEL_DEPLOYMENT_TYPE must be one of: raw, serverless'
-  when: aiservice_dsapp_id == 'rhods'
+      - aiservice_rhoai_model_deployment_type in ['raw', 'serverless']
+    fail_msg: 'AISERVICE_RHOAI_MODEL_DEPLOYMENT_TYPE must be one of: raw, serverless'
+  when: aiservice_dsapp_id == 'rhoai'
 
 # # 2. Deploy OpenShift Serverless operators
 # # -----------------------------------------------------------------------------
@@ -51,8 +51,8 @@
 - include_tasks: tasks/odh-operator.yml
   when: aiservice_dsapp_id == 'odh'
 
-- include_tasks: rhods-operator.yml
-  when: aiservice_dsapp_id == 'rhods'
+- include_tasks: rhoai-operator.yml
+  when: aiservice_dsapp_id == 'rhoai'
 
 - name: 'Wait for opendatahub-operator-controller-manager to be ready (60s delay)'
   kubernetes.core.k8s_info:
@@ -72,23 +72,23 @@
   delay: 60 # 1 minute
   when: aiservice_dsapp_id == 'odh'
 
-- name: 'Wait for rhods-operator to be ready (60s delay)'
+- name: 'Wait for rhoai-operator to be ready (60s delay)'
   kubernetes.core.k8s_info:
     api_version: apps/v1
-    name: rhods-operator
-    namespace: '{{ rhods_namespace }}'
+    name: rhoai-operator
+    namespace: '{{ rhoai_namespace }}'
     kind: Deployment
-  register: rhods_deployment
+  register: rhoai_deployment
   until:
-    - rhods_deployment.resources is defined
-    - rhods_deployment.resources | length > 0
-    - rhods_deployment.resources[0].status is defined
-    - rhods_deployment.resources[0].status.replicas is defined
-    - rhods_deployment.resources[0].status.readyReplicas is defined
-    - rhods_deployment.resources[0].status.readyReplicas == rhods_deployment.resources[0].status.replicas
+    - rhoai_deployment.resources is defined
+    - rhoai_deployment.resources | length > 0
+    - rhoai_deployment.resources[0].status is defined
+    - rhoai_deployment.resources[0].status.replicas is defined
+    - rhoai_deployment.resources[0].status.readyReplicas is defined
+    - rhoai_deployment.resources[0].status.readyReplicas == rhoai_deployment.resources[0].status.replicas
   retries: 10 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
-  when: aiservice_dsapp_id == 'rhods'
+  when: aiservice_dsapp_id == 'rhoai'
 
 # # 3. Create DSCInitialization instance
 # # -----------------------------------------------------------------------------
@@ -139,7 +139,7 @@
   kubernetes.core.k8s_info:
     api_version: dscinitialization.opendatahub.io/v1
     name: default-dsci
-    namespace: '{{ rhods_namespace }}'
+    namespace: '{{ rhoai_namespace }}'
     kind: DSCInitialization
   register: dsci_lookup
   until:
@@ -149,7 +149,7 @@
     - dsci_lookup.resources[0].status.phase == 'Ready'
   retries: 15
   delay: 120
-  when: aiservice_dsapp_id == 'rhods'
+  when: aiservice_dsapp_id == 'rhoai'
 
 # 4. Create Data Science Cluster
 # -----------------------------------------------------------------------------
