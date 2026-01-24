@@ -1,0 +1,63 @@
+---
+# 1. Provide Debug information
+# -----------------------------------------------------------------------------
+- name: "Debug information - IBM Maximo AI Service"
+  debug:
+    msg:
+      - "Namespace ......................... {{ tenantNamespace }}"
+      - "Channel ........................... {{ aiservice_channel }}"
+      - "MAS Instance Id ................... {{ aiservice_instance_id }}"
+
+
+
+# 2. Install the operator & create entitlement secret
+# -----------------------------------------------------------------------------
+- name: "Create IBM Entitlement Key"
+  ibm.mas_devops.update_ibm_entitlement:
+    namespace: "{{ tenantNamespace }}"
+    icr_username: "{{ mas_entitlement_username }}"
+    icr_password: "{{ mas_entitlement_key }}"
+    artifactory_username: "{{ artifactory_username }}"
+    artifactory_password: "{{ artifactory_token }}"
+    namespace_kyverno_label: "audit"
+
+- name: "Create ibm-aiservice Subscription"
+  ibm.mas_devops.apply_subscription:
+    namespace: "{{ tenantNamespace }}"
+    package_name: ibm-aiservice-tenant
+    package_channel: "{{ aiservice_channel }}"
+    catalog_source: "{{ mas_catalog_source }}"
+  register: subscription
+
+
+# 3. Wait until the IBM Maximo AI Service CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the IBM Maximo AI Service Operator CRD is available"
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: aiservicetenants.aiservice.ibm.com
+
+
+# 4. Lookup storage class availability
+# -----------------------------------------------------------------------------
+- name: "Load default storage class information"
+  include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
+
+
+# 5. Set AI Service Storage (Required)
+# -----------------------------------------------------------------------------
+- name: "Default AI Service Storage if not set by user"
+  when: aiservice_storage_class is not defined or aiservice_storage_class == ""
+  set_fact:
+    aiservice_storage_class: "{{ defaultStorageClasses.rwx }}"
+
+- name: "Assert that primary storage class has been defined"
+  assert:
+    that: aiservice_storage_class is defined and aiservice_storage_class != ""
+    fail_msg: "aiservice_storage_class must be defined"
+
+- name: "Debug"
+  debug:
+    msg: "AI Service storage class ................. {{ aiservice_storage_class }}"
+
+

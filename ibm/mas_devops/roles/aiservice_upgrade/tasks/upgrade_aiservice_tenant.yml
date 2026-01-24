@@ -1,0 +1,84 @@
+---
+
+# Release 9.2.x introduces an architectural change whereby each tenant namespace
+# has a dedicated "ibm-aiservice-tenant" operator. We must migrate the environment
+# to support this change:
+# (1) install the operator to each tenant namespace
+# (2) move the tenant CR from the main namespace into the tenant namespace
+- when: current_aiservice_channel == '9.1.x' or aiservice_force_migration
+  block:
+    - name: "Delete tenant operator deployment from namespace {{ aiservice_namespace }}"
+      kubernetes.core.k8s:
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ aiservice_namespace }}"
+        name: "{{ aiservice_instance_id }}-entitymgr-tenant"
+        state: absent
+
+    - name: "Delete tenant operator secret from namespace {{ aiservice_namespace }}"
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Secret
+        namespace: "{{ aiservice_namespace }}"
+        name: provision-tenant----apikey-secret
+        state: absent
+    
+    - name: "Delete tenant operator configmap from namespace {{ aiservice_namespace }}"
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: ConfigMap
+        namespace: "{{ aiservice_namespace }}"
+        name: "{{ aiservice_instance_id }}-entitymgr-tenant-reconcile"
+        state: absent
+
+    - name: "Find existing AIServiceTenant CRs in namespace {{ aiservice_namespace }}"
+      kubernetes.core.k8s_info:
+        api_version: aiservice.ibm.com/v1
+        kind: AIServiceTenant
+        namespace:  "{{ aiservice_namespace }}"
+      register: search_result
+
+    - name: Set target resources
+      ansible.builtin.set_fact:
+        tenant_crs: "{{ search_result.resources }}"
+        
+    - name: Migration info
+      ansible.builtin.debug:
+        msg:
+          - "AI Service namespace ............. {{ aiservice_namespace }}"
+          - "Number of tenants to migrate ............. {{ tenant_crs | length }}"
+
+    - name: Migrate tenant
+      include_tasks: tenant/migrate.yml
+      loop: "{{ tenant_crs }}"
+      loop_control:
+        loop_var: tenant_cr
+
+
+# For environments not on 9.1.x we can safely assume the new tenant operator exists since
+# upgrade is not supported below this release, therefore the environment is on at least 9.2.x
+- when: current_aiservice_channel != '9.1.x' and not aiservice_force_migration
+  block:
+    - name: Find all subscriptions for ibm-aiservice-tenant
+      kubernetes.core.k8s_info:
+        api_version: operators.coreos.com/v1alpha1
+        kind: Subscription
+        name: ibm-aiservice-tenant
+        label_selectors:
+          - "aiservice.ibm.com/instanceId = {{ aiservice_instance_id }}"
+      register: aiservice_tenant_sub_info
+
+    - name: Set target resources
+      ansible.builtin.set_fact:
+        tenant_subscriptions: "{{ aiservice_tenant_sub_info.resources }}"
+        
+    - name: Subscription info
+      ansible.builtin.debug:
+        msg:
+          - "Number of tenant subscriptions ............. {{ tenant_subscriptions | length }}"
+
+    - name: Upgrade tenant operator subscriptions
+      include_tasks: tenant/upgrade.yml
+      loop: "{{ tenant_subscriptions }}"
+      loop_control:
+        loop_var: tenant_subscription
