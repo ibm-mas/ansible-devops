@@ -89,6 +89,31 @@
     kind: OperatorGroup
   register: db2_og_info
 
+# Check if db2_channel is avaialble in the catalog and is fetched correctly
+- name: Debug DB2 upgrade channel
+  ansible.builtin.debug:
+    msg:
+      - "Db2 Channel (check if default got fetched from CLI)............................ {{ db2_channel }}"
+
+# Load catalog metadata as additional fallback (if CLI didn't set it)
+- name: "Determine Version of Maximo Operator Catalog"
+  include_tasks: "{{ role_path }}/../../common_tasks/determine-ibmcatalog-tag.yml"
+  when: db2_channel is not defined or db2_channel == ""
+
+- name: Load Catalog Metadata for db2_channel
+  when:
+    - db2_channel is not defined or db2_channel == ""
+    - catalog_tag is defined and catalog_tag != ""
+  block:
+    - ibm.mas_devops.get_catalog_info:
+        mas_catalog_version: "{{ catalog_tag }}"
+      register: _mas_catalog
+
+    - name: "Set db2_channel from catalog metadata"
+      when: _mas_catalog.db2_channel_default is defined
+      set_fact:
+        db2_channel: "{{ _mas_catalog.db2_channel_default }}"
+
 # Look up the default channel for the db2u-operator package manifest
 - name: Lookup db2u-operator packagemanifest
   kubernetes.core.k8s_info:
@@ -100,7 +125,29 @@
   until: db2u_manifest_info.resources[0].status.defaultChannel is defined
   retries: 60 # Approximately 30 minutes before we give up
   delay: 30 # seconds
-  when: db2_channel is not defined or db2_channel == "" or db2_version is not defined or db2_version == ""
+  when: db2_channel is not defined or db2_channel == ""
+  #when: db2_channel is not defined or db2_channel == "" or db2_version is not defined or db2_version == ""
+
+  # Rotate DB2 channel by day of the week
+- name: "Select DB2 channel based on day of the week"
+  when: db2_channel is defined and db2_channel == "rotate"
+  set_fact:
+    db2_channel: "{{ rotate_db2_channel[ansible_date_time['weekday']] }}"
+  vars:
+    rotate_db2_channel:
+      Monday: "v110509.0"
+      Tuesday: "v120101.0"
+      Wednesday: "v110509.0"
+      Thursday: "v120101.0"
+      Friday: "v120101.0"
+      Saturday: "v120101.0"
+      Sunday: "v120101.0"
+
+- name: "Debug DB2 channel after rotation"
+  when: db2_channel is defined and db2_channel != ""
+  ansible.builtin.debug:
+    msg:
+      - "DB2 Channel (after rotation check) ........ {{ db2_channel }}"
 
 - name: Set db2u-operator channel
   ansible.builtin.set_fact:

@@ -1,5 +1,5 @@
-suite_rollback
-===============================================================================
+# suite_rollback
+
 This role is to roll back Maximo Application Suite to an earlier version. Rollback is possible only in 8.11 and later. From 8.11 onwards, every version comes with a set of supported versions to which Suite can be rolled back. For example, you can roll back Maximo Application Suite from 8.11.x to 8.11.0. This role validates given MAS installation is ready for the core platform to be rolled back to a specific MAS core version, and (as long as dry run mode is not enabled) will execute the rollback.
 
 - It will validate that the specified version is compatible to rollback from the current version.
@@ -8,9 +8,8 @@ This role is to roll back Maximo Application Suite to an earlier version. Rollba
 - It will validate that the core platform has been successfully reconciled at the rolled back version.
 - It will **not** validate that all core services successfully deploy after the reconcile (but we will be working on this limitation).
 
+## Role Variables
 
-Role Variables
--------------------------------------------------------------------------------
 ### mas_instance_id
 The ID of the MAS instance to rollback.
 
@@ -18,38 +17,45 @@ The ID of the MAS instance to rollback.
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default: None
 
-### rollback_mas_core
-When set to `true` will ensure that the role performs rollback operation.
-
-- optional
-- Environment Variable: `ROLLBACK_MAS_CORE`
-- Default: True
-
-### verify_core_version
-When set to `true` will ensure that the role checks the current MAS core version matches with specified version. 
-
-- optional
-- Environment Variable: `VERIFY_CORE_VERSION`
-- Default: False
-
 ### mas_core_version
-The version of the MAS core that you want to rollback to or to validate current version. It is required when any of the ROLLBACK_MAS_CORE and VERIFY_CORE_VERSION variables is set to `true`.
+The version of the MAS core that you want to rollback to or to validate current version. It is required when any of the `ROLLBACK_MAS_CORE` and `VERIFY_CORE_VERSION` variables is set to `true`.
 
 - **Required**
 - Environment Variable: `MAS_CORE_VERSION`
 - Default: None
 
-### mas_rollback_dryrun
-When set to `true` will ensure that the role only preforms rollback validation checks and does not make any changes to the target installation.
+### rollback_mas_core
+When set to `true` will ensure that the role performs rollback operation.
 
-- Optional
+- **Optional**
+- Environment Variable: `ROLLBACK_MAS_CORE`
+- Default: `True`
+
+### verify_core_version
+When set to `true` will ensure that the role checks the current MAS core version matches with specified version.
+
+- **Optional**
+- Environment Variable: `VERIFY_CORE_VERSION`
+- Default: `False`
+
+### mas_rollback_dryrun
+When set to `true` will ensure that the role only performs rollback validation checks and does not make any changes to the target installation.
+
+- **Optional**
 - Environment Variable: `MAS_ROLLBACK_DRYRUN`
 - Default: `False`
 
-Example Playbook
--------------------------------------------------------------------------------
-### Automatic Target Selection
-Running this playbook will rollback MAS core to the specified version.  If you run this playbook when you are already on the same version it will take no action.
+### skip_compatibility_check
+When set to `true` will skip compatibility check before the rollback. This is meant only for development mode. In dev mode, rollback request is accepted from one pre built version to another on the same base version though it is not listed under supported versions. For example: 8.11.0-pre.dev to 8.11.0-pre.stable.
+
+- **Optional**
+- Environment Variable: `SKIP_COMPATIBILITY_CHECK`
+- Default: `False`
+
+## Example Playbook
+
+### Rollback to Specified Version
+Running this playbook will rollback MAS core to the specified version. If you run this playbook when you are already on the same version it will take no action.
 
 ```yaml
 - hosts: localhost
@@ -62,8 +68,9 @@ Running this playbook will rollback MAS core to the specified version.  If you r
     - ibm.mas_devops.suite_rollback
 ```
 
-### Verify MAS core version
-Running this playbook will attempt to verify the current version of MAS core matches with the specified version. 
+### Verify MAS Core Version
+Running this playbook will attempt to verify the current version of MAS core matches with the specified version.
+
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
@@ -76,3 +83,7 @@ Running this playbook will attempt to verify the current version of MAS core mat
   roles:
     - ibm.mas_devops.suite_rollback
 ```
+
+## License
+
+EPL-2.0
