@@ -49,10 +49,11 @@ The playbook executes the following roles in sequence:
 ### Restore Operation
 1. [Restore IBM Operator Catalogs](../roles/ibm_catalogs.md) (~2 minutes)
 2. [Restore Certificate Manager](../roles/cert_manager.md) (~5 minutes)
-3. [Restore MongoDB Community Edition](../roles/mongodb.md) (~10-60 minutes depending on database size)
-4. [Restore Suite License Service](../roles/sls.md) (~10 minutes, optional)
-5. [Install Data Reporter Operator](../roles/dro.md) (~10 minutes, optional)
-6. [Restore MAS Core](../roles/suite_restore.md) (~30 minutes)
+3. [Install Grafana](../roles/grafana.md) (~10 minutes, optional)
+4. [Restore MongoDB Community Edition](../roles/mongodb.md) (~10-60 minutes depending on database size)
+5. [Restore Suite License Service](../roles/sls.md) (~10 minutes, optional)
+6. [Install Data Reporter Operator](../roles/dro.md) (~10 minutes, optional)
+7. [Restore MAS Core](../roles/suite_restore.md) (~30 minutes)
 
 All timings are estimates. See the individual role documentation for more information and full details of all configuration options.
 
@@ -80,6 +81,9 @@ All timings are estimates. See the individual role documentation for more inform
   - Use `false` if SLS is configured externally to the cluster
 - `INCLUDE_DRO` - Set to `false` to skip DRO installation on restore (default: `true`)
   - Use `false` if DRO is configured externally to the cluster
+
+### GRAFANA Configuration
+- `INCLUDE_GRAFANA` - Set to ``false`` to skip Grafana install (default: `true`)
 
 ### Restore to Different Cluster
 When restoring to a different cluster with a different domain:
@@ -151,6 +155,28 @@ export MAS_CONFIG_DIR=~/masconfig
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.br_core
 ```
+
+### Restore MAS Core without Grafana
+Restore MAS Core from a backup without grafana:
+
+```bash
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export BR_ACTION=restore
+export BACKUP_VERSION_TO_RESTORE=260122-131500
+
+export INCLUDE_GRAFANA=false
+
+export IBM_ENTITLEMENT_KEY=xxx
+export DRO_CONTACT_EMAIL=user@example.com
+export DRO_CONTACT_FIRSTNAME=John
+export DRO_CONTACT_LASTNAME=Doe
+export MAS_CONFIG_DIR=~/masconfig
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_core
+```
+
 
 ### Restore to Different Cluster
 Restore MAS Core to a different cluster with a different domain:
