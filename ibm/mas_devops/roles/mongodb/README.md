@@ -550,12 +550,13 @@ Confirmation flag to upgrade MongoDB from version 7 to version 8.
 - Environment Variable: `MONGODB_V8_UPGRADE`
 - Default Value: `false`
 
-Role Variables - Backup and Restore (CE Operator) - (authored by IBM Bob)
+Role Variables - Backup and Restore (CE Operator)
 -------------------------------------------------------------------------------
 
 ### mongodb_action
 For backup and restore operations, set `mongodb_action` to one of the following:
-- `backup`: Create a backup of MongoDB databases and optionally instance resources
+- `backup`: Create a backup of MongoDB databases and instance resources
+- `backup_database`: Create a backup of MongoDB databases only
 - `restore`: Restore both MongoDB instance resources and databases from a backup (full restore)
 - `restore_database`: Restore only MongoDB databases from a backup to an existing instance (database-only restore)
 
@@ -563,7 +564,8 @@ For backup and restore operations, set `mongodb_action` to one of the following:
 - Default Value: `install`
 
 **Action Details:**
-- **backup**: Creates a complete backup including database data and optionally Kubernetes resources (secrets, certificates, CRs)
+- **backup**: Creates a complete backup including database data and Kubernetes resources (secrets, certificates, CRs)
+- **backup_database**: Creates a complete backup including database data only
 - **restore**: Performs a full restore by recreating the MongoDB instance from backup resources and then restoring database data
 - **restore_database**: Restores only the database data to an already running MongoDB instance without touching instance resources
 
@@ -601,7 +603,7 @@ Optional. Specific MAS application ID for targeted backup/restore operations.
 - Default Value: None
 
 
-Backup and Restore Operations - (authored by IBM Bob)
+Backup and Restore Operations
 -------------------------------------------------------------------------------
 
 This section provides comprehensive information about MongoDB backup and restore operations for the Community Edition (CE) operator.
