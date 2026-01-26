@@ -22,6 +22,9 @@
     # Computed variable: use backup_version for backup action, backup_version_to_restore for restore action
     br_action_version: "{{ backup_version if br_action == 'backup' else backup_version_to_restore }}"
 
+    # Configurable flags for Grafana. Set to false to skip Grafana
+    include_grafana: "{{ lookup('env', 'INCLUDE_GRAFANA') | default('true', true) | bool }}"
+
     # Configurable flags for SLS and DRO. You should not include SLS or DRO if theses are configured externally
     # the the cluster running the Suite. When these values are false then the slscfg and bascfg (for DRO) will
     # be restored from what is defined in the backup config for the suite.
@@ -103,6 +106,13 @@
       vars:
         cert_manager_action: "{{ br_action }}"
         certmanager_backup_version: "{{ br_action_version }}"
+    
+    - role: ibm.mas_devops.grafana
+      when:
+        - include_grafana | bool
+        - br_action == "restore"
+      vars:
+        grafana_action: "install"
 
     - role: ibm.mas_devops.mongodb
       vars:
