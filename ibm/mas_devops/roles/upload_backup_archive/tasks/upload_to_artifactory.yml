@@ -1,0 +1,69 @@
+---
+# Upload backup archive to Artifactory
+- name: "Validate Artifactory repository is defined"
+  ansible.builtin.fail:
+    msg: "artifactory_repository is required when uploading to Artifactory"
+  when: artifactory_repository is not defined or artifactory_repository == ''
+
+- name: "Set Artifactory upload URL"
+  ansible.builtin.set_fact:
+    artifactory_upload_url: "{{ artifactory_url }}/{{ artifactory_repository }}/{{ backup_archive_name }}"
+
+- name: "Display Artifactory upload information"
+  ansible.builtin.debug:
+    msg:
+      - "Uploading to Artifactory: {{ artifactory_url }}"
+      - "Repository: {{ artifactory_repository }}"
+      - "Archive: {{ backup_archive_name }}"
+      - "Full URL: {{ artifactory_upload_url }}"
+
+- name: "Get archive file stats"
+  ansible.builtin.stat:
+    path: "{{ backup_temp_dir }}/{{ backup_archive_name }}"
+  register: archive_file_stat
+
+- name: "Upload archive to Artifactory using curl"
+  ansible.builtin.command:
+    cmd: >
+      curl -X PUT
+      -u {{ artifactory_username }}:{{ artifactory_token }}
+      -T {{ backup_temp_dir }}/{{ backup_archive_name }}
+      {{ artifactory_upload_url }}
+      --max-time {{ upload_timeout }}
+      --connect-timeout 60
+      --fail
+      --silent
+      --show-error
+      --write-out '%{http_code}'
+  register: artifactory_upload_result
+  changed_when: artifactory_upload_result.rc == 0
+  failed_when: artifactory_upload_result.rc != 0
+  async: "{{ upload_timeout }}"
+  poll: 10
+  no_log: true
+
+- name: "Check upload HTTP status code"
+  ansible.builtin.set_fact:
+    upload_http_code: "{{ artifactory_upload_result.stdout | regex_search('[0-9]{3}$') }}"
+  when: artifactory_upload_result is succeeded
+
+- name: "Display Artifactory upload result"
+  ansible.builtin.debug:
+    msg:
+      - "Successfully uploaded {{ backup_archive_name }} to Artifactory"
+      - "HTTP Status: {{ upload_http_code | default('N/A') }}"
+      - "Archive size: {{ (archive_file_stat.stat.size / 1024 / 1024) | round(2) }} MB"
+  when: artifactory_upload_result is succeeded
+
+- name: "Fail if Artifactory upload failed"
+  ansible.builtin.fail:
+    msg: "Failed to upload archive to Artifactory. HTTP Status: {{ upload_http_code | default('Unknown') }}"
+  when:
+    - artifactory_upload_result is succeeded
+    - upload_http_code is defined
+    - upload_http_code not in ['200', '201']
+
+- name: "Handle upload command failure"
+  ansible.builtin.fail:
+    msg: "Failed to upload archive to Artifactory: {{ artifactory_upload_result.stderr | default('Unknown error') }}"
+  when: artifactory_upload_result is failed

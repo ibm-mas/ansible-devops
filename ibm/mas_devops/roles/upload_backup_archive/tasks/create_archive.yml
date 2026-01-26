@@ -1,0 +1,68 @@
+---
+# Create tar archive of backup directories
+- name: "Set backup directories to archive"
+  ansible.builtin.set_fact:
+    backup_directories:
+      - "backup-{{ catalog_backup_version }}-catalog"
+      - "backup-{{ certmanager_backup_version }}-certmanager"
+      - "backup-{{ sls_backup_version }}-sls"
+      - "backup-{{ mongodb_backup_version }}-mongoce"
+      - "backup-{{ db2_backup_version }}-db2u"
+      - "backup-{{ suite_backup_version }}-suite"
+
+- name: "Verify backup directory exists"
+  ansible.builtin.stat:
+    path: "{{ mas_backup_dir }}"
+  register: backup_dir_stat
+
+- name: "Fail if backup directory does not exist"
+  ansible.builtin.fail:
+    msg: "Backup directory {{ mas_backup_dir }} does not exist"
+  when: not backup_dir_stat.stat.exists or not backup_dir_stat.stat.isdir
+
+- name: "Check which backup directories exist"
+  ansible.builtin.stat:
+    path: "{{ mas_backup_dir }}/{{ item }}"
+  register: backup_dirs_stat
+  loop: "{{ backup_directories }}"
+
+- name: "Set list of existing backup directories"
+  ansible.builtin.set_fact:
+    existing_backup_dirs: "{{ backup_dirs_stat.results | selectattr('stat.exists', 'equalto', true) | map(attribute='item') | list }}"
+
+- name: "Display existing backup directories"
+  ansible.builtin.debug:
+    msg: "Found {{ existing_backup_dirs | length }} backup directories: {{ existing_backup_dirs }}"
+
+- name: "Fail if no backup directories found"
+  ansible.builtin.fail:
+    msg: "No backup directories found in {{ mas_backup_dir }} for version {{ backup_version }}"
+  when: existing_backup_dirs | length == 0
+
+- name: "Create temporary directory for archive"
+  ansible.builtin.file:
+    path: "{{ backup_temp_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: "Create tar.gz archive of backup directories"
+  ansible.builtin.command:
+    cmd: "tar -czf {{ backup_temp_dir }}/{{ backup_archive_name }} -C {{ mas_backup_dir }} {{ existing_backup_dirs | join(' ') }}"
+  register: tar_result
+  changed_when: tar_result.rc == 0
+
+- name: "Verify archive was created"
+  ansible.builtin.stat:
+    path: "{{ backup_temp_dir }}/{{ backup_archive_name }}"
+  register: archive_stat
+
+- name: "Fail if archive was not created"
+  ansible.builtin.fail:
+    msg: "Failed to create archive {{ backup_temp_dir }}/{{ backup_archive_name }}"
+  when: not archive_stat.stat.exists
+
+- name: "Display archive information"
+  ansible.builtin.debug:
+    msg:
+      - "Archive created successfully: {{ backup_temp_dir }}/{{ backup_archive_name }}"
+      - "Archive size: {{ (archive_stat.stat.size / 1024 / 1024) | round(2) }} MB"
