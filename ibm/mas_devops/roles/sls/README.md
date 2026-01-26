@@ -696,13 +696,8 @@ For examples refer to the [BestEfforts reference configuration in the MAS CLI](h
 - Environment Variable: `MAS_POD_TEMPLATES_DIR`
 - Default: None
 
-
-## Backup and Restore
-
-The SLS role supports backup and restore operations to protect your license service configuration and data. This is essential for disaster recovery, migration, and upgrade scenarios.
-
-### Backup Variables
-
+Role Variables - Backup and Restore Variables
+-------------------------------------------------------------------------------
 #### mas_backup_dir
 Directory path where SLS backup files will be stored.
 
@@ -748,6 +743,11 @@ Version identifier for the backup, used to create unique backup directories.
 **Related variables**: Works with `mas_backup_dir` to determine backup location.
 
 **Note**: When restoring, you must know the exact backup version identifier. List the contents of `mas_backup_dir` to see available backups.
+
+Backup and Restore Operations
+-------------------------------------------------------------------------------
+
+The SLS role supports backup and restore operations to protect your license service configuration and data. This is essential for disaster recovery, migration, and upgrade scenarios.
 
 ### What Gets Backed Up
 

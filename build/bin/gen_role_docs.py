@@ -136,5 +136,3 @@ else:
             print(f"  ✗ Warning: {src_file} not found, skipping {role}")
 
     print(f"Role documentation generation complete!")
-
-# Made with Bob

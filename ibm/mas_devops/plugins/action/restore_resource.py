@@ -430,5 +430,3 @@ class ActionModule(ActionBase):
             failed_count=total_failed,
             failed_resources=failed_resources
         )
-
-# Made with Bob
