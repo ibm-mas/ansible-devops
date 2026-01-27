@@ -125,7 +125,7 @@
     sg_id: "{{security_group_info.stdout | from_json | json_query('SecurityGroups[0].GroupId')}}"
 
 - name: Create a Security Group {{ docdb_security_group_name }}, if doesn't exists
-  when: sg_id is not defined or sg_id | length == 0
+  when: sg_id is not defined or not sg_id
   command: >
     aws ec2 create-security-group \
     --group-name '{{ docdb_security_group_name }}' \
@@ -134,7 +134,7 @@
   register: sg_info
 
 - name: Fail if Security group not created
-  when: sg_id is not defined or sg_id | length == 0
+  when: sg_id is not defined or not sg_id
   assert:
     that:
       - sg_info is defined and sg_info != None and sg_info != ''
@@ -142,7 +142,7 @@
       - sg_info.stdout | from_json | json_query('GroupId')
 
 - name: Set Fact, Security group Id
-  when: sg_id is not defined or sg_id | length == 0
+  when: sg_id is not defined or not sg_id
   set_fact:
     sg_id: "{{sg_info.stdout | from_json | json_query('GroupId')}}"
 
@@ -157,7 +157,7 @@
     ingress_rule_info.rc not in [0] and ('InvalidPermission.Duplicate' not in ingress_rule_info.stderr )
 
 - name: Debug Info, Added Ingress rule to Security Group
-  when: ingress_rule_info.stdout | length > 0
+  when: ingress_rule_info.stdout and ingress_rule_info.stdout | length > 0
   debug:
     msg:
       - "{{ ingress_rule_info.stdout | from_json }}"
@@ -173,7 +173,7 @@
     egress_rule_info.rc not in [0] and ('InvalidPermission.Duplicate' not in egress_rule_info.stderr )
 
 - name: Debug Info, Added Egress rule to Security Group
-  when: egress_rule_info.stdout | length > 0
+  when: egress_rule_info.stdout and egress_rule_info.stdout | length > 0
   debug:
     msg:
       - "{{ egress_rule_info.stdout | from_json }}"
@@ -188,7 +188,7 @@
   failed_when: docdb_cluster_exists_info.rc not in [0] and ('DBClusterNotFoundFault' not in docdb_cluster_exists_info.stderr )
 
 - name: Set Fact to indicate whether DocDB cluster already exists
-  when: docdb_cluster_exists_info.stderr is not defined or docdb_cluster_exists_info.stderr | length == 0
+  when: docdb_cluster_exists_info.stderr is not defined or not docdb_cluster_exists_info.stderr
   set_fact:
     docdb_cluster_exists: "{{ docdb_cluster_exists_info.stdout | from_json | json_query('DBClusters[0].DBClusterIdentifier') ==  docdb_cluster_name }}"
 
@@ -218,7 +218,7 @@
   assert:
     that:
       - docdb_cluster_create_info is defined and docdb_cluster_create_info != None and docdb_cluster_create_info != ''
-      - docdb_cluster_create_info.stdout | length > 0
+      - docdb_cluster_create_info.stdout and docdb_cluster_create_info.stdout | length > 0
       - docdb_cluster_create_info.stdout | from_json | json_query('DBCluster.DBClusterIdentifier') == docdb_cluster_name
 
 - name: Set Fact for fetched DocDB Cluster Info
