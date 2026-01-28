@@ -1,0 +1,49 @@
+---
+# Validate required variables
+- name: "Fail if mas_backup_dir is not defined"
+  ansible.builtin.fail:
+    msg: "mas_backup_dir is required but not defined"
+  when: mas_backup_dir is not defined or mas_backup_dir == ''
+
+- name: "Fail if backup_version is not defined"
+  ansible.builtin.fail:
+    msg: "backup_version is required but not defined"
+  when: backup_version is not defined or backup_version == ''
+
+# Determine upload destination
+- name: "Check if S3 credentials are provided"
+  ansible.builtin.set_fact:
+    upload_to_s3: "{{ (aws_access_key_id is defined and aws_access_key_id != '') and (aws_secret_access_key is defined and aws_secret_access_key != '') and (s3_bucket_name is defined and s3_bucket_name != '') }}"
+
+- name: "Check if Artifactory credentials are provided"
+  ansible.builtin.set_fact:
+    upload_to_artifactory: "{{ (artifactory_username is defined and artifactory_username != '') and (artifactory_token is defined and artifactory_token != '') and (artifactory_url is defined and artifactory_url != '') }}"
+
+- name: "Fail if neither S3 nor Artifactory credentials are provided"
+  ansible.builtin.fail:
+    msg: "Either S3 credentials (aws_access_key_id, aws_secret_access_key, s3_bucket_name) or Artifactory credentials (artifactory_username, artifactory_token, artifactory_url) must be provided"
+  when: not upload_to_s3 and not upload_to_artifactory
+
+- name: "Display upload destination"
+  ansible.builtin.debug:
+    msg: "Will upload to: {{ 'S3' if upload_to_s3 else 'Artifactory' }}"
+
+# Create tar archive
+- name: "Create backup archive"
+  ansible.builtin.include_tasks: create_archive.yml
+
+# Upload to S3 or Artifactory
+- name: "Upload to S3"
+  ansible.builtin.include_tasks: upload_to_s3.yml
+  when: upload_to_s3
+
+- name: "Upload to Artifactory"
+  ansible.builtin.include_tasks: upload_to_artifactory.yml
+  when: upload_to_artifactory and not upload_to_s3
+
+# Cleanup
+- name: "Remove temporary archive file"
+  ansible.builtin.file:
+    path: "{{ backup_temp_dir }}/{{ backup_archive_name }}"
+    state: absent
+  when: backup_temp_dir is defined

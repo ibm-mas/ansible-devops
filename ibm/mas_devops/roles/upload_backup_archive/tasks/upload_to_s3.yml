@@ -1,0 +1,34 @@
+---
+# Upload backup archive to S3
+- name: "Set S3 region default"
+  ansible.builtin.set_fact:
+    region: "{{ s3_region | default('us-east-1') }}"
+
+- name: "Display S3 upload information"
+  ansible.builtin.debug:
+    msg:
+      - "Uploading to S3 bucket: {{ s3_bucket_name }}"
+      - "Region: {{ region }}"
+      - "Archive: {{ backup_archive_name }}"
+
+- name: "Upload archive to S3"
+  ibm.mas_devops.upload_to_s3:
+    aws_access_key_id: "{{ aws_access_key_id }}"
+    aws_secret_access_key: "{{ aws_secret_access_key }}"
+    bucket_name: "{{ s3_bucket_name }}"
+    object_name: "{{ backup_archive_name }}"
+    file_path: "{{ backup_temp_dir }}/{{ backup_archive_name }}"
+    region_name: "{{ region }}"
+    endpoint_url: "{{ s3_endpoint_url | default(omit) }}"
+  register: s3_upload_result
+  poll: 10
+
+- name: "Display S3 upload result"
+  ansible.builtin.debug:
+    msg: "Successfully uploaded {{ backup_archive_name }} to S3 bucket {{ s3_bucket_name }}"
+  when: s3_upload_result.success | bool
+
+- name: "Fail if S3 upload failed"
+  ansible.builtin.fail:
+    msg: "Failed to upload archive to S3: {{ s3_upload_result.msg | default('Unknown error') }}"
+  when: not s3_upload_result.success | bool
