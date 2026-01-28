@@ -204,7 +204,18 @@
     crd_name: suites.core.mas.ibm.com
 
 
-# 13. Before we install the suite create the optional filebeat and superuser secrets
+# 13. Configure IngressController for path-based routing if needed
+# -----------------------------------------------------------------------------
+- name: "Configure IngressController for path-based routing"
+  include_tasks: "{{ role_path }}/../../common_tasks/configure_ingress_for_path_routing.yml"
+  when:
+    - mas_routing_mode is defined
+    - mas_routing_mode == "path"
+    - mas_configure_ingress is defined
+    - mas_configure_ingress | bool
+
+
+# 14. Before we install the suite create the optional filebeat and superuser secrets
 # -----------------------------------------------------------------------------
 # Note that this will have no effect on older version of MAS, but will do no harm
 - name: Configure Filebeat for Logstash
@@ -224,7 +235,7 @@
     template: templates/secret-superuser.yml.j2
 
 
-# 14. Suite installation
+# 15. Suite installation
 # -----------------------------------------------------------------------------
 - name: Create suite.ibm.com/v1 CR
   vars:
@@ -240,7 +251,7 @@
     msg: "{{ suiteResult }}"
 
 
-# 15. Set up OCP ConsoleLink for MAS Admin Dashboard
+# 16. Set up OCP ConsoleLink for MAS Admin Dashboard
 # -----------------------------------------------------------------------------
 - name: Create ConsoleLink for MAS Admin Dashbord
   kubernetes.core.k8s:
