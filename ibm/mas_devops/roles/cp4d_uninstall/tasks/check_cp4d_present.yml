@@ -12,23 +12,27 @@
   failed_when: false
   changed_when: false
 
-# Identify which CP4D namespaces are present
+# Build list of CP4D namespaces that actually exist
 - name: Set CP4D present namespaces
   set_fact:
     cp4d_present_namespaces: >-
       {{
-        cp4d_ns_checks.results
-        | selectattr('resources', 'defined')
-        | selectattr('resources', 'length', '>', 0)
-        | map(attribute='item')
-        | list
+        cp4d_present_namespaces | default([]) +
+        (
+          [ item.item ]
+          if (item.resources | default([]) | length > 0)
+          else []
+        )
       }}
+  loop: "{{ cp4d_ns_checks.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item | default('unknown') }}"
   changed_when: false
 
 # Set flag indicating whether CP4D is present
 - name: Set CP4D present flag
   set_fact:
-    cp4d_present: "{{ cp4d_present_namespaces | length > 0 }}"
+    cp4d_present: "{{ cp4d_present_namespaces | default([]) | length > 0 }}"
   changed_when: false
 
 # Ask user confirmation before proceeding with uninstall
@@ -55,7 +59,7 @@
       }}
   when: cp4d_present | bool
 
-# Log safe exit when uninstall is not approved
+# Exit safely when uninstall is not approved
 - name: Exit safely if uninstall not approved
   debug:
     msg: "CP4D uninstall aborted by user. No changes were made."
