@@ -4,11 +4,10 @@ import logging
 import os
 import urllib3
 
+from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 from ansible.plugins.action import ActionBase
 from ansible.errors import AnsibleError
 from ansible.utils.display import Display
-from kubernetes import client, config
-from kubernetes.dynamic import DynamicClient
 
 from mas.devops.restore import loadYamlFile, restoreResource
 
@@ -222,23 +221,7 @@ class ActionModule(ActionBase):
         host = self._task.args.get('host', None)
         api_key = self._task.args.get('api_key', None)
 
-        # Load kubernetes configuration
-        try:
-            if host and api_key:
-                # Use provided host and api_key
-                configuration = client.Configuration()
-                configuration.host = host
-                configuration.api_key = {'authorization': f'Bearer {api_key}'}
-                configuration.verify_ssl = False
-                api_client = client.ApiClient(configuration)
-            else:
-                # Load from kubeconfig
-                config.load_kube_config()
-                api_client = client.ApiClient()
-        except Exception as e:
-            raise AnsibleError(f"Failed to initialize Kubernetes client: {e}")
-        
-        dynClient = DynamicClient(api_client)
+        dynClient = get_api_client(api_key=api_key, host=host)
 
         backup_path = self._task.args.get('backup_path')
         replace_resource = self._task.args.get('replace_resource', True)
