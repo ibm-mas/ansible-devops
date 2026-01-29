@@ -1,10 +1,3 @@
-# -----------------------------------------------------------
-# Licensed Materials - Property of IBM
-# 5737-M66, 5900-AAA
-# (C) Copyright IBM Corp. 2021 All Rights Reserved.
-# US Government Users Restricted Rights - Use, duplication, or disclosure
-# restricted by GSA ADP Schedule Contract with IBM Corp.
-# -----------------------------------------------------------
 import yaml
 import re
 
@@ -437,6 +430,49 @@ def get_ecr_repositories(image_mirror_output):
         repositories.append(repo_to_add)
   return repositories
 
+def is_channel_upgrade_path_valid(current: str, target: str, valid_paths: dict) -> bool:
+  """
+    Checks if a given current channel version can be upgraded to a target channel version.
+    :current: The current channel version.
+    :target: The target channel version to upgrade to.
+    :valid_paths: A dictionary of supported upgrade paths. See ibm/mas_devops/common_vars/compatibility_matrix.yml.
+    :return: True if the upgrade path is supported, False otherwise.
+  """
+  valid = True
+  if current not in valid_paths.keys():
+      print(f'Current channel {current} is not supported for upgrade')
+      valid = False
+  elif target:
+      allowed_targets = valid_paths[current]
+      if isinstance(allowed_targets, str):
+          if target != allowed_targets:
+              print(f'Upgrading from channel {current} to {target} is not supported')
+              valid = False
+      elif isinstance(allowed_targets, list):
+          if target not in allowed_targets:
+              print(f'Upgrading from channel {current} to {target} is not supported')
+              valid = False
+      else:
+          print(f'Error: channel upgrade compatibility matrix is incorrectly defined')
+          valid = False
+  return valid
+
+def get_default_upgrade_channel(current: str, valid_paths: dict) -> str:
+  """
+    Gets the default target upgrade channel if the user has not supplied one. 
+    :current: The current channel version.
+    :valid_paths: A dictionary of supported upgrade paths. See ibm/mas_devops/common_vars/compatibility_matrix.yml.
+    :return: The default target upgrade channel.
+  """
+  default = None
+  allowed_targets = valid_paths[current]
+  if isinstance(allowed_targets, str):
+      default = allowed_targets
+  elif isinstance(allowed_targets, list):
+      default = allowed_targets[0]
+  else:
+      print(f'Error: channel upgrade compatibility matrix is incorrectly defined')
+  return default
 
 class FilterModule(object):
   def filters(self):
@@ -459,5 +495,7 @@ class FilterModule(object):
       'format_pre_version_without_buildid': format_pre_version_without_buildid,
       'format_pre_version_with_buildid': format_pre_version_with_buildid,
       'get_db2_instance_name': get_db2_instance_name,
-      'get_ecr_repositories': get_ecr_repositories
+      'get_ecr_repositories': get_ecr_repositories,
+      'is_channel_upgrade_path_valid': is_channel_upgrade_path_valid,
+      'get_default_upgrade_channel': get_default_upgrade_channel
     }

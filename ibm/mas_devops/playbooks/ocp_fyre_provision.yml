@@ -2,7 +2,7 @@
 - hosts: localhost
   vars:
     cluster_type: fyre
-    ocp_version: "{{ lookup('env', 'OCP_VERSION') | default('4.18', True) }}"
+    ocp_version: "{{ lookup('env', 'OCP_VERSION') | default('4.19', True) }}"
 
     # Supported providers: nfs, odf, longhorn
     ocp_storage_provider: "{{ lookup('env', 'OCP_STORAGE_PROVIDER') }}"
@@ -11,6 +11,9 @@
     # This is suitable for development environments, reducing the cost of
     # storage at the cost of reliability/availability
     longhorn_replica_count: "{{ lookup('env', 'LONGHORN_REPLICA_COUNT') | default('1', True) | int }}"
+
+    # We use "turbonomic_target_name" as a key to indicate that we want to run the turbonomic role
+    turbonomic_target_name: "{{ lookup('env', 'TURBONOMIC_TARGET_NAME') }}"
 
     # We update the cipher support on all installs, even though it's only technically
     # requires for FIPS clusters
@@ -45,3 +48,7 @@
 
     - role: ibm.mas_devops.ocs
       when: ocp_storage_provider == "odf"
+
+    # 5. Configure optional turbonomic integration
+    - role: ibm.mas_devops.turbonomic
+      when: turbonomic_target_name != ""

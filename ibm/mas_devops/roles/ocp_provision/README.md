@@ -8,52 +8,166 @@ Fyre clusters will be automatically reconfigured to enable NFS storage.  By defa
 Role Variables
 -------------------------------------------------------------------------------
 ### cluster_type
-Specify the cluster type, supported values are `fyre`, `roks`, `rosa`, and `ipi`.
+Infrastructure provider type for cluster provisioning.
 
 - **Required**
 - Environment Variable: `CLUSTER_TYPE`
-- Default Value: None
+- Default: None
+
+**Purpose**: Specifies which infrastructure provider to use for provisioning the OpenShift cluster. Determines provisioning method and required variables.
+
+**When to use**:
+- Always required for cluster provisioning
+- Each type requires different provider-specific variables
+- Determines available features (e.g., GPU support for ROKS)
+
+**Valid values**: `fyre`, `roks`, `rosa`, `ipi`
+- `fyre`: IBM DevIT Fyre clusters (internal development)
+- `roks`: IBM Cloud Red Hat OpenShift Kubernetes Service
+- `rosa`: AWS Red Hat OpenShift Service on AWS
+- `ipi`: Installer-Provisioned Infrastructure (bare metal/on-premises)
+
+**Impact**: Determines provisioning workflow and which provider-specific variables are required. Each type has different capabilities and configuration options.
+
+**Related variables**:
+- `cluster_name`: Name for the new cluster
+- `ocp_version`: OpenShift version to install
+- Provider-specific variables (ibmcloud_apikey, rosa_token, fyre_apikey, etc.)
+
+**Note**: Fyre clusters automatically configure NFS storage. ROKS requires version format like `4.19_openshift`.
 
 ### cluster_name
-Specify the name of the cluster
+Name for the new cluster.
 
 - **Required**
 - Environment Variable: `CLUSTER_NAME`
-- Default Value: None
+- Default: None
+
+**Purpose**: Specifies the name for the OpenShift cluster to be provisioned. Used as the cluster identifier in the provider's system.
+
+**When to use**:
+- Always required for cluster provisioning
+- Must be unique within the provider's account/region
+- Used for cluster identification and resource naming
+
+**Valid values**: String following provider naming conventions (typically lowercase alphanumeric with hyphens)
+
+**Impact**: Determines the cluster name in the provider's system. Used for DNS, resource naming, and cluster identification.
+
+**Related variables**:
+- `cluster_type`: Provider where cluster will be created
+- `ocp_version`: OpenShift version for the cluster
+
+**Note**: Name must follow provider-specific naming rules. Some providers have length limits or character restrictions.
 
 ### ocp_version
-The version of OCP to use.  A specific version can be set, minor and patch level versions can be used, e.g. `4.15`, or `4.15.16`.  Additionally, two version aliases are available; `default` will auto-select the newest version of OCP currently supported by IBM Maximo Application Suite, `rotate` will auto-select a predetermined version of OCP currently supported by IBM Maximo Application Suite based on the day of the week.  This latter option is primarily useful for testing purposes.
+OpenShift version to install.
 
 - **Required**
 - Environment Variable: `OCP_VERSION`
-- Default Value: None
+- Default: None
 
-!!! note
-    When using the IBMCloud Red Hat OpenShift Service (ROKS) the version must be followed by `_openshift`, e.g. **4.15_openshift** or **4.15.16_openshift**
+**Purpose**: Specifies which version of OpenShift Container Platform to install on the provisioned cluster.
+
+**When to use**:
+- Always required for cluster provisioning
+- Use specific version for production (e.g., `4.19.14`)
+- Use `default` for latest MAS-supported version
+- Use `rotate` for testing (version changes by day of week)
+
+**Valid values**: 
+- Specific version: `4.19`, `4.19.14`
+- Alias: `default` (newest MAS-supported version)
+- Alias: `rotate` (predetermined version by day, for testing)
+- **ROKS format**: Must append `_openshift` (e.g., `4.19_openshift`, `4.19.14_openshift`)
+
+**Impact**: Determines OpenShift version installed. Version must be compatible with MAS and available from the provider.
+
+**Related variables**:
+- `cluster_type`: ROKS requires `_openshift` suffix
+
+**Note**: **IMPORTANT** - For ROKS (`cluster_type=roks`), version MUST include `_openshift` suffix. The `default` alias selects the newest MAS-supported version. The `rotate` alias is for testing only.
 
 ### ocp_storage_provider
-Setting this to `nfs` when `cluster_type` is set to `fyre` will create an `nfs-client` storage class connected to the infrastucture node. When enabled, the existing image registry PVC will also be deleted and recreated configured to use the newly available NFS storage class.
+Storage provider configuration for Fyre clusters.
 
-Currently, this setting has no effect when `cluster_type` is set to `roks`, `rosa`, or `ipi`.
-- Optional
+- **Optional**
 - Environment Variable: `OCP_STORAGE_PROVIDER`
-- Default Value: ``
+- Default: None
+
+**Purpose**: Configures NFS storage for Fyre clusters, creating an nfs-client storage class and reconfiguring the image registry.
+
+**When to use**:
+- Set to `nfs` for Fyre clusters to enable NFS storage
+- Only applies when `cluster_type=fyre`
+- Leave unset for other cluster types (ROKS, ROSA, IPI)
+
+**Valid values**: `nfs` (for Fyre clusters only)
+
+**Impact**: 
+- `nfs`: Creates nfs-client storage class connected to infrastructure node, reconfigures image registry PVC to use NFS
+- Unset: No storage configuration changes
+
+**Related variables**:
+- `cluster_type`: Must be `fyre` for this to have effect
+
+**Note**: Only functional for Fyre clusters. When enabled, the existing image registry PVC is deleted and recreated with NFS storage. NFS storage class supports both ReadWriteOnce (RWO) and ReadWriteMany (RWX) access modes.
 
 
 Role Variables - GPU Node Support
 -------------------------------------------------------------------------------
 ### ocp_provision_gpu
-Flag that determines if GPU worker nodes should be added during cluster creation (eg. needed for MVI application). This is currently only set up for ROKS clusters.
+Enable GPU worker nodes during provisioning.
 
+- **Optional**
 - Environment Variable: `OCP_PROVISION_GPU`
-- Default Value: `false`
+- Default: `false`
+
+**Purpose**: Controls whether GPU-enabled worker nodes are provisioned with the cluster. Required for GPU-intensive applications like MAS Visual Inspection (MVI).
+
+**When to use**:
+- Set to `true` for MAS Visual Inspection deployments
+- Set to `true` for other GPU-intensive workloads
+- Leave as `false` (default) for standard deployments
+- Currently only supported for ROKS clusters
+
+**Valid values**: `true`, `false`
+
+**Impact**: 
+- `true`: Provisions GPU worker pool with specified number of GPU nodes
+- `false`: No GPU nodes provisioned (standard cluster)
+
+**Related variables**:
+- `gpu_workerpool_name`: Name of GPU worker pool
+- `gpu_workers`: Number of GPU nodes to provision
+- `cluster_type`: Must be `roks` for GPU support
+
+**Note**: GPU support is currently only available for ROKS clusters. GPU nodes use mg4c.32x384.2xp100-GPU flavor with P100 GPUs.
 
 ### gpu_workerpool_name
-The name of the gpu worker pool to added to or modify in the cluster. If already existing, use the existing name to avoid recreating another gpu worker pool unless that is the goal.
+Name for GPU worker pool.
 
-- Optional
+- **Optional**
 - Environment Variable: `GPU_WORKERPOOL_NAME`
-- Default Value: `gpu`
+- Default: `gpu`
+
+**Purpose**: Specifies the name for the GPU worker pool to be created or modified in the cluster.
+
+**When to use**:
+- Use default (`gpu`) for new GPU deployments
+- Set to existing pool name to modify rather than create new
+- Only applies when `ocp_provision_gpu=true`
+
+**Valid values**: String following worker pool naming conventions
+
+**Impact**: Determines GPU worker pool name. Using an existing name modifies that pool; using a new name creates a new pool.
+
+**Related variables**:
+- `ocp_provision_gpu`: Must be `true` for this to apply
+- `gpu_workers`: Number of nodes in this pool
+- `cluster_type`: Must be `roks`
+
+**Note**: If a GPU worker pool already exists with this name, it will be modified rather than creating a duplicate. Use the existing name to avoid multiple GPU pools.
 
 ### gpu_workers
 The number of GPU worker nodes that will be deploy in the cluster. The node created will have mg4c.32x384.2xp100-GPU flavor. This variable depends on `ocp_provision_gpu` and is currently supported on ROKS clusters only.

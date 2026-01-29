@@ -17,6 +17,7 @@
     mirror_mongoce_v5: "{{ lookup('env', 'MIRROR_MONGOCE_V5') | default ('False', True) | bool }}"
     mirror_mongoce_v6: "{{ lookup('env', 'MIRROR_MONGOCE_V6') | default ('False', True) | bool }}"
     mirror_mongoce_v7: "{{ lookup('env', 'MIRROR_MONGOCE_V7') | default ('False', True) | bool }}"
+    mirror_mongoce_v8: "{{ lookup('env', 'MIRROR_MONGOCE_V8') | default ('False', True) | bool }}"
 
     # 3. CPFS
     # -------------------------------------------------------------------------
@@ -34,10 +35,8 @@
     # -------------------------------------------------------------------------
     cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') }}"
     mirror_cp4d: "{{ lookup('env', 'MIRROR_CP4D') | default ('False', True) | bool }}"
-    cpd_48_or_higher: "{{ cpd_product_version is defined and cpd_product_version is version('4.8.0','>=') | bool }}"
-    cpd_48: "{{ cpd_product_version is defined and cpd_product_version is version('4.8.0','==') | bool }}"
-    cpd_50: "{{ cpd_product_version is defined and cpd_product_version is version('5.0.0','==') | bool }}"
-
+    cpd_52_or_higher: "{{ (cpd_product_version is defined and cpd_product_version is version('5.2.0','>=')) | bool }}"
+    cpd_51: "{{ (cpd_product_version is defined and cpd_product_version is version('5.1.3','==')) | bool }}"
     # 7. Watson Studio Local
     # -------------------------------------------------------------------------
     mirror_wsl: "{{ lookup('env', 'MIRROR_WSL') | default ('False', True) | bool }}"
@@ -58,17 +57,13 @@
     # -------------------------------------------------------------------------
     mirror_cognos: "{{ lookup('env', 'MIRROR_COGNOS') | default ('False', True) | bool }}"
 
-    # 12. App Connect
-    # -------------------------------------------------------------------------
-    mirror_appconnect: "{{ lookup('env', 'MIRROR_APPCONNECT') | default ('False', True) | bool }}"
-
-    # 13. ODF
+    # 12. ODF
     # -------------------------------------------------------------------------
     mirror_odf: "{{ lookup('env', 'MIRROR_ODF') | default ('False', True) | bool }}"
 
-    # 14. kmodels
-    # -------------------------------------------------------------------------
-    mirror_kmodels: "{{ lookup('env', 'MIRROR_KMODELS') | default ('False', True) | bool }}"
+    # 13. Minio and opendatahub (for AI Service)
+    mirror_minio: "{{ lookup('env', 'MIRROR_MINIO') | default ('False', True) | bool }}"
+    mirror_opendatahub: "{{ lookup('env', 'MIRROR_OPENDATAHUB') | default ('False', True) | bool }}"
 
   pre_tasks:
     - name: "Load Catalog Metadata"
@@ -82,7 +77,7 @@
 
     # If the CPD_PRODUCT_VERSION environment variable wasn't set, then use the default from the catalog metadata
     - name: "Set default cpd_product_version (if necessary)"
-      when: cpd_product_version == ""
+      when: cpd_product_version is not defined or cpd_product_version == ""
       set_fact:
         cpd_product_version: "{{ mas_catalog_metadata.cpd_product_version_default }}"
 
@@ -179,12 +174,27 @@
         manifest_name: extras_mongoce
         manifest_version: "{{mas_catalog_metadata.mongo_extras_version_7 }}"
 
+      # Mirror Mongo v8 specifically when requested
+    - role: ibm.mas_devops.mirror_extras_prepare
+      when:
+        - mirror_mode != "from-filesystem"
+        - mirror_mongoce_v8
+      vars:
+        extras_name: mongoce
+        extras_version: "{{ mas_catalog_metadata.mongo_extras_version_8 }}"
+
+    - role: ibm.mas_devops.mirror_images
+      when: mirror_mongoce_v8
+      vars:
+        manifest_name: extras_mongoce
+        manifest_version: "{{mas_catalog_metadata.mongo_extras_version_8 }}"
+
     # 3. IBM Cloud Pak Foundation Services
     # -------------------------------------------------------------------------
     # Just mirror IBM Cloud Pak Foundation Services images 'mirror_common_svcs' is set, or if CPD 4.8+ is being mirrored
     - role: ibm.mas_devops.mirror_case_prepare
       when:
-        - mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
+        - mirror_common_svcs or mirror_cp4d
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-cp-common-services
@@ -197,7 +207,7 @@
         ibmpak_skip_dependencies: false
 
     - role: ibm.mas_devops.mirror_images
-      when: mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
+      when: mirror_common_svcs or mirror_cp4d
       vars:
         manifest_name: ibm-cp-common-services
         manifest_version: "{{ mas_catalog_metadata.common_svcs_version }}"
@@ -228,7 +238,7 @@
     # Mirroring another version for Cloud Pak Foundation Services
     - role: ibm.mas_devops.mirror_case_prepare
       when:
-        - mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
+        - mirror_common_svcs or mirror_cp4d
         - mirror_mode != "from-filesystem"
         - mas_catalog_metadata.common_svcs_version_1 is defined
         - mas_catalog_metadata.common_svcs_version_1 != ""
@@ -244,7 +254,7 @@
 
     - role: ibm.mas_devops.mirror_images
       when:
-        - mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
+        - mirror_common_svcs or mirror_cp4d
         - mas_catalog_metadata.common_svcs_version_1 is defined
         - mas_catalog_metadata.common_svcs_version_1 != ""
       vars:
@@ -253,7 +263,7 @@
 
     - role: ibm.mas_devops.mirror_case_prepare
       when:
-        - mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
+        - mirror_common_svcs or mirror_cp4d
         - mirror_mode != "from-filesystem"
         - mas_catalog_metadata.common_svcs_version_2 is defined
         - mas_catalog_metadata.common_svcs_version_2 != ""
@@ -269,7 +279,7 @@
 
     - role: ibm.mas_devops.mirror_images
       when:
-        - mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
+        - mirror_common_svcs or mirror_cp4d
         - mas_catalog_metadata.common_svcs_version_2 is defined
         - mas_catalog_metadata.common_svcs_version_2 != ""
       vars:
@@ -324,68 +334,17 @@
         exclude_images: []
         ibmpak_skip_dependencies: true
 
-    - role: ibm.mas_devops.mirror_extras_prepare
-      when:
-        - mirror_cp4d
-        - cpd_48
-        - mirror_mode != "from-filesystem"
-      vars:
-        extras_name: cp4d
-        extras_version: "4.8.0"
-
-    - role: ibm.mas_devops.mirror_images
-      when:
-        - mirror_cp4d
-        - cpd_48
-      vars:
-        manifest_name: extras_cp4d
-        manifest_version: "4.8.0"
-
     - role: ibm.mas_devops.mirror_images
       when: mirror_cp4d
       vars:
         manifest_name: ibm-cp-datacore
         manifest_version: "{{ mas_catalog_metadata.cp4d_platform_version }}"
 
-    - role: ibm.mas_devops.mirror_extras_prepare
-      when:
-        - mirror_cp4d
-        - cpd_50
-        - mirror_mode != "from-filesystem"
-      vars:
-        extras_name: spark
-        extras_version: "3.3.4"
-
-    - role: ibm.mas_devops.mirror_images
-      when:
-        - mirror_cp4d
-        - cpd_50
-      vars:
-        manifest_name: extras_spark
-        manifest_version: "3.3.4"
-
-    - role: ibm.mas_devops.mirror_extras_prepare
-      when:
-        - mirror_cp4d
-        - cpd_50
-        - mirror_mode != "from-filesystem"
-      vars:
-        extras_name: spark
-        extras_version: "3.4.2"
-
-    - role: ibm.mas_devops.mirror_images
-      when:
-        - mirror_cp4d
-        - cpd_50
-      vars:
-        manifest_name: extras_spark
-        manifest_version: "3.4.2"
 
     # 6.2 CP4D Platform - IBM Licensing dependency
     # -------------------------------------------------------------------------
     - role: ibm.mas_devops.mirror_case_prepare
       when:
-        - cpd_48_or_higher
         - mirror_cp4d
         - mirror_mode != "from-filesystem"
       vars:
@@ -396,30 +355,77 @@
 
     - role: ibm.mas_devops.mirror_images
       when:
-        - cpd_48_or_higher
         - mirror_cp4d
         - mirror_mode != "from-filesystem"
       vars:
         manifest_name: ibm-licensing
         manifest_version: "{{ mas_catalog_metadata.ibm_licensing_version }}"
 
-    # 6.3 IBM Watson Studio and Watson Machine Learning dependency - ibm-ccs
+    # 6.3: cpd 5.1.3 IBM Watson Studio and Watson Machine Learning dependency - ibm-ccs
     # -------------------------------------------------------------------------
     - role: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_wsl or mirror_wml
         - mirror_mode != "from-filesystem"
+        - cpd_51
       vars:
         case_name: ibm-ccs
         case_version: "{{ mas_catalog_metadata.wsl_version }}"
         exclude_images: []
         ibmpak_skip_dependencies: false
+        casectl_resolve_charts: false
 
     - role: ibm.mas_devops.mirror_images
-      when: mirror_wsl or mirror_wml
+      when:
+        - mirror_wsl or mirror_wml
+        - cpd_51
       vars:
         manifest_name: ibm-ccs
         manifest_version: "{{ mas_catalog_metadata.wsl_version }}"
+
+    # 6.3: cpd 5.2.0 IBM Watson Studio and Watson Machine Learning dependency - ibm-ccs
+    # -------------------------------------------------------------------------
+    - role: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_wsl or mirror_wml
+        - mirror_mode != "from-filesystem"
+        - cpd_52_or_higher
+      vars:
+        case_name: ibm-ccs
+        case_version: "{{ mas_catalog_metadata.ccs_build }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: false
+        casectl_resolve_charts: false
+
+    - role: ibm.mas_devops.mirror_images
+      when:
+        - mirror_wsl or mirror_wml
+        - cpd_52_or_higher
+      vars:
+        manifest_name: ibm-ccs
+        manifest_version: "{{ mas_catalog_metadata.ccs_build }}"
+
+    # 6.4 CP4D Platform - PostgreSQL dependency (only for CPD 5.2+)
+    # -------------------------------------------------------------------------
+    - role: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_cp4d
+        - mirror_mode != "from-filesystem"
+        - cpd_52_or_higher
+      vars:
+        case_name: ibm-cloud-native-postgresql
+        case_version: "{{ mas_catalog_metadata.postgress_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: true
+
+    - role: ibm.mas_devops.mirror_images
+      when:
+        - mirror_cp4d
+        - mirror_mode != "from-filesystem"
+        - cpd_52_or_higher
+      vars:
+        manifest_name: ibm-cloud-native-postgresql
+        manifest_version: "{{ mas_catalog_metadata.postgress_version }}"
 
     # 7.1 IBM Watson Studio dependency - ibm-datarefinery
     # -------------------------------------------------------------------------
@@ -463,6 +469,7 @@
       when:
         - mirror_wsl
         - mirror_mode != "from-filesystem"
+        - cpd_51
       vars:
         case_name: ibm-elasticsearch-operator
         case_version: "{{ mas_catalog_metadata.elasticsearch_version }}"
@@ -470,12 +477,35 @@
         ibmpak_skip_dependencies: false
 
     - role: ibm.mas_devops.mirror_images
-      when: mirror_wsl
+      when:
+        - mirror_wsl
+        - cpd_51
       vars:
         manifest_name: ibm-elasticsearch-operator
         manifest_version: "{{ mas_catalog_metadata.elasticsearch_version }}"
 
-    # 7.4 IBM Watson Studio
+    # 7.4 IBM Watson Studio dependency - ibm-opensearch-operator
+    # -------------------------------------------------------------------------
+    - role: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_wsl
+        - mirror_mode != "from-filesystem"
+        - cpd_52_or_higher
+      vars:
+        case_name: ibm-opensearch-operator
+        case_version: "{{ mas_catalog_metadata.opensearch_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: false
+
+    - role: ibm.mas_devops.mirror_images
+      when:
+        - mirror_wsl
+        - cpd_52_or_higher
+      vars:
+        manifest_name: ibm-opensearch-operator
+        manifest_version: "{{ mas_catalog_metadata.opensearch_version }}"
+
+    # 7.5 IBM Watson Studio
     # -------------------------------------------------------------------------
     - role: ibm.mas_devops.mirror_case_prepare
       when:
@@ -573,6 +603,7 @@
         case_version: "{{ mas_catalog_metadata.cognos_version }}"
         exclude_images: []
         ibmpak_skip_dependencies: false
+        casectl_resolve_charts: false
 
     - role: ibm.mas_devops.mirror_images
       when: mirror_cognos
@@ -580,25 +611,7 @@
         manifest_name: ibm-cognos-analytics-prod
         manifest_version: "{{ mas_catalog_metadata.cognos_version }}"
 
-    # 12. App Connect
-    # -------------------------------------------------------------------------
-    - role: ibm.mas_devops.mirror_case_prepare
-      when:
-        - mirror_appconnect
-        - mirror_mode != "from-filesystem"
-      vars:
-        case_name: ibm-appconnect
-        case_version: "{{ mas_catalog_metadata.appconnect_version }}"
-        exclude_images: []
-        ibmpak_skip_dependencies: false
-
-    - role: ibm.mas_devops.mirror_images
-      when: mirror_appconnect
-      vars:
-        manifest_name: ibm-appconnect
-        manifest_version: "{{ mas_catalog_metadata.appconnect_version }}"
-
-    # 13. ODF - some extras needed
+    # 12. ODF - some extras needed
     # -------------------------------------------------------------------------
     - role: ibm.mas_devops.mirror_extras_prepare
       when:
@@ -608,18 +621,32 @@
         extras_name: odf
         extras_version: 4.15
 
-    # 14. Kmodels
+    # 13. Minio and opendatahub - needed by AI Service
     # -------------------------------------------------------------------------
     - role: ibm.mas_devops.mirror_extras_prepare
       when:
-        - mirror_kmodels
-        - mirror_kmodels != "from-filesystem"
+        - mirror_minio
+        - mirror_mode != "from-filesystem"
       vars:
-        extras_name: kmodels
-        extras_version: "{{ mas_catalog_metadata.kmodels_extras_version_default }}"
+        extras_name: minio
+        extras_version: "{{mas_catalog_metadata.minio_version }}"
 
     - role: ibm.mas_devops.mirror_images
-      when: mirror_kmodels
+      when: mirror_minio
       vars:
-        manifest_name: extras_kmodels
-        manifest_version: "{{ mas_catalog_metadata.kmodels_extras_version_default }}"
+        manifest_name: extras_minio
+        manifest_version: "{{mas_catalog_metadata.minio_version }}"
+
+    - role: ibm.mas_devops.mirror_extras_prepare
+      when:
+        - mirror_opendatahub
+        - mirror_mode != "from-filesystem"
+      vars:
+        extras_name: "opendatahub"
+        extras_version: "2.32"
+
+    - role: ibm.mas_devops.mirror_images
+      when: mirror_opendatahub
+      vars:
+        manifest_name: extras_opendatahub
+        manifest_version: "2.32"

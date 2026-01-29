@@ -31,7 +31,7 @@
       - existing_mongodb.resources[0].spec.featureCompatibilityVersion is defined and existing_mongodb.resources[0].spec.featureCompatibilityVersion != ""
       - existing_mongodb.resources[0].spec.featureCompatibilityVersion == existing_mongo_minor_version
     fail_msg: "Mongo upgrade is not allowed due to either missing featureCompatibilityVersion field or wrong version in featureCompatibilityVersion field in MongoDBCommunity CR"
-  when: mongodb_v5_upgrade or mongodb_v6_upgrade or mongodb_v7_upgrade
+  when: mongodb_v5_upgrade or mongodb_v6_upgrade or mongodb_v7_upgrade or mongodb_v8_upgrade
 
 # Only allow Mongo upgrades to be next compatible minor version
 - name: "Assert Mongo upgrade compatibility: {{ target_mongodb_version }} must be in {{ mongo_compatible_target_version[existing_mongo_version] }}"
@@ -68,3 +68,11 @@
   assert:
     that: mongodb_v7_upgrade
     fail_msg: "Your current mongo version is {{ existing_mongo_version }}, in order to upgrade to version {{ target_mongodb_version }}, you must set 'mongodb_v7_upgrade': true"
+# This would validate that, we only upgrade to v8.0 if 'target_mongodb_version' matches v8.0 minor version and 'mongodb_v8_upgrade: true'
+- name: "Assert that the Mongo v8 upgrade has been triggered"
+  when:
+    - existing_mongo_minor_version is version_compare('8.0', '<')
+    - target_mongodb_version | regex_search('(?<=)(.*)(?=...)') == '8.0'
+  assert:
+    that: mongodb_v8_upgrade
+    fail_msg: "Your current mongo version is {{ existing_mongo_version }}, in order to upgrade to version {{ target_mongodb_version }}, you must set 'mongodb_v8_upgrade': true"

@@ -18,8 +18,7 @@ Three **Catalogs** are mirrored, containing the following content:
 
 ### community-operator-index
 1. grafana-operator (required by ibm.mas_devops.grafana role)
-2. opentelemetry-operator (required by ibm.mas_devops.opentelemetry role)
-3. strimzi-kafka-operator (required by ibm.mas_devops.kafka role)
+2. strimzi-kafka-operator (required by ibm.mas_devops.kafka role)
 
 ### redhat-operator-index
 1. amq-streams (required by ibm.mas_devops.kafka role)
@@ -81,21 +80,21 @@ Path to your Red Hat pull secret, available from: [https://console.redhat.com/op
 Role Variables - OpenShift Version
 -------------------------------------------------------------------------------
 ### ocp_release
-The Red Hat release you are mirroring content for, e.g. `4.18`.
+The Red Hat release you are mirroring content for, e.g. `4.19`.
 
 - **Required**
 - Environment Variable: `OCP_RELEASE`
 - Default: None
 
 ### ocp_min_version
-The minimum version of the Red Hat release to mirror platform content for, e.g. `4.18.8`.
+The minimum version of the Red Hat release to mirror platform content for, e.g. `4.19.10`.
 
 - **Optional**
 - Environment Variable: `OCP_MIN_VERSION`
 - Default: None
 
 ### ocp_max_version
-The maximimum version of the Red Hat release to mirror platform content for, e.g. `4.18.8`.
+The maximimum version of the Red Hat release to mirror platform content for, e.g. `4.19.10`.
 
 - **Optional**
 - Environment Variable: `OCP_MAX_VERSION`
@@ -171,7 +170,7 @@ Example Playbook
     mirror_redhat_platform: false
     mirror_redhat_operators: true
 
-    ocp_release: 4.18
+    ocp_release: 4.19
     redhat_pullsecret: ~/pull-secret.json
 
   roles:

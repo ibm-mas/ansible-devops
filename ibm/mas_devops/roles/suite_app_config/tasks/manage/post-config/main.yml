@@ -15,13 +15,25 @@
       - "COS Bucket Name ........................ {{ cos_bucket_name }}"
       - "IBM Cloud Resource Group ............... {{ ibmcloud_resourcegroup }}"
 
+# ------------------------------------------------------------------------
+# Manage post-configuration: Import AI Service certificate
+- name: "Run Manage post-configuration: Add AI Service certificate in ManageWorkspace CR"
+  when:
+    - aiservice_instance_id is defined
+    - aiservice_instance_id != ""
+  import_role:
+    name: ibm.mas_devops.suite_manage_import_certs_config
+  vars:
+    manage_certificates: "{{ mas_manage_aiservice_tls_crt }}"
+    manage_certificates_alias_prefix: "aiservice-{{ aiservice_instance_id }}-tls"
+
 # Manage post-configuration: Image stitching
 - name: "Run Manage post-configuration: Set up image stitching"
   include_role:
     name: ibm.mas_devops.suite_manage_imagestitching_config
   when: mas_app_id is in ['manage']
 
-- name: "Run Manage post-configuration: Set up attachments - Get DB2 Instancd Name"
+- name: "Run Manage post-configuration: Set up attachments - Get DB2 Instance Name"
   set_fact:
     db2_instance_name: "{{ mas_appws_bindings_jdbc | ibm.mas_devops.get_db2_instance_name(mas_instance_id, mas_workspace_id, 'manage') }}"
   when:

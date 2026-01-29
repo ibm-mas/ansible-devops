@@ -35,9 +35,9 @@
   when: mas_app_id is in ['manage'] # applications which have something to process before configuration
   include_tasks: "tasks/{{ mas_app_id }}/pre-config/main.yml"
 
-# Resolve the WSL project ID that will be used by Predict and HP Utilities
+# Resolve the WSL project ID that will be used by Predict
 - name: Lookup Watson Studio Project ID
-  when: mas_app_id is in ['hputilities', 'predict']
+  when: mas_app_id is in ['predict']
   include_tasks: "tasks/determine-watson-studio-id.yml"
 
 
@@ -106,7 +106,7 @@
   kubernetes.core.k8s:
     state: present
     namespace: "{{ mas_app_namespace }}"
-    definition: "{{ lookup('template', 'templates/workspace.yml.j2') }}"
+    template: "templates/workspace.yml.j2"
 
 
 # 7. Check if the application is ready
@@ -115,42 +115,37 @@
 #
 # If the application is not in ready state we can fail fast rather than waiting
 # for the workspace to be Ready -- because it never will!
-- name: "Lookup application information"
-  kubernetes.core.k8s_info:
-    api_version: "{{ mas_app_api_version }}"
-    name: "{{ mas_instance_id }}"
-    namespace: "{{ mas_app_namespace }}"
-    kind: "{{ mas_app_kind }}"
-  register: app_cr_result
-  retries: 15  # Number of retries before failing
-  delay: 20    # Wait 20 seconds between retries
-  until:
-    - app_cr_result.resources is defined
-    - app_cr_result.resources | length > 0
-    - app_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select('match', 'True') | list | length == 1
-- name: "Check that the application is ready to configure a workspace"
-  assert:
-    that:
-      - app_cr_result.resources is defined
-      - app_cr_result.resources | length > 0
-      - app_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
-    fail_msg: "Workspace {{ mas_workspace_id }} created but application {{ mas_app_id }} is not ready"
+- name: "Verify application is ready"
+  ibm.mas_devops.wait_for_app_ready:
+    instance_id: "{{ mas_instance_id }}"
+    application_id: "{{ mas_app_id }}"
+    retries: 10
+    delay: 30
 
 
 # 8. Wait for application workspace to be ready
 # -----------------------------------------------------------------------------
-- ansible.builtin.include_role:
-    name: ibm.mas_devops.suite_app_verify
+- name: "Wait for application workspace to be ready ({{ mas_app_cfg_delay }}s delay)"
+  ibm.mas_devops.wait_for_app_ready:
+    instance_id: "{{ mas_instance_id }}"
+    application_id: "{{ mas_app_id }}"
+    workspace_id: "{{ mas_workspace_id }}"
+    retries: "{{ mas_app_cfg_retries }}"
+    delay: "{{ mas_app_cfg_delay }}"
 
 
 # 9. Run Application Specific Post-configuration
 # -----------------------------------------------------------------------------
-
 # Post-config specific application settings after workspace CR be successfully deployed
-- name: "Run Manage specific post-configuration"
-  when: mas_app_id is in ['manage'] # applications which have something to process after configuration
+- name: "Run application-specific post-configuration"
+  when: mas_app_id is in ['manage']
   include_tasks: "tasks/{{ mas_app_id }}/post-config/main.yml"
 
-- ansible.builtin.include_role:
-    name: ibm.mas_devops.suite_app_verify
-  when: mas_app_id is in ['manage'] # applications which have something to process after configuration
+- name: "Wait for application workspace to be ready after post-configuration"
+  when: mas_app_id is in ['manage']
+  ibm.mas_devops.wait_for_app_ready:
+    instance_id: "{{ mas_instance_id }}"
+    application_id: "{{ mas_app_id }}"
+    workspace_id: "{{ mas_workspace_id }}"
+    retries: "{{ mas_app_cfg_retries }}"
+    delay: "{{ mas_app_cfg_delay }}"

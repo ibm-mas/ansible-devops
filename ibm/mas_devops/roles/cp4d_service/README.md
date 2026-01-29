@@ -1,46 +1,27 @@
 cp4d_service
-=============
+===============================================================================
+Install or upgrade a chosen CloudPak for Data service.  Currently supported Cloud Pak for Data release versions supported are:
 
-Install or upgrade a chosen CloudPak for Data service.
-
-Currently supported Cloud Pak for Data release versions supported are:
-
-  - 4.6.0
-  - 4.6.3
-  - 4.6.4
-  - 4.6.6
-  - 4.8.0
-  - 5.0.0
-  - 5.1.0
+  - 5.1.3
+  - 5.2.0
 
 The role will automatically install the corresponding CPD service operator channel and custom resource version associated to the chosen Cloud Pak for Data release version.
 
 For more information about the specific CPD services channels and versions associated to a particular Cloud Pak for Data release can be found [here](https://github.ibm.com/PrivateCloud/olm-utils/tree/master/ansible-play/config-vars).
 
 Services Supported
-------------------
+-------------------------------------------------------------------------------
 These services can be deployed and configured using this role:
 
 - [Watson Studio](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=services-watson-studio) required by [Predict](https://www.ibm.com/docs/en/mas-cd/mhmpmh-and-p-u/continuous-delivery)
 - [Watson Machine Learning](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=services-watson-machine-learning) required by [Predict](https://www.ibm.com/docs/en/mas-cd/mhmpmh-and-p-u/continuous-delivery)
 - [Analytics Services (Apache Spark)](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=services-analytics) required by [Predict](https://www.ibm.com/docs/en/mas-cd/mhmpmh-and-p-u/continuous-delivery)
-- [Watson OpenScale](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=services-watson-openscale) an optional dependency for [Predict](https://www.ibm.com/docs/en/mas-cd/mhmpmh-and-p-u/continuous-delivery)
-- [SPSS Modeler](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=modeler-installing) optional dependency for [Predict](https://www.ibm.com/docs/en/mas-cd/mhmpmh-and-p-u/continuous-delivery)
-- [Watson Discovery](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=services-watson-discovery) required by [Assist](https://www.ibm.com/docs/en/mas-cd/maximo-assist) - Not supported with CPD 5.0
 - [Cognos Analytics](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=analytics-installing) optional dependency for [Manage application](https://www.ibm.com/docs/en/mas-cd/maximo-manage)
-
-!!! info
-    - Install CP4D Services (~30 Minutes - 1 hour for each service)
-
-    All timings are estimates.
 
 
 Upgrade
-------------------
-This role also supports seamlessly CPD services minor version upgrades (CPD 4.6.x > CPD 4.8.0, CPD 4.8.0 > CPD 5.0.0 or CPD 5.0.0 > 5.1.0), as well as patch version upgrades (e.g. CPD 4.6.0 -> CPD 4.6.6), with the exception of [Watson Discovery](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=u-upgrading-from-version-46-2).
-
-All you need to do is to define `cpd_product_version` variable to the version you target to upgrade and run this role for a particular CPD service.
-It's important that before you upgrade CPD services, the CPD Control Plane/Zen is also upgraded to the same release version.
+-------------------------------------------------------------------------------
+This role also supports seamlessly CPD services minor version upgrades, as well as patch version upgrades.  All you need to do is to define `cpd_product_version` variable to the version you target to upgrade and run this role for a particular CPD service.  It's important that before you upgrade CPD services, the CPD Control Plane/Zen is also upgraded to the same release version.
 
 For more information about IBM Cloud Pak for Data upgrade process, refer to the [CPD official documentation](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=upgrading).
 
@@ -51,7 +32,6 @@ For more information about IBM Cloud Pak for Data upgrade process, refer to the 
 !!! warning
     The reconcile of many CP4D resources will be marked as Failed multiple times during initial installation, these are **misleading status updates**, the install is just really slow and the operators can not properly handle this.  For example, if you are watching the install of CCS you will see that each **rabbitmq-ha** pod takes 10-15 minutes to start up and it looks like there is a problem because the pod log will just stop at a certain point.  If you see something like this as the last message in the pod log `WAL: ra_log_wal init, open tbls: ra_log_open_mem_tables, closed tbls: ra_log_closed_mem_tables` be assured that there's nothing wrong, it's just there's a long delay between that message and the next (`starting system coordination`) being logged.
 
-  **Note**: Watson Discovery 4.8.x introduces breaking changes that blocks seamless upgrade from 4.6.x. It requires backing up your data, uninstall 4.6.x, install 4.8.x and restoring Watson Discovery data. Thus, this action requires additional steps that are not covered by this automation. For detailed steps about upgrading WD 4.6 -> 4.8, read [Upgrading Watson Discovery from version 4.6 to 4.8](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=u-upgrading-from-version-46-2).
 
 ### Watson Studio
 Subscriptions related to Watson Studio:
@@ -62,10 +42,15 @@ Subscriptions related to Watson Studio:
 - **ibm-cpd-datarefinery**
 - **ibm-cpd-ws-runtimes**
 
+!!! note "Search Engine Dependency"
+    - **CPD 5.1.3**: Uses **Elasticsearch** operator (`ibm-elasticsearch-operator`)
+    - **CPD 5.2.0**: Uses **OpenSearch** operator (`ibm-opensearch-operator`)
+
 Watson Studio is made up of many moving parts across multiple namespaces.
 
 In the **ibm-cpd-operators** namespace:
 
+**For CPD 5.1.3:**
 ```bash
 oc -n ibm-cpd-operators get deployments
 NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
@@ -74,6 +59,17 @@ ibm-cpd-datarefinery-operator                          1/1     1            1   
 ibm-cpd-ws-operator                                    1/1     1            1           83m
 ibm-cpd-ws-runtimes-operator                           1/1     1            1           83m
 ibm-elasticsearch-operator-ibm-es-controller-manager   1/1     1            1           83m
+```
+
+**For CPD 5.2.0:**
+```bash
+oc -n ibm-cpd-operators get deployments
+NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
+ibm-cpd-ccs-operator                                   1/1     1            1           83m
+ibm-cpd-datarefinery-operator                          1/1     1            1           83m
+ibm-cpd-ws-operator                                    1/1     1            1           83m
+ibm-cpd-ws-runtimes-operator                           1/1     1            1           83m
+ibm-opensearch-operator-controller-manager             1/1     1            1           83m
 ```
 
 In the **ibm-cpd** namespace:
@@ -143,10 +139,15 @@ Subscriptions related to Watson Machine Learning:
 - **ibm-cpd-wml**
 - **ibm-cpd-ccs**
 
+!!! note "Search Engine Dependency"
+    - **CPD 5.1.3**: Uses **Elasticsearch** operator (`ibm-elasticsearch-operator`)
+    - **CPD 5.2.0**: Uses **OpenSearch** operator (`ibm-opensearch-operator`)
+
 Watson Machine Learning is made up of many moving parts across multiple namespaces.
 
 In the **ibm-cpd-operators** namespace:
 
+**For CPD 5.1.3:**
 ```bash
 oc -n ibm-cpd-operators get deployments
 NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
@@ -154,6 +155,16 @@ ibm-cpd-ccs-operator                                   1/1     1            1   
 ibm-cpd-datarefinery-operator                          1/1     1            1           134m
 ibm-cpd-wml-operator                                   1/1     1            1           49m
 ibm-elasticsearch-operator-ibm-es-controller-manager   1/1     1            1           134m
+```
+
+**For CPD 5.2.0:**
+```bash
+oc -n ibm-cpd-operators get deployments
+NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
+ibm-cpd-ccs-operator                                   1/1     1            1           134m
+ibm-cpd-datarefinery-operator                          1/1     1            1           134m
+ibm-cpd-wml-operator                                   1/1     1            1           49m
+ibm-opensearch-operator-controller-manager             1/1     1            1           134m
 ```
 
 In the **ibm-cpd** namespace:
@@ -214,58 +225,6 @@ deployment.apps/spark-hb-ui                                  1/1     1          
 ```
 
 
-### Watson OpenScale
-Subscriptions related to Watson OpenScale (in the **ibm-cpd-operators** namespace):
-
-- **cpd-platform-operator**
-- **ibm-cpd-wos-operator**
-
-Analytics Engine is made up of many moving parts across multiple namespaces.
-
-In the **ibm-cpd-operators** namespace:
-
-```bash
-oc -n ibm-cpd-operators get deployments
-NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
-ibm-cpd-wos-operator                                   1/1     1            1           30m
-```
-
-In the **ibm-cpd** namespace:
-
-
-```bash
-oc -n ibm-cpd get woservice,deployments,sts
-NAME                                                  TYPE      STORAGE   SCALECONFIG   PHASE   RECONCILED   STATUS
-woservice.wos.cpd.ibm.com/openscale-defaultinstance   service             small         Ready   5.0.0        Completed
-
-NAME                                                                         READY   UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/openscale-defaultinstance-ibm-aios-bias                      1/1     1            1           21m
-deployment.apps/openscale-defaultinstance-ibm-aios-bkpicombined              1/1     1            1           21m
-deployment.apps/openscale-defaultinstance-ibm-aios-common-api                1/1     1            1           22m
-deployment.apps/openscale-defaultinstance-ibm-aios-configuration             1/1     1            1           22m
-deployment.apps/openscale-defaultinstance-ibm-aios-dashboard                 1/1     1            1           21m
-deployment.apps/openscale-defaultinstance-ibm-aios-datamart                  1/1     1            1           22m
-deployment.apps/openscale-defaultinstance-ibm-aios-drift                     1/1     1            1           21m
-deployment.apps/openscale-defaultinstance-ibm-aios-explainability            1/1     1            1           21m
-deployment.apps/openscale-defaultinstance-ibm-aios-fast-path                 1/1     1            1           21m
-deployment.apps/openscale-defaultinstance-ibm-aios-feedback                  1/1     1            1           21m
-deployment.apps/openscale-defaultinstance-ibm-aios-metrics-compute-manager   0/0     0            0           21m
-deployment.apps/openscale-defaultinstance-ibm-aios-ml-gateway-discovery      1/1     1            1           22m
-deployment.apps/openscale-defaultinstance-ibm-aios-ml-gateway-service        1/1     1            1           22m
-deployment.apps/openscale-defaultinstance-ibm-aios-mrm                       1/1     1            1           21m
-deployment.apps/openscale-defaultinstance-ibm-aios-nginx                     1/1     1            1           25m
-deployment.apps/openscale-defaultinstance-ibm-aios-notification              1/1     1            1           21m
-deployment.apps/openscale-defaultinstance-ibm-aios-payload-logging           1/1     1            1           21m
-deployment.apps/openscale-defaultinstance-ibm-aios-payload-logging-api       1/1     1            1           22m
-deployment.apps/openscale-defaultinstance-ibm-aios-redis                     1/1     1            1           28m
-deployment.apps/openscale-defaultinstance-ibm-aios-scheduling                1/1     1            1           21m
-
-NAME                                                         READY   AGE
-statefulset.apps/openscale-defaultinstance-ibm-aios-etcd     3/3     27m
-statefulset.apps/openscale-defaultinstance-ibm-aios-kafka    3/3     27m
-
-```
-
 ### Cognos Analytics
 Subscriptions related to Cognos Analytics (in the **ibm-cpd-operators** namespace):
 
@@ -295,41 +254,11 @@ deployment.apps/cognos-analytics-cognos-analytics-addon                      1/1
 
 ```
 
-### SPSS
-Subscriptions related to SPSS (in the **ibm-cpd-operators** namespace):
-
-- **cpd-platform-operator**
-- **ibm-cpd-spss-operator**
-
-SPSS is made up of many moving parts across multiple namespaces.
-
-In the **ibm-cpd-operators** namespace:
-
-```bash
-NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
-ibm-cpd-canvasbase-operator                            1/1     1            1           38m
-ibm-cpd-spss-operator                                  1/1     1            1           38m
-```
-
-In the **ibm-cpd** namespace:
-
-
-```bash
-oc -n ibm-cpd get spss,deployments
-NAME                                       VERSION   STATUS      AGE
-spss.spssmodeler.cpd.ibm.com/spssmodeler   9.0.0     Completed   38m
-
-NAME                                                                         READY   UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/canvasbase-flow-api                                          1/1     1            1           35m
-deployment.apps/canvasbase-flow-ui                                           1/1     1            1           30m
-deployment.apps/spss-modeler-modeler-flow-api                                1/1     1            1           22m
-
-```
 
 Role Variables - Installation
 -----------------------------
 ### cpd_service_name
-Name of the service to install, supported values are: `wsl`, `wml`, `wd`, `aiopenscale`, `spark`, `ca` and `spss`
+Name of the service to install, supported values are: `wsl`, `wml`, `spark`, and `ca`
 
 - **Required**
 - Environment Variable: `CPD_SERVICE_NAME`
@@ -413,27 +342,6 @@ Optional - Stores the CP4D Watson Studio Project description that can be used to
 - Default Value: `Watson Studio Project for Maximo Application Suite`
 
 
-Role Variables - Watson Discovery
-------------------------------
-### cpd_wd_instance_name
-Stores the name of the CP4D Watson Discovery Instance that can be used to configure Assist application in MAS.
-
-- Optional, only supported when `cpd_service_name` = `wd`
-- Environment Variable: `CPD_WD_INSTANCE_NAME`
-- Default Value: `wd-mas-${mas_instance_id}-assist`
-
-### cpd_wd_deployment_type
-Defines the CP4D Watson Discovery deployment type:
-
-- `Starter`: One replica pod for each wd service/component, uses fewer resources in your cluster.
-- `Production`: Multiple replica pods for each Watson Discovery service/component, recommended for production deployments to increase workload capacity however consumes more cluster resources. 
-
-- Optional
-- Environment Variable: `CPD_WD_DEPLOYMENT_TYPE`
-- Default Value: `Starter`
-
-Note: Deployment type cannot be changed in the future neither while upgrading the service. If you need to change the deployment type, you must uninstall Watson Discovery and reinstall with the desired deployment type. More information, see [Upgrading Watson Discovery](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=u-upgrading-from-version-40-1).
-
 Role Variables - MAS Configuration Generation
 ---------------------------------------------
 ### mas_instance_id
@@ -454,17 +362,30 @@ Local directory to save the generated resource definition.  This can be used to 
 Example Playbook
 ----------------
 
+### Install Watson Studio on CPD 5.1.3
 ```yaml
 ---
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    cpd_product_version: 5.0.0
+    cpd_product_version: 5.1.3
     cpd_service_storage_class: ibmc-file-gold-gid
     cpd_service_name: wsl
   roles:
     - ibm.mas_devops.cp4d_service
+```
 
+### Install Watson Studio on CPD 5.2.0
+```yaml
+---
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    cpd_product_version: 5.2.0
+    cpd_service_storage_class: ibmc-file-gold-gid
+    cpd_service_name: wsl
+  roles:
+    - ibm.mas_devops.cp4d_service
 ```
 
 License

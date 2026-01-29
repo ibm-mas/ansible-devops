@@ -1,77 +1,59 @@
-cert_manager
-===============================================================================
-Deploy **IBM Certificate Manager Operator** or ****Red Hat Certificate Manager Operator** into the target OCP cluster.
+# cert_manager
+This role deploys the Red Hat Certificate Manager Operator into the target OpenShift cluster. The operator will be installed into the `cert-manager-operator` namespace, and the operand will be created in the `cert-manager` namespace.
 
-- IBM Certificate Manager Operator and Operand will be installed into the `ibm-common-services` namespace
-- Red Hat Certificate Manager Operatos will be installed into the `cert-manager-operator` namespace and the Operand will be created in the `cert-manager` namespace.
+Certificate Manager provides certificate management capabilities for Kubernetes and OpenShift clusters, enabling automated certificate provisioning and renewal.
 
-The role supports migrtation from an existing IBM Certificate Manager install to the Red Hat Certificate Manager, and will configure the cluster resources namespace to `ibm-common-services` in this case to ensure compatibility with all existing `ClusterIssuers`.
+## Prerequisites
+- Red Hat Operators CatalogSource must be installed in the cluster
+- Cluster administrator access
 
+## Role Variables
 
-Prerequisites
--------------------------------------------------------------------------------
-### IBM Certificate Manager
-You must have already installed a CatalogSource that contains IBM Certificate Manager and installed the **IBM Cloud Pak Foundational Services Operator**.  These tasks can be achieved using the [ibm_catalogs](ibm_catalogs.md) and [common_services](common_services.md) roles in this collection.
+### General Variables
 
+#### cert_manager_action
+Specifies which operation to perform on the Certificate Manager operator.
 
-### Red Hat Certificate Manager
-You must have already installed the **Red Hat Operators** CatalogSource.
-
-
-Role Variables
--------------------------------------------------------------------------------
-### cert_manager_action
-Inform the role whether to perform an `install` or an `uninstall` the Certificate Manager service, action can also be set to `none` to instruct the role to take no action.
-
-- Optional
+- **Optional**
 - Environment Variable: `CERT_MANAGER_ACTION`
-- Default: `install`
+- Default Value: `install`
 
-### cert_manager_provider
-Choose which flavour of Certificate Manager to install; IBM (`ibm`), or Red Hat (`redhat`)
+**Purpose**: Controls what action the role executes against the Certificate Manager operator. This allows the same role to handle installation, removal, or no action on the cert-manager deployment.
 
-- Optional
-- Environment Variable: `CERT_MANAGER_PROVIDER`
-- Default: `redhat`
+**When to use**:
+- Use `install` (default) for initial deployment or to ensure cert-manager is present
+- Use `uninstall` to remove cert-manager (use with extreme caution)
+- Use `none` to skip cert-manager operations while running broader playbooks
 
-**Note:** Certificate Manager is a cluster-wide dependency, therefore be really careful when uninstalling it as this might be used by several applications and dependencies installed in the cluster.
+**Valid values**: `install`, `uninstall`, `none`
 
-Example Playbook
--------------------------------------------------------------------------------
+**Impact**: 
+- `install`: Deploys Red Hat Certificate Manager Operator to `cert-manager-operator` namespace and creates operand in `cert-manager` namespace
+- `uninstall`: Removes cert-manager operator and operand (destructive operation)
+- `none`: Role takes no action
+
+**Related variables**: None
+
+**Note**: **WARNING** - Certificate Manager is a cluster-wide dependency used by MAS, SLS, and other components. Uninstalling it will break certificate management for all dependent applications. Only use `uninstall` if you are certain no applications depend on it.
+
+## Example Playbook
 After installing the Ansible Collection you can include this role in your own custom playbooks.
 
-### IBM Certificate Manager
 ```yaml
 - hosts: localhost
   vars:
-    - cert_manager_action: install
-    - cert_manager_provider: ibm
-  roles:
-    - ibm.mas_devops.ibm_catalogs
-    - ibm.mas_devops.common_services
-    - ibm.mas_devops.cert_manager
-```
-
-### Red Hat Certificate Manager
-```yaml
-- hosts: localhost
-  vars:
-    - cert_manager_action: install
-    - cert_manager_provider: redhat
+    cert_manager_action: install
   roles:
     - ibm.mas_devops.cert_manager
 ```
 
-
-Run Role Playbook
--------------------------------------------------------------------------------
+## Run Role Playbook
 After installing the Ansible Collection you can easily run the role standalone using the `run_role` playbook provided.
 
 ```bash
+export CERT_MANAGER_ACTION=install
 ROLE_NAME=cert_manager ansible-playbook ibm.mas_devops.run_role
 ```
 
-
-License
--------------------------------------------------------------------------------
+## License
 EPL-2.0

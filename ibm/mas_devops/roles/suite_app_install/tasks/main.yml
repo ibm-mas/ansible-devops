@@ -49,7 +49,7 @@
   when: mas_app_id == "visualinspection"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/customsccinit.yml.j2') }}"
+    template: "templates/customsccinit.yml.j2"
 
 - name: "Add anyuid permissions to visualinspection service account"
   when: mas_app_id == "visualinspection"
@@ -91,30 +91,17 @@
   kubernetes.core.k8s:
     state: present
     namespace: "{{ mas_app_namespace }}"
-    definition: "{{ lookup('template', 'templates/application.yml.j2') }}"
+    template: "templates/application.yml.j2"
 
 
 # 8. Wait for application to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for application to be ready ({{ mas_app_install_delay }}s delay)"
-  kubernetes.core.k8s_info:
-    api_version: "{{ mas_app_api_version }}"
-    name: "{{ mas_instance_id }}"
-    namespace: "{{ mas_app_namespace }}"
-    kind: "{{ mas_app_kind }}"
-    wait: yes # changed true to yes
-    wait_condition:
-      status: "True"
-      type: Ready
-    wait_sleep: 30
-    wait_timeout: 120 # before we give up and fall back into the retry loop
-  register: app_cr_result
-  retries: "{{ mas_app_install_retries }}"
-  delay: "{{ mas_app_install_delay }}"
-  until:
-    - app_cr_result.resources is defined
-    - app_cr_result.resources | length > 0
-    - app_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
+  ibm.mas_devops.wait_for_app_ready:
+    instance_id: "{{ mas_instance_id }}"
+    application_id: "{{ mas_app_id }}"
+    retries: "{{ mas_app_install_retries }}"
+    delay: "{{ mas_app_install_delay }}"
 
 
 # 9. Apply final security context constraints
@@ -123,7 +110,7 @@
   when: mas_app_id == "visualinspection"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/customscc.yml.j2') }}"
+    template: "templates/customscc.yml.j2"
 
 - name: "Remove anyuid permissions from visualinspection service account"
   when: mas_app_id == "visualinspection"
