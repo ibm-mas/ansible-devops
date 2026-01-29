@@ -1,44 +1,69 @@
 ---
-# Remove OLM objects (Subscription, ClusterServiceVersion, InstallPlan) in ibm-cpd-operators
+# List all CP4D operator Subscriptions
 - name: List Subscriptions
-  k8s_info:
+  kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1
     kind: Subscription
-    namespace: ibm-cpd-operators
+    namespace: "{{ cp4d_namespaces[1] }}"
   register: subs_info
   failed_when: false
+  changed_when: false
 
-- name: Delete Subscriptions (if any)
-  when: subs_info.resources | length > 0
-  loop: "{{ subs_info.resources | map(attribute='metadata.name') | list }}"
-  loop_control:
-    loop_var: subname
-  k8s:
-    state: absent
+# Delete CP4D operator Subscriptions to stop operator reconciliation
+- name: Delete Subscriptions
+  kubernetes.core.k8s:
     api_version: operators.coreos.com/v1
     kind: Subscription
-    namespace: ibm-cpd-operators
-    name: "{{ subname }}"
+    namespace: "{{ cp4d_namespaces[1] }}"
+    name: "{{ item.metadata.name }}"
+    state: absent
+  loop: "{{ subs_info.resources | default([]) }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
   failed_when: false
-  register: subs_delete
 
-- debug:
-    msg: "Subscriptions deleted: {{ subs_delete.results | map(attribute='msg') | list | default(subs_delete) }}"
-
-- name: Delete all ClusterServiceVersions in ibm-cpd-operators
-  shell: oc delete clusterserviceversion --all -n ibm-cpd-operators --ignore-not-found || true
-  register: csv_delete
+# List all ClusterServiceVersions created by CP4D operators
+- name: List ClusterServiceVersions
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ cp4d_namespaces[1] }}"
+  register: csv_info
+  failed_when: false
   changed_when: false
-  failed_when: csv_delete.rc != 0 and csv_delete.rc != 1
 
-- debug:
-    msg: "CSV delete output: {{ csv_delete.stdout_lines }}"
+# Delete ClusterServiceVersions to fully uninstall operators
+- name: Delete ClusterServiceVersions
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ cp4d_namespaces[1] }}"
+    name: "{{ item.metadata.name }}"
+    state: absent
+  loop: "{{ csv_info.resources | default([]) }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  failed_when: false
 
-- name: Delete InstallPlans (if any) via oc (safe fallback)
-  shell: oc delete installplan --all -n ibm-cpd-operators --ignore-not-found || true
-  register: ip_delete
+# List all InstallPlans associated with CP4D operators
+- name: List InstallPlans
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: InstallPlan
+    namespace: "{{ cp4d_namespaces[1] }}"
+  register: ip_info
+  failed_when: false
   changed_when: false
-  failed_when: ip_delete.rc != 0 and ip_delete.rc != 1
 
-- debug:
-    msg: "InstallPlan delete output: {{ ip_delete.stdout_lines }}"
+# Delete InstallPlans to prevent pending or retrying installs
+- name: Delete InstallPlans
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: InstallPlan
+    namespace: "{{ cp4d_namespaces[1] }}"
+    name: "{{ item.metadata.name }}"
+    state: absent
+  loop: "{{ ip_info.resources | default([]) }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  failed_when: false

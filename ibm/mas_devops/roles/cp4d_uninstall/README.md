@@ -1,38 +1,87 @@
-Role Name
+**Role Name**
 =========
 
-A brief description of the role goes here.
+**cp4d_uninstall**
 
-Requirements
-------------
+This role provides a **controlled, safe, and repeatable uninstallation of IBM Cloud Pak for Data (CP4D)**
+from an OpenShift cluster.
 
-Any pre-requisites that may not be covered by Ansible itself or the role should be mentioned here. For instance, if the role uses the EC2 module, it may be a good idea to mention in this section that the boto package is required.
+It is designed to handle:
+- normal CP4D uninstalls
+- partially completed or failed uninstalls
+- clusters where CP4D namespaces are stuck in `Terminating`
+- custom resources blocked by finalizers after operator removal
 
-Role Variables
---------------
+The role follows a **safe-first, force-last** execution model and includes
+an explicit confirmation step to prevent accidental uninstall.
 
-A description of the settable variables for this role should go here, including any variables that are in defaults/main.yml, vars/main.yml, and any variables that can/should be set via parameters to the role. Any variables that are read from other roles and/or the global scope (ie. hostvars, group vars, etc.) should be mentioned here as well.
-
-Dependencies
-------------
-
-A list of other roles hosted on Galaxy should go here, plus any details in regards to parameters that may need to be set for other roles, or variables that are used from other roles.
-
-Example Playbook
+**Scope and Intent**
 ----------------
 
-Including an example of how to use your role (for instance, with variables passed in as parameters) is always nice for users too:
+This role is **only** intended for uninstalling CP4D.
 
-    - hosts: servers
-      roles:
-         - { role: username.rolename, x: 42 }
+It is **not** intended to:
+- uninstall other Cloud Paks
+- clean shared cluster services
+- remove non-CP4D workloads running in unrelated namespaces
 
-License
--------
+All actions are scoped strictly to CP4D namespaces and CP4D-related resources.
 
-BSD
+**Safety Model**
+------------
 
-Author Information
+The role enforces safety at multiple levels:
+1. **CP4D presence detection**
+   - The role first checks whether CP4D namespaces exist.
+   - If CP4D is not detected, the role exits without making changes.
+
+2. **Interactive confirmation**
+   - If CP4D is detected, the user is prompted to confirm uninstall.
+   - Default behaviour is **safe exit** (no uninstall).
+
+3. **Safe-to-force execution order**
+   - Operator and workload cleanup first
+   - Finalizer removal only when required
+   - Namespace deletion as the final step
+
+4. **Automation-friendly override**
+   - Interactive confirmation can be skipped explicitly for CI/CD.
+
+**Uninstall Strategy**
 ------------------
 
-An optional section for the role authors to include contact information, or a website (HTML is not allowed).
+The uninstall process is intentionally staged:
+
+1. Stop operator reconciliation (OLM objects, CatalogSources)
+2. Remove CP4D workloads (Deployments, StatefulSets, Jobs)
+3. Clean known operator-scoped custom resources
+4. Perform a last-resort finalizer cleanup for any remaining resources
+5. Delete CP4D-related CRDs actually used by CP4D
+6. Delete CP4D namespaces
+
+This ordering ensures:
+- no resources are recreated during uninstall
+- finalizers do not block namespace deletion
+- partial failures can be re-run safely
+
+**Finalizer Handling**
+------------------
+
+Finalizers are handled carefully and intentionally:
+
+- Known CP4D operator CRs are cleaned explicitly first
+- A generic finalizer cleanup step acts as a **last-resort safety net**
+- Finalizers are only removed for resources still present in CP4D namespaces
+- This logic exists to handle broken or abandoned controllers
+
+This approach matches real-world CP4D support scenarios.
+
+**Role Variables**
+--------------
+
+### Variables in `defaults/main.yml`
+
+```yaml
+cp4d_namespaces:
+  - ibm-cpd
+  - ibm-cpd-operators

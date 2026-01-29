@@ -1,16 +1,24 @@
 ---
-- name: "Fetch all CP4D CatalogSources"
+# Fetch all CatalogSources from openshift-marketplace
+- name: Fetch all CP4D CatalogSources
   k8s_info:
     api_version: operators.coreos.com/v1alpha1
     kind: CatalogSource
     namespace: openshift-marketplace
   register: all_catalogs
 
-- name: "Filter CP4D CatalogSources"
+# Identify CP4D-related CatalogSources by name pattern
+- name: Filter CP4D CatalogSources
   set_fact:
-    cp4d_catalogs: "{{ all_catalogs.resources | selectattr('metadata.name', 'search', 'ibm') | list }}"
+    cp4d_catalogs: >-
+      {{
+        all_catalogs.resources
+        | selectattr('metadata.name', 'search', 'ibm')
+        | list
+      }}
 
-- name: "Delete CP4D CatalogSources"
+# Delete CP4D CatalogSources to prevent operator reconciliation
+- name: Delete CP4D CatalogSources
   k8s:
     api_version: operators.coreos.com/v1alpha1
     kind: CatalogSource
@@ -24,13 +32,20 @@
     label: "{{ item.metadata.name }}"
   ignore_errors: true
 
-- name: "Wait until all CP4D CatalogSources are gone"
+# Wait until all CP4D CatalogSources are fully removed
+- name: Wait until all CP4D CatalogSources are gone
   k8s_info:
     api_version: operators.coreos.com/v1alpha1
     kind: CatalogSource
     namespace: openshift-marketplace
   register: remaining_cp4d_catalogs
-  until: remaining_cp4d_catalogs.resources | selectattr('metadata.name', 'search', 'ibm') | list | length == 0
+  until: >-
+    {{
+      remaining_cp4d_catalogs.resources
+      | selectattr('metadata.name', 'search', 'ibm')
+      | list
+      | length == 0
+    }}
   retries: 30
   delay: 20
   ignore_errors: true

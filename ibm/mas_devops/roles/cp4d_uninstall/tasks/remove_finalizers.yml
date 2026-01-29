@@ -1,52 +1,89 @@
 ---
-# remove_finalisers.yml
-# Generic finalizer removal helper for problematic CR kinds using oc (safer on broken CRs)
-# Also attempts to delete remaining CR instances forcibly after finalizer removal.
-
-- name: Prepare cr kinds list for oc fallback
+# Capture CP4D namespaces targeted for finalizer cleanup
+- name: Ensure CP4D namespaces list
   set_fact:
-    cr_kinds:
-      - operandrequest
-      - operandconfig
-      - operandregistry
-      - operandbindinfo
-      - operandbindinfos
-      - namespacescope
-      - commonservice
-      - operandregistries
+    cp4d_target_namespaces: "{{ cp4d_namespaces }}"
 
-- name: Remove finalizers from listed CR kinds (oc patch)
-  shell: |
-    set -e
-    for k in {{ cr_kinds | to_json }}; do
-      for obj in $(oc get $k -n ibm-cpd-operators -o name 2>/dev/null || true); do
-        echo "patching finalizers for $obj"
-        oc patch "$obj" -n ibm-cpd-operators --type=json -p='[{"op":"remove","path":"/metadata/finalizers"}]' || true
-      done
-    done
-  register: patch_finalizers
+# Discover all namespaced API resources available in the cluster
+- name: Discover all namespaced API resources
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: APIResource
+  register: api_resources
   failed_when: false
   changed_when: false
 
-- name: Debug finalizer patch stdout
-  debug:
-    msg:
-      - "oc patch finalizers stdout: {{ patch_finalizers.stdout_lines | default([]) }}"
+# Filter namespaced API resources that support list operations
+- name: Filter listable namespaced resources
+  set_fact:
+    namespaced_resources: >-
+      {{
+        api_resources.resources
+        | selectattr('namespaced', 'equalto', true)
+        | selectattr('verbs', 'contains', 'list')
+        | list
+      }}
+  changed_when: false
 
-- name: Attempt to delete any remaining objects (force) for common CR kinds (oc delete)
-  shell: |
-    set -e
-    for k in {{ cr_kinds | to_json }}; do
-      for obj in $(oc get $k -n ibm-cpd-operators -o name 2>/dev/null || true); do
-        echo "force-deleting $obj"
-        oc delete "$obj" -n ibm-cpd-operators --ignore-not-found --force --grace-period=0 || true
-      done
-    done
-  register: oc_force_delete
+# Discover all remaining namespaced objects in CP4D namespaces
+- name: Discover remaining objects in CP4D namespaces
+  kubernetes.core.k8s_info:
+    api_version: "{{ item.0.groupVersion }}"
+    kind: "{{ item.0.kind }}"
+    namespace: "{{ item.1 }}"
+  loop: "{{ namespaced_resources | product(cp4d_target_namespaces) | list }}"
+  loop_control:
+    label: "{{ item.0.kind }} in {{ item.1 }}"
+  register: discovered_objects
   failed_when: false
   changed_when: false
 
-- name: Debug oc force-delete stdout
-  debug:
-    msg:
-      - "oc force-delete stdout: {{ oc_force_delete.stdout_lines | default([]) }}"
+# Consolidate remaining CP4D objects that still have finalizers
+- name: Consolidate remaining CP4D objects
+  set_fact:
+    cp4d_remaining_objects: >-
+      {{
+        discovered_objects.results
+        | map(attribute='resources')
+        | flatten(1)
+        | selectattr('metadata.finalizers', 'defined')
+        | list
+      }}
+  changed_when: false
+
+# Remove finalizers from all remaining CP4D objects to unblock deletion
+- name: Remove finalizers from remaining CP4D objects
+  kubernetes.core.k8s:
+    api_version: "{{ item.apiVersion }}"
+    kind: "{{ item.kind }}"
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ item.metadata.namespace }}"
+    merge_type: merge
+    definition:
+      metadata:
+        finalizers: []
+    wait: no
+  loop: "{{ cp4d_remaining_objects }}"
+  loop_control:
+    label: "{{ item.kind }} {{ item.metadata.namespace }}/{{ item.metadata.name }}"
+  failed_when: false
+
+# Allow API server time to persist finalizer removals
+- name: Pause to allow finalizer updates
+  pause:
+    seconds: 5
+
+# Force delete any CP4D objects that still remain after finalizer cleanup
+- name: Force delete remaining CP4D objects
+  kubernetes.core.k8s:
+    api_version: "{{ item.apiVersion }}"
+    kind: "{{ item.kind }}"
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ item.metadata.namespace }}"
+    state: absent
+    force: true
+    wait: false
+  loop: "{{ cp4d_remaining_objects }}"
+  loop_control:
+    label: "{{ item.kind }} {{ item.metadata.namespace }}/{{ item.metadata.name }}"
+  failed_when: false

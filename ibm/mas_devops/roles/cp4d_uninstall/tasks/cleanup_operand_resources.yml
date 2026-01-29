@@ -1,6 +1,6 @@
 ---
-# After finalizers removed, delete all operand-related CRs in ibm-cpd-operators
-- name: List operand-related CR kinds we will clean
+# Define known operand-related CR kinds that commonly block CP4D uninstall
+- name: Define operand-related CR kinds to clean
   set_fact:
     operand_cr_kinds:
       - operandrequest
@@ -8,13 +8,29 @@
       - operandregistry
       - operandbindinfo
 
-- name: Delete each operand CR kind via oc (force)
-  shell: |
-    for kind in {{ operand_cr_kinds | to_json }}; do
-      oc delete $kind -n ibm-cpd-operators --all --ignore-not-found --force --grace-period=0 || true
-    done
-  register: delete_operands
+# Fetch all operand-related CR instances from operator namespace
+- name: Fetch operand CRs for each kind
+  kubernetes.core.k8s_info:
+    api_version: operator.ibm.com/v1alpha1
+    kind: "{{ item | capitalize }}"
+    namespace: "{{ cp4d_namespaces[1] }}"
+  loop: "{{ operand_cr_kinds }}"
+  loop_control:
+    label: "{{ item }}"
+  register: operand_crs
   failed_when: false
 
-- debug:
-    msg: "Deleted operand CRs: {{ delete_operands.stdout_lines }}"
+# Force delete operand-related CRs to unblock dependent finalizers
+- name: Delete operand-related CRs
+  kubernetes.core.k8s:
+    api_version: operator.ibm.com/v1alpha1
+    kind: "{{ item.1.kind }}"
+    namespace: "{{ cp4d_namespaces[1] }}"
+    name: "{{ item.1.metadata.name }}"
+    state: absent
+    force: true
+  loop: "{{ operand_crs.results | subelements('resources', skip_missing=True) }}"
+  loop_control:
+    label: "{{ item.1.metadata.name }}"
+  failed_when: false
+  register: delete_operands
