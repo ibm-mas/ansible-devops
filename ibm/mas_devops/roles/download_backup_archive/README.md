@@ -131,7 +131,7 @@ Temporary directory where the archive will be downloaded before extraction. The 
 
 - **Optional**
 - Environment Variable: `BACKUP_TEMP_DIR`
-- Default Value: `/tmp/mas-restore-{{ backup_version }}`
+- Default Value: `/tmp/mas-restore`
 
 #### download_timeout
 Maximum time in seconds to wait for the download to complete. Useful for large archives or slow network connections.
