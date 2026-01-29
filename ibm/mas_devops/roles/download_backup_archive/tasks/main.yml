@@ -1,0 +1,79 @@
+---
+# Validate required variables
+- name: "Fail if mas_restore_dir is not defined"
+  ansible.builtin.fail:
+    msg: "mas_restore_dir is required but not defined"
+  when: mas_restore_dir is not defined or mas_restore_dir == ''
+
+- name: "Fail if either backup_version or backup_archive_name is not defined"
+  ansible.builtin.fail:
+    msg: "Either backup_version or backup_archive_name is required but not defined"
+  when: (backup_version is not defined or backup_version == '') and (backup_archive_name is not defined or backup_archive_name == '')
+
+- name: Set backup_archive_name if backup_version is provided
+  ansible.builtin.set_fact:
+    backup_archive_name: "mas-backup-{{ backup_version }}.tar.gz"  # Default name if backup_version is provided
+  when: backup_version is defined and backup_version != '' and (backup_archive_name is not defined or backup_archive_name == '')
+
+# Determine download source
+- name: "Check if S3 credentials are provided"
+  ansible.builtin.set_fact:
+    download_from_s3: "{{ (aws_access_key_id is defined and aws_access_key_id != '') and (aws_secret_access_key is defined and aws_secret_access_key != '') and (s3_bucket_name is defined and s3_bucket_name != '') }}"
+
+- name: "Check if Artifactory credentials are provided"
+  ansible.builtin.set_fact:
+    download_from_artifactory: "{{ (artifactory_username is defined and artifactory_username != '') and (artifactory_token is defined and artifactory_token != '') and (artifactory_url is defined and artifactory_url != '') }}"
+
+- name: "Fail if neither S3 nor Artifactory credentials are provided"
+  ansible.builtin.fail:
+    msg: "Either S3 credentials (aws_access_key_id, aws_secret_access_key, s3_bucket_name) or Artifactory credentials (artifactory_username, artifactory_token, artifactory_url) must be provided"
+  when: not download_from_s3 and not download_from_artifactory
+
+- name: "Display download source"
+  ansible.builtin.debug:
+    msg: "Will download from: {{ 'S3' if download_from_s3 else 'Artifactory' }}"
+
+# Create restore directory
+- name: "Create restore directory"
+  ansible.builtin.file:
+    path: "{{ mas_restore_dir }}"
+    state: directory
+    mode: '0755'
+
+# Create temporary directory for download
+- name: "Create temporary directory for download"
+  ansible.builtin.file:
+    path: "{{ backup_temp_dir }}"
+    state: directory
+    mode: '0755'
+
+# Download from S3 or Artifactory
+- name: "Download from S3"
+  ansible.builtin.include_tasks: download_from_s3.yml
+  when: download_from_s3
+
+- name: "Download from Artifactory"
+  ansible.builtin.include_tasks: download_from_artifactory.yml
+  when: download_from_artifactory and not download_from_s3
+
+# Extract archive
+- name: "Extract backup archive"
+  ansible.builtin.include_tasks: extract_archive.yml
+  when: extract_archive | bool
+
+# Cleanup
+- name: "Remove temporary archive file"
+  ansible.builtin.file:
+    path: "{{ backup_temp_dir }}/{{ backup_archive_name }}"
+    state: absent
+  when:
+    - cleanup_archive | bool
+    - extract_archive | bool
+
+- name: "Remove temporary directory"
+  ansible.builtin.file:
+    path: "{{ backup_temp_dir }}"
+    state: absent
+  when:
+    - cleanup_archive | bool
+    - extract_archive | bool
