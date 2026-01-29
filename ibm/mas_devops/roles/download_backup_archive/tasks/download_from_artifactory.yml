@@ -1,0 +1,78 @@
+---
+# Download backup archive from Artifactory
+- name: "Validate Artifactory repository is defined"
+  ansible.builtin.fail:
+    msg: "artifactory_repository is required when downloading from Artifactory"
+  when: artifactory_repository is not defined or artifactory_repository == ''
+
+- name: "Set Artifactory download URL"
+  ansible.builtin.set_fact:
+    artifactory_download_url: "{{ artifactory_url }}/{{ artifactory_repository }}/{{ backup_archive_name }}"
+
+- name: "Display Artifactory download information"
+  ansible.builtin.debug:
+    msg:
+      - "Downloading from Artifactory: {{ artifactory_url }}"
+      - "Repository: {{ artifactory_repository }}"
+      - "Archive: {{ backup_archive_name }}"
+      - "Full URL: {{ artifactory_download_url }}"
+      - "Download to: {{ backup_temp_dir }}"
+
+- name: "Download archive from Artifactory using curl"
+  ansible.builtin.command:
+    cmd: >
+      curl -X GET
+      -u {{ artifactory_username }}:{{ artifactory_token }}
+      -o {{ backup_temp_dir }}/{{ backup_archive_name }}
+      {{ artifactory_download_url }}
+      --max-time {{ download_timeout }}
+      --connect-timeout 60
+      --fail
+      --silent
+      --show-error
+      --location
+      --write-out '%{http_code}'
+  register: artifactory_download_result
+  changed_when: artifactory_download_result.rc == 0
+  failed_when: artifactory_download_result.rc != 0
+  async: "{{ download_timeout }}"
+  poll: 10
+  no_log: true
+
+- name: "Check download HTTP status code"
+  ansible.builtin.set_fact:
+    download_http_code: "{{ artifactory_download_result.stdout | regex_search('[0-9]{3}$') }}"
+  when: artifactory_download_result is succeeded
+
+- name: "Verify downloaded archive exists"
+  ansible.builtin.stat:
+    path: "{{ backup_temp_dir }}/{{ backup_archive_name }}"
+  register: downloaded_archive_stat
+
+- name: "Display Artifactory download result"
+  ansible.builtin.debug:
+    msg:
+      - "Successfully downloaded {{ backup_archive_name }} from Artifactory"
+      - "HTTP Status: {{ download_http_code | default('N/A') }}"
+      - "Archive size: {{ (downloaded_archive_stat.stat.size / 1024 / 1024) | round(2) }} MB"
+  when:
+    - artifactory_download_result is succeeded
+    - downloaded_archive_stat.stat.exists
+
+- name: "Fail if Artifactory download failed"
+  ansible.builtin.fail:
+    msg: "Failed to download archive from Artifactory. HTTP Status: {{ download_http_code | default('Unknown') }}"
+  when:
+    - artifactory_download_result is succeeded
+    - download_http_code is defined
+    - download_http_code not in ['200', '201']
+
+- name: "Handle download command failure"
+  ansible.builtin.fail:
+    msg: "Failed to download archive from Artifactory: {{ artifactory_download_result.stderr | default('Unknown error') }}"
+  when: artifactory_download_result is failed
+
+- name: "Fail if downloaded archive does not exist"
+  ansible.builtin.fail:
+    msg: "Downloaded archive {{ backup_temp_dir }}/{{ backup_archive_name }} does not exist"
+  when: not downloaded_archive_stat.stat.exists

@@ -1,0 +1,43 @@
+---
+# Extract downloaded backup archive
+- name: "Verify archive exists before extraction"
+  ansible.builtin.stat:
+    path: "{{ backup_temp_dir }}/{{ backup_archive_name }}"
+  register: archive_stat
+
+- name: "Fail if archive does not exist"
+  ansible.builtin.fail:
+    msg: "Archive {{ backup_temp_dir }}/{{ backup_archive_name }} does not exist"
+  when: not archive_stat.stat.exists
+
+- name: "Display extraction information"
+  ansible.builtin.debug:
+    msg:
+      - "Extracting archive: {{ backup_archive_name }}"
+      - "Archive size: {{ (archive_stat.stat.size / 1024 / 1024) | round(2) }} MB"
+      - "Extract to: {{ mas_restore_dir }}"
+
+- name: "Extract tar.gz archive to restore directory"
+  ansible.builtin.command:
+    cmd: "tar -xzf {{ backup_temp_dir }}/{{ backup_archive_name }} -C {{ mas_restore_dir }}"
+  register: tar_extract_result
+  changed_when: tar_extract_result.rc == 0
+
+- name: "List extracted directories"
+  ansible.builtin.find:
+    paths: "{{ mas_restore_dir }}"
+    file_type: directory
+    patterns: "backup-*"
+  register: extracted_dirs
+
+- name: "Display extraction result"
+  ansible.builtin.debug:
+    msg:
+      - "Successfully extracted {{ backup_archive_name }}"
+      - "Extracted {{ extracted_dirs.files | length }} backup directories to {{ mas_restore_dir }}"
+      - "Directories: {{ extracted_dirs.files | map(attribute='path') | map('basename') | list }}"
+
+- name: "Fail if no backup directories were extracted"
+  ansible.builtin.fail:
+    msg: "No backup directories found after extraction in {{ mas_restore_dir }}"
+  when: extracted_dirs.files | length == 0
