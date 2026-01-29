@@ -1,7 +1,5 @@
-**Role Name**
+**CP4D_UNINSTALL**
 =========
-
-**cp4d_uninstall**
 
 This role provides a **controlled, safe, and repeatable uninstallation of IBM Cloud Pak for Data (CP4D)**
 from an OpenShift cluster.
