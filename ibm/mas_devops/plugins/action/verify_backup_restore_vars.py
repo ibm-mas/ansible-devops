@@ -9,7 +9,7 @@ class ActionModule(ActionBase):
     REQUIRED = {
         "catalog": {
             "backup": ["mas_backup_dir"],
-            "restore": ["mas_backup_dir", "catalog_backup_version"]
+            "restore": ["mas_backup_dir", "ibm_catalogs_backup_version"]
         },
         "certmanager": {
             "backup": ["mas_backup_dir"],

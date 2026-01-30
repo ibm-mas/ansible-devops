@@ -103,16 +103,16 @@ Directory path where IBM Operator Catalog backup files will be stored.
 
 **Impact**: All backup files and metadata will be stored in subdirectories under this path. The backup creates a timestamped directory structure: `{mas_backup_dir}/backup-{version}-catalog/`
 
-**Related variables**: Works with `catalog_backup_version` to create unique backup directories.
+**Related variables**: Works with `ibm_catalogs_backup_version` to create unique backup directories.
 
 **Note**: Ensure this directory has sufficient space for backup data and is regularly backed up to external storage for disaster recovery.
 
-#### catalog_backup_version
+#### ibm_catalogs_backup_version
 Version identifier for the backup, used to create unique backup directories.
 
 - **Optional** for backup (auto-generated if not provided)
 - **Required** for restore
-- Environment Variable: `CATALOG_BACKUP_VERSION`
+- Environment Variable: `IBM_CATALOGS_BACKUP_VERSION`
 - Default: Auto-generated timestamp in format `YYMMDD-HHMMSS`
 
 **Purpose**: Provides a unique identifier for each backup, allowing multiple backups to coexist and enabling point-in-time restore operations.

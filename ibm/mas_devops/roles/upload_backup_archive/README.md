@@ -46,11 +46,11 @@ Version identifier for the backup. This is used as the default version for all c
 
 These variables allow you to specify different backup versions for individual components. If not provided, they default to the value of `backup_version`.
 
-#### catalog_backup_version
+#### ibm_catalogs_backup_version
 Backup version for the catalog component.
 
 - **Optional**
-- Environment Variable: `CATALOG_BACKUP_VERSION`
+- Environment Variable: `IBM_CATALOGS_BACKUP_VERSION`
 - Default Value: Value of `backup_version`
 
 #### certmanager_backup_version
