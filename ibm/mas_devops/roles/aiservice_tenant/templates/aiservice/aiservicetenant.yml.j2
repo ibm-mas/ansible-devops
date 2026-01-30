@@ -1,0 +1,51 @@
+---
+apiVersion: aiservice.ibm.com/v1
+kind: AIServiceTenant
+metadata:
+    name: "{{ tenantNamespace }}"
+    namespace: "{{ aiservice_namespace }}"
+    annotations:
+        ansible.sdk.operatorframework.io/verbosity: "{{ aiservice_operator_log_level }}"
+    labels:
+        aiservice.ibm.com/instanceId: "{{ aiservice_instance_id }}"
+        app.kubernetes.io/instance: "{{ aiservice_instance_id }}"
+{% if custom_labels is defined and custom_labels.items() %}
+{% for key, value in custom_labels.items() %}
+        "{{ key }}": "{{ value }}"
+{% endfor %}
+{% endif %}
+spec:
+    settings:
+        icr:
+            cp: "{{ mas_icr_cp }}"
+            cpopen: "{{ mas_icr_cpopen }}"
+        dro:
+            url: "{{ drocfg.url }}"
+            secretName: "{{ aiservice_dro_token_secret }}"
+            ca: "{{ drocfg.ca | b64encode  }}"
+        sls:
+            url: "{{ slscfg.url }}"
+            secretName: "{{ aiservice_sls_secret }}"
+            ca: "{{ slscfg.ca | b64encode  }}"
+        rsl:
+            url: {{ rsl_url }}
+            orgId: {{ rsl_org_id }}
+            secretName: {{ aiservice_rsl_secret }}
+        watsonxai:
+            url: "{{ aiservice_watsonxai_url }}"
+            secretName: "{{ aiservice_watsonxai_secret }}"
+            projectId: "{{ aiservice_watsonxai_project_id }}"
+            deploymentId: "{{ aiservice_watsonxai_deployment_id }}"
+            spaceId: "{{ aiservice_watsonxai_space_id }}"
+            ca: "{{ aiservice_watsonxai_ca_crt | b64encode }}"
+            instanceId: "{{ aiservice_watsonxai_instance_id }}"
+            username: "{{ aiservice_watsonxai_username }}"
+            version: "{{ aiservice_watsonxai_version }}"
+        tenant:
+            tenantId: "{{ aiservice_tenant_name }}"
+            subscriptionId: "{{ aiservice_sls_subscription_id }}"
+            instanceId: "{{ aiservice_instance_id }}"
+            entitlement:
+                type: {{ tenant_entitlement_type }}
+                startDate: {{ tenant_entitlement_start_date }}
+                endDate: {{ tenant_entitlement_end_date }}

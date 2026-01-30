@@ -24,6 +24,7 @@ class ActionModule(ActionBase):
           icr_password: "{{ icr_password }}"
           artifactory_username: "{{ artifactory_username }}"
           artifactory_password: "{{ artifactory_token }}"
+          namespace_kyverno_label: "audit"
         register: secret
     """
     def run(self, tmp=None, task_vars=None):
@@ -35,6 +36,7 @@ class ActionModule(ActionBase):
         artifactoryUsername = self._task.args.get('artifactory_username', None)
         artifactoryPassword = self._task.args.get('artifactory_password', None)
         secretName = self._task.args.get('secret_name', None)
+        namespaceKyvernoLabel = self._task.args.get('namespace_kyverno_label', None)
 
         if namespace is None:
             raise AnsibleError(f"Error: namespace argument was not provided")
@@ -44,7 +46,7 @@ class ActionModule(ActionBase):
         api_key = self._task.args.get('api_key', None)
 
         dynClient = get_api_client(api_key=api_key, host=host)
-        createNamespace(dynClient, namespace)
+        createNamespace(dynClient, namespace, namespaceKyvernoLabel)
         secret = updateIBMEntitlementKey(dynClient, namespace, icrUsername, icrPassword, artifactoryUsername, artifactoryPassword, secretName)
 
         return dict(

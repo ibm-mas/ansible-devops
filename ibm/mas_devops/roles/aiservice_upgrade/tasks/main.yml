@@ -1,0 +1,163 @@
+---
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Assert that aiservice_instance_id is defined"
+  assert:
+    that:
+      - aiservice_instance_id is defined and aiservice_instance_id != ""
+    fail_msg: "aiservice_instance_id is required"
+
+
+# 2. Load variables
+# -----------------------------------------------------------------------------
+- name: "Load application compatibility matrix"
+  include_vars: "{{ role_path }}/../../common_vars/compatibility_matrix.yml"
+
+
+# 3. Determine upgrade target
+# -----------------------------------------------------------------------------
+# Default aiservice_channel based on the current version of the
+# installed AI Service if not provided by the user specifically
+- name: "Get subscription for ibm-aiservice"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ aiservice_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/ibm-aiservice.{{ aiservice_namespace }}"
+  register: aiservice_sub_info
+
+- name: "Set current subscription channel"
+  set_fact:
+    current_aiservice_channel: "{{ aiservice_sub_info.resources[0].spec.channel }}"
+
+- name: Show current subscription info
+  ansible.builtin.debug:
+    msg:
+      - "Currently installed AI Service channel ............. {{ current_aiservice_channel }}"
+
+- name: "Set default upgrade target based on installed version of AI Service"
+  when:
+    - aiservice_channel is not defined or aiservice_channel == ""
+    - current_aiservice_channel | ibm.mas_devops.is_channel_upgrade_path_valid('', aiservice_upgrade_path)
+  set_fact:
+    target_aiservice_channel: "{{ current_aiservice_channel | get_default_upgrade_channel(aiservice_upgrade_path) }}"
+
+- name: "Set upgrade target explicitly"
+  when:
+    - aiservice_channel is defined and aiservice_channel != ""
+    - current_aiservice_channel | ibm.mas_devops.is_channel_upgrade_path_valid(aiservice_channel, aiservice_upgrade_path)
+  set_fact:
+    target_aiservice_channel: "{{ aiservice_channel }}"
+
+- name: "Assert upgrade target is defined"
+  assert:
+    that: target_aiservice_channel is defined
+    fail_msg: "Unable to determine upgrade target: aiservice_channel={{ aiservice_channel | default('<undefined>') }}"
+
+
+# 4. Validate target upgrade channel exists in the package manifest
+# -----------------------------------------------------------------------------
+- name: "Lookup PackageManifest: ibm-aiservice"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: PackageManifest
+    name: "ibm-aiservice"
+    namespace: openshift-marketplace
+  register: aiservice_channel_lookup
+  no_log: true # This generates a huge amount of (useless) logging
+
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - aiservice_channel_lookup is defined
+      - aiservice_channel_lookup.resources is defined
+      - aiservice_channel_lookup.resources | length == 1
+    fail_msg: "PackageManifest not found: ibm-aiservice"
+
+- name: Get channels list from PackageManifest
+  ansible.builtin.set_fact:
+    op_channels_in_pm: "{{ aiservice_channel_lookup.resources[0].status.channels | default([], true) }}"
+
+- name: Find app channel index in channels list
+  ansible.builtin.set_fact:
+    op_channel_idx_in_pm: >-
+      {{ lookup('ansible.utils.index_of',
+                data=op_channels_in_pm,
+                test='eq',
+                value=target_aiservice_channel,
+                key='name') }}
+
+- name: Set aiservice_channel to the found channel name
+  ansible.builtin.set_fact:
+    aiservice_channel: "{{ op_channels_in_pm[op_channel_idx_in_pm | int].name }}"
+  when:
+    - op_channel_idx_in_pm is defined
+    - (op_channel_idx_in_pm | type_debug) != 'list'
+    - (op_channel_idx_in_pm | int(default=-1)) >= 0
+
+- name: Set fallback target channel
+  ansible.builtin.set_fact:
+    fallback_target_channel: "{{ target_aiservice_channel }}-feature"
+
+- name: Find channel with -feature if not found
+  ansible.builtin.set_fact:
+    op_channel_idx_in_pm_with_feature: >-
+      {{ lookup('ansible.utils.index_of',
+                data=op_channels_in_pm,
+                test='eq',
+                value=fallback_target_channel,
+                key='name') }}
+
+- name: Set aiservice_channel to the found channel name
+  ansible.builtin.set_fact:
+    aiservice_channel: "{{ op_channels_in_pm[op_channel_idx_in_pm_with_feature | int].name }}"
+  when:
+    - aiservice_channel is not defined
+    - op_channel_idx_in_pm_with_feature is defined
+    - (op_channel_idx_in_pm_with_feature | type_debug) != 'list'
+    - (op_channel_idx_in_pm_with_feature | int(default=-1)) >= 0
+
+- name: Raise error if channel not found
+  ansible.builtin.fail:
+    msg: "Upgrade not possible. Channel {{ aiservice_channel }} not found in PackageManifest."
+  when:
+    - aiservice_channel is not defined
+
+
+# 5. Provide debug information
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "Target Channel ......................... {{ aiservice_channel | default('No upgrade available', True) }}"
+      - "AI Service Instance ID ........................ {{ aiservice_instance_id }}"
+      - "AI Service namespace .......................... {{ aiservice_namespace }}"
+
+# 6. Check the existing installation
+# -----------------------------------------------------------------------------
+- name: "Check existing AI Service installation"
+  when:
+    - aiservice_channel is defined and aiservice_channel != ""
+  include_tasks: tasks/check_aiservice_compatibility.yml
+
+# 7. Upgrade
+# -----------------------------------------------------------------------------
+- name: "Execute Channel Upgrade"
+  when:
+    - aiservice_channel is defined and aiservice_channel != ""
+    - aiservice_sub_info is defined and aiservice_sub_info.resources[0].spec.channel != aiservice_channel
+    - not aiservice_upgrade_dryrun
+  include_tasks: tasks/upgrade.yml
+
+- name: "Debug when we are already on the desired channel"
+  when:
+    - aiservice_channel is defined and aiservice_channel != ""
+    - aiservice_sub_info is defined and aiservice_sub_info.resources[0].spec.channel == aiservice_channel
+  debug:
+    msg: "No action required, subscription is already on the {{ aiservice_channel }} channel"
+
+- name: "Debug when no upgrade channel was available"
+  when: aiservice_channel is not defined or aiservice_channel == ""
+  debug:
+    msg: "No action required, no upgrade channel is available"

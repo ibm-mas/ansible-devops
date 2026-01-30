@@ -1,0 +1,20 @@
+---
+- name: "Check if namespace exists: {{ tenantNamespace }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ tenantNamespace }}"
+  register: namespace_info
+
+- name: "Create namespace: {{ tenantNamespace }}"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ tenantNamespace }}"
+        labels:
+          ibm.com/kyverno: "audit"
+  when:
+    - namespace_info.resources | length == 0

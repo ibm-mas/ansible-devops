@@ -92,8 +92,8 @@ If you are using the [playbooks](https://github.com/ibm-mas/ansible-devops/tree/
 - Remove any pre_tasks related to environment variables
 - Remove any lookups of environment variables from the playbook
 
-### oneclick_core.yml
-An example of this is taking the `oneclick_core.yml` playbook:
+### mas_install_core.yml
+An example of this is taking the `mas_install_core.yml` playbook:
 
 ```yaml
 ---
@@ -166,7 +166,7 @@ and changing it to look like the following:
 
 ```yaml
 ---
-- name: "oneclick-core"
+- name: "mas-core"
   hosts: localhost
   any_errors_fatal: true
   vars:
@@ -225,7 +225,7 @@ If you need to set an environment variable then you can do this in the playbook 
   vars:
     cluster_name: testcluster
     cluster_type: rosa
-    ocp_version: 4.14.35
+    ocp_version: 4.19.14
     rosa_compute_nodes: 3
 
   environment:

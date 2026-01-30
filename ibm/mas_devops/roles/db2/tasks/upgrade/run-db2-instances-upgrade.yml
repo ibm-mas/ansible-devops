@@ -43,11 +43,17 @@
     - name: Set db2u-release configmap content
       no_log: true
       set_fact:
-        db2_releases_content: "{{ db2_release_info.resources[0].data.json }}"
+        db2_releases_content: "{{ db2_release_info.resources[0].data.json | from_json }}"
 
-    - name: Set db2 version
-      ansible.builtin.set_fact:
-        db2_version: "{{ db2_releases_content.databases.db2u | last }}"
+    - name: Filter out s12* versions and pick latest s11*
+      set_fact:
+        db2_version: >-
+          {{
+            (db2_releases_content.databases.db2u.keys()
+            | select('match', '^s11')
+            | sort)
+            | last
+          }}
 
   when: db2_version is not defined or db2_version == ""
 

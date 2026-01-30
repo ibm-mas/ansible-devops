@@ -41,6 +41,40 @@
       - catalog_lookup.resources[0].status.connectionState.lastObservedState == "READY"
     fail_msg: "The ibm-operator-catalog is not installed, or is not ready to use.  Run the ibm.mas_devops.ibm_catalogs role, or install the CatalogSource manually."
 
+# 2a. Detect Manage and MREF (Facilities) applications
+# -----------------------------------------------------------------------------
+- name: "Lookup Manage application"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: ManageApp
+    name: "{{ mas_instance_id }}"
+    namespace: "mas-{{ mas_instance_id }}-manage"
+  register: manage_lookup
+  ignore_errors: yes
+
+- name: "Lookup MREF (Facilities) application"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: FacilitiesApp
+    name: "{{ mas_instance_id }}"
+    namespace: "mas-{{ mas_instance_id }}-facilities"
+  register: mref_lookup
+  ignore_errors: yes
+
+- name: "Set facts for detected applications"
+  set_fact:
+    arcgis_manage_detected: "{{ manage_lookup.resources is defined and manage_lookup.resources | length > 0 }}"
+    arcgis_manage_ready: "{{ manage_lookup.resources is defined and manage_lookup.resources | length > 0 and manage_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select('match', 'True') | list | length == 1 }}"
+    arcgis_mref_detected: "{{ mref_lookup.resources is defined and mref_lookup.resources | length > 0 }}"
+    arcgis_mref_ready: "{{ mref_lookup.resources is defined and mref_lookup.resources | length > 0 and mref_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select('match', 'True') | list | length == 1 }}"
+
+- name: "Assert that ArcGIS is installed with Manage or MREF"
+  assert:
+    that:
+      - (arcgis_manage_detected and arcgis_manage_ready) or (arcgis_mref_detected and arcgis_mref_ready)
+    fail_msg: "ArcGIS must be installed bundled with at least one application: Manage (with Spatial) or MREF (Facilities). Valid combinations: ArcGIS+MREF, ArcGIS+Manage, or ArcGIS+MREF+Manage. Found: Manage Detected={{ arcgis_manage_detected }}, Manage Ready={{ arcgis_manage_ready }}, MREF Detected={{ arcgis_mref_detected }}, MREF Ready={{ arcgis_mref_ready }}"
+
+
 # 3. Provide Debug information
 # -----------------------------------------------------------------------------
 - name: "Debug information - IBM Maximo Location Services for Esri "
@@ -49,6 +83,12 @@
       - "Namespace ...................... {{ mas_arcgis_namespace }}"
       - "Channel ........................ {{ mas_arcgis_channel }}"
       - "MAS Instance Id ................ {{ mas_instance_id }}"
+      - ""
+      - "Detected Applications:"
+      - "  Manage detected .............. {{ arcgis_manage_detected }}"
+      - "  Manage ready ................. {{ arcgis_manage_ready }}"
+      - "  MREF detected ................ {{ arcgis_mref_detected }}"
+      - "  MREF ready ................... {{ arcgis_mref_ready }}"
 
 # 4. Create IBM Maximo Location Services project
 # -----------------------------------------------------------------------------
@@ -138,8 +178,8 @@
     - arcgis_ic_nginx_lookup.resources[0].status | length > 0
     - arcgis_ic_nginx_lookup.resources[0].status.readyReplicas is defined
     - arcgis_ic_nginx_lookup.resources[0].status.replicas == arcgis_ic_nginx_lookup.resources[0].status.readyReplicas
-  retries: 10 # approx 5 minutes before we give up
-  delay: 30 # 30 seconds
+  retries: 15 # approx 15 minutes before we give up
+  delay: 60 # 60 seconds
 
 - name: "Wait ArcGIS Help deployment to be ready"
   kubernetes.core.k8s_info:
@@ -157,8 +197,8 @@
     - arcgis_help_lookup.resources[0].status | length > 0
     - arcgis_help_lookup.resources[0].status.readyReplicas is defined
     - arcgis_help_lookup.resources[0].status.replicas == arcgis_help_lookup.resources[0].status.readyReplicas
-  retries: 10 # approx 5 minutes before we give up
-  delay: 30 # 30 seconds
+  retries: 15 # approx 15 minutes before we give up
+  delay: 60 # 60 seconds
 
 - name: "Wait ArcGIS Rest Administrator API deployment to be ready"
   kubernetes.core.k8s_info:
@@ -176,8 +216,8 @@
     - arcgis_admin_lookup.resources[0].status | length > 0
     - arcgis_admin_lookup.resources[0].status.readyReplicas is defined
     - arcgis_admin_lookup.resources[0].status.replicas == arcgis_admin_lookup.resources[0].status.readyReplicas
-  retries: 10 # approx 5 minutes before we give up
-  delay: 30 # 30 seconds
+  retries: 15 # approx 15 minutes before we give up
+  delay: 60 # 60 seconds
 
 - name: "Wait ArcGIS Enterprise Manager deployment to be ready"
   kubernetes.core.k8s_info:
@@ -195,8 +235,8 @@
     - arcgis_manager_lookup.resources[0].status | length > 0
     - arcgis_manager_lookup.resources[0].status.readyReplicas is defined
     - arcgis_manager_lookup.resources[0].status.replicas == arcgis_manager_lookup.resources[0].status.readyReplicas
-  retries: 10 # approx 5 minutes before we give up
-  delay: 30 # 30 seconds
+  retries: 15 # approx 15 minutes before we give up
+  delay: 60 # 60 seconds
 
 # 8. Wait IBM Maximo Location Services custom resource to be complete
 # -----------------------------------------------------------------------------

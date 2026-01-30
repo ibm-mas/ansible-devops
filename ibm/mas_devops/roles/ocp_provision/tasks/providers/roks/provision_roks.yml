@@ -6,8 +6,13 @@
     that: ibmcloud_apikey is defined and ibmcloud_apikey != ""
     fail_msg: "ibmcloud_apikey property is required"
 
+# 2. Sanitize ocp_version input
+# -----------------------------------------------------------------------------
+- name: "roks : Sanitize ocp_version input"
+  set_fact:
+    ocp_version: "{{ ocp_version ~ '_openshift' if '_openshift' not in ocp_version else ocp_version }}"
 
-# 2. Debug Info
+# 3. Debug Info
 # -----------------------------------------------------------------------------
 - name: "roks : Debug information"
   debug:
@@ -23,14 +28,14 @@
       - "ROKS flags ................... {{ roks_flags }}"
 
 
-# 3. Login
+# 4. Login
 # -----------------------------------------------------------------------------
 - name: "roks : Login to IBM Cloud"
   shell: |
     ibmcloud login -a "{{ ibmcloud_endpoint }}" --apikey "{{ ibmcloud_apikey }}" -q --no-region
 
 
-# 4. Optionally, switch to a specified resource group (creating it if necessary)
+# 5. Optionally, switch to a specified resource group (creating it if necessary)
 # -----------------------------------------------------------------------------
 - name: "roks : Check resource group exists"
   when: ibmcloud_resourcegroup is defined
@@ -63,7 +68,7 @@
   failed_when: "rg_target.rc > 1"
 
 
-# 5. Check if cluster already exists
+# 6. Check if cluster already exists
 # -----------------------------------------------------------------------------
 - name: "roks : Check if cluster already exists"
   shell: |
@@ -77,7 +82,7 @@
     msg: "{{ cluster_name }} already exists, skipping cluster creation"
 
 
-# 6. Setup vlans
+# 7. Setup vlans
 # -----------------------------------------------------------------------------
 - name: "roks : Lookup VLANs automatically (ibmcloud ks vlan ls --zone {{ roks_zone }} --output json)"
   when: cluster_lookup.rc == 1 or ocp_provision_gpu|bool == true
@@ -85,16 +90,71 @@
     ibmcloud ks vlan ls --zone {{ roks_zone }} --output json
   register: ibmcloud_zone_vlans
 
+- name: "roks : Parse VLAN list"
+  when: cluster_lookup.rc == 1 or ocp_provision_gpu|bool == true
+  set_fact:
+    vlan_list: "{{ ibmcloud_zone_vlans.stdout | from_json }}"
+
+# If private exists but public missing → create public VLAN in same router
+- name: Create public VLAN if missing
+  when:
+    - cluster_lookup.rc == 1 or ocp_provision_gpu|bool == true
+    - vlan_list | selectattr('type', 'equalto', 'private') | list | length > 0
+    - vlan_list | selectattr('type', 'equalto', 'public') | list | length == 0
+  block:
+
+    - name: Set public VLAN name
+      set_fact:
+        public_vlan_name: "{{ cluster_name }}-pub-{{ 99999 | random }}"
+
+    - name: Create public VLAN in same router
+      command: >
+        ibmcloud sl vlan create
+        -n {{ public_vlan_name }}
+        -d {{ roks_zone }}
+        -t public
+        --output json
+        --force
+      register: public_vlan_create
+
+    - name: Wait for newly created public VLAN to appear
+      command: ibmcloud ks vlan ls --zone {{ roks_zone }} --output json
+      register: vlan_list_check
+      retries: 20
+      delay: 15
+      until: >
+        (vlan_list_check.stdout | from_json
+          | selectattr('type', 'equalto', 'public')
+          | selectattr('properties.name', 'equalto', public_vlan_name)
+          | list | length) > 0
+
+- name: Refresh VLAN list after creating public VLAN
+  when: cluster_lookup.rc == 1 or ocp_provision_gpu|bool == true
+  shell: ibmcloud ks vlan ls --zone {{ roks_zone }} --output json
+  register: vlan_list_refreshed
+
+- name: Set vlan_list fact from refreshed list
+  when: cluster_lookup.rc == 1 or ocp_provision_gpu|bool == true
+  set_fact:
+    vlan_list: "{{ vlan_list_refreshed.stdout | from_json }}"
+
+# If VLANs exist, set public and private VLANs
 - name: "roks : Configure Private and Public Vlans"
   when:
     - cluster_lookup.rc == 1 or ocp_provision_gpu|bool == true
-    - ibmcloud_zone_vlans.stdout | from_json | length > 0
+    - vlan_list | selectattr('type', 'equalto', 'public') | list | length > 0
+    - vlan_list | selectattr('type', 'equalto', 'private') | list | length > 0
   set_fact:
-    public: "{{ ibmcloud_zone_vlans.stdout | from_json | ibm.mas_devops.public_vlan }}"
-    private: "{{ ibmcloud_zone_vlans.stdout | from_json | ibm.mas_devops.private_vlan }}"
+    public: "{{ vlan_list | ibm.mas_devops.public_vlan }}"
+    private: "{{ vlan_list | ibm.mas_devops.private_vlan }}"
 
+- name: Print VLAN values
+  debug:
+    msg:
+      - "Public VLAN: {{ public | default('NOT SET') }}"
+      - "Private VLAN: {{ private | default('NOT SET') }}"
 
-# 7. Create cluster
+# 8. Create cluster
 # -----------------------------------------------------------------------------
 - name: "roks : Create IBM Cloud ROKS cluster"
   when: cluster_lookup.rc == 1
@@ -107,12 +167,12 @@
       --zone {{ roks_zone }} \
       --flavor {{ roks_flavor }} \
       --workers {{ roks_workers }} \
-      --private-vlan {{ private is defined | ternary(private, omit) }} \
-      --public-vlan {{ public is defined | ternary(public, omit) }} \
+      {{ '--private-vlan ' + private if private is defined }} \
+      {{ '--public-vlan ' + public if public is defined }} \
       {{ roks_flags }}
 
 
-# 8. Add a GPU worker node if ocp_provision_gpu is true
+# 9. Add a GPU worker node if ocp_provision_gpu is true
 # -----------------------------------------------------------------------------
 - name: "roks : Debug Information for GPU worker"
   when:
@@ -172,8 +232,8 @@
       --zone {{ roks_zone }} \
       --cluster {{ cluster_name }} \
       --worker-pool {{ gpu_workerpool_name }} \
-      --private-vlan {{ private is defined | ternary(private, omit) }} \
-      --public-vlan {{ public is defined | ternary(public, omit) }}
+      {{ '--private-vlan ' + private if private is defined }} \
+      {{ '--public-vlan ' + public if public is defined }}
 
 - name: "roks : status of GPU worker node provisioning"
   when:
@@ -184,7 +244,7 @@
     msg: "GPU worker node(s) will continue to provision and can take at least 4 hours to be fully deployed"
 
 
-# 9. Watch cluster provisioning progress
+# 10. Watch cluster provisioning progress
 # -----------------------------------------------------------------------------
 - name: "roks : Wait until the Roks cluster is deployed"
   shell: |
@@ -194,7 +254,7 @@
     - roks_cluster_completion.rc == 0
     - (roks_cluster_completion.stdout | from_json).state == 'normal'
   retries: 30
-  delay: 120 # 2 minutes
+  delay: 120  # 2 minutes
 
 - name: "roks: Debug final cluster state"
   debug:

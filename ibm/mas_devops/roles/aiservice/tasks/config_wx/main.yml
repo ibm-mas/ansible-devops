@@ -1,0 +1,20 @@
+---
+- name: Delete WatsonX secret if exists
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Secret
+    name: "{{ aiservice_wx_cacert_secret }}"
+    state: absent
+    namespace: aiservice-{{ aiservice_instance_id }}
+  when: aiservice_watsonxai_ca_crt == ""
+
+- name: Read WX CA Cert from environment
+  ansible.builtin.set_fact:
+    wxCaCert: "{{ lookup('env', 'AISERVICE_WATSONXAI_CA_CRT') | regex_replace('BEGIN CERTIFICATE', 'BEGIN_CERTIFICATE') | regex_replace('END CERTIFICATE', 'END_CERTIFICATE') | regex_replace('\\s+', '\n') | replace('BEGIN_CERTIFICATE', 'BEGIN CERTIFICATE')| replace('END_CERTIFICATE', 'END CERTIFICATE') }}"
+  when: '" " in aiservice_watsonxai_ca_crt'
+
+- name: "Create secret for WX CA Cert"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/wx/wx-tenant-details.yml.j2"
+  when: aiservice_watsonxai_ca_crt | length > 0

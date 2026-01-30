@@ -89,6 +89,31 @@
     kind: OperatorGroup
   register: db2_og_info
 
+# Check if db2_channel is avaialble in the catalog and is fetched correctly
+- name: Debug DB2 upgrade channel
+  ansible.builtin.debug:
+    msg:
+      - "Db2 Channel (check if default got fetched from CLI)............................ {{ db2_channel }}"
+
+# Load catalog metadata as additional fallback (if CLI didn't set it)
+- name: "Determine Version of Maximo Operator Catalog"
+  include_tasks: "{{ role_path }}/../../common_tasks/determine-ibmcatalog-tag.yml"
+  when: db2_channel is not defined or db2_channel == ""
+
+- name: Load Catalog Metadata for db2_channel
+  when:
+    - db2_channel is not defined or db2_channel == ""
+    - catalog_tag is defined and catalog_tag != ""
+  block:
+    - ibm.mas_devops.get_catalog_info:
+        mas_catalog_version: "{{ catalog_tag }}"
+      register: _mas_catalog
+
+    - name: "Set db2_channel from catalog metadata"
+      when: _mas_catalog.db2_channel_default is defined
+      set_fact:
+        db2_channel: "{{ _mas_catalog.db2_channel_default }}"
+
 # Look up the default channel for the db2u-operator package manifest
 - name: Lookup db2u-operator packagemanifest
   kubernetes.core.k8s_info:
@@ -100,7 +125,29 @@
   until: db2u_manifest_info.resources[0].status.defaultChannel is defined
   retries: 60 # Approximately 30 minutes before we give up
   delay: 30 # seconds
-  when: db2_channel is not defined or db2_channel == "" or db2_version is not defined or db2_version == ""
+  when: db2_channel is not defined or db2_channel == ""
+  #when: db2_channel is not defined or db2_channel == "" or db2_version is not defined or db2_version == ""
+
+  # Rotate DB2 channel by day of the week
+- name: "Select DB2 channel based on day of the week"
+  when: db2_channel is defined and db2_channel == "rotate"
+  set_fact:
+    db2_channel: "{{ rotate_db2_channel[ansible_date_time['weekday']] }}"
+  vars:
+    rotate_db2_channel:
+      Monday: "v110509.0"
+      Tuesday: "v120101.0"
+      Wednesday: "v110509.0"
+      Thursday: "v120101.0"
+      Friday: "v120101.0"
+      Saturday: "v120101.0"
+      Sunday: "v120101.0"
+
+- name: "Debug DB2 channel after rotation"
+  when: db2_channel is defined and db2_channel != ""
+  ansible.builtin.debug:
+    msg:
+      - "DB2 Channel (after rotation check) ........ {{ db2_channel }}"
 
 - name: Set db2u-operator channel
   ansible.builtin.set_fact:
@@ -125,7 +172,7 @@
 - name: "Create db2u Namespace"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/db2u_namespace.yaml') }}"
+    template: "templates/db2u_namespace.yaml"
   register: _db2_namespace_result
 
 - name: Set 'ibm-registry' secret content
@@ -140,6 +187,19 @@
   set_fact:
     new_secret: "{{ content | join('') }}"
 
+# Note: We use "new_secret | to_json " because older versions of Ansible create
+# invalid json representations containing single quotes
+# However, in newer versions of Ansible to_json returns an object, which can't be passed to b64encode
+- name: "Generate docker secret (old Ansible versions)"
+  when: ansible_version.full is version_compare(2.20, '<')
+  set_fact:
+    dockerconfigjsonB64: "{{ new_secret | to_json | b64encode }}"
+
+- name: "Generate docker secret (new Ansible versions)"
+  when: ansible_version.full is version_compare(2.20, '>=')
+  set_fact:
+    dockerconfigjsonB64: "{{ new_secret | b64encode }}"
+
 - name: "Generate 'ibm-registry' secret"
   no_log: true
   kubernetes.core.k8s:
@@ -151,7 +211,7 @@
         name: ibm-registry
         namespace: "{{ db2_namespace }}"
       data:
-        .dockerconfigjson: "{{ new_secret | to_json | b64encode }}"
+        .dockerconfigjson: "{{ dockerconfigjsonB64 }}"
   register: secretUpdateResult
 
 - name: "Delete old db2 subscription, operand request and csv from {{ ibm_common_services_namespace }}"
@@ -178,13 +238,13 @@
 - name: "Create internal CA certificate issuer"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/certs/ca_issuer.yml.j2') }}"
+    template: "templates/certs/ca_issuer.yml.j2"
   register: createCaIssuer
 
 - name: "Create and wait for CA certificate"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/certs/ca_certificate.yml.j2') }}"
+    template: "templates/certs/ca_certificate.yml.j2"
     wait: yes
     wait_timeout: 600 #10 minutes
     wait_condition:
@@ -195,13 +255,13 @@
 - name: "Create certificate issuer"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/certs/issuer.yml.j2') }}"
+    template: "templates/certs/issuer.yml.j2"
   register: createIssuer
 
 - name: "Create db2u certificate"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/certs/certificate.yml.j2') }}"
+    template: "templates/certs/certificate.yml.j2"
   register: createCertificate
 
 # 9. Wait until the Db2uCluster CRD is available
@@ -235,13 +295,39 @@
     - name: Set db2u-release configmap content
       no_log: true
       set_fact:
-        db2_releases_content: "{{ db2_release_info.resources[0].data.json }}"
+        db2_releases_content: "{{ db2_release_info.resources[0].data.json | from_json }}"
 
-    - name: Set db2 version
-      ansible.builtin.set_fact:
-        db2_version: "{{ db2_releases_content.databases.db2u | last }}"
+    - name: Extract major version from channel
+      set_fact:
+        db2_major_version: "{{ db2_channel | regex_replace('^v(\\d{2})(\\d+).*', '\\1') }}"
+
+    - name: Debug extracted version
+      ansible.builtin.debug:
+        msg:
+          - "DB2 Channel ........................... {{ db2_channel }}"
+          - "Extracted Major Version ............... {{ db2_major_version }}"
+          - "Filter Pattern ........................ ^s{{ db2_major_version }}"
+
+    - name: Determine DB2 version based on channel
+      set_fact:
+        db2_version: >-
+          {{
+            (db2_releases_content.databases.db2u.keys()
+            | select('match', '^s' + db2_major_version)
+            | sort)
+            | last
+          }}
+      when:
+        - (db2_releases_content.databases.db2u.keys() | select('match', '^s' + db2_major_version) | list | length) > 0
 
   when: db2_version is not defined or db2_version == ""
+
+- name: Debug DB2 channel and determined version
+  ansible.builtin.debug:
+    msg:
+      - "DB2 Channel ........................... {{ db2_channel }}"
+      - "DB2 Version (determined) .............. {{ db2_version }}"
+      - "Available versions .................... {{ db2_releases_content.databases.db2u.keys() | list }}"
 
 # 11. Fail if required parameters are not set
 # -----------------------------------------------------------------------------
@@ -273,7 +359,7 @@
 - name: "Create db2 instance"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/db2ucluster.yml.j2') }}"
+    template: "templates/db2ucluster.yml.j2"
 
 - name: "Set db2 instance timezone"
   include_tasks: "tasks/install/setup_timezone.yml"
@@ -339,7 +425,7 @@
 - name: "Create dedicated route: db2u-{{ db2_instance_name }}-tls-route"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/tlsroute.yml.j2') }}"
+    template: "templates/tlsroute.yml.j2"
 
 - name: Lookup existing db2u-tls-route
   kubernetes.core.k8s_info:
@@ -364,19 +450,8 @@
     namespace: "{{db2_namespace}}"
     state: absent
 
-# 16. Delete db2 pod on intial setup only, to workaround db2 issue
-# that was causing TLS connection issues when the pod was first started
-# -----------------------------------------------------------------------------
-- name: Delete db2u pod on initial setup
-  kubernetes.core.k8s:
-    api_version: v1
-    kind: Pod
-    name: "c-{{db2_instance_name | lower}}-db2u-0"
-    namespace: "{{db2_namespace}}"
-    state: absent
-  when: initial_db2_cluster_lookup.resources | length == 0
 
-# 17. create an LDAP user if db2_ldap_username specified
+## 16. create an LDAP user if db2_ldap_username specified
 # -----------------------------------------------------------------------------
 - name: Create LDAP user if username and password is provided
   include_tasks: tasks/install/create_ldap_user.yml
@@ -392,7 +467,7 @@
       - "{{db2_ldap_username}}"
       - "{{db2_rotate_password}}"
 
-# 18. Rotate db2 ldap password
+# 17. Rotate db2 ldap password
 # -----------------------------------------------------------------------------
 - name: Rotate Db2 LDAP password if db2_rotate_password is True and username is provided
   include_tasks: tasks/install/rotate_ldap_user_password.yml
@@ -401,7 +476,7 @@
     - db2_ldap_username != ""
     - db2_rotate_password == true
 
-# 19. Wait for the statefulset to be ready
+# 18. Wait for the statefulset to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for Db2 Stateful set to be ready"
   kubernetes.core.k8s_info:
@@ -420,7 +495,7 @@
   retries: 20 # approx 10 minutes before we give up
   delay: 30 # seconds
 
-# 20. Generate a JdbcCfg for MAS configuration
+# 19. Generate a JdbcCfg for MAS configuration
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/install/suite_jdbccfg.yml
   when:

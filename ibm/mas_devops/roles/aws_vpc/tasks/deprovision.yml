@@ -25,20 +25,20 @@
     vpc_id: "{{ vpc_info.stdout | from_json | json_query('Vpcs[0].VpcId') }}"
 
 - name: Debug Info, when VPC doesn't exist
-  when: not vpc_id
+  when: vpc_id is not defined or vpc_id | length == 0
   debug:
     msg:
       - "VPC Resource {{ vpc_name }} doesn't exist in region {{ aws_region }}, Skipping deletion"
 
 - name: Delete VPC
-  when: vpc_id is defined and vpc_id != ''
+  when: vpc_id is defined and vpc_id != None and vpc_id != ''
   command: >
     aws ec2 delete-vpc \
       --vpc-id '{{ vpc_id }}'
   register: delete_info
 
 - name: Debug ,Deleted VPC Info
-  when: vpc_id is defined and vpc_id != ''
+  when: vpc_id is defined and vpc_id != None and vpc_id != ''
   debug:
     msg:
       - "Deleted Vpc Info ............................ {{ delete_info }}"

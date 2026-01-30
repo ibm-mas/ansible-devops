@@ -1,0 +1,61 @@
+---
+# Tasks to remove tenant resources
+- name: Check if models exist before deleting kmodels
+  shell: oc get isvc,ig -n {{ tenantNamespace }} -o name
+  register: result
+
+- name: Check if any models exist
+  fail:
+    msg: "Please remove all models before deleting kmodels"
+  when: result.rc == 0 and result.stdout != ''
+
+- name: Lookup AIServiceTenant CR
+  kubernetes.core.k8s_info:
+    api_version: aiservice.ibm.com/v1
+    kind: AIServiceTenant
+    name: "{{ aiservice_tenant_name }}"
+    namespace: "{{ tenantNamespace }}"
+  register: lookup_result
+
+- name: Debug lookup_result.resources
+  debug:
+    var: lookup_result.resources
+
+
+- name: Set facts from AIServiceTenant
+  ansible.builtin.set_fact:
+    aiservice_instance_id: "{{ lookup_result.resources[0].metadata.labels['app.kubernetes.io/instance'] | default('') }}"
+    aiservice_tenant_id: "{{ lookup_result.resources[0].spec.settings.tenant.tenantId | default('') }}"
+    aiservice_tenant_name: "{{ lookup_result.resources[0].metadata.name }}"
+  when: lookup_result.resources | length > 0
+
+- name: Debug facts set from AIServiceTenant
+  debug:
+    msg:
+      - "aiservice_instance_id: {{ aiservice_instance_id }}"
+      - "aiservice_tenant_id: {{ aiservice_tenant_id }}"
+      - "aiservice_tenant_name: {{ aiservice_tenant_name }}"
+
+- name: Delete Tenant CR
+  kubernetes.core.k8s:
+    state: absent
+    api_version: aiservice.ibm.com/v1
+    kind: AIServiceTenant
+    name: "{{ tenantNamespace }}"
+    namespace: "{{ aiservice_namespace }}"
+    wait: true
+    wait_timeout: 60
+
+- name: Tenant status
+  debug:
+    msg: "Tenant was deleted"
+
+- name: Delete tenant namespace
+  kubernetes.core.k8s:
+    state: absent
+    kind: Namespace
+    name: "{{ aiservice_tenant_name }}"
+    wait: true
+    wait_timeout: "{{ wait_timeout | default(60) }}"
+  ignore_errors: true
+  register: delete_result

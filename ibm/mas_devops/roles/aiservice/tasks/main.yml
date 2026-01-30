@@ -1,0 +1,45 @@
+---
+- name: Load variables (main)
+  include_vars: "vars/main.yml"
+
+# Get cluster domain
+# -----------------------------------------------------------------------------
+- name: "Get cluster subdomain"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: _cluster_subdomain
+
+- name: "Set default cluster subdomain from ingress"
+  when: aiservice_domain | length == 0
+  set_fact:
+    aiservice_domain: "{{ _cluster_subdomain.resources[0].spec.domain }}"
+
+- name: "Debug: cluster domain"
+  debug:
+    msg: "AI Service domain ........................ {{ aiservice_domain }}"
+
+# Create IBM Maximo IBM Maximo AI Service
+# -----------------------------------------------------------------------------
+- name: "Create IBM Maximo AI Service namespace"
+  kubernetes.core.k8s:
+    state: present
+    api_version: v1
+    kind: Namespace
+    name: "{{ aiservice_namespace }}"
+
+# Create secret for S3
+- include_tasks: tasks/s3/main.yml
+
+# Create config for DRO
+- include_tasks: tasks/config_dro/main.yml
+
+# Create config for DB2
+- include_tasks: tasks/config_db2/main.yml
+
+# Create config for WX
+- include_tasks: tasks/config_wx/main.yml
+
+# install AI Broker api
+- include_tasks: tasks/aiservice/main.yml

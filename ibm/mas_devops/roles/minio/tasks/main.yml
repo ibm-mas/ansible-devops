@@ -6,32 +6,51 @@
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/determine-storage-classes.yml
 
+- name: Load minio defaults using version from the catalog
+  block:
+    - include_tasks: "{{ role_path }}/../../common_tasks/determine-ibmcatalog-tag.yml"
+
+    - ibm.mas_devops.get_catalog_info:
+        mas_catalog_version: "{{ catalog_tag }}"
+      register: _mas_catalog
+
+    - name: Load minio defaults
+      include_vars:
+        file: "{{ role_path }}/../mirror_extras_prepare/vars/minio_{{ _mas_catalog.minio_version }}.yml"
+
+- name: Retrieve image setting parts
+  set_fact:
+    minio_image_name: "{{ extra_images | selectattr('name', 'match', '.*/minio$') | map(attribute='name') | first }}"
+    minio_image_registry: "{{ extra_images | selectattr('name', 'match', '.*/minio$') | map(attribute='registry') | first }}"
+    minio_image_digest: "{{ extra_images | selectattr('name', 'match', '.*/minio$') | map(attribute='digest') | first }}"
+    minio_image_tag: "{{ extra_images | selectattr('name', 'match', '.*/minio$') | map(attribute='tag') | first }}"
+
 # create minio namespace
 - name: 'Create minio namespace'
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/minio/minio-ns.yml.j2') }}"
+    template: "templates/minio/minio-ns.yml.j2"
 
 # create minio PVC
 - name: 'Create minio pvc'
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/minio/minio-pvc.yml.j2') }}"
+    template: "templates/minio/minio-pvc.yml.j2"
 
 # create minio deployment
 - name: 'Create minio deployment'
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/minio/minio-deployment.yml.j2') }}"
+    template: "templates/minio/minio-deployment.yml.j2"
 
 # create minio service
 - name: 'Create minio service'
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/minio/minio-service.yml.j2') }}"
+    template: "templates/minio/minio-service.yml.j2"
 
 # create minio route
 - name: 'Create minio route'
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/minio/minio-route.yml.j2') }}"
+    template: "templates/minio/minio-route.yml.j2"

@@ -93,29 +93,33 @@
     name: "{{ mas_instance_id }}"
     namespace: "{{ check_app_namespace }}"
     kind: "{{ check_app.kind }}"
-  register: app_info
+  register: check_app_info
 
 - name: "{{ check_app.id }} : Debug Application Info"
   when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
   debug:
-    var: app_info
+    var: check_app_info
 
 - name: "{{ check_app.id }} : Check that the CR exists"
   when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
   assert:
     that:
-      - app_info.resources is defined
-      - app_info.resources | length == 1
+      - check_app_info.resources is defined
+      - check_app_info.resources | length == 1
     fail_msg: "Upgrade failed, ibm-mas-{{ check_app.id }} operator has been deployed, but {{ mas_instance_id }}/{{ check_app.kind }}.{{ check_app.api_version }} has not been created in namespace {{ check_app_namespace }}"
 
 - name: "{{ check_app.id }} : Check that the Suite CR has been reconciled to the expected version for GA channels (Non feature)"
   when:
     - checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
     - "'-feature' not in checkapp_sub_info.resources[0].spec.channel"
+    - check_app_info.resources is defined
+    - check_app_info.resources | length == 1
+    - check_app_info.resources[0].status is defined
+    - check_app_info.resources[0].status.versions is defined
   assert:
     that:
-      - app_info.resources[0].status.versions.reconciled == opcon_version
-    fail_msg: "Upgrade failed because {{ mas_instance_id }}/{{ check_app.kind }}.{{ check_app.api_version }} version ({{ app_info.resources[0].status.versions.reconciled }}) is not at the expected version {{ opcon_version }}"
+      - check_app_info.resources[0].status.versions.reconciled == opcon_version
+    fail_msg: "Upgrade failed because {{ mas_instance_id }}/{{ check_app.kind }}.{{ check_app.api_version }} version ({{ check_app_info.resources[0].status.versions.reconciled }}) is not at the expected version {{ opcon_version }}"
 
 # reconciled: 9.1.0-pre.stable+8193 cr version
 # opcon_version: 9.1.0-pre.stable-8193 operator condition
@@ -124,14 +128,19 @@
   when:
     - checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
     - "'-feature' in checkapp_sub_info.resources[0].spec.channel"
+    - check_app_info.resources is defined
+    - check_app_info.resources | length == 1
+    - check_app_info.resources[0].status is defined
+    - check_app_info.resources[0].status.versions is defined
   assert:
     that:
-      - "(app_info.resources[0].status.versions.reconciled | replace('+', '-') == opcon_version | replace('+', '-'))"
-    fail_msg: "Upgrade failed because {{ mas_instance_id }}/{{ check_app.kind }}.{{ check_app.api_version }} version ({{ app_info.resources[0].status.versions.reconciled }}) is not at the expected version {{ opcon_version }}"
+      - "(check_app_info.resources[0].status.versions.reconciled | replace('+', '-') == opcon_version | replace('+', '-'))"
+    fail_msg: "Upgrade failed because {{ mas_instance_id }}/{{ check_app.kind }}.{{ check_app.api_version }} version ({{ check_app_info.resources[0].status.versions.reconciled }}) is not at the expected version {{ opcon_version }}"
 
 - name: "{{ check_app.id }} : Check that the Application CR is in a healthy state"
   when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
   assert:
     that:
-      - app_info.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
+      - check_app_info.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
     fail_msg: "Upgrade failed because {{ mas_instance_id }}/{{ check_app.kind }}.{{ check_app.api_version }} is not healthy"
+
