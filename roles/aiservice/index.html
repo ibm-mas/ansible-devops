@@ -975,6 +975,63 @@
 - <code>aiservice_watsonxai_url</code>: WatsonX endpoint where this project exists
 - <code>aiservice_watsonx_action</code>: Whether to install or remove integration</p>
 <p><strong>Note</strong>: The project ID is found in your WatsonX AI project settings in IBM Cloud. Ensure the API key has appropriate permissions for the project. The project should have the required AI models and resources configured.</p>
+<h3 id="certificate-management">Certificate Management<a class="headerlink" href="#certificate-management" title="Permanent link">¤</a></h3>
+<h4 id="aiservice_certificate_issuer">aiservice_certificate_issuer<a class="headerlink" href="#aiservice_certificate_issuer" title="Permanent link">¤</a></h4>
+<p>Name of the cert-manager Issuer to use for automatic certificate generation.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>AISERVICE_CERTIFICATE_ISSUER</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies which cert-manager Issuer will generate and manage SSL/TLS certificates for AI Service. The Issuer defines the Certificate Authority and authentication method used for certificate issuance.</p>
+<p><strong>When to use</strong>:
+- Set to the Issuer created by <code>suite_dns</code> role (e.g., <code>{aiservice_instance_id}-cloudflare-le-prod</code>)
+- Set to a custom Issuer if you have specific certificate requirements</p>
+<p><strong>Valid values</strong>: Name of any valid Issuer resource in the cluster (e.g., <code>prod-le-issuer</code>, <code>{mas_instance_id}-cloudflare-le-prod</code>)</p>
+<p><strong>Impact</strong>: The specified Issuer will be used to generate all certificates for AI Service. If the Issuer is not properly configured or lacks necessary credentials, certificate generation will fail and AI Service will not be accessible.</p>
+<p><strong>Related variables</strong>:
+- Created by <code>suite_dns</code> role for Let's Encrypt integration
+- Works with <code>aiservice_certificate_duration</code> and <code>aiservice_certificate_renew_before</code></p>
+<p><strong>Note</strong>: Ensure the Issuer is created and functional before installing AI Service. Test certificate generation with a test Certificate resource first.</p>
+<h4 id="aiservice_certificate_duration">aiservice_certificate_duration<a class="headerlink" href="#aiservice_certificate_duration" title="Permanent link">¤</a></h4>
+<p>Specifies the validity period for AI Service certificates.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>AISERVICE_CERTIFICATE_DURATION</code></li>
+<li>Default: <code>8760h0m0s</code> (1 year)</li>
+</ul>
+<p><strong>Purpose</strong>: Defines how long certificates will be valid before they expire. This affects how often certificates need to be renewed and the security posture of your installation.</p>
+<p><strong>When to use</strong>:
+- Use default (8760h = 1 year) for most installations
+- Reduce for higher security environments requiring frequent rotation
+- Increase only if certificate renewal is problematic in your environment
+- Must be longer than <code>aiservice_certificate_renew_before</code></p>
+<p><strong>Valid values</strong>: Duration string in format <code>{hours}h{minutes}m{seconds}s</code> (e.g., <code>8760h0m0s</code>, <code>2160h0m0s</code>, <code>17520h0m0s</code>)</p>
+<p><strong>Impact</strong>: Shorter durations increase security but require more frequent renewals. Longer durations reduce renewal frequency but increase risk if certificates are compromised. Cert-manager will automatically renew certificates before expiration.</p>
+<p><strong>Related variables</strong>:
+- Must be greater than <code>aiservice_certificate_renew_before</code>
+- Only applies when using automatic certificate management
+- Affects all AI Service certificates</p>
+<h4 id="aiservice_certificate_renew_before">aiservice_certificate_renew_before<a class="headerlink" href="#aiservice_certificate_renew_before" title="Permanent link">¤</a></h4>
+<p>Specifies when to renew certificates before they expire.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>AISERVICE_CERTIFICATE_RENEW_BEFORE</code></li>
+<li>Default: <code>720h0m0s</code> (30 days)</li>
+</ul>
+<p><strong>Purpose</strong>: Defines the renewal window - how far in advance cert-manager will renew certificates before they expire. This ensures certificates are renewed with sufficient time to handle any renewal issues.</p>
+<p><strong>When to use</strong>:
+- Use default (720h = 30 days) for most installations
+- Increase in environments where certificate renewal may be slow or problematic
+- Decrease only if you need to minimize the number of certificate changes
+- Must be shorter than <code>aiservice_certificate_duration</code></p>
+<p><strong>Valid values</strong>: Duration string in format <code>{hours}h{minutes}m{seconds}s</code> (e.g., <code>720h0m0s</code>, <code>1440h0m0s</code>, <code>168h0m0s</code>)</p>
+<p><strong>Impact</strong>: Longer renewal windows provide more time to resolve renewal issues but result in more frequent certificate changes. Shorter windows reduce certificate churn but increase risk of expiration if renewal fails.</p>
+<p><strong>Related variables</strong>:
+- Must be less than <code>aiservice_certificate_duration</code>
+- Only applies when using automatic certificate management
+- Affects all AI Service certificates</p>
+<p><strong>Note</strong>: Ensure this value provides adequate time to detect and resolve certificate renewal issues before expiration.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <p>After installing the Ansible Collection you can include this role in your own custom playbooks.</p>
 <pre><code class="language-yaml">- hosts: localhost
@@ -1045,6 +1102,11 @@ ROLE_NAME=aiservice ansible-playbook ibm.mas_devops.run_role
                       <li class="md-toc__item">
                         <a href="#watsonx-ai-configuration-variables" class="md-toc__link" data-md-level="2">
                           WatsonX AI Configuration Variables
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#certificate-management" class="md-toc__link" data-md-level="2">
+                          Certificate Management
                         </a>
                       </li>
                   </ul>
