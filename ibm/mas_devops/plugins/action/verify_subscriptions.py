@@ -34,12 +34,15 @@ class ActionModule(ActionBase):
           notAtLatest = []
 
           for subscription in subs.items:
-            display.v(f"* {subscription.metadata.namespace}/{subscription.metadata.name} = {subscription.status.state}")
-            if subscription.status.state != "AtLatestKnown":
-              allSubscriptionsAtLatestThisLoop = False
-              notAtLatest.append(f"{subscription.metadata.namespace}/{subscription.metadata.name} = {subscription.status.state}")
+            if hasattr(subscription, "status") and hasattr(subscription.status, "state"):
+              display.v(f"* {subscription.metadata.namespace}/{subscription.metadata.name} = {subscription.status.state}")
+              if subscription.status.state != "AtLatestKnown":
+                allSubscriptionsAtLatestThisLoop = False
+                notAtLatest.append(f"{subscription.metadata.namespace}/{subscription.metadata.name} = {subscription.status.state}")
+              else:
+                atLatest.append(f"{subscription.metadata.namespace}/{subscription.metadata.name} = {subscription.status.state}")
             else:
-              atLatest.append(f"{subscription.metadata.namespace}/{subscription.metadata.name} = {subscription.status.state}")
+              allSubscriptionsAtLatestThisLoop = False
 
           if allSubscriptionsAtLatestThisLoop:
             allSubscriptionsAtLatest = True
