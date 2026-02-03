@@ -764,39 +764,38 @@
 <div class="admonition important">
 <p class="admonition-title">Important</p>
 <p>These playbooks are samples to demonstrate how to use the roles in this collection.</p>
-<p>They are <strong>note intended for production use</strong> as-is, they are a starting point for power users to aid in the development of their own Ansible playbooks using the roles in this collection.</p>
-<p>The recommended way to install MAS is to use the <a href="https://ibm-mas.github.io/cli/">MAS CLI</a>, which uses this Ansible Collection to deliver a complete managed lifecycle for your MAS instance.</p>
+<p>They are <strong>not intended for production use</strong> as-is, they are a starting point for power users to aid in the development of their own Ansible playbooks using the roles in this collection.</p>
+<p>The recommended way to install AI Service is to use the <a href="https://ibm-mas.github.io/cli/">MAS CLI</a>, which uses this Ansible Collection to deliver a complete managed lifecycle for your MAS instance.</p>
 </div>
 <h2 id="dependencies">Dependencies<a class="headerlink" href="#dependencies" title="Permanent link">¤</a></h2>
 <ul>
 <li>IBM Suite License Service installed on OCP cluster or external instance or details from external instance</li>
 <li>IBM Data Reporter Operator installed on OCP cluster or external instance or details from external instance</li>
 <li>Object Storage</li>
-<li>Minio (installed on the same cluster what aiservice) or external instance or details from external instance</li>
-<li>AWS S3 (if customer use AWS S3 bucket bucket) buckets needs to have unique names</li>
+<li>Minio (installed on the same cluster as aiservice)</li>
+<li>AWS S3 (Provide details to connect to AWS S3. Bucket names must be unique globally. Ensure to use a unique bucket prefix when using AWS S3)</li>
 </ul>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">¤</a></h2>
 <p>This playbook will add <strong>AI Service v9.1.x</strong> to OCP cluster.</p>
 <p>This playbook can be ran against any OCP cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.</p>
 <ul>
 <li>Install dependencies:<ul>
-<li>IBM Maximo Operator Catalog <strong>optional</strong></li>
-<li>RedHat Certificate Manager <strong>optional</strong></li>
-<li>MongoDb <strong>optional</strong></li>
-<li>IBM Suite License Service (~10 Minutes) <strong>optional</strong></li>
-<li>IBM Data Reporter Operator (~10 Minutes) <strong>optional</strong></li>
-<li>IBM Db2 <strong>optional</strong></li>
-<li>Minio (~5 minutes) <strong>optional</strong></li>
+<li>IBM Maximo Operator Catalog </li>
+<li>RedHat Certificate Manager </li>
+<li>MongoDb <strong>optional if SLS is not being installed on same cluster</strong></li>
+<li>IBM Suite License Service (~10 Minutes) <strong>optional if customer chooses to use SLS from external cluster</strong></li>
+<li>IBM Data Reporter Operator (~10 Minutes) <strong>optional if customer chooses to use DRO from external cluster</strong></li>
+<li>IBM Db2</li>
+<li>Minio (~5 minutes) <strong>optional if customer choose to use external object storage</strong></li>
 </ul>
 </li>
 <li>Install ODH:<ul>
-<li>Install Red Hat OpenShift Serverless Operator</li>
-<li>Install Red Hat OpenShift Service Mesh Operator</li>
+<li>Install Red Hat OpenShift Serverless Operator <strong>Required when using serverless deployment mode for ODH</strong></li>
+<li>Install Red Hat OpenShift Service Mesh Operator <strong>Required when using serverless deployment mode for ODH</strong></li>
 <li>Install Authorino Operator</li>
 <li>Install Open Data Hub Operator</li>
 <li>Create DSCInitialization instance</li>
-<li>Create Data Science Cluster</li>
-<li>Create Create Data Science Pipelines Application</li>
+<li>Create DataScienceCluster instance</li>
 </ul>
 </li>
 <li>Install AI Service (using playbook):<ul>
@@ -808,17 +807,18 @@
 <p>All timings are estimates, see the individual pages for each of these playbooks for more information. Use this sample playbook as a starting point for installing application, just customize the application install and configure stages at the end of the playbook.</p>
 <h2 id="required-environment-variables">Required environment variables<a class="headerlink" href="#required-environment-variables" title="Permanent link">¤</a></h2>
 <ul>
-<li><code>MAS_INSTANCE_ID</code> Declare the instance ID for the AI service install</li>
+<li><code>AISERVICE_INSTANCE_ID</code> Declare the instance ID for the AI service install</li>
 <li><code>MAS_ENTITLEMENT_KEY</code> Your IBM Entitlement key to access the IBM Container Registry</li>
 <li><code>MAS_ENTITLEMENT_USERNAME</code> Your IBM Entitlement user to access the IBM Container Registry</li>
-<li><code>MAS_APP_CHANNEL</code> Aiservice application channel</li>
-<li><code>AISERVICE_S3_ACCESSKEY</code> Your strage provider access key</li>
-<li><code>AISERVICE_S3_SECRETKEY</code> Your storage provider secret key</li>
-<li><code>AISERVICE_S3_HOST</code> Your storage provider host</li>
-<li><code>AISERVICE_S3_REGION</code> Your storage provider region - only when use AWS S3 instance</li>
-<li><code>AISERVICE_S3_SSL</code> Your storage ssl (true/false)</li>
-<li><code>AISERVICE_S3_TENANTS_BUCKET</code> Your tenants bucket</li>
-<li><code>AISERVICE_S3_TEMPLATES_BUCKET</code> Your templates bucket</li>
+<li><code>AISERVICE_CHANNEL</code> Aiservice application channel</li>
+<li><code>AISERVICE_S3_ACCESSKEY</code> Access Key for object storage provider</li>
+<li><code>AISERVICE_S3_SECRETKEY</code> Secret key for object storage provider</li>
+<li><code>AISERVICE_S3_HOST</code> Your object storage provider host</li>
+<li><code>AISERVICE_S3_REGION</code> Your object storage provider region - only when use AWS S3 instance</li>
+<li><code>AISERVICE_S3_SSL</code> Is your object storage SSL enabled? (true/false)</li>
+<li><code>AISERVICE_S3_TENANTS_BUCKET</code> Bucket name to store tenants info</li>
+<li><code>AISERVICE_S3_TEMPLATES_BUCKET</code> Bucket name to store templates info</li>
+<li><code>AISERVICE_S3_BUCKET_PREFIX</code> Bucket prefix configured with object storage provider</li>
 <li><code>AISERVICE_WATSONXAI_APIKEY</code> You WatsonX AI api key</li>
 <li><code>AISERVICE_WATSONXAI_URL</code> You WatsonX AI url</li>
 <li><code>AISERVICE_WATSONXAI_PROJECT_ID</code> You WatsonX projedt Id</li>
@@ -867,6 +867,9 @@
 <li><code>AISERVICE_WATSONXAI_INSTANCE_ID</code> optional on prem define instance id (default: openshift)</li>
 <li><code>AISERVICE_WATSONXAI_USERNAME</code> optional on prem define user name</li>
 <li><code>AISERVICE_WATSONXAI_VERSION</code> optional on prem define version of CPD</li>
+<li><code>AISERVICE_CERTIFICATE_ISSUER</code> Optional to specify pre-configured certificate issuer to use for AI Service public certificates</li>
+<li><code>AISERVICE_CERTIFICATE_DURATION</code> Optional to specify expiration duration for public certificates (default: 8760h0m0s)</li>
+<li><code>AISERVICE_CERTIFICATE_RENEW_BEFORE</code> Optional to specify when to renew public certificates before they expire (default: 72h0m0s)</li>
 </ul>
 <h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">¤</a></h2>
 <h3 id="ai-service-deployment-steps">AI service deployment steps<a class="headerlink" href="#ai-service-deployment-steps" title="Permanent link">¤</a></h3>
