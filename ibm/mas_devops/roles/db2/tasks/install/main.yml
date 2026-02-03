@@ -273,6 +273,11 @@
   vars:
     crd_name: "db2uclusters.db2u.databases.ibm.com"
 
+- name: "Wait until the Db2uInstance CRD is available"
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: "db2uinstances.db2u.databases.ibm.com"
+
 # 10. Get information from the db2u-release ConfigMap
 # -----------------------------------------------------------------------------
 # if db2_version is not set, then we define it based on the latest version supported by the db2u-license-keys secret
@@ -527,9 +532,12 @@
     - db2_ldap_username != ""
     - db2_rotate_password == true
 
-# 18. Wait for the statefulset to be ready
+# 18. Wait for the statefulset to be ready - DEPRECATED
 # -----------------------------------------------------------------------------
-- name: "Wait for Db2 Stateful set to be ready"
+- name: "Wait for Db2 Stateful set to be ready - DEPRECATED"
+  when:
+    - initial_db2_cluster_lookup.resources is defined
+    - initial_db2_cluster_lookup.resources | length == 1
   kubernetes.core.k8s_info:
     api_version: apps/v1
     kind: StatefulSet
@@ -543,6 +551,24 @@
     - db2_sts.resources[0].status.replicas is defined
     - db2_sts.resources[0].status.readyReplicas is defined
     - db2_sts.resources[0].status.readyReplicas == db2_sts.resources[0].status.replicas
+  retries: 20 # approx 10 minutes before we give up
+  delay: 30 # seconds
+
+- name: "Wait for Db2UEngine to be ready"
+  when: initial_db2_cluster_lookup.resources is not defined or initial_db2_cluster_lookup.resources | length == 0
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1alpha1
+    kind: Db2uEngine
+    name: "c-{{ db2_instance_name | lower }}-db2u"
+    namespace: "{{ db2_namespace }}"
+  register: db2_engine
+  until:
+    - db2_engine.resources is defined
+    - db2_engine.resources | length > 0
+    - db2_engine.resources[0].status is defined
+    - db2_engine.resources[0].status.state is defined
+    - db2_engine.resources[0].status.state == 'Ready'
+
   retries: 20 # approx 10 minutes before we give up
   delay: 30 # seconds
 
