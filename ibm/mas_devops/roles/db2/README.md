@@ -1,11 +1,15 @@
 # db2
 
-This role creates or upgrades a Db2 instance using the Db2u Operator. When installing db2, the db2u operator will now be installed into the same namespace as the db2 instance (`db2ucluster`). If you already have db2 operator and db2 instances running in separate namespaces, this role will take care of migrating (by deleting & reinstalling) the db2 operators from `ibm-common-services` to the namespace defined by `db2_namespace` property (in case of a new role execution for a db2 install or db2 upgrade). A private root CA certificate is created and is used to secure the TLS connections to the database. A Db2 Warehouse cluster will be created along with a public TLS encrypted route to allow external access to the cluster (access is via the ssl-server nodeport port on the *-db2u-engn-svc service). Internal access is via the *-db2u-engn-svc service and port 50001. Both the external route and the internal service use the same server certificate.
+This role creates or upgrades a Db2 instance using the Db2u Operator. When installing db2, the db2u operator will now be installed into the same namespace as the db2 instance. 
+
+**IMPORTANT:** `Db2uCluster` is deprecated. Existing `Db2uCluster` deployments will continue to work but CANNOT be automatically converted to `Db2uInstance`. New deployments will use `Db2uInstance`. For migration of existing `Db2uCluster` instances, refer to the `db2uinstance_migration` role.
+
+If you already have db2 operator and db2 instances running in separate namespaces, this role will migrate the db2 **operators** (not the instances) from `ibm-common-services` to the namespace defined by `db2_namespace` property (in case of a new role execution for a db2 install or db2 upgrade). A private root CA certificate is created and is used to secure the TLS connections to the database. A Db2 Warehouse cluster will be created along with a public TLS encrypted route to allow external access to the cluster (access is via the ssl-server nodeport port on the *-db2u-engn-svc service). Internal access is via the *-db2u-engn-svc service and port 50001. Both the external route and the internal service use the same server certificate.
 
 The private root CA certificate and the server certificate are available from the `db2u-ca` and `db2u-certificate` secrets in the db2 namespace.  The default user is `db2inst1` and the password is available in the `instancepassword` secret in the same namespace.  You can examine the deployed resources in the db2 namespace. This example assumes the default namespace `db2u`:
 
 ```bash
-oc -n db2u get db2ucluster
+oc -n db2u get db2uinstance
 
 NAME        STATE   MAINTENANCESTATE   AGE
 db2u-db01   Ready   None               29m
@@ -15,7 +19,7 @@ It typically takes 20-30 minutes from the db2ucluster being created till it is r
 
 If the `mas_instance_id` and `mas_config_dir` are provided then the role will generate the JdbcCfg yaml that can be used to configure MAS to connect to this database. It does not apply the yaml to the cluster but does provide you with the yaml files to apply if needed.
 
-When upgrading db2, specify the existing namespace where the `db2uCluster` instances exist. All the instances under that namespace will be upgraded to the db2 version specified. The version of db2 **must** match the channel of db2 being used for the upgrade.
+When upgrading db2, specify the existing namespace where the `Db2uInstance` instances exist. All the instances under that namespace will be upgraded to the db2 version specified. The version of db2 **must** match the channel of db2 being used for the upgrade.
 
 
 ## Role Variables
@@ -690,6 +694,93 @@ The access mode for the storage. This must support ReadWriteOnce(RWO) access mod
 - Default: `ReadWriteOnce`
 
 ### Resource Request Variables
+### db2_audit_logs_storage_class
+Storage class used for audit logs. This must support ReadWriteMany(RWX) access mode.
+
+- Optional
+- Environment Variable: `DB2_AUDIT_LOGS_STORAGE_CLASS`
+- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster. Set to `None` will drop the tempts storage on Db2uInstace CR.
+
+### db2_audit_logs_storage_size
+Size of audit logs persistent volume.
+
+- Optional
+- Environment Variable: `DB2_AUDIT_LOGS_STORAGE_SIZE`
+- Default: `10Gi`
+
+### db2_audit_logs_storage_accessmode
+The access mode for the storage. This must support ReadWriteOnce(RWO) access mode.
+
+- Optional
+- Environment Variable: `DB2_AUDIT_LOGS_STORAGE_ACCESSMODE`
+- Default: `ReadWriteOnce`
+
+### db2_archivelogs_storage_class
+Storage class used for archive logs. This must support ReadWriteMany(RWX) access mode.
+
+- Optional
+- Environment Variable: `DB2_ARCHIVELOGS_STORAGE_CLASS`
+- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster. Set to `None` will drop the tempts storage on Db2uInstace CR.
+
+### db2_archivelogs_storage_size
+Size of audit logs persistent volume.
+
+- Optional
+- Environment Variable: `DB2_ARCHIVELOGS_STORAGE_SIZE`
+- Default: `10Gi`
+
+### db2_archivelogs_storage_accessmode
+The access mode for the storage. This must support ReadWriteOnce(RWO) access mode.
+
+- Optional
+- Environment Variable: `DB2_ARCHIVELOGS_STORAGE_ACCESSMODE`
+- Default: `ReadWriteOnce`
+
+### db2_audit_logs_storage_class
+Storage class used for audit logs. This must support ReadWriteMany(RWX) access mode.
+
+- Optional
+- Environment Variable: `DB2_AUDIT_LOGS_STORAGE_CLASS`
+- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster. Set to `None` will drop the tempts storage on Db2uInstace CR.
+
+### db2_audit_logs_storage_size
+Size of audit logs persistent volume.
+
+- Optional
+- Environment Variable: `DB2_AUDIT_LOGS_STORAGE_SIZE`
+- Default: `10Gi`
+
+### db2_audit_logs_storage_accessmode
+The access mode for the storage. This must support ReadWriteOnce(RWO) access mode.
+
+- Optional
+- Environment Variable: `DB2_AUDIT_LOGS_STORAGE_ACCESSMODE`
+- Default: `ReadWriteOnce`
+
+### db2_archivelogs_storage_class
+Storage class used for archive logs. This must support ReadWriteMany(RWX) access mode.
+
+- Optional
+- Environment Variable: `DB2_ARCHIVELOGS_STORAGE_CLASS`
+- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster. Set to `None` will drop the tempts storage on Db2uInstace CR.
+
+### db2_archivelogs_storage_size
+Size of audit logs persistent volume.
+
+- Optional
+- Environment Variable: `DB2_ARCHIVELOGS_STORAGE_SIZE`
+- Default: `10Gi`
+
+### db2_archivelogs_storage_accessmode
+The access mode for the storage. This must support ReadWriteOnce(RWO) access mode.
+
+- Optional
+- Environment Variable: `DB2_ARCHIVELOGS_STORAGE_ACCESSMODE`
+- Default: `ReadWriteOnce`
+
+
+Role Variables - Resource Requests
+-----------------------------------------------------------------------------------------------------------------
 These variables allow you to customize the resources available to the Db2 pod in your cluster.  In most circumstances you will want to set these properties because it's impossible for us to provide a default value that will be appropriate for all users.  We have set defaults that are suitable for deploying Db2 onto a dedicated worker node with 4cpu and 16gb memory.
 
 !!! tip
@@ -817,9 +908,15 @@ The number of Db2 pods to create in the instance. Note that `db2_num_pods` must 
 - Environment Variable: `DB2_NUM_PODS`
 - Default: 1
 
-### MAS Configuration Variables
+### db2_addons_audit_config
 
-#### mas_instance_id
+- Optional
+- Environment Variable: `'DB2_ADDONS_AUDIT_CONFIG`
+- Default: ""
+
+Role Variables - MAS Configuration
+-----------------------------------------------------------------------------------------------------------------
+### mas_instance_id
 Providing this and `mas_config_dir` will instruct the role to generate a JdbcCfg template that can be used to configure MAS to connect to this database.
 
 - Optional
