@@ -71,8 +71,8 @@
 #
 # > overall (across all product groups and users) rate limit (3 in 5 minutes) exceeded
 #
-# To mitigate this we have a retry in place, but it will also trigger retries due to any other failure condition
-# We will retry for approximately half an hour before giving up.
+# To mitigate this we have a retry in place that only retries on 429 (rate limit) errors.
+# We will retry for approximately 20 minutes (10 retries * 2 minutes) before giving up.
 - name: "fyre : Create new OCP+ cluster"
   when: _hostname_check.available
   uri:
@@ -86,7 +86,9 @@
     validate_certs: false
     timeout: 300
     use_proxy: no
+    status_code: [200, 201, 429]
   register: _cluster_create
+  until: _cluster_create.status != 429
   delay: 120  # Every 2 minutes
   retries: 10
 
