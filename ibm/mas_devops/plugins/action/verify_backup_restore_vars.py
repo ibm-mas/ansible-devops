@@ -35,6 +35,9 @@ class ActionModule(ActionBase):
         "suite": {
             "backup": ["mas_instance_id", "mas_backup_dir"],
             "restore": ["mas_instance_id", "mas_backup_dir", "suite_backup_version"]
+        },
+        "manage": {
+            "backup": ["mas_instance_id", "mas_workspace_id", "mas_backup_dir"],
         }
     }
 

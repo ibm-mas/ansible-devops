@@ -1,5 +1,14 @@
 ---
-# Check mas app backup/restore required variables
+# MAS Application Backup Role
+# =============================================================================
+# This role backs up MAS application resources and data.
+# Currently supports: manage
+#
+# The backup includes:
+# - Application namespace resources (CRs, secrets, subscriptions)
+# - Persistent volume data (if configured)
+
+# 1. Validate required variables
 # -----------------------------------------------------------------------------
 - name: "Fail if mas_instance_id is not provided"
   assert:
@@ -15,3 +24,52 @@
   assert:
     that: mas_app_id is defined and mas_app_id != ""
     fail_msg: "mas_app_id is required"
+
+- name: "Fail if mas_backup_dir is not provided"
+  assert:
+    that: mas_backup_dir is defined and mas_backup_dir != ""
+    fail_msg: "mas_backup_dir is required"
+
+# 2. Display backup configuration
+# -----------------------------------------------------------------------------
+- name: "Display backup configuration"
+  debug:
+    msg:
+      - "MAS Instance ID: {{ mas_instance_id }}"
+      - "MAS Workspace ID: {{ mas_workspace_id }}"
+      - "MAS App ID: {{ mas_app_id }}"
+      - "Backup Directory: {{ mas_backup_dir }}"
+      - "Backup Version: {{ manage_backup_version | default('auto-generated') }}"
+
+# 3. Route to app-specific backup tasks
+# -----------------------------------------------------------------------------
+- name: "Execute backup for {{ mas_app_id }}"
+  block:
+    # Manage backup
+    # ---------------------------------------------------------------------------
+    - name: "Backup Manage application"
+      when: mas_app_id == "manage"
+      block:
+        - name: "Backup Manage namespace resources"
+          include_tasks: "{{ role_path }}/tasks/manage/backup-namespace.yml"
+
+        - name: "Backup Manage persistent volumes"
+          include_tasks: "{{ role_path }}/tasks/manage/backup-pv.yml"
+
+        - name: "Manage backup completed successfully"
+          debug:
+            msg:
+              - "=========================================="
+              - "Manage Backup Completed Successfully"
+              - "=========================================="
+              - "Instance ID: {{ mas_instance_id }}"
+              - "Workspace ID: {{ mas_workspace_id }}"
+              - "Backup Location: {{ manage_backup_path }}"
+              - "=========================================="
+
+    # Unsupported app
+    # ---------------------------------------------------------------------------
+    - name: "Fail if app is not supported"
+      fail:
+        msg: "Application '{{ mas_app_id }}' is not yet supported for backup. Currently supported: manage"
+      when: mas_app_id not in ['manage']

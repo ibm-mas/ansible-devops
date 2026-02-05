@@ -1,0 +1,48 @@
+---
+- name: "MAS Manage Application Backup"
+  hosts: localhost
+  any_errors_fatal: true
+  vars:
+    # Define the target for backup
+    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+    mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') }}"
+    mas_app_id: "manage"
+
+    # The top level location to save the archive files
+    mas_backup_dir: "{{ lookup('env', 'MAS_BACKUP_DIR') }}" # eg: /tmp/mas_backups
+
+    # Backup version to use during backup action
+    # Note: The default timestamp will be set in pre_tasks
+    manage_backup_version: "{{ lookup('env', 'MANAGE_BACKUP_VERSION') }}"
+
+  pre_tasks:
+    - name: "Set manage_backup_version with timestamp if not provided"
+      ansible.builtin.set_fact:
+        manage_backup_version: "{{ lookup('pipe', 'date +%y%m%d-%H%M%S') }}"
+      when: manage_backup_version is not defined or manage_backup_version == ''
+
+    - name: "Fail if mas_instance_id is not set"
+      ansible.builtin.assert:
+        that:
+          - mas_instance_id is defined
+          - mas_instance_id != ''
+        fail_msg: "mas_instance_id is required and must be set"
+
+    - name: "Fail if mas_workspace_id is not set"
+      ansible.builtin.assert:
+        that:
+          - mas_workspace_id is defined
+          - mas_workspace_id != ''
+        fail_msg: "mas_workspace_id is required and must be set"
+
+    - name: "Fail if mas_backup_dir is not set"
+      ansible.builtin.assert:
+        that:
+          - mas_backup_dir is defined
+          - mas_backup_dir != ''
+        fail_msg: "mas_backup_dir is required and must be set"
+
+  roles:
+    - role: ibm.mas_devops.suite_app_backup
+      vars:
+        mas_app_id: "manage"
