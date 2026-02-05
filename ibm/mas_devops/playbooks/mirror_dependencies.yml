@@ -405,7 +405,28 @@
         manifest_name: ibm-ccs
         manifest_version: "{{ mas_catalog_metadata.ccs_build }}"
 
-    # 6.4 CP4D Platform - PostgreSQL dependency (only for CPD 5.2+)
+    # 6.4 CP4D 5.2.0 CCS dependency for hotfix
+    # -------------------------------------------------------------------------
+    - role: ibm.mas_devops.mirror_extras_prepare
+      when:
+        - mas_catalog_metadata.ccs_extras_version is defined
+        - mirror_mode != "from-filesystem"
+        - cpd_52_or_higher
+        - mirror_wsl or mirror_wml
+      vars:
+        extras_name: ccs
+        extras_version: "{{ mas_catalog_metadata.ccs_extras_version }}"
+
+    - role: ibm.mas_devops.mirror_images
+      when: 
+        - mas_catalog_metadata.ccs_extras_version is defined
+        - cpd_52_or_higher
+        - mirror_wsl or mirror_wml
+      vars:
+        manifest_name: extras_ccs
+        manifest_version: "{{ mas_catalog_metadata.ccs_extras_version }}"
+
+    # 6.5 CP4D Platform - PostgreSQL dependency (only for CPD 5.2+)
     # -------------------------------------------------------------------------
     - role: ibm.mas_devops.mirror_case_prepare
       when:
