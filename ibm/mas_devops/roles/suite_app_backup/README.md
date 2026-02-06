@@ -52,12 +52,12 @@ Defines the directory where backups will be stored. The role will create a times
 - Example: `/backup/mas`
 
 ### mas_app_backup_version
-Optional custom version identifier for the backup. If not specified, defaults to timestamp format `YYMMDD-HHMMSS`.
+Optional custom version identifier for the backup. If not specified, defaults to timestamp format `YYYYMMDD-HHMMSS`.
 
 - Optional
 - Environment Variable: `MAS_APP_BACKUP_VERSION`
 - Default: Auto-generated timestamp
-- Example: `240315-143022` or `v1.0-prod`
+- Example: `20240315-143022` or `v1.0-prod`
 
 
 What Gets Backed Up
