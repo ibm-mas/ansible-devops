@@ -173,7 +173,7 @@ Temporary directory where the archive will be created before upload. The directo
 
 - **Optional**
 - Environment Variable: None
-- Default Value: `/tmp/mas-backup-{{ backup_version }}`
+- Default Value: `<mas_backup_dir>/mas-backup-{{ backup_version }}`
 
 #### upload_timeout
 Maximum time in seconds to wait for the upload to complete. Useful for large archives or slow network connections.

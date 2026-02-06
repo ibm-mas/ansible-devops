@@ -130,8 +130,8 @@ Name of the Artifactory repository where the archive is stored.
 Temporary directory where the archive will be downloaded before extraction. The directory is created if it doesn't exist and can be cleaned up after extraction.
 
 - **Optional**
-- Environment Variable: `BACKUP_TEMP_DIR`
-- Default Value: `/tmp/mas-restore`
+- Environment Variable: None
+- Default Value: `<mas_restore_dir>/mas-restore-<backup_version>`
 
 #### download_timeout
 Maximum time in seconds to wait for the download to complete. Useful for large archives or slow network connections.
