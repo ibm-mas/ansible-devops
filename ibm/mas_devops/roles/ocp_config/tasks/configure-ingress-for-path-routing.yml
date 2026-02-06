@@ -2,19 +2,19 @@
 # Configure IngressController for Path-Based Routing
 # -----------------------------------------------------------------------------
 # This task configures the OpenShift IngressController to support path-based routing by setting namespaceOwnership to InterNamespaceAllowed.
-# This is required when mas_routing_mode is set to "path".
+# This is required when using path-based routing mode.
 #
 # Parameters:
-# mas_ingress_controller_name (optional): Specific IngressController name to use If not provided, defaults to 'default'
+# ocp_ingress_controller_name (optional): Specific IngressController name to use. If not provided, defaults to 'default'
 
 - name: "Determine which IngressController to configure"
   block:
     - name: "Check if IngressController name is explicitly provided"
       set_fact:
-        active_ingress_controller: "{{ mas_ingress_controller_name }}"
+        active_ingress_controller: "{{ ocp_ingress_controller_name }}"
       when:
-        - mas_ingress_controller_name is defined
-        - mas_ingress_controller_name | length > 0
+        - ocp_ingress_controller_name is defined
+        - ocp_ingress_controller_name | length > 0
 
     - name: "Use 'default' IngressController if not specified"
       set_fact:
@@ -95,8 +95,6 @@
           - "    --type=merge \\"
           - "    --patch='{\"spec\":{\"routeAdmission\":{\"namespaceOwnership\":\"InterNamespaceAllowed\"}}}'"
           - ""
-          - "Alternatively, you can use subdomain routing mode by setting:"
-          - "  mas_routing_mode=subdomain"
 
 - name: "IngressController already configured for path-based routing"
   debug:
