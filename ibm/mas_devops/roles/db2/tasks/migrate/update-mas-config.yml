@@ -1,0 +1,71 @@
+---
+# Update MAS configuration to point to new Db2uInstance
+# -----------------------------------------------------------------------------
+
+- name: "Check if MAS instance ID is provided"
+  debug:
+    msg: "MAS instance ID not provided, skipping JdbcCfg update"
+  when:
+    - mas_instance_id is not defined or mas_instance_id == ""
+
+- name: "Update MAS JdbcCfg"
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+  block:
+    - name: "Backup existing JdbcCfg"
+      kubernetes.core.k8s_info:
+        api_version: config.mas.ibm.com/v1
+        kind: JdbcCfg
+        namespace: "mas-{{ mas_instance_id }}-core"
+        name: "{{ mas_config_scope }}-{{ db2_migrate_source_instance }}"
+      register: existing_jdbccfg
+
+    - name: "Save existing JdbcCfg to file"
+      copy:
+        content: "{{ existing_jdbccfg.resources[0] | to_nice_yaml }}"
+        dest: "{{ masbr_storage_local_folder }}/jdbccfg-backup-{{ db2_migrate_source_instance }}.yml"
+        mode: '0644'
+      delegate_to: localhost
+      when: existing_jdbccfg.resources | length > 0
+
+    - name: "Debug: Existing JdbcCfg backed up"
+      debug:
+        msg:
+          - "Existing JdbcCfg backed up successfully"
+          - "Backup location: {{ masbr_storage_local_folder }}/jdbccfg-backup-{{ db2_migrate_source_instance }}.yml"
+      when: existing_jdbccfg.resources | length > 0
+
+    - name: "Set variables for new JdbcCfg generation"
+      set_fact:
+        db2_instance_name: "{{ db2_migrate_target_instance }}"
+
+    - name: "Generate new JdbcCfg for target instance"
+      include_tasks: "{{ role_path }}/tasks/install/suite_jdbccfg.yml"
+      when:
+        - mas_config_dir is defined
+        - mas_config_dir != ""
+
+    - name: "Apply new JdbcCfg to cluster"
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ mas_config_dir }}/jdbc-{{ db2_migrate_target_instance | lower }}-{{ db2_namespace }}.yml"
+      register: jdbccfg_apply
+      when:
+        - mas_config_dir is defined
+        - mas_config_dir != ""
+
+    - name: "Wait for MAS to recognize new database"
+      pause:
+        seconds: 30
+
+    - name: "Debug: MAS configuration updated successfully"
+      debug:
+        msg:
+          - "MAS JdbcCfg updated successfully"
+          - "New JdbcCfg points to: {{ db2_migrate_target_instance }}"
+          - "MAS instance: {{ mas_instance_id }}"
+          - "Config scope: {{ mas_config_scope }}"
+          - "JdbcCfg file: {{ mas_config_dir }}/jdbc-{{ db2_migrate_target_instance | lower }}-{{ db2_namespace }}.yml"
+
+

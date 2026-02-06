@@ -1,0 +1,83 @@
+---
+# Validate migration prerequisites
+# -----------------------------------------------------------------------------
+
+- name: "Fail if source instance name not provided"
+  assert:
+    that:
+      - db2_migrate_source_instance is defined
+      - db2_migrate_source_instance != ""
+    fail_msg: "db2_migrate_source_instance is required for migration"
+
+- name: "Fail if target instance name not provided"
+  assert:
+    that:
+      - db2_migrate_target_instance is defined
+      - db2_migrate_target_instance != ""
+    fail_msg: "db2_migrate_target_instance is required for migration"
+
+- name: "Fail if db2_namespace not provided"
+  assert:
+    that:
+      - db2_namespace is defined
+      - db2_namespace != ""
+    fail_msg: "db2_namespace is required for migration"
+
+- name: "Verify source Db2uCluster exists"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    kind: Db2uCluster
+    name: "{{ db2_migrate_source_instance }}"
+    namespace: "{{ db2_namespace }}"
+  register: source_cluster_info
+  failed_when: source_cluster_info.resources | length == 0
+
+- name: "Verify source Db2uCluster is Ready"
+  assert:
+    that:
+      - source_cluster_info.resources[0].status is defined
+      - source_cluster_info.resources[0].status.state is defined
+      - source_cluster_info.resources[0].status.state == "Ready"
+    fail_msg: "Source Db2uCluster must be in Ready state before migration. Current state: {{ source_cluster_info.resources[0].status.state | default('Unknown') }}"
+
+- name: "Verify target Db2uInstance does not exist"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    kind: Db2uInstance
+    name: "{{ db2_migrate_target_instance }}"
+    namespace: "{{ db2_namespace }}"
+  register: target_instance_info
+  failed_when: target_instance_info.resources | length > 0
+
+- name: "Verify Db2uInstance CRD exists"
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: db2uinstances.db2u.databases.ibm.com
+  register: db2uinstance_crd
+  failed_when: db2uinstance_crd.resources | length == 0
+
+- name: "Verify IBM entitlement key is provided"
+  assert:
+    that:
+      - ibm_entitlement_key is defined
+      - ibm_entitlement_key != ""
+    fail_msg: "ibm_entitlement_key is required for creating new Db2uInstance"
+
+- name: "Verify backup storage location is configured"
+  assert:
+    that:
+      - masbr_storage_local_folder is defined
+      - masbr_storage_local_folder != ""
+    fail_msg: "masbr_storage_local_folder is required for backup/restore operations"
+
+- name: "Debug: Prerequisites validation complete"
+  debug:
+    msg:
+      - "Source instance: {{ db2_migrate_source_instance }} (Ready)"
+      - "Target instance: {{ db2_migrate_target_instance }} (Available)"
+      - "Namespace: {{ db2_namespace }}"
+      - "Db2uInstance CRD: Installed"
+      - "Prerequisites validation: PASSED"
+
+

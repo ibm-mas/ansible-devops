@@ -1,0 +1,48 @@
+---
+# Backup source Db2uCluster database
+# -----------------------------------------------------------------------------
+
+- name: "Set backup variables for source instance"
+  set_fact:
+    db2_instance_name: "{{ db2_migrate_source_instance }}"
+    db2_action: "backup"
+    masbr_backup_type: "full"
+
+- name: "Debug: Starting backup of source instance"
+  debug:
+    msg:
+      - "Starting backup of source Db2uCluster"
+      - "Instance: {{ db2_instance_name }}"
+      - "Namespace: {{ db2_namespace }}"
+      - "Backup location: {{ masbr_storage_local_folder }}"
+
+- name: "Execute backup of source Db2uCluster"
+  include_tasks: "{{ role_path }}/tasks/backup/main.yml"
+
+- name: "Verify backup completed successfully"
+  stat:
+    path: "{{ masbr_storage_local_folder }}/database/{{ masbr_job_name }}.tar.gz"
+  register: backup_file
+  delegate_to: localhost
+  failed_when: not backup_file.stat.exists
+
+- name: "Get backup file size"
+  set_fact:
+    backup_file_size_mb: "{{ (backup_file.stat.size / 1024 / 1024) | round(2) }}"
+  when: backup_file.stat.exists
+
+- name: "Set backup version for restore"
+  set_fact:
+    db2_migrate_backup_version: "{{ masbr_job_version }}"
+  when: masbr_job_version is defined
+
+- name: "Debug: Backup completed successfully"
+  debug:
+    msg:
+      - "Backup completed successfully"
+      - "Backup file: {{ masbr_storage_local_folder }}/database/{{ masbr_job_name }}.tar.gz"
+      - "Backup size: {{ backup_file_size_mb }} MB"
+      - "Backup version: {{ db2_migrate_backup_version }}"
+      - "Ready for restore to target instance"
+
+
