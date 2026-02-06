@@ -1,0 +1,68 @@
+---
+# Check whether CP4D namespaces exist before attempting uninstall
+- name: Check CP4D namespaces
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ item }}"
+  loop: "{{ cp4d_namespaces }}"
+  loop_control:
+    label: "{{ item }}"
+  register: cp4d_ns_checks
+  failed_when: false
+  changed_when: false
+
+# Build list of CP4D namespaces that actually exist
+- name: Set CP4D present namespaces
+  set_fact:
+    cp4d_present_namespaces: >-
+      {{
+        cp4d_present_namespaces | default([]) +
+        (
+          [ item.item ]
+          if (item.resources | default([]) | length > 0)
+          else []
+        )
+      }}
+  loop: "{{ cp4d_ns_checks.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item | default('unknown') }}"
+  changed_when: false
+
+# Set flag indicating whether CP4D is present
+- name: Set CP4D present flag
+  set_fact:
+    cp4d_present: "{{ cp4d_present_namespaces | default([]) | length > 0 }}"
+  changed_when: false
+
+# Ask user confirmation before proceeding with uninstall
+- name: Ask confirmation to proceed with CP4D uninstall
+  pause:
+    prompt: >-
+      CP4D namespaces detected: {{ cp4d_present_namespaces }}.
+      Do you want to proceed with uninstall? (yes/no)
+  register: cp4d_uninstall_confirm
+  when: cp4d_present | bool
+
+# Determine whether uninstall is approved
+- name: Set uninstall approval flag
+  set_fact:
+    cp4d_uninstall_approved: >-
+      {{
+        cp4d_auto_approve_uninstall | default(false)
+        or (
+          cp4d_uninstall_confirm.user_input | default('no')
+          | lower
+          | trim
+          in ['y', 'yes']
+        )
+      }}
+  when: cp4d_present | bool
+
+# Exit safely when uninstall is not approved
+- name: Exit safely if uninstall not approved
+  debug:
+    msg: "CP4D uninstall aborted by user. No changes were made."
+  when:
+    - cp4d_present | bool
+    - not cp4d_uninstall_approved | bool

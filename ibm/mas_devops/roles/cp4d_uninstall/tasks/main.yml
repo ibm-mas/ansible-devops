@@ -1,0 +1,29 @@
+---
+# CP4D uninstall execution order (safe → force → cleanup)
+- name: 1/9 Check if CP4D exists and confirm uninstall
+  include_tasks: check_cp4d_present.yml
+
+- name: 2/9 Delete OLM objects (Subscriptions / CSVs / InstallPlans)
+  include_tasks: cleanup_olm_objects.yml
+
+- name: 3/9 Delete CatalogSources (marketplace)
+  include_tasks: cleanup_catalogs.yml
+
+- name: 4/9 Delete operator workloads (deployments/statefulsets/jobs)
+  include_tasks: delete_operator_workloads.yml
+
+- name: 5/9 Remove finalizers from operator CRs
+  include_tasks: remove_operator_cr_finalizers.yml
+
+- name: 6/9 Remove finalizers (force deletes)
+  include_tasks: remove_finalizers.yml
+
+- name: 7/9 Cleanup operand CRs (force delete operand-* CRs)
+  include_tasks: cleanup_operand_resources.yml
+
+- name: 8/9 Delete CP4D-related CRDs
+  include_tasks: delete_crds.yml
+
+- name: 9/9 Delete namespaces 
+  include_tasks: delete_namespaces.yml
+  
