@@ -1,0 +1,151 @@
+---
+# Backup Manage Namespace Resources
+# =============================================================================
+# This task backs up all Manage namespace resources using the backup_resource
+# plugin, following the pattern used in suite_backup role.
+
+# 1. Verify required variables
+# -----------------------------------------------------------------------------
+- name: "Verify required variables for Manage backup"
+  ibm.mas_devops.verify_backup_restore_vars:
+    component: manage
+    action: backup
+    mas_instance_id: "{{ mas_instance_id }}"
+    mas_workspace_id: "{{ mas_workspace_id }}"
+    mas_backup_dir: "{{ mas_backup_dir }}"
+
+# 2. Set backup version if not provided
+# -----------------------------------------------------------------------------
+- name: "Check if MAS_APP_BACKUP_VERSION is provided, if not set to default 'YYMMDD-HHMMSS' format"
+  set_fact:
+    mas_app_backup_version: "{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
+  when: mas_app_backup_version is not defined or mas_app_backup_version == "" or mas_app_backup_version == "None"
+
+# 3. Set backup path
+# -----------------------------------------------------------------------------
+- name: "Set fact: Manage backup base directory path"
+  set_fact:
+    manage_backup_path: "{{ mas_backup_dir }}/backup-{{ mas_app_backup_version }}-manage"
+
+# 4. Set Manage namespace and workspace CR name
+# -----------------------------------------------------------------------------
+- name: "Set fact: Manage namespace"
+  set_fact:
+    mas_app_namespace: "mas-{{ mas_instance_id }}-manage"
+
+- name: "Set fact: Manage workspace CR name"
+  set_fact:
+    manage_workspace_cr_name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
+
+# 5. Get ManageWorkspace CR to determine encryption secret name
+# -----------------------------------------------------------------------------
+- name: "Get ManageWorkspace CR"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: ManageWorkspace
+    name: "{{ manage_workspace_cr_name }}"
+    namespace: "{{ mas_app_namespace }}"
+  register: manage_workspace_cr
+
+- name: "Fail if ManageWorkspace CR not found"
+  fail:
+    msg: "ManageWorkspace CR '{{ manage_workspace_cr_name }}' not found in namespace '{{ mas_app_namespace }}'"
+  when:
+    - manage_workspace_cr.resources is not defined or manage_workspace_cr.resources | length == 0
+
+- name: "Set fact: Manage encryption secret name"
+  set_fact:
+    manage_encryptionsecret_name: "{{ manage_workspace_cr.resources[0].spec.settings.db.encryptionSecret | default(mas_workspace_id + '-manage-encryptionsecret', true) }}"
+  when:
+    - manage_workspace_cr.resources[0].spec is defined
+    - manage_workspace_cr.resources[0].spec.settings is defined
+    - manage_workspace_cr.resources[0].spec.settings.db is defined
+
+- name: "Debug: Manage encryption secret name"
+  debug:
+    msg: "Manage encryption secret name: {{ manage_encryptionsecret_name }}"
+
+# 6. Build the Manage namespace resources list.
+# Note: the ManageWorkspace CR contains entries with the key secretName and these
+# will be automatically picked up. We only need to define secrets in the fact below
+# that are not referenced by a resource or not having the key secretName
+# -----------------------------------------------------------------------------
+- name: "Set fact: Manage namespace resources"
+  set_fact:
+    manage_namespace_resources:
+      # Core Manage CRs
+      - kind: ManageApp
+        api_version: apps.mas.ibm.com/v1
+        name: "{{ mas_instance_id }}"
+      - kind: ManageWorkspace
+        api_version: apps.mas.ibm.com/v1
+        name: "{{ manage_workspace_cr_name }}"
+      # Encryption secrets
+      - kind: Secret
+        api_version: v1
+        name: "{{ manage_encryptionsecret_name }}"
+      - kind: Secret
+        api_version: v1
+        name: "{{ manage_encryptionsecret_name }}-operator"
+      # Certificates
+      - kind: Certificate
+        api_version: cert-manager.io/v1
+        labels:
+          - "mas.ibm.com/instanceId={{ mas_instance_id }}"
+      # Subscription and OperatorGroup
+      - kind: Subscription
+        api_version: operators.coreos.com/v1alpha1
+        name: ibm-mas-manage
+      - kind: OperatorGroup
+        api_version: operators.coreos.com/v1
+        name: operatorgroup
+      # IBM entitlement secret
+      - kind: Secret
+        api_version: v1
+        name: ibm-entitlement
+
+- name: "Set fact: Manage backup resources"
+  set_fact:
+    manage_backup_resources:
+      - namespace: "{{ mas_app_namespace }}"
+        resources: "{{ manage_namespace_resources }}"
+
+# 7. Backup Manage namespace resources
+# -----------------------------------------------------------------------------
+- name: "Backup Manage namespace resources (referenced secrets are auto-discovered)"
+  ibm.mas_devops.backup_resource:
+    backup_resources: "{{ manage_backup_resources }}"
+    backup_path: "{{ manage_backup_path }}"
+  register: manage_backup_result
+
+# 8. Display backup results
+# -----------------------------------------------------------------------------
+- name: "Display Manage backup results"
+  debug:
+    msg:
+      - "Backup completed{{ ' with failures' if manage_backup_result.failed_count > 0 else ' successfully' }}"
+      - "Total resources backed up: {{ manage_backup_result.backed_up_count }}"
+      - "Total resources failed: {{ manage_backup_result.failed_count }}"
+      - "Resources not found: {{ manage_backup_result.not_found_count }}"
+      - "Secrets auto-discovered: {{ manage_backup_result.discovered_secrets_count }}"
+      - "Backup location: {{ manage_backup_path }}"
+
+# 9. Display failed resources if any
+# -----------------------------------------------------------------------------
+- name: "Display failed resources"
+  debug:
+    msg:
+      - "Failed resources:"
+      - "{{ manage_backup_result.failed_resources | to_nice_yaml }}"
+  when: manage_backup_result.failed_count > 0
+
+# 10. Fail if backup had errors
+# -----------------------------------------------------------------------------
+- name: "Fail if backup had errors"
+  fail:
+    msg: |
+      Backup failed for {{ manage_backup_result.failed_count }} resource(s):
+      {% for resource in manage_backup_result.failed_resources %}
+      - {{ resource.description }} in {{ resource.scope }}
+      {% endfor %}
+  when: manage_backup_result.failed_count > 0

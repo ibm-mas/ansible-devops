@@ -1,0 +1,93 @@
+---
+# Backup Single Persistent Volume
+# =============================================================================
+# This task creates a tar.gz archive of a single persistent volume's mount path
+# from the server bundle pod.
+
+- name: "Set fact: PV backup details"
+  set_fact:
+    pv_mount_path: "{{ pv_item.mountPath }}"
+    pv_pvc_name: "{{ pv_item.pvcName }}"
+    pv_archive_name: "{{ pv_item.pvcName }}.tar.gz"
+    pv_archive_path: "{{ manage_pv_data_path }}/{{ pv_item.pvcName }}.tar.gz"
+
+- name: "Display PV backup information"
+  debug:
+    msg:
+      - "Backing up PV {{ pv_index + 1 }}/{{ manage_persistent_volumes | length }}"
+      - "PVC Name: {{ pv_pvc_name }}"
+      - "Mount Path: {{ pv_mount_path }}"
+      - "Archive: {{ pv_archive_name }}"
+
+# Create tar.gz archive in the pod
+# -----------------------------------------------------------------------------
+- name: "Create tar.gz archive of {{ pv_mount_path }} in pod"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ server_bundle_pod.metadata.name }}"
+    container: "{{ server_bundle_pod.spec.containers[0].name }}"
+    command: >
+      tar -czf /tmp/{{ pv_archive_name }} -C {{ pv_mount_path }} .
+  register: tar_result
+  failed_when: false
+
+- name: "Check tar creation result"
+  debug:
+    msg:
+      - "Tar creation return code: {{ tar_result.rc }}"
+      - "{{ 'Success' if tar_result.rc == 0 else 'Failed' }}"
+
+- name: "Fail if tar creation failed"
+  fail:
+    msg: "Failed to create tar archive for {{ pv_pvc_name }}: {{ tar_result.stderr | default('Unknown error') }}"
+  when: tar_result.rc != 0
+
+# Copy tar.gz archive from pod to local backup directory
+# -----------------------------------------------------------------------------
+- name: "Copy tar.gz archive from pod to backup location"
+  shell: |
+    oc cp {{ mas_app_namespace }}/{{ server_bundle_pod.metadata.name }}:/tmp/{{ pv_archive_name }} {{ pv_archive_path }} -c {{ server_bundle_pod.spec.containers[0].name }}
+  register: copy_result
+  failed_when: false
+
+- name: "Check copy result"
+  debug:
+    msg:
+      - "Copy return code: {{ copy_result.rc }}"
+      - "{{ 'Success' if copy_result.rc == 0 else 'Failed' }}"
+
+- name: "Fail if copy failed"
+  fail:
+    msg: "Failed to copy tar archive for {{ pv_pvc_name }}: {{ copy_result.stderr | default('Unknown error') }}"
+  when: copy_result.rc != 0
+
+# Clean up tar.gz archive from pod
+# -----------------------------------------------------------------------------
+- name: "Remove tar.gz archive from pod"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ server_bundle_pod.metadata.name }}"
+    container: "{{ server_bundle_pod.spec.containers[0].name }}"
+    command: rm -f /tmp/{{ pv_archive_name }}
+  register: cleanup_result
+  failed_when: false
+
+# Verify backup was created
+# -----------------------------------------------------------------------------
+- name: "Verify backup archive exists and get size"
+  stat:
+    path: "{{ pv_archive_path }}"
+  register: archive_stat
+
+- name: "Display backup statistics"
+  debug:
+    msg:
+      - "Archive created: {{ archive_stat.stat.exists }}"
+      - "Archive size: {{ (archive_stat.stat.size / 1024 / 1024) | round(2) }} MB"
+      - "Archive location: {{ pv_archive_path }}"
+  when: archive_stat.stat.exists
+
+- name: "Warning if archive not found"
+  debug:
+    msg: "WARNING: Archive file not found at {{ pv_archive_path }}"
+  when: not archive_stat.stat.exists

@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-import os
-import yaml
 from mas.devops.ocp import getSecret
 from kubernetes.dynamic import DynamicClient
 from kubernetes.dynamic.exceptions import NotFoundError

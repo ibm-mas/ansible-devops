@@ -734,7 +734,7 @@ Version identifier for the backup, used to create unique backup directories.
 - For backup: Leave unset to auto-generate a timestamp-based version, or provide a custom identifier
 - For restore: Must specify the exact version identifier of the backup to restore
 
-**Valid values**: Any string suitable for directory names (alphanumeric, hyphens, underscores). Auto-generated format: `YYMMDD-HHMMSS` (e.g., `260122-131500`)
+**Valid values**: Any string suitable for directory names (alphanumeric, hyphens, underscores). Auto-generated format: `YYYYMMDD-HHMMSS` (e.g., `2020260122-131500`)
 
 **Impact**:
 - For backup: Creates directory `{mas_backup_dir}/backup-{version}-sls/`
@@ -862,7 +862,7 @@ ansible-playbook ibm.mas_devops.run_role
   vars:
     sls_action: restore
     mas_backup_dir: /backup/mas
-    sls_backup_version: "260122-131500"
+    sls_backup_version: "20260122-131500"
     # Optional: override domain for different cluster
     # sls_domain: sls.newcluster.example.com
 
@@ -874,7 +874,7 @@ ansible-playbook ibm.mas_devops.run_role
 ```bash
 export SLS_ACTION=restore
 export MAS_BACKUP_DIR=/backup/mas
-export SLS_BACKUP_VERSION=260122-131500
+export SLS_BACKUP_VERSION=20260122-131500
 # Optional: export SLS_DOMAIN=sls.newcluster.example.com
 
 ansible-playbook ibm.mas_devops.run_role

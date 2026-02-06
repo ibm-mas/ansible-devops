@@ -88,6 +88,13 @@ Backup version for the MAS Suite component.
 - Environment Variable: `SUITE_BACKUP_VERSION`
 - Default Value: Value of `backup_version`
 
+#### manage_backup_version
+Backup version for the MAS Manage app.
+
+- **Optional**
+- Environment Variable: `MANAGE_BACKUP_VERSION`
+- Default Value: Value of `backup_version`
+
 ### S3 Upload Variables
 
 Provide these variables to upload the backup archive to AWS S3 or S3-compatible storage. If S3 credentials are provided, S3 upload takes precedence over Artifactory.
@@ -191,7 +198,7 @@ After installing the Ansible Collection you can include this role in your own cu
 - hosts: localhost
   vars:
     mas_backup_dir: /backup/mas
-    backup_version: "260117-191500"
+    backup_version: "20260117-191500"
     aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
     aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
     s3_bucket_name: my-mas-backups
@@ -206,7 +213,7 @@ After installing the Ansible Collection you can include this role in your own cu
 - hosts: localhost
   vars:
     mas_backup_dir: /backup/mas
-    backup_version: "260117-191500"
+    backup_version: "20260117-191500"
     artifactory_username: "{{ lookup('env', 'ARTIFACTORY_USERNAME') }}"
     artifactory_token: "{{ lookup('env', 'ARTIFACTORY_TOKEN') }}"
     artifactory_url: https://artifactory.example.com/artifactory
@@ -221,7 +228,7 @@ After installing the Ansible Collection you can include this role in your own cu
 - hosts: localhost
   vars:
     mas_backup_dir: /backup/mas
-    backup_version: "260117-191500"
+    backup_version: "20260117-191500"
     aws_access_key_id: "{{ lookup('env', 'S3_ACCESS_KEY') }}"
     aws_secret_access_key: "{{ lookup('env', 'S3_SECRET_KEY') }}"
     s3_bucket_name: mas-backups
@@ -237,10 +244,10 @@ After installing the Ansible Collection you can include this role in your own cu
 - hosts: localhost
   vars:
     mas_backup_dir: /backup/mas
-    backup_version: "260117-191500"
+    backup_version: "20260117-191500"
     # Override specific component versions
-    mongodb_backup_version: "260116-120000"
-    db2_backup_version: "260115-180000"
+    mongodb_backup_version: "20260116-120000"
+    db2_backup_version: "20260115-180000"
     aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
     aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
     s3_bucket_name: my-mas-backups
@@ -255,7 +262,7 @@ After installing the Ansible Collection you can easily run the role standalone u
 
 ```bash
 export MAS_BACKUP_DIR=/backup/mas
-export BACKUP_VERSION=260117-191500
+export BACKUP_VERSION=20260117-191500
 export S3_ACCESS_KEY_ID=your_access_key
 export S3_SECRET_ACCESS_KEY=your_secret_key
 export S3_BUCKET_NAME=my-mas-backups
@@ -267,7 +274,7 @@ ROLE_NAME=upload_backup_archive ansible-playbook ibm.mas_devops.run_role
 
 ```bash
 export MAS_BACKUP_DIR=/backup/mas
-export BACKUP_VERSION=260117-191500
+export BACKUP_VERSION=20260117-191500
 export ARTIFACTORY_USERNAME=your_username
 export ARTIFACTORY_TOKEN=your_token
 export ARTIFACTORY_URL=https://artifactory.example.com/artifactory
