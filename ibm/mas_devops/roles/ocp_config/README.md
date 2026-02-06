@@ -57,6 +57,20 @@ Specifies how long a connection is held open while waiting for a server response
 - Environment Variable: `OCP_INGRESS_SERVER_TIMEOUT`
 - Default Value: `30s`
 
+### ocp_configure_ingress_for_path_routing
+Set to `True` if you want to configure the Ingress Controller for path-based routing
+
+- Optional
+- Environment Variable: `OCP_CONFIGURE_INGRESS_FOR_PATH_ROUTING`
+- Default Value: `False`
+
+### ocp_ingress_controller_name
+Specifies the name of the Ingress Controller to configure for path-based routing
+
+- Optional
+- Environment Variable: `OCP_INGRESS_CONTROLLER_NAME`
+- Default Value: `default`
+
 
 Role Variables - OperatorHub
 -------------------------------------------------------------------------------
