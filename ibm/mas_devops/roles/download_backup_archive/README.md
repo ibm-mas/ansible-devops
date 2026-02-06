@@ -163,7 +163,7 @@ After installing the Ansible Collection you can include this role in your own cu
 - hosts: localhost
   vars:
     mas_restore_dir: /restore/mas
-    backup_version: "260117-191500"
+    backup_version: "20260117-191500"
     aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
     aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
     s3_bucket_name: my-mas-backups
@@ -178,7 +178,7 @@ After installing the Ansible Collection you can include this role in your own cu
 - hosts: localhost
   vars:
     mas_restore_dir: /restore/mas
-    backup_version: "260117-191500"
+    backup_version: "20260117-191500"
     artifactory_username: "{{ lookup('env', 'ARTIFACTORY_USERNAME') }}"
     artifactory_token: "{{ lookup('env', 'ARTIFACTORY_TOKEN') }}"
     artifactory_url: https://artifactory.example.com/artifactory
@@ -193,7 +193,7 @@ After installing the Ansible Collection you can include this role in your own cu
 - hosts: localhost
   vars:
     mas_restore_dir: /restore/mas
-    backup_version: "260117-191500"
+    backup_version: "20260117-191500"
     aws_access_key_id: "{{ lookup('env', 'S3_ACCESS_KEY') }}"
     aws_secret_access_key: "{{ lookup('env', 'S3_SECRET_KEY') }}"
     s3_bucket_name: mas-backups
@@ -209,7 +209,7 @@ After installing the Ansible Collection you can include this role in your own cu
 - hosts: localhost
   vars:
     mas_restore_dir: /restore/mas
-    backup_version: "260117-191500"
+    backup_version: "20260117-191500"
     extract_archive: false
     cleanup_archive: false
     aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
@@ -226,7 +226,7 @@ After installing the Ansible Collection you can easily run the role standalone u
 
 ```bash
 export MAS_RESTORE_DIR=/restore/mas
-export BACKUP_VERSION=260117-191500
+export BACKUP_VERSION=20260117-191500
 export S3_ACCESS_KEY_ID=your_access_key
 export S3_SECRET_ACCESS_KEY=your_secret_key
 export S3_BUCKET_NAME=my-mas-backups
@@ -238,7 +238,7 @@ ROLE_NAME=download_backup_archive ansible-playbook ibm.mas_devops.run_role
 
 ```bash
 export MAS_RESTORE_DIR=/restore/mas
-export BACKUP_VERSION=260117-191500
+export BACKUP_VERSION=20260117-191500
 export ARTIFACTORY_USERNAME=your_username
 export ARTIFACTORY_TOKEN=your_token
 export ARTIFACTORY_URL=https://artifactory.example.com/artifactory
@@ -252,12 +252,12 @@ After successful execution, the role will extract the backup archive to the rest
 
 ```
 /restore/mas/
-├── backup-260117-191500-catalog/
-├── backup-260117-191500-certmanager/
-├── backup-260117-191500-sls/
-├── backup-260117-191500-mongoce/
-├── backup-260117-191500-db2u/
-└── backup-260117-191500-suite/
+├── backup-20260117-191500-catalog/
+├── backup-20260117-191500-certmanager/
+├── backup-20260117-191500-sls/
+├── backup-20260117-191500-mongoce/
+├── backup-20260117-191500-db2u/
+└── backup-20260117-191500-suite/
 ```
 
 The exact directories present will depend on which components were included in the original backup.

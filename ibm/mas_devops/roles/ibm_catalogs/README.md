@@ -121,7 +121,7 @@ Version identifier for the backup, used to create unique backup directories.
 - For backup: Leave unset to auto-generate a timestamp-based version, or provide a custom identifier
 - For restore: Must specify the exact version identifier of the backup to restore
 
-**Valid values**: Any string suitable for directory names (alphanumeric, hyphens, underscores). Auto-generated format: `YYMMDD-HHMMSS` (e.g., `260122-131500`)
+**Valid values**: Any string suitable for directory names (alphanumeric, hyphens, underscores). Auto-generated format: `YYYYMMDD-HHMMSS` (e.g., `20260122-131500`)
 
 **Impact**:
 - For backup: Creates directory `{mas_backup_dir}/backup-{version}-catalog/`

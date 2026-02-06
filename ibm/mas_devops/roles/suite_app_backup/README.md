@@ -51,11 +51,11 @@ Defines the directory where backups will be stored. The role will create a times
 - Default: None
 - Example: `/backup/mas`
 
-### manage_backup_version
+### mas_app_backup_version
 Optional custom version identifier for the backup. If not specified, defaults to timestamp format `YYMMDD-HHMMSS`.
 
 - Optional
-- Environment Variable: `MANAGE_BACKUP_VERSION`
+- Environment Variable: `MAS_APP_BACKUP_VERSION`
 - Default: Auto-generated timestamp
 - Example: `240315-143022` or `v1.0-prod`
 
@@ -170,7 +170,7 @@ Backup with a custom version identifier:
     mas_workspace_id: ws1
     mas_app_id: manage
     mas_backup_dir: /backup/mas
-    manage_backup_version: "prod-backup-20240315"
+    mas_app_backup_version: "prod-backup-20240315"
   roles:
     - ibm.mas_devops.suite_app_backup
 ```

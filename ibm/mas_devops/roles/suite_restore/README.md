@@ -37,7 +37,7 @@ in the restore.
 - **Required**
 - Default: None
 - Environment Variable: `SUITE_BACKUP_VERSION`
-- Example: `260116-130937`
+- Example: `20260116-130937`
 
 ### mas_domain
 The domain to use for the MAS Suite instance. If not provided, the domain from the backup will be used.

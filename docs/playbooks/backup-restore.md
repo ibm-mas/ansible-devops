@@ -144,7 +144,7 @@ Restore MAS Core from a backup to the same cluster:
 export MAS_INSTANCE_ID=inst1
 export MAS_BACKUP_DIR=/backup/mas
 export BR_ACTION=restore
-export BACKUP_VERSION_TO_RESTORE=260122-131500
+export BACKUP_VERSION_TO_RESTORE=20260122-131500
 
 export IBM_ENTITLEMENT_KEY=xxx
 export DRO_CONTACT_EMAIL=user@example.com
@@ -163,7 +163,7 @@ Restore MAS Core from a backup without grafana:
 export MAS_INSTANCE_ID=inst1
 export MAS_BACKUP_DIR=/backup/mas
 export BR_ACTION=restore
-export BACKUP_VERSION_TO_RESTORE=260122-131500
+export BACKUP_VERSION_TO_RESTORE=20260122-131500
 
 export INCLUDE_GRAFANA=false
 
@@ -185,7 +185,7 @@ Restore MAS Core to a different cluster with a different domain:
 export MAS_INSTANCE_ID=inst1
 export MAS_BACKUP_DIR=/backup/mas
 export BR_ACTION=restore
-export BACKUP_VERSION_TO_RESTORE=260122-131500
+export BACKUP_VERSION_TO_RESTORE=20260122-131500
 
 export IBM_ENTITLEMENT_KEY=xxx
 export DRO_CONTACT_EMAIL=user@example.com
@@ -207,7 +207,7 @@ Restore MAS Core using external SLS and DRO services:
 export MAS_INSTANCE_ID=inst1
 export MAS_BACKUP_DIR=/backup/mas
 export BR_ACTION=restore
-export BACKUP_VERSION_TO_RESTORE=260122-131500
+export BACKUP_VERSION_TO_RESTORE=20260122-131500
 
 # Skip SLS and DRO installation
 export INCLUDE_SLS=false
