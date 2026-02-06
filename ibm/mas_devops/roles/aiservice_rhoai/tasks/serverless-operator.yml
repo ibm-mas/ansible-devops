@@ -1,0 +1,33 @@
+---
+- name: Get servless operator package manifest
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: serverless-operator
+    namespace: openshift-marketplace  # Note: A namespace must be provided when calling packages.operators.coreos.com/v1
+  register: serverless_operator_manifest
+
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - serverless_operator_manifest is defined
+      - serverless_operator_manifest.resources is defined
+      - serverless_operator_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: serverless-operator"
+
+- name: Set the subscription information
+  set_fact:
+    serverless_operator_source: "{{ serverless_operator_manifest.resources[0].status.catalogSource }}"
+    serverless_operator_source_namespace: "{{ serverless_operator_manifest.resources[0].status.catalogSourceNamespace }}"
+    serverless_operator_default_channel: "{{ serverless_operator_manifest.resources[0].status.defaultChannel }}"
+
+# 1. Install Operator & create entitlement serverless
+# -----------------------------------------------------------------------------
+- name: "install : Create Serverless Subscription"
+  ibm.mas_devops.apply_subscription:
+    namespace: "{{ serverless_namespace }}"
+    package_name: "serverless-operator"
+    package_channel: "{{ serverless_operator_default_channel }}"
+    catalog_source: "{{ serverless_operator_source }}"
+    install_mode: AllNamespaces
+  register: serverless_subscription
