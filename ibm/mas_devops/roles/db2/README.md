@@ -72,7 +72,7 @@ Specifies which operation to perform on the Db2 database.
 **Related variables**:
 - `db2_version`: Required for upgrade action to specify target version
 - `db2_namespace`: All instances in this namespace are affected by upgrade
-- `db2_backup_version`: Required for restore/restore_database action; optional for backup, defaults to YYMMDD-HHMMSS
+- `db2_backup_version`: Required for restore/restore_database action; optional for backup, defaults to YYYYMMDD-HHMMSS
 - `override_storageclass`: In Restore, controls whether storage classes are overridden
 
 **Note**: **WARNING** - When using `upgrade`, ALL Db2 instances in the specified namespace will be upgraded. Plan accordingly and ensure `db2_version` matches the operator channel.
@@ -894,7 +894,7 @@ The backup version timestamp identifier for backup and restore operations.
 - **Required** for `restore` and `restore_database` actions
 - **Auto-generated** for backup operations
 - Environment Variable: `DB2_BACKUP_VERSION`
-- Default: Auto-generated in format `YYMMDD-HHMMSS`
+- Default: Auto-generated in format `YYYYMMDD-HHMMSS`
 
 **Purpose**: Uniquely identifies a specific backup version using a timestamp. This allows multiple backups to coexist and enables point-in-time restore operations.
 
@@ -903,7 +903,7 @@ The backup version timestamp identifier for backup and restore operations.
 - Must be specified when restoring to identify which backup to use
 - Must be specified when installing Db2 from an existing backup
 
-**Valid values**: Timestamp string in format `YYMMDD-HHMMSS` (e.g., `251212-021316` for December 12, 2025 at 02:13:16)
+**Valid values**: Timestamp string in format `YYYYMMDD-HHMMSS` (e.g., `20251212-021316` for December 12, 2025 at 02:13:16)
 
 **Impact**:
 - Determines the backup directory name: `backup-<version>-db2u`
@@ -914,7 +914,7 @@ The backup version timestamp identifier for backup and restore operations.
 - `mas_backup_dir`: Parent directory containing versioned backups
 - `db2_action`: Required when action is `restore_database` or `restore`(instance & database)
 
-**Example**: `251212-021316`
+**Example**: `20251212-021316`
 
 ### override_storageclass
 Controls whether to override storage classes during Db2 installation from backup.
@@ -1188,7 +1188,7 @@ Example Usage - Backup and Restore
   vars:
     db2_action: restore_database
     mas_instance_id: masinst1
-    db2_backup_version: 251212-021316
+    db2_backup_version: 20251212-021316
     mas_backup_dir: /tmp/masbr
     db2_instance_name: db2u-manage
     db2_namespace: db2u
@@ -1204,7 +1204,7 @@ Example Usage - Backup and Restore
   vars:
     db2_action: restore_database
     mas_instance_id: masinst1
-    db2_backup_version: 251212-021316
+    db2_backup_version: 20251212-021316
     mas_backup_dir: /tmp/masbr
     db2_instance_name: db2u-manage
     backup_vendor: s3
@@ -1223,7 +1223,7 @@ Example Usage - Backup and Restore
   vars:
     db2_action: restore
     mas_instance_id: masinst1
-    db2_backup_version: 251212-021316
+    db2_backup_version: 20251212-021316
     mas_backup_dir: /tmp/masbr
     backup_vendor: disk
   roles:
@@ -1241,7 +1241,7 @@ Example Usage - Backup and Restore
   vars:
     db2_action: restore
     mas_instance_id: masinst1
-    db2_backup_version: 251212-021316
+    db2_backup_version: 20251212-021316
     mas_backup_dir: /tmp/masbr
     backup_vendor: disk
     override_storageclass: true
@@ -1261,7 +1261,7 @@ Example Usage - Backup and Restore
   vars:
     db2_action: restore
     mas_instance_id: masinst1
-    db2_backup_version: 251212-021316
+    db2_backup_version: 20251212-021316
     mas_backup_dir: /tmp/masbr
     backup_vendor: s3
     backup_s3_endpoint: https://s3.us-east.cloud-object-storage.appdomain.cloud
@@ -1275,9 +1275,9 @@ Example Usage - Backup and Restore
 ### Backup Directory Structure (Disk)
 ```
 /tmp/masbr/
-└── backup-<YYMMDD-HHMMSS>-db2u/
+└── backup-<YYYYMMDD-HHMMSS>-db2u/
     ├── data/
-    │   ├── db2-BLUDB-backup-<YYMMDD-HHMMSS>.tar.gz
+    │   ├── db2-BLUDB-backup-<YYYYMMDD-HHMMSS>.tar.gz
     │   └── db2-backup-info.yaml
     └── resources/
         ├── db2uclusters/
@@ -1289,14 +1289,14 @@ Example Usage - Backup and Restore
 
 ### Database backup Metadata (db2-backup-info.yaml)
 ```yaml
-source_db2_backup_version: "251212-021316"
+source_db2_backup_version: "20251212-021316"
 source_db2_backup_timestamp: "20251212021316"
 source_db2_instance_name: "db2u-manage"
 source_db2_instance_version: "11.5.8.0-cn7"
 database: "BLUDB"
 backup_vendor: "disk"
-vendor_backup_path: "/mnt/backup/251212-021316/data"
-local_backup_path: "/tmp/masbr/backup-251212-021316-db2u/data/db2-BLUDB-backup-251212-021316.tar.gz"
+vendor_backup_path: "/mnt/backup/20251212-021316/data"
+local_backup_path: "/tmp/masbr/backup-20251212-021316-db2u/data/db2-BLUDB-backup-20251212-021316.tar.gz"
 status: "SUCCESS"
 ```
 

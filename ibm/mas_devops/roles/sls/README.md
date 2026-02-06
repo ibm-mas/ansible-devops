@@ -726,7 +726,7 @@ Version identifier for the backup, used to create unique backup directories.
 - **Optional** for backup (auto-generated if not provided)
 - **Required** for restore
 - Environment Variable: `SLS_BACKUP_VERSION`
-- Default: Auto-generated timestamp in format `YYMMDD-HHMMSS`
+- Default: Auto-generated timestamp in format `YYYYMMDD-HHMMSS`
 
 **Purpose**: Provides a unique identifier for each backup, allowing multiple backups to coexist and enabling point-in-time restore operations.
 
@@ -734,7 +734,7 @@ Version identifier for the backup, used to create unique backup directories.
 - For backup: Leave unset to auto-generate a timestamp-based version, or provide a custom identifier
 - For restore: Must specify the exact version identifier of the backup to restore
 
-**Valid values**: Any string suitable for directory names (alphanumeric, hyphens, underscores). Auto-generated format: `YYYYMMDD-HHMMSS` (e.g., `2020260122-131500`)
+**Valid values**: Any string suitable for directory names (alphanumeric, hyphens, underscores). Auto-generated format: `YYYYMMDD-HHMMSS` (e.g., `20260122-131500`)
 
 **Impact**:
 - For backup: Creates directory `{mas_backup_dir}/backup-{version}-sls/`

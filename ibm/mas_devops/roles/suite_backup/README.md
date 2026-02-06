@@ -29,10 +29,10 @@ The local directory path where backup files will be stored (for backup).
 - Example: `/tmp/mas_backups`
 
 ### suite_backup_version
-Set version to override the default `YYMMDD-HHMMSS` timestamp version used in the name of the backup file.
+Set version to override the default `YYYYMMDD-HHMMSS` timestamp version used in the name of the backup file.
 
 - **Optional**
-- Default: `YYMMDD-HHMMSS` timestamp.
+- Default: `YYYYMMDD-HHMMSS` timestamp.
 - Environment Variable: `SUITE_BACKUP_VERSION`
 
 ### include_sls

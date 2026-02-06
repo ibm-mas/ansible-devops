@@ -65,7 +65,7 @@ All timings are estimates. See the individual role documentation for more inform
 - `BR_ACTION` - Set to `backup` or `restore`
 
 ### Backup-Specific Variables
-- `BACKUP_VERSION` - (Optional) Custom version identifier for the backup. If not provided, defaults to timestamp format `YYMMDD-HHMMSS`
+- `BACKUP_VERSION` - (Optional) Custom version identifier for the backup. If not provided, defaults to timestamp format `YYYYMMDD-HHMMSS`
 
 ### Restore-Specific Variables
 - `BACKUP_VERSION_TO_RESTORE` - (Required) The backup version identifier to restore

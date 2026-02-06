@@ -70,7 +70,7 @@ Version identifier for the backup, used to create unique backup directories.
 - **Optional** for backup (auto-generated if not provided)
 - **Required** for restore
 - Environment Variable: `CERTMANAGER_BACKUP_VERSION`
-- Default: Auto-generated timestamp in format `YYMMDD-HHMMSS`
+- Default: Auto-generated timestamp in format `YYYYMMDD-HHMMSS`
 
 **Purpose**: Provides a unique identifier for each backup, allowing multiple backups to coexist and enabling point-in-time restore operations.
 

@@ -577,11 +577,11 @@ For backup and restore operations, set `mongodb_action` to one of the following:
 - Example: `/tmp/masbr`
 
 ### mongodb_backup_version
-**Required for restore operations**. The backup version timestamp to restore from. This is automatically generated during backup in the format `YYMMDD-HHMMSS`.
+**Required for restore operations**. The backup version timestamp to restore from. This is automatically generated during backup in the format `YYYYMMDD-HHMMSS`.
 
 - Environment Variable: `MONGODB_BACKUP_VERSION`
-- Default Value: YYMMDD-HHMMSS
-- Example: `251212-021316`
+- Default Value: YYYYMMDD-HHMMSS
+- Example: `20251212-021316`
 
 ### mongodb_instance_name
 The name of the MongoDB instance to backup.
@@ -635,9 +635,9 @@ The MongoDB backup operation creates a backup of your MongoDB instance and datab
 **Backup Directory Structure:**
 ```
 /tmp/masbr/
-└── backup-<YYMMDD-HHMMSS>-mongoce/
+└── backup-<YYYYMMDD-HHMMSS>-mongoce/
     ├── data/
-    │   ├── mongodump-<YYMMDD-HHMMSS>.tar.gz
+    │   ├── mongodump-<YYYYMMDD-HHMMSS>.tar.gz
     │   └── mongodb-info.yaml
     └── resources/
         ├── mongodbcommunitys/
@@ -715,7 +715,7 @@ Restores only the database data to an existing MongoDB instance:
 **Storage Requirements:**
 - Ensure sufficient storage in the backup directory
 - Plan for at least 2x the database size for backup storage
-- Backup directory structure: `/tmp/masbr/backup-<YYMMDD-HHMMSS>-mongoce/`
+- Backup directory structure: `/tmp/masbr/backup-<YYYYMMDD-HHMMSS>-mongoce/`
 - Monitor disk space during backup operations
 
 **Security:**
@@ -836,7 +836,7 @@ Restore MongoDB databases from a backup to an existing MongoDB instance without 
   vars:
     mongodb_action: restore_database
     mas_instance_id: masinst1
-    mongodb_backup_version: 251212-021316
+    mongodb_backup_version: 20251212-021316
     mas_backup_dir: /tmp/masbr
     mongodb_namespace: mongoce
     mongodb_instance_name: mas-mongo-ce
@@ -870,7 +870,7 @@ Perform a complete restoration of MongoDB instance including all Kubernetes reso
   vars:
     mongodb_action: restore
     mas_instance_id: masinst1
-    mongodb_backup_version: 251212-021316
+    mongodb_backup_version: 20251212-021316
     mas_backup_dir: /tmp/masbr
   roles:
     - ibm.mas_devops.mongodb
@@ -897,7 +897,7 @@ Deploy a new MongoDB instance using configuration from a backup and restore data
   vars:
     mongodb_action: install
     mas_instance_id: masinst1
-    mongodb_backup_version: 251212-021316
+    mongodb_backup_version: 20251212-021316
     mas_backup_dir: /tmp/masbr
   roles:
     - ibm.mas_devops.mongodb
