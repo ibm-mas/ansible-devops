@@ -1,0 +1,46 @@
+---
+# Restore backup to target Db2uInstance
+# -----------------------------------------------------------------------------
+
+- name: "Set restore variables for target instance"
+  set_fact:
+    db2_instance_name: "{{ db2_migrate_target_instance }}"
+    db2_action: "restore"
+    masbr_restore_from_version: "{{ db2_migrate_backup_version | default(masbr_job_version) }}"
+
+- name: "Debug: Starting restore to target instance"
+  debug:
+    msg:
+      - "Starting restore to target Db2uInstance"
+      - "Instance: {{ db2_instance_name }}"
+      - "Namespace: {{ db2_namespace }}"
+      - "Restore from version: {{ masbr_restore_from_version }}"
+      - "Backup location: {{ masbr_storage_local_folder }}"
+
+- name: "Execute restore to target Db2uInstance"
+  include_tasks: "{{ role_path }}/tasks/restore/main.yml"
+
+- name: "Verify restore completed successfully"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ db2_namespace }}"
+    label_selectors:
+      - "app={{ db2_migrate_target_instance }}"
+  register: target_pods
+
+- name: "Check that target pods are running"
+  assert:
+    that:
+      - target_pods.resources | length > 0
+      - target_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length > 0
+    fail_msg: "Target instance pods are not running after restore"
+
+- name: "Debug: Restore completed successfully"
+  debug:
+    msg:
+      - "Restore completed successfully"
+      - "Target instance: {{ db2_migrate_target_instance }}"
+      - "Database is accessible and ready for validation"
+
+

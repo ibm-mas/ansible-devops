@@ -1,0 +1,108 @@
+---
+# Wait for Db2uInstance to reach Ready state
+# -----------------------------------------------------------------------------
+
+- name: "Wait for Db2uInstance to be ready"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    kind: Db2uInstance
+    name: "{{ db2_migrate_target_instance }}"
+    namespace: "{{ db2_namespace }}"
+  register: target_instance
+  until:
+    - target_instance.resources is defined
+    - target_instance.resources | length == 1
+    - target_instance.resources[0].status is defined
+    - target_instance.resources[0].status.state is defined
+    - target_instance.resources[0].status.state == "Ready"
+  retries: 48  # 4 hours max (5 min intervals)
+  delay: 300   # 5 minutes
+  failed_when: false
+
+- name: "Check if Db2uInstance reached Ready state"
+  assert:
+    that:
+      - target_instance.resources is defined
+      - target_instance.resources | length == 1
+      - target_instance.resources[0].status.state == "Ready"
+    fail_msg: "Db2uInstance {{ db2_migrate_target_instance }} did not reach Ready state within timeout period. Current state: {{ target_instance.resources[0].status.state | default('Unknown') }}"
+
+- name: "Get Db2uEngine name"
+  set_fact:
+    db2_engine_name: "db2u-{{ db2_migrate_target_instance | lower }}"
+
+- name: "Verify Db2uEngine exists"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    kind: Db2uEngine
+    name: "{{ db2_engine_name }}"
+    namespace: "{{ db2_namespace }}"
+  register: target_engine
+  retries: 10
+  delay: 30
+  until:
+    - target_engine.resources is defined
+    - target_engine.resources | length > 0
+
+- name: "Wait for Db2uEngine to be ready"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    kind: Db2uEngine
+    name: "{{ db2_engine_name }}"
+    namespace: "{{ db2_namespace }}"
+  register: target_engine
+  until:
+    - target_engine.resources[0].status is defined
+    - target_engine.resources[0].status.state is defined
+    - target_engine.resources[0].status.state == "Ready"
+  retries: 20
+  delay: 30
+  failed_when: false
+
+- name: "Check if Db2uEngine is ready"
+  assert:
+    that:
+      - target_engine.resources[0].status.state is defined
+      - target_engine.resources[0].status.state == "Ready"
+    fail_msg: "Db2uEngine {{ db2_engine_name }} is not ready. Current state: {{ target_engine.resources[0].status.state | default('Unknown') }}"
+
+- name: "Get Db2uInstance pods"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ db2_namespace }}"
+    label_selectors:
+      - "app={{ db2_migrate_target_instance }}"
+  register: target_pods
+
+- name: "Verify all pods are running"
+  assert:
+    that:
+      - target_pods.resources | length > 0
+      - target_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length == target_pods.resources | length
+    fail_msg: "Not all Db2uInstance pods are in Running state"
+
+- name: "Get Db2uInstance service"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Service
+    name: "c-{{ db2_migrate_target_instance | lower }}-db2u-engn-svc"
+    namespace: "{{ db2_namespace }}"
+  register: target_service
+
+- name: "Verify service exists"
+  assert:
+    that:
+      - target_service.resources | length > 0
+    fail_msg: "Db2uInstance service not found"
+
+- name: "Debug: Db2uInstance is ready"
+  debug:
+    msg:
+      - "Db2uInstance {{ db2_migrate_target_instance }} is ready"
+      - "Instance state: {{ target_instance.resources[0].status.state }}"
+      - "Db2uEngine: {{ db2_engine_name }} ({{ target_engine.resources[0].status.state }})"
+      - "Pods: {{ target_pods.resources | length }} running"
+      - "Service: c-{{ db2_migrate_target_instance | lower }}-db2u-engn-svc"
+
+

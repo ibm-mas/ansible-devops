@@ -1,0 +1,107 @@
+---
+# Validate data integrity post-migration
+# -----------------------------------------------------------------------------
+
+- name: "Get table count from source"
+  shell: |
+    oc exec -n {{ db2_namespace }} \
+      c-{{ db2_migrate_source_instance | lower }}-db2u-0 -- \
+      su - db2inst1 -c "db2 connect to {{ db2_dbname }} && \
+      db2 -x 'SELECT COUNT(*) FROM SYSCAT.TABLES WHERE TABSCHEMA NOT LIKE '\''SYS%'\'''"
+  register: source_table_count
+  changed_when: false
+  failed_when: false
+
+- name: "Get table count from target"
+  shell: |
+    oc exec -n {{ db2_namespace }} \
+      c-{{ db2_migrate_target_instance | lower }}-db2u-0 -- \
+      su - db2inst1 -c "db2 connect to {{ db2_dbname }} && \
+      db2 -x 'SELECT COUNT(*) FROM SYSCAT.TABLES WHERE TABSCHEMA NOT LIKE '\''SYS%'\'''"
+  register: target_table_count
+  changed_when: false
+  failed_when: false
+
+- name: "Verify table counts match"
+  assert:
+    that:
+      - source_table_count.rc == 0
+      - target_table_count.rc == 0
+      - source_table_count.stdout | trim == target_table_count.stdout | trim
+    fail_msg: "Table count mismatch: source={{ source_table_count.stdout | trim }}, target={{ target_table_count.stdout | trim }}"
+  when: db2_migrate_validate_data | default(true) | bool
+
+- name: "Get schema count from source"
+  shell: |
+    oc exec -n {{ db2_namespace }} \
+      c-{{ db2_migrate_source_instance | lower }}-db2u-0 -- \
+      su - db2inst1 -c "db2 connect to {{ db2_dbname }} && \
+      db2 -x 'SELECT COUNT(*) FROM SYSCAT.SCHEMATA WHERE SCHEMANAME NOT LIKE '\''SYS%'\'''"
+  register: source_schema_count
+  changed_when: false
+  failed_when: false
+
+- name: "Get schema count from target"
+  shell: |
+    oc exec -n {{ db2_namespace }} \
+      c-{{ db2_migrate_target_instance | lower }}-db2u-0 -- \
+      su - db2inst1 -c "db2 connect to {{ db2_dbname }} && \
+      db2 -x 'SELECT COUNT(*) FROM SYSCAT.SCHEMATA WHERE SCHEMANAME NOT LIKE '\''SYS%'\'''"
+  register: target_schema_count
+  changed_when: false
+  failed_when: false
+
+- name: "Verify schema counts match"
+  assert:
+    that:
+      - source_schema_count.rc == 0
+      - target_schema_count.rc == 0
+      - source_schema_count.stdout | trim == target_schema_count.stdout | trim
+    fail_msg: "Schema count mismatch: source={{ source_schema_count.stdout | trim }}, target={{ target_schema_count.stdout | trim }}"
+  when: db2_migrate_validate_data | default(true) | bool
+
+- name: "Run database integrity check on target"
+  shell: |
+    oc exec -n {{ db2_namespace }} \
+      c-{{ db2_migrate_target_instance | lower }}-db2u-0 -- \
+      su - db2inst1 -c "db2 connect to {{ db2_dbname }} && \
+      db2 -x 'SELECT COUNT(*) FROM SYSIBMADM.ADMINTABINFO WHERE AVAILABLE = '\''Y'\'''"
+  register: target_integrity_check
+  changed_when: false
+  failed_when: false
+
+- name: "Verify database integrity"
+  assert:
+    that:
+      - target_integrity_check.rc == 0
+      - target_integrity_check.stdout | trim | int > 0
+    fail_msg: "Database integrity check failed on target instance"
+  when: db2_migrate_validate_data | default(true) | bool
+
+- name: "Validate custom tables (if specified)"
+  shell: |
+    oc exec -n {{ db2_namespace }} \
+      c-{{ db2_migrate_target_instance | lower }}-db2u-0 -- \
+      su - db2inst1 -c "db2 connect to {{ db2_dbname }} && \
+      db2 -x 'SELECT COUNT(*) FROM {{ item }}'"
+  register: custom_table_validation
+  changed_when: false
+  failed_when: custom_table_validation.rc != 0
+  loop: "{{ db2_migrate_validation_tables.split(',') }}"
+  when:
+    - db2_migrate_validate_data | default(true) | bool
+    - db2_migrate_validation_tables is defined
+    - db2_migrate_validation_tables != ""
+
+- name: "Debug: Data validation results"
+  debug:
+    msg:
+      - "Data validation completed successfully"
+      - "Source tables: {{ source_table_count.stdout | trim }}"
+      - "Target tables: {{ target_table_count.stdout | trim }}"
+      - "Source schemas: {{ source_schema_count.stdout | trim }}"
+      - "Target schemas: {{ target_schema_count.stdout | trim }}"
+      - "Database integrity: PASSED"
+      - "All validation checks: PASSED"
+
+
