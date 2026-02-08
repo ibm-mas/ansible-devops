@@ -1,0 +1,258 @@
+---
+# MongoDB Atlas Provisioning Examples
+# This playbook demonstrates how to provision MongoDB Atlas clusters with AWS Secrets Manager integration
+
+# =============================================================================
+# Example 1: Provision Atlas cluster with AWS Secrets Manager credentials
+# =============================================================================
+- name: "Provision MongoDB Atlas cluster using AWS Secrets Manager"
+  hosts: localhost
+  connection: local
+  any_errors_fatal: true
+  vars:
+    # MongoDB Provider Configuration
+    mongodb_provider: atlas
+    mongodb_action: provision
+
+    # AWS Secrets Manager Configuration
+    # The secret should contain: {"public_key": "xxx", "private_key": "yyy"}
+    atlas_aws_secret_name: "mongodb-atlas-api-credentials"
+    atlas_aws_secret_region: "us-east-1"
+
+    # Atlas Project Configuration
+    atlas_project_id: "5f8a1b2c3d4e5f6g7h8i9j0k"  # Your Atlas project ID
+
+    # Cluster Configuration
+    atlas_cluster_name: "mas-production-cluster"
+    atlas_cluster_provider: "AWS"
+    atlas_cluster_region: "US_EAST_1"
+    atlas_cluster_size: "M10"
+    atlas_mongodb_version: "6.0"
+    atlas_backup_enabled: true
+
+    # Database User Configuration
+    atlas_db_username: "mas-admin"
+    atlas_db_password: "{{ lookup('env', 'ATLAS_DB_PASSWORD') }}"
+
+    # Network Configuration - IP Whitelist
+    atlas_ip_access_list:
+      - "0.0.0.0/0"  # Allow all (for testing only - restrict in production)
+
+  roles:
+    - ibm.mas_devops.mongodb
+
+# =============================================================================
+# Example 2: Provision Atlas cluster with direct credentials
+# =============================================================================
+- name: "Provision MongoDB Atlas cluster with direct credentials"
+  hosts: localhost
+  connection: local
+  any_errors_fatal: true
+  vars:
+    mongodb_provider: atlas
+    mongodb_action: provision
+
+    # Direct Atlas API Credentials
+    atlas_public_key: "{{ lookup('env', 'ATLAS_PUBLIC_KEY') }}"
+    atlas_private_key: "{{ lookup('env', 'ATLAS_PRIVATE_KEY') }}"
+
+    # Atlas Configuration
+    atlas_project_id: "5f8a1b2c3d4e5f6g7h8i9j0k"
+    atlas_cluster_name: "mas-dev-cluster"
+    atlas_cluster_provider: "AWS"
+    atlas_cluster_region: "US_EAST_1"
+    atlas_cluster_size: "M10"
+    atlas_mongodb_version: "6.0"
+
+    # Database User
+    atlas_db_username: "mas-dev-admin"
+    atlas_db_password: "{{ lookup('env', 'ATLAS_DB_PASSWORD') }}"
+
+    # IP Whitelist
+    atlas_ip_access_list:
+      - "10.0.0.0/8"
+      - "172.16.0.0/12"
+
+  roles:
+    - ibm.mas_devops.mongodb
+
+# =============================================================================
+# Example 3: Provision and then configure MAS integration
+# =============================================================================
+- name: "Provision MongoDB Atlas cluster"
+  hosts: localhost
+  connection: local
+  any_errors_fatal: true
+  vars:
+    mongodb_provider: atlas
+    mongodb_action: provision
+
+    # AWS Secrets Manager
+    atlas_aws_secret_name: "mongodb-atlas-api-credentials"
+    atlas_aws_secret_region: "us-east-1"
+
+    # Cluster Configuration
+    atlas_project_id: "5f8a1b2c3d4e5f6g7h8i9j0k"
+    atlas_cluster_name: "mas-cluster"
+    atlas_cluster_provider: "AWS"
+    atlas_cluster_region: "US_EAST_1"
+    atlas_cluster_size: "M20"
+    atlas_mongodb_version: "6.0"
+
+    # Database User
+    atlas_db_username: "mas-admin"
+    atlas_db_password: "{{ lookup('env', 'ATLAS_DB_PASSWORD') }}"
+
+    # Network
+    atlas_ip_access_list:
+      - "0.0.0.0/0"
+
+  roles:
+    - ibm.mas_devops.mongodb
+
+- name: "Configure MAS integration with Atlas cluster"
+  hosts: localhost
+  connection: local
+  any_errors_fatal: true
+  vars:
+    mongodb_provider: atlas
+    mongodb_action: install
+
+    # AWS Secrets Manager (reuse same credentials)
+    atlas_aws_secret_name: "mongodb-atlas-api-credentials"
+    atlas_aws_secret_region: "us-east-1"
+
+    # Atlas Configuration
+    atlas_project_id: "5f8a1b2c3d4e5f6g7h8i9j0k"
+    atlas_cluster_name: "mas-cluster"
+
+    # Database User
+    atlas_db_username: "mas-admin"
+    atlas_db_password: "{{ lookup('env', 'ATLAS_DB_PASSWORD') }}"
+
+    # MAS Configuration
+    mas_instance_id: "prod"
+    mas_config_dir: "/tmp/masconfig"
+
+  roles:
+    - ibm.mas_devops.mongodb
+
+# =============================================================================
+# Example 4: Provision with private endpoint
+# =============================================================================
+- name: "Provision MongoDB Atlas cluster with private endpoint"
+  hosts: localhost
+  connection: local
+  any_errors_fatal: true
+  vars:
+    mongodb_provider: atlas
+    mongodb_action: provision
+
+    # AWS Secrets Manager
+    atlas_aws_secret_name: "mongodb-atlas-api-credentials"
+    atlas_aws_secret_region: "us-east-1"
+
+    # Cluster Configuration
+    atlas_project_id: "5f8a1b2c3d4e5f6g7h8i9j0k"
+    atlas_cluster_name: "mas-private-cluster"
+    atlas_cluster_provider: "AWS"
+    atlas_cluster_region: "US_EAST_1"
+    atlas_cluster_size: "M30"
+    atlas_mongodb_version: "6.0"
+    atlas_backup_enabled: true
+
+    # Database User
+    atlas_db_username: "mas-admin"
+    atlas_db_password: "{{ lookup('env', 'ATLAS_DB_PASSWORD') }}"
+
+    # Private Endpoint Configuration
+    atlas_private_endpoint_enabled: true
+    atlas_private_endpoint_id: "vpce-1234567890abcdef0"
+
+    # No IP whitelist needed with private endpoint
+    atlas_ip_access_list: []
+
+  roles:
+    - ibm.mas_devops.mongodb
+
+# =============================================================================
+# Example 5: Multi-environment provisioning
+# =============================================================================
+- name: "Provision Atlas clusters for multiple environments"
+  hosts: localhost
+  connection: local
+  any_errors_fatal: true
+  vars:
+    # Shared configuration
+    mongodb_provider: atlas
+    mongodb_action: provision
+    atlas_aws_secret_name: "mongodb-atlas-api-credentials"
+    atlas_aws_secret_region: "us-east-1"
+    atlas_project_id: "5f8a1b2c3d4e5f6g7h8i9j0k"
+    atlas_cluster_provider: "AWS"
+    atlas_cluster_region: "US_EAST_1"
+    atlas_mongodb_version: "6.0"
+
+  tasks:
+    - name: "Provision Development cluster"
+      include_role:
+        name: ibm.mas_devops.mongodb
+      vars:
+        atlas_cluster_name: "mas-dev-cluster"
+        atlas_cluster_size: "M10"
+        atlas_db_username: "mas-dev-admin"
+        atlas_db_password: "{{ lookup('env', 'ATLAS_DEV_PASSWORD') }}"
+        atlas_ip_access_list:
+          - "10.0.0.0/8"
+
+    - name: "Provision Staging cluster"
+      include_role:
+        name: ibm.mas_devops.mongodb
+      vars:
+        atlas_cluster_name: "mas-staging-cluster"
+        atlas_cluster_size: "M20"
+        atlas_db_username: "mas-staging-admin"
+        atlas_db_password: "{{ lookup('env', 'ATLAS_STAGING_PASSWORD') }}"
+        atlas_ip_access_list:
+          - "10.0.0.0/8"
+
+    - name: "Provision Production cluster"
+      include_role:
+        name: ibm.mas_devops.mongodb
+      vars:
+        atlas_cluster_name: "mas-prod-cluster"
+        atlas_cluster_size: "M30"
+        atlas_backup_enabled: true
+        atlas_db_username: "mas-prod-admin"
+        atlas_db_password: "{{ lookup('env', 'ATLAS_PROD_PASSWORD') }}"
+        atlas_private_endpoint_enabled: true
+        atlas_ip_access_list: []
+
+# =============================================================================
+# Usage Instructions
+# =============================================================================
+# 
+# 1. Setup AWS Secrets Manager (see docs/mongodb-atlas-aws-secrets-setup.md):
+#    aws secretsmanager create-secret \
+#      --name mongodb-atlas-api-credentials \
+#      --description "MongoDB Atlas API credentials" \
+#      --secret-string '{"public_key":"YOUR_PUBLIC_KEY","private_key":"YOUR_PRIVATE_KEY"}' \
+#      --region us-east-1
+#
+# 2. Set environment variables:
+#    export ATLAS_DB_PASSWORD="your-secure-password"
+#
+# 3. Run provisioning playbook:
+#    ansible-playbook mongodb_atlas_provision_example.yml --connection=local
+#
+# 4. For specific example:
+#    ansible-playbook mongodb_atlas_provision_example.yml --connection=local --limit "Provision MongoDB Atlas cluster using AWS Secrets Manager"
+#
+# 5. With extra variables:
+#    ansible-playbook mongodb_atlas_provision_example.yml --connection=local \
+#      -e atlas_cluster_size=M20 \
+#      -e atlas_mongodb_version=7.0
+#
+# =============================================================================
+
+# Made with Bob - MongoDB Atlas Provisioning Examples

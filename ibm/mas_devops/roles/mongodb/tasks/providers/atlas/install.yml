@@ -1,0 +1,222 @@
+---
+# MongoDB Atlas Provider - Install/Connect Task
+# This task connects to an existing MongoDB Atlas cluster and configures MAS integration
+# Supports retrieving credentials from AWS Secrets Manager
+
+# 1. Retrieve Atlas API credentials from AWS Secrets Manager (if configured)
+# -----------------------------------------------------------------------------
+- name: "Retrieve Atlas credentials from AWS Secrets Manager"
+  when: 
+    - atlas_aws_secret_name is defined
+    - atlas_aws_secret_name != ""
+    - atlas_aws_secret_region is defined
+  block:
+    - name: "Get Atlas API credentials from AWS Secrets Manager"
+      shell: |
+        aws secretsmanager get-secret-value \
+          --secret-id "{{ atlas_aws_secret_name }}" \
+          --region "{{ atlas_aws_secret_region }}" \
+          --query SecretString \
+          --output text
+      register: atlas_secret_output
+      no_log: true
+
+    - name: "Parse Atlas credentials from secret"
+      set_fact:
+        atlas_credentials: "{{ atlas_secret_output.stdout | from_json }}"
+      no_log: true
+
+    - name: "Set Atlas API credentials from AWS Secrets Manager"
+      set_fact:
+        atlas_public_key: "{{ atlas_credentials.public_key }}"
+        atlas_private_key: "{{ atlas_credentials.private_key }}"
+      no_log: true
+      when: 
+        - atlas_public_key is not defined or atlas_public_key == ""
+        - atlas_private_key is not defined or atlas_private_key == ""
+
+    - name: "AWS Secrets Manager credentials retrieved"
+      debug:
+        msg: "Atlas API credentials successfully retrieved from AWS Secrets Manager: {{ atlas_aws_secret_name }}"
+
+# 2. Validate required variables
+# -----------------------------------------------------------------------------
+- name: "Fail if Atlas API credentials are not provided"
+  assert:
+    that:
+      - atlas_public_key is defined and atlas_public_key != ""
+      - atlas_private_key is defined and atlas_private_key != ""
+    fail_msg: "Atlas API credentials (atlas_public_key and atlas_private_key) are required. Provide them directly or via AWS Secrets Manager (atlas_aws_secret_name)."
+
+- name: "Fail if Atlas project and cluster information is not provided"
+  assert:
+    that:
+      - atlas_project_id is defined and atlas_project_id != ""
+      - atlas_cluster_name is defined and atlas_cluster_name != ""
+    fail_msg: "Atlas project ID and cluster name are required"
+
+- name: "Fail if Atlas database credentials are not provided"
+  assert:
+    that:
+      - atlas_db_username is defined and atlas_db_username != ""
+      - atlas_db_password is defined and atlas_db_password != ""
+    fail_msg: "Atlas database username and password are required for MAS integration"
+
+- name: "Fail if MAS configuration is not provided"
+  assert:
+    that:
+      - mas_instance_id is defined and mas_instance_id != ""
+      - mas_config_dir is defined and mas_config_dir != ""
+    fail_msg: "MAS instance ID and config directory are required"
+
+# 3. Display configuration
+# -----------------------------------------------------------------------------
+- name: "MongoDB Atlas Installation Configuration"
+  debug:
+    msg:
+      - "=========================================="
+      - "MongoDB Atlas Installation"
+      - "=========================================="
+      - "Atlas Project ID ............ {{ atlas_project_id }}"
+      - "Atlas Cluster Name .......... {{ atlas_cluster_name }}"
+      - "Atlas Database Username ..... {{ atlas_db_username }}"
+      - "Private Endpoint Enabled .... {{ atlas_private_endpoint_enabled | default(false) }}"
+      - "Using AWS Secrets Manager ... {{ (atlas_aws_secret_name is defined and atlas_aws_secret_name != '') | bool }}"
+      - "MAS Instance ID ............. {{ mas_instance_id }}"
+      - "MAS Config Directory ........ {{ mas_config_dir }}"
+      - "MAS Config Directory ........ {{ atlas_api_base_url }}"
+      - "MAS Config Directory ........ {{ atlas_cluster_name }}"
+      - "MAS Config Directory ........ {{ atlas_public_key }}"
+      - "MAS Config Directory ........ {{ atlas_private_key }}"
+      - "=========================================="
+
+# 4. Retrieve cluster information from Atlas API
+# -----------------------------------------------------------------------------
+- name: "Get Atlas cluster information"
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    status_code: 200
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_cluster_info
+  retries: 3
+  delay: 5
+  until: atlas_cluster_info.status == 200
+
+- name: "Verify cluster is ready"
+  assert:
+    that:
+      - atlas_cluster_info.json.stateName == "IDLE"
+    fail_msg: "Atlas cluster must be in IDLE state. Current state: {{ atlas_cluster_info.json.stateName }}"
+
+- name: "Display cluster information"
+  debug:
+    msg:
+      - "Cluster State ............... {{ atlas_cluster_info.json.stateName }}"
+      - "MongoDB Version ............. {{ atlas_cluster_info.json.mongoDBVersion }}"
+      - "Cluster Type ................ {{ atlas_cluster_info.json.clusterType }}"
+      - "Cloud Provider .............. {{ atlas_cluster_info.json.providerSettings.providerName }}"
+      - "Region ...................... {{ atlas_cluster_info.json.providerSettings.regionName }}"
+
+# 5. Get connection strings
+# -----------------------------------------------------------------------------
+- name: "Get Atlas cluster connection strings"
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}/connectStrings"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    status_code: 200
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_connection_strings
+  retries: 3
+  delay: 5
+  until: atlas_connection_strings.status == 200
+
+- name: "Set connection string facts"
+  set_fact:
+    atlas_standard_srv: "{{ atlas_connection_strings.json.standardSrv }}"
+    atlas_standard: "{{ atlas_connection_strings.json.standard }}"
+    atlas_private_srv: "{{ atlas_connection_strings.json.privateSrv | default('') }}"
+    atlas_private: "{{ atlas_connection_strings.json.private | default('') }}"
+
+# 6. Parse connection string to extract hosts
+# -----------------------------------------------------------------------------
+- name: "Determine connection string to use"
+  set_fact:
+    atlas_connection_string_to_parse: "{{ atlas_private_srv if (atlas_private_endpoint_enabled | default(false) and atlas_private_srv != '') else atlas_standard_srv }}"
+
+- name: "Parse MongoDB SRV connection string"
+  set_fact:
+    atlas_srv_host: "{{ atlas_connection_string_to_parse | regex_search('mongodb\\+srv://([^/]+)', '\\1') | first }}"
+
+- name: "Set Atlas hosts for MongoCfg"
+  set_fact:
+    atlas_hosts:
+      - hostname: "{{ atlas_srv_host }}"
+        port: 27017
+
+- name: "Display connection details"
+  debug:
+    msg:
+      - "Connection Type ............. {{ 'Private Endpoint' if (atlas_private_endpoint_enabled | default(false)) else 'Public' }}"
+      - "Connection String ........... {{ atlas_connection_string_to_parse }}"
+      - "Parsed Host ................. {{ atlas_srv_host }}"
+
+# 7. Get CA certificate for TLS
+# -----------------------------------------------------------------------------
+- name: "Download Atlas CA certificate"
+  get_url:
+    url: "https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem"
+    dest: "/tmp/atlas-ca-cert.pem"
+    mode: '0644'
+  register: atlas_ca_download
+
+- name: "Read CA certificate content"
+  slurp:
+    src: "/tmp/atlas-ca-cert.pem"
+  register: atlas_ca_cert_content
+
+- name: "Set CA certificate fact"
+  set_fact:
+    atlas_ca_certificate: "{{ atlas_ca_cert_content.content | b64decode }}"
+
+# 8. Generate MAS MongoCfg configuration
+# -----------------------------------------------------------------------------
+- name: "Ensure MAS config directory exists"
+  file:
+    path: "{{ mas_config_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: "Generate MongoCfg for MAS"
+  template:
+    src: atlas/suite_mongocfg.yml.j2
+    dest: "{{ mas_config_dir }}/mongocfg-atlas-system.yaml"
+    mode: '0644'
+
+- name: "MongoDB Atlas installation completed successfully"
+  debug:
+    msg:
+      - "=========================================="
+      - "MongoDB Atlas Configuration Complete!"
+      - "=========================================="
+      - "MongoCfg file created at:"
+      - "  {{ mas_config_dir }}/mongocfg-atlas-system.yaml"
+      - ""
+      - "Credentials Source:"
+      - "  {{ 'AWS Secrets Manager: ' + atlas_aws_secret_name if (atlas_aws_secret_name is defined and atlas_aws_secret_name != '') else 'Direct Variables' }}"
+      - ""
+      - "Next Steps:"
+      - "  1. Verify database user '{{ atlas_db_username }}' exists in Atlas"
+      - "  2. Ensure IP whitelist or private endpoint is configured"
+      - "  3. Apply the MongoCfg:"
+      - "     oc apply -f {{ mas_config_dir }}/mongocfg-atlas-system.yaml"
+      - "  4. Or use suite_config role to apply all configurations"
+      - "=========================================="
+
+# Made with Bob - Streamlined Version with AWS Secrets Manager Support

@@ -1,13 +1,41 @@
 ---
-# 1. Check for undefined properties that do not have a default
-# -----------------------------------------------------------------------------
-- name: "Fail if mongodb_provider is not provided"
-  assert:
-    that: mongodb_provider is defined and mongodb_provider != ""
-    fail_msg: "mongodb_provider property is required"
+# ibm/mas_devops/roles/mongodb/tasks/main.yml
 
-# 2. Run the install / uninstall for specified provider
-# -----------------------------------------------------------------------------
-- include_tasks: "tasks/providers/{{ mongodb_provider }}/{{ mongodb_action }}.yml"
+# MongoDB Atlas Provider - Provision Action
+# Creates a new MongoDB Atlas cluster with database users and network configuration
+- name: "Provision MongoDB Atlas cluster"
+  include_tasks: providers/atlas/provision.yml
   when:
-    - mongodb_action != "none"
+    - mongodb_provider == "atlas"
+    - mongodb_action == "provision"
+
+# MongoDB Atlas Provider - Install Action
+# Connects to existing Atlas cluster and configures MAS integration
+- name: "Install/Configure MongoDB Atlas for MAS"
+  include_tasks: providers/atlas/install.yml
+  when:
+    - mongodb_provider == "atlas"
+    - mongodb_action == "install"
+
+# MongoDB Atlas Provider - Backup Action
+- name: "Backup MongoDB Atlas cluster"
+  include_tasks: providers/atlas/backup.yml
+  when:
+    - mongodb_provider == "atlas"
+    - mongodb_action == "backup"
+
+# MongoDB Atlas Provider - Restore Action
+- name: "Restore MongoDB Atlas cluster"
+  include_tasks: providers/atlas/restore.yml
+  when:
+    - mongodb_provider == "atlas"
+    - mongodb_action == "restore"
+
+# MongoDB Atlas Provider - Uninstall Action
+- name: "Uninstall MongoDB Atlas configuration"
+  include_tasks: providers/atlas/uninstall.yml
+  when:
+    - mongodb_provider == "atlas"
+    - mongodb_action == "uninstall"
+
+# Made with Bob - MongoDB Atlas Provider Support

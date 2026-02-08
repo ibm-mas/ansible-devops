@@ -1,0 +1,290 @@
+---
+# MongoDB Atlas Provider - Provision Task
+# This task provisions a new MongoDB Atlas cluster with database users and network configuration
+
+# 1. Retrieve Atlas API credentials from AWS Secrets Manager (if configured)
+# -----------------------------------------------------------------------------
+- name: "Retrieve Atlas credentials from AWS Secrets Manager"
+  when: 
+    - atlas_aws_secret_name is defined
+    - atlas_aws_secret_name != ""
+    - atlas_aws_secret_region is defined
+  block:
+    - name: "Get Atlas API credentials from AWS Secrets Manager"
+      shell: |
+        aws secretsmanager get-secret-value \
+          --secret-id "{{ atlas_aws_secret_name }}" \
+          --region "{{ atlas_aws_secret_region }}" \
+          --query SecretString \
+          --output text
+      register: atlas_secret_output
+      no_log: true
+
+    - name: "Parse Atlas credentials from secret"
+      set_fact:
+        atlas_credentials: "{{ atlas_secret_output.stdout | from_json }}"
+      no_log: true
+
+    - name: "Set Atlas API credentials from AWS Secrets Manager"
+      set_fact:
+        atlas_public_key: "{{ atlas_credentials.public_key }}"
+        atlas_private_key: "{{ atlas_credentials.private_key }}"
+      no_log: true
+
+# 2. Validate required variables
+# -----------------------------------------------------------------------------
+- name: "Fail if Atlas API credentials are not provided"
+  assert:
+    that:
+      - atlas_public_key is defined and atlas_public_key != ""
+      - atlas_private_key is defined and atlas_private_key != ""
+    fail_msg: "Atlas API credentials (atlas_public_key and atlas_private_key) are required. Provide them directly or via AWS Secrets Manager."
+
+- name: "Fail if Atlas project information is not provided"
+  assert:
+    that:
+      - atlas_project_id is defined and atlas_project_id != ""
+    fail_msg: "Atlas project ID is required"
+
+- name: "Fail if Atlas cluster configuration is not provided"
+  assert:
+    that:
+      - atlas_cluster_name is defined and atlas_cluster_name != ""
+      - atlas_cluster_provider is defined and atlas_cluster_provider != ""
+      - atlas_cluster_region is defined and atlas_cluster_region != ""
+      - atlas_cluster_size is defined and atlas_cluster_size != ""
+    fail_msg: "Atlas cluster configuration (name, provider, region, size) is required"
+
+- name: "Fail if Atlas database user configuration is not provided"
+  assert:
+    that:
+      - atlas_db_username is defined and atlas_db_username != ""
+      - atlas_db_password is defined and atlas_db_password != ""
+    fail_msg: "Atlas database username and password are required"
+
+# 3. Display provisioning configuration
+# -----------------------------------------------------------------------------
+- name: "MongoDB Atlas Provisioning Configuration"
+  debug:
+    msg:
+      - "=========================================="
+      - "MongoDB Atlas Cluster Provisioning"
+      - "=========================================="
+      - "Atlas Project ID ............ {{ atlas_project_id }}"
+      - "Cluster Name ................ {{ atlas_cluster_name }}"
+      - "Cloud Provider .............. {{ atlas_cluster_provider }}"
+      - "Region ...................... {{ atlas_cluster_region }}"
+      - "Cluster Size ................ {{ atlas_cluster_size }}"
+      - "MongoDB Version ............. {{ atlas_mongodb_version | default('6.0') }}"
+      - "Database Username ........... {{ atlas_db_username }}"
+      - "Backup Enabled .............. {{ atlas_backup_enabled | default(true) }}"
+      - "MAS Config Directory ........ {{ atlas_cluster_name }}"
+      - "MAS Config Directory ........ {{ atlas_public_key }}"
+      - "MAS Config Directory ........ {{ atlas_private_key }}"
+      - "Using AWS Secrets Manager ... {{ (atlas_aws_secret_name is defined and atlas_aws_secret_name != '') | bool }}"
+      - "=========================================="
+
+# 4. Check if cluster already exists
+# -----------------------------------------------------------------------------
+- name: "Check if Atlas cluster already exists"
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    status_code: [200, 404]
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_cluster_check
+  retries: 3
+  delay: 5
+
+- name: "Set cluster exists fact"
+  set_fact:
+    atlas_cluster_exists: "{{ atlas_cluster_check.status == 200 }}"
+
+# 5. Create Atlas cluster (if it doesn't exist)
+# -----------------------------------------------------------------------------
+- name: "Create MongoDB Atlas cluster"
+  when: not atlas_cluster_exists
+  block:
+    - name: "Prepare cluster configuration (Atlas v1.0 – CORRECT)"
+      set_fact:
+        atlas_cluster_config:
+          name: "{{ atlas_cluster_name }}"
+          clusterType: "REPLICASET"
+          mongoDBMajorVersion: "{{ atlas_mongodb_version | default('6.0') }}"
+          backupEnabled: false
+          providerSettings:
+            providerName: "{{ atlas_cluster_provider }}"   # AWS
+            regionName: "{{ atlas_cluster_region }}"       # US_EAST_1
+            instanceSizeName: "{{ atlas_cluster_size }}"   # M10
+          autoScaling:
+            diskGBEnabled: true
+    - name: "Create cluster via Atlas API"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters"
+        method: POST
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        body: "{{ atlas_cluster_config | to_json }}"
+        body_format: json
+        status_code: [201]
+        timeout: "{{ atlas_api_timeout }}"
+        force_basic_auth: false
+        use_proxy: false
+      register: atlas_cluster_create
+
+    - name: "Cluster creation initiated" 
+      debug:
+        msg:
+          - "Cluster creation initiated successfully"
+          - "Cluster will take 7-10 minutes to provision"
+          - "State: {{ atlas_cluster_create.json.stateName }}"
+
+# 6. Wait for cluster to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for Atlas cluster to be in IDLE state"
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    status_code: 200
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_cluster_status
+  retries: 60
+  delay: 30
+  until: atlas_cluster_status.json.stateName == "IDLE"
+
+- name: "Cluster is ready"
+  debug:
+    msg:
+      - "Cluster State ............... {{ atlas_cluster_status.json.stateName }}"
+      - "MongoDB Version ............. {{ atlas_cluster_status.json.mongoDBVersion }}"
+      - "Cluster Type ................ {{ atlas_cluster_status.json.clusterType }}"
+
+# 7. Create database user
+# -----------------------------------------------------------------------------
+- name: "Check if database user exists"
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers/admin/{{ atlas_db_username }}"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: yes
+    status_code: [200, 404]
+    timeout: 60
+    validate_certs: yes
+  register: atlas_user_check
+
+- name: "Create database user"
+  when: atlas_user_check.status == 404
+  block:
+
+    - name: "Prepare database user configuration"
+      set_fact:
+        atlas_user_config:
+          databaseName: "admin"
+          username: "{{ atlas_db_username }}"
+          password: "{{ atlas_db_password }}"
+          roles:
+            - databaseName: "admin"
+              roleName: "atlasAdmin"
+
+    - name: "Create user via Atlas API"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers"
+        method: POST
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: yes
+        headers:
+          Content-Type: "application/json"
+        body: "{{ atlas_user_config | to_json }}"
+        body_format: json
+        status_code: [201]
+        timeout: 180
+        return_content: yes
+        validate_certs: yes
+      register: atlas_user_create
+      retries: 3
+      delay: 20
+      until: atlas_user_create.status == 201
+
+    - name: "Database user created"
+      debug:
+        msg: "Database user '{{ atlas_db_username }}' created successfully"
+
+- name: "Database user already exists"
+  when: atlas_user_check.status == 200
+  debug:
+    msg: "Database user '{{ atlas_db_username }}' already exists"
+
+# 8. Configure IP access list (whitelist)
+# -----------------------------------------------------------------------------
+- name: "Configure IP access list"
+  when: atlas_ip_access_list is defined and atlas_ip_access_list | length > 0
+  block:
+    - name: "Add IP addresses to access list"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/accessList"
+        method: POST
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        body: "{{ [{'ipAddress': item, 'comment': 'Added by Ansible'}] | to_json }}"
+        body_format: json
+        status_code: [200, 201]
+        timeout: "{{ atlas_api_timeout }}"
+      loop: "{{ atlas_ip_access_list }}"
+      register: atlas_ip_access_result
+      failed_when: false
+
+    - name: "IP access list configured"
+      debug:
+        msg: "IP access list configured with {{ atlas_ip_access_list | length }} entries"
+
+# 9. Get connection strings
+# -----------------------------------------------------------------------------
+- name: "Get Atlas cluster connection strings"
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}/connectStrings"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    status_code: 200
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_connection_strings
+  retries: 3
+  delay: 5
+  until: atlas_connection_strings.status == 200
+
+- name: "Set connection string facts"
+  set_fact:
+    atlas_standard_srv: "{{ atlas_connection_strings.json.standardSrv }}"
+    atlas_standard: "{{ atlas_connection_strings.json.standard }}"
+
+# 10. Display provisioning results
+# -----------------------------------------------------------------------------
+- name: "MongoDB Atlas cluster provisioned successfully"
+  debug:
+    msg:
+      - "=========================================="
+      - "MongoDB Atlas Cluster Provisioned!"
+      - "=========================================="
+      - "Cluster Name ................ {{ atlas_cluster_name }}"
+      - "Connection String (SRV) ..... {{ atlas_standard_srv }}"
+      - "Database User ............... {{ atlas_db_username }}"
+      - "Cluster State ............... {{ atlas_cluster_status.json.stateName }}"
+      - ""
+      - "Next Steps:"
+      - "  1. Test connection to the cluster"
+      - "  2. Run install action to configure MAS integration"
+      - "  3. Apply MongoCfg to OpenShift cluster"
+      - "=========================================="
+
+# Made with Bob - Atlas Provisioning

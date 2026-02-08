@@ -127,6 +127,43 @@ mongodb_v8_upgrade: "{{ lookup('env', 'MONGODB_V8_UPGRADE') | default(false, tru
 
 # This matrix will define and validate the mongodb upgrade compatibility mapping version.
 # Therefore this must be updated whenever a new mongodb version is supported.
+# MongoDB Atlas vars
+# -----------------------------------------------------------------------------
+# Atlas API Configuration
+atlas_api_base_url: "{{ lookup('env', 'ATLAS_API_BASE_URL') | default('https://cloud.mongodb.com/api/atlas/v1.0', True) }}"
+atlas_api_timeout: "{{ lookup('env', 'ATLAS_API_TIMEOUT') | default(30, True) }}"
+
+# Atlas API Credentials (can be provided directly or via AWS Secrets Manager)
+atlas_public_key: "{{ lookup('env', 'ATLAS_PUBLIC_KEY') }}"
+atlas_private_key: "{{ lookup('env', 'ATLAS_PRIVATE_KEY') }}"
+
+# AWS Secrets Manager Configuration (optional - for retrieving Atlas credentials)
+atlas_aws_secret_name: "{{ lookup('env', 'ATLAS_AWS_SECRET_NAME') }}"
+atlas_aws_secret_region: "{{ lookup('env', 'ATLAS_AWS_SECRET_REGION') | default('us-east-1', True) }}"
+
+# Atlas Project and Cluster Configuration
+atlas_project_id: "{{ lookup('env', 'ATLAS_PROJECT_ID') }}"
+atlas_cluster_name: "{{ lookup('env', 'ATLAS_CLUSTER_NAME') }}"
+
+# Atlas Cluster Provisioning Configuration (for provision action)
+atlas_cluster_provider: "{{ lookup('env', 'ATLAS_CLUSTER_PROVIDER') | default('AWS', True) }}"
+atlas_cluster_region: "{{ lookup('env', 'ATLAS_CLUSTER_REGION') | default('US_EAST_1', True) }}"
+atlas_cluster_size: "{{ lookup('env', 'ATLAS_CLUSTER_SIZE') | default('M10', True) }}"
+atlas_mongodb_version: "{{ lookup('env', 'ATLAS_MONGODB_VERSION') | default('6.0', True) }}"
+atlas_backup_enabled: "{{ lookup('env', 'ATLAS_BACKUP_ENABLED') | default(true, True) | bool }}"
+
+# Atlas Database User Configuration
+atlas_db_username: "{{ lookup('env', 'ATLAS_DB_USERNAME') }}"
+atlas_db_password: "{{ lookup('env', 'ATLAS_DB_PASSWORD') }}"
+
+# Atlas Network Configuration
+atlas_private_endpoint_enabled: "{{ lookup('env', 'ATLAS_PRIVATE_ENDPOINT_ENABLED') | default(false, True) | bool }}"
+atlas_private_endpoint_id: "{{ lookup('env', 'ATLAS_PRIVATE_ENDPOINT_ID') }}"
+
+# Atlas IP Access List (whitelist) - comma-separated list of CIDR blocks
+atlas_ip_access_list_str: "{{ lookup('env', 'ATLAS_IP_ACCESS_LIST') }}"
+atlas_ip_access_list: "{{ atlas_ip_access_list_str.split(',') if atlas_ip_access_list_str else [] }}"
+
 # Only allow Mongo upgrades to be next compatible minor (or patch) version.
 # Example:
 # If `existing_mongo_version: 4.4.21` then the `target_mongodb_version` must be `5.0.21` or `5.0.23`.
