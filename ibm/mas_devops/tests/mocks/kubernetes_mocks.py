@@ -266,3 +266,49 @@ def create_mock_mas_app(
     return app
 
 # Made with Bob
+
+
+def create_mock_storage_class(
+    name: str = "test-storage-class",
+    is_default: bool = False,
+    provisioner: str = "kubernetes.io/no-provisioner",
+    **kwargs
+) -> Mock:
+    """
+    Create a mock Kubernetes StorageClass.
+
+    Args:
+        name: StorageClass name
+        is_default: Whether this is a default storage class
+        provisioner: Storage provisioner
+        **kwargs: Additional attributes
+
+    Returns:
+        Mock: A mock StorageClass object
+    """
+    storage_class = Mock()
+    storage_class.metadata.name = name
+    storage_class.provisioner = provisioner
+
+    # Set default annotation if is_default is True
+    if is_default:
+        storage_class.metadata.annotations = {
+            'storageclass.kubernetes.io/is-default-class': 'true'
+        }
+    else:
+        storage_class.metadata.annotations = {}
+
+    storage_class.to_dict.return_value = {
+        'metadata': {
+            'name': name,
+            'annotations': storage_class.metadata.annotations
+        },
+        'provisioner': provisioner
+    }
+
+    # Add any additional attributes
+    for key, value in kwargs.items():
+        setattr(storage_class, key, value)
+
+    return storage_class
+
