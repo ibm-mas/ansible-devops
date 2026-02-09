@@ -1,0 +1,105 @@
+name: Test Plugins
+
+on:
+  push:
+    branches: [ "**" ]
+    tags-ignore: [ "**" ]
+  pull_request:
+    branches: [ master ]
+
+# Ensure only one test run at a time for any branch, cancelling any in-progress runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-plugins:
+    name: Test Plugins
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.head_commit.message, '[doc]') && !contains(github.event.head_commit.message, '[skip tests]') }}
+    steps:
+      - name: Install Python v3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # -------------------------------------------------------------------------------------------
+      # Install python-devops package using the same logic as CLI project
+      # This ensures we use the appropriate version for the test scope we are running in
+      # -------------------------------------------------------------------------------------------
+      - name: Install dependencies
+        id: install-dependencies
+        run: |
+          cd $GITHUB_WORKSPACE/ibm/mas_devops/tests
+
+          python -m pip install --upgrade pip
+          pip install -r $GITHUB_WORKSPACE/ibm/mas_devops/requirements.txt
+          pip install -r $GITHUB_WORKSPACE/ibm/mas_devops/tests/requirements-test.txt
+
+          # Check if there's a local python-devops package in this repo
+          if [[ "$GITHUB_REF_TYPE" == "branch" ]]; then
+              # python-devops main branch is named "stable" rather than "master"
+              PYTHON_BRANCH_NAME=$GITHUB_REF_NAME
+              if [[ "$GITHUB_REF_NAME" == "master" ]]; then
+                  PYTHON_BRANCH_NAME=stable
+              fi
+
+              RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "https://api.github.com/repos/ibm-mas/python-devops/branches/${PYTHON_BRANCH_NAME}")
+
+              if [[ "${RESPONSE}" == "200" ]]; then
+                  echo "Installing development build of python-devops from GitHub branch ${PYTHON_BRANCH_NAME}"
+              else
+                  echo "Branch ${PYTHON_BRANCH_NAME} not found, defaulting to stable"
+                  PYTHON_BRANCH_NAME=stable
+              fi
+
+              python3 -m pip install "git+https://github.com/ibm-mas/python-devops.git@${PYTHON_BRANCH_NAME}"
+          fi
+
+      # -------------------------------------------------------------------------------------------
+      # Run pytest with coverage
+      # -------------------------------------------------------------------------------------------
+      - name: Run tests with coverage
+        id: run-tests
+        run: |
+          cd $GITHUB_WORKSPACE/ibm/mas_devops/tests
+          pytest -v --cov=unit/plugins --cov-report=term --cov-report=xml --cov-report=html
+
+      # -------------------------------------------------------------------------------------------
+      # Upload coverage reports
+      # -------------------------------------------------------------------------------------------
+      - name: Upload coverage report (XML)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-xml
+          path: ${{ github.workspace }}/ibm/mas_devops/tests/coverage.xml
+          retention-days: 30
+
+      - name: Upload coverage report (HTML)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-html
+          path: ${{ github.workspace }}/ibm/mas_devops/tests/htmlcov/
+          retention-days: 30
+
+      # -------------------------------------------------------------------------------------------
+      # Display coverage summary
+      # -------------------------------------------------------------------------------------------
+      - name: Coverage summary
+        if: always()
+        run: |
+          cd $GITHUB_WORKSPACE/ibm/mas_devops/tests
+          echo "## Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          coverage report >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+# Made with Bob
