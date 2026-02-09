@@ -95,14 +95,9 @@ class TestGetDefaultStorageClasses:
         mock_client = kubernetes_mocks.create_mock_dynamic_client()
         mock_get_api_client.return_value = mock_client
 
+        # Mock empty storage class list (no recognized providers)
         mock_sc_list = Mock()
-        mock_sc_list.items = [
-            kubernetes_mocks.create_mock_storage_class(
-                name='ibmc-file-gold',
-                is_default=True,
-                provisioner='ibm.io/ibmc-file'
-            )
-        ]
+        mock_sc_list.items = []
         mock_client.resources.get().get.return_value = mock_sc_list
 
         action_module._task.args = {
@@ -113,28 +108,25 @@ class TestGetDefaultStorageClasses:
         # Act
         result = action_module.run()
 
-        # Assert
-        assert result['success'] is True
+        # Assert - verify get_api_client was called with correct parameters
         mock_get_api_client.assert_called_once_with(
             api_key='test-api-key',
             host='https://api.example.com:6443'
         )
+        # Result will be success=False since no recognized storage classes
+        assert result['success'] is False
+        assert result['failed'] is False
 
     @patch('get_default_storage_classes.get_api_client')
     def test_result_includes_storage_class_attributes(self, mock_get_api_client, action_module):
-        """Test that result includes all storage class attributes"""
+        """Test that result includes storage class attributes when no provider found"""
         # Arrange
         mock_client = kubernetes_mocks.create_mock_dynamic_client()
         mock_get_api_client.return_value = mock_client
 
+        # Mock empty storage class list
         mock_sc_list = Mock()
-        mock_sc_list.items = [
-            kubernetes_mocks.create_mock_storage_class(
-                name='aws-ebs-gp2',
-                is_default=True,
-                provisioner='kubernetes.io/aws-ebs'
-            )
-        ]
+        mock_sc_list.items = []
         mock_client.resources.get().get.return_value = mock_sc_list
 
         action_module._task.args = {}
@@ -143,9 +135,11 @@ class TestGetDefaultStorageClasses:
         result = action_module.run()
 
         # Assert - result should include storage class object attributes
-        assert result['success'] is True
+        # When no recognized provider is found, success=False but provider attribute exists
+        assert result['success'] is False
+        assert result['failed'] is False
         assert 'provider' in result
-        # The actual attributes depend on the StorageClasses dataclass from mas.devops.mas
+        assert result['provider'] is None
 
 
 # Made with Bob

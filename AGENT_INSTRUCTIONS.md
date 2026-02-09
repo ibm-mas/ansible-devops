@@ -73,3 +73,78 @@ ansible-playbook -i inventory.yml playbook.yml  # Test playbooks
 - **Adding a Role**: Create `ibm/mas_devops/roles/role_name/{tasks,vars,handlers,templates}/`, run `make roles-doc`
 - **Updating Dependencies**: Modify `ee/Dockerfile` or `ee/bindep.txt`, rebuild with `make build`
 - **Extending Playbook**: Add role calls in top-level playbook, test with target environment
+
+
+## Python Testing Environment
+
+### Development Environment Setup
+- **Virtual Environment Location**: `~/ibm-mas/ansible-devops/.venv`
+- **Python Version**: 3.12.12
+- **Platform**: WSL (Windows Subsystem for Linux)
+- **Activation**: `source ~/ibm-mas/ansible-devops/.venv/bin/activate`
+
+### Running Python Commands
+When executing Python commands or tests in this project:
+1. Always use WSL environment (not Windows CMD)
+2. Activate the virtual environment first
+3. Example command format:
+   ```bash
+   cd ~/ibm-mas/ansible-devops && source .venv/bin/activate && cd ibm/mas_devops/tests && python -m pytest unit/plugins/action/ -v
+   ```
+
+### Python Testing Framework
+- **Framework**: pytest with pytest-mock
+- **Test Location**: `ibm/mas_devops/tests/`
+- **Configuration**: `ibm/mas_devops/tests/pytest.ini`
+- **Requirements**: `ibm/mas_devops/tests/requirements-test.txt`
+- **Mock Helpers**: `ibm/mas_devops/tests/mocks/` (kubernetes_mocks, mas_devops_mocks, external_api_mocks)
+
+### Testing Approach for Action Plugins
+- ✅ Use REAL `mas.devops` functions (from ../python-devops package)
+- ✅ Mock only external dependencies (Kubernetes API, HTTP requests)
+- ❌ Do NOT mock `mas.devops.*` functions (they are part of code under test)
+- Install python-devops in editable mode: `pip install -e ../python-devops`
+
+### Running Tests
+```bash
+# From tests directory
+cd ibm/mas_devops/tests
+python -m pytest unit/plugins/action/ -v
+
+# Run specific test file
+python -m pytest unit/plugins/action/test_get_catalog_info.py -v
+
+# Run with coverage
+python -m pytest unit/plugins/action/ --cov=../plugins/action --cov-report=html
+```
+
+### Python 3.12 Compatibility
+- **Important**: Python 3.12 removed `distutils` module
+- **Solution**: `setuptools>=65.0.0` provides distutils compatibility
+- Already included in requirements-test.txt
+
+### Test Structure
+- Each test file follows AAA pattern (Arrange-Act-Assert)
+- Test files use direct imports: `import module_name`
+- Mock helpers available in `mocks/` directory
+- Fixtures defined in `conftest.py` files
+- File naming: `test_<action_name>.py`
+- Class naming: `Test<ActionName>`
+- Method naming: `test_<scenario>_<expected_outcome>`
+
+### Import Path Resolution
+- Action plugin path added in `tests/unit/plugins/action/conftest.py`
+- Relative path: `../../../../plugins/action`
+- Import style: `import module_name` (direct import, not package-style)
+- Mock helpers path added in `tests/conftest.py`
+
+### Common Python Testing Issues
+- **ModuleNotFoundError for action plugins**: Path is set up in conftest.py, use direct imports
+- **distutils not found (Python 3.12)**: Install setuptools: `pip install setuptools`
+- **mas.devops import errors**: Install python-devops in editable mode: `pip install -e ../python-devops`
+- **Tests fail with async errors**: mock_task fixture sets `async_val = False` in conftest.py
+
+### Test Documentation
+- `ibm/mas_devops/tests/README.md` - Testing guide (407 lines)
+- `ibm/mas_devops/tests/TEST_PLAN.md` - Test strategy (717 lines)
+- `ibm/mas_devops/tests/TEST_IMPLEMENTATION_SUMMARY.md` - Progress tracking
