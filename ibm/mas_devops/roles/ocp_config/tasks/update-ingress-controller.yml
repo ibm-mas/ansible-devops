@@ -1,6 +1,103 @@
 ---
+# Update IngressController Configuration
+# -----------------------------------------------------------------------------
+# This task updates the OpenShift IngressController to configure:
+# - Timeout settings (clientTimeout, serverTimeout)
+# - Namespace ownership for path-based routing (namespaceOwnership)
+#
+# Parameters:
+# - ocp_ingress_controller_name: Name of the IngressController to update (default: 'default')
+# - ocp_ingress_update_timeouts: Whether to update timeout settings
+# - ocp_ingress_client_timeout: Client timeout value (e.g., '30s')
+# - ocp_ingress_server_timeout: Server timeout value (e.g., '30s')
+# - ocp_ingress_namespace_ownership: Namespace ownership setting (e.g., 'InterNamespaceAllowed')
 
-- name: "Apply ingress operator tuning parameters"
-  kubernetes.core.k8s:
-    merge_type: merge
-    template: templates/ingress.yml.j2
+- name: "Get current IngressController configuration"
+  kubernetes.core.k8s_info:
+    api_version: operator.openshift.io/v1
+    kind: IngressController
+    name: "{{ ocp_ingress_controller_name }}"
+    namespace: openshift-ingress-operator
+  register: ingress_controller_info
+  failed_when: false
+
+- name: "Check if IngressController exists"
+  fail:
+    msg: "IngressController '{{ ocp_ingress_controller_name }}' not found in namespace openshift-ingress-operator"
+  when:
+    - ingress_controller_info.resources is not defined or ingress_controller_info.resources | length == 0
+
+- name: "Extract current IngressController settings"
+  set_fact:
+    current_client_timeout: "{{ ingress_controller_info.resources[0].spec.tuningOptions.clientTimeout | default('') }}"
+    current_server_timeout: "{{ ingress_controller_info.resources[0].spec.tuningOptions.serverTimeout | default('') }}"
+    current_namespace_ownership: "{{ ingress_controller_info.resources[0].spec.routeAdmission.namespaceOwnership | default('') }}"
+  when:
+    - ingress_controller_info.resources is defined
+    - ingress_controller_info.resources | length > 0
+
+- name: "Display current IngressController settings"
+  debug:
+    msg:
+      - "IngressController ................. {{ ocp_ingress_controller_name }}"
+      - "Current clientTimeout ............. {{ current_client_timeout if (current_client_timeout is defined and current_client_timeout != '') else 'Not set' }}"
+      - "Current serverTimeout ............. {{ current_server_timeout if (current_server_timeout is defined and current_server_timeout != '') else 'Not set' }}"
+      - "Current namespaceOwnership ........ {{ current_namespace_ownership if (current_namespace_ownership is defined and current_namespace_ownership != '') else 'Not set' }}"
+      - "Requested clientTimeout ........... {{ ocp_ingress_client_timeout if ocp_ingress_update_timeouts else 'No change' }}"
+      - "Requested serverTimeout ........... {{ ocp_ingress_server_timeout if ocp_ingress_update_timeouts else 'No change' }}"
+      - "Requested namespaceOwnership ...... {{ ocp_ingress_namespace_ownership if (ocp_ingress_namespace_ownership is defined and ocp_ingress_namespace_ownership | length > 0) else 'No change' }}"
+
+- name: "Determine if IngressController update is needed"
+  set_fact:
+    needs_timeout_update: "{{ ocp_ingress_update_timeouts and (current_client_timeout != ocp_ingress_client_timeout or current_server_timeout != ocp_ingress_server_timeout) }}"
+    needs_ownership_update: "{{ (ocp_ingress_namespace_ownership is defined and ocp_ingress_namespace_ownership | length > 0) and current_namespace_ownership != ocp_ingress_namespace_ownership }}"
+
+- name: "Apply IngressController configuration updates"
+  when: needs_timeout_update or needs_ownership_update
+  block:
+    - name: "Update IngressController with requested settings"
+      kubernetes.core.k8s:
+        merge_type: merge
+        definition: "{{ lookup('template', 'templates/ingress.yml.j2') | from_yaml }}"
+      register: ingress_update_result
+
+    - name: "Display IngressController update result"
+      debug:
+        msg:
+          - "IngressController updated ......... {{ ingress_update_result.changed }}"
+
+    - name: "Wait for IngressController to reconcile"
+      kubernetes.core.k8s_info:
+        api_version: operator.openshift.io/v1
+        kind: IngressController
+        name: "{{ ocp_ingress_controller_name }}"
+        namespace: openshift-ingress-operator
+      register: ingress_verify
+      until:
+        - ingress_verify.resources is defined
+        - ingress_verify.resources | length > 0
+        - (not needs_timeout_update) or (ingress_verify.resources[0].spec.tuningOptions.clientTimeout == ocp_ingress_client_timeout and ingress_verify.resources[0].spec.tuningOptions.serverTimeout == ocp_ingress_server_timeout)
+        - (not needs_ownership_update) or (ingress_verify.resources[0].spec.routeAdmission.namespaceOwnership == ocp_ingress_namespace_ownership)
+      retries: 10
+      delay: 5
+
+    - name: "IngressController successfully updated"
+      debug:
+        msg: "IngressController '{{ ocp_ingress_controller_name }}' has been successfully updated with the requested configuration"
+
+  rescue:
+    - name: "Failed to update IngressController"
+      fail:
+        msg:
+          - "Failed to update IngressController '{{ ocp_ingress_controller_name }}'"
+          - "Please verify the configuration and try again, or update manually using:"
+          - ""
+          - "  oc patch ingresscontroller {{ ocp_ingress_controller_name }} -n openshift-ingress-operator \\"
+          - "    --type=merge \\"
+          - "    --patch='{{ lookup('template', 'templates/ingress.yml.j2') | to_json }}'"
+          - ""
+
+- name: "IngressController already configured correctly"
+  debug:
+    msg: "IngressController '{{ ocp_ingress_controller_name }}' is already configured with the requested settings - no changes needed"
+  when: not (needs_timeout_update or needs_ownership_update)

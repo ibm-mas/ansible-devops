@@ -2,9 +2,15 @@
 apiVersion: operator.openshift.io/v1
 kind: IngressController
 metadata:
-  name: default
+  name: {{ ocp_ingress_controller_name }}
   namespace: openshift-ingress-operator
 spec:
+{% if ocp_ingress_update_timeouts %}
   tuningOptions:
     clientTimeout: "{{ ocp_ingress_client_timeout }}"
     serverTimeout: "{{ ocp_ingress_server_timeout }}"
+{% endif %}
+{% if ocp_ingress_namespace_ownership is defined and ocp_ingress_namespace_ownership | length > 0 %}
+  routeAdmission:
+    namespaceOwnership: {{ ocp_ingress_namespace_ownership }}
+{% endif %}
