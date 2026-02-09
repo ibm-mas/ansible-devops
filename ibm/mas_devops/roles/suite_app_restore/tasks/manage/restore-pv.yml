@@ -1,0 +1,281 @@
+---
+# Restore Manage Persistent Volumes
+# =============================================================================
+# This task restores Manage persistent volume data by:
+# 1. Reading the ManageWorkspace CR from backup to get PVC configuration
+# 2. If ManageWorkspace CR is not deployed, create PVCs and a dummy pod
+# 3. Restore PVC data using the pod
+# 4. Shutdown the dummy pod
+# 5. Continue with ManageWorkspace CR restore
+# 6. Wait for Manage deployment to be activated
+
+# 1. Read ManageWorkspace CR from backup to get PVC configuration
+# -----------------------------------------------------------------------------
+- name: "Display restore phase 3 information"
+  debug:
+    msg:
+      - "=========================================="
+      - "Phase 3: Restore Persistent Volume Data"
+      - "=========================================="
+
+- name: Get files from {{ manage_resources_backup_path }}/manageworkspaces directory
+  set_fact:
+    instance_files: "{{ lookup('fileglob', '{{ manage_resources_backup_path }}/manageworkspaces/*', wantlist=True) }}"
+
+- name: Assert exactly one ManageWorkspace CR exists
+  assert:
+    that:
+      - instance_files | length == 1
+    fail_msg: "ManageWorkspace Directory must contain exactly one file"
+
+- name: Set fact ManageWorkspace cr
+  set_fact:
+    workspace_backup_cr: "{{ lookup('file', '{{ instance_files[0] }}') | from_yaml }}"
+
+- name: "Extract persistent volumes configuration from backup"
+  set_fact:
+    manage_persistent_volumes: "{{ workspace_backup_cr.spec.settings.deployment.persistentVolumes | default([]) }}"
+
+- name: "Display persistent volumes configuration"
+  debug:
+    msg:
+      - "Persistent volumes found in backup: {{ manage_persistent_volumes | length }}"
+      - "{{ manage_persistent_volumes | to_nice_yaml }}"
+
+# 2. Check if we need to restore PV data
+# -----------------------------------------------------------------------------
+- name: "Check if PV data backup exists"
+  stat:
+    path: "{{ manage_backup_path }}/data"
+  register: pv_data_dir_stat
+
+- name: "Set fact: PV data needs restore"
+  set_fact:
+    pv_data_needs_restore: "{{ manage_persistent_volumes | length > 0 and pv_data_dir_stat.stat.exists and pv_data_dir_stat.stat.isdir }}"
+
+- name: "Display PV restore decision"
+  debug:
+    msg: "PV data restore {{ 'required' if pv_data_needs_restore else 'not required' }}"
+
+# 3. Restore PV data if needed
+# -----------------------------------------------------------------------------
+- name: "Restore Manage persistent volume data"
+  when: pv_data_needs_restore
+  block:
+    # If ManageWorkspace doesn't exist, create PVCs and dummy pod
+    # -------------------------------------------------------------------------
+    - name: "Display PVC creation information"
+      debug:
+        msg:
+          - "ManageWorkspace CR not deployed yet"
+          - "Creating PVCs and dummy pod for data restoration"
+
+    # Create PVCs
+    # ---------------------------------------------------------------------
+    - name: "Create PVCs for data restoration"
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: "{{ pv_item.pvcName }}"
+            namespace: "{{ mas_app_namespace }}"
+          spec:
+            accessModes: "{{ pv_item.accessModes }}"
+            storageClassName: "{{ pv_item.storageClassName }}"
+            resources:
+              requests:
+                storage: "{{ pv_item.size }}"
+      loop: "{{ manage_persistent_volumes }}"
+      loop_control:
+        loop_var: pv_item
+
+    - name: "Wait for PVCs to be bound"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: PersistentVolumeClaim
+        name: "{{ pv_item.pvcName }}"
+        namespace: "{{ mas_app_namespace }}"
+      register: pvc_status
+      retries: 60
+      delay: 5
+      until:
+        - pvc_status.resources is defined
+        - pvc_status.resources | length > 0
+        - pvc_status.resources[0].status.phase == 'Bound'
+      loop: "{{ manage_persistent_volumes }}"
+      loop_control:
+        loop_var: pv_item
+
+    # Create dummy pod to mount PVCs
+    # ---------------------------------------------------------------------
+    - name: "Create dummy pod for PVC data restoration"
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-restore-pvc-pod"
+            namespace: "{{ mas_app_namespace }}"
+            labels:
+              app: manage-restore
+              mas.ibm.com/instanceId: "{{ mas_instance_id }}"
+              mas.ibm.com/workspaceId: "{{ mas_workspace_id }}"
+          spec:
+            restartPolicy: Never
+            containers:
+              - name: restore-container
+                image: registry.redhat.io/ubi8/ubi-minimal:latest
+                command: ["/bin/sh", "-c", "sleep infinity"]
+                volumeMounts: "{{ manage_persistent_volumes | map(attribute='mountPath') | zip(manage_persistent_volumes | map(attribute='pvcName')) | map('community.general.dict_kv', 'mountPath', 'name') | list }}"
+            volumes: "{{ manage_persistent_volumes | map('community.general.dict_kv', 'name', 'pvcName') | map('combine', {'persistentVolumeClaim': {'claimName': ''}}) | list }}"
+      vars:
+        volume_mounts: |
+          {% set mounts = [] %}
+          {% for pv in manage_persistent_volumes %}
+          {% set _ = mounts.append({'name': pv.pvcName, 'mountPath': pv.mountPath}) %}
+          {% endfor %}
+          {{ mounts }}
+        volumes: |
+          {% set vols = [] %}
+          {% for pv in manage_persistent_volumes %}
+          {% set _ = vols.append({'name': pv.pvcName, 'persistentVolumeClaim': {'claimName': pv.pvcName}}) %}
+          {% endfor %}
+          {{ vols }}
+      register: dummy_pod_created
+
+    - name: "Wait for dummy pod to be running"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-restore-pvc-pod"
+        namespace: "{{ mas_app_namespace }}"
+      register: dummy_pod_status
+      retries: 60
+      delay: 5
+      until:
+        - dummy_pod_status.resources is defined
+        - dummy_pod_status.resources | length > 0
+        - dummy_pod_status.resources[0].status.phase == 'Running'
+
+    - name: "Set fact: restore pod name"
+      set_fact:
+        restore_pod_name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-restore-pvc-pod"
+        restore_pod_container: "restore-container"
+        using_dummy_pod: true
+
+    # Restore each persistent volume
+    # -------------------------------------------------------------------------
+    - name: "Display restore pod information"
+      debug:
+        msg:
+          - "Restore pod: {{ restore_pod_name }}"
+          - "Container: {{ restore_pod_container }}"
+          - "Using dummy pod: {{ using_dummy_pod }}"
+
+    - name: "Restore each persistent volume"
+      include_tasks: "{{ role_path }}/tasks/manage/restore-single-pv.yml"
+      loop: "{{ manage_persistent_volumes }}"
+      loop_control:
+        loop_var: pv_item
+        index_var: pv_index
+
+    # Shutdown dummy pod if created
+    # -------------------------------------------------------------------------
+    - name: "Shutdown dummy pod"
+      when: using_dummy_pod | default(false)
+      block:
+        - name: "Delete dummy restore pod"
+          kubernetes.core.k8s:
+            api_version: v1
+            kind: Pod
+            name: "{{ restore_pod_name }}"
+            namespace: "{{ mas_app_namespace }}"
+            state: absent
+            wait: yes
+            wait_timeout: 300
+
+        - name: "Dummy pod deleted successfully"
+          debug:
+            msg: "Dummy restore pod {{ restore_pod_name }} has been deleted"
+
+    - name: "Display PV restore completion"
+      debug:
+        msg:
+          - "Manage PV restore completed"
+          - "Persistent volumes restored: {{ manage_persistent_volumes | length }}"
+
+# 4. Skip message if no PV data to restore
+# -----------------------------------------------------------------------------
+- name: "Skip PV restore message"
+  debug:
+    msg: "Skipping Manage PV restore - no persistent volume data found in backup"
+  when: not pv_data_needs_restore
+
+# 5. Restore ManageWorkspace CR
+# -----------------------------------------------------------------------------
+- name: "Display restore phase 4 information"
+  debug:
+    msg:
+      - "=========================================="
+      - "Phase 4: Restore ManageWorkspace CR"
+      - "=========================================="
+
+- name: "Restore ManageWorkspace CR"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ manage_backup_path }}"
+    resource_kinds:
+      - ManageWorkspace
+  register: manage_restore_phase4_result
+
+- name: "Display Phase 4 restore results"
+  debug:
+    msg:
+      - "Phase 4 restore completed{{ ' with failures' if manage_restore_phase4_result.failed_count > 0 else ' successfully' }}"
+      - "Total resources restored: {{ manage_restore_phase4_result.restored_count }}"
+      - "Total resources failed: {{ manage_restore_phase4_result.failed_count }}"
+
+- name: "Fail if Phase 4 restore had errors"
+  fail:
+    msg: |
+      Phase 4 restore failed for {{ manage_restore_phase4_result.failed_count }} resource(s):
+      {% for resource in manage_restore_phase4_result.failed_resources %}
+      - {{ resource.description }} in {{ resource.scope }}
+      {% endfor %}
+  when: manage_restore_phase4_result.failed_count > 0
+
+# 6. Wait for Manage deployment to be activated
+# -----------------------------------------------------------------------------
+- name: "Display restore phase 5 information"
+  debug:
+    msg:
+      - "=========================================="
+      - "Phase 5: Wait for Manage Deployment"
+      - "=========================================="
+
+- name: "Wait for ManageWorkspace to be ready"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: ManageWorkspace
+    name: "{{ manage_workspace_cr_name }}"
+    namespace: "{{ mas_app_namespace }}"
+  register: workspace_ready_status
+  retries: "{{ (mas_app_restore_wait_timeout | int / mas_app_restore_wait_delay | int) | int }}"
+  delay: "{{ mas_app_restore_wait_delay | int }}"
+  until:
+    - workspace_ready_status.resources is defined
+    - workspace_ready_status.resources | length > 0
+    - workspace_ready_status.resources[0].status is defined
+    - workspace_ready_status.resources[0].status.conditions is defined
+    - workspace_ready_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | list | length > 0
+    - (workspace_ready_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | first).status == 'True'
+
+- name: "ManageWorkspace is ready"
+  debug:
+    msg:
+      - "=========================================="
+      - "ManageWorkspace {{ manage_workspace_cr_name }} is ready"
+      - "Manage deployment has been activated"
+      - "=========================================="

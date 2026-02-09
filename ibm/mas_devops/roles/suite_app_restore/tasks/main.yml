@@ -1,0 +1,81 @@
+---
+# MAS Application Restore Role
+# =============================================================================
+# This role restores MAS application resources and data.
+# Currently supports: manage
+#
+# The restore includes:
+# - Application namespace resources (CRs, secrets, subscriptions)
+# - Persistent volume data (if configured)
+
+# 1. Validate required variables
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id is required"
+
+- name: "Fail if mas_workspace_id is not provided"
+  assert:
+    that: mas_workspace_id is defined and mas_workspace_id != ""
+    fail_msg: "mas_workspace_id is required"
+
+- name: "Fail if mas_app_id is not provided"
+  assert:
+    that: mas_app_id is defined and mas_app_id != ""
+    fail_msg: "mas_app_id is required"
+
+- name: "Fail if mas_backup_dir is not provided"
+  assert:
+    that: mas_backup_dir is defined and mas_backup_dir != ""
+    fail_msg: "mas_backup_dir is required"
+
+- name: "Fail if mas_app_backup_version is not provided"
+  assert:
+    that: mas_app_backup_version is defined and mas_app_backup_version != ""
+    fail_msg: "mas_app_backup_version is required"
+
+# 2. Display restore configuration
+# -----------------------------------------------------------------------------
+- name: "Display restore configuration"
+  debug:
+    msg:
+      - "MAS Instance ID: {{ mas_instance_id }}"
+      - "MAS Workspace ID: {{ mas_workspace_id }}"
+      - "MAS App ID: {{ mas_app_id }}"
+      - "Backup Directory: {{ mas_backup_dir }}"
+      - "Backup Version: {{ mas_app_backup_version }}"
+      - "Wait Timeout: {{ mas_app_restore_wait_timeout }}s"
+
+# 3. Route to app-specific restore tasks
+# -----------------------------------------------------------------------------
+- name: "Execute restore for {{ mas_app_id }}"
+  block:
+    # Manage restore
+    # ---------------------------------------------------------------------------
+    - name: "Restore Manage application"
+      when: mas_app_id == "manage"
+      block:
+        - name: "Restore Manage namespace resources"
+          include_tasks: "{{ role_path }}/tasks/manage/restore-namespace.yml"
+
+        - name: "Restore Manage persistent volumes"
+          include_tasks: "{{ role_path }}/tasks/manage/restore-pv.yml"
+
+        - name: "Manage restore completed successfully"
+          debug:
+            msg:
+              - "=========================================="
+              - "Manage Restore Completed Successfully"
+              - "=========================================="
+              - "Instance ID: {{ mas_instance_id }}"
+              - "Workspace ID: {{ mas_workspace_id }}"
+              - "Restored from: {{ manage_backup_path }}"
+              - "=========================================="
+
+    # Unsupported app
+    # ---------------------------------------------------------------------------
+    - name: "Fail if app is not supported"
+      fail:
+        msg: "Application '{{ mas_app_id }}' is not yet supported for restore. Currently supported: manage"
+      when: mas_app_id not in ['manage']

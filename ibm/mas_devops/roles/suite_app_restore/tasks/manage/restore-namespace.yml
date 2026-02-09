@@ -1,0 +1,288 @@
+---
+# Restore Manage Namespace Resources
+# =============================================================================
+# This task restores Manage namespace resources following these steps:
+# 1. Restore kubernetes resources until ManageApp CR
+# 2. Check if ManageWorkspace CR is deployed
+# 3. If deployed, change spec.mode to down
+# 4. Continue with ManageWorkspace CR restore
+# 5. Wait for Manage deployment to be activated
+
+# 1. Verify required variables
+# -----------------------------------------------------------------------------
+- name: "Verify required variables for Manage restore"
+  ibm.mas_devops.verify_backup_restore_vars:
+    component: manage
+    action: restore
+    mas_instance_id: "{{ mas_instance_id }}"
+    mas_workspace_id: "{{ mas_workspace_id }}"
+    mas_backup_dir: "{{ mas_backup_dir }}"
+    mas_app_backup_version: "{{ mas_app_backup_version }}"
+
+# 2. Set backup path
+# -----------------------------------------------------------------------------
+- name: "Set fact: Manage backup base directory path"
+  set_fact:
+    manage_backup_path: "{{ mas_backup_dir }}/backup-{{ mas_app_backup_version }}-manage"
+    manage_resources_backup_path: "{{ mas_backup_dir }}/backup-{{ mas_app_backup_version }}-manage/resources"
+
+- name: "Verify backup directory exists"
+  stat:
+    path: "{{ manage_resources_backup_path }}"
+  register: backup_dir_stat
+
+- name: "Fail if backup directory does not exist"
+  fail:
+    msg: "Backup directory not found: {{ manage_resources_backup_path }}"
+  when: not backup_dir_stat.stat.exists or not backup_dir_stat.stat.isdir
+
+# 2.1. Verify cert-manager exists
+# -----------------------------------------------------------------------------
+- name: Detect Certificate Manager installation
+  include_tasks: "{{ role_path }}/../../common_tasks/detect_cert_manager.yml"
+
+# 3. Set Manage namespace and workspace CR name
+# -----------------------------------------------------------------------------
+- name: "Set fact: Manage namespace"
+  set_fact:
+    mas_app_namespace: "mas-{{ mas_instance_id }}-manage"
+
+- name: "Set fact: Manage workspace CR name"
+  set_fact:
+    manage_workspace_cr_name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
+
+# 4. Restore resources until ManageApp CR (excluding ManageWorkspace)
+# -----------------------------------------------------------------------------
+- name: "Display restore phase 1 information"
+  debug:
+    msg:
+      - "=========================================="
+      - "Phase 1: Restore resources Project, Secrets, Configmaps, Subscription, Certificates and ManageApp CR"
+      - "=========================================="
+      - "Namespace: {{ mas_app_namespace }}"
+      - "Backup path: {{ manage_backup_path }}"
+
+# Step 1: Restore Projects first
+- name: "Restore Projects"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ manage_backup_path }}"
+    resource_kinds:
+      - Project
+    replace_resource: false
+  register: projects_result
+
+- name: "Display Projects restore results"
+  debug:
+    msg: >-
+      Projects: {{ projects_result.created_count }} created,
+      {{ projects_result.updated_count }} updated,
+      {{ projects_result.skipped_count }} skipped,
+      {{ projects_result.failed_count }} failed
+
+# Step 2: Restore Secrets and ConfigMaps
+- name: "Restore Secrets and ConfigMaps"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ manage_backup_path }}"
+    resource_kinds:
+      - Secret
+      - ConfigMap
+  register: secrets_configmaps_result
+  when: projects_result.success
+
+- name: "Display Secrets and ConfigMaps restore results"
+  debug:
+    msg: >-
+      Secrets and ConfigMaps: {{ secrets_configmaps_result.created_count }} created,
+      {{ secrets_configmaps_result.updated_count }} updated,
+      {{ secrets_configmaps_result.skipped_count }} skipped,
+      {{ secrets_configmaps_result.failed_count }} failed
+  when: projects_result.success
+
+# Step 3: Restore OperatorGroups and Subscriptions
+- name: "Restore OperatorGroups"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ manage_backup_path }}"
+    resource_kinds:
+      - OperatorGroup
+  register: operatorgroups_result
+  when: projects_result.success
+
+- name: "Display OperatorGroups restore results"
+  debug:
+    msg: >-
+      OperatorGroups: {{ operatorgroups_result.created_count }} created,
+      {{ operatorgroups_result.updated_count }} updated,
+      {{ operatorgroups_result.skipped_count }} skipped,
+      {{ operatorgroups_result.failed_count }} failed
+  when: projects_result.success
+
+- name: "Restore Subscriptions"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ manage_backup_path }}"
+    resource_kinds:
+      - Subscription
+  register: subscriptions_result
+  when: projects_result.success
+
+- name: "Display Subscriptions restore results"
+  debug:
+    msg: >-
+      Subscriptions: {{ subscriptions_result.created_count }} created,
+      {{ subscriptions_result.updated_count }} updated,
+      {{ subscriptions_result.skipped_count }} skipped,
+      {{ subscriptions_result.failed_count }} failed
+  when: projects_result.success
+
+# Wait until the LicenseService CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the ManageApps CRD is available"
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: "manageapps.apps.mas.ibm.com"
+
+# Step 4: Restore Certificate resources
+- name: "Restore Certificate resources"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ manage_backup_path }}"
+    resource_kinds:
+      - Certificate
+  register: certmanager_result
+  when: projects_result.success
+
+- name: "Display Certificates restore results"
+  debug:
+    msg: >-
+      Certificate Manager resources: {{ certmanager_result.created_count }} created,
+      {{ certmanager_result.updated_count }} updated,
+      {{ certmanager_result.skipped_count }} skipped,
+      {{ certmanager_result.failed_count }} failed
+  when: projects_result.success
+
+- name: "Restore ManageApp CR"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ manage_backup_path }}"
+    exclude_kinds:
+      - ManageApp
+  register: manage_restore_phase1_result
+
+- name: "Display Phase 1 restore results"
+  debug:
+    msg:
+      - "Phase 1 restore completed{{ ' with failures' if manage_restore_phase1_result.failed_count > 0 else ' successfully' }}"
+      - "Total resources restored: {{ manage_restore_phase1_result.restored_count }}"
+      - "Total resources failed: {{ manage_restore_phase1_result.failed_count }}"
+      - "Resources skipped: {{ manage_restore_phase1_result.skipped_count }}"
+
+- name: "Fail if Phase 1 restore had errors"
+  fail:
+    msg: |
+      Phase 1 restore failed for {{ manage_restore_phase1_result.failed_count }} resource(s):
+      {% for resource in manage_restore_phase1_result.failed_resources %}
+      - {{ resource.description }} in {{ resource.scope }}
+      {% endfor %}
+  when: manage_restore_phase1_result.failed_count > 0
+
+# 5. Wait for ManageApp CR to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for ManageApp CR to be ready"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: ManageApp
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_app_namespace }}"
+  register: manage_app_cr
+  retries: 60
+  delay: 10
+  until:
+    - manage_app_cr.resources is defined
+    - manage_app_cr.resources | length > 0
+    - manage_app_cr.resources[0].status is defined
+    - manage_app_cr.resources[0].status.conditions is defined
+    - manage_app_cr.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | list | length > 0
+    - (manage_app_cr.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | first).status == 'True'
+
+- name: "ManageApp CR is ready"
+  debug:
+    msg: "ManageApp CR {{ mas_instance_id }} is ready"
+
+# 6. Check if ManageWorkspace CR is already deployed
+# -----------------------------------------------------------------------------
+- name: "Display restore phase 2 information"
+  debug:
+    msg:
+      - "=========================================="
+      - "Phase 2: Check if ManageWorkspace CR is already deployed and scale down"
+      - "=========================================="
+      - "Namespace: {{ mas_app_namespace }}"
+      - "Backup path: {{ manage_backup_path }}"
+
+- name: "Check if ManageWorkspace CR exists"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: ManageWorkspace
+    name: "{{ manage_workspace_cr_name }}"
+    namespace: "{{ mas_app_namespace }}"
+  register: existing_manage_workspace_cr
+
+- name: "Set fact: ManageWorkspace CR exists"
+  set_fact:
+    manage_workspace_exists: "{{ existing_manage_workspace_cr.resources is defined and existing_manage_workspace_cr.resources | length > 0 }}"
+
+- name: "Display ManageWorkspace CR status"
+  debug:
+    msg: "ManageWorkspace CR {{ 'exists' if manage_workspace_exists else 'does not exist' }}"
+
+# 7. If ManageWorkspace exists, set mode to down
+# -----------------------------------------------------------------------------
+- name: "Set ManageWorkspace mode to down (if exists)"
+  when: manage_workspace_exists
+  block:
+    - name: "Get current ManageWorkspace spec.mode"
+      set_fact:
+        current_mode: "{{ existing_manage_workspace_cr.resources[0].spec.settings.deployment.mode | default('up') }}"
+
+    - name: "Display current mode"
+      debug:
+        msg: "Current ManageWorkspace mode: {{ current_mode }}"
+
+    - name: "Set ManageWorkspace mode to down"
+      kubernetes.core.k8s:
+        api_version: apps.mas.ibm.com/v1
+        kind: ManageWorkspace
+        name: "{{ manage_workspace_cr_name }}"
+        namespace: "{{ mas_app_namespace }}"
+        definition:
+          spec:
+            settings:
+              deployment:
+                mode: down
+        state: patched
+      when: current_mode != 'down'
+
+    - name: "Wait for ManageWorkspace to scale down"
+      kubernetes.core.k8s_info:
+        api_version: apps.mas.ibm.com/v1
+        kind: ManageWorkspace
+        name: "{{ manage_workspace_cr_name }}"
+        namespace: "{{ mas_app_namespace }}"
+      register: workspace_status
+      retries: 60
+      delay: 10
+      until:
+        - workspace_status.resources is defined
+        - workspace_status.resources | length > 0
+        - workspace_status.resources[0].status is defined
+        - workspace_status.resources[0].status.conditions is defined
+        - workspace_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | list | length > 0
+        - (workspace_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | first).status == 'False'
+      when: current_mode != 'down'
+
+    - name: "ManageWorkspace scaled down successfully"
+      debug:
+        msg: "ManageWorkspace {{ manage_workspace_cr_name }} is now in down mode"
+      when: current_mode != 'down'
+
+    - name: "ManageWorkspace already in down mode"
+      debug:
+        msg: "ManageWorkspace {{ manage_workspace_cr_name }} is already in down mode"
+      when: current_mode == 'down'
