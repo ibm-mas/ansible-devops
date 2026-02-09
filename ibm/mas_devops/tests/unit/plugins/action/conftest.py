@@ -11,19 +11,11 @@ import os
 
 # This code runs when conftest.py is loaded, BEFORE test collection
 # Path structure: ibm/mas_devops/tests/unit/plugins/action/conftest.py
-# We need to go: ../../.. (to tests/) then ../../plugins/action (to ibm/mas_devops/plugins/action)
-# Actually: ../../../ gets us to tests/, then ../.. gets to ibm/mas_devops/, then plugins/action
+# Navigate: ../../../ (to tests/) then ../.. (to ibm/mas_devops/) then plugins/action
 plugins_action_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../plugins/action'))
 
 if plugins_action_path not in sys.path:
     sys.path.insert(0, plugins_action_path)
-
-# Verify path was added (for debugging)
-print(f"[conftest.py] Added to sys.path:")
-print(f"  - plugins_action_path: {plugins_action_path}")
-print(f"  - Path exists: {os.path.exists(plugins_action_path)}")
-if os.path.exists(plugins_action_path):
-    print(f"  - Files in path: {os.listdir(plugins_action_path)[:5]}")  # Show first 5 files
 
 
 @pytest.fixture
