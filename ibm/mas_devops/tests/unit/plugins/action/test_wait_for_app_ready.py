@@ -98,9 +98,12 @@ class TestWaitForAppReady:
         assert result['changed'] is False
         assert 'is not ready' in result['message']
 
-    def test_missing_instance_id_raises_error(self, action_module, mock_display):
+    def test_missing_instance_id_raises_error(self, action_module, mock_display, mocker):
         """Test that missing instance_id raises AnsibleError."""
         # Arrange
+        mock_client = mocker.MagicMock()
+        mocker.patch('wait_for_app_ready.get_api_client', return_value=mock_client)
+
         action_module._task.args = {
             'application_id': 'manage'
         }
@@ -109,9 +112,12 @@ class TestWaitForAppReady:
         with pytest.raises(AnsibleError, match="instance_id argument was not provided"):
             action_module.run()
 
-    def test_missing_application_id_raises_error(self, action_module, mock_display):
+    def test_missing_application_id_raises_error(self, action_module, mock_display, mocker):
         """Test that missing application_id raises AnsibleError."""
         # Arrange
+        mock_client = mocker.MagicMock()
+        mocker.patch('wait_for_app_ready.get_api_client', return_value=mock_client)
+
         action_module._task.args = {
             'instance_id': 'inst1'
         }

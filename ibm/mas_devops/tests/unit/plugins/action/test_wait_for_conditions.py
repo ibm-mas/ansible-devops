@@ -68,9 +68,12 @@ class TestWaitForConditions:
         assert result['changed'] is False
         assert "Suite 'inst1' is ready" in result['message']
 
-    def test_missing_api_version_raises_error(self, action_module, mock_display):
+    def test_missing_api_version_raises_error(self, action_module, mock_display, mocker):
         """Test that missing api_version raises AnsibleError."""
         # Arrange
+        mock_client = mocker.MagicMock()
+        mocker.patch('wait_for_conditions.get_api_client', return_value=mock_client)
+
         action_module._task.args = {
             'kind': 'Suite',
             'namespace': 'mas-inst1-core',
@@ -81,9 +84,12 @@ class TestWaitForConditions:
         with pytest.raises(AnsibleError, match="api_version argument was not provided"):
             action_module.run()
 
-    def test_missing_kind_raises_error(self, action_module, mock_display):
+    def test_missing_kind_raises_error(self, action_module, mock_display, mocker):
         """Test that missing kind raises AnsibleError."""
         # Arrange
+        mock_client = mocker.MagicMock()
+        mocker.patch('wait_for_conditions.get_api_client', return_value=mock_client)
+
         action_module._task.args = {
             'api_version': 'core.mas.ibm.com/v1',
             'namespace': 'mas-inst1-core',
@@ -94,9 +100,12 @@ class TestWaitForConditions:
         with pytest.raises(AnsibleError, match="kind argument was not provided"):
             action_module.run()
 
-    def test_missing_namespace_raises_error(self, action_module, mock_display):
+    def test_missing_namespace_raises_error(self, action_module, mock_display, mocker):
         """Test that missing namespace raises AnsibleError."""
         # Arrange
+        mock_client = mocker.MagicMock()
+        mocker.patch('wait_for_conditions.get_api_client', return_value=mock_client)
+
         action_module._task.args = {
             'api_version': 'core.mas.ibm.com/v1',
             'kind': 'Suite',
@@ -107,9 +116,12 @@ class TestWaitForConditions:
         with pytest.raises(AnsibleError, match="namespace argument was not provided"):
             action_module.run()
 
-    def test_missing_name_raises_error(self, action_module, mock_display):
+    def test_missing_name_raises_error(self, action_module, mock_display, mocker):
         """Test that missing name raises AnsibleError."""
         # Arrange
+        mock_client = mocker.MagicMock()
+        mocker.patch('wait_for_conditions.get_api_client', return_value=mock_client)
+
         action_module._task.args = {
             'api_version': 'core.mas.ibm.com/v1',
             'kind': 'Suite',
