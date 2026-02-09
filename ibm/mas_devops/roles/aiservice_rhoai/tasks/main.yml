@@ -1,55 +1,52 @@
 ---
-- name: Load variables (main)
-  include_vars: "vars/main.yml"
-
 # 1. Validate odh model deployment type
 # -----------------------------------------------------------------------------
-- name: Validate odh model deployment type
+- name: Validate rhoai model deployment type
   ansible.builtin.assert:
     that:
-      - aiservice_odh_model_deployment_type in ['raw', 'serverless']
-    fail_msg: "AISERVICE_ODH_MODEL_DEPLOYMENT_TYPE must be one of: raw, serverless"
+      - aiservice_rhoai_model_deployment_type in ['raw', 'serverless']
+    fail_msg: "AISERVICE_RHOAI_MODEL_DEPLOYMENT_TYPE must be one of: raw, serverless"
 
 # 2. Deploy OpenShift Serverless operators
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/serverless-operator.yml
-  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+  when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
 
 - include_tasks: tasks/servicemesh-operator.yml
-  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+  when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
 
 - include_tasks: tasks/authorino-operator.yml
-- include_tasks: tasks/odh-operator.yml
+- include_tasks: tasks/rhoai-operator.yml
 
-- name: "Wait for opendatahub-operator-controller-manager to be ready (60s delay)"
+- name: "Wait for rhoai-operator to be ready (60s delay)"
   kubernetes.core.k8s_info:
     api_version: apps/v1
-    name: opendatahub-operator-controller-manager
-    namespace: "{{ odh_namespace }}"
+    name: rhods-operator
+    namespace: "{{ rhoai_namespace }}"
     kind: Deployment
-  register: opendatahub_deployment
+  register: rhoai_deployment
   until:
-    - opendatahub_deployment.resources is defined
-    - opendatahub_deployment.resources | length > 0
-    - opendatahub_deployment.resources[0].status is defined
-    - opendatahub_deployment.resources[0].status.replicas is defined
-    - opendatahub_deployment.resources[0].status.readyReplicas is defined
-    - opendatahub_deployment.resources[0].status.readyReplicas == opendatahub_deployment.resources[0].status.replicas
+    - rhoai_deployment.resources is defined
+    - rhoai_deployment.resources | length > 0
+    - rhoai_deployment.resources[0].status is defined
+    - rhoai_deployment.resources[0].status.replicas is defined
+    - rhoai_deployment.resources[0].status.readyReplicas is defined
+    - rhoai_deployment.resources[0].status.readyReplicas == rhoai_deployment.resources[0].status.replicas
   retries: 10 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
 # 3. Create DSCInitialization instance
 # -----------------------------------------------------------------------------
-- name: "Create DSCInitialization instance"
+- name: 'Create DSCInitialization instance'
   kubernetes.core.k8s:
     apply: yes
-    template: "templates/odh/default-dsci.yml.j2"
+    template: "templates/rhoai/default-dsci.yml.j2"
 
-- name: "Wait for the DSCInitialization instance to be ready"
+- name: 'Wait for the DSCInitialization instance to be ready'
   kubernetes.core.k8s_info:
     api_version: dscinitialization.opendatahub.io/v1
     name: default-dsci
-    namespace: opendatahub
+    namespace: '{{ rhoai_namespace }}'
     kind: DSCInitialization
   register: dsci_lookup
   until:
@@ -62,12 +59,12 @@
 
 # 4. Create Data Science Cluster
 # -----------------------------------------------------------------------------
-- name: "Create Data Science Cluster"
+- name: 'Create Data Science Cluster'
   kubernetes.core.k8s:
     apply: yes
-    template: "templates/odh/data-science-cluster.yml.j2"
+    template: 'templates/rhoai/data-science-cluster.yml.j2'
 
-- name: "Wait for the DSC to be ready"
+- name: 'Wait for the DSC to be ready'
   kubernetes.core.k8s_info:
     api_version: datasciencecluster.opendatahub.io/v1
     name: default-dsc
@@ -84,7 +81,7 @@
 # 5. Create Istio Auth Rules
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/istio-auth.yml
-  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+  when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
 
 # 6. Install Network policy
 # -----------------------------------------------------------------------------
@@ -92,7 +89,7 @@
 # where requests from the Kubernetes API to the odh-model-controller-webhook were being blocked.
 # This was causing errors while creating a inference service.
 
-- name: "Install network policy: allow-odh-model-controller"
+- name: 'Install network policy: allow rhoai model controller'
   kubernetes.core.k8s:
     apply: yes
-    template: "templates/odh/allow-odh-model-controller-netpol.yml.j2"
+    template: 'templates/rhoai/allow-rhoai-model-controller-netpol.yml.j2'
