@@ -86,11 +86,14 @@ ansible-playbook -i inventory.yml playbook.yml  # Test playbooks
 ### Running Python Commands
 When executing Python commands or tests in this project:
 1. Always use WSL environment (not Windows CMD)
-2. Activate the virtual environment first
-3. Example command format:
+2. **Use `wsl bash -c "command"` format when running from Windows context**
+3. Activate the virtual environment first
+4. Example command format:
    ```bash
-   cd ~/ibm-mas/ansible-devops && source .venv/bin/activate && cd ibm/mas_devops/tests && python -m pytest unit/plugins/action/ -v
+   wsl bash -c "cd ~/ibm-mas/ansible-devops && source .venv/bin/activate && cd ibm/mas_devops/tests && python -m pytest unit/plugins/action/ -v"
    ```
+
+**Important**: When using execute_command tool, always prefix with `wsl bash -c` and wrap the entire command in double quotes.
 
 ### Python Testing Framework
 - **Framework**: pytest with pytest-mock
