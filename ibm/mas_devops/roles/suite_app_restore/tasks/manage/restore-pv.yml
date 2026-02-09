@@ -68,7 +68,7 @@
       debug:
         msg:
           - "ManageWorkspace CR not deployed yet"
-          - "Creating PVCs and dummy pod for data restoration"
+          - "Creating PVCs and dummy pod for PVC data restoration"
 
     # Determine storage class override settings
     # ---------------------------------------------------------------------
@@ -98,6 +98,16 @@
           set_fact:
             manage_custom_storage_class_rwo: "{{ defaultStorageClasses.rwo }}"
           when: manage_custom_storage_class_rwo == ''
+
+        - name: "Fail storage class override if default storage classes not found"
+          fail:
+            msg: "Storage class override enabled but no custom storage classes provided and default storage classes not found"
+          when: manage_custom_storage_class_rwx == '' or manage_custom_storage_class_rwo == ''
+
+        - name: Replace ManageWorkspace Persistent Volumes when override_storageclass is true
+          set_fact:
+            _manage_persistent_volumes: "{{ manage_persistent_volumes | ibm.mas_devops.override_manage_persistent_volumes(manage_custom_storage_class_rwo, manage_custom_storage_class_rwx) }}"
+          when: manage_persistent_volumes is defined and manage_persistent_volumes | length > 0
 
     # Create PVCs
     # ---------------------------------------------------------------------
@@ -268,6 +278,9 @@
     backup_path: "{{ manage_backup_path }}"
     resource_kinds:
       - ManageWorkspace
+    override_values:
+      ManageWorkspace:
+        - spec.settings.deployment.persistentVolumes: "{{ _manage_persistent_volumes }}"
   register: manage_restore_phase4_result
 
 - name: "Display Phase 4 restore results"
