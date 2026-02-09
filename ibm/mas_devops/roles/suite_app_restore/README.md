@@ -79,6 +79,30 @@ Delay in seconds between status checks when waiting for ManageWorkspace to becom
 - Environment Variable: `MAS_APP_RESTORE_WAIT_DELAY`
 - Default: `30`
 
+### override_storageclass
+Enable or disable storage class override during restore. When enabled, the restore process will use custom storage classes instead of the storage classes from the backup.
+
+- Optional
+- Environment Variable: `OVERRIDE_STORAGECLASS`
+- Default: `false`
+- Valid Values: `true`, `false`
+
+### manage_custom_storage_class_rwx
+Custom storage class to use for PVCs with ReadWriteMany (RWX) access mode when `override_storageclass` is enabled. If not provided and override is enabled, the default storage class will be used.
+
+- Optional
+- Environment Variable: `MANAGE_CUSTOM_STORAGE_CLASS_RWX`
+- Default: Empty (uses default storage class)
+- Example: `ocs-storagecluster-cephfs`
+
+### manage_custom_storage_class_rwo
+Custom storage class to use for PVCs with ReadWriteOnce (RWO) access mode when `override_storageclass` is enabled. If not provided and override is enabled, the default storage class will be used.
+
+- Optional
+- Environment Variable: `MANAGE_CUSTOM_STORAGE_CLASS_RWO`
+- Default: Empty (uses default storage class)
+- Example: `ocs-storagecluster-ceph-rbd`
+
 
 What Gets Restored
 -------------------------------------------------------------------------------
@@ -258,6 +282,46 @@ Complete workflow including database restore:
         mas_app_backup_version: "{{ backup_version }}"
 ```
 
+### Restore with Storage Class Override
+Restore to a different cluster with different storage classes:
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: inst1
+    mas_workspace_id: ws1
+    mas_app_id: manage
+    mas_backup_dir: /backup/mas
+    mas_app_backup_version: "20240315-143022"
+    # Enable storage class override
+    override_storageclass: true
+    # Specify custom storage classes
+    manage_custom_storage_class_rwx: "ocs-storagecluster-cephfs"
+    manage_custom_storage_class_rwo: "ocs-storagecluster-ceph-rbd"
+  roles:
+    - ibm.mas_devops.suite_app_restore
+```
+
+### Restore with Storage Class Override Using Default Classes
+Restore with override enabled but using cluster's default storage classes:
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: inst1
+    mas_workspace_id: ws1
+    mas_app_id: manage
+    mas_backup_dir: /backup/mas
+    mas_app_backup_version: "20240315-143022"
+    # Enable storage class override without specifying custom classes
+    # Will automatically use the cluster's default storage class
+    override_storageclass: true
+  roles:
+    - ibm.mas_devops.suite_app_restore
+```
+
 
 Troubleshooting
 -------------------------------------------------------------------------------
@@ -304,3 +368,6 @@ Notes
 - **Compression**: All PV data is stored as compressed tar.gz archives
 - **Wait Time**: The default wait timeout is 1 hour, but this can be adjusted based on deployment size
 - **Prerequisites**: Ensure the MAS operator and Manage operator are installed before running restore
+- **Storage Class Override**: When restoring to a different cluster with different storage classes, enable `override_storageclass` to automatically map PVCs to appropriate storage classes based on access modes (RWX/RWO)
+- **Default Storage Classes**: If `override_storageclass` is enabled but custom storage classes are not specified, the cluster's default storage class will be used automatically
+- **Access Mode Mapping**: The role intelligently assigns storage classes based on PVC access modes - RWX (ReadWriteMany) uses `manage_custom_storage_class_rwx` and RWO (ReadWriteOnce) uses `manage_custom_storage_class_rwo`

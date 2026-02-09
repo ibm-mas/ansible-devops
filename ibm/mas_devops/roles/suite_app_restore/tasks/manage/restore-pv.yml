@@ -70,6 +70,35 @@
           - "ManageWorkspace CR not deployed yet"
           - "Creating PVCs and dummy pod for data restoration"
 
+    # Determine storage class override settings
+    # ---------------------------------------------------------------------
+    - name: "Display storage class override settings"
+      debug:
+        msg:
+          - "Storage class override enabled: {{ override_storageclass }}"
+          - "Custom RWX storage class: {{ manage_custom_storage_class_rwx | default('not set') }}"
+          - "Custom RWO storage class: {{ manage_custom_storage_class_rwo | default('not set') }}"
+
+    # Get default storage classes if override is enabled but custom classes not provided
+    # ---------------------------------------------------------------------
+    - name: "Lookup default storage classes"
+      when:
+        - override_storageclass
+        - manage_custom_storage_class_rwx == '' or manage_custom_storage_class_rwo == ''
+      block:
+        - name: "Include default storage classes lookup"
+          include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
+
+        - name: "Set default RWX storage class if not provided"
+          set_fact:
+            manage_custom_storage_class_rwx: "{{ defaultStorageClasses.rwx }}"
+          when: manage_custom_storage_class_rwx == ''
+
+        - name: "Set default RWO storage class if not provided"
+          set_fact:
+            manage_custom_storage_class_rwo: "{{ defaultStorageClasses.rwo }}"
+          when: manage_custom_storage_class_rwo == ''
+
     # Create PVCs
     # ---------------------------------------------------------------------
     - name: "Create PVCs for data restoration"
@@ -83,10 +112,21 @@
             namespace: "{{ mas_app_namespace }}"
           spec:
             accessModes: "{{ pv_item.accessModes }}"
-            storageClassName: "{{ pv_item.storageClassName }}"
+            storageClassName: "{{ storage_class_to_use }}"
             resources:
               requests:
                 storage: "{{ pv_item.size }}"
+      vars:
+        storage_class_to_use: >-
+          {%- if override_storageclass -%}
+            {%- if 'ReadWriteMany' in pv_item.accessModes -%}
+              {{ manage_custom_storage_class_rwx }}
+            {%- else -%}
+              {{ manage_custom_storage_class_rwo }}
+            {%- endif -%}
+          {%- else -%}
+            {{ pv_item.storageClassName }}
+          {%- endif -%}
       loop: "{{ manage_persistent_volumes }}"
       loop_control:
         loop_var: pv_item
