@@ -104,6 +104,56 @@
 
   when: not is_ccs_already_patched
 
+# 3. Patch CCS CR for CP4D 5.2.0 Hotfix
+# -----------------------------------------------------------------------------
+- block:
+    - name: "wait-ccs : Scale down ccs-operator before applying hotfix"
+      kubernetes.core.k8s:
+        api_version: apps/v1
+        name: ibm-cpd-ccs-operator
+        namespace: "{{ cpd_operators_namespace }}"
+        kind: Deployment
+        definition:
+          spec:
+            replicas: 0
+        apply: true
+        server_side_apply:
+          field_manager: ansible
+          force_conflicts: true
+
+    - name: "wait-ccs : Patch ccs-cr with CP4D 5.2.0 hotfix images"
+      kubernetes.core.k8s:
+        api_version: ccs.cpd.ibm.com/v1beta1
+        name: ccs-cr
+        namespace: "{{ cpd_instance_namespace }}"
+        kind: CCS
+        definition:
+          spec:
+            image_digests:
+              wdp_connect_connection_image: "sha256:18991b832353516349e123ecdfb0149e59e131000a9aed319946efa337a2fad7"
+              wdp_connect_connector_image: "sha256:438fcdce3ede772fdf46a2598c1f802f30e7391ffced5a3223cba9ae1a947545"
+              wdp_connect_flight_image: "sha256:2b7ed88915d69ec8bef7333ba86fd9b4dbbacea3c1ffaabdfc90865aeb784568"
+        apply: true
+        server_side_apply:
+          field_manager: ansible
+          force_conflicts: true
+
+    - name: "wait-ccs : Scale up ccs-operator after applying hotfix"
+      kubernetes.core.k8s:
+        api_version: apps/v1
+        name: ibm-cpd-ccs-operator
+        namespace: "{{ cpd_operators_namespace }}"
+        kind: Deployment
+        definition:
+          spec:
+            replicas: 1
+        apply: true
+        server_side_apply:
+          field_manager: ansible
+          force_conflicts: true
+
+  when: cpd_520
+
 - include_tasks: "tasks/wait/wait-opensearch.yml"
   when:
     - not skip_ibm_entitlement_injection
