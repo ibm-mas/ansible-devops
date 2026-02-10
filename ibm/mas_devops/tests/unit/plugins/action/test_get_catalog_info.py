@@ -106,12 +106,8 @@ class TestGetCatalogInfo:
             'fail_if_catalog_does_not_exist': True
         }
 
-        # Act - uses REAL getCatalog() which will return None
-        result = action_module.run()
-
-        # Assert
-        assert result['success'] is False
-        assert result['failed'] is True  # Should fail when flag is True
-        assert 'invalid-catalog-xyz-999' in result['message']
+        # Act & Assert - should raise AnsibleError when flag is True
+        with pytest.raises(AnsibleError, match="Catalog invalid-catalog-xyz-999 is unknown"):
+            action_module.run()
 
 # Made with Bob
