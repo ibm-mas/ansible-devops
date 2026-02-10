@@ -3,7 +3,7 @@
 from ansible.errors import AnsibleError
 from ansible.plugins.action import ActionBase
 
-from mas.devops.data import getCatalog
+from mas.devops.data import getCatalog, NoSuchCatalogError
 
 class ActionModule(ActionBase):
     """
@@ -29,9 +29,17 @@ class ActionModule(ActionBase):
         if not isinstance(failIfCatalogDoesNotExist, bool):
             raise AnsibleError(f"Error: fail_if_catalog_does_not_exist argument is not a boolean")
 
-        catalogData = getCatalog(catalogId)
-
-        if catalogData is None:
+        try:
+            catalogData = getCatalog(catalogId)
+            return dict(
+                message=f"Successfully loaded catalog information for {catalogId}",
+                success=True,
+                failed=False,
+                changed=False,
+                id=catalogId,
+                **catalogData
+            )
+        except NoSuchCatalogError:
             return dict(
                 message=f"Failed to load catalog information for {catalogId}",
                 success=False,
@@ -40,11 +48,3 @@ class ActionModule(ActionBase):
                 id=catalogId
             )
 
-        return dict(
-            message=f"Successfully loaded catalog information for {catalogId}",
-            success=True,
-            failed=False,
-            changed=False,
-            id=catalogId,
-            **catalogData
-        )
