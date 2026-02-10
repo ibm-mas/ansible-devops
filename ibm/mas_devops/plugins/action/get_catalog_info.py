@@ -39,11 +39,14 @@ class ActionModule(ActionBase):
                 id=catalogId,
                 **catalogData
             )
-        except NoSuchCatalogError:
+        except NoSuchCatalogError as e:
+            # Handle missing catalog gracefully - this is expected for dev/master catalogs
+            if failIfCatalogDoesNotExist:
+                raise AnsibleError(str(e))
             return dict(
-                message=f"Failed to load catalog information for {catalogId}",
+                message=f"Catalog {catalogId} not found, will use fallback catalog",
                 success=False,
-                failed=failIfCatalogDoesNotExist,
+                failed=False,
                 changed=False,
                 id=catalogId
             )
