@@ -31,17 +31,6 @@ class ActionModule(ActionBase):
 
         try:
             catalogData = getCatalog(catalogId)
-            
-            # Handle None return (for master catalogs)
-            if catalogData is None:
-                return dict(
-                    message=f"Catalog {catalogId} not found (master catalog), will use fallback",
-                    success=False,
-                    failed=False,
-                    changed=False,
-                    id=catalogId
-                )
-            
             return dict(
                 message=f"Successfully loaded catalog information for {catalogId}",
                 success=True,
