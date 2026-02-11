@@ -176,24 +176,98 @@
     backup_path: "{{ manage_backup_path }}"
     resource_kinds:
       - ManageApp
-  register: manage_restore_phase1_result
+  register: cr_result
+
+- name: "Display ManageApp CR restore results"
+  debug:
+    msg: >-
+      Manage App resource: {{ cr_result.created_count }} created,
+      {{ cr_result.updated_count }} updated,
+      {{ cr_result.skipped_count }} skipped,
+      {{ cr_result.failed_count }} failed
+
+# Calculate Phase 1 results
+# -----------------------------------------------------------------------------
+- name: "Calculate Phase 1 restore results"
+  set_fact:
+    total_created: >-
+      {{
+        (projects_result.created_count | default(0)) +
+        (secrets_configmaps_result.created_count | default(0)) +
+        (operatorgroups_result.created_count | default(0)) +
+        (subscriptions_result.created_count | default(0)) +
+        (certmanager_result.created_count | default(0)) +
+        (cr_result.created_count | default(0))
+      }}
+    total_updated: >-
+      {{
+        (projects_result.updated_count | default(0)) +
+        (secrets_configmaps_result.updated_count | default(0)) +
+        (operatorgroups_result.updated_count | default(0)) +
+        (subscriptions_result.updated_count | default(0)) +
+        (certmanager_result.updated_count | default(0)) +
+        (cr_result.updated_count | default(0))
+      }}
+    total_skipped: >-
+      {{
+        (projects_result.skipped_count | default(0)) +
+        (secrets_configmaps_result.skipped_count | default(0)) +
+        (operatorgroups_result.skipped_count | default(0)) +
+        (subscriptions_result.skipped_count | default(0)) +
+        (certmanager_result.skipped_count | default(0)) +
+        (cr_result.skipped_count | default(0))
+      }}
+    total_failed: >-
+      {{
+        (projects_result.failed_count | default(0)) +
+        (secrets_configmaps_result.failed_count | default(0)) +
+        (operatorgroups_result.failed_count | default(0)) +
+        (subscriptions_result.failed_count | default(0)) +
+        (certmanager_result.failed_count | default(0)) +
+        (cr_result.failed_count | default(0))
+      }}
 
 - name: "Display Phase 1 restore results"
   debug:
     msg:
-      - "Phase 1 restore completed{{ ' with failures' if manage_restore_phase1_result.failed_count > 0 else ' successfully' }}"
-      - "Total resources restored: {{ manage_restore_phase1_result.restored_count }}"
-      - "Total resources failed: {{ manage_restore_phase1_result.failed_count }}"
-      - "Resources skipped: {{ manage_restore_phase1_result.skipped_count }}"
+      - >-
+        Phase 1 Restore completed{{ ' with failures' if total_failed | int > 0
+        else ' successfully' }}
+      - "Total resources created: {{ total_created }}"
+      - "Total resources updated: {{ total_updated }}"
+      - "Total resources skipped: {{ total_skipped }}"
+      - "Total resources failed: {{ total_failed }}"
 
-- name: "Fail if Phase 1 restore had errors"
+# Fail task if any errors occurred
+# -----------------------------------------------------------------------------
+- name: "Collect Phase 1 failed resources"
+  set_fact:
+    all_failed_resources: >-
+      {{
+        (projects_result.failed_resources | default([])) +
+        (secrets_configmaps_result.failed_resources | default([])) +
+        (operatorgroups_result.failed_resources | default([])) +
+        (subscriptions_result.failed_resources | default([])) +
+        (certmanager_result.failed_resources | default([])) +
+        (certmanager_result.failed_resources | default([])) +
+        (cr_result.failed_resources | default([]))
+      }}
+
+- name: "Display failed resources"
+  debug:
+    msg:
+      - "Failed resources:"
+      - "{{ all_failed_resources | to_nice_yaml }}"
+  when: total_failed | int > 0
+
+- name: "Fail if phase 1 restore had errors"
   fail:
     msg: |
-      Phase 1 restore failed for {{ manage_restore_phase1_result.failed_count }} resource(s):
-      {% for resource in manage_restore_phase1_result.failed_resources %}
-      - {{ resource.description }} in {{ resource.scope }}
+      Restore failed for {{ total_failed }} resource(s):
+      {% for resource in all_failed_resources %}
+      - {{ resource.description }}: {{ resource.error }}
       {% endfor %}
-  when: manage_restore_phase1_result.failed_count > 0
+  when: total_failed | int > 0
 
 # 5. Wait for ManageApp CR to be ready
 # -----------------------------------------------------------------------------
@@ -204,8 +278,8 @@
     name: "{{ mas_instance_id }}"
     namespace: "{{ mas_app_namespace }}"
   register: manage_app_cr
-  retries: 60
-  delay: 10
+  retries: 15
+  delay: 60
   until:
     - manage_app_cr.resources is defined
     - manage_app_cr.resources | length > 0
@@ -279,8 +353,8 @@
         name: "{{ manage_workspace_cr_name }}"
         namespace: "{{ mas_app_namespace }}"
       register: workspace_status
-      retries: 60
-      delay: 10
+      retries: 15
+      delay: 60
       until:
         - workspace_status.resources is defined
         - workspace_status.resources | length > 0

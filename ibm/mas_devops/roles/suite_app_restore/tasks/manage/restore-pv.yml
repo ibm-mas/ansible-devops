@@ -62,37 +62,37 @@
       debug:
         msg:
           - "Storage class override enabled: {{ override_storageclass }}"
-          - "Custom RWX storage class: {{ manage_custom_storage_class_rwx | default('not set') }}"
-          - "Custom RWO storage class: {{ manage_custom_storage_class_rwo | default('not set') }}"
+          - "Custom RWX storage class: {{ mas_app_custom_storage_class_rwx | default('not set') }}"
+          - "Custom RWO storage class: {{ mas_app_custom_storage_class_rwo | default('not set') }}"
 
     # Get default storage classes if override is enabled but custom classes not provided
     # ---------------------------------------------------------------------
     - name: "Lookup default storage classes"
       when:
         - override_storageclass
-        - manage_custom_storage_class_rwx == '' or manage_custom_storage_class_rwo == ''
+        - mas_app_custom_storage_class_rwx == '' or mas_app_custom_storage_class_rwo == ''
       block:
         - name: "Include default storage classes lookup"
           include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
 
         - name: "Set default RWX storage class if not provided"
           set_fact:
-            manage_custom_storage_class_rwx: "{{ defaultStorageClasses.rwx }}"
-          when: manage_custom_storage_class_rwx == ''
+            mas_app_custom_storage_class_rwx: "{{ defaultStorageClasses.rwx }}"
+          when: mas_app_custom_storage_class_rwx == ''
 
         - name: "Set default RWO storage class if not provided"
           set_fact:
-            manage_custom_storage_class_rwo: "{{ defaultStorageClasses.rwo }}"
-          when: manage_custom_storage_class_rwo == ''
+            mas_app_custom_storage_class_rwo: "{{ defaultStorageClasses.rwo }}"
+          when: mas_app_custom_storage_class_rwo == ''
 
         - name: "Fail storage class override if default storage classes not found"
           fail:
             msg: "Storage class override enabled but no custom storage classes provided and default storage classes not found"
-          when: manage_custom_storage_class_rwx == '' or manage_custom_storage_class_rwo == ''
+          when: mas_app_custom_storage_class_rwx == '' or mas_app_custom_storage_class_rwo == ''
 
         - name: Replace ManageWorkspace Persistent Volumes when override_storageclass is true
           set_fact:
-            _manage_persistent_volumes: "{{ manage_persistent_volumes | ibm.mas_devops.override_manage_persistent_volumes(manage_custom_storage_class_rwo, manage_custom_storage_class_rwx) }}"
+            _manage_persistent_volumes: "{{ manage_persistent_volumes | ibm.mas_devops.override_manage_persistent_volumes(mas_app_custom_storage_class_rwo, mas_app_custom_storage_class_rwx) }}"
           when: manage_persistent_volumes is defined and manage_persistent_volumes | length > 0
 
     # Create PVCs
@@ -116,9 +116,9 @@
         storage_class_to_use: >-
           {%- if override_storageclass -%}
             {%- if 'ReadWriteMany' in pv_item.accessModes -%}
-              {{ manage_custom_storage_class_rwx }}
+              {{ mas_app_custom_storage_class_rwx }}
             {%- else -%}
-              {{ manage_custom_storage_class_rwo }}
+              {{ mas_app_custom_storage_class_rwo }}
             {%- endif -%}
           {%- else -%}
             {{ pv_item.storageClassName }}
@@ -268,21 +268,18 @@
         - spec.settings.deployment.persistentVolumes: "{{ _manage_persistent_volumes }}"
   register: manage_restore_phase4_result
 
-- name: "Display Phase 4 restore results"
+- name: "Display ManageWorkspace CR restore results"
   debug:
-    msg:
-      - "Phase 4 restore completed{{ ' with failures' if manage_restore_phase4_result.failed_count > 0 else ' successfully' }}"
-      - "Total resources restored: {{ manage_restore_phase4_result.restored_count }}"
-      - "Total resources failed: {{ manage_restore_phase4_result.failed_count }}"
+    msg: >-
+      Manage Worspace resource: {{ manage_restore_phase4_result.created_count }} created,
+      {{ manage_restore_phase4_result.updated_count }} updated,
+      {{ manage_restore_phase4_result.skipped_count }} skipped,
+      {{ manage_restore_phase4_result.failed_count }} failed
 
-- name: "Fail if Phase 4 restore had errors"
+- name: "Fail if ManageWorkspace CR restore had errors"
   fail:
-    msg: |
-      Phase 4 restore failed for {{ manage_restore_phase4_result.failed_count }} resource(s):
-      {% for resource in manage_restore_phase4_result.failed_resources %}
-      - {{ resource.description }} in {{ resource.scope }}
-      {% endfor %}
-  when: manage_restore_phase4_result.failed_count > 0
+    msg: "ManageWorkspace CR restore failed. See logs for details."
+  when: manage_restore_phase4_result.failed_count | int > 0
 
 # 6. Wait for Manage deployment to be activated
 # -----------------------------------------------------------------------------
@@ -300,7 +297,7 @@
     name: "{{ manage_workspace_cr_name }}"
     namespace: "{{ mas_app_namespace }}"
   register: workspace_ready_status
-  retries: "{{ (mas_app_restore_wait_timeout | int / mas_app_restore_wait_delay | int) | int }}"
+  retries: "{{ mas_app_restore_wait_retries | int }}"
   delay: "{{ mas_app_restore_wait_delay | int }}"
   until:
     - workspace_ready_status.resources is defined

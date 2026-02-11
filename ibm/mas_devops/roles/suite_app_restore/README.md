@@ -87,19 +87,19 @@ Enable or disable storage class override during restore. When enabled, the resto
 - Default: `false`
 - Valid Values: `true`, `false`
 
-### manage_custom_storage_class_rwx
+### mas_app_custom_storage_class_rwx
 Custom storage class to use for PVCs with ReadWriteMany (RWX) access mode when `override_storageclass` is enabled. If not provided and override is enabled, the default storage class will be used.
 
 - Optional
-- Environment Variable: `MANAGE_CUSTOM_STORAGE_CLASS_RWX`
+- Environment Variable: `MAS_APP_CUSTOM_STORAGE_CLASS_RWX`
 - Default: Empty (uses default storage class)
 - Example: `ocs-storagecluster-cephfs`
 
-### manage_custom_storage_class_rwo
+### mas_app_custom_storage_class_rwo
 Custom storage class to use for PVCs with ReadWriteOnce (RWO) access mode when `override_storageclass` is enabled. If not provided and override is enabled, the default storage class will be used.
 
 - Optional
-- Environment Variable: `MANAGE_CUSTOM_STORAGE_CLASS_RWO`
+- Environment Variable: `MAS_APP_CUSTOM_STORAGE_CLASS_RWO`
 - Default: Empty (uses default storage class)
 - Example: `ocs-storagecluster-ceph-rbd`
 
@@ -297,8 +297,8 @@ Restore to a different cluster with different storage classes:
     # Enable storage class override
     override_storageclass: true
     # Specify custom storage classes
-    manage_custom_storage_class_rwx: "ocs-storagecluster-cephfs"
-    manage_custom_storage_class_rwo: "ocs-storagecluster-ceph-rbd"
+    mas_app_custom_storage_class_rwo: "ocs-storagecluster-cephfs"
+    mas_app_custom_storage_class_rwx: "ocs-storagecluster-ceph-rbd"
   roles:
     - ibm.mas_devops.suite_app_restore
 ```
@@ -370,4 +370,4 @@ Notes
 - **Prerequisites**: Ensure the MAS operator and Manage operator are installed before running restore
 - **Storage Class Override**: When restoring to a different cluster with different storage classes, enable `override_storageclass` to automatically map PVCs to appropriate storage classes based on access modes (RWX/RWO)
 - **Default Storage Classes**: If `override_storageclass` is enabled but custom storage classes are not specified, the cluster's default storage class will be used automatically
-- **Access Mode Mapping**: The role intelligently assigns storage classes based on PVC access modes - RWX (ReadWriteMany) uses `manage_custom_storage_class_rwx` and RWO (ReadWriteOnce) uses `manage_custom_storage_class_rwo`
+- **Access Mode Mapping**: The role intelligently assigns storage classes based on PVC access modes - RWX (ReadWriteMany) uses `mas_app_custom_storage_class_rwx` and RWO (ReadWriteOnce) uses `mas_app_custom_storage_class_rwo`
