@@ -15,7 +15,6 @@
     component: manage
     action: restore
     mas_instance_id: "{{ mas_instance_id }}"
-    mas_workspace_id: "{{ mas_workspace_id }}"
     mas_backup_dir: "{{ mas_backup_dir }}"
     mas_app_backup_version: "{{ mas_app_backup_version }}"
 
@@ -47,9 +46,23 @@
   set_fact:
     mas_app_namespace: "mas-{{ mas_instance_id }}-manage"
 
+- name: Get files from {{ manage_resources_backup_path }}/manageworkspaces directory
+  set_fact:
+    instance_files: "{{ lookup('fileglob', '{{ manage_resources_backup_path }}/manageworkspaces/*', wantlist=True) }}"
+
+- name: Assert exactly one ManageWorkspace CR exists
+  assert:
+    that:
+      - instance_files | length == 1
+    fail_msg: "ManageWorkspace Directory must contain exactly one file"
+
+- name: Set fact ManageWorkspace cr
+  set_fact:
+    workspace_backup_cr: "{{ lookup('file', '{{ instance_files[0] }}') | from_yaml }}"
+
 - name: "Set fact: Manage workspace CR name"
   set_fact:
-    manage_workspace_cr_name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
+    manage_workspace_cr_name: "{{ workspace_backup_cr.metadata.name}}"
 
 # 4. Restore resources until ManageApp CR (excluding ManageWorkspace)
 # -----------------------------------------------------------------------------

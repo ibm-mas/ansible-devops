@@ -18,20 +18,6 @@
       - "Phase 3: Restore Persistent Volume Data"
       - "=========================================="
 
-- name: Get files from {{ manage_resources_backup_path }}/manageworkspaces directory
-  set_fact:
-    instance_files: "{{ lookup('fileglob', '{{ manage_resources_backup_path }}/manageworkspaces/*', wantlist=True) }}"
-
-- name: Assert exactly one ManageWorkspace CR exists
-  assert:
-    that:
-      - instance_files | length == 1
-    fail_msg: "ManageWorkspace Directory must contain exactly one file"
-
-- name: Set fact ManageWorkspace cr
-  set_fact:
-    workspace_backup_cr: "{{ lookup('file', '{{ instance_files[0] }}') | from_yaml }}"
-
 - name: "Extract persistent volumes configuration from backup"
   set_fact:
     manage_persistent_volumes: "{{ workspace_backup_cr.spec.settings.deployment.persistentVolumes | default([]) }}"
@@ -167,12 +153,11 @@
           apiVersion: v1
           kind: Pod
           metadata:
-            name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-restore-pvc-pod"
+            name: "{{ mas_instance_id }}-manage-restore-pvc-pod"
             namespace: "{{ mas_app_namespace }}"
             labels:
               app: manage-restore
               mas.ibm.com/instanceId: "{{ mas_instance_id }}"
-              mas.ibm.com/workspaceId: "{{ mas_workspace_id }}"
           spec:
             restartPolicy: Never
             containers:
@@ -200,7 +185,7 @@
       kubernetes.core.k8s_info:
         api_version: v1
         kind: Pod
-        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-restore-pvc-pod"
+        name: "{{ mas_instance_id }}-manage-restore-pvc-pod"
         namespace: "{{ mas_app_namespace }}"
       register: dummy_pod_status
       retries: 60
@@ -212,7 +197,7 @@
 
     - name: "Set fact: restore pod name"
       set_fact:
-        restore_pod_name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-restore-pvc-pod"
+        restore_pod_name: "{{ mas_instance_id }}-manage-restore-pvc-pod"
         restore_pod_container: "restore-container"
         using_dummy_pod: true
 
