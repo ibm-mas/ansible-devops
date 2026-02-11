@@ -1,56 +1,175 @@
 # suite_rollback
 
-This role is to roll back Maximo Application Suite to an earlier version. Rollback is possible only in 8.11 and later. From 8.11 onwards, every version comes with a set of supported versions to which Suite can be rolled back. For example, you can roll back Maximo Application Suite from 8.11.x to 8.11.0. This role validates given MAS installation is ready for the core platform to be rolled back to a specific MAS core version, and (as long as dry run mode is not enabled) will execute the rollback.
+This role rolls back Maximo Application Suite core platform to an earlier version. Rollback capability is available in MAS 8.11 and later versions. Each MAS version includes a list of supported rollback target versions. For example, you can roll back from MAS 8.11.x to 8.11.0.
 
-- It will validate that the specified version is compatible to rollback from the current version.
-- It will validate that the core is already running at the targetted version.
-- It will rollback the MAS core platform to the desired version (as long as dry run is not enabled).
-- It will validate that the core platform has been successfully reconciled at the rolled back version.
-- It will **not** validate that all core services successfully deploy after the reconcile (but we will be working on this limitation).
+!!! warning
+    Rollback is a significant operation that should be carefully planned and tested. Always perform a dry run first and ensure you have backups before proceeding with actual rollback.
+
+## What This Role Does
+
+- Validates the specified target version is compatible for rollback from the current version
+- Verifies the core platform is not already at the target version
+- Executes the rollback to the desired version (unless dry run mode is enabled)
+- Validates the core platform successfully reconciles at the rolled back version
+- **Note**: Does not validate that all core services successfully deploy after reconcile (future enhancement)
 
 ## Role Variables
 
 ### mas_instance_id
-The ID of the MAS instance to rollback.
+MAS instance identifier to rollback.
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default: None
 
-### mas_core_version
-The version of the MAS core that you want to rollback to or to validate current version. It is required when any of the `ROLLBACK_MAS_CORE` and `VERIFY_CORE_VERSION` variables is set to `true`.
+**Purpose**: Identifies which MAS instance to rollback. The role validates and executes rollback operations on this specific instance.
 
-- **Required**
+**When to use**:
+- Always required for rollback operations
+- Must match the instance ID from MAS installation
+- Used to target specific instance for version rollback
+
+**Valid values**: Lowercase alphanumeric string, 3-12 characters (e.g., `prod`, `dev`, `masinst1`)
+
+**Impact**: Determines which MAS instance undergoes rollback. All validation and rollback operations target this instance.
+
+**Related variables**:
+- `mas_core_version`: Target version to rollback to
+- `rollback_mas_core`: Controls whether rollback is executed
+
+**Note**: Ensure the instance is in a stable state before initiating rollback. Applications should be stopped or in maintenance mode during rollback.
+
+### mas_core_version
+Target MAS core version for rollback or verification.
+
+- **Required** (when `rollback_mas_core=true` or `verify_core_version=true`)
 - Environment Variable: `MAS_CORE_VERSION`
 - Default: None
 
+**Purpose**: Specifies the MAS core version to rollback to or to verify against the current version. Must be a supported rollback target for the current version.
+
+**When to use**:
+- Required when performing rollback (`rollback_mas_core=true`)
+- Required when verifying version (`verify_core_version=true`)
+- Must be a version listed in the current version's supported rollback targets
+
+**Valid values**: Valid MAS version string (e.g., `8.11.0`, `8.11.1`, `8.12.0`)
+
+**Impact**: Determines the target version for rollback operations. The role validates this version is compatible before proceeding.
+
+**Related variables**:
+- `mas_instance_id`: Instance to rollback
+- `rollback_mas_core`: Enables rollback execution
+- `skip_compatibility_check`: Bypasses version compatibility validation
+
+**Note**: Check the MAS documentation for supported rollback paths from your current version. Not all versions support rollback to all earlier versions.
+
 ### rollback_mas_core
-When set to `true` will ensure that the role performs rollback operation.
+Enable rollback execution.
 
 - **Optional**
 - Environment Variable: `ROLLBACK_MAS_CORE`
-- Default: `True`
+- Default: `true`
+
+**Purpose**: Controls whether the role actually performs the rollback operation or only validates/verifies version information.
+
+**When to use**:
+- Leave as `true` (default) to execute rollback
+- Set to `false` when only verifying current version
+- Use with `mas_rollback_dryrun=true` for validation without changes
+
+**Valid values**: `true`, `false`
+
+**Impact**:
+- `true`: Executes rollback to the specified version (default behavior)
+- `false`: Skips rollback execution (use with `verify_core_version=true` for version checks)
+
+**Related variables**:
+- `mas_core_version`: Target version for rollback
+- `verify_core_version`: Alternative mode for version verification
+- `mas_rollback_dryrun`: Validation-only mode
+
+**Note**: When `false`, typically used with `verify_core_version=true` to check current version without making changes.
 
 ### verify_core_version
-When set to `true` will ensure that the role checks the current MAS core version matches with specified version.
+Enable version verification mode.
 
 - **Optional**
 - Environment Variable: `VERIFY_CORE_VERSION`
-- Default: `False`
+- Default: `false`
+
+**Purpose**: When enabled, verifies that the current MAS core version matches the specified `mas_core_version` without performing any rollback operations.
+
+**When to use**:
+- Set to `true` to verify current version matches expected version
+- Use after rollback to confirm successful version change
+- Helpful for validation in automation pipelines
+- Typically used with `rollback_mas_core=false`
+
+**Valid values**: `true`, `false`
+
+**Impact**:
+- `true`: Checks current version matches `mas_core_version`, fails if mismatch
+- `false`: Skips version verification (default)
+
+**Related variables**:
+- `mas_core_version`: Expected version to verify against
+- `rollback_mas_core`: Should be `false` when this is `true`
+
+**Note**: Useful for post-rollback validation or confirming version before proceeding with other operations.
 
 ### mas_rollback_dryrun
-When set to `true` will ensure that the role only performs rollback validation checks and does not make any changes to the target installation.
+Enable dry run mode (validation only).
 
 - **Optional**
 - Environment Variable: `MAS_ROLLBACK_DRYRUN`
-- Default: `False`
+- Default: `false`
+
+**Purpose**: When enabled, performs all validation checks for rollback compatibility without making any actual changes to the MAS installation.
+
+**When to use**:
+- Set to `true` before actual rollback to validate compatibility
+- Use to test rollback feasibility without risk
+- Recommended first step before any rollback operation
+- Helpful for planning and validation
+
+**Valid values**: `true`, `false`
+
+**Impact**:
+- `true`: Validates rollback compatibility but makes no changes (safe)
+- `false`: Executes actual rollback after validation (default)
+
+**Related variables**:
+- `rollback_mas_core`: Rollback must be enabled for dry run to be meaningful
+- `mas_core_version`: Target version to validate
+
+**Note**: **BEST PRACTICE** - Always run with `mas_rollback_dryrun=true` first to validate the rollback is possible before executing the actual rollback with `mas_rollback_dryrun=false`.
 
 ### skip_compatibility_check
-When set to `true` will skip compatibility check before the rollback. This is meant only for development mode. In dev mode, rollback request is accepted from one pre built version to another on the same base version though it is not listed under supported versions. For example: 8.11.0-pre.dev to 8.11.0-pre.stable.
+Skip version compatibility validation.
 
 - **Optional**
 - Environment Variable: `SKIP_COMPATIBILITY_CHECK`
-- Default: `False`
+- Default: `false`
+
+**Purpose**: Bypasses the compatibility check that validates the target version is in the list of supported rollback versions. Intended for development and testing scenarios only.
+
+**When to use**:
+- **Development/testing only** - for pre-release version testing
+- Allows rollback between pre-built versions on same base (e.g., `8.11.0-pre.dev` to `8.11.0-pre.stable`)
+- **NEVER use in production environments**
+
+**Valid values**: `true`, `false`
+
+**Impact**:
+- `true`: Skips compatibility validation, allows unsupported rollback paths (dangerous)
+- `false`: Enforces compatibility checks (safe, default)
+
+**Related variables**:
+- `mas_core_version`: Target version (may be unsupported if check skipped)
+- `rollback_mas_core`: Rollback execution control
+
+**Note**: **WARNING** - This option is for development purposes only. Skipping compatibility checks can result in failed rollbacks, data corruption, or unstable installations. Never use in production. The compatibility check exists to prevent unsupported rollback scenarios.
 
 ## Example Playbook
 

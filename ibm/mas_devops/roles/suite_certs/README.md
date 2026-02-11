@@ -1,190 +1,334 @@
-suite_certs
-============
+# suite_certs
 
+This role manages TLS certificates for Maximo Application Suite core platform and applications. It processes certificate files organized in a directory structure and creates TLS secrets in the appropriate namespaces. The role supports manual certificate management and optional integration with IBM Cloud Internet Services (CIS) for DNS management.
 
-This role iterates through the subdirectories in `$MAS_CONFIG_DIR/certs` which are named as `core` or name of the `apps` like `monitor`, `manage`, `iot` and so on. It looks for tls.crt, tls.key and ca.crt in these subdirectories.
-The names of the subdirectories in `$MAS_CONFIG_DIR/certs` are used to construct namespace to create/identify it and also creates the TLS secret with the tls/ca certs in those namespaces. So these subdirectories should be named correctly as the app names used in namespace suffixes.
+!!! important "Certificate Directory Structure"
+    Certificates must be organized in subdirectories named after the MAS component (`core`, `monitor`, `manage`, `iot`, etc.). Each subdirectory must contain three mandatory files: `tls.crt`, `tls.key`, and `ca.crt`.
 
-## Directory structure example,
+## What This Role Does
+
+- Iterates through certificate subdirectories in `$MAS_CONFIG_DIR/certs`
+- Validates presence of required certificate files (`tls.crt`, `tls.key`, `ca.crt`)
+- Creates TLS secrets in appropriate MAS namespaces
+- Optionally manages DNS CNAME records in IBM Cloud Internet Services
+- Supports GitOps mode for generating configurations without applying them
+
+## Certificate Directory Structure
+
+### Required Structure
 ```
-$MAS_CONFIG_DIR/certs/core/tls.crt
-$MAS_CONFIG_DIR/certs/core/tls.key
-$MAS_CONFIG_DIR/certs/core/ca.crt
-$MAS_CONFIG_DIR/certs/<apps>/tls.crt
-$MAS_CONFIG_DIR/certs/<apps>/tls.key
-$MAS_CONFIG_DIR/certs/<apps>/ca.crt
+$MAS_CONFIG_DIR/certs/
+├── core/
+│   ├── tls.crt
+│   ├── tls.key
+│   └── ca.crt
+├── monitor/
+│   ├── tls.crt
+│   ├── tls.key
+│   └── ca.crt
+├── manage/
+│   ├── tls.crt
+│   ├── tls.key
+│   └── ca.crt
+└── <app>/
+    ├── tls.crt
+    ├── tls.key
+    └── ca.crt
 ```
 
-## TLS Secret
-`tls.crt`, `tls.key` and `ca.crt` are **mandatory** files in these subdirectories. They are used to create TLS secret in each applications' namespace. The role will fail if an empty app subdirectory is present or an app subdirectory missing a mandatory file
+### Supported Applications
+- `core` - MAS core platform
+- `iot` - IoT application
+- `monitor` - Monitor application
+- `manage` - Manage application
+- `health` - Health application
+- `predict` - Predict application
+- `assist` - Assist application
+- `optimizer` - Optimizer application
+- `visualinspection` - Visual Inspection application
+- `facilities` - Facilities application
+- `add` - Add application
+- `arcgis` - ArcGIS integration
 
-### Note: 
-Currently the secret names for core and each app are maintained in `suite_certs/defaults/main.yml`. Any changes to the existing secret name or adding new apps needs to be done here.
+!!! warning
+    All three certificate files (`tls.crt`, `tls.key`, `ca.crt`) are **mandatory** in each subdirectory. The role will fail if a subdirectory is empty or missing any required file.
 
+!!! note "Secret Names"
+    TLS secret names for each application are defined in `suite_certs/defaults/main.yml`. Changes to secret names or adding new applications requires updating this file.
 
-Role Variables
---------------
+## Role Variables
 
 ### mas_instance_id
-The instance ID of the Maximo Application Suite installation to verify.
+MAS instance identifier for certificate management.
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
+- Default: None
+
+**Purpose**: Identifies which MAS instance the certificates are for. Used to construct namespace names and secret names.
+
+**When to use**:
+- Always required for certificate management
+- Must match the instance ID from MAS installation
+- Used in namespace and secret name construction
+
+**Valid values**: Lowercase alphanumeric string, 3-12 characters (e.g., `prod`, `dev`, `masinst1`)
+
+**Impact**: Determines target namespaces for certificate secrets. Namespace format is `mas-{instance_id}-{app}` (e.g., `mas-prod-core`, `mas-prod-monitor`).
+
+**Related variables**:
+- `mas_config_dir`: Root directory containing certificate subdirectories
+- `mas_workspace_id`: Required for workspace-specific apps (manage, health, facilities)
+
+**Note**: The instance ID is used to construct both namespace names and TLS secret names according to MAS naming conventions.
 
 ### mas_manual_cert_mgmt
-Set this to `True` if you want to enable manual certificate management mode.
+Enable manual certificate management mode.
 
+- **Optional**
 - Environment Variable: `MAS_MANUAL_CERT_MGMT`
-- Default Value: `False`
+- Default: `false`
+
+**Purpose**: Enables manual certificate management mode, allowing you to provide custom certificates instead of using cert-manager generated certificates.
+
+**When to use**:
+- Set to `true` when using custom/purchased certificates
+- Required for environments without cert-manager
+- Use when corporate policy requires specific certificate authorities
+- Necessary for custom domain certificates
+
+**Valid values**: `true`, `false`
+
+**Impact**:
+- `true`: Uses certificates from `$MAS_CONFIG_DIR/certs` directories
+- `false`: Relies on cert-manager for automatic certificate generation (default)
+
+**Related variables**:
+- `mas_config_dir`: Directory containing certificate files
+- `dns_provider`: Optional DNS management integration
+
+**Note**: When enabled, you must provide all required certificate files in the correct directory structure. This mode is essential for production environments with specific certificate requirements.
 
 ### mas_config_dir
-Path to the mas config directory. 
+Configuration directory path.
 
 - **Required**
 - Environment Variable: `MAS_CONFIG_DIR`
+- Default: None
+
+**Purpose**: Specifies the root directory containing the `certs` subdirectory with certificate files organized by application.
+
+**When to use**:
+- Always required when using manual certificate management
+- Should point to a directory containing a `certs` subdirectory
+- Typically organized by instance ID
+
+**Valid values**: Valid local filesystem path (e.g., `/home/user/masconfig`, `~/masconfig/inst1`)
+
+**Impact**: The role looks for certificates in `$MAS_CONFIG_DIR/certs/{app}/` directories. All certificate processing is relative to this path.
+
+**Related variables**:
+- `mas_instance_id`: Instance these certificates are for
+- `mas_manual_cert_mgmt`: Must be enabled to use certificates
+
+**Note**: Organize by instance for clarity (e.g., `/masconfig/inst1/certs/`, `/masconfig/inst2/certs/`). The `certs` subdirectory is automatically appended to this path.
 
 ### gitops
-Boolean flag to indicate whether to run role in gitops mode. True means that no openshift resources
-are created on the cluster. 
+Enable GitOps mode (generate only, no apply).
 
 - **Optional**
 - Environment Variable: `GITOPS`
-- Default Value: `False`
+- Default: `false`
 
-Role Variables - CIS as DNS Provider (Optional)
---------------
+**Purpose**: When enabled, generates certificate secret configurations without applying them to the cluster. Useful for GitOps workflows where configurations are committed to Git and applied separately.
 
-Optional variables for users using IBM Cloud Internet Services to manage DNS. This role will guarantee that your CNAMES related to MAS routes are created or updated in the informed CIS instance.
+**When to use**:
+- Set to `true` for GitOps/declarative workflows
+- Use when configurations should be reviewed before application
+- Helpful for version-controlled infrastructure
+- Required for environments with strict change control
+
+**Valid values**: `true`, `false`
+
+**Impact**:
+- `true`: Generates YAML configurations but doesn't create resources on cluster
+- `false`: Generates and applies configurations directly to cluster (default)
+
+**Related variables**:
+- `mas_config_dir`: Where generated configurations are saved
+
+**Note**: In GitOps mode, generated YAML files can be committed to Git and applied through your GitOps tooling (ArgoCD, Flux, etc.).
+
+## Role Variables - CIS DNS Provider (Optional)
+
+Optional variables for users managing DNS with IBM Cloud Internet Services. When configured, this role automatically creates or updates CNAME records for MAS routes in your CIS instance.
 
 ### dns_provider
-Set this to `cis` if you manage DNS using IBM Cloud Internet. If this variable is informed with a value different than `cis` it results in error (except blank, as it is optional).
+DNS provider type.
 
-- Optional
+- **Optional**
 - Environment Variable: `DNS_PROVIDER`
+- Default: None
+
+**Purpose**: Specifies the DNS provider for automatic DNS record management. Currently only supports IBM Cloud Internet Services (CIS).
+
+**When to use**:
+- Set to `cis` when using IBM Cloud Internet Services for DNS
+- Leave unset if not using automatic DNS management
+- Required for automatic CNAME creation
+
+**Valid values**: `cis` (only supported value), or empty/unset
+
+**Impact**: When set to `cis`, enables automatic CNAME record creation in IBM Cloud Internet Services for MAS routes.
+
+**Related variables**:
+- `cis_crn`: Required when this is `cis`
+- `cis_apikey`: Required when this is `cis`
+- `cis_subdomain`: Required when this is `cis`
+- `mas_workspace_id`: Required when this is `cis`
+
+**Note**: Any value other than `cis` or empty will result in an error. This feature is optional and only needed if you want automatic DNS management.
 
 ### mas_workspace_id
-Workspace Id will be used as part of CNAMES definition when using `cis` as dns_provider.
+Workspace identifier for DNS records.
 
-- **Required** if dns_provider is defined and is `cis`
+- **Required** (when `dns_provider=cis`)
 - Environment Variable: `MAS_WORKSPACE_ID`
+- Default: None
+
+**Purpose**: Specifies the workspace ID used in CNAME record construction when using CIS as DNS provider. Required for workspace-specific applications.
+
+**When to use**:
+- Required when `dns_provider=cis`
+- Used for workspace-specific apps (manage, health, facilities)
+- Part of the DNS hostname construction
+
+**Valid values**: Lowercase alphanumeric string, typically 3-12 characters (e.g., `prod`, `dev`, `masdev`)
+
+**Impact**: Used to construct DNS CNAME records for workspace-specific applications. Format: `{workspace_id}.{subdomain}.{domain}`
+
+**Related variables**:
+- `dns_provider`: Must be `cis`
+- `cis_subdomain`: Combined with workspace ID for DNS names
+- `mas_instance_id`: Instance containing this workspace
+
+**Note**: Only needed when using CIS DNS integration. Not required for basic certificate management.
 
 ### cis_crn
-CRN Key identifying the CIS in IBM Cloud. You can find that information in the page of your CIS instance.
+IBM Cloud Internet Services CRN.
 
-- **Required** if dns_provider is defined and is `cis`
+- **Required** (when `dns_provider=cis`)
 - Environment Variable: `CIS_CRN`
+- Default: None
+
+**Purpose**: Provides the Cloud Resource Name (CRN) that uniquely identifies your CIS instance in IBM Cloud. Used for API authentication and resource targeting.
+
+**When to use**:
+- Required when `dns_provider=cis`
+- Found in your CIS instance details page in IBM Cloud
+- Used to target the correct CIS instance
+
+**Valid values**: Valid IBM Cloud CRN string (format: `crn:v1:bluemix:public:internet-svcs:...`)
+
+**Impact**: Identifies which CIS instance to manage DNS records in. All CNAME operations target this CIS instance.
+
+**Related variables**:
+- `dns_provider`: Must be `cis`
+- `cis_apikey`: Required for authentication
+- `cis_subdomain`: Domain managed in this CIS instance
+
+**Note**: **SECURITY** - The CRN is not sensitive but should be kept with your infrastructure configuration. Find it in IBM Cloud Console under your CIS instance details.
 
 ### cis_apikey
-API Key used to access the CIS in IBM CLoud.
+IBM Cloud API key for CIS access.
 
-- **Required** if dns_provider is defined and is `cis`
+- **Required** (when `dns_provider=cis`)
 - Environment Variable: `CIS_APIKEY`
+- Default: None
+
+**Purpose**: Provides IBM Cloud API key for authenticating with CIS to manage DNS records.
+
+**When to use**:
+- Required when `dns_provider=cis`
+- Must have permissions to manage DNS in the CIS instance
+- Used for all CIS API operations
+
+**Valid values**: Valid IBM Cloud API key string
+
+**Impact**: Used to authenticate with IBM Cloud and manage DNS records in the specified CIS instance. Must have appropriate IAM permissions.
+
+**Related variables**:
+- `dns_provider`: Must be `cis`
+- `cis_crn`: CIS instance to manage
+- `cis_subdomain`: Domain to manage records in
+
+**Note**: **SECURITY** - API key should be kept secure and not committed to version control. Requires IAM permissions for DNS management in CIS. Obtain from IBM Cloud IAM.
 
 ### cis_subdomain
-Subdomain will be used as part of CNAMES definition when using `cis` as dns_provider.
+CIS subdomain for CNAME records.
 
-- **Required** if dns_provider is defined and is `cis`
+- **Required** (when `dns_provider=cis`)
 - Environment Variable: `CIS_SUBDOMAIN`
+- Default: None
+
+**Purpose**: Specifies the subdomain within your CIS-managed domain where MAS CNAME records will be created.
+
+**When to use**:
+- Required when `dns_provider=cis`
+- Should match your MAS deployment subdomain
+- Part of the full DNS hostname
+
+**Valid values**: Valid subdomain string (e.g., `mas`, `maximo`, `apps`)
+
+**Impact**: Used to construct full DNS names for MAS routes. Format: `{component}.{subdomain}.{domain}` or `{workspace}.{subdomain}.{domain}`
+
+**Related variables**:
+- `dns_provider`: Must be `cis`
+- `mas_workspace_id`: Combined with subdomain for workspace apps
+- `cis_crn`: CIS instance managing this subdomain
+
+**Note**: The subdomain should already exist in your CIS domain. This role creates CNAME records within the subdomain, not the subdomain itself.
 
 ### cis_proxy
-Set this to `True` if you want enable proxy in your CIS CNames leveraging security rules defined for this software.
+Enable CIS proxy for CNAME records.
 
-- Optional
+- **Optional**
 - Environment Variable: `CIS_PROXY`
-- Default Value: `False`
+- Default: `false`
 
-The directory structure for the certificates must be like below
-```
-$MAS_CONFIG_DIR/certs/core/tls.crt
-$MAS_CONFIG_DIR/certs/core/tls.key
-$MAS_CONFIG_DIR/certs/core/ca.crt
-$MAS_CONFIG_DIR/certs/manage/tls.crt
-$MAS_CONFIG_DIR/certs/manage/tls.key
-$MAS_CONFIG_DIR/certs/manage/ca.crt
-$MAS_CONFIG_DIR/certs/<app>/tls.crt
-$MAS_CONFIG_DIR/certs/<app>/tls.key
-$MAS_CONFIG_DIR/certs/<app>/ca.crt
-```
+**Purpose**: Enables IBM Cloud Internet Services proxy mode for created CNAME records, allowing CIS security features (WAF, DDoS protection, rate limiting) to be applied.
 
-the subdirectory name in the `$MAS_CONFIG_DIR/certs` directory is used to construct the namespace where the TLS secret will be applied to. So name the directory approriately.
+**When to use**:
+- Set to `true` to enable CIS security features
+- Use for production environments requiring additional protection
+- Only applies when `dns_provider=cis`
+- Requires CIS security features to be configured
 
+**Valid values**: `true`, `false`
 
-Example Playbook
-----------------
+**Impact**:
+- `true`: CNAME records are proxied through CIS, enabling security features
+- `false`: CNAME records are DNS-only (default)
+
+**Related variables**:
+- `dns_provider`: Must be `cis`
+- `cis_crn`: CIS instance with security features
+
+**Note**: When enabled, traffic flows through CIS infrastructure, allowing WAF rules, DDoS protection, and other security features to be applied. May add latency but provides additional security layers.
+
+## Example Playbook
 
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
   vars:
     mas_instance_id: masinst1
-    mas_manual_cert_mgmt: True
-    mas_config_dir: /Users/johnbarnes/Document/masconfig
+    mas_manual_cert_mgmt: true
+    mas_config_dir: /home/user/masconfig
   roles:
     - ibm.mas_devops.suite_certs
-
 ```
 
-
-More Detailed View of Directory Structure
-------------------------------------------
-
-
-```
-MAS_CONFIG_DIR
-|
-|---certs
-|     |
-|     |
-|     |---core
-|     |    |
-|     |    |---tls.crt
-|     |    |---tls.key
-|     |    |---ca.crt
-|     |---iot
-|     |    |
-|     |    |---tls.crt
-|     |    |---tls.key
-|     |    |---ca.crt
-|     |---monitor
-|     |    |
-|     |    |---tls.crt
-|     |    |---tls.key
-|     |    |---ca.crt
-|     |---manage
-|     |    |
-|     |    |---tls.crt
-|     |    |---tls.key
-|     |    |---ca.crt
-|     |---add
-|     |    |
-|     |    |---tls.crt
-|     |    |---tls.key
-|     |    |---ca.crt
-|     |---assist
-|     |    |
-|     |    |---tls.crt
-|     |    |---tls.key
-|     |    |---ca.crt
-|     |---optimizer
-|     |    |
-|     |    |---tls.crt
-|     |    |---tls.key
-|     |    |---ca.crt
-|     |---visualinspection
-|     |    |
-|     |    |---tls.crt
-|     |    |---tls.key
-|     |    |---ca.crt
-|     |---facilities
-|     |    |
-|     |    |---tls.crt
-|     |    |---tls.key
-|     |    |---ca.crt
-```
-
-
-License
--------
+## License
 
 EPL-2.0
