@@ -746,68 +746,172 @@
 <p>The <a href="https://github.com/IBM/ibm-pak-plugin">ibm-pak plugin</a> must be installed.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="case_name">case_name<a class="headerlink" href="#case_name" title="Permanent link">¤</a></h3>
-<p>The name of the CASE bundle to prepare for mirroring.</p>
+<p>Name of the IBM CASE bundle to prepare for mirroring.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>CASE_NAME</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which IBM Cloud Pak Application Software Entitlement (CASE) bundle to download and prepare for mirroring to a disconnected registry.</p>
+<p><strong>When to use</strong>:
+- Always required for CASE bundle mirroring preparation
+- Must match an available CASE bundle name
+- Common values: <code>ibm-mas</code>, <code>ibm-sls</code>, <code>ibm-cp4d</code></p>
+<p><strong>Valid values</strong>: Valid IBM CASE bundle name (e.g., <code>ibm-mas</code>, <code>ibm-sls</code>, <code>ibm-cp4d</code>)</p>
+<p><strong>Impact</strong>: Determines which CASE bundle is downloaded and processed. Incorrect name will cause download to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>case_version</code>: Version of this CASE bundle to download
+- <code>ibmpak_skip_dependencies</code>: Whether to include CASE dependencies</p>
+<p><strong>Note</strong>: CASE bundles contain metadata about container images and operators. Use <code>oc ibm-pak list</code> to see available CASE bundles.</p>
 <h3 id="case_version">case_version<a class="headerlink" href="#case_version" title="Permanent link">¤</a></h3>
-<p>The version of the CASE bundle to prepare for mirroring.</p>
+<p>Version of the IBM CASE bundle to prepare for mirroring.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>CASE_VERSION</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which version of the CASE bundle to download and prepare for mirroring. Different versions contain different image sets.</p>
+<p><strong>When to use</strong>:
+- Always required for CASE bundle mirroring preparation
+- Must match an available version for the specified CASE bundle
+- Use specific version for production (e.g., <code>8.8.1</code>, <code>9.0.0</code>)</p>
+<p><strong>Valid values</strong>: Valid version number for the CASE bundle (e.g., <code>8.8.1</code>, <code>9.0.0</code>, <code>3.8.0</code>)</p>
+<p><strong>Impact</strong>: Determines which version of images are included in the mirror manifest. Version must exist for the specified CASE bundle.</p>
+<p><strong>Related variables</strong>:
+- <code>case_name</code>: CASE bundle for this version</p>
+<p><strong>Note</strong>: Use <code>oc ibm-pak list &lt;case_name&gt;</code> to see available versions. Underscores in version are automatically converted to dots (e.g., <code>8_8_1</code> becomes <code>8.8.1</code>).</p>
 <h3 id="registry_public_host">registry_public_host<a class="headerlink" href="#registry_public_host" title="Permanent link">¤</a></h3>
-<p>The public hostname for the target registry.  The images will not be mirrored to the registry at this time, but to prepare the manifest we need to know the target destination.</p>
+<p>Target registry hostname for mirrored images.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>REGISTRY_PUBLIC_HOST</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the hostname of the target container registry where images will be mirrored. Used to generate the mirror manifest with correct destination paths.</p>
+<p><strong>When to use</strong>:
+- Always required for mirror manifest preparation
+- Must be the hostname of your disconnected/private registry
+- Images are not mirrored yet, but manifest needs target destination</p>
+<p><strong>Valid values</strong>: Valid hostname or IP address (e.g., <code>registry.example.com</code>, <code>10.0.0.100</code>)</p>
+<p><strong>Impact</strong>: Determines the target registry in the generated mirror manifest. All image paths will reference this host.</p>
+<p><strong>Related variables</strong>:
+- <code>registry_public_port</code>: Port for this registry
+- <code>registry_prefix</code>: Optional path prefix in registry</p>
+<p><strong>Note</strong>: Images are not mirrored during this role execution. This role only prepares the manifest. Use <code>mirror_images</code> role to perform actual mirroring.</p>
 <h3 id="registry_public_port">registry_public_port<a class="headerlink" href="#registry_public_port" title="Permanent link">¤</a></h3>
-<p>The public port for the target registry.  The images will not be mirrored to the registry at this time, but to prepare the manifest we need to know the target destination.</p>
+<p>Target registry port for mirrored images.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>REGISTRY_PUBLIC_PORT</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the port of the target container registry where images will be mirrored. Used to generate the mirror manifest with correct destination paths.</p>
+<p><strong>When to use</strong>:
+- Always required for mirror manifest preparation
+- Must be the port where your registry is accessible
+- Common values: <code>443</code> (HTTPS), <code>5000</code> (HTTP), <code>32500</code> (NodePort)</p>
+<p><strong>Valid values</strong>: Valid port number (e.g., <code>443</code>, <code>5000</code>, <code>32500</code>)</p>
+<p><strong>Impact</strong>: Determines the target registry port in the generated mirror manifest. All image paths will include this port.</p>
+<p><strong>Related variables</strong>:
+- <code>registry_public_host</code>: Hostname for this registry
+- <code>registry_prefix</code>: Optional path prefix in registry</p>
+<p><strong>Note</strong>: Images are not mirrored during this role execution. This role only prepares the manifest with the target destination.</p>
 <h3 id="registry_prefix">registry_prefix<a class="headerlink" href="#registry_prefix" title="Permanent link">¤</a></h3>
-<p>The prefix used for the target registry.  The images will not be mirrored to the registry at this time but will define the final destination in the form: {host}:{port}/{prefix}/{reponame}</p>
+<p>Path prefix in target registry for mirrored images.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>REGISTRY_PREFIX</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies an optional path prefix in the target registry. Images will be mirrored to <code>{host}:{port}/{prefix}/{reponame}</code> format.</p>
+<p><strong>When to use</strong>:
+- Leave unset if images should be at registry root
+- Set to organize images under a specific path (e.g., project name, namespace)
+- Useful for multi-tenant registries</p>
+<p><strong>Valid values</strong>: Valid registry path (e.g., <code>mas-mirror</code>, <code>production</code>, <code>project-name</code>)</p>
+<p><strong>Impact</strong>:
+- When set: Images mirrored to <code>{host}:{port}/{prefix}/{reponame}</code>
+- When unset: Images mirrored to <code>{host}:{port}/{reponame}</code></p>
+<p><strong>Related variables</strong>:
+- <code>registry_public_host</code>: Registry hostname
+- <code>registry_public_port</code>: Registry port</p>
+<p><strong>Note</strong>: The prefix helps organize images in the registry. Example: with prefix <code>mas-mirror</code>, images go to <code>registry.example.com:5000/mas-mirror/ibm-mas-operator</code>.</p>
 <h3 id="exclude_images">exclude_images<a class="headerlink" href="#exclude_images" title="Permanent link">¤</a></h3>
-<p>A list of child CASE bundles to exclude from the mirroring process.</p>
+<p>List of child CASE bundles to exclude from mirroring.</p>
 <ul>
-<li>Optional</li>
-<li>Environment Variable: None</li>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: None (must be set in playbook)</li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which child CASE bundles (dependencies) to exclude from the mirror manifest. Reduces mirror size by excluding unwanted components.</p>
+<p><strong>When to use</strong>:
+- Leave unset to include all CASE bundle dependencies
+- Set to exclude specific MAS applications or components you don't need
+- Useful for reducing mirror size and time</p>
+<p><strong>Valid values</strong>: List of CASE bundle names (e.g., <code>['ibm-sls', 'ibm-mas-assist', 'ibm-mas-iot']</code>)</p>
+<p><strong>Impact</strong>: Excluded CASE bundles and their images are not included in the mirror manifest. Reduces mirror size but those components won't be available.</p>
+<p><strong>Related variables</strong>:
+- <code>case_name</code>: Parent CASE bundle
+- <code>ibmpak_skip_dependencies</code>: Skip all dependencies (different from selective exclusion)</p>
+<p><strong>Note</strong>: Use this to exclude MAS applications you don't need (e.g., exclude Assist, IoT, Manage if only using Monitor). Cannot be set via environment variable; must be set in playbook vars.</p>
 <h2 id="role-variables-ibm-pak">Role Variables - IBM Pak<a class="headerlink" href="#role-variables-ibm-pak" title="Permanent link">¤</a></h2>
 <h3 id="ibmpak_skip_verify">ibmpak_skip_verify<a class="headerlink" href="#ibmpak_skip_verify" title="Permanent link">¤</a></h3>
-<p>Skip the certification verification when downloading CASE bundles with <code>oc ibm-pak get</code>.</p>
+<p>Skip certificate verification when downloading CASE bundles.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IBMPAK_SKIP_VERIFY</code></li>
-<li>Default: <code>False</code></li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether to skip certificate verification when downloading CASE bundles with <code>oc ibm-pak get</code>. Useful for environments with self-signed certificates.</p>
+<p><strong>When to use</strong>:
+- Leave as <code>false</code> (default) for production with valid certificates
+- Set to <code>true</code> only in development/testing with self-signed certificates
+- Use when certificate verification causes download failures</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- <code>true</code>: Skips certificate verification (less secure, allows self-signed certs)
+- <code>false</code>: Verifies certificates (more secure, requires valid certs)</p>
+<p><strong>Related variables</strong>:
+- <code>ibmpak_insecure</code>: Skip TLS/SSL verification (related but different)</p>
+<p><strong>Note</strong>: Only use <code>true</code> in development/testing environments. Production should use valid certificates and keep this <code>false</code>.</p>
 <h3 id="ibmpak_skip_dependencies">ibmpak_skip_dependencies<a class="headerlink" href="#ibmpak_skip_dependencies" title="Permanent link">¤</a></h3>
-<p>Skip downloading CASE bundle dependencies with <code>oc ibm-pak get</code>.</p>
+<p>Skip downloading CASE bundle dependencies.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IBMPAK_SKIP_DEPENDENCIES</code></li>
-<li>Default: <code>False</code></li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether to skip downloading dependent CASE bundles. When enabled, only the specified CASE bundle is downloaded, not its dependencies.</p>
+<p><strong>When to use</strong>:
+- Leave as <code>false</code> (default) to include all dependencies (recommended)
+- Set to <code>true</code> to download only the specified CASE bundle
+- Use when dependencies are already downloaded or not needed</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- <code>true</code>: Only specified CASE bundle is downloaded (may miss required dependencies)
+- <code>false</code>: All dependent CASE bundles are downloaded (complete set)</p>
+<p><strong>Related variables</strong>:
+- <code>exclude_images</code>: Selective exclusion of specific dependencies (more granular)</p>
+<p><strong>Note</strong>: Skipping dependencies may result in incomplete mirror. Use <code>exclude_images</code> for selective exclusion instead of skipping all dependencies.</p>
 <h3 id="ibmpak_insecure">ibmpak_insecure<a class="headerlink" href="#ibmpak_insecure" title="Permanent link">¤</a></h3>
-<p>Skip TLS/SSL verification when downloading CASE bundles with <code>oc ibm-pak get</code>.</p>
+<p>Skip TLS/SSL verification when downloading CASE bundles.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IBMPAK_INSECURE</code></li>
-<li>Default: <code>False</code></li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether to skip TLS/SSL verification when downloading CASE bundles with <code>oc ibm-pak get</code>. Useful for environments with self-signed certificates or TLS issues.</p>
+<p><strong>When to use</strong>:
+- Leave as <code>false</code> (default) for production with valid TLS certificates
+- Set to <code>true</code> only in development/testing with TLS issues
+- Use when TLS verification causes download failures</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- <code>true</code>: Skips TLS/SSL verification (less secure, allows self-signed certs)
+- <code>false</code>: Verifies TLS/SSL (more secure, requires valid certificates)</p>
+<p><strong>Related variables</strong>:
+- <code>ibmpak_skip_verify</code>: Skip certificate verification (related but different)</p>
+<p><strong>Note</strong>: Only use <code>true</code> in development/testing environments. Production should use valid TLS certificates and keep this <code>false</code>.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   vars:

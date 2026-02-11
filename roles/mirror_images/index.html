@@ -722,6 +722,12 @@
     <cds-select id="breadcrumbs-toc" inline placeholder="..." oninput="changeAnchor(this.value)">
     
     
+      <cds-select-item value="#role-variables">Role Variables</cds-select-item>
+    
+      <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
+    
+      <cds-select-item value="#license">License</cds-select-item>
+    
     </cds-select>
   </cds-breadcrumb-item>
 </cds-breadcrumb>
@@ -731,7 +737,269 @@
           <div class="rst-content">
             
             <h1 id="mirror_images">mirror_images<a class="headerlink" href="#mirror_images" title="Permanent link">¤</a></h1>
-<p>Supports mirroring specific images to the target mirror registry</p>
+<p>This role supports mirroring container images to a target mirror registry using the <code>oc mirror</code> command. It performs the actual image mirroring operation using manifests prepared by <code>mirror_case_prepare</code> or <code>mirror_extras_prepare</code> roles.</p>
+<h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
+<h3 id="registry-configuration">Registry Configuration<a class="headerlink" href="#registry-configuration" title="Permanent link">¤</a></h3>
+<h4 id="registry_public_host">registry_public_host<a class="headerlink" href="#registry_public_host" title="Permanent link">¤</a></h4>
+<p>Target registry hostname for mirrored images.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>REGISTRY_PUBLIC_HOST</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the hostname of the target container registry where images will be mirrored. This is the actual destination for the mirroring operation.</p>
+<p><strong>When to use</strong>:
+- Always required for image mirroring
+- Must be the hostname of your disconnected/private registry
+- Must match the registry specified in the mirror manifest</p>
+<p><strong>Valid values</strong>: Valid hostname or IP address (e.g., <code>registry.example.com</code>, <code>10.0.0.100</code>)</p>
+<p><strong>Impact</strong>: Determines the target registry for image mirroring. Images are pushed to this registry.</p>
+<p><strong>Related variables</strong>:
+- <code>registry_public_port</code>: Port for this registry
+- <code>registry_prefix</code>: Optional path prefix in registry
+- <code>registry_username</code>, <code>registry_password</code>: Authentication credentials</p>
+<p><strong>Note</strong>: Must match the registry specified when preparing the mirror manifest. Registry must be accessible and have sufficient storage space.</p>
+<h4 id="registry_public_port">registry_public_port<a class="headerlink" href="#registry_public_port" title="Permanent link">¤</a></h4>
+<p>Target registry port for mirrored images.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>REGISTRY_PUBLIC_PORT</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the port of the target container registry where images will be mirrored.</p>
+<p><strong>When to use</strong>:
+- Always required for image mirroring
+- Must be the port where your registry is accessible
+- Common values: <code>443</code> (HTTPS), <code>5000</code> (HTTP), <code>32500</code> (NodePort)</p>
+<p><strong>Valid values</strong>: Valid port number (e.g., <code>443</code>, <code>5000</code>, <code>32500</code>)</p>
+<p><strong>Impact</strong>: Determines the target registry port for image mirroring. Images are pushed to this port.</p>
+<p><strong>Related variables</strong>:
+- <code>registry_public_host</code>: Hostname for this registry
+- <code>registry_prefix</code>: Optional path prefix in registry</p>
+<p><strong>Note</strong>: Must match the port specified when preparing the mirror manifest. Ensure the port is accessible from the mirroring system.</p>
+<h4 id="registry_prefix">registry_prefix<a class="headerlink" href="#registry_prefix" title="Permanent link">¤</a></h4>
+<p>Path prefix in target registry for mirrored images.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>REGISTRY_PREFIX</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies an optional path prefix in the target registry. Images are mirrored to <code>{host}:{port}/{prefix}/{reponame}</code> format.</p>
+<p><strong>When to use</strong>:
+- Leave unset if images should be at registry root
+- Set to organize images under a specific path (e.g., project name, namespace)
+- Must match the prefix used when preparing the mirror manifest</p>
+<p><strong>Valid values</strong>: Valid registry path (e.g., <code>mas-mirror</code>, <code>production</code>, <code>project-name</code>)</p>
+<p><strong>Impact</strong>:
+- When set: Images mirrored to <code>{host}:{port}/{prefix}/{reponame}</code>
+- When unset: Images mirrored to <code>{host}:{port}/{reponame}</code></p>
+<p><strong>Related variables</strong>:
+- <code>registry_public_host</code>: Registry hostname
+- <code>registry_public_port</code>: Registry port</p>
+<p><strong>Note</strong>: Must match the prefix specified when preparing the mirror manifest. The prefix helps organize images in the registry.</p>
+<h4 id="registry_is_ecr">registry_is_ecr<a class="headerlink" href="#registry_is_ecr" title="Permanent link">¤</a></h4>
+<p>Enable AWS Elastic Container Registry (ECR) support.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>REGISTRY_IS_ECR</code></li>
+<li>Default: <code>false</code></li>
+</ul>
+<p><strong>Purpose</strong>: Indicates whether the target registry is AWS Elastic Container Registry. Enables ECR-specific authentication and configuration.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> when mirroring to AWS ECR
+- Leave as <code>false</code> (default) for other registry types
+- Requires AWS credentials and ECR region configuration</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- <code>true</code>: Uses ECR-specific authentication and configuration
+- <code>false</code>: Uses standard registry authentication</p>
+<p><strong>Related variables</strong>:
+- <code>registry_ecr_aws_region</code>: AWS region for ECR (required when <code>true</code>)</p>
+<p><strong>Note</strong>: When using ECR, ensure AWS credentials are configured and the ECR region is specified.</p>
+<h4 id="registry_ecr_aws_region">registry_ecr_aws_region<a class="headerlink" href="#registry_ecr_aws_region" title="Permanent link">¤</a></h4>
+<p>AWS region for Elastic Container Registry.</p>
+<ul>
+<li><strong>Optional</strong> (Required when <code>registry_is_ecr=true</code>)</li>
+<li>Environment Variable: <code>REGISTRY_ECR_AWS_REGION</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the AWS region where the ECR registry is located. Required for ECR authentication and access.</p>
+<p><strong>When to use</strong>:
+- Only applies when <code>registry_is_ecr=true</code>
+- Must match the region where your ECR registry exists
+- Required for ECR authentication</p>
+<p><strong>Valid values</strong>: Valid AWS region (e.g., <code>us-east-1</code>, <code>eu-west-1</code>, <code>ap-southeast-1</code>)</p>
+<p><strong>Impact</strong>: Determines which AWS region is used for ECR authentication and access.</p>
+<p><strong>Related variables</strong>:
+- <code>registry_is_ecr</code>: Must be <code>true</code> for this to apply</p>
+<p><strong>Note</strong>: Ensure AWS credentials have permissions to push images to ECR in the specified region.</p>
+<h3 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permanent link">¤</a></h3>
+<h4 id="registry_username">registry_username<a class="headerlink" href="#registry_username" title="Permanent link">¤</a></h4>
+<p>Username for target registry authentication.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>REGISTRY_USERNAME</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Provides the username for authenticating to the target container registry. Required to push images during mirroring.</p>
+<p><strong>When to use</strong>:
+- Always required for image mirroring (unless using ECR with AWS credentials)
+- Must have push permissions to the target registry
+- Obtain from your registry administrator</p>
+<p><strong>Valid values</strong>: Valid username for the target registry</p>
+<p><strong>Impact</strong>: Used to authenticate to the target registry. Without valid credentials, image push will fail.</p>
+<p><strong>Related variables</strong>:
+- <code>registry_password</code>: Password paired with this username</p>
+<p><strong>Note</strong>: Keep credentials secure. Use environment variables or secure vaults rather than hardcoding in playbooks.</p>
+<h4 id="registry_password">registry_password<a class="headerlink" href="#registry_password" title="Permanent link">¤</a></h4>
+<p>Password for target registry authentication.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>REGISTRY_PASSWORD</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Provides the password for authenticating to the target container registry. Required to push images during mirroring.</p>
+<p><strong>When to use</strong>:
+- Always required for image mirroring (unless using ECR with AWS credentials)
+- Must correspond to the provided username
+- Keep secure and rotate regularly</p>
+<p><strong>Valid values</strong>: Valid password for the target registry</p>
+<p><strong>Impact</strong>: Used to authenticate to the target registry. Without valid credentials, image push will fail.</p>
+<p><strong>Related variables</strong>:
+- <code>registry_username</code>: Username paired with this password</p>
+<p><strong>Note</strong>: Keep passwords secure. Never commit to version control. Use environment variables or secure vaults.</p>
+<h4 id="ibm_entitlement_key">ibm_entitlement_key<a class="headerlink" href="#ibm_entitlement_key" title="Permanent link">¤</a></h4>
+<p>IBM entitlement key for accessing source images.</p>
+<ul>
+<li><strong>Required</strong> (for IBM images)</li>
+<li>Environment Variable: <code>IBM_ENTITLEMENT_KEY</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Authenticates access to IBM's entitled container registry to pull source images during mirroring. Required when mirroring IBM product images.</p>
+<p><strong>When to use</strong>:
+- Required when mirroring IBM product images (MAS, Db2, etc.)
+- Obtain from IBM Container Library at https://myibm.ibm.com/products-services/containerlibrary
+- Must be a valid, non-expired key with appropriate entitlements</p>
+<p><strong>Valid values</strong>: IBM entitlement key string (typically starts with "eyJ...")</p>
+<p><strong>Impact</strong>: Without a valid key, pulling IBM source images will fail and mirroring cannot proceed.</p>
+<p><strong>Related variables</strong>:
+- None</p>
+<p><strong>Note</strong>: Keep entitlement keys secure. Keys are tied to your IBM Cloud account and product entitlements. Verify key has entitlements for the products being mirrored.</p>
+<h3 id="mirroring-configuration">Mirroring Configuration<a class="headerlink" href="#mirroring-configuration" title="Permanent link">¤</a></h3>
+<h4 id="mirror_mode">mirror_mode<a class="headerlink" href="#mirror_mode" title="Permanent link">¤</a></h4>
+<p>Mirroring operation mode.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>MIRROR_MODE</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the mode of operation for the mirroring process. Controls whether to perform direct mirroring or use disk-based mirroring.</p>
+<p><strong>When to use</strong>:
+- Set based on your mirroring workflow requirements
+- Use <code>direct</code> for direct registry-to-registry mirroring
+- Use <code>to-disk</code> or <code>from-disk</code> for disk-based mirroring workflows</p>
+<p><strong>Valid values</strong>: <code>direct</code>, <code>to-disk</code>, <code>from-disk</code></p>
+<p><strong>Impact</strong>: Determines the mirroring workflow. Direct mode requires network access to both source and target registries. Disk-based mode allows offline transfer.</p>
+<p><strong>Related variables</strong>:
+- <code>mirror_working_dir</code>: Working directory for disk-based mirroring</p>
+<p><strong>Note</strong>: Disk-based mirroring is useful for air-gapped environments where direct registry access is not possible.</p>
+<h4 id="mirror_working_dir">mirror_working_dir<a class="headerlink" href="#mirror_working_dir" title="Permanent link">¤</a></h4>
+<p>Working directory for mirroring operations.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>MIRROR_WORKING_DIR</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the working directory for mirroring operations. Used to store manifests, temporary files, and disk-based mirror archives.</p>
+<p><strong>When to use</strong>:
+- Set to specify a custom working directory
+- Leave unset to use default location
+- Ensure directory has sufficient disk space for disk-based mirroring</p>
+<p><strong>Valid values</strong>: Absolute filesystem path</p>
+<p><strong>Impact</strong>: Determines where mirroring files are stored. Insufficient space will cause mirroring to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>mirror_mode</code>: Working directory used for disk-based modes</p>
+<p><strong>Note</strong>: For disk-based mirroring, ensure the directory has sufficient space for all images (can be hundreds of GB).</p>
+<h4 id="manifest_name">manifest_name<a class="headerlink" href="#manifest_name" title="Permanent link">¤</a></h4>
+<p>Name of the mirror manifest to use.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>MANIFEST_NAME</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the name of the mirror manifest file to use for the mirroring operation. Manifest defines which images to mirror.</p>
+<p><strong>When to use</strong>:
+- Set to use a specific manifest file
+- Leave unset to use default manifest discovery
+- Manifest should be prepared by <code>mirror_case_prepare</code> or <code>mirror_extras_prepare</code> roles</p>
+<p><strong>Valid values</strong>: Manifest filename (e.g., <code>ibm-mas</code>, <code>mongoce</code>)</p>
+<p><strong>Impact</strong>: Determines which manifest is used for mirroring. Incorrect name will cause mirroring to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>manifest_version</code>: Version of the manifest
+- <code>mirror_working_dir</code>: Directory containing manifests</p>
+<p><strong>Note</strong>: Manifests are typically prepared by the <code>mirror_case_prepare</code> or <code>mirror_extras_prepare</code> roles before running this role.</p>
+<h4 id="manifest_version">manifest_version<a class="headerlink" href="#manifest_version" title="Permanent link">¤</a></h4>
+<p>Version of the mirror manifest to use.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>MANIFEST_VERSION</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the version of the mirror manifest file to use for the mirroring operation.</p>
+<p><strong>When to use</strong>:
+- Set to use a specific manifest version
+- Leave unset to use default version discovery
+- Must match a manifest prepared earlier</p>
+<p><strong>Valid values</strong>: Version string (e.g., <code>8.8.1</code>, <code>9.0.0</code>)</p>
+<p><strong>Impact</strong>: Determines which manifest version is used for mirroring. Incorrect version will cause mirroring to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>manifest_name</code>: Name of the manifest</p>
+<p><strong>Note</strong>: Underscores in version are automatically converted to dots (e.g., <code>8_8_1</code> becomes <code>8.8.1</code>).</p>
+<h4 id="mirror_single_arch">mirror_single_arch<a class="headerlink" href="#mirror_single_arch" title="Permanent link">¤</a></h4>
+<p>Mirror only a single architecture.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>MIRROR_SINGLE_ARCH</code></li>
+<li>Default: <code>amd64</code></li>
+</ul>
+<p><strong>Purpose</strong>: Specifies whether to mirror only a single architecture instead of all available architectures. Reduces mirror size and time.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>amd64</code>) for x86_64 clusters (most common)
+- Set to <code>arm64</code> for ARM-based clusters
+- Set to empty string to mirror all architectures</p>
+<p><strong>Valid values</strong>: <code>amd64</code>, <code>arm64</code>, or empty string for all architectures</p>
+<p><strong>Impact</strong>:
+- <code>amd64</code>: Mirrors only x86_64 images (smaller, faster)
+- <code>arm64</code>: Mirrors only ARM images
+- Empty: Mirrors all architectures (larger, slower)</p>
+<p><strong>Related variables</strong>:
+- None</p>
+<p><strong>Note</strong>: Most OpenShift clusters use amd64 architecture. Only change if you have specific architecture requirements.</p>
+<h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
+<pre><code class="language-yaml">- hosts: localhost
+  vars:
+    # Target registry
+    registry_public_host: registry.example.com
+    registry_public_port: 5000
+    registry_prefix: mas-mirror
+
+    # Registry authentication
+    registry_username: admin
+    registry_password: "{{ lookup('env', 'REGISTRY_PASSWORD') }}"
+
+    # IBM authentication
+    ibm_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
+
+    # Mirroring configuration
+    manifest_name: ibm-mas
+    manifest_version: 8.8.1
+    mirror_mode: direct
+
+  roles:
+    - ibm.mas_devops.mirror_images
+</code></pre>
+<h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">¤</a></h2>
+<p>EPL-2.0</p>
             
           </div>
 
@@ -774,8 +1042,35 @@
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
               <li class="md-toc__item">
-                <a href="#mirror_images" class="md-toc__link" data-md-level="1">
-                  mirror_images
+                <a href="#role-variables" class="md-toc__link" data-md-level="1">
+                  Role Variables
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#registry-configuration" class="md-toc__link" data-md-level="2">
+                          Registry Configuration
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#authentication" class="md-toc__link" data-md-level="2">
+                          Authentication
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#mirroring-configuration" class="md-toc__link" data-md-level="2">
+                          Mirroring Configuration
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#example-playbook" class="md-toc__link" data-md-level="1">
+                  Example Playbook
+                </a>
+              </li>
+              <li class="md-toc__item">
+                <a href="#license" class="md-toc__link" data-md-level="1">
+                  License
                 </a>
               </li>
         </ul>

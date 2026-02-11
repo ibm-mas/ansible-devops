@@ -737,22 +737,49 @@
           <div class="rst-content">
             
             <h1 id="suite_uninstall">suite_uninstall<a class="headerlink" href="#suite_uninstall" title="Permanent link">¤</a></h1>
-<p>This role removes Maximo Application Suite Core Platform. Note that it does not remove any data from MongoDb, and does not remove any applications from the MAS install, generally it should be used after <code>suite_app_uninstall</code> to remove all installed Maximo Application Suite applications.</p>
+<p>This role removes Maximo Application Suite Core Platform. Note that it does not remove any data from MongoDB by default, and does not remove any applications from the MAS install. Generally it should be used after <code>suite_app_uninstall</code> to remove all installed Maximo Application Suite applications.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This role performs destructive operations. Ensure you have backups before proceeding. Use <code>mas_wipe_mongo_data</code> carefully as it permanently deletes all MAS data.</p>
+</div>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
-<p>Defines the MAS instance to be removed from the cluster.</p>
+<p>MAS instance identifier to uninstall.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies which MAS instance to remove from the cluster. The role deletes the Suite custom resource and associated core platform resources.</p>
+<p><strong>When to use</strong>:
+- Always required for uninstall operations
+- Must match the instance ID from MAS installation
+- Used to target specific instance for removal</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>masinst1</code>)</p>
+<p><strong>Impact</strong>: Determines which MAS instance is uninstalled. All core platform resources for this instance will be removed, but MongoDB data is preserved by default unless <code>mas_wipe_mongo_data</code> is enabled.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_wipe_mongo_data</code>: Controls whether MongoDB data is deleted</p>
+<p><strong>Note</strong>: This role only removes the MAS core platform. Applications must be uninstalled separately using <code>suite_app_uninstall</code> before running this role. MongoDB data is preserved by default for safety.</p>
 <h3 id="mas_wipe_mongo_data">mas_wipe_mongo_data<a class="headerlink" href="#mas_wipe_mongo_data" title="Permanent link">¤</a></h3>
-<p>Defines whether Mongo databases should be deleted along with MAS uninstall.</p>
+<p>Delete MongoDB databases during uninstall.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_WIPE_MONGO_DATA</code></li>
 <li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether MongoDB databases containing MAS data are permanently deleted during uninstall. When disabled (default), only the MAS platform is removed while preserving all data.</p>
+<p><strong>When to use</strong>:
+- Leave as <code>false</code> (default) to preserve data (recommended)
+- Set to <code>true</code> only for complete removal including all data
+- Use <code>true</code> for test/dev environments or when data is no longer needed
+- <strong>NEVER</strong> use <code>true</code> in production without verified backups</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- <code>false</code>: Removes MAS platform but preserves all MongoDB data (safe, allows reinstall)
+- <code>true</code>: Removes MAS platform AND permanently deletes all MongoDB databases (destructive)</p>
+<p><strong>Related variables</strong>:
+- <code>mas_instance_id</code>: Instance whose data may be deleted</p>
+<p><strong>Note</strong>: <strong>CRITICAL</strong> - Setting to <code>true</code> permanently deletes all MAS data including configurations, workspaces, and application data. This operation cannot be undone. Always ensure you have verified backups before enabling this option. The default <code>false</code> is strongly recommended for production environments.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true

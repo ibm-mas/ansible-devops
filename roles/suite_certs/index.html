@@ -722,17 +722,15 @@
     <cds-select id="breadcrumbs-toc" inline placeholder="..." oninput="changeAnchor(this.value)">
     
     
-      <cds-select-item value="#directory-structure-example">Directory structure example,</cds-select-item>
+      <cds-select-item value="#what-this-role-does">What This Role Does</cds-select-item>
     
-      <cds-select-item value="#tls-secret">TLS Secret</cds-select-item>
+      <cds-select-item value="#certificate-directory-structure">Certificate Directory Structure</cds-select-item>
     
       <cds-select-item value="#role-variables">Role Variables</cds-select-item>
     
-      <cds-select-item value="#role-variables-cis-as-dns-provider-optional">Role Variables - CIS as DNS Provider (Optional)</cds-select-item>
+      <cds-select-item value="#role-variables-cis-dns-provider-optional">Role Variables - CIS DNS Provider (Optional)</cds-select-item>
     
       <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
-    
-      <cds-select-item value="#more-detailed-view-of-directory-structure">More Detailed View of Directory Structure</cds-select-item>
     
       <cds-select-item value="#license">License</cds-select-item>
     
@@ -745,161 +743,268 @@
           <div class="rst-content">
             
             <h1 id="suite_certs">suite_certs<a class="headerlink" href="#suite_certs" title="Permanent link">¤</a></h1>
-<p>This role iterates through the subdirectories in <code>$MAS_CONFIG_DIR/certs</code> which are named as <code>core</code> or name of the <code>apps</code> like <code>monitor</code>, <code>manage</code>, <code>iot</code> and so on. It looks for tls.crt, tls.key and ca.crt in these subdirectories.
-The names of the subdirectories in <code>$MAS_CONFIG_DIR/certs</code> are used to construct namespace to create/identify it and also creates the TLS secret with the tls/ca certs in those namespaces. So these subdirectories should be named correctly as the app names used in namespace suffixes.</p>
-<h2 id="directory-structure-example">Directory structure example,<a class="headerlink" href="#directory-structure-example" title="Permanent link">¤</a></h2>
-<pre><code>$MAS_CONFIG_DIR/certs/core/tls.crt
-$MAS_CONFIG_DIR/certs/core/tls.key
-$MAS_CONFIG_DIR/certs/core/ca.crt
-$MAS_CONFIG_DIR/certs/&lt;apps&gt;/tls.crt
-$MAS_CONFIG_DIR/certs/&lt;apps&gt;/tls.key
-$MAS_CONFIG_DIR/certs/&lt;apps&gt;/ca.crt
+<p>This role manages TLS certificates for Maximo Application Suite core platform and applications. It processes certificate files organized in a directory structure and creates TLS secrets in the appropriate namespaces. The role supports manual certificate management and optional integration with IBM Cloud Internet Services (CIS) for DNS management.</p>
+<div class="admonition important">
+<p class="admonition-title">Certificate Directory Structure</p>
+<p>Certificates must be organized in subdirectories named after the MAS component (<code>core</code>, <code>monitor</code>, <code>manage</code>, <code>iot</code>, etc.). Each subdirectory must contain three mandatory files: <code>tls.crt</code>, <code>tls.key</code>, and <code>ca.crt</code>.</p>
+</div>
+<h2 id="what-this-role-does">What This Role Does<a class="headerlink" href="#what-this-role-does" title="Permanent link">¤</a></h2>
+<ul>
+<li>Iterates through certificate subdirectories in <code>$MAS_CONFIG_DIR/certs</code></li>
+<li>Validates presence of required certificate files (<code>tls.crt</code>, <code>tls.key</code>, <code>ca.crt</code>)</li>
+<li>Creates TLS secrets in appropriate MAS namespaces</li>
+<li>Optionally manages DNS CNAME records in IBM Cloud Internet Services</li>
+<li>Supports GitOps mode for generating configurations without applying them</li>
+</ul>
+<h2 id="certificate-directory-structure">Certificate Directory Structure<a class="headerlink" href="#certificate-directory-structure" title="Permanent link">¤</a></h2>
+<h3 id="required-structure">Required Structure<a class="headerlink" href="#required-structure" title="Permanent link">¤</a></h3>
+<pre><code>$MAS_CONFIG_DIR/certs/
+├── core/
+│   ├── tls.crt
+│   ├── tls.key
+│   └── ca.crt
+├── monitor/
+│   ├── tls.crt
+│   ├── tls.key
+│   └── ca.crt
+├── manage/
+│   ├── tls.crt
+│   ├── tls.key
+│   └── ca.crt
+└── &lt;app&gt;/
+    ├── tls.crt
+    ├── tls.key
+    └── ca.crt
 </code></pre>
-<h2 id="tls-secret">TLS Secret<a class="headerlink" href="#tls-secret" title="Permanent link">¤</a></h2>
-<p><code>tls.crt</code>, <code>tls.key</code> and <code>ca.crt</code> are <strong>mandatory</strong> files in these subdirectories. They are used to create TLS secret in each applications' namespace. The role will fail if an empty app subdirectory is present or an app subdirectory missing a mandatory file</p>
-<h3 id="note">Note:<a class="headerlink" href="#note" title="Permanent link">¤</a></h3>
-<p>Currently the secret names for core and each app are maintained in <code>suite_certs/defaults/main.yml</code>. Any changes to the existing secret name or adding new apps needs to be done here.</p>
+<h3 id="supported-applications">Supported Applications<a class="headerlink" href="#supported-applications" title="Permanent link">¤</a></h3>
+<ul>
+<li><code>core</code> - MAS core platform</li>
+<li><code>iot</code> - IoT application</li>
+<li><code>monitor</code> - Monitor application</li>
+<li><code>manage</code> - Manage application</li>
+<li><code>health</code> - Health application</li>
+<li><code>predict</code> - Predict application</li>
+<li><code>assist</code> - Assist application</li>
+<li><code>optimizer</code> - Optimizer application</li>
+<li><code>visualinspection</code> - Visual Inspection application</li>
+<li><code>facilities</code> - Facilities application</li>
+<li><code>add</code> - Add application</li>
+<li><code>arcgis</code> - ArcGIS integration</li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>All three certificate files (<code>tls.crt</code>, <code>tls.key</code>, <code>ca.crt</code>) are <strong>mandatory</strong> in each subdirectory. The role will fail if a subdirectory is empty or missing any required file.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Secret Names</p>
+<p>TLS secret names for each application are defined in <code>suite_certs/defaults/main.yml</code>. Changes to secret names or adding new applications requires updating this file.</p>
+</div>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
-<p>The instance ID of the Maximo Application Suite installation to verify.</p>
+<p>MAS instance identifier for certificate management.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies which MAS instance the certificates are for. Used to construct namespace names and secret names.</p>
+<p><strong>When to use</strong>:
+- Always required for certificate management
+- Must match the instance ID from MAS installation
+- Used in namespace and secret name construction</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>masinst1</code>)</p>
+<p><strong>Impact</strong>: Determines target namespaces for certificate secrets. Namespace format is <code>mas-{instance_id}-{app}</code> (e.g., <code>mas-prod-core</code>, <code>mas-prod-monitor</code>).</p>
+<p><strong>Related variables</strong>:
+- <code>mas_config_dir</code>: Root directory containing certificate subdirectories
+- <code>mas_workspace_id</code>: Required for workspace-specific apps (manage, health, facilities)</p>
+<p><strong>Note</strong>: The instance ID is used to construct both namespace names and TLS secret names according to MAS naming conventions.</p>
 <h3 id="mas_manual_cert_mgmt">mas_manual_cert_mgmt<a class="headerlink" href="#mas_manual_cert_mgmt" title="Permanent link">¤</a></h3>
-<p>Set this to <code>True</code> if you want to enable manual certificate management mode.</p>
+<p>Enable manual certificate management mode.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_MANUAL_CERT_MGMT</code></li>
-<li>Default Value: <code>False</code></li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Enables manual certificate management mode, allowing you to provide custom certificates instead of using cert-manager generated certificates.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> when using custom/purchased certificates
+- Required for environments without cert-manager
+- Use when corporate policy requires specific certificate authorities
+- Necessary for custom domain certificates</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- <code>true</code>: Uses certificates from <code>$MAS_CONFIG_DIR/certs</code> directories
+- <code>false</code>: Relies on cert-manager for automatic certificate generation (default)</p>
+<p><strong>Related variables</strong>:
+- <code>mas_config_dir</code>: Directory containing certificate files
+- <code>dns_provider</code>: Optional DNS management integration</p>
+<p><strong>Note</strong>: When enabled, you must provide all required certificate files in the correct directory structure. This mode is essential for production environments with specific certificate requirements.</p>
 <h3 id="mas_config_dir">mas_config_dir<a class="headerlink" href="#mas_config_dir" title="Permanent link">¤</a></h3>
-<p>Path to the mas config directory. </p>
+<p>Configuration directory path.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_CONFIG_DIR</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the root directory containing the <code>certs</code> subdirectory with certificate files organized by application.</p>
+<p><strong>When to use</strong>:
+- Always required when using manual certificate management
+- Should point to a directory containing a <code>certs</code> subdirectory
+- Typically organized by instance ID</p>
+<p><strong>Valid values</strong>: Valid local filesystem path (e.g., <code>/home/user/masconfig</code>, <code>~/masconfig/inst1</code>)</p>
+<p><strong>Impact</strong>: The role looks for certificates in <code>$MAS_CONFIG_DIR/certs/{app}/</code> directories. All certificate processing is relative to this path.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_instance_id</code>: Instance these certificates are for
+- <code>mas_manual_cert_mgmt</code>: Must be enabled to use certificates</p>
+<p><strong>Note</strong>: Organize by instance for clarity (e.g., <code>/masconfig/inst1/certs/</code>, <code>/masconfig/inst2/certs/</code>). The <code>certs</code> subdirectory is automatically appended to this path.</p>
 <h3 id="gitops">gitops<a class="headerlink" href="#gitops" title="Permanent link">¤</a></h3>
-<p>Boolean flag to indicate whether to run role in gitops mode. True means that no openshift resources
-are created on the cluster. </p>
+<p>Enable GitOps mode (generate only, no apply).</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>GITOPS</code></li>
-<li>Default Value: <code>False</code></li>
+<li>Default: <code>false</code></li>
 </ul>
-<h2 id="role-variables-cis-as-dns-provider-optional">Role Variables - CIS as DNS Provider (Optional)<a class="headerlink" href="#role-variables-cis-as-dns-provider-optional" title="Permanent link">¤</a></h2>
-<p>Optional variables for users using IBM Cloud Internet Services to manage DNS. This role will guarantee that your CNAMES related to MAS routes are created or updated in the informed CIS instance.</p>
+<p><strong>Purpose</strong>: When enabled, generates certificate secret configurations without applying them to the cluster. Useful for GitOps workflows where configurations are committed to Git and applied separately.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> for GitOps/declarative workflows
+- Use when configurations should be reviewed before application
+- Helpful for version-controlled infrastructure
+- Required for environments with strict change control</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- <code>true</code>: Generates YAML configurations but doesn't create resources on cluster
+- <code>false</code>: Generates and applies configurations directly to cluster (default)</p>
+<p><strong>Related variables</strong>:
+- <code>mas_config_dir</code>: Where generated configurations are saved</p>
+<p><strong>Note</strong>: In GitOps mode, generated YAML files can be committed to Git and applied through your GitOps tooling (ArgoCD, Flux, etc.).</p>
+<h2 id="role-variables-cis-dns-provider-optional">Role Variables - CIS DNS Provider (Optional)<a class="headerlink" href="#role-variables-cis-dns-provider-optional" title="Permanent link">¤</a></h2>
+<p>Optional variables for users managing DNS with IBM Cloud Internet Services. When configured, this role automatically creates or updates CNAME records for MAS routes in your CIS instance.</p>
 <h3 id="dns_provider">dns_provider<a class="headerlink" href="#dns_provider" title="Permanent link">¤</a></h3>
-<p>Set this to <code>cis</code> if you manage DNS using IBM Cloud Internet. If this variable is informed with a value different than <code>cis</code> it results in error (except blank, as it is optional).</p>
+<p>DNS provider type.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DNS_PROVIDER</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the DNS provider for automatic DNS record management. Currently only supports IBM Cloud Internet Services (CIS).</p>
+<p><strong>When to use</strong>:
+- Set to <code>cis</code> when using IBM Cloud Internet Services for DNS
+- Leave unset if not using automatic DNS management
+- Required for automatic CNAME creation</p>
+<p><strong>Valid values</strong>: <code>cis</code> (only supported value), or empty/unset</p>
+<p><strong>Impact</strong>: When set to <code>cis</code>, enables automatic CNAME record creation in IBM Cloud Internet Services for MAS routes.</p>
+<p><strong>Related variables</strong>:
+- <code>cis_crn</code>: Required when this is <code>cis</code>
+- <code>cis_apikey</code>: Required when this is <code>cis</code>
+- <code>cis_subdomain</code>: Required when this is <code>cis</code>
+- <code>mas_workspace_id</code>: Required when this is <code>cis</code></p>
+<p><strong>Note</strong>: Any value other than <code>cis</code> or empty will result in an error. This feature is optional and only needed if you want automatic DNS management.</p>
 <h3 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link">¤</a></h3>
-<p>Workspace Id will be used as part of CNAMES definition when using <code>cis</code> as dns_provider.</p>
+<p>Workspace identifier for DNS records.</p>
 <ul>
-<li><strong>Required</strong> if dns_provider is defined and is <code>cis</code></li>
+<li><strong>Required</strong> (when <code>dns_provider=cis</code>)</li>
 <li>Environment Variable: <code>MAS_WORKSPACE_ID</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the workspace ID used in CNAME record construction when using CIS as DNS provider. Required for workspace-specific applications.</p>
+<p><strong>When to use</strong>:
+- Required when <code>dns_provider=cis</code>
+- Used for workspace-specific apps (manage, health, facilities)
+- Part of the DNS hostname construction</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, typically 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>masdev</code>)</p>
+<p><strong>Impact</strong>: Used to construct DNS CNAME records for workspace-specific applications. Format: <code>{workspace_id}.{subdomain}.{domain}</code></p>
+<p><strong>Related variables</strong>:
+- <code>dns_provider</code>: Must be <code>cis</code>
+- <code>cis_subdomain</code>: Combined with workspace ID for DNS names
+- <code>mas_instance_id</code>: Instance containing this workspace</p>
+<p><strong>Note</strong>: Only needed when using CIS DNS integration. Not required for basic certificate management.</p>
 <h3 id="cis_crn">cis_crn<a class="headerlink" href="#cis_crn" title="Permanent link">¤</a></h3>
-<p>CRN Key identifying the CIS in IBM Cloud. You can find that information in the page of your CIS instance.</p>
+<p>IBM Cloud Internet Services CRN.</p>
 <ul>
-<li><strong>Required</strong> if dns_provider is defined and is <code>cis</code></li>
+<li><strong>Required</strong> (when <code>dns_provider=cis</code>)</li>
 <li>Environment Variable: <code>CIS_CRN</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the Cloud Resource Name (CRN) that uniquely identifies your CIS instance in IBM Cloud. Used for API authentication and resource targeting.</p>
+<p><strong>When to use</strong>:
+- Required when <code>dns_provider=cis</code>
+- Found in your CIS instance details page in IBM Cloud
+- Used to target the correct CIS instance</p>
+<p><strong>Valid values</strong>: Valid IBM Cloud CRN string (format: <code>crn:v1:bluemix:public:internet-svcs:...</code>)</p>
+<p><strong>Impact</strong>: Identifies which CIS instance to manage DNS records in. All CNAME operations target this CIS instance.</p>
+<p><strong>Related variables</strong>:
+- <code>dns_provider</code>: Must be <code>cis</code>
+- <code>cis_apikey</code>: Required for authentication
+- <code>cis_subdomain</code>: Domain managed in this CIS instance</p>
+<p><strong>Note</strong>: <strong>SECURITY</strong> - The CRN is not sensitive but should be kept with your infrastructure configuration. Find it in IBM Cloud Console under your CIS instance details.</p>
 <h3 id="cis_apikey">cis_apikey<a class="headerlink" href="#cis_apikey" title="Permanent link">¤</a></h3>
-<p>API Key used to access the CIS in IBM CLoud.</p>
+<p>IBM Cloud API key for CIS access.</p>
 <ul>
-<li><strong>Required</strong> if dns_provider is defined and is <code>cis</code></li>
+<li><strong>Required</strong> (when <code>dns_provider=cis</code>)</li>
 <li>Environment Variable: <code>CIS_APIKEY</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides IBM Cloud API key for authenticating with CIS to manage DNS records.</p>
+<p><strong>When to use</strong>:
+- Required when <code>dns_provider=cis</code>
+- Must have permissions to manage DNS in the CIS instance
+- Used for all CIS API operations</p>
+<p><strong>Valid values</strong>: Valid IBM Cloud API key string</p>
+<p><strong>Impact</strong>: Used to authenticate with IBM Cloud and manage DNS records in the specified CIS instance. Must have appropriate IAM permissions.</p>
+<p><strong>Related variables</strong>:
+- <code>dns_provider</code>: Must be <code>cis</code>
+- <code>cis_crn</code>: CIS instance to manage
+- <code>cis_subdomain</code>: Domain to manage records in</p>
+<p><strong>Note</strong>: <strong>SECURITY</strong> - API key should be kept secure and not committed to version control. Requires IAM permissions for DNS management in CIS. Obtain from IBM Cloud IAM.</p>
 <h3 id="cis_subdomain">cis_subdomain<a class="headerlink" href="#cis_subdomain" title="Permanent link">¤</a></h3>
-<p>Subdomain will be used as part of CNAMES definition when using <code>cis</code> as dns_provider.</p>
+<p>CIS subdomain for CNAME records.</p>
 <ul>
-<li><strong>Required</strong> if dns_provider is defined and is <code>cis</code></li>
+<li><strong>Required</strong> (when <code>dns_provider=cis</code>)</li>
 <li>Environment Variable: <code>CIS_SUBDOMAIN</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the subdomain within your CIS-managed domain where MAS CNAME records will be created.</p>
+<p><strong>When to use</strong>:
+- Required when <code>dns_provider=cis</code>
+- Should match your MAS deployment subdomain
+- Part of the full DNS hostname</p>
+<p><strong>Valid values</strong>: Valid subdomain string (e.g., <code>mas</code>, <code>maximo</code>, <code>apps</code>)</p>
+<p><strong>Impact</strong>: Used to construct full DNS names for MAS routes. Format: <code>{component}.{subdomain}.{domain}</code> or <code>{workspace}.{subdomain}.{domain}</code></p>
+<p><strong>Related variables</strong>:
+- <code>dns_provider</code>: Must be <code>cis</code>
+- <code>mas_workspace_id</code>: Combined with subdomain for workspace apps
+- <code>cis_crn</code>: CIS instance managing this subdomain</p>
+<p><strong>Note</strong>: The subdomain should already exist in your CIS domain. This role creates CNAME records within the subdomain, not the subdomain itself.</p>
 <h3 id="cis_proxy">cis_proxy<a class="headerlink" href="#cis_proxy" title="Permanent link">¤</a></h3>
-<p>Set this to <code>True</code> if you want enable proxy in your CIS CNames leveraging security rules defined for this software.</p>
+<p>Enable CIS proxy for CNAME records.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>CIS_PROXY</code></li>
-<li>Default Value: <code>False</code></li>
+<li>Default: <code>false</code></li>
 </ul>
-<p>The directory structure for the certificates must be like below</p>
-<pre><code>$MAS_CONFIG_DIR/certs/core/tls.crt
-$MAS_CONFIG_DIR/certs/core/tls.key
-$MAS_CONFIG_DIR/certs/core/ca.crt
-$MAS_CONFIG_DIR/certs/manage/tls.crt
-$MAS_CONFIG_DIR/certs/manage/tls.key
-$MAS_CONFIG_DIR/certs/manage/ca.crt
-$MAS_CONFIG_DIR/certs/&lt;app&gt;/tls.crt
-$MAS_CONFIG_DIR/certs/&lt;app&gt;/tls.key
-$MAS_CONFIG_DIR/certs/&lt;app&gt;/ca.crt
-</code></pre>
-<p>the subdirectory name in the <code>$MAS_CONFIG_DIR/certs</code> directory is used to construct the namespace where the TLS secret will be applied to. So name the directory approriately.</p>
+<p><strong>Purpose</strong>: Enables IBM Cloud Internet Services proxy mode for created CNAME records, allowing CIS security features (WAF, DDoS protection, rate limiting) to be applied.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> to enable CIS security features
+- Use for production environments requiring additional protection
+- Only applies when <code>dns_provider=cis</code>
+- Requires CIS security features to be configured</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- <code>true</code>: CNAME records are proxied through CIS, enabling security features
+- <code>false</code>: CNAME records are DNS-only (default)</p>
+<p><strong>Related variables</strong>:
+- <code>dns_provider</code>: Must be <code>cis</code>
+- <code>cis_crn</code>: CIS instance with security features</p>
+<p><strong>Note</strong>: When enabled, traffic flows through CIS infrastructure, allowing WAF rules, DDoS protection, and other security features to be applied. May add latency but provides additional security layers.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
     mas_instance_id: masinst1
-    mas_manual_cert_mgmt: True
-    mas_config_dir: /Users/johnbarnes/Document/masconfig
+    mas_manual_cert_mgmt: true
+    mas_config_dir: /home/user/masconfig
   roles:
     - ibm.mas_devops.suite_certs
-
-</code></pre>
-<h2 id="more-detailed-view-of-directory-structure">More Detailed View of Directory Structure<a class="headerlink" href="#more-detailed-view-of-directory-structure" title="Permanent link">¤</a></h2>
-<pre><code>MAS_CONFIG_DIR
-|
-|---certs
-|     |
-|     |
-|     |---core
-|     |    |
-|     |    |---tls.crt
-|     |    |---tls.key
-|     |    |---ca.crt
-|     |---iot
-|     |    |
-|     |    |---tls.crt
-|     |    |---tls.key
-|     |    |---ca.crt
-|     |---monitor
-|     |    |
-|     |    |---tls.crt
-|     |    |---tls.key
-|     |    |---ca.crt
-|     |---manage
-|     |    |
-|     |    |---tls.crt
-|     |    |---tls.key
-|     |    |---ca.crt
-|     |---add
-|     |    |
-|     |    |---tls.crt
-|     |    |---tls.key
-|     |    |---ca.crt
-|     |---assist
-|     |    |
-|     |    |---tls.crt
-|     |    |---tls.key
-|     |    |---ca.crt
-|     |---optimizer
-|     |    |
-|     |    |---tls.crt
-|     |    |---tls.key
-|     |    |---ca.crt
-|     |---visualinspection
-|     |    |
-|     |    |---tls.crt
-|     |    |---tls.key
-|     |    |---ca.crt
-|     |---facilities
-|     |    |
-|     |    |---tls.crt
-|     |    |---tls.key
-|     |    |---ca.crt
 </code></pre>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">¤</a></h2>
 <p>EPL-2.0</p>
@@ -945,18 +1050,23 @@ $MAS_CONFIG_DIR/certs/&lt;app&gt;/ca.crt
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
               <li class="md-toc__item">
-                <a href="#directory-structure-example" class="md-toc__link" data-md-level="1">
-                  Directory structure example,
+                <a href="#what-this-role-does" class="md-toc__link" data-md-level="1">
+                  What This Role Does
                 </a>
               </li>
               <li class="md-toc__item">
-                <a href="#tls-secret" class="md-toc__link" data-md-level="1">
-                  TLS Secret
+                <a href="#certificate-directory-structure" class="md-toc__link" data-md-level="1">
+                  Certificate Directory Structure
                 </a>
                   <ul class="md-toc__list">
                       <li class="md-toc__item">
-                        <a href="#note" class="md-toc__link" data-md-level="2">
-                          Note:
+                        <a href="#required-structure" class="md-toc__link" data-md-level="2">
+                          Required Structure
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#supported-applications" class="md-toc__link" data-md-level="2">
+                          Supported Applications
                         </a>
                       </li>
                   </ul>
@@ -989,8 +1099,8 @@ $MAS_CONFIG_DIR/certs/&lt;app&gt;/ca.crt
                   </ul>
               </li>
               <li class="md-toc__item">
-                <a href="#role-variables-cis-as-dns-provider-optional" class="md-toc__link" data-md-level="1">
-                  Role Variables - CIS as DNS Provider (Optional)
+                <a href="#role-variables-cis-dns-provider-optional" class="md-toc__link" data-md-level="1">
+                  Role Variables - CIS DNS Provider (Optional)
                 </a>
                   <ul class="md-toc__list">
                       <li class="md-toc__item">
@@ -1028,11 +1138,6 @@ $MAS_CONFIG_DIR/certs/&lt;app&gt;/ca.crt
               <li class="md-toc__item">
                 <a href="#example-playbook" class="md-toc__link" data-md-level="1">
                   Example Playbook
-                </a>
-              </li>
-              <li class="md-toc__item">
-                <a href="#more-detailed-view-of-directory-structure" class="md-toc__link" data-md-level="1">
-                  More Detailed View of Directory Structure
                 </a>
               </li>
               <li class="md-toc__item">

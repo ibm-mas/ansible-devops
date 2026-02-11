@@ -808,7 +808,7 @@
 - Use specific version for production (e.g., <code>4.19.14</code>)
 - Use <code>default</code> for latest MAS-supported version
 - Use <code>rotate</code> for testing (version changes by day of week)</p>
-<p><strong>Valid values</strong>: 
+<p><strong>Valid values</strong>:
 - Specific version: <code>4.19</code>, <code>4.19.14</code>
 - Alias: <code>default</code> (newest MAS-supported version)
 - Alias: <code>rotate</code> (predetermined version by day, for testing)
@@ -830,7 +830,7 @@
 - Only applies when <code>cluster_type=fyre</code>
 - Leave unset for other cluster types (ROKS, ROSA, IPI)</p>
 <p><strong>Valid values</strong>: <code>nfs</code> (for Fyre clusters only)</p>
-<p><strong>Impact</strong>: 
+<p><strong>Impact</strong>:
 - <code>nfs</code>: Creates nfs-client storage class connected to infrastructure node, reconfigures image registry PVC to use NFS
 - Unset: No storage configuration changes</p>
 <p><strong>Related variables</strong>:
@@ -851,7 +851,7 @@
 - Leave as <code>false</code> (default) for standard deployments
 - Currently only supported for ROKS clusters</p>
 <p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
-<p><strong>Impact</strong>: 
+<p><strong>Impact</strong>:
 - <code>true</code>: Provisions GPU worker pool with specified number of GPU nodes
 - <code>false</code>: No GPU nodes provisioned (standard cluster)</p>
 <p><strong>Related variables</strong>:
@@ -879,219 +879,496 @@
 - <code>cluster_type</code>: Must be <code>roks</code></p>
 <p><strong>Note</strong>: If a GPU worker pool already exists with this name, it will be modified rather than creating a duplicate. Use the existing name to avoid multiple GPU pools.</p>
 <h3 id="gpu_workers">gpu_workers<a class="headerlink" href="#gpu_workers" title="Permanent link">¤</a></h3>
-<p>The number of GPU worker nodes that will be deploy in the cluster. The node created will have mg4c.32x384.2xp100-GPU flavor. This variable depends on <code>ocp_provision_gpu</code> and is currently supported on ROKS clusters only.</p>
+<p>Number of GPU worker nodes to provision in the cluster.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>GPU_WORKERS</code></li>
-<li>Default Value: <code>1</code></li>
+<li>Default: <code>1</code></li>
 </ul>
-<h3 id="compute_node_count">compute_node_count<a class="headerlink" href="#compute_node_count" title="Permanent link">¤</a></h3>
-<p>The number of compute nodes (i.e. worker nodes) allocate to the OCP cluster.</p>
-<ul>
-<li>Optional</li>
-<li>Environment Variable: <code>COMPUTE_NODE_COUNT</code></li>
-<li>Default Value: <code>3</code></li>
-</ul>
-<h3 id="controlplane_node_count">controlplane_node_count<a class="headerlink" href="#controlplane_node_count" title="Permanent link">¤</a></h3>
-<p>The number of control plane nodes (i.e. master nodes) allocate to the OCP cluster.</p>
-<ul>
-<li>Optional</li>
-<li>Environment Variable: <code>CONTROLPLANE_NODE_COUNT</code></li>
-<li>Default Value: <code>3</code></li>
-</ul>
-<h3 id="gpu_workerpool_name_1">gpu_workerpool_name<a class="headerlink" href="#gpu_workerpool_name_1" title="Permanent link">¤</a></h3>
-<p>The name of the gpu worker pool to added to or modify in the cluster. If already existing, use the existing name to avoid recreating another gpu worker pool unless that is the goal.</p>
-<ul>
-<li>Environment Variable: <code>GPU_WORKERPOOL_NAME</code></li>
-<li>Default Value: <code>gpu</code></li>
-</ul>
+<p><strong>Purpose</strong>: Specifies how many GPU-enabled worker nodes to provision in the GPU worker pool. Each node uses mg4c.32x384.2xp100-GPU flavor with P100 GPUs.</p>
+<p><strong>When to use</strong>:
+- Use default (1) for minimal GPU deployments or testing
+- Increase for production MAS Visual Inspection deployments
+- Scale based on GPU workload requirements
+- Only applies when <code>ocp_provision_gpu=true</code></p>
+<p><strong>Valid values</strong>: Positive integer (e.g., <code>1</code>, <code>2</code>, <code>3</code>)</p>
+<p><strong>Impact</strong>: Determines the number of GPU nodes provisioned. More nodes provide more GPU capacity but increase costs.</p>
+<p><strong>Related variables</strong>:
+- <code>ocp_provision_gpu</code>: Must be <code>true</code> for this to apply
+- <code>gpu_workerpool_name</code>: Name of the pool containing these nodes
+- <code>cluster_type</code>: Must be <code>roks</code> for GPU support</p>
+<p><strong>Note</strong>: GPU nodes use expensive hardware (P100 GPUs). Only provision what you need. Currently only supported on ROKS clusters.</p>
 <h2 id="role-variables-roks">Role Variables - ROKS<a class="headerlink" href="#role-variables-roks" title="Permanent link">¤</a></h2>
 <p>The following variables are only used when <code>cluster_type = roks</code>.</p>
 <h3 id="ibmcloud_apikey">ibmcloud_apikey<a class="headerlink" href="#ibmcloud_apikey" title="Permanent link">¤</a></h3>
-<p>The APIKey to be used by ibmcloud login comand.</p>
+<p>IBM Cloud API key for authentication.</p>
 <ul>
-<li><strong>Required</strong> if <code>cluster_type = roks</code></li>
+<li><strong>Required</strong> (when <code>cluster_type=roks</code>)</li>
 <li>Environment Variable: <code>IBMCLOUD_APIKEY</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Authenticates with IBM Cloud to provision and manage ROKS clusters. Used by the ibmcloud CLI for all cluster operations.</p>
+<p><strong>When to use</strong>:
+- Always required for ROKS cluster provisioning
+- Must have permissions to create clusters in the target resource group
+- Obtain from IBM Cloud IAM (Identity and Access Management)</p>
+<p><strong>Valid values</strong>: IBM Cloud API key string (typically 40+ characters)</p>
+<p><strong>Impact</strong>: Without a valid API key, cluster provisioning will fail. The key must have appropriate IAM permissions for cluster creation.</p>
+<p><strong>Related variables</strong>:
+- <code>ibmcloud_resourcegroup</code>: Resource group where cluster will be created
+- <code>ibmcloud_endpoint</code>: IBM Cloud API endpoint to authenticate against</p>
+<p><strong>Note</strong>: Keep API keys secure. Use environment variables or secure vaults rather than hardcoding in playbooks. The key needs cluster creation permissions in the specified resource group.</p>
 <h3 id="ibmcloud_endpoint">ibmcloud_endpoint<a class="headerlink" href="#ibmcloud_endpoint" title="Permanent link">¤</a></h3>
-<p>Override the default IBMCloud API endpoint.</p>
+<p>IBM Cloud API endpoint URL.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IBMCLOUD_ENDPOINT</code></li>
-<li>Default Value: <code>https://cloud.ibm.com</code></li>
+<li>Default: <code>https://cloud.ibm.com</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the IBM Cloud API endpoint for authentication and cluster operations. Allows targeting different IBM Cloud environments.</p>
+<p><strong>When to use</strong>:
+- Use default for standard IBM Cloud (public cloud)
+- Override for IBM Cloud dedicated or private environments
+- Change for testing against staging environments</p>
+<p><strong>Valid values</strong>: Valid IBM Cloud API endpoint URL</p>
+<p><strong>Impact</strong>: Determines which IBM Cloud environment is targeted for cluster provisioning.</p>
+<p><strong>Related variables</strong>:
+- <code>ibmcloud_apikey</code>: API key used with this endpoint</p>
+<p><strong>Note</strong>: The default endpoint works for standard IBM Cloud deployments. Only change if you're using a dedicated or private IBM Cloud environment.</p>
 <h3 id="ibmcloud_resourcegroup">ibmcloud_resourcegroup<a class="headerlink" href="#ibmcloud_resourcegroup" title="Permanent link">¤</a></h3>
-<p>The resource group to create the cluster inside.</p>
+<p>IBM Cloud resource group for the cluster.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IBMCLOUD_RESOURCEGROUP</code></li>
-<li>Default Value: <code>Default</code></li>
+<li>Default: <code>Default</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which IBM Cloud resource group the ROKS cluster will be created in. Resource groups organize and manage access to IBM Cloud resources.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>Default</code>) for simple deployments
+- Specify a different resource group for organizational separation
+- Ensure the API key has access to the specified resource group</p>
+<p><strong>Valid values</strong>: Name of an existing IBM Cloud resource group</p>
+<p><strong>Impact</strong>: Cluster is created in the specified resource group. The API key must have permissions in this resource group.</p>
+<p><strong>Related variables</strong>:
+- <code>ibmcloud_apikey</code>: Must have permissions in this resource group</p>
+<p><strong>Note</strong>: The resource group must exist before provisioning. The API key must have appropriate IAM permissions in the target resource group.</p>
 <h3 id="roks_zone">roks_zone<a class="headerlink" href="#roks_zone" title="Permanent link">¤</a></h3>
-<p>IBM Cloud zone where the cluster should be provisioned.</p>
+<p>IBM Cloud availability zone for cluster deployment.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ROKS_ZONE</code></li>
-<li>Default Value: <code>dal10</code></li>
+<li>Default: <code>dal10</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the IBM Cloud availability zone where the ROKS cluster will be provisioned. Determines the physical location of cluster resources.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>dal10</code>) for Dallas datacenter
+- Change based on geographic requirements or latency needs
+- Consider data residency and compliance requirements</p>
+<p><strong>Valid values</strong>: Valid IBM Cloud zone identifier (e.g., <code>dal10</code>, <code>lon02</code>, <code>fra02</code>, <code>tok02</code>)</p>
+<p><strong>Impact</strong>: Determines cluster location, which affects latency, data residency, and available services.</p>
+<p><strong>Related variables</strong>:
+- <code>roks_flavor</code>: Worker node flavors available vary by zone</p>
+<p><strong>Note</strong>: Not all zones support all worker node flavors. Verify flavor availability in your target zone. Zone selection affects network latency to your users and services.</p>
 <h3 id="roks_flavor">roks_flavor<a class="headerlink" href="#roks_flavor" title="Permanent link">¤</a></h3>
-<p>Worker node flavor</p>
+<p>Worker node machine type for ROKS cluster.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ROKS_FLAVOR</code></li>
-<li>Default Value: <code>b3c.16x64.300gb</code></li>
+<li>Default: <code>b3c.16x64.300gb</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the machine type (flavor) for worker nodes in the ROKS cluster. Determines CPU, memory, and local storage for each worker node.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>b3c.16x64.300gb</code>) for standard MAS deployments (16 vCPU, 64GB RAM, 300GB storage)
+- Increase for larger workloads or more applications
+- Decrease for development/testing environments</p>
+<p><strong>Valid values</strong>: Valid IBM Cloud worker node flavor (e.g., <code>b3c.4x16</code>, <code>b3c.16x64.300gb</code>, <code>b3c.32x128</code>)</p>
+<p><strong>Impact</strong>: Determines worker node capacity. Affects cluster performance and cost. Larger flavors cost more but provide more resources.</p>
+<p><strong>Related variables</strong>:
+- <code>roks_workers</code>: Number of nodes with this flavor
+- <code>roks_zone</code>: Not all flavors available in all zones</p>
+<p><strong>Note</strong>: The default flavor (16 vCPU, 64GB RAM) is suitable for most MAS deployments. Verify flavor availability in your target zone. Consider total cluster capacity (flavor × worker count).</p>
 <h3 id="roks_workers">roks_workers<a class="headerlink" href="#roks_workers" title="Permanent link">¤</a></h3>
-<p>Number of worker nodes for the roks cluster</p>
+<p>Number of worker nodes in the ROKS cluster.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ROKS_WORKERS</code></li>
-<li>Default Value: <code>3</code></li>
+<li>Default: <code>3</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies how many worker nodes to provision in the ROKS cluster. Determines cluster capacity and high availability.</p>
+<p><strong>When to use</strong>:
+- Use default (3) for standard high-availability deployments
+- Increase for larger workloads or more applications
+- Minimum 3 recommended for production (high availability)</p>
+<p><strong>Valid values</strong>: Positive integer, minimum 1 (3+ recommended for production)</p>
+<p><strong>Impact</strong>: Determines total cluster capacity (workers × flavor resources). More workers provide more capacity and better high availability but increase costs.</p>
+<p><strong>Related variables</strong>:
+- <code>roks_flavor</code>: Machine type for each worker
+- <code>ocp_provision_gpu</code>: Additional GPU workers can be added separately</p>
+<p><strong>Note</strong>: For production, use at least 3 workers for high availability. Total cluster capacity = worker count × flavor resources. Consider workload requirements when sizing.</p>
 <h3 id="roks_flags">roks_flags<a class="headerlink" href="#roks_flags" title="Permanent link">¤</a></h3>
-<p>Can be used to specify additional parameters for the cluster creation</p>
+<p>Additional flags for ROKS cluster creation.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ROKS_FLAGS</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Allows passing additional command-line flags to the <code>ibmcloud ks cluster create</code> command for advanced cluster configuration.</p>
+<p><strong>When to use</strong>:
+- Leave unset for standard deployments
+- Use for advanced configurations not covered by other variables
+- Consult IBM Cloud documentation for available flags</p>
+<p><strong>Valid values</strong>: Valid ibmcloud CLI flags (e.g., <code>--disable-public-service-endpoint</code>, <code>--pod-subnet</code>, <code>--service-subnet</code>)</p>
+<p><strong>Impact</strong>: Passes additional configuration options to cluster creation. Incorrect flags may cause provisioning to fail.</p>
+<p><strong>Related variables</strong>:
+- All other ROKS variables: Flags supplement standard configuration</p>
+<p><strong>Note</strong>: Use with caution. Incorrect flags can cause provisioning failures. Consult IBM Cloud Kubernetes Service documentation for available options.</p>
 <h2 id="role-variables-rosa">Role Variables - ROSA<a class="headerlink" href="#role-variables-rosa" title="Permanent link">¤</a></h2>
 <p>The following variables are only used when <code>cluster_type = rosa</code>.</p>
 <h3 id="rosa_token">rosa_token<a class="headerlink" href="#rosa_token" title="Permanent link">¤</a></h3>
-<p>Token to authenticate to the ROSA service.  To obtain your API token login to the <a href="https://console.redhat.com/openshift/token/rosa/show#">OpenShift cluster manager</a>.</p>
+<p>Red Hat OpenShift Service on AWS (ROSA) authentication token.</p>
 <ul>
-<li><strong>Required</strong> if <code>cluster_type = rosa</code>.</li>
+<li><strong>Required</strong> (when <code>cluster_type=rosa</code>)</li>
 <li>Environment Variable: <code>ROSA_TOKEN</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Authenticates with the ROSA service to provision and manage OpenShift clusters on AWS. Required for all ROSA cluster operations.</p>
+<p><strong>When to use</strong>:
+- Always required for ROSA cluster provisioning
+- Obtain from <a href="https://console.redhat.com/openshift/token/rosa/show#">OpenShift Cluster Manager</a>
+- Token must be valid and not expired</p>
+<p><strong>Valid values</strong>: ROSA API token string from Red Hat OpenShift Cluster Manager</p>
+<p><strong>Impact</strong>: Without a valid token, ROSA cluster provisioning will fail. Token must have permissions to create clusters.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_name</code>: Name for the ROSA cluster
+- <code>rosa_compute_nodes</code>: Number of worker nodes to provision</p>
+<p><strong>Note</strong>: Tokens expire periodically. Obtain a fresh token from the OpenShift Cluster Manager before provisioning. Keep tokens secure.</p>
 <h3 id="rosa_cluster_admin_password">rosa_cluster_admin_password<a class="headerlink" href="#rosa_cluster_admin_password" title="Permanent link">¤</a></h3>
-<p>Password to set up for the <code>cluster-admin</code> user account on the OCP instance.  You will need this to log onto the cluster after it is provisioned. If this is not set then a password is auto-generated.</p>
+<p>Password for the cluster-admin user account.</p>
 <ul>
-<li><strong>Optional</strong> if <code>cluster_type = rosa</code>.</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ROSA_CLUSTER_ADMIN_PASSWORD</code></li>
-<li>Default Value: None</li>
+<li>Default: None (auto-generated)</li>
 </ul>
+<p><strong>Purpose</strong>: Sets the password for the <code>cluster-admin</code> user account on the ROSA cluster. Used to log into the cluster after provisioning.</p>
+<p><strong>When to use</strong>:
+- Set to specify a known password for cluster access
+- Leave unset to auto-generate a secure password
+- Auto-generated password is saved to config directory</p>
+<p><strong>Valid values</strong>: String meeting OpenShift password requirements (typically 8+ characters)</p>
+<p><strong>Impact</strong>:
+- When set: Uses specified password for cluster-admin account
+- When unset: Auto-generates a secure password and saves it to config</p>
+<p><strong>Related variables</strong>:
+- <code>rosa_config_dir</code>: Location where auto-generated password is saved</p>
+<p><strong>Note</strong>: If not set, the auto-generated password is saved in the rosa config file. Keep passwords secure. Consider using auto-generation for better security.</p>
 <h3 id="rosa_compute_nodes">rosa_compute_nodes<a class="headerlink" href="#rosa_compute_nodes" title="Permanent link">¤</a></h3>
-<p>Number of compute nodes to deploy in the cluster.</p>
+<p>Number of compute (worker) nodes in the ROSA cluster.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ROSA_COMPUTE_NODES</code></li>
-<li>Default Value: <code>3</code></li>
+<li>Default: <code>3</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies how many worker nodes to provision in the ROSA cluster. Determines cluster capacity and high availability.</p>
+<p><strong>When to use</strong>:
+- Use default (3) for standard high-availability deployments
+- Increase for larger workloads or more applications
+- Minimum 2 required, 3+ recommended for production</p>
+<p><strong>Valid values</strong>: Positive integer, minimum 2 (3+ recommended for production)</p>
+<p><strong>Impact</strong>: Determines total cluster capacity. More nodes provide more capacity and better high availability but increase AWS costs.</p>
+<p><strong>Related variables</strong>:
+- <code>rosa_compute_machine_type</code>: Machine type for each worker node</p>
+<p><strong>Note</strong>: For production, use at least 3 workers for high availability. Total cluster capacity = worker count × machine type resources. ROSA clusters run on AWS infrastructure.</p>
 <h3 id="rosa_compute_machine_type">rosa_compute_machine_type<a class="headerlink" href="#rosa_compute_machine_type" title="Permanent link">¤</a></h3>
-<p>Worker nodes machine</p>
+<p>AWS machine type for ROSA worker nodes.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ROSA_COMPUTE_MACHINE_TYPE</code></li>
-<li>Default Value: <code>m5.4xlarge</code></li>
+<li>Default: <code>m5.4xlarge</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the AWS EC2 instance type for worker nodes in the ROSA cluster. Determines CPU, memory, and network capacity for each worker.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>m5.4xlarge</code>: 16 vCPU, 64GB RAM) for standard MAS deployments
+- Increase for larger workloads (e.g., <code>m5.8xlarge</code>, <code>m5.12xlarge</code>)
+- Decrease for development/testing (e.g., <code>m5.2xlarge</code>)</p>
+<p><strong>Valid values</strong>: Valid AWS EC2 instance type (e.g., <code>m5.2xlarge</code>, <code>m5.4xlarge</code>, <code>m5.8xlarge</code>, <code>m5.12xlarge</code>)</p>
+<p><strong>Impact</strong>: Determines worker node capacity. Affects cluster performance and AWS costs. Larger instance types cost more but provide more resources.</p>
+<p><strong>Related variables</strong>:
+- <code>rosa_compute_nodes</code>: Number of nodes with this instance type</p>
+<p><strong>Note</strong>: The default m5.4xlarge (16 vCPU, 64GB RAM) is suitable for most MAS deployments. Consider total cluster capacity (instance type × node count). Verify instance type availability in your AWS region.</p>
 <h3 id="rosa_config_dir">rosa_config_dir<a class="headerlink" href="#rosa_config_dir" title="Permanent link">¤</a></h3>
-<p>Config directory to hold the rosa-{{cluster_name}}-details.yaml file that contains the api endpoint and cluster-admin details</p>
+<p>Directory for storing ROSA cluster configuration files.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ROSA_CONFIG_DIR</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the directory where ROSA cluster configuration files are saved, including the <code>rosa-{{cluster_name}}-details.yaml</code> file containing API endpoint and cluster-admin credentials.</p>
+<p><strong>When to use</strong>:
+- Set to save cluster details to a specific location
+- Leave unset to skip saving configuration files
+- Useful for automation and cluster access management</p>
+<p><strong>Valid values</strong>: Absolute filesystem path (e.g., <code>/tmp/rosa-config</code>, <code>~/rosa-clusters</code>)</p>
+<p><strong>Impact</strong>:
+- When set: Cluster details (API endpoint, credentials) are saved to this directory
+- When unset: Configuration files are not saved (must retrieve details manually)</p>
+<p><strong>Related variables</strong>:
+- <code>rosa_cluster_admin_password</code>: Auto-generated password saved here if not specified
+- <code>cluster_name</code>: Used in config filename</p>
+<p><strong>Note</strong>: The config file contains sensitive information (cluster-admin password). Ensure the directory has appropriate permissions. File format: <code>rosa-{{cluster_name}}-details.yaml</code>.</p>
 <h2 id="role-variables-fyre">Role Variables - FYRE<a class="headerlink" href="#role-variables-fyre" title="Permanent link">¤</a></h2>
 <p>The following variables are only used when <code>cluster_type = fyre</code>.</p>
 <h3 id="fyre_username">fyre_username<a class="headerlink" href="#fyre_username" title="Permanent link">¤</a></h3>
-<p>Username to authenticate with Fyre API.</p>
+<p>Fyre username for authentication.</p>
 <ul>
-<li><strong>Required</strong> if <code>cluster_type = fyre</code>.</li>
+<li><strong>Required</strong> (when <code>cluster_type=fyre</code>)</li>
 <li>Environment Variable: <code>FYRE_USERNAME</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Authenticates with the IBM DevIT Fyre API to provision and manage OpenShift clusters on Fyre infrastructure.</p>
+<p><strong>When to use</strong>:
+- Always required for Fyre cluster provisioning
+- Must be a valid Fyre account username
+- Used for internal IBM development and testing</p>
+<p><strong>Valid values</strong>: Valid Fyre username (IBM intranet ID)</p>
+<p><strong>Impact</strong>: Without valid credentials, Fyre cluster provisioning will fail.</p>
+<p><strong>Related variables</strong>:
+- <code>fyre_apikey</code>: API key paired with this username</p>
+<p><strong>Note</strong>: Fyre is an internal IBM development platform. Access requires IBM credentials and appropriate permissions.</p>
 <h3 id="fyre_apikey">fyre_apikey<a class="headerlink" href="#fyre_apikey" title="Permanent link">¤</a></h3>
-<p>API key to authenticate with Fyre API.</p>
+<p>Fyre API key for authentication.</p>
 <ul>
-<li><strong>Required</strong> if <code>cluster_type = fyre</code>.</li>
+<li><strong>Required</strong> (when <code>cluster_type=fyre</code>)</li>
 <li>Environment Variable: <code>FYRE_APIKEY</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Authenticates with the Fyre API for cluster provisioning operations. Paired with Fyre username for authentication.</p>
+<p><strong>When to use</strong>:
+- Always required for Fyre cluster provisioning
+- Obtain from Fyre portal
+- Keep secure and rotate regularly</p>
+<p><strong>Valid values</strong>: Valid Fyre API key string</p>
+<p><strong>Impact</strong>: Without a valid API key, Fyre cluster provisioning will fail.</p>
+<p><strong>Related variables</strong>:
+- <code>fyre_username</code>: Username paired with this API key</p>
+<p><strong>Note</strong>: Keep API keys secure. Obtain from the Fyre portal. Keys may expire and need renewal.</p>
 <h3 id="fyre_quota_type">fyre_quota_type<a class="headerlink" href="#fyre_quota_type" title="Permanent link">¤</a></h3>
-<p>Type of quota to draw from when provisioning the cluster, valid options are <code>quick_burn</code> and <code>product_group</code>.</p>
+<p>Fyre quota type for cluster provisioning.</p>
 <ul>
-<li><strong>Required</strong> if <code>cluster_type = fyre</code>.</li>
+<li><strong>Required</strong> (when <code>cluster_type=fyre</code>)</li>
 <li>Environment Variable: <code>FYRE_QUOTA_TYPE</code></li>
-<li>Default Value: <code>quick_burn</code></li>
+<li>Default: <code>quick_burn</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which type of Fyre quota to use for cluster provisioning. Determines billing method and available configuration options.</p>
+<p><strong>When to use</strong>:
+- Use <code>quick_burn</code> (default) for pre-defined cluster sizes (faster, simpler)
+- Use <code>product_group</code> for custom cluster configurations (more control)
+- Choice affects which other variables are required</p>
+<p><strong>Valid values</strong>: <code>quick_burn</code>, <code>product_group</code></p>
+<p><strong>Impact</strong>:
+- <code>quick_burn</code>: Uses pre-defined cluster sizes, requires <code>fyre_cluster_size</code>
+- <code>product_group</code>: Allows custom sizing, requires <code>fyre_worker_count</code>, <code>fyre_worker_cpu</code>, <code>fyre_worker_memory</code></p>
+<p><strong>Related variables</strong>:
+- <code>fyre_cluster_size</code>: Required when <code>quick_burn</code>
+- <code>fyre_worker_count</code>, <code>fyre_worker_cpu</code>, <code>fyre_worker_memory</code>: Required when <code>product_group</code>
+- <code>fyre_product_id</code>: Required for both types</p>
+<p><strong>Note</strong>: Quick burn is simpler but less flexible. Product group allows custom sizing but requires more configuration.</p>
 <h3 id="fyre_product_id">fyre_product_id<a class="headerlink" href="#fyre_product_id" title="Permanent link">¤</a></h3>
-<p>The Product ID that the cluster will be associated with for accounting purposes.</p>
+<p>Product ID for Fyre accounting.</p>
 <ul>
-<li><strong>Required</strong> if <code>cluster_type = fyre</code>.</li>
+<li><strong>Required</strong> (when <code>cluster_type=fyre</code>)</li>
 <li>Environment Variable: <code>FYRE_PRODUCT_ID</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Associates the Fyre cluster with a product ID for internal IBM accounting and cost tracking purposes.</p>
+<p><strong>When to use</strong>:
+- Always required for Fyre cluster provisioning
+- Obtain from your IBM product team or manager
+- Used for internal cost allocation</p>
+<p><strong>Valid values</strong>: Valid IBM product ID</p>
+<p><strong>Impact</strong>: Cluster costs are charged to this product ID. Incorrect ID may cause provisioning to fail or incorrect billing.</p>
+<p><strong>Related variables</strong>:
+- <code>fyre_quota_type</code>: Product ID required for both quota types</p>
+<p><strong>Note</strong>: Contact your IBM product team or manager to obtain the correct product ID for your project.</p>
 <h3 id="fyre_site">fyre_site<a class="headerlink" href="#fyre_site" title="Permanent link">¤</a></h3>
-<p>Provide a site in Fyre where cluster will be provisioned</p>
+<p>Fyre datacenter site location.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>FYRE_SITE</code></li>
-<li>Default Value: <code>svl</code></li>
+<li>Default: <code>svl</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which Fyre datacenter site to provision the cluster in. Determines physical location and network connectivity.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>svl</code> - San Jose/Silicon Valley) for most cases
+- Change based on geographic requirements or network proximity
+- Consider latency to your development location</p>
+<p><strong>Valid values</strong>: Valid Fyre site code (e.g., <code>svl</code>, <code>rtp</code>, <code>raleigh</code>)</p>
+<p><strong>Impact</strong>: Determines cluster location, which affects network latency and available resources.</p>
+<p><strong>Related variables</strong>:
+- <code>enable_ipv6</code>: IPv6 only available at RTP site</p>
+<p><strong>Note</strong>: Not all sites support all features. SVL is the default and most commonly used site.</p>
 <h3 id="fyre_cluster_description">fyre_cluster_description<a class="headerlink" href="#fyre_cluster_description" title="Permanent link">¤</a></h3>
-<p>Provide a description for the cluster.</p>
+<p>Description for the Fyre cluster.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>FYRE_CLUSTER_DESCRIPTION</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides a human-readable description for the Fyre cluster. Helps identify cluster purpose in Fyre portal.</p>
+<p><strong>When to use</strong>:
+- Set to document cluster purpose (e.g., "MAS 9.0 testing", "Development cluster")
+- Leave unset for unnamed clusters
+- Useful for tracking and managing multiple clusters</p>
+<p><strong>Valid values</strong>: Any descriptive string</p>
+<p><strong>Impact</strong>: Description appears in Fyre portal. No functional impact on cluster.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_name</code>: Cluster identifier</p>
+<p><strong>Note</strong>: Good descriptions help manage multiple clusters. Include purpose, owner, or project information.</p>
 <h3 id="ocp_fips_enabled">ocp_fips_enabled<a class="headerlink" href="#ocp_fips_enabled" title="Permanent link">¤</a></h3>
-<p>Set to true to provision a FIPS enabled cluster.</p>
+<p>Enable FIPS mode for the cluster.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>OCP_FIPS_ENABLED</code></li>
-<li>Default Value: <code>false</code></li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether the OpenShift cluster is provisioned with FIPS (Federal Information Processing Standards) 140-2 cryptographic mode enabled.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> for compliance with FIPS 140-2 requirements
+- Set to <code>true</code> for government or regulated environments
+- Leave as <code>false</code> (default) for standard deployments</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- <code>true</code>: Cluster uses FIPS-validated cryptographic modules (required for some compliance)
+- <code>false</code>: Standard cryptography (better performance)</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_type</code>: FIPS support varies by cluster type</p>
+<p><strong>Note</strong>: FIPS mode may impact performance. Only enable if required for compliance. Cannot be changed after cluster creation.</p>
 <h3 id="fyre_cluster_size">fyre_cluster_size<a class="headerlink" href="#fyre_cluster_size" title="Permanent link">¤</a></h3>
-<p>The name of one of Fyre's pre-defined cluster sizes to use for the new cluster.</p>
+<p>Pre-defined Fyre cluster size.</p>
 <ul>
-<li><strong>Required</strong> when <code>cluster_type = fyre</code> and <code>fyre_quota_type = quick_burn</code>.</li>
+<li><strong>Required</strong> (when <code>cluster_type=fyre</code> and <code>fyre_quota_type=quick_burn</code>)</li>
 <li>Environment Variable: <code>FYRE_CLUSTER_SIZE</code></li>
-<li>Default Value: <code>medium</code></li>
+<li>Default: <code>medium</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which pre-defined cluster size to use when provisioning with quick_burn quota. Determines worker node count and resources.</p>
+<p><strong>When to use</strong>:
+- Only applies when <code>fyre_quota_type=quick_burn</code>
+- Use <code>medium</code> (default) for standard development/testing
+- Use <code>small</code> for minimal testing
+- Use <code>large</code> for more intensive workloads</p>
+<p><strong>Valid values</strong>: Fyre pre-defined sizes (e.g., <code>small</code>, <code>medium</code>, <code>large</code>)</p>
+<p><strong>Impact</strong>: Determines cluster capacity based on Fyre's pre-defined configurations. Cannot customize individual resources.</p>
+<p><strong>Related variables</strong>:
+- <code>fyre_quota_type</code>: Must be <code>quick_burn</code> for this to apply</p>
+<p><strong>Note</strong>: Quick burn sizes are pre-defined by Fyre. For custom sizing, use <code>fyre_quota_type=product_group</code> instead.</p>
 <h3 id="fyre_worker_count">fyre_worker_count<a class="headerlink" href="#fyre_worker_count" title="Permanent link">¤</a></h3>
-<p>The number of worker nodes to provision in the cluster.</p>
+<p>Number of worker nodes for custom Fyre clusters.</p>
 <ul>
-<li><strong>Required</strong> when <code>cluster_type = fyre</code> and <code>fyre_quota_type = product_group</code>.</li>
+<li><strong>Required</strong> (when <code>cluster_type=fyre</code> and <code>fyre_quota_type=product_group</code>)</li>
 <li>Environment Variable: <code>FYRE_WORKER_COUNT</code></li>
-<li>Default Value: <code>2</code></li>
+<li>Default: <code>2</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the number of worker nodes to provision when using product_group quota with custom sizing.</p>
+<p><strong>When to use</strong>:
+- Only applies when <code>fyre_quota_type=product_group</code>
+- Use 2+ for development/testing
+- Use 3+ for high availability testing</p>
+<p><strong>Valid values</strong>: Positive integer (typically 2-10)</p>
+<p><strong>Impact</strong>: Determines cluster capacity. More workers provide more resources but consume more quota.</p>
+<p><strong>Related variables</strong>:
+- <code>fyre_quota_type</code>: Must be <code>product_group</code> for this to apply
+- <code>fyre_worker_cpu</code>, <code>fyre_worker_memory</code>: Resources per worker</p>
+<p><strong>Note</strong>: Total cluster capacity = worker count × (CPU + memory per worker). Consider quota limits.</p>
 <h3 id="fyre_worker_cpu">fyre_worker_cpu<a class="headerlink" href="#fyre_worker_cpu" title="Permanent link">¤</a></h3>
-<p>The amount of CPU to assign to each worker node (maximum value supported by FYRE 16).</p>
+<p>CPU cores per worker node for custom Fyre clusters.</p>
 <ul>
-<li><strong>Required</strong> when <code>cluster_type = fyre</code> and <code>fyre_quota_type = product_group</code>.</li>
+<li><strong>Required</strong> (when <code>cluster_type=fyre</code> and <code>fyre_quota_type=product_group</code>)</li>
 <li>Environment Variable: <code>FYRE_WORKER_CPU</code></li>
-<li>Default Value: <code>8</code></li>
+<li>Default: <code>8</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the number of CPU cores to assign to each worker node when using product_group quota.</p>
+<p><strong>When to use</strong>:
+- Only applies when <code>fyre_quota_type=product_group</code>
+- Use default (8) for standard workloads
+- Increase for CPU-intensive testing</p>
+<p><strong>Valid values</strong>: Positive integer, maximum 16 (Fyre limit)</p>
+<p><strong>Impact</strong>: Determines CPU capacity per worker. More CPUs provide better performance but consume more quota.</p>
+<p><strong>Related variables</strong>:
+- <code>fyre_quota_type</code>: Must be <code>product_group</code> for this to apply
+- <code>fyre_worker_count</code>: Number of workers with this CPU allocation
+- <code>fyre_worker_memory</code>: Memory paired with CPU</p>
+<p><strong>Note</strong>: Maximum 16 CPUs per worker (Fyre limitation). Total cluster CPUs = worker count × CPU per worker.</p>
 <h3 id="fyre_worker_memory">fyre_worker_memory<a class="headerlink" href="#fyre_worker_memory" title="Permanent link">¤</a></h3>
-<p>The amount of memory to assign to each worker node (maximum value supported by FYRE 64).</p>
+<p>Memory (GB) per worker node for custom Fyre clusters.</p>
 <ul>
-<li><strong>Required</strong> when <code>cluster_type = fyre</code> and <code>fyre_quota_type = product_group</code>.</li>
+<li><strong>Required</strong> (when <code>cluster_type=fyre</code> and <code>fyre_quota_type=product_group</code>)</li>
 <li>Environment Variable: <code>FYRE_WORKER_MEMORY</code></li>
-<li>Default Value: <code>32</code></li>
+<li>Default: <code>32</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the amount of memory (in GB) to assign to each worker node when using product_group quota.</p>
+<p><strong>When to use</strong>:
+- Only applies when <code>fyre_quota_type=product_group</code>
+- Use default (32GB) for standard workloads
+- Increase for memory-intensive testing</p>
+<p><strong>Valid values</strong>: Positive integer, maximum 64 (Fyre limit)</p>
+<p><strong>Impact</strong>: Determines memory capacity per worker. More memory supports larger workloads but consumes more quota.</p>
+<p><strong>Related variables</strong>:
+- <code>fyre_quota_type</code>: Must be <code>product_group</code> for this to apply
+- <code>fyre_worker_count</code>: Number of workers with this memory allocation
+- <code>fyre_worker_cpu</code>: CPU paired with memory</p>
+<p><strong>Note</strong>: Maximum 64GB per worker (Fyre limitation). Total cluster memory = worker count × memory per worker.</p>
 <h3 id="fyre_worker_additional_disks">fyre_worker_additional_disks<a class="headerlink" href="#fyre_worker_additional_disks" title="Permanent link">¤</a></h3>
-<p>The size of additional disks in Gb added to each worker node, defined in a comma-seperated list, e.g. <code>400,400</code> will add two 400gb disks to each worker node. By default no additional disks will be attached.</p>
+<p>Additional disk sizes for Fyre worker nodes.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>FYRE_WORKER_ADDITIONAL_DISKS</code></li>
-<li>Default Value: <code>None</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies additional disks to attach to each worker node. Useful for testing storage configurations or providing extra capacity.</p>
+<p><strong>When to use</strong>:
+- Leave unset for standard deployments (no additional disks)
+- Set to add extra storage for testing or specific workloads
+- Use comma-separated list for multiple disks</p>
+<p><strong>Valid values</strong>: Comma-separated list of disk sizes in GB (e.g., <code>400</code>, <code>400,400</code>, <code>200,300,400</code>)</p>
+<p><strong>Impact</strong>: Each specified disk is attached to every worker node. Increases storage capacity but consumes more quota.</p>
+<p><strong>Related variables</strong>:
+- <code>fyre_worker_count</code>: Additional disks added to each worker</p>
+<p><strong>Note</strong>: Example: <code>400,400</code> adds two 400GB disks to each worker. Total additional storage = disk sizes × worker count.</p>
 <h3 id="fyre_nfs_image_registry_size">fyre_nfs_image_registry_size<a class="headerlink" href="#fyre_nfs_image_registry_size" title="Permanent link">¤</a></h3>
-<p>Defines the image registry storage size when configured to use NFS. The size allocated cannot be superior of storage available in the Fyre Infrastructure node.</p>
+<p>NFS storage size for OpenShift image registry.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>FYRE_NFS_IMAGE_REGISTRY_SIZE</code></li>
 <li>Default: <code>100Gi</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the size of NFS storage allocated for the OpenShift image registry when NFS storage is configured on Fyre clusters.</p>
+<p><strong>When to use</strong>:
+- Use default (100Gi) for most deployments
+- Increase for clusters with many container images
+- Only applies when <code>ocp_storage_provider=nfs</code></p>
+<p><strong>Valid values</strong>: Kubernetes storage size (e.g., <code>50Gi</code>, <code>100Gi</code>, <code>200Gi</code>)</p>
+<p><strong>Impact</strong>: Determines image registry storage capacity. Size cannot exceed available storage on Fyre infrastructure node.</p>
+<p><strong>Related variables</strong>:
+- <code>ocp_storage_provider</code>: Must be <code>nfs</code> for this to apply</p>
+<p><strong>Note</strong>: Size is limited by available storage on the Fyre infrastructure node. Image registry stores all container images used in the cluster.</p>
 <h3 id="enable_ipv6">enable_ipv6<a class="headerlink" href="#enable_ipv6" title="Permanent link">¤</a></h3>
-<p>Enable IPv6. This is for Fyre at RTP site only.</p>
+<p>Enable IPv6 networking for Fyre cluster.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ENABLE_IPV6</code></li>
-<li>Default: False</li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Enables IPv6 networking for the Fyre cluster. Only supported at the RTP (Raleigh) Fyre site.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> for IPv6 testing
+- Only works at RTP site
+- Leave as <code>false</code> (default) for standard IPv4 networking</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- <code>true</code>: Cluster uses IPv6 networking (RTP site only)
+- <code>false</code>: Standard IPv4 networking</p>
+<p><strong>Related variables</strong>:
+- <code>fyre_site</code>: Must be <code>rtp</code> for IPv6 support</p>
+<p><strong>Note</strong>: <strong>IMPORTANT</strong> - IPv6 is only supported at the RTP (Raleigh) Fyre site. Will fail at other sites.</p>
 <h2 id="role-variables-ipi">Role Variables - IPI<a class="headerlink" href="#role-variables-ipi" title="Permanent link">¤</a></h2>
 <p>These variables are only used when <code>cluster_type = ipi</code>.</p>
 <div class="admonition note">
@@ -1099,113 +1376,269 @@
 <p>IPI stands for <strong>Installer Provisioned Infrastructure</strong>.  OpenShift offers two possible deployment methods: IPI and UPI (User Provisioned Infrastructure). The difference is the degree of automation and customization. IPI will not only deploy OpenShift but also all infrastructure components and configurations.</p>
 </div>
 <h3 id="ipi_platform">ipi_platform<a class="headerlink" href="#ipi_platform" title="Permanent link">¤</a></h3>
-<p>Platform to create the cluster on.  Technically, any platform supported by <code>openshift-install</code> should work here, but currently we have only specifically tested on <code>aws</code> and <code>gcp</code> , where <code>aws</code> is the default value.</p>
+<p>Cloud platform for IPI cluster deployment.</p>
 <ul>
-<li>Optional when <code>cluster_type = ipi</code></li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IPI_PLATFORM</code></li>
-<li>Default Value: <code>aws</code></li>
+<li>Default: <code>aws</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which cloud platform to use for Installer-Provisioned Infrastructure (IPI) deployment. Determines infrastructure provider and configuration requirements.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>aws</code>) for AWS deployments
+- Set to <code>gcp</code> for Google Cloud Platform deployments
+- Other platforms supported by openshift-install may work but are untested</p>
+<p><strong>Valid values</strong>: <code>aws</code>, <code>gcp</code> (other openshift-install platforms may work)</p>
+<p><strong>Impact</strong>: Determines which cloud provider is used and which provider-specific variables are required.</p>
+<p><strong>Related variables</strong>:
+- <code>aws_access_key_id</code>, <code>aws_secret_access_key</code>: Required when <code>aws</code>
+- <code>gcp_service_account_file</code>, <code>ipi_gcp_projectid</code>: Required when <code>gcp</code></p>
+<p><strong>Note</strong>: AWS and GCP are tested and supported. Other platforms supported by openshift-install may work but have not been specifically tested.</p>
 <h3 id="ipi_region">ipi_region<a class="headerlink" href="#ipi_region" title="Permanent link">¤</a></h3>
-<p>Platform region where OCP cluster will be created.</p>
+<p>Cloud platform region for cluster deployment.</p>
 <ul>
-<li>Optional when <code>cluster_type = ipi</code></li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IPI_REGION</code></li>
-<li>Default Value: <code>us-east-1</code></li>
+<li>Default: <code>us-east-1</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the cloud platform region where the IPI cluster will be deployed. Determines physical location and available services.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>us-east-1</code>) for AWS US East region
+- Change based on geographic requirements or latency needs
+- Ensure region supports required instance types</p>
+<p><strong>Valid values</strong>: Valid region for the selected platform (e.g., <code>us-east-1</code>, <code>us-west-2</code>, <code>eu-west-1</code> for AWS)</p>
+<p><strong>Impact</strong>: Determines cluster location, which affects latency, data residency, and service availability.</p>
+<p><strong>Related variables</strong>:
+- <code>ipi_platform</code>: Region must be valid for this platform</p>
+<p><strong>Note</strong>: Not all regions support all instance types. Verify instance type availability in your target region.</p>
 <h3 id="ipi_base_domain">ipi_base_domain<a class="headerlink" href="#ipi_base_domain" title="Permanent link">¤</a></h3>
-<p>Specify the base domain of the cluster that will be provisioned.</p>
+<p>Base DNS domain for the cluster.</p>
 <ul>
-<li><strong>Required</strong> when <code>cluster_type = ipi</code></li>
+<li><strong>Required</strong> (when <code>cluster_type=ipi</code>)</li>
 <li>Environment Variable: <code>IPI_BASE_DOMAIN</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the base DNS domain for the OpenShift cluster. Used to construct cluster URLs and DNS records.</p>
+<p><strong>When to use</strong>:
+- Always required for IPI cluster provisioning
+- Must be a domain you control
+- DNS must be properly configured for the domain</p>
+<p><strong>Valid values</strong>: Valid DNS domain name (e.g., <code>example.com</code>, <code>ocp.mycompany.com</code>)</p>
+<p><strong>Impact</strong>: Cluster URLs will be subdomains of this base domain (e.g., <code>api.clustername.example.com</code>). DNS must be configured to route to the cluster.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_name</code>: Combined with base domain for cluster URLs</p>
+<p><strong>Note</strong>: You must have control over this domain and ability to configure DNS records. The openshift-install process will create DNS records in this domain.</p>
 <h3 id="ipi_pull_secret_file">ipi_pull_secret_file<a class="headerlink" href="#ipi_pull_secret_file" title="Permanent link">¤</a></h3>
-<p>Location of the file containing your Redhat OpenShift pull secret.  This file can be obtained from the <a href="https://console.redhat.com/openshift/install/metal/user-provisioned">Red Hat Hybrid Cloud Console</a></p>
+<p>Path to Red Hat OpenShift pull secret file.</p>
 <ul>
-<li><strong>Required</strong> when <code>cluster_type = ipi</code></li>
+<li><strong>Required</strong> (when <code>cluster_type=ipi</code>)</li>
 <li>Environment Variable: <code>IPI_PULL_SECRET_FILE</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the location of the file containing your Red Hat OpenShift pull secret. Required to pull OpenShift container images during installation.</p>
+<p><strong>When to use</strong>:
+- Always required for IPI cluster provisioning
+- Obtain from <a href="https://console.redhat.com/openshift/install/metal/user-provisioned">Red Hat Hybrid Cloud Console</a>
+- Must be a valid, non-expired pull secret</p>
+<p><strong>Valid values</strong>: Absolute path to pull secret JSON file</p>
+<p><strong>Impact</strong>: Without a valid pull secret, cluster installation will fail when attempting to pull container images.</p>
+<p><strong>Related variables</strong>:
+- None</p>
+<p><strong>Note</strong>: Download your pull secret from the Red Hat Hybrid Cloud Console. Keep the file secure as it contains authentication credentials.</p>
 <h3 id="ipi_dir">ipi_dir<a class="headerlink" href="#ipi_dir" title="Permanent link">¤</a></h3>
-<p>The working directory that is used to perform the installation, it will contain the <code>openshift-install</code> executable, its configuration files, &amp; any generated logs.</p>
+<p>Working directory for IPI installation.</p>
 <ul>
-<li>Optional when <code>cluster_type = ipi</code></li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IPI_DIR</code></li>
-<li>Default Value: <code>~/openshift-install</code></li>
+<li>Default: <code>~/openshift-install</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the working directory for the IPI installation process. Contains the openshift-install executable, configuration files, and generated logs.</p>
+<p><strong>When to use</strong>:
+- Use default for standard installations
+- Change to specify a different working location
+- Useful for organizing multiple cluster installations</p>
+<p><strong>Valid values</strong>: Absolute filesystem path</p>
+<p><strong>Impact</strong>: All installation files, configs, and logs are stored in this directory. Directory must be writable.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_name</code>: Used in subdirectory structure</p>
+<p><strong>Note</strong>: The directory will contain sensitive information (kubeconfig, credentials). Ensure appropriate permissions. Preserve this directory for cluster management and troubleshooting.</p>
 <h3 id="sshkey">sshKey<a class="headerlink" href="#sshkey" title="Permanent link">¤</a></h3>
-<p>Public SSH key value. It will be set in the OCP cluster nodes.
-Can be used to SSH into the OCP cluster nodes using a bastion.</p>
+<p>Public SSH key for cluster node access.</p>
 <ul>
-<li>Optional when <code>cluster_type = ipi</code></li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>SSH_PUB_KEY</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the public SSH key to be installed on OpenShift cluster nodes. Enables SSH access to nodes via bastion host.</p>
+<p><strong>When to use</strong>:
+- Set to enable SSH access to cluster nodes for troubleshooting
+- Leave unset if SSH access is not needed
+- Useful for debugging and advanced cluster management</p>
+<p><strong>Valid values</strong>: Valid SSH public key string (e.g., <code>ssh-rsa AAAAB3...</code>)</p>
+<p><strong>Impact</strong>:
+- When set: SSH key is installed on all cluster nodes
+- When unset: No SSH access to nodes (standard for managed clusters)</p>
+<p><strong>Related variables</strong>:
+- None</p>
+<p><strong>Note</strong>: SSH access to nodes is typically not needed for normal operations. Only set if you need direct node access for troubleshooting.</p>
 <h3 id="ipi_controlplane_type">ipi_controlplane_type<a class="headerlink" href="#ipi_controlplane_type" title="Permanent link">¤</a></h3>
-<p>Control plane node type.</p>
+<p>Machine type for control plane nodes.</p>
 <ul>
-<li>Optional when <code>cluster_type = ipi</code></li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IPI_CONTROLPLANE_TYPE</code></li>
-<li>Default Value: <code>m5.4xlarge</code></li>
+<li>Default: <code>m5.4xlarge</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the machine type for control plane (master) nodes in the IPI cluster. Determines CPU, memory, and network capacity for control plane.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>m5.4xlarge</code>: 16 vCPU, 64GB RAM) for standard deployments
+- Increase for very large clusters (many nodes or workloads)
+- Decrease for small test clusters (not recommended for production)</p>
+<p><strong>Valid values</strong>: Valid machine type for the selected platform (e.g., <code>m5.2xlarge</code>, <code>m5.4xlarge</code>, <code>m5.8xlarge</code> for AWS)</p>
+<p><strong>Impact</strong>: Determines control plane capacity. Affects cluster management performance and costs. Undersized control plane can impact cluster stability.</p>
+<p><strong>Related variables</strong>:
+- <code>ipi_controlplane_replicas</code>: Number of nodes with this type
+- <code>ipi_platform</code>: Machine type must be valid for this platform</p>
+<p><strong>Note</strong>: Control plane nodes run cluster management services. Don't undersize for production. The default m5.4xlarge is suitable for most deployments.</p>
 <h3 id="ipi_controlplane_replicas">ipi_controlplane_replicas<a class="headerlink" href="#ipi_controlplane_replicas" title="Permanent link">¤</a></h3>
-<p>The number of master nodes to provision to form the control plane of your cluster.</p>
+<p>Number of control plane (master) nodes.</p>
 <ul>
-<li>Optional when <code>cluster_type = ipi</code></li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IPI_CONTROLPLANE_REPLICAS</code></li>
-<li>Default Value: <code>3</code></li>
+<li>Default: <code>3</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the number of control plane (master) nodes to provision. Determines cluster management high availability.</p>
+<p><strong>When to use</strong>:
+- Use default (3) for production (high availability)
+- Must be odd number (1, 3, 5) for etcd quorum
+- Never use 1 for production (no high availability)</p>
+<p><strong>Valid values</strong>: Odd positive integer (1, 3, 5, 7), 3 recommended for production</p>
+<p><strong>Impact</strong>: Determines control plane high availability. 3 nodes provide HA with one node failure tolerance.</p>
+<p><strong>Related variables</strong>:
+- <code>ipi_controlplane_type</code>: Machine type for each control plane node</p>
+<p><strong>Note</strong>: <strong>IMPORTANT</strong> - Must be an odd number for etcd quorum. Use 3 for production (HA). Using 1 provides no high availability.</p>
 <h3 id="ipi_compute_type">ipi_compute_type<a class="headerlink" href="#ipi_compute_type" title="Permanent link">¤</a></h3>
-<p>Compute node type.</p>
+<p>Machine type for compute (worker) nodes.</p>
 <ul>
-<li>Optional when <code>cluster_type = ipi</code></li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IPI_COMPUTE_TYPE</code></li>
-<li>Default Value: <code>m5.4xlarge</code></li>
+<li>Default: <code>m5.4xlarge</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the machine type for compute (worker) nodes in the IPI cluster. Determines CPU, memory, and network capacity for workloads.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>m5.4xlarge</code>: 16 vCPU, 64GB RAM) for standard MAS deployments
+- Increase for larger workloads (e.g., <code>m5.8xlarge</code>, <code>m5.12xlarge</code>)
+- Decrease for development/testing (e.g., <code>m5.2xlarge</code>)</p>
+<p><strong>Valid values</strong>: Valid machine type for the selected platform (e.g., <code>m5.2xlarge</code>, <code>m5.4xlarge</code>, <code>m5.8xlarge</code> for AWS)</p>
+<p><strong>Impact</strong>: Determines worker node capacity. Affects workload performance and costs. Larger types cost more but provide more resources.</p>
+<p><strong>Related variables</strong>:
+- <code>ipi_compute_replicas</code>: Number of nodes with this type
+- <code>ipi_platform</code>: Machine type must be valid for this platform</p>
+<p><strong>Note</strong>: The default m5.4xlarge (16 vCPU, 64GB RAM) is suitable for most MAS deployments. Consider total cluster capacity (type × replicas).</p>
 <h3 id="ipi_compute_replicas">ipi_compute_replicas<a class="headerlink" href="#ipi_compute_replicas" title="Permanent link">¤</a></h3>
-<p>The number of worker nodes to provsision in the cluster, providing your compute resource.</p>
+<p>Number of compute (worker) nodes.</p>
 <ul>
-<li>Optional when <code>cluster_type = ipi</code></li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IPI_COMPUTE_REPLICAS</code></li>
-<li>Default Value: <code>3</code></li>
+<li>Default: <code>3</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the number of compute (worker) nodes to provision. Determines cluster workload capacity and high availability.</p>
+<p><strong>When to use</strong>:
+- Use default (3) for standard high-availability deployments
+- Increase for larger workloads or more applications
+- Minimum 2 required, 3+ recommended for production</p>
+<p><strong>Valid values</strong>: Positive integer, minimum 2 (3+ recommended for production)</p>
+<p><strong>Impact</strong>: Determines total cluster capacity. More nodes provide more capacity and better high availability but increase costs.</p>
+<p><strong>Related variables</strong>:
+- <code>ipi_compute_type</code>: Machine type for each worker node</p>
+<p><strong>Note</strong>: For production, use at least 3 workers for high availability. Total cluster capacity = worker count × machine type resources.</p>
 <h3 id="ipi_rootvolume_size">ipi_rootvolume_size<a class="headerlink" href="#ipi_rootvolume_size" title="Permanent link">¤</a></h3>
-<p>The size of root volume in GiB.</p>
+<p>Root volume size for cluster nodes.</p>
 <ul>
-<li>Optional when <code>cluster_type = ipi</code></li>
-<li>Environment variable: <code>IPI_ROOTVOLUME_SIZE</code></li>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>IPI_ROOTVOLUME_SIZE</code></li>
+<li>Default: Platform default (typically 120GB)</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the size of the root volume (in GiB) for cluster nodes. Determines available disk space for OS, container images, and ephemeral storage.</p>
+<p><strong>When to use</strong>:
+- Leave unset to use platform default (typically sufficient)
+- Increase for clusters with many container images
+- Increase for workloads with high ephemeral storage needs</p>
+<p><strong>Valid values</strong>: Positive integer (GiB), e.g., <code>120</code>, <code>200</code>, <code>500</code></p>
+<p><strong>Impact</strong>: Larger volumes provide more disk space but increase costs. Insufficient space can cause node issues.</p>
+<p><strong>Related variables</strong>:
+- None</p>
+<p><strong>Note</strong>: Platform defaults are typically sufficient. Only increase if you have specific requirements for more disk space.</p>
 <h2 id="role-variables-aws">Role Variables - AWS<a class="headerlink" href="#role-variables-aws" title="Permanent link">¤</a></h2>
 <p>The following variables are only used when <code>cluster_type = ipi</code> and <code>ipi_platform = aws</code>.</p>
 <h3 id="aws_access_key_id">aws_access_key_id<a class="headerlink" href="#aws_access_key_id" title="Permanent link">¤</a></h3>
-<p>AWS access key associated with an IAM user or role. Make sure the access key has permissions to create instances.</p>
+<p>AWS access key ID for authentication.</p>
 <ul>
-<li><strong>Required</strong> when <code>cluster_type = ipi</code> and <code>ipi_platform = aws</code></li>
+<li><strong>Required</strong> (when <code>cluster_type=ipi</code> and <code>ipi_platform=aws</code>)</li>
 <li>Environment Variable: <code>AWS_ACCESS_KEY_ID</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Authenticates with AWS to provision IPI cluster infrastructure. Must have permissions to create VPCs, instances, load balancers, and other AWS resources.</p>
+<p><strong>When to use</strong>:
+- Always required for AWS IPI cluster provisioning
+- Must be associated with IAM user or role with cluster creation permissions
+- Obtain from AWS IAM</p>
+<p><strong>Valid values</strong>: AWS access key ID string (typically 20 characters, starts with <code>AKIA</code>)</p>
+<p><strong>Impact</strong>: Without valid credentials with appropriate permissions, cluster provisioning will fail.</p>
+<p><strong>Related variables</strong>:
+- <code>aws_secret_access_key</code>: Secret key paired with this access key ID</p>
+<p><strong>Note</strong>: The IAM user/role must have extensive permissions (VPC, EC2, ELB, Route53, IAM, etc.). Consider using a dedicated IAM user for cluster provisioning.</p>
 <h3 id="aws_secret_access_key">aws_secret_access_key<a class="headerlink" href="#aws_secret_access_key" title="Permanent link">¤</a></h3>
-<p>AWS secret access key associated with an IAM user or role.</p>
+<p>AWS secret access key for authentication.</p>
 <ul>
-<li><strong>Required</strong> when <code>cluster_type = aws-ipi</code> and <code>ipi_platform = aws</code></li>
+<li><strong>Required</strong> (when <code>cluster_type=ipi</code> and <code>ipi_platform=aws</code>)</li>
 <li>Environment Variable: <code>AWS_SECRET_ACCESS_KEY</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Authenticates with AWS to provision IPI cluster infrastructure. Paired with AWS access key ID for authentication.</p>
+<p><strong>When to use</strong>:
+- Always required for AWS IPI cluster provisioning
+- Must correspond to the provided access key ID
+- Keep secure and rotate regularly</p>
+<p><strong>Valid values</strong>: AWS secret access key string (typically 40 characters)</p>
+<p><strong>Impact</strong>: Without valid credentials, cluster provisioning will fail.</p>
+<p><strong>Related variables</strong>:
+- <code>aws_access_key_id</code>: Access key ID paired with this secret key</p>
+<p><strong>Note</strong>: Keep secret keys secure. Never commit to version control. Use environment variables or secure vaults. Rotate keys regularly.</p>
 <h2 id="role-variables-gcp">Role Variables - GCP<a class="headerlink" href="#role-variables-gcp" title="Permanent link">¤</a></h2>
 <p>The following variables are only used when <code>cluster_type = ipi</code> and <code>ipi_platform = gcp</code>.</p>
 <h3 id="gcp_service_account_file">gcp_service_account_file<a class="headerlink" href="#gcp_service_account_file" title="Permanent link">¤</a></h3>
-<p>GCP service account file path. Make sure the service account has permissions to create instances.</p>
+<p>Path to GCP service account credentials file.</p>
 <ul>
-<li><strong>Required</strong> when <code>cluster_type = ipi</code> and <code>ipi_platform = gcp</code></li>
+<li><strong>Required</strong> (when <code>cluster_type=ipi</code> and <code>ipi_platform=gcp</code>)</li>
 <li>Environment Variable: <code>GOOGLE_APPLICATION_CREDENTIALS</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Authenticates with Google Cloud Platform to provision IPI cluster infrastructure. Service account must have permissions to create instances and networking resources.</p>
+<p><strong>When to use</strong>:
+- Always required for GCP IPI cluster provisioning
+- Must be a valid service account JSON key file
+- Service account must have cluster creation permissions</p>
+<p><strong>Valid values</strong>: Absolute path to GCP service account JSON key file</p>
+<p><strong>Impact</strong>: Without valid credentials with appropriate permissions, cluster provisioning will fail.</p>
+<p><strong>Related variables</strong>:
+- <code>ipi_gcp_projectid</code>: GCP project where cluster will be created</p>
+<p><strong>Note</strong>: The service account must have extensive permissions (Compute, Networking, IAM, etc.). Download the JSON key file from GCP IAM. Keep the file secure.</p>
 <h3 id="ipi_gcp_projectid">ipi_gcp_projectid<a class="headerlink" href="#ipi_gcp_projectid" title="Permanent link">¤</a></h3>
-<p>GCP project id in which the cluster will be deployed.</p>
+<p>GCP project ID for cluster deployment.</p>
 <ul>
-<li><strong>Required</strong> when <code>cluster_type = ipi</code> and <code>ipi_platform = gcp</code></li>
+<li><strong>Required</strong> (when <code>cluster_type=ipi</code> and <code>ipi_platform=gcp</code>)</li>
 <li>Environment Variable: <code>GOOGLE_PROJECTID</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the GCP project where the IPI cluster will be deployed. All cluster resources are created in this project.</p>
+<p><strong>When to use</strong>:
+- Always required for GCP IPI cluster provisioning
+- Must be a valid, existing GCP project
+- Service account must have permissions in this project</p>
+<p><strong>Valid values</strong>: Valid GCP project ID string</p>
+<p><strong>Impact</strong>: Cluster resources are created in this project. Costs are billed to this project.</p>
+<p><strong>Related variables</strong>:
+- <code>gcp_service_account_file</code>: Service account must have permissions in this project</p>
+<p><strong>Note</strong>: The project must exist before provisioning. Ensure the service account has appropriate permissions in the project. All cluster costs are billed to this project.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   vars:
@@ -1305,21 +1738,6 @@ Can be used to SSH into the OCP cluster nodes using a bastion.</p>
                       <li class="md-toc__item">
                         <a href="#gpu_workers" class="md-toc__link" data-md-level="2">
                           gpu_workers
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#compute_node_count" class="md-toc__link" data-md-level="2">
-                          compute_node_count
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#controlplane_node_count" class="md-toc__link" data-md-level="2">
-                          controlplane_node_count
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#gpu_workerpool_name_1" class="md-toc__link" data-md-level="2">
-                          gpu_workerpool_name
                         </a>
                       </li>
                   </ul>

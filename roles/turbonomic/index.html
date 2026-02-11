@@ -715,12 +715,14 @@
   </cds-breadcrumb-item>
       <cds-breadcrumb-item>Roles: Dependency Mgmt</cds-breadcrumb-item>
   <cds-breadcrumb-item>
-    <cds-breadcrumb-link href="#turbonomic">Turbonomic</cds-breadcrumb-link>
+    <cds-breadcrumb-link href="#turbonomic">turbonomic</cds-breadcrumb-link>
   </cds-breadcrumb-item>
 
   <cds-breadcrumb-item aria-current="page">
     <cds-select id="breadcrumbs-toc" inline placeholder="..." oninput="changeAnchor(this.value)">
     
+    
+      <cds-select-item value="#what-this-role-does">What This Role Does</cds-select-item>
     
       <cds-select-item value="#role-variables-kubeturbo-configuration">Role Variables - KubeTurbo Configuration</cds-select-item>
     
@@ -738,56 +740,129 @@
           <!-- Page content -->
           <div class="rst-content">
             
-            <h1 id="turbonomic">Turbonomic<a class="headerlink" href="#turbonomic" title="Permanent link">¤</a></h1>
-<p>Installs <a href="https://github.com/turbonomic/kubeturbo">kubeturbo</a> from any available CatalogSource, and automatically configures it to connect to a defined Turbonomic server.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The <strong>Turbonomic Kubernetes Operator</strong> does not support disconnected installation.  The <strong>kubeturbo</strong> deployment will be created using a tag rather than a digest, which prevents the use of an ImageContentSourcePolicy to configure a mirror registry for this image.</p>
+            <h1 id="turbonomic">turbonomic<a class="headerlink" href="#turbonomic" title="Permanent link">¤</a></h1>
+<p>Installs and configures <a href="https://github.com/turbonomic/kubeturbo">kubeturbo</a> to connect your OpenShift cluster to a Turbonomic Application Resource Management (ARM) server. Kubeturbo is an agent that collects cluster resource utilization data and sends it to Turbonomic for analysis and optimization recommendations.</p>
+<div class="admonition warning">
+<p class="admonition-title">Disconnected Installation Not Supported</p>
+<p>The <strong>Turbonomic Kubernetes Operator</strong> does not support disconnected/air-gapped installation. The <strong>kubeturbo</strong> deployment uses image tags rather than digests, preventing the use of ImageContentSourcePolicy to configure a mirror registry.</p>
 </div>
+<h2 id="what-this-role-does">What This Role Does<a class="headerlink" href="#what-this-role-does" title="Permanent link">¤</a></h2>
+<ul>
+<li>Installs the Turbonomic Kubernetes Operator from available CatalogSource</li>
+<li>Deploys kubeturbo agent in the specified namespace</li>
+<li>Configures kubeturbo to connect to your Turbonomic server</li>
+<li>Sets up authentication credentials for server communication</li>
+</ul>
 <h2 id="role-variables-kubeturbo-configuration">Role Variables - KubeTurbo Configuration<a class="headerlink" href="#role-variables-kubeturbo-configuration" title="Permanent link">¤</a></h2>
 <h3 id="kubeturbo_namespace">kubeturbo_namespace<a class="headerlink" href="#kubeturbo_namespace" title="Permanent link">¤</a></h3>
-<p>Set the namespace where the KubeTurbo operator will be installed.</p>
+<p>Namespace for KubeTurbo operator installation.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>KUBETURBO_NAMESPACE</code></li>
 <li>Default: <code>kubeturbo</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the OpenShift namespace where the KubeTurbo operator and agent will be installed.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>kubeturbo</code>) for standard installations
+- Override for custom namespace requirements
+- Useful for multi-tenant or organized deployments</p>
+<p><strong>Valid values</strong>: Valid Kubernetes namespace name (lowercase alphanumeric and hyphens)</p>
+<p><strong>Impact</strong>: Determines where kubeturbo resources are deployed. All operator and agent components will be created in this namespace.</p>
+<p><strong>Related variables</strong>:
+- <code>turbonomic_target_name</code>: Cluster identifier in Turbonomic</p>
+<p><strong>Note</strong>: The namespace will be created if it doesn't exist. Using the default <code>kubeturbo</code> namespace is recommended for consistency.</p>
 <h2 id="role-variables-turbonomic-server-configuration">Role Variables - Turbonomic Server Configuration<a class="headerlink" href="#role-variables-turbonomic-server-configuration" title="Permanent link">¤</a></h2>
 <h3 id="turbonomic_target_name">turbonomic_target_name<a class="headerlink" href="#turbonomic_target_name" title="Permanent link">¤</a></h3>
-<p>The cluster name is required to install Kubeturbo. The agent component is deployed onto target Kubernetes and OpenShift cluster which then send data to the Turbonomic ARM server.</p>
+<p>Cluster name in Turbonomic server.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>TURBONOMIC_TARGET_NAME</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Defines the name by which this cluster will be identified in the Turbonomic ARM server. The kubeturbo agent uses this name when registering and sending data to Turbonomic.</p>
+<p><strong>When to use</strong>:
+- Always required for kubeturbo installation
+- Should be unique across all clusters managed by Turbonomic
+- Use descriptive names for easy identification</p>
+<p><strong>Valid values</strong>: String, typically cluster name or identifier (e.g., <code>prod-ocp-cluster</code>, <code>dev-cluster-01</code>)</p>
+<p><strong>Impact</strong>: Determines how the cluster appears in Turbonomic dashboards and reports. This name is used for all resource tracking and optimization recommendations.</p>
+<p><strong>Related variables</strong>:
+- <code>turbonomic_server_url</code>: Server to register with
+- <code>kubeturbo_namespace</code>: Where agent is deployed</p>
+<p><strong>Note</strong>: Choose a meaningful name that clearly identifies the cluster in your Turbonomic environment. This name should match your cluster naming conventions.</p>
 <h3 id="turbonomic_server_url">turbonomic_server_url<a class="headerlink" href="#turbonomic_server_url" title="Permanent link">¤</a></h3>
-<p>The route is required to access the Turbonomics instance. Kubeturbo communicates with the Turbo Server using the supplied turbonomic route as the Turbonomic Server endpoint while configuring kubeturbo.</p>
+<p>Turbonomic server URL.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>TURBONOMIC_SERVER_URL</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the URL of the Turbonomic ARM server that kubeturbo will connect to for sending cluster data and receiving optimization actions.</p>
+<p><strong>When to use</strong>:
+- Always required for kubeturbo installation
+- Must be accessible from the OpenShift cluster
+- Should include protocol (https://)</p>
+<p><strong>Valid values</strong>: Full URL to Turbonomic server (e.g., <code>https://turbonomic.example.com</code>, <code>https://turbo-server.company.com:8080</code>)</p>
+<p><strong>Impact</strong>: Determines which Turbonomic server receives cluster data. Kubeturbo establishes connection to this endpoint for all communication.</p>
+<p><strong>Related variables</strong>:
+- <code>turbonomic_username</code>/<code>turbonomic_password</code>: Authentication credentials
+- <code>turbonomic_server_version</code>: Optional version specification
+- <code>turbonomic_target_name</code>: Cluster identifier on this server</p>
+<p><strong>Note</strong>: Ensure the URL is accessible from the cluster network. The server must be reachable for kubeturbo to function properly.</p>
 <h3 id="turbonomic_server_version">turbonomic_server_version<a class="headerlink" href="#turbonomic_server_version" title="Permanent link">¤</a></h3>
-<p>The version of the Turbonomic server you are connecting to.</p>
+<p>Turbonomic server version.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>TURBONOMIC_SERVER_VERSION</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the version of the Turbonomic server being connected to. Used for version-specific compatibility and feature enablement.</p>
+<p><strong>When to use</strong>:
+- Optional for most installations
+- Specify when connecting to specific Turbonomic versions
+- May be required for version-specific features or compatibility</p>
+<p><strong>Valid values</strong>: Turbonomic version string (e.g., <code>8.9.4</code>, <code>8.10.0</code>, <code>8.11.2</code>)</p>
+<p><strong>Impact</strong>: May affect feature availability or compatibility checks between kubeturbo agent and Turbonomic server.</p>
+<p><strong>Related variables</strong>:
+- <code>turbonomic_server_url</code>: Server being connected to</p>
+<p><strong>Note</strong>: If not specified, kubeturbo will attempt to detect server version automatically. Specify only if you need to enforce specific version compatibility.</p>
 <h3 id="turbonomic_username">turbonomic_username<a class="headerlink" href="#turbonomic_username" title="Permanent link">¤</a></h3>
-<p>The username to authenticate with the Turbonomic server.</p>
+<p>Turbonomic server username.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>TURBONOMIC_USERNAME</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the username for authenticating kubeturbo agent with the Turbonomic server.</p>
+<p><strong>When to use</strong>:
+- Always required for kubeturbo installation
+- Should be a service account or dedicated user
+- Requires appropriate permissions in Turbonomic</p>
+<p><strong>Valid values</strong>: Valid Turbonomic username string</p>
+<p><strong>Impact</strong>: Used for authentication when kubeturbo connects to Turbonomic server. The user must have permissions to register targets and send data.</p>
+<p><strong>Related variables</strong>:
+- <code>turbonomic_password</code>: Password for this username
+- <code>turbonomic_server_url</code>: Server to authenticate with
+- <code>turbonomic_target_name</code>: Cluster this user will register</p>
+<p><strong>Note</strong>: <strong>SECURITY</strong> - Use a dedicated service account rather than a personal user account. Ensure the account has appropriate permissions in Turbonomic for target registration and data submission.</p>
 <h3 id="turbonomic_password">turbonomic_password<a class="headerlink" href="#turbonomic_password" title="Permanent link">¤</a></h3>
-<p>The password to authenticate with the Turbonomic server.</p>
+<p>Turbonomic server password.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>TURBONOMIC_PASSWORD</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the password for authenticating kubeturbo agent with the Turbonomic server.</p>
+<p><strong>When to use</strong>:
+- Always required for kubeturbo installation
+- Must match the password for <code>turbonomic_username</code>
+- Used for secure authentication</p>
+<p><strong>Valid values</strong>: Valid password string for the specified username</p>
+<p><strong>Impact</strong>: Used for authentication when kubeturbo connects to Turbonomic server. Authentication must succeed for data transmission.</p>
+<p><strong>Related variables</strong>:
+- <code>turbonomic_username</code>: Username for this password
+- <code>turbonomic_server_url</code>: Server to authenticate with</p>
+<p><strong>Note</strong>: <strong>SECURITY</strong> - Password should be kept secure and not committed to version control. Store in secure secret management systems. Use strong passwords following your organization's security policies.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
@@ -843,6 +918,11 @@
       <div class="md-toc">
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
+              <li class="md-toc__item">
+                <a href="#what-this-role-does" class="md-toc__link" data-md-level="1">
+                  What This Role Does
+                </a>
+              </li>
               <li class="md-toc__item">
                 <a href="#role-variables-kubeturbo-configuration" class="md-toc__link" data-md-level="1">
                   Role Variables - KubeTurbo Configuration

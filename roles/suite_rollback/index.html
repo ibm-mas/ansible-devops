@@ -722,6 +722,8 @@
     <cds-select id="breadcrumbs-toc" inline placeholder="..." oninput="changeAnchor(this.value)">
     
     
+      <cds-select-item value="#what-this-role-does">What This Role Does</cds-select-item>
+    
       <cds-select-item value="#role-variables">Role Variables</cds-select-item>
     
       <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
@@ -737,57 +739,140 @@
           <div class="rst-content">
             
             <h1 id="suite_rollback">suite_rollback<a class="headerlink" href="#suite_rollback" title="Permanent link">¤</a></h1>
-<p>This role is to roll back Maximo Application Suite to an earlier version. Rollback is possible only in 8.11 and later. From 8.11 onwards, every version comes with a set of supported versions to which Suite can be rolled back. For example, you can roll back Maximo Application Suite from 8.11.x to 8.11.0. This role validates given MAS installation is ready for the core platform to be rolled back to a specific MAS core version, and (as long as dry run mode is not enabled) will execute the rollback.</p>
+<p>This role rolls back Maximo Application Suite core platform to an earlier version. Rollback capability is available in MAS 8.11 and later versions. Each MAS version includes a list of supported rollback target versions. For example, you can roll back from MAS 8.11.x to 8.11.0.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Rollback is a significant operation that should be carefully planned and tested. Always perform a dry run first and ensure you have backups before proceeding with actual rollback.</p>
+</div>
+<h2 id="what-this-role-does">What This Role Does<a class="headerlink" href="#what-this-role-does" title="Permanent link">¤</a></h2>
 <ul>
-<li>It will validate that the specified version is compatible to rollback from the current version.</li>
-<li>It will validate that the core is already running at the targetted version.</li>
-<li>It will rollback the MAS core platform to the desired version (as long as dry run is not enabled).</li>
-<li>It will validate that the core platform has been successfully reconciled at the rolled back version.</li>
-<li>It will <strong>not</strong> validate that all core services successfully deploy after the reconcile (but we will be working on this limitation).</li>
+<li>Validates the specified target version is compatible for rollback from the current version</li>
+<li>Verifies the core platform is not already at the target version</li>
+<li>Executes the rollback to the desired version (unless dry run mode is enabled)</li>
+<li>Validates the core platform successfully reconciles at the rolled back version</li>
+<li><strong>Note</strong>: Does not validate that all core services successfully deploy after reconcile (future enhancement)</li>
 </ul>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
-<p>The ID of the MAS instance to rollback.</p>
+<p>MAS instance identifier to rollback.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies which MAS instance to rollback. The role validates and executes rollback operations on this specific instance.</p>
+<p><strong>When to use</strong>:
+- Always required for rollback operations
+- Must match the instance ID from MAS installation
+- Used to target specific instance for version rollback</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>masinst1</code>)</p>
+<p><strong>Impact</strong>: Determines which MAS instance undergoes rollback. All validation and rollback operations target this instance.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_core_version</code>: Target version to rollback to
+- <code>rollback_mas_core</code>: Controls whether rollback is executed</p>
+<p><strong>Note</strong>: Ensure the instance is in a stable state before initiating rollback. Applications should be stopped or in maintenance mode during rollback.</p>
 <h3 id="mas_core_version">mas_core_version<a class="headerlink" href="#mas_core_version" title="Permanent link">¤</a></h3>
-<p>The version of the MAS core that you want to rollback to or to validate current version. It is required when any of the <code>ROLLBACK_MAS_CORE</code> and <code>VERIFY_CORE_VERSION</code> variables is set to <code>true</code>.</p>
+<p>Target MAS core version for rollback or verification.</p>
 <ul>
-<li><strong>Required</strong></li>
+<li><strong>Required</strong> (when <code>rollback_mas_core=true</code> or <code>verify_core_version=true</code>)</li>
 <li>Environment Variable: <code>MAS_CORE_VERSION</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the MAS core version to rollback to or to verify against the current version. Must be a supported rollback target for the current version.</p>
+<p><strong>When to use</strong>:
+- Required when performing rollback (<code>rollback_mas_core=true</code>)
+- Required when verifying version (<code>verify_core_version=true</code>)
+- Must be a version listed in the current version's supported rollback targets</p>
+<p><strong>Valid values</strong>: Valid MAS version string (e.g., <code>8.11.0</code>, <code>8.11.1</code>, <code>8.12.0</code>)</p>
+<p><strong>Impact</strong>: Determines the target version for rollback operations. The role validates this version is compatible before proceeding.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_instance_id</code>: Instance to rollback
+- <code>rollback_mas_core</code>: Enables rollback execution
+- <code>skip_compatibility_check</code>: Bypasses version compatibility validation</p>
+<p><strong>Note</strong>: Check the MAS documentation for supported rollback paths from your current version. Not all versions support rollback to all earlier versions.</p>
 <h3 id="rollback_mas_core">rollback_mas_core<a class="headerlink" href="#rollback_mas_core" title="Permanent link">¤</a></h3>
-<p>When set to <code>true</code> will ensure that the role performs rollback operation.</p>
+<p>Enable rollback execution.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ROLLBACK_MAS_CORE</code></li>
-<li>Default: <code>True</code></li>
+<li>Default: <code>true</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether the role actually performs the rollback operation or only validates/verifies version information.</p>
+<p><strong>When to use</strong>:
+- Leave as <code>true</code> (default) to execute rollback
+- Set to <code>false</code> when only verifying current version
+- Use with <code>mas_rollback_dryrun=true</code> for validation without changes</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- <code>true</code>: Executes rollback to the specified version (default behavior)
+- <code>false</code>: Skips rollback execution (use with <code>verify_core_version=true</code> for version checks)</p>
+<p><strong>Related variables</strong>:
+- <code>mas_core_version</code>: Target version for rollback
+- <code>verify_core_version</code>: Alternative mode for version verification
+- <code>mas_rollback_dryrun</code>: Validation-only mode</p>
+<p><strong>Note</strong>: When <code>false</code>, typically used with <code>verify_core_version=true</code> to check current version without making changes.</p>
 <h3 id="verify_core_version">verify_core_version<a class="headerlink" href="#verify_core_version" title="Permanent link">¤</a></h3>
-<p>When set to <code>true</code> will ensure that the role checks the current MAS core version matches with specified version.</p>
+<p>Enable version verification mode.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>VERIFY_CORE_VERSION</code></li>
-<li>Default: <code>False</code></li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: When enabled, verifies that the current MAS core version matches the specified <code>mas_core_version</code> without performing any rollback operations.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> to verify current version matches expected version
+- Use after rollback to confirm successful version change
+- Helpful for validation in automation pipelines
+- Typically used with <code>rollback_mas_core=false</code></p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- <code>true</code>: Checks current version matches <code>mas_core_version</code>, fails if mismatch
+- <code>false</code>: Skips version verification (default)</p>
+<p><strong>Related variables</strong>:
+- <code>mas_core_version</code>: Expected version to verify against
+- <code>rollback_mas_core</code>: Should be <code>false</code> when this is <code>true</code></p>
+<p><strong>Note</strong>: Useful for post-rollback validation or confirming version before proceeding with other operations.</p>
 <h3 id="mas_rollback_dryrun">mas_rollback_dryrun<a class="headerlink" href="#mas_rollback_dryrun" title="Permanent link">¤</a></h3>
-<p>When set to <code>true</code> will ensure that the role only performs rollback validation checks and does not make any changes to the target installation.</p>
+<p>Enable dry run mode (validation only).</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_ROLLBACK_DRYRUN</code></li>
-<li>Default: <code>False</code></li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: When enabled, performs all validation checks for rollback compatibility without making any actual changes to the MAS installation.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> before actual rollback to validate compatibility
+- Use to test rollback feasibility without risk
+- Recommended first step before any rollback operation
+- Helpful for planning and validation</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- <code>true</code>: Validates rollback compatibility but makes no changes (safe)
+- <code>false</code>: Executes actual rollback after validation (default)</p>
+<p><strong>Related variables</strong>:
+- <code>rollback_mas_core</code>: Rollback must be enabled for dry run to be meaningful
+- <code>mas_core_version</code>: Target version to validate</p>
+<p><strong>Note</strong>: <strong>BEST PRACTICE</strong> - Always run with <code>mas_rollback_dryrun=true</code> first to validate the rollback is possible before executing the actual rollback with <code>mas_rollback_dryrun=false</code>.</p>
 <h3 id="skip_compatibility_check">skip_compatibility_check<a class="headerlink" href="#skip_compatibility_check" title="Permanent link">¤</a></h3>
-<p>When set to <code>true</code> will skip compatibility check before the rollback. This is meant only for development mode. In dev mode, rollback request is accepted from one pre built version to another on the same base version though it is not listed under supported versions. For example: 8.11.0-pre.dev to 8.11.0-pre.stable.</p>
+<p>Skip version compatibility validation.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>SKIP_COMPATIBILITY_CHECK</code></li>
-<li>Default: <code>False</code></li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Bypasses the compatibility check that validates the target version is in the list of supported rollback versions. Intended for development and testing scenarios only.</p>
+<p><strong>When to use</strong>:
+- <strong>Development/testing only</strong> - for pre-release version testing
+- Allows rollback between pre-built versions on same base (e.g., <code>8.11.0-pre.dev</code> to <code>8.11.0-pre.stable</code>)
+- <strong>NEVER use in production environments</strong></p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- <code>true</code>: Skips compatibility validation, allows unsupported rollback paths (dangerous)
+- <code>false</code>: Enforces compatibility checks (safe, default)</p>
+<p><strong>Related variables</strong>:
+- <code>mas_core_version</code>: Target version (may be unsupported if check skipped)
+- <code>rollback_mas_core</code>: Rollback execution control</p>
+<p><strong>Note</strong>: <strong>WARNING</strong> - This option is for development purposes only. Skipping compatibility checks can result in failed rollbacks, data corruption, or unstable installations. Never use in production. The compatibility check exists to prevent unsupported rollback scenarios.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <h3 id="rollback-to-specified-version">Rollback to Specified Version<a class="headerlink" href="#rollback-to-specified-version" title="Permanent link">¤</a></h3>
 <p>Running this playbook will rollback MAS core to the specified version. If you run this playbook when you are already on the same version it will take no action.</p>
@@ -856,6 +941,11 @@
       <div class="md-toc">
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
+              <li class="md-toc__item">
+                <a href="#what-this-role-does" class="md-toc__link" data-md-level="1">
+                  What This Role Does
+                </a>
+              </li>
               <li class="md-toc__item">
                 <a href="#role-variables" class="md-toc__link" data-md-level="1">
                   Role Variables

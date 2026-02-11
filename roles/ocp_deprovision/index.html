@@ -752,99 +752,226 @@
 <p>Deprovision OCP cluster in Fyre, IBM Cloud, &amp; ROSA.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="cluster_type">cluster_type<a class="headerlink" href="#cluster_type" title="Permanent link">¤</a></h3>
-<p>Required.  Specify the cluster type, supported values are <code>roks</code> and <code>quickburn</code>.</p>
+<p>Infrastructure provider type for cluster deprovisioning.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>CLUSTER_TYPE</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which infrastructure provider was used to provision the cluster. Determines the deprovisioning method and required credentials.</p>
+<p><strong>When to use</strong>:
+- Always required for cluster deprovisioning
+- Must match the provider used to create the cluster
+- Each type requires different provider-specific variables</p>
+<p><strong>Valid values</strong>: <code>fyre</code>, <code>roks</code>, <code>rosa</code>, <code>ipi</code>
+- <code>fyre</code>: IBM DevIT Fyre clusters (internal development)
+- <code>roks</code>: IBM Cloud Red Hat OpenShift Kubernetes Service
+- <code>rosa</code>: AWS Red Hat OpenShift Service on AWS
+- <code>ipi</code>: Installer-Provisioned Infrastructure (AWS, GCP)</p>
+<p><strong>Impact</strong>: Determines deprovisioning workflow and which provider-specific variables are required. Using wrong type will cause deprovisioning to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_name</code>: Name of the cluster to deprovision
+- Provider-specific credentials (ibmcloud_apikey, rosa_token, fyre_apikey, etc.)</p>
+<p><strong>Note</strong>: <strong>IMPORTANT</strong> - Must match the provider used to create the cluster. Verify cluster type before deprovisioning to avoid errors.</p>
 <h3 id="cluster_name">cluster_name<a class="headerlink" href="#cluster_name" title="Permanent link">¤</a></h3>
-<p>Required.  Specify the name of the cluster</p>
+<p>Name of the cluster to deprovision.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>CLUSTER_NAME</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies which cluster to deprovision. Used to locate and delete the cluster in the provider's system.</p>
+<p><strong>When to use</strong>:
+- Always required for cluster deprovisioning
+- Must exactly match the cluster name in the provider
+- Used to target the specific cluster for deletion</p>
+<p><strong>Valid values</strong>: String matching the cluster name in the provider's system</p>
+<p><strong>Impact</strong>: Determines which cluster is deleted. <strong>CRITICAL</strong> - Incorrect name may cause wrong cluster to be deleted or deprovisioning to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_type</code>: Provider where cluster exists</p>
+<p><strong>Note</strong>: <strong>WARNING</strong> - Deprovisioning permanently deletes the cluster and all its resources. Verify the cluster name carefully before proceeding. This operation cannot be undone.</p>
 <h2 id="role-variables-roks">Role Variables - ROKS<a class="headerlink" href="#role-variables-roks" title="Permanent link">¤</a></h2>
 <h3 id="ibmcloud_apikey">ibmcloud_apikey<a class="headerlink" href="#ibmcloud_apikey" title="Permanent link">¤</a></h3>
-<p>The APIKey to be used by ibmcloud login comand.</p>
+<p>IBM Cloud API key for authentication.</p>
 <ul>
-<li><strong>Required</strong> if <code>cluster_type = roks</code></li>
+<li><strong>Required</strong> (when <code>cluster_type=roks</code>)</li>
 <li>Environment Variable: <code>IBMCLOUD_APIKEY</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Authenticates with IBM Cloud to deprovision ROKS clusters. Used by the ibmcloud CLI for cluster deletion operations.</p>
+<p><strong>When to use</strong>:
+- Always required for ROKS cluster deprovisioning
+- Must have permissions to delete clusters in the resource group
+- Same API key used for cluster provisioning can be used</p>
+<p><strong>Valid values</strong>: IBM Cloud API key string (typically 40+ characters)</p>
+<p><strong>Impact</strong>: Without a valid API key with delete permissions, cluster deprovisioning will fail.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_name</code>: ROKS cluster to deprovision</p>
+<p><strong>Note</strong>: The API key must have cluster deletion permissions in the resource group. Deprovisioning permanently deletes the cluster.</p>
 <h2 id="role-variables-rosa">Role Variables - ROSA<a class="headerlink" href="#role-variables-rosa" title="Permanent link">¤</a></h2>
 <h3 id="rosa_token">rosa_token<a class="headerlink" href="#rosa_token" title="Permanent link">¤</a></h3>
-<p>The Token used to authenticate with the ROSA service.</p>
+<p>Red Hat OpenShift Service on AWS (ROSA) authentication token.</p>
 <ul>
-<li><strong>Required</strong> if <code>cluster_type = rosa</code></li>
+<li><strong>Required</strong> (when <code>cluster_type=rosa</code>)</li>
 <li>Environment Variable: <code>ROSA_TOKEN</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Authenticates with the ROSA service to deprovision OpenShift clusters on AWS. Required for cluster deletion operations.</p>
+<p><strong>When to use</strong>:
+- Always required for ROSA cluster deprovisioning
+- Obtain from <a href="https://console.redhat.com/openshift/token/rosa/show#">OpenShift Cluster Manager</a>
+- Token must be valid and not expired</p>
+<p><strong>Valid values</strong>: ROSA API token string from Red Hat OpenShift Cluster Manager</p>
+<p><strong>Impact</strong>: Without a valid token, ROSA cluster deprovisioning will fail.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_name</code>: ROSA cluster to deprovision</p>
+<p><strong>Note</strong>: Tokens expire periodically. Obtain a fresh token before deprovisioning. Deprovisioning permanently deletes the cluster and all AWS resources.</p>
 <h2 id="role-variables-fyre">Role Variables - FYRE<a class="headerlink" href="#role-variables-fyre" title="Permanent link">¤</a></h2>
 <h3 id="fyre_username">fyre_username<a class="headerlink" href="#fyre_username" title="Permanent link">¤</a></h3>
-<p>Username to authenticate with the Fyre API.</p>
+<p>Fyre username for authentication.</p>
 <ul>
-<li><strong>Required</strong> if <code>cluster_type = quickburn</code>.</li>
+<li><strong>Required</strong> (when <code>cluster_type=fyre</code>)</li>
 <li>Environment Variable: <code>FYRE_USERNAME</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Authenticates with the IBM DevIT Fyre API to deprovision OpenShift clusters on Fyre infrastructure.</p>
+<p><strong>When to use</strong>:
+- Always required for Fyre cluster deprovisioning
+- Must be a valid Fyre account username
+- Used for internal IBM development and testing</p>
+<p><strong>Valid values</strong>: Valid Fyre username (IBM intranet ID)</p>
+<p><strong>Impact</strong>: Without valid credentials, Fyre cluster deprovisioning will fail.</p>
+<p><strong>Related variables</strong>:
+- <code>fyre_apikey</code>: API key paired with this username
+- <code>cluster_name</code>: Fyre cluster to deprovision</p>
+<p><strong>Note</strong>: Fyre is an internal IBM development platform. Access requires IBM credentials and appropriate permissions.</p>
 <h3 id="fyre_apikey">fyre_apikey<a class="headerlink" href="#fyre_apikey" title="Permanent link">¤</a></h3>
-<p>API key to authenticate with the Fyre API.</p>
+<p>Fyre API key for authentication.</p>
 <ul>
-<li><strong>Required</strong> if <code>cluster_type = quickburn</code>.</li>
+<li><strong>Required</strong> (when <code>cluster_type=fyre</code>)</li>
 <li>Environment Variable: <code>FYRE_APIKEY</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Authenticates with the Fyre API for cluster deprovisioning operations. Paired with Fyre username for authentication.</p>
+<p><strong>When to use</strong>:
+- Always required for Fyre cluster deprovisioning
+- Obtain from Fyre portal
+- Keep secure and rotate regularly</p>
+<p><strong>Valid values</strong>: Valid Fyre API key string</p>
+<p><strong>Impact</strong>: Without a valid API key, Fyre cluster deprovisioning will fail.</p>
+<p><strong>Related variables</strong>:
+- <code>fyre_username</code>: Username paired with this API key
+- <code>cluster_name</code>: Fyre cluster to deprovision</p>
+<p><strong>Note</strong>: Keep API keys secure. Obtain from the Fyre portal. Keys may expire and need renewal.</p>
 <h3 id="fyre_site">fyre_site<a class="headerlink" href="#fyre_site" title="Permanent link">¤</a></h3>
-<p>Site in Fyre where cluster had been provisioned</p>
+<p>Fyre datacenter site location.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>FYRE_SITE</code></li>
-<li>Default Value: <code>svl</code></li>
+<li>Default: <code>svl</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which Fyre datacenter site the cluster was provisioned in. Used to locate the cluster for deprovisioning.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>svl</code> - San Jose/Silicon Valley) if cluster was provisioned there
+- Set to the site where cluster was originally provisioned
+- Must match the site used during provisioning</p>
+<p><strong>Valid values</strong>: Valid Fyre site code (e.g., <code>svl</code>, <code>rtp</code>, <code>raleigh</code>)</p>
+<p><strong>Impact</strong>: Determines where to look for the cluster. Incorrect site will cause deprovisioning to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_name</code>: Cluster to deprovision at this site</p>
+<p><strong>Note</strong>: Must match the site where the cluster was originally provisioned. SVL is the default and most commonly used site.</p>
 <h2 id="role-variables-ipi">Role Variables - IPI<a class="headerlink" href="#role-variables-ipi" title="Permanent link">¤</a></h2>
 <p>The following variables are only used when <code>cluster_type = ipi</code>.</p>
-<h3 id="ipi_install_dir">ipi_install_dir<a class="headerlink" href="#ipi_install_dir" title="Permanent link">¤</a></h3>
-<p>The directory that is used to store the <code>openshift-install</code> executable, its configuration, &amp; generated log files.</p>
+<h3 id="ipi_dir">ipi_dir<a class="headerlink" href="#ipi_dir" title="Permanent link">¤</a></h3>
+<p>Working directory for IPI deprovisioning.</p>
 <ul>
-<li>Optional when <code>cluster_type = aws-ipi</code></li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IPI_DIR</code></li>
-<li>Default Value: <code>~/openshift-install</code></li>
+<li>Default: <code>~/openshift-install</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the directory containing the openshift-install executable and cluster metadata required for deprovisioning.</p>
+<p><strong>When to use</strong>:
+- Use default if cluster was provisioned with default directory
+- Set to match the directory used during cluster provisioning
+- Directory must contain cluster metadata for deprovisioning</p>
+<p><strong>Valid values</strong>: Absolute filesystem path</p>
+<p><strong>Impact</strong>: Deprovisioning requires cluster metadata from this directory. Incorrect path will cause deprovisioning to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_name</code>: Cluster metadata stored in subdirectory</p>
+<p><strong>Note</strong>: Must be the same directory used during cluster provisioning. The directory contains cluster metadata required for proper cleanup of all resources.</p>
 <h3 id="ipi_platform">ipi_platform<a class="headerlink" href="#ipi_platform" title="Permanent link">¤</a></h3>
-<p>Platform the cluster was created on, any platform supported by <code>openshift-install</code>. Values allowed: <code>aws</code> and <code>gcp</code>.</p>
+<p>Cloud platform for IPI cluster deprovisioning.</p>
 <ul>
-<li>Required.</li>
+<li><strong>Required</strong> (when <code>cluster_type=ipi</code>)</li>
 <li>Environment Variable: <code>IPI_PLATFORM</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which cloud platform the IPI cluster was deployed on. Determines which provider-specific credentials are required for deprovisioning.</p>
+<p><strong>When to use</strong>:
+- Always required for IPI cluster deprovisioning
+- Must match the platform used during provisioning
+- Each platform requires different credentials</p>
+<p><strong>Valid values</strong>: <code>aws</code>, <code>gcp</code></p>
+<p><strong>Impact</strong>: Determines which cloud provider is used for deprovisioning and which credentials are required.</p>
+<p><strong>Related variables</strong>:
+- <code>aws_access_key_id</code>, <code>aws_secret_access_key</code>: Required when <code>aws</code>
+- <code>gcp_service_account_file</code>: Required when <code>gcp</code></p>
+<p><strong>Note</strong>: Must match the platform used during cluster provisioning. AWS and GCP are supported.</p>
 <h2 id="role-variables-aws">Role Variables - AWS<a class="headerlink" href="#role-variables-aws" title="Permanent link">¤</a></h2>
 <p>The following variables are only used when <code>cluster_type = ipi</code> and <code>ipi_platform = aws</code>.</p>
 <h3 id="aws_access_key_id">aws_access_key_id<a class="headerlink" href="#aws_access_key_id" title="Permanent link">¤</a></h3>
-<p>AWS access key associated with an IAM user or role.</p>
+<p>AWS access key ID for authentication.</p>
 <ul>
-<li><strong>Required</strong> when <code>cluster_type = ipi</code> and <code>ipi_platform = aws</code></li>
+<li><strong>Required</strong> (when <code>cluster_type=ipi</code> and <code>ipi_platform=aws</code>)</li>
 <li>Environment Variable: <code>AWS_ACCESS_KEY_ID</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Authenticates with AWS to deprovision IPI cluster infrastructure. Must have permissions to delete VPCs, instances, load balancers, and other AWS resources.</p>
+<p><strong>When to use</strong>:
+- Always required for AWS IPI cluster deprovisioning
+- Must be associated with IAM user or role with deletion permissions
+- Can be same credentials used for provisioning</p>
+<p><strong>Valid values</strong>: AWS access key ID string (typically 20 characters, starts with <code>AKIA</code>)</p>
+<p><strong>Impact</strong>: Without valid credentials with appropriate permissions, cluster deprovisioning will fail or be incomplete.</p>
+<p><strong>Related variables</strong>:
+- <code>aws_secret_access_key</code>: Secret key paired with this access key ID</p>
+<p><strong>Note</strong>: The IAM user/role must have permissions to delete all cluster resources (VPC, EC2, ELB, Route53, IAM, etc.). Incomplete permissions may leave orphaned resources.</p>
 <h3 id="aws_secret_access_key">aws_secret_access_key<a class="headerlink" href="#aws_secret_access_key" title="Permanent link">¤</a></h3>
-<p>AWS secret access key associated with an IAM user or role. Make sure the access key has permissions
-to delete instances.</p>
+<p>AWS secret access key for authentication.</p>
 <ul>
-<li><strong>Required</strong> when <code>cluster_type = ipi</code> and <code>ipi_platform = aws</code></li>
+<li><strong>Required</strong> (when <code>cluster_type=ipi</code> and <code>ipi_platform=aws</code>)</li>
 <li>Environment Variable: <code>AWS_SECRET_ACCESS_KEY</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Authenticates with AWS to deprovision IPI cluster infrastructure. Paired with AWS access key ID for authentication.</p>
+<p><strong>When to use</strong>:
+- Always required for AWS IPI cluster deprovisioning
+- Must correspond to the provided access key ID
+- Keep secure and rotate regularly</p>
+<p><strong>Valid values</strong>: AWS secret access key string (typically 40 characters)</p>
+<p><strong>Impact</strong>: Without valid credentials, cluster deprovisioning will fail.</p>
+<p><strong>Related variables</strong>:
+- <code>aws_access_key_id</code>: Access key ID paired with this secret key</p>
+<p><strong>Note</strong>: Keep secret keys secure. Ensure credentials have permissions to delete all cluster resources to avoid orphaned resources.</p>
 <h2 id="role-variables-gcp">Role Variables - GCP<a class="headerlink" href="#role-variables-gcp" title="Permanent link">¤</a></h2>
 <p>The following variables are only used when <code>cluster_type = ipi</code> and <code>ipi_platform = gcp</code>.</p>
 <h3 id="gcp_service_account_file">gcp_service_account_file<a class="headerlink" href="#gcp_service_account_file" title="Permanent link">¤</a></h3>
-<p>GCP service account file path. Make sure the service account has permissions to create instances.</p>
+<p>Path to GCP service account credentials file.</p>
 <ul>
-<li><strong>Required</strong> when <code>cluster_type = ipi</code> and <code>ipi_platform = gcp</code></li>
+<li><strong>Required</strong> (when <code>cluster_type=ipi</code> and <code>ipi_platform=gcp</code>)</li>
 <li>Environment Variable: <code>GOOGLE_APPLICATION_CREDENTIALS</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Authenticates with Google Cloud Platform to deprovision IPI cluster infrastructure. Service account must have permissions to delete instances and networking resources.</p>
+<p><strong>When to use</strong>:
+- Always required for GCP IPI cluster deprovisioning
+- Must be a valid service account JSON key file
+- Service account must have cluster deletion permissions</p>
+<p><strong>Valid values</strong>: Absolute path to GCP service account JSON key file</p>
+<p><strong>Impact</strong>: Without valid credentials with appropriate permissions, cluster deprovisioning will fail or be incomplete.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_name</code>: Cluster to deprovision</p>
+<p><strong>Note</strong>: The service account must have permissions to delete all cluster resources (Compute, Networking, IAM, etc.). Can be same service account used for provisioning. Incomplete permissions may leave orphaned resources.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   vars:
@@ -967,8 +1094,8 @@ to delete instances.</p>
                 </a>
                   <ul class="md-toc__list">
                       <li class="md-toc__item">
-                        <a href="#ipi_install_dir" class="md-toc__link" data-md-level="2">
-                          ipi_install_dir
+                        <a href="#ipi_dir" class="md-toc__link" data-md-level="2">
+                          ipi_dir
                         </a>
                       </li>
                       <li class="md-toc__item">

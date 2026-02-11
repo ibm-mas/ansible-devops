@@ -779,39 +779,105 @@
 </table>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="extras_name">extras_name<a class="headerlink" href="#extras_name" title="Permanent link">¤</a></h3>
-<p>The name of the extras package to prepare for mirroring.</p>
+<p>Name of the extras package to prepare for mirroring.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>EXTRAS_NAME</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which extras package to prepare for mirroring. Extras packages contain additional container images not included in standard CASE bundles but required for MAS deployments.</p>
+<p><strong>When to use</strong>:
+- Always required for extras package mirroring preparation
+- Must match an available extras package name
+- See "Available Extras" table above for valid packages</p>
+<p><strong>Valid values</strong>: <code>catalog</code>, <code>db2u</code>, <code>mongoce</code>, <code>wd</code>, <code>odf</code>
+- <code>catalog</code>: IBM Maximo Operator Catalog images
+- <code>db2u</code>: Extra Db2 images missing from ibm-db2operator CASE
+- <code>mongoce</code>: MongoDB Community Edition Operator images
+- <code>wd</code>: Extra Watson Discovery images missing from CASE
+- <code>odf</code>: OpenShift Data Foundation extra images</p>
+<p><strong>Impact</strong>: Determines which extras package is downloaded and processed. Incorrect name will cause preparation to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>extras_version</code>: Version of this extras package to prepare</p>
+<p><strong>Note</strong>: Extras packages fill gaps in CASE bundles, providing images needed for disconnected environments. Each package addresses specific missing images for different components.</p>
 <h3 id="extras_version">extras_version<a class="headerlink" href="#extras_version" title="Permanent link">¤</a></h3>
-<p>The version of the extras package to prepare for mirroring.</p>
+<p>Version of the extras package to prepare for mirroring.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>EXTRAS_VERSION</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which version of the extras package to prepare for mirroring. Different versions contain different image sets or versions.</p>
+<p><strong>When to use</strong>:
+- Always required for extras package mirroring preparation
+- Must match an available version for the specified extras package
+- See "Available Extras" table above for valid versions per package</p>
+<p><strong>Valid values</strong>: Version depends on extras package:
+- <code>catalog</code>: N/A (no version required)
+- <code>db2u</code>: <code>1.0.0</code>, <code>1.0.1</code>
+- <code>mongoce</code>: <code>4.2.6</code>, <code>4.2.23</code>, <code>4.4.21</code>
+- <code>wd</code>: <code>5.3.1</code>
+- <code>odf</code>: <code>4.15</code></p>
+<p><strong>Impact</strong>: Determines which version of images are included in the mirror manifest. Version must exist for the specified extras package.</p>
+<p><strong>Related variables</strong>:
+- <code>extras_name</code>: Extras package for this version</p>
+<p><strong>Note</strong>: Not all extras packages have versions (e.g., <code>catalog</code>). Refer to the "Available Extras" table for valid version combinations.</p>
 <h3 id="registry_public_host">registry_public_host<a class="headerlink" href="#registry_public_host" title="Permanent link">¤</a></h3>
-<p>The public hostname for the target registry.  The images will not be mirrored to the registry at this time, but to prepare the manifest we need to know the target destination.</p>
+<p>Target registry hostname for mirrored images.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>REGISTRY_PUBLIC_HOST</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the hostname of the target container registry where extras images will be mirrored. Used to generate the mirror manifest with correct destination paths.</p>
+<p><strong>When to use</strong>:
+- Always required for mirror manifest preparation
+- Must be the hostname of your disconnected/private registry
+- Images are not mirrored yet, but manifest needs target destination</p>
+<p><strong>Valid values</strong>: Valid hostname or IP address (e.g., <code>registry.example.com</code>, <code>10.0.0.100</code>)</p>
+<p><strong>Impact</strong>: Determines the target registry in the generated mirror manifest. All image paths will reference this host.</p>
+<p><strong>Related variables</strong>:
+- <code>registry_public_port</code>: Port for this registry
+- <code>registry_prefix</code>: Optional path prefix in registry</p>
+<p><strong>Note</strong>: Images are not mirrored during this role execution. This role only prepares the manifest. Use <code>mirror_images</code> role to perform actual mirroring.</p>
 <h3 id="registry_public_port">registry_public_port<a class="headerlink" href="#registry_public_port" title="Permanent link">¤</a></h3>
-<p>The public port for the target registry.  The images will not be mirrored to the registry at this time, but to prepare the manifest we need to know the target destination.</p>
+<p>Target registry port for mirrored images.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>REGISTRY_PUBLIC_PORT</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the port of the target container registry where extras images will be mirrored. Used to generate the mirror manifest with correct destination paths.</p>
+<p><strong>When to use</strong>:
+- Always required for mirror manifest preparation
+- Must be the port where your registry is accessible
+- Common values: <code>443</code> (HTTPS), <code>5000</code> (HTTP), <code>32500</code> (NodePort)</p>
+<p><strong>Valid values</strong>: Valid port number (e.g., <code>443</code>, <code>5000</code>, <code>32500</code>)</p>
+<p><strong>Impact</strong>: Determines the target registry port in the generated mirror manifest. All image paths will include this port.</p>
+<p><strong>Related variables</strong>:
+- <code>registry_public_host</code>: Hostname for this registry
+- <code>registry_prefix</code>: Optional path prefix in registry</p>
+<p><strong>Note</strong>: Images are not mirrored during this role execution. This role only prepares the manifest with the target destination.</p>
 <h3 id="registry_prefix">registry_prefix<a class="headerlink" href="#registry_prefix" title="Permanent link">¤</a></h3>
-<p>The prefix used for the target registry.  The images will not be mirrored to the registry at this time but will define the final destination in the form: {host}:{port}/{prefix}/{reponame}</p>
+<p>Path prefix in target registry for mirrored images.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>REGISTRY_PREFIX</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies an optional path prefix in the target registry. Extras images will be mirrored to <code>{host}:{port}/{prefix}/{reponame}</code> format.</p>
+<p><strong>When to use</strong>:
+- Leave unset if images should be at registry root
+- Set to organize images under a specific path (e.g., project name, namespace)
+- Useful for multi-tenant registries or organizing extras separately</p>
+<p><strong>Valid values</strong>: Valid registry path (e.g., <code>mas-extras</code>, <code>production</code>, <code>project-name</code>)</p>
+<p><strong>Impact</strong>:
+- When set: Images mirrored to <code>{host}:{port}/{prefix}/{reponame}</code>
+- When unset: Images mirrored to <code>{host}:{port}/{reponame}</code></p>
+<p><strong>Related variables</strong>:
+- <code>registry_public_host</code>: Registry hostname
+- <code>registry_public_port</code>: Registry port</p>
+<p><strong>Note</strong>: The prefix helps organize images in the registry. Example: with prefix <code>mas-extras</code>, images go to <code>registry.example.com:5000/mas-extras/mongodb-community-operator</code>.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   vars:

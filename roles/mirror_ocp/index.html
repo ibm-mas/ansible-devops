@@ -789,113 +789,286 @@
 </ul>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="mirror_mode">mirror_mode<a class="headerlink" href="#mirror_mode" title="Permanent link">¤</a></h3>
-<p>Set the action to perform (<code>direct</code>, <code>to-filesystem</code>, <code>from-filesystem</code>)</p>
+<p>Mirroring operation mode for Red Hat content.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MIRROR_MODE</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the mode of operation for mirroring Red Hat OpenShift platform and operator catalog content. Controls the mirroring workflow.</p>
+<p><strong>When to use</strong>:
+- Always required for Red Hat content mirroring
+- Use <code>direct</code> for direct registry-to-registry mirroring (requires network access to both)
+- Use <code>to-filesystem</code> to mirror to local disk (for air-gapped transfer)
+- Use <code>from-filesystem</code> to mirror from local disk to target registry</p>
+<p><strong>Valid values</strong>: <code>direct</code>, <code>to-filesystem</code>, <code>from-filesystem</code></p>
+<p><strong>Impact</strong>:
+- <code>direct</code>: Mirrors directly from Red Hat registries to target registry (fastest, requires network access)
+- <code>to-filesystem</code>: Mirrors to local filesystem for offline transfer (enables air-gapped deployment)
+- <code>from-filesystem</code>: Mirrors from local filesystem to target registry (completes air-gapped deployment)</p>
+<p><strong>Related variables</strong>:
+- <code>mirror_working_dir</code>: Working directory for all modes
+- <code>mirror_redhat_platform</code>: Whether to mirror platform images
+- <code>mirror_redhat_operators</code>: Whether to mirror operator catalogs</p>
+<p><strong>Note</strong>: For air-gapped environments, use <code>to-filesystem</code> on a connected system, transfer files, then use <code>from-filesystem</code> on the disconnected system.</p>
 <h2 id="role-variables-mirror-actions">Role Variables - Mirror Actions<a class="headerlink" href="#role-variables-mirror-actions" title="Permanent link">¤</a></h2>
 <h3 id="mirror_working_dir">mirror_working_dir<a class="headerlink" href="#mirror_working_dir" title="Permanent link">¤</a></h3>
-<p>Set the working directory for the mirror operations</p>
+<p>Working directory for mirroring operations.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MIRROR_WORKING_DIR</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the working directory for mirroring operations. Used to store manifests, temporary files, and disk-based mirror archives.</p>
+<p><strong>When to use</strong>:
+- Always required for Red Hat content mirroring
+- Must have sufficient disk space (especially for <code>to-filesystem</code> mode)
+- Directory is created if it doesn't exist</p>
+<p><strong>Valid values</strong>: Absolute filesystem path (e.g., <code>/tmp/mirror</code>, <code>/mnt/mirror-storage</code>)</p>
+<p><strong>Impact</strong>: Determines where mirroring files are stored. Insufficient space will cause mirroring to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>mirror_mode</code>: Working directory used for all modes</p>
+<p><strong>Note</strong>: For <code>to-filesystem</code> mode, ensure the directory has sufficient space for all images (can be hundreds of GB for platform + operators). The directory structure is preserved for <code>from-filesystem</code> mode.</p>
 <h3 id="mirror_redhat_platform">mirror_redhat_platform<a class="headerlink" href="#mirror_redhat_platform" title="Permanent link">¤</a></h3>
-<p>Enable mirroring of the Red Hat platform images.</p>
+<p>Enable mirroring of Red Hat OpenShift platform images.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MIRROR_REDHAT_PLATFORM</code></li>
-<li>Default: <code>False</code></li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether to mirror Red Hat OpenShift Container Platform release images. Required for installing or upgrading OpenShift in disconnected environments.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> to mirror OpenShift platform images
+- Leave as <code>false</code> (default) to skip platform mirroring
+- Enable when preparing for OpenShift installation or upgrades in air-gapped environments</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- <code>true</code>: Mirrors OpenShift platform images (large download, required for OCP install/upgrade)
+- <code>false</code>: Skips platform mirroring (only operators are mirrored if enabled)</p>
+<p><strong>Related variables</strong>:
+- <code>ocp_release</code>: OpenShift version to mirror
+- <code>ocp_min_version</code>, <code>ocp_max_version</code>: Version range to mirror</p>
+<p><strong>Note</strong>: Platform images are large (tens of GB). Only enable if you need to install or upgrade OpenShift in a disconnected environment.</p>
 <h3 id="mirror_redhat_operators">mirror_redhat_operators<a class="headerlink" href="#mirror_redhat_operators" title="Permanent link">¤</a></h3>
-<p>Enable mirroring of <strong>selected content</strong> from the Red Hat operator catalogs.</p>
+<p>Enable mirroring of selected Red Hat operator catalog content.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MIRROR_REDHAT_OPERATORS</code></li>
-<li>Default: <code>False</code></li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether to mirror selected content from Red Hat operator catalogs. Only operators directly used by MAS are mirrored (see catalog list above).</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> to mirror Red Hat operator catalogs
+- Leave as <code>false</code> (default) to skip operator mirroring
+- Enable when preparing for MAS deployment in air-gapped environments</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- <code>true</code>: Mirrors selected operators from certified, community, and redhat-operator-index catalogs
+- <code>false</code>: Skips operator catalog mirroring</p>
+<p><strong>Related variables</strong>:
+- <code>ocp_release</code>: OpenShift version for operator compatibility</p>
+<p><strong>Note</strong>: Only selected operators used by MAS are mirrored, not entire catalogs. See the catalog list at the top of this README for included operators.</p>
 <h3 id="redhat_pullsecret">redhat_pullsecret<a class="headerlink" href="#redhat_pullsecret" title="Permanent link">¤</a></h3>
-<p>Path to your Red Hat pull secret, available from: <a href="https://console.redhat.com/openshift/install/pull-secret">https://console.redhat.com/openshift/install/pull-secret</a>.</p>
+<p>Path to Red Hat pull secret file.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>REDHAT_PULLSECRET</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the path to your Red Hat pull secret file. Required to authenticate and pull images from Red Hat registries during mirroring.</p>
+<p><strong>When to use</strong>:
+- Always required for Red Hat content mirroring
+- Obtain from <a href="https://console.redhat.com/openshift/install/pull-secret">Red Hat OpenShift Console</a>
+- Must be a valid, non-expired pull secret</p>
+<p><strong>Valid values</strong>: Absolute path to pull secret JSON file (e.g., <code>~/pull-secret.json</code>, <code>/tmp/pull-secret.json</code>)</p>
+<p><strong>Impact</strong>: Without a valid pull secret, pulling Red Hat images will fail and mirroring cannot proceed.</p>
+<p><strong>Related variables</strong>:
+- None</p>
+<p><strong>Note</strong>: Download your pull secret from the Red Hat OpenShift Console. Keep the file secure as it contains authentication credentials. The pull secret must be valid and associated with an active Red Hat account.</p>
 <h2 id="role-variables-openshift-version">Role Variables - OpenShift Version<a class="headerlink" href="#role-variables-openshift-version" title="Permanent link">¤</a></h2>
 <h3 id="ocp_release">ocp_release<a class="headerlink" href="#ocp_release" title="Permanent link">¤</a></h3>
-<p>The Red Hat release you are mirroring content for, e.g. <code>4.19</code>.</p>
+<p>OpenShift release version to mirror.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>OCP_RELEASE</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the major.minor version of OpenShift Container Platform to mirror content for. Determines which platform images and operator versions are mirrored.</p>
+<p><strong>When to use</strong>:
+- Always required for Red Hat content mirroring
+- Must match the OpenShift version in your target environment
+- Use format: <code>4.19</code>, <code>4.18</code>, <code>4.17</code></p>
+<p><strong>Valid values</strong>: OpenShift major.minor version (e.g., <code>4.19</code>, <code>4.18</code>, <code>4.17</code>, <code>4.16</code>)</p>
+<p><strong>Impact</strong>: Determines which OpenShift version's images and operators are mirrored. Must match your target cluster version.</p>
+<p><strong>Related variables</strong>:
+- <code>ocp_min_version</code>: Minimum patch version to mirror
+- <code>ocp_max_version</code>: Maximum patch version to mirror
+- <code>mirror_redhat_platform</code>: Whether to mirror platform images for this version</p>
+<p><strong>Note</strong>: Use the major.minor version format (e.g., <code>4.19</code>), not full version (e.g., <code>4.19.10</code>). Use <code>ocp_min_version</code> and <code>ocp_max_version</code> to control patch version range.</p>
 <h3 id="ocp_min_version">ocp_min_version<a class="headerlink" href="#ocp_min_version" title="Permanent link">¤</a></h3>
-<p>The minimum version of the Red Hat release to mirror platform content for, e.g. <code>4.19.10</code>.</p>
+<p>Minimum OpenShift patch version to mirror.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>OCP_MIN_VERSION</code></li>
-<li>Default: None</li>
+<li>Default: None (mirrors all versions)</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the minimum patch version of OpenShift platform images to mirror. Limits the version range to reduce mirror size.</p>
+<p><strong>When to use</strong>:
+- Leave unset to mirror all available patch versions for the release
+- Set to mirror only specific patch versions and newer
+- Only applies when <code>mirror_redhat_platform=true</code></p>
+<p><strong>Valid values</strong>: Full OpenShift version (e.g., <code>4.19.10</code>, <code>4.19.15</code>)</p>
+<p><strong>Impact</strong>: Only platform images for this version and newer are mirrored. Reduces mirror size but limits available versions.</p>
+<p><strong>Related variables</strong>:
+- <code>ocp_release</code>: Major.minor version (must match)
+- <code>ocp_max_version</code>: Maximum version to mirror
+- <code>mirror_redhat_platform</code>: Must be <code>true</code> for this to apply</p>
+<p><strong>Note</strong>: Only affects platform image mirroring, not operators. Use to limit mirror size when you know the specific OpenShift versions you need.</p>
 <h3 id="ocp_max_version">ocp_max_version<a class="headerlink" href="#ocp_max_version" title="Permanent link">¤</a></h3>
-<p>The maximimum version of the Red Hat release to mirror platform content for, e.g. <code>4.19.10</code>.</p>
+<p>Maximum OpenShift patch version to mirror.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>OCP_MAX_VERSION</code></li>
-<li>Default: None</li>
+<li>Default: None (mirrors all versions)</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the maximum patch version of OpenShift platform images to mirror. Limits the version range to reduce mirror size.</p>
+<p><strong>When to use</strong>:
+- Leave unset to mirror all available patch versions for the release
+- Set to mirror only specific patch versions and older
+- Only applies when <code>mirror_redhat_platform=true</code></p>
+<p><strong>Valid values</strong>: Full OpenShift version (e.g., <code>4.19.20</code>, <code>4.19.25</code>)</p>
+<p><strong>Impact</strong>: Only platform images for this version and older are mirrored. Reduces mirror size but limits available versions.</p>
+<p><strong>Related variables</strong>:
+- <code>ocp_release</code>: Major.minor version (must match)
+- <code>ocp_min_version</code>: Minimum version to mirror
+- <code>mirror_redhat_platform</code>: Must be <code>true</code> for this to apply</p>
+<p><strong>Note</strong>: Only affects platform image mirroring, not operators. Use to limit mirror size when you know the specific OpenShift versions you need.</p>
 <h2 id="role-variables-target-registry">Role Variables - Target Registry<a class="headerlink" href="#role-variables-target-registry" title="Permanent link">¤</a></h2>
 <h3 id="registry_public_host">registry_public_host<a class="headerlink" href="#registry_public_host" title="Permanent link">¤</a></h3>
-<p>The public hostname for the target registry</p>
+<p>Target registry hostname for mirrored images.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>REGISTRY_PUBLIC_HOST</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the hostname of the target container registry where Red Hat images will be mirrored.</p>
+<p><strong>When to use</strong>:
+- Always required for Red Hat content mirroring
+- Must be the hostname of your disconnected/private registry
+- Used for <code>direct</code> and <code>from-filesystem</code> modes</p>
+<p><strong>Valid values</strong>: Valid hostname or IP address (e.g., <code>registry.example.com</code>, <code>10.0.0.100</code>)</p>
+<p><strong>Impact</strong>: Determines the target registry for image mirroring. Images are pushed to this registry.</p>
+<p><strong>Related variables</strong>:
+- <code>registry_public_port</code>: Port for this registry
+- <code>registry_prefix_redhat</code>: Optional path prefix in registry</p>
+<p><strong>Note</strong>: Registry must be accessible and have sufficient storage space for Red Hat content (can be hundreds of GB).</p>
 <h3 id="registry_public_port">registry_public_port<a class="headerlink" href="#registry_public_port" title="Permanent link">¤</a></h3>
-<p>The public port number for the target registry</p>
+<p>Target registry port for mirrored images.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>REGISTRY_PUBLIC_PORT</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the port of the target container registry where Red Hat images will be mirrored.</p>
+<p><strong>When to use</strong>:
+- Always required for Red Hat content mirroring
+- Must be the port where your registry is accessible
+- Common values: <code>443</code> (HTTPS), <code>5000</code> (HTTP), <code>32500</code> (NodePort)</p>
+<p><strong>Valid values</strong>: Valid port number (e.g., <code>443</code>, <code>5000</code>, <code>32500</code>)</p>
+<p><strong>Impact</strong>: Determines the target registry port for image mirroring. Images are pushed to this port.</p>
+<p><strong>Related variables</strong>:
+- <code>registry_public_host</code>: Hostname for this registry</p>
+<p><strong>Note</strong>: Ensure the port is accessible from the mirroring system.</p>
 <h3 id="registry_is_ecr">registry_is_ecr<a class="headerlink" href="#registry_is_ecr" title="Permanent link">¤</a></h3>
-<p>Specifies if the target registry is an AWS Elastic Container Registry instance</p>
+<p>Enable AWS Elastic Container Registry (ECR) support.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>REGISTRY_IS_ECR</code></li>
-<li>Default: false</li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Indicates whether the target registry is AWS Elastic Container Registry. Enables ECR-specific authentication and configuration.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> when mirroring to AWS ECR
+- Leave as <code>false</code> (default) for other registry types
+- Requires AWS credentials and ECR region configuration</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- <code>true</code>: Uses ECR-specific authentication and configuration
+- <code>false</code>: Uses standard registry authentication</p>
+<p><strong>Related variables</strong>:
+- <code>registry_ecr_aws_region</code>: AWS region for ECR (required when <code>true</code>)</p>
+<p><strong>Note</strong>: When using ECR, ensure AWS credentials are configured and the ECR region is specified.</p>
 <h3 id="registry_ecr_aws_region">registry_ecr_aws_region<a class="headerlink" href="#registry_ecr_aws_region" title="Permanent link">¤</a></h3>
-<p>The AWS region of the AWS Elastic Container Registry. Only required if the target registry is an AWS Elastic Container Registry instance.</p>
+<p>AWS region for Elastic Container Registry.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong> (Required when <code>registry_is_ecr=true</code>)</li>
 <li>Environment Variable: <code>REGISTRY_ECR_AWS_REGION</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the AWS region where the ECR registry is located. Required for ECR authentication and access.</p>
+<p><strong>When to use</strong>:
+- Only applies when <code>registry_is_ecr=true</code>
+- Must match the region where your ECR registry exists
+- Required for ECR authentication</p>
+<p><strong>Valid values</strong>: Valid AWS region (e.g., <code>us-east-1</code>, <code>eu-west-1</code>, <code>ap-southeast-1</code>)</p>
+<p><strong>Impact</strong>: Determines which AWS region is used for ECR authentication and access.</p>
+<p><strong>Related variables</strong>:
+- <code>registry_is_ecr</code>: Must be <code>true</code> for this to apply</p>
+<p><strong>Note</strong>: Ensure AWS credentials have permissions to push images to ECR in the specified region.</p>
 <h3 id="registry_prefix_redhat">registry_prefix_redhat<a class="headerlink" href="#registry_prefix_redhat" title="Permanent link">¤</a></h3>
-<p>The prefix used for the target registry.  The images will not be mirrored to the registry at this time but will define the final destination in the form: <code>{host}[:{port}]/{prefix}/{reponame}</code></p>
+<p>Path prefix in target registry for Red Hat images.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>REGISTRY_PREFIX_REDHAT</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies an optional path prefix in the target registry for Red Hat images. Images are mirrored to <code>{host}[:{port}]/{prefix}/{reponame}</code> format.</p>
+<p><strong>When to use</strong>:
+- Leave unset if images should be at registry root
+- Set to organize Red Hat images under a specific path (e.g., <code>ocp419</code>, <code>redhat</code>)
+- Useful for organizing different content types or versions</p>
+<p><strong>Valid values</strong>: Valid registry path (e.g., <code>ocp419</code>, <code>redhat</code>, <code>openshift</code>)</p>
+<p><strong>Impact</strong>:
+- When set: Images mirrored to <code>{host}:{port}/{prefix}/{reponame}</code>
+- When unset: Images mirrored to <code>{host}:{port}/{reponame}</code></p>
+<p><strong>Related variables</strong>:
+- <code>registry_public_host</code>: Registry hostname
+- <code>registry_public_port</code>: Registry port</p>
+<p><strong>Note</strong>: The prefix helps organize Red Hat images separately from IBM or other content in the registry.</p>
 <h3 id="registry_username">registry_username<a class="headerlink" href="#registry_username" title="Permanent link">¤</a></h3>
-<p>The username for the target registry.</p>
+<p>Username for target registry authentication.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>REGISTRY_USERNAME</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the username for authenticating to the target container registry. Required to push images during mirroring.</p>
+<p><strong>When to use</strong>:
+- Always required for Red Hat content mirroring (unless using ECR with AWS credentials)
+- Must have push permissions to the target registry
+- Obtain from your registry administrator</p>
+<p><strong>Valid values</strong>: Valid username for the target registry</p>
+<p><strong>Impact</strong>: Used to authenticate to the target registry. Without valid credentials, image push will fail.</p>
+<p><strong>Related variables</strong>:
+- <code>registry_password</code>: Password paired with this username</p>
+<p><strong>Note</strong>: Keep credentials secure. Use environment variables or secure vaults rather than hardcoding in playbooks.</p>
 <h3 id="registry_password">registry_password<a class="headerlink" href="#registry_password" title="Permanent link">¤</a></h3>
-<p>The password for the target registry.</p>
+<p>Password for target registry authentication.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>REGISTRY_PASSWORD</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the password for authenticating to the target container registry. Required to push images during mirroring.</p>
+<p><strong>When to use</strong>:
+- Always required for Red Hat content mirroring (unless using ECR with AWS credentials)
+- Must correspond to the provided username
+- Keep secure and rotate regularly</p>
+<p><strong>Valid values</strong>: Valid password for the target registry</p>
+<p><strong>Impact</strong>: Used to authenticate to the target registry. Without valid credentials, image push will fail.</p>
+<p><strong>Related variables</strong>:
+- <code>registry_username</code>: Username paired with this password</p>
+<p><strong>Note</strong>: Keep passwords secure. Never commit to version control. Use environment variables or secure vaults.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   vars:

@@ -737,38 +737,106 @@
           <div class="rst-content">
             
             <h1 id="gencfg_workspace">gencfg_workspace<a class="headerlink" href="#gencfg_workspace" title="Permanent link">¤</a></h1>
-<p>This role is used to generate a Workspace custom resource that can be applied to Maximo Application Suite manually, or using the <code>suite_config</code> role.  The configuration will be saved to local disk in the directory specified by the <code>mas_config_dir</code> variable.</p>
+<p>This role generates a Workspace custom resource configuration file for Maximo Application Suite. The generated configuration can be applied manually or automatically using the <code>suite_config</code> role. The configuration file is saved to local disk in the directory specified by <code>mas_config_dir</code>.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Workspaces are logical containers in MAS that isolate data and configurations for different business units, environments, or use cases. Each workspace can have its own applications, users, and data.</p>
+</div>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
-<p>Required. The MAS instance ID that the workspace will be used in</p>
+<p>MAS instance identifier for the workspace.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies which MAS instance the workspace configuration will be generated for. The workspace will be associated with this instance.</p>
+<p><strong>When to use</strong>:
+- Always required for workspace configuration generation
+- Must match the instance ID from MAS installation
+- Used to create instance-specific workspace configurations</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>masinst1</code>)</p>
+<p><strong>Impact</strong>: Determines which MAS instance the workspace belongs to. The generated configuration file will be named and structured for this specific instance.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_workspace_id</code>: Workspace identifier within this instance
+- <code>mas_config_dir</code>: Directory where instance-specific config is saved</p>
+<p><strong>Note</strong>: Multiple workspaces can exist within a single MAS instance, each with its own ID and configuration.</p>
 <h3 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link">¤</a></h3>
-<p>Required.  The ID of the workspace</p>
+<p>Workspace identifier.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_WORKSPACE_ID</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Defines the unique identifier for the workspace within the MAS instance. This ID is used in URLs, API calls, and resource names.</p>
+<p><strong>When to use</strong>:
+- Always required for workspace configuration
+- Must be unique within the MAS instance
+- Used as the technical identifier for the workspace</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, typically 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>masdev</code>, <code>qa</code>)</p>
+<p><strong>Impact</strong>: Determines the workspace's technical identifier. This ID appears in URLs (e.g., <code>https://instance.mas.com/masdev</code>) and Kubernetes resource names.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_instance_id</code>: Parent instance for this workspace
+- <code>mas_workspace_name</code>: Human-readable display name</p>
+<p><strong>Note</strong>: Choose a meaningful ID that reflects the workspace purpose (e.g., <code>prod</code>, <code>dev</code>, <code>qa</code>). The ID cannot be changed after workspace creation.</p>
 <h3 id="mas_workspace_name">mas_workspace_name<a class="headerlink" href="#mas_workspace_name" title="Permanent link">¤</a></h3>
-<p>Required.  The display name for the workspace</p>
+<p>Workspace display name.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_WORKSPACE_NAME</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Defines the human-readable display name for the workspace shown in the MAS user interface.</p>
+<p><strong>When to use</strong>:
+- Always required for workspace configuration
+- Should be descriptive and user-friendly
+- Displayed in MAS UI and documentation</p>
+<p><strong>Valid values</strong>: Any string, typically 3-50 characters (e.g., <code>Production</code>, <code>Development</code>, <code>MAS Development</code>, <code>QA Environment</code>)</p>
+<p><strong>Impact</strong>: Determines how the workspace appears to users in the MAS interface. Unlike the workspace ID, this name can include spaces and special characters.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_workspace_id</code>: Technical identifier for this workspace
+- <code>mas_instance_id</code>: Parent instance</p>
+<p><strong>Note</strong>: Use a clear, descriptive name that helps users identify the workspace purpose. This name can be changed after creation if needed.</p>
 <h3 id="mas_config_dir">mas_config_dir<a class="headerlink" href="#mas_config_dir" title="Permanent link">¤</a></h3>
-<p>Required. The directory to save the configuration to.</p>
+<p>Configuration output directory.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_CONFIG_DIR</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the local directory path where the generated workspace configuration file will be saved.</p>
+<p><strong>When to use</strong>:
+- Always required for configuration generation
+- Should be a writable directory path
+- Typically organized by instance ID</p>
+<p><strong>Valid values</strong>: Valid local filesystem path (e.g., <code>/home/user/masconfig</code>, <code>~/masconfig/inst1</code>)</p>
+<p><strong>Impact</strong>: Determines where the workspace configuration YAML file is written. The file can then be applied manually with <code>oc apply</code> or automatically with the <code>suite_config</code> role.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_instance_id</code>: Used to organize configs by instance
+- <code>mas_workspace_id</code>: Used in the generated filename</p>
+<p><strong>Note</strong>: The directory will be created if it doesn't exist. Organize configs by instance ID for clarity (e.g., <code>/masconfig/inst1/</code>, <code>/masconfig/inst2/</code>).</p>
 <h3 id="custom_labels">custom_labels<a class="headerlink" href="#custom_labels" title="Permanent link">¤</a></h3>
-<p>Optional. List of comma separated key=value pairs for setting custom labels on instance specific resources.</p>
+<p>Custom Kubernetes labels for workspace resources.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>CUSTOM_LABELS</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Adds custom labels to workspace-specific Kubernetes resources for organization, tracking, or automation purposes.</p>
+<p><strong>When to use</strong>:
+- Optional for most deployments
+- Use for resource organization and filtering
+- Helpful for cost tracking, ownership, or automation
+- Common in multi-tenant or managed environments</p>
+<p><strong>Valid values</strong>: Comma-separated key=value pairs (e.g., <code>env=prod,team=operations,cost-center=12345</code>)</p>
+<p><strong>Impact</strong>: Adds the specified labels to workspace resources. Labels can be used for:
+- Resource filtering and selection
+- Cost allocation and tracking
+- Automation and policy enforcement
+- Organizational categorization</p>
+<p><strong>Related variables</strong>:
+- <code>mas_workspace_id</code>: Workspace these labels apply to</p>
+<p><strong>Note</strong>: Labels must follow Kubernetes naming conventions (alphanumeric, hyphens, dots, max 63 chars per segment). Common uses include environment tags, team ownership, and cost center tracking.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">---
 - hosts: localhost

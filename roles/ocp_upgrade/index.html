@@ -740,23 +740,59 @@
 <p>This role supports the upgrade of the Openshift Cluster version for master and worker nodes in IBM Cloud provider.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="cluster_type">cluster_type<a class="headerlink" href="#cluster_type" title="Permanent link">¤</a></h3>
-<p>Required.  Specify the cluster type, only IBM Cloud Openshift Clusters are supported by this role at the moment. If you provide a different cluster type than <code>roks</code>, this role will fail.</p>
+<p>Cluster type for upgrade operation.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>CLUSTER_TYPE</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the type of OpenShift cluster to upgrade. Currently only IBM Cloud ROKS clusters are supported by this role.</p>
+<p><strong>When to use</strong>:
+- Always required for cluster upgrade operations
+- Must be set to <code>roks</code> (only supported type)
+- Role will fail if any other cluster type is specified</p>
+<p><strong>Valid values</strong>: <code>roks</code> (IBM Cloud Red Hat OpenShift Kubernetes Service)</p>
+<p><strong>Impact</strong>: Determines the upgrade method and CLI commands used. Only ROKS clusters can be upgraded with this role.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_name</code>: Name of the ROKS cluster to upgrade
+- <code>ocp_version_upgrade</code>: Target version for the upgrade</p>
+<p><strong>Note</strong>: <strong>IMPORTANT</strong> - Only IBM Cloud ROKS clusters are supported. The role will fail if <code>cluster_type</code> is not <code>roks</code>. For other cluster types, use provider-specific upgrade procedures.</p>
 <h3 id="cluster_name">cluster_name<a class="headerlink" href="#cluster_name" title="Permanent link">¤</a></h3>
-<p>Required.  Specify the name of the cluster to be upgraded.</p>
+<p>Name of the cluster to upgrade.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>CLUSTER_NAME</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies which IBM Cloud ROKS cluster to upgrade. Used to target the specific cluster for the upgrade operation.</p>
+<p><strong>When to use</strong>:
+- Always required for cluster upgrade operations
+- Must match the exact cluster name in IBM Cloud
+- Used by IBM Cloud CLI to locate the cluster</p>
+<p><strong>Valid values</strong>: String matching an existing ROKS cluster name in your IBM Cloud account</p>
+<p><strong>Impact</strong>: Determines which cluster is upgraded. Incorrect name will cause the upgrade to fail.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_type</code>: Must be <code>roks</code> for this role
+- <code>ocp_version_upgrade</code>: Target version for this cluster</p>
+<p><strong>Note</strong>: The cluster name must exactly match the name in IBM Cloud. Verify the cluster name before running the upgrade to avoid targeting the wrong cluster.</p>
 <h3 id="ocp_version_upgrade">ocp_version_upgrade<a class="headerlink" href="#ocp_version_upgrade" title="Permanent link">¤</a></h3>
-<p>Required.  Specify the target version of the Openshift to be upgraded.</p>
+<p>Target OpenShift version for upgrade.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>OCP_VERSION_UPGRADE</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the target OpenShift Container Platform version to upgrade the cluster to. Determines which version will be installed.</p>
+<p><strong>When to use</strong>:
+- Always required for cluster upgrade operations
+- Must be a valid version available for ROKS clusters
+- Should be a supported upgrade path from current version</p>
+<p><strong>Valid values</strong>: ROKS version format with <code>_openshift</code> suffix (e.g., <code>4.10_openshift</code>, <code>4.11_openshift</code>, <code>4.12_openshift</code>)</p>
+<p><strong>Impact</strong>: Cluster is upgraded to this version. Upgrade may take significant time and cause temporary service disruption. Version must be a valid upgrade path from current version.</p>
+<p><strong>Related variables</strong>:
+- <code>cluster_name</code>: Cluster to upgrade to this version
+- <code>cluster_type</code>: Must be <code>roks</code></p>
+<p><strong>Note</strong>: <strong>IMPORTANT</strong> - Version must include <code>_openshift</code> suffix for ROKS clusters (e.g., <code>4.10_openshift</code>). Verify the version is a supported upgrade path from your current version. Upgrades cannot be rolled back. Plan for maintenance window as upgrade causes temporary disruption. Check IBM Cloud documentation for available versions and supported upgrade paths.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
