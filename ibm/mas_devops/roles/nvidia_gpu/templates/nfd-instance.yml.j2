@@ -16,26 +16,11 @@ spec:
       #      - nodename: ["special-.*-node-.*"]
   instance: ''
   operand:
-{% if ocp_version is version('4.17.0', '<') %}
     image: >-
-      registry.redhat.io/openshift4/ose-node-feature-discovery@sha256:042325bfcca24584f6b72f5f38a47cc77b34301bccb29e3e6a7cc77aeab45e6e
-{% elif ocp_version is version('4.18.0', '<') %}
-    {# 4.17.0 ≤ version < 4.18.0 #}
-    image: >-
-      registry.redhat.io/openshift4/ose-node-feature-discovery-rhel9@sha256:45192fef5a1250ee573975ced1e897662116d5a30a1f8f4baa4497f64933fba3
-{% elif ocp_version is version('4.19.0', '<') %}
-    {# 4.18.0 ≤ version < 4.19.0 #}
-    image: >-
-      registry.redhat.io/openshift4/ose-node-feature-discovery-rhel9@sha256:45192fef5a1250ee573975ced1e897662116d5a30a1f8f4baa4497f64933fba3
-{% elif ocp_version is version('4.20.0', '<') %}
-    {# 4.19.0 ≤ version < 4.20.0 #}
-    image: >-
-      registry.redhat.io/openshift4/ose-node-feature-discovery-rhel9@sha256:69baa98abffdb066e7e325caa87141efde9899898c9a5d76ea7655de848fc8da
-{% else %}
-    {# ≥ 4.20.0 #}
-    image: >-
-      registry.redhat.io/openshift4/ose-node-feature-discovery-rhel9@sha256:ccfd7f21a6854539d8c170ffa88cadbe1723e94b967ab9cc13ec5261982152b6
-{% endif %}
+      {{ 'registry.redhat.io/openshift4/ose-node-feature-discovery@sha256:042325bfcca24584f6b72f5f38a47cc77b34301bccb29e3e6a7cc77aeab45e6e' if ocp_version < "4.17.0"
+      else 'registry.redhat.io/openshift4/ose-node-feature-discovery-rhel9@sha256:ccfd7f21a6854539d8c170ffa88cadbe1723e94b967ab9cc13ec5261982152b6' if ocp_version >= "4.20.0"
+      else 'registry.redhat.io/openshift4/ose-node-feature-discovery-rhel9@sha256:69baa98abffdb066e7e325caa87141efde9899898c9a5d76ea7655de848fc8da' if ocp_version >= "4.19.0"
+      else 'registry.redhat.io/openshift4/ose-node-feature-discovery-rhel9@sha256:45192fef5a1250ee573975ced1e897662116d5a30a1f8f4baa4497f64933fba3' }}
     imagePullPolicy: Always
     namespace: "{{nfd_namespace}}"
   workerConfig:
