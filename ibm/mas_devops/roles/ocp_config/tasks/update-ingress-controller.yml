@@ -45,12 +45,12 @@
       - "Current namespaceOwnership ........ {{ current_namespace_ownership if (current_namespace_ownership is defined and current_namespace_ownership != '') else 'Not set' }}"
       - "Requested clientTimeout ........... {{ ocp_ingress_client_timeout if ocp_ingress_update_timeouts else 'No change' }}"
       - "Requested serverTimeout ........... {{ ocp_ingress_server_timeout if ocp_ingress_update_timeouts else 'No change' }}"
-      - "Requested namespaceOwnership ...... {{ ocp_ingress_namespace_ownership if (ocp_ingress_namespace_ownership is defined and ocp_ingress_namespace_ownership != '') else 'No change' }}"
+      - "Requested namespaceOwnership ...... {{ ocp_ingress_namespace_ownership if ocp_ingress_namespace_ownership != '' else 'No change' }}"
 
 - name: "Determine if IngressController update is needed"
   set_fact:
     needs_timeout_update: "{{ ocp_ingress_update_timeouts and (current_client_timeout != ocp_ingress_client_timeout or current_server_timeout != ocp_ingress_server_timeout) }}"
-    needs_ownership_update: "{{ (ocp_ingress_namespace_ownership is defined and ocp_ingress_namespace_ownership != '') and current_namespace_ownership != ocp_ingress_namespace_ownership }}"
+    needs_ownership_update: "{{ ocp_ingress_namespace_ownership != '' and current_namespace_ownership != ocp_ingress_namespace_ownership }}"
 
 - name: "Apply IngressController configuration updates"
   when: needs_timeout_update or needs_ownership_update
