@@ -3,6 +3,7 @@ ocp_config
 This role can perform the following configuration:
 
 - Tune the `IngressController` to avoid request failures due to timeout for long running requests
+- Configure the `IngressController` namespace ownership for path-based routing support
 - Update `APIServer` and `IngressController` to set a custom `tlsSecurityProfile` to accommodate ciphers supported by IBM Java Semeru runtime. This is required for allowing the Java applications using Semeru runtime to run in FIPS mode.  The following cipers will be enabled:
     - `TLS_AES_128_GCM_SHA256`
     - `TLS_AES_256_GCM_SHA384`
@@ -36,6 +37,13 @@ Set to `True` if you want to configure the API Server and Ingress Controller to 
 
 Role Variables - Ingress Controller
 -------------------------------------------------------------------------------
+### ocp_ingress_controller_name
+Specifies the name of the Ingress Controller to configure. This applies to both timeout and namespace ownership settings.
+
+- Optional
+- Environment Variable: `OCP_INGRESS_CONTROLLER_NAME`
+- Default Value: `default`
+
 ### ocp_ingress_update_timeouts
 Set to `True` if you want to customize the Ingress's client and server timeout values
 
@@ -56,6 +64,16 @@ Specifies how long a connection is held open while waiting for a server response
 - Optional
 - Environment Variable: `OCP_INGRESS_SERVER_TIMEOUT`
 - Default Value: `30s`
+
+### ocp_ingress_namespace_ownership
+Specifies the namespace ownership policy for the Ingress Controller. Set to `InterNamespaceAllowed` to enable path-based routing support, which allows routes to claim the same hostname across different namespaces.
+
+- Optional
+- Environment Variable: `OCP_INGRESS_NAMESPACE_OWNERSHIP`
+- Default Value: Not set (empty string)
+
+!!! note
+    When both timeout settings and namespace ownership are configured, they will be applied in a single atomic operation to the IngressController resource.
 
 
 Role Variables - OperatorHub
@@ -81,6 +99,8 @@ Example Playbook
     ocp_ingress_update_timeouts: True
     ocp_ingress_client_timeout: 30s
     ocp_ingress_server_timeout: 30s
+    ocp_ingress_namespace_ownership: InterNamespaceAllowed
+    ocp_ingress_controller_name: default
     ocp_operatorhub_disable_redhat_sources: True
   roles:
     - ibm.mas_devops.ocp_config
