@@ -1,20 +1,18 @@
 ---
 # 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
-- name: "{{ package_name }} : Fail if required properties are not provided"
+- name: "{{ catalog_name }} : Fail if required properties are not provided"
   assert:
     that:
-      - package_name is defined and package_name != ""
-      - package_version is defined and package_version != ""
+      - catalog_name is defined and catalog_name != ""
       - mirror_mode is defined and mirror_mode != ""
       - mirror_working_dir is defined and mirror_working_dir != ""
     fail_msg: "One or more required properties are missing"
 
-- name: "{{ package_name }} : Debug"
+- name: "{{ catalog_name }} : Debug"
   debug:
     msg:
-      - "Package Name .......................... {{ package_name }}"
-      - "Package Version ....................... {{ package_version }}"
+      - "Catalog Name .......................... {{ catalog_name }}"
       - "Mirror Single Architecture ............. {{ mirror_single_arch | default('<not set>', True) }}"
       - "Working Directory ...................... {{ mirror_working_dir }}"
       - "Mode ................................... {{ mirror_mode }}"
@@ -24,21 +22,21 @@
 
 # 2. Set up auth secret
 # -----------------------------------------------------------------------------
-- name: "{{ package_name }} : Create working directory"
+- name: "{{ catalog_name }} : Create working directory"
   file:
     path: "{{ ansible_env.HOME }}/.ibm-mas"
     state: directory
 
 # 2. Create directory for auth.json
 # -----------------------------------------------------------------------------
-- name: "{{ package_name }} : Create working directory"
+- name: "{{ catalog_name }} : Create working directory"
   file:
     path: "{{ ansible_env.HOME }}/containers"
     state: directory
 
 # 2. Configure credentials in auth.json
 # -----------------------------------------------------------------------------
-- name: "{{ package_name }} : Create auth secret"
+- name: "{{ catalog_name }} : Create auth secret"
   ansible.builtin.template:
     src: templates/auth.json.j2
     dest: "{{ ansible_env.HOME }}/containers/auth.json"
@@ -94,12 +92,12 @@
 
 - name: Path of ISC file to download
   set_fact:
-    isc_file_path: "https://{{ isc_files_registry_full_url }}/{{ package_name }}/isc-{{ package_name }}-{{ package_version }}-amd64.yaml"
+    isc_file_path: "https://{{ isc_registry }}/catalogs/{{ catalog_name }}.yaml"
 
-- name: "{{ package_name }} : Download ISC file from Artifactory with token"
+- name: "{{ catalog_name }} : Download ISC file from Artifactory with token"
   get_url:
     url: "{{ isc_file_path }}"
-    dest: "{{ ansible_env.HOME }}/.ibm-mas/isc-{{ package_name }}-{{ package_version }}-amd64.yaml"
+    dest: "{{ ansible_env.HOME }}/.ibm-mas/{{ catalog_name }}.yaml"
     mode: '755'
     headers:
       Authorization: "Bearer {{ artifactory_token }}"
@@ -107,26 +105,26 @@
 
 # 4A. Execute the mirror (to filesystem)
 # -----------------------------------------------------------------------------
-- name: "{{ package_name }} : Mirror Images to local filesystem"
+- name: "{{ catalog_name }} : Mirror Images to local filesystem"
   when: mirror_mode == "to-filesystem"
   block:
-    - name: "{{ package_name }}: Run mirror command"
+    - name: "{{ catalog_name }}: Run mirror command"
       shell: |
         oc mirror \
-          -c "{{ ansible_env.HOME }}/.ibm-mas/isc-{{ package_name }}-{{ package_version }}-amd64.yaml" \
+          -c "{{ ansible_env.HOME }}/.ibm-mas/{{ catalog_name }}.yaml" \
           --authfile "{{ ansible_env.HOME }}/containers/auth.json" \
           file://{{ mirror_working_dir }} --v2
       register: ocimagemirror_result
       ignore_errors: true
 
-    - name: "{{ package_name }} : Debug mirror command"
+    - name: "{{ catalog_name }} : Debug mirror command"
       debug:
         msg:
           - "Source: {{ mirror_working_dir }}/manifests/to-filesystem/{{ manifest_name }}_{{ manifest_version }}.txt"
           - "Auth: {{ auth_file }}"
           - "{{ (ocimagemirror_result.rc == 0) | ternary(ocimagemirror_result.stdout_lines, ocimagemirror_result.stderr_lines) }}"
 
-    - name: "{{ package_name }} : Fail if mirror is not successful"
+    - name: "{{ catalog_name }} : Fail if mirror is not successful"
       assert:
         that: ocimagemirror_result.rc == 0
         fail_msg: "Image mirroring failed (see debug information above)."
@@ -141,7 +139,7 @@
     - name: "{{ manifest_name }} : dry mode mirror command - direct"
       shell: |
         oc mirror \
-          -c "{{ ansible_env.HOME }}/.ibm-mas/isc-{{ package_name }}-{{ package_version }}-amd64.yaml" \
+          -c "{{ ansible_env.HOME }}/.ibm-mas/isc-{{ catalog_name }}-{{ package_version }}-amd64.yaml" \
           --authfile "{{ ansible_env.HOME }}/containers/auth.json" \
           --workspace file://{{ ansible_env.HOME }}/.ibm-mas \
           docker://051826726580.dkr.ecr.us-east-1.amazonaws.com/testisc \
@@ -266,7 +264,7 @@
     - name: "{{ manifest_name }} : Run mirror command"
       shell: |
         oc mirror \
-          -c "{{ ansible_env.HOME }}/.ibm-mas/isc-{{ package_name }}-{{ package_version }}-amd64.yaml" \
+          -c "{{ ansible_env.HOME }}/.ibm-mas/isc-{{ catalog_name }}-{{ package_version }}-amd64.yaml" \
           --authfile "{{ ansible_env.HOME }}/containers/auth.json" \
           --workspace file://{{ ansible_env.HOME }}/.ibm-mas \
           docker://051826726580.dkr.ecr.us-east-1.amazonaws.com/testisc \

@@ -430,6 +430,25 @@ def get_ecr_repositories(image_mirror_output):
         repositories.append(repo_to_add)
   return repositories
 
+def get_ecr_repositories_v2(imageMapFile, target_ecr_host):
+    """
+    oc mirror --v2 --dry-run would create image map file,
+    which contains all the images to be mirrored.
+    This function reads the image map file and returns a list of ECR repositories
+    image Map file contents are in the following format:
+    <registry>/<image>:<tag> <registry>/<image>:<tag>
+    docker://docker-na-public.artifactory.swg-devops.com/wiotp-docker-local/cpopen/ibm-truststore-mgr-operator-bundle@sha256:9ac4c6d2c52c0fba42a81bbb89f9224c50182b38fb091d275a1c546ff85e8bbe=docker://051826726580.dkr.ecr.us-east-1.amazonaws.com/testisc/wiotp-docker-local/cpopen/ibm-truststore-mgr-operator-bundle:sha256-9ac4c6d2c52c0fba42a81bbb89f9224c50182b38fb091d275a1c546ff85e8bbe
+    """
+    with open(imageMapFile, 'r') as f:
+        ecr_repositories=[]
+        for imageMap in f:
+            imageMap = imageMap.strip()
+            if target_ecr_host in imageMap:
+                targetImage = imageMap.split(target_ecr_host)[1] #remove the ecr host from the imageMap
+                repopath = targetImage.split('/', 1)[0] #remove the image tag
+                ecr_repositories.append(repopath)
+    return ecr_repositories  
+
 def is_channel_upgrade_path_valid(current: str, target: str, valid_paths: dict) -> bool:
   """
     Checks if a given current channel version can be upgraded to a target channel version.
@@ -496,6 +515,7 @@ class FilterModule(object):
       'format_pre_version_with_buildid': format_pre_version_with_buildid,
       'get_db2_instance_name': get_db2_instance_name,
       'get_ecr_repositories': get_ecr_repositories,
+      'get_ecr_repositories_v2': get_ecr_repositories_v2,
       'is_channel_upgrade_path_valid': is_channel_upgrade_path_valid,
       'get_default_upgrade_channel': get_default_upgrade_channel
     }
