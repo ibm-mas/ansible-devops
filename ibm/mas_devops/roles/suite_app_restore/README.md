@@ -65,19 +65,19 @@ Specifies which backup version to restore. This should match the version identif
 - Default: None
 - Example: `20240315-143022` or `v1.0-prod`
 
-### mas_app_restore_wait_timeout
+### mas_app_restore_wait_retries
 Maximum time in seconds to wait for ManageWorkspace to become ready after restore.
 
 - Optional
-- Environment Variable: `MAS_APP_RESTORE_WAIT_TIMEOUT`
-- Default: `3600` (1 hour)
+- Environment Variable: `MAS_APP_RESTORE_WAIT_RETRIES`
+- Default: `120`
 
 ### mas_app_restore_wait_delay
 Delay in seconds between status checks when waiting for ManageWorkspace to become ready.
 
 - Optional
 - Environment Variable: `MAS_APP_RESTORE_WAIT_DELAY`
-- Default: `30`
+- Default: `360`
 
 ### override_storageclass
 Enable or disable storage class override during restore. When enabled, the restore process will use custom storage classes instead of the storage classes from the backup.
@@ -246,8 +246,8 @@ Restore with a custom wait timeout for large deployments:
     mas_app_id: manage
     mas_backup_dir: /backup/mas
     mas_app_backup_version: "prod-backup-20240315"
-    mas_app_restore_wait_timeout: 7200  # 2 hours
-    mas_app_restore_wait_delay: 60      # Check every minute
+    mas_app_restore_wait_retries: 180
+    mas_app_restore_wait_delay: 360      # Check 6 minutes
   roles:
     - ibm.mas_devops.suite_app_restore
 ```
@@ -353,7 +353,7 @@ Troubleshooting
 - Check ManageWorkspace status: `oc describe manageworkspace -n mas-<instance_id>-manage`
 - Verify database is accessible and restored
 - Check pod logs: `oc logs -l mas.ibm.com/appType=serverBundle -n mas-<instance_id>-manage`
-- Increase `mas_app_restore_wait_timeout` if deployment is slow
+- Increase `mas_app_restore_wait_retries` and `mas_app_restore_wait_delay` values` if deployment is slow
 
 
 Notes
