@@ -2,8 +2,8 @@ ocp_cluster_monitoring
 ===============================================================================
 Configures the OpenShift Container Platform Cluster Monitoring enabling two settings:
 
-- [OpenShift user defined project monitoring](https://docs.redhat.com/en/documentation/openshift_container_platform/4.19/html/monitoring/configuring-user-workload-monitoring#preparing-to-configure-the-monitoring-stack-uwm) is enabled (`openshift-monitoring` namespace)
-- [OpenShift monitoring stack](https://docs.redhat.com/en/documentation/openshift_container_platform/4.19/html/monitoring/index) is configured to use persistent storage (`openshift-monitoring` namespace)
+- [OpenShift user defined project monitoring](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html/monitoring/configuring-user-workload-monitoring#preparing-to-configure-the-monitoring-stack-uwm) is enabled (`openshift-monitoring` namespace)
+- [OpenShift monitoring stack](https://docs.redhat.com/en/documentation/monitoring_stack_for_red_hat_openshift/4.20/html/release_notes_for_openshift_monitoring/monitoring-release-notes) is configured to use persistent storage (`openshift-monitoring` namespace)
 
 This role is version-aware and will automatically apply the appropriate configuration template based on the detected OpenShift version:
 - For OpenShift 4.18 and higher: Uses a simplified configuration template compatible with newer versions
