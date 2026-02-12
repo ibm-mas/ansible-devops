@@ -1,0 +1,132 @@
+---
+# Create new Db2uInstance with source configuration
+# -----------------------------------------------------------------------------
+
+- name: "Set db2_instance_name to target instance for template rendering"
+  set_fact:
+    db2_instance_name: "{{ db2_migrate_target_instance }}"
+
+- name: "Map source configuration to role variables"
+  set_fact:
+    db2_version: "{{ source_config.version }}"
+    db2_num_pods: "{{ source_config.size }}"
+    db2_type: "{{ source_config.dbType }}"
+    db2_dbname: "{{ source_config.database.name }}"
+    db2_table_org: "{{ source_config.database.settings.dftTableOrg | default('ROW') }}"
+    db2_mln_count: "{{ source_config.mln.total }}"
+  when: source_config is defined
+
+- name: "Extract storage configuration from source"
+  set_fact:
+    _meta_storage: "{{ source_config.storage | selectattr('name', 'equalto', 'meta') | list | first }}"
+    _data_storage: "{{ source_config.storage | selectattr('name', 'equalto', 'data') | list | first }}"
+    _backup_storage: "{{ source_config.storage | selectattr('name', 'equalto', 'backup') | list | default([]) | first | default({}) }}"
+    _logs_storage: "{{ source_config.storage | selectattr('name', 'equalto', 'activelogs') | list | default([]) | first | default({}) }}"
+    _temp_storage: "{{ source_config.storage | selectattr('name', 'equalto', 'tempts') | list | default([]) | first | default({}) }}"
+  when: source_config is defined
+
+- name: "Map storage classes and sizes from source"
+  set_fact:
+    db2_meta_storage_class: "{{ _meta_storage.spec.storageClassName }}"
+    db2_meta_storage_size: "{{ _meta_storage.spec.resources.requests.storage }}"
+    db2_meta_storage_accessmode: "{{ _meta_storage.spec.accessModes[0] }}"
+    db2_data_storage_class: "{{ _data_storage.spec.storageClassName }}"
+    db2_data_storage_size: "{{ _data_storage.spec.resources.requests.storage }}"
+    db2_data_storage_accessmode: "{{ _data_storage.spec.accessModes[0] }}"
+  when:
+    - source_config is defined
+    - _meta_storage is defined
+    - _data_storage is defined
+
+- name: "Map backup storage from source (if exists)"
+  set_fact:
+    db2_backup_storage_class: "{{ _backup_storage.spec.storageClassName }}"
+    db2_backup_storage_size: "{{ _backup_storage.spec.resources.requests.storage }}"
+    db2_backup_storage_accessmode: "{{ _backup_storage.spec.accessModes[0] }}"
+  when:
+    - source_config is defined
+    - _backup_storage is defined
+    - _backup_storage.spec is defined
+
+- name: "Map logs storage from source (if exists)"
+  set_fact:
+    db2_logs_storage_class: "{{ _logs_storage.spec.storageClassName }}"
+    db2_logs_storage_size: "{{ _logs_storage.spec.resources.requests.storage }}"
+    db2_logs_storage_accessmode: "{{ _logs_storage.spec.accessModes[0] }}"
+  when:
+    - source_config is defined
+    - _logs_storage is defined
+    - _logs_storage.spec is defined
+
+- name: "Map temp storage from source (if exists)"
+  set_fact:
+    db2_temp_storage_class: "{{ _temp_storage.spec.storageClassName }}"
+    db2_temp_storage_size: "{{ _temp_storage.spec.resources.requests.storage }}"
+    db2_temp_storage_accessmode: "{{ _temp_storage.spec.accessModes[0] }}"
+  when:
+    - source_config is defined
+    - _temp_storage is defined
+    - _temp_storage.spec is defined
+
+- name: "Map resource configuration from source"
+  set_fact:
+    db2_cpu_requests: "{{ source_config.podConfig.db2u.resource.db2u.requests.cpu }}"
+    db2_cpu_limits: "{{ source_config.podConfig.db2u.resource.db2u.limits.cpu }}"
+    db2_memory_requests: "{{ source_config.podConfig.db2u.resource.db2u.requests.memory }}"
+    db2_memory_limits: "{{ source_config.podConfig.db2u.resource.db2u.limits.memory }}"
+  when:
+    - source_config is defined
+    - source_config.podConfig is defined
+    - source_config.podConfig.db2u is defined
+
+- name: "Map affinity from source (if exists)"
+  set_fact:
+    db2_affinity_key: "{{ source_config.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key }}"
+    db2_affinity_value: "{{ source_config.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0] }}"
+  when:
+    - source_config is defined
+    - source_config.affinity is defined
+    - source_config.affinity.nodeAffinity is defined
+
+- name: "Map tolerations from source (if exists)"
+  set_fact:
+    db2_tolerate_key: "{{ source_config.tolerations[0].key }}"
+    db2_tolerate_value: "{{ source_config.tolerations[0].value }}"
+    db2_tolerate_effect: "{{ source_config.tolerations[0].effect }}"
+  when:
+    - source_config is defined
+    - source_config.tolerations is defined
+    - source_config.tolerations | length > 0
+
+- name: "Map timezone from source (if exists)"
+  set_fact:
+    db2_timezone: "{{ source_config.advOpts.timezone }}"
+  when:
+    - source_config is defined
+    - source_config.advOpts is defined
+    - source_config.advOpts.timezone is defined
+
+- name: "Debug: Configuration mapping complete"
+  debug:
+    msg:
+      - "Target instance name: {{ db2_instance_name }}"
+      - "Version: {{ db2_version }}"
+      - "Database: {{ db2_dbname }}"
+      - "Type: {{ db2_type }}"
+      - "Size: {{ db2_num_pods }}"
+      - "MLN Count: {{ db2_mln_count }}"
+
+- name: "Create Db2uInstance custom resource"
+  kubernetes.core.k8s:
+    state: present
+    template: "templates/db2uinstance.yml.j2"
+  register: instance_creation
+
+- name: "Debug: Db2uInstance creation result"
+  debug:
+    msg:
+      - "Db2uInstance {{ db2_migrate_target_instance }} created successfully"
+      - "Namespace: {{ db2_namespace }}"
+      - "Waiting for instance to become ready..."
+
+

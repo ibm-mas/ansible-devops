@@ -1,0 +1,113 @@
+---
+# Clean up source Db2uCluster
+# -----------------------------------------------------------------------------
+
+- name: "Check if source cleanup is enabled"
+  debug:
+    msg: "Source cleanup is disabled (db2_migrate_delete_source=false). Source instance will be preserved."
+  when: not (db2_migrate_delete_source | default(false) | bool)
+
+- name: "Cleanup source instance"
+  when: db2_migrate_delete_source | default(false) | bool
+  block:
+    - name: "Debug: Starting source instance cleanup"
+      debug:
+        msg:
+          - "Starting cleanup of source Db2uCluster"
+          - "Source instance: {{ db2_migrate_source_instance }}"
+          - "Target instance: {{ db2_migrate_target_instance }}"
+          - "Preserve PVCs: {{ db2_migrate_preserve_pvcs | default(true) }}"
+
+    - name: "Delete source Db2uCluster"
+      kubernetes.core.k8s:
+        api_version: db2u.databases.ibm.com/v1
+        kind: Db2uCluster
+        name: "{{ db2_migrate_source_instance }}"
+        namespace: "{{ db2_namespace }}"
+        state: absent
+
+    - name: "Wait for source instance deletion"
+      kubernetes.core.k8s_info:
+        api_version: db2u.databases.ibm.com/v1
+        kind: Db2uCluster
+        name: "{{ db2_migrate_source_instance }}"
+        namespace: "{{ db2_namespace }}"
+      register: source_check
+      until: source_check.resources | length == 0
+      retries: 20
+      delay: 30
+
+    - name: "Debug: Source Db2uCluster deleted"
+      debug:
+        msg: "Source Db2uCluster {{ db2_migrate_source_instance }} has been deleted"
+
+    - name: "Handle source PVCs"
+      block:
+        - name: "List source instance PVCs"
+          kubernetes.core.k8s_info:
+            api_version: v1
+            kind: PersistentVolumeClaim
+            namespace: "{{ db2_namespace }}"
+            label_selectors:
+              - "app={{ db2_migrate_source_instance }}"
+          register: source_pvcs
+
+        - name: "Delete source PVCs"
+          kubernetes.core.k8s:
+            api_version: v1
+            kind: PersistentVolumeClaim
+            name: "{{ item.metadata.name }}"
+            namespace: "{{ db2_namespace }}"
+            state: absent
+          loop: "{{ source_pvcs.resources }}"
+          when: not (db2_migrate_preserve_pvcs | default(true) | bool)
+
+        - name: "Debug: Source PVCs deleted"
+          debug:
+            msg: "Deleted {{ source_pvcs.resources | length }} PVCs from source instance"
+          when: not (db2_migrate_preserve_pvcs | default(true) | bool)
+
+        - name: "Tag source PVCs for manual cleanup"
+          kubernetes.core.k8s:
+            api_version: v1
+            kind: PersistentVolumeClaim
+            name: "{{ item.metadata.name }}"
+            namespace: "{{ db2_namespace }}"
+            definition:
+              metadata:
+                labels:
+                  migration-cleanup: "manual"
+                  migration-date: "{{ ansible_date_time.iso8601 }}"
+                  migration-source: "{{ db2_migrate_source_instance }}"
+                  migration-target: "{{ db2_migrate_target_instance }}"
+          loop: "{{ source_pvcs.resources }}"
+          when: db2_migrate_preserve_pvcs | default(true) | bool
+
+        - name: "Debug: Source PVCs preserved"
+          debug:
+            msg:
+              - "Preserved {{ source_pvcs.resources | length }} PVCs from source instance"
+              - "PVCs tagged with migration-cleanup=manual for later removal"
+              - "PVC names: {{ source_pvcs.resources | map(attribute='metadata.name') | list }}"
+          when: db2_migrate_preserve_pvcs | default(true) | bool
+
+    - name: "Clean up old JdbcCfg"
+      kubernetes.core.k8s:
+        api_version: config.mas.ibm.com/v1
+        kind: JdbcCfg
+        namespace: "mas-{{ mas_instance_id }}-core"
+        name: "{{ mas_config_scope }}-{{ db2_migrate_source_instance }}"
+        state: absent
+      when:
+        - mas_instance_id is defined
+        - mas_instance_id != ""
+
+    - name: "Debug: Cleanup completed"
+      debug:
+        msg:
+          - "Source instance cleanup completed successfully"
+          - "Source Db2uCluster: DELETED"
+          - "Source PVCs: {{ 'DELETED' if not (db2_migrate_preserve_pvcs | default(true) | bool) else 'PRESERVED (tagged for manual cleanup)' }}"
+          - "Old JdbcCfg: {{ 'DELETED' if mas_instance_id is defined and mas_instance_id != '' else 'N/A' }}"
+
+

@@ -1,0 +1,110 @@
+---
+# Main migration orchestration: Db2uCluster to Db2uInstance
+# -----------------------------------------------------------------------------
+
+- name: "Migration: Db2uCluster to Db2uInstance"
+  block:
+    - name: "Debug: Starting migration"
+      debug:
+        msg:
+          - "Source: {{ db2_migrate_source_instance }}"
+          - "Target: {{ db2_migrate_target_instance }}"
+          - "Namespace: {{ db2_namespace }}"
+          - "Delete source after migration: {{ db2_migrate_delete_source | default(false) }}"
+          - "Preserve source PVCs: {{ db2_migrate_preserve_pvcs | default(true) }}"
+
+    # Phase 1: Pre-migration validation and backup
+    # -------------------------------------------------------------------------
+    - name: "Phase 1: Pre-migration validation"
+      include_tasks: "tasks/migrate/validate-prerequisites.yml"
+
+    - name: "Phase 1: Capture source configuration"
+      include_tasks: "tasks/migrate/capture-source-config.yml"
+
+    - name: "Phase 1: Backup source database"
+      include_tasks: "tasks/migrate/backup-source.yml"
+
+    - name: "Debug: Phase 1 completed"
+      debug:
+        msg:
+          - "Phase 1: Pre-migration validation and backup - COMPLETED"
+          - "Source configuration captured and backed up successfully"
+
+    # Phase 2: Db2uInstance creation
+    # -------------------------------------------------------------------------
+    - name: "Phase 2: Create Db2uInstance"
+      include_tasks: "tasks/migrate/create-db2uinstance.yml"
+
+    - name: "Phase 2: Wait for instance ready"
+      include_tasks: "tasks/migrate/wait-for-instance-ready.yml"
+
+    - name: "Debug: Phase 2 completed"
+      debug:
+        msg:
+          - "Phase 2: Db2uInstance creation - COMPLETED"
+          - "Target instance is ready and operational"
+
+    # Phase 3: Data migration
+    # -------------------------------------------------------------------------
+    - name: "Phase 3: Restore to target instance"
+      include_tasks: "tasks/migrate/restore-target.yml"
+
+    - name: "Phase 3: Validate data integrity"
+      include_tasks: "tasks/migrate/validate-migration.yml"
+      when: db2_migrate_validate_data | default(true) | bool
+
+    - name: "Debug: Phase 3 completed"
+      debug:
+        msg:
+          - "Phase 3: Data restoration and validation - COMPLETED"
+          - "Data successfully migrated and validated"
+
+    # Phase 4: MAS configuration update
+    # -------------------------------------------------------------------------
+    - name: "Phase 4: Update MAS configuration"
+      include_tasks: "tasks/migrate/update-mas-config.yml"
+      when:
+        - mas_instance_id is defined
+        - mas_instance_id != ""
+
+    - name: "Debug: Phase 4 completed"
+      debug:
+        msg:
+          - "Phase 4: MAS configuration update - {{ 'COMPLETED' if mas_instance_id is defined and mas_instance_id != '' else 'SKIPPED (no MAS instance)' }}"
+
+    # Phase 5: Cleanup
+    # -------------------------------------------------------------------------
+    - name: "Phase 5: Cleanup source instance"
+      include_tasks: "tasks/migrate/cleanup-source.yml"
+
+    - name: "Debug: Phase 5 completed"
+      debug:
+        msg:
+          - "Phase 5: Cleanup - COMPLETED"
+          - "Source cleanup: {{ 'COMPLETED' if db2_migrate_delete_source | default(false) | bool else 'SKIPPED' }}"
+
+    - name: "Debug: Migration completed successfully"
+      debug:
+        msg:
+          - "=========================================="
+          - "MIGRATION COMPLETED SUCCESSFULLY"
+          - "=========================================="
+          - "Source instance: {{ db2_migrate_source_instance }}"
+          - "Target instance: {{ db2_migrate_target_instance }}"
+          - "All phases completed successfully"
+
+  rescue:
+    - name: "Migration failed"
+      debug:
+        msg:
+          - "=========================================="
+          - "MIGRATION FAILED"
+          - "=========================================="
+          - "An error occurred during migration"
+          - "Source instance: {{ db2_migrate_source_instance }} (preserved)"
+          - "Target instance: {{ db2_migrate_target_instance }} (may be partially created)"
+          - "Check logs for details"
+
+    - name: "Fail the migration"
+      fail:
+        msg: "Migration from {{ db2_migrate_source_instance }} to {{ db2_migrate_target_instance }} failed. Check the logs above for details."
