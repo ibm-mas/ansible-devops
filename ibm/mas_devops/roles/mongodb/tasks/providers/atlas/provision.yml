@@ -184,6 +184,15 @@
   when: atlas_user_check.status == 404
   block:
 
+    - name: "Verify Atlas credentials are set"
+      assert:
+        that:
+          - atlas_public_key is defined
+          - atlas_public_key != ""
+          - atlas_private_key is defined
+          - atlas_private_key != ""
+        fail_msg: "Atlas API credentials are not properly set. Check AWS Secrets Manager retrieval or environment variables."
+
     - name: "Prepare database user configuration"
       set_fact:
         atlas_user_config:
@@ -194,25 +203,43 @@
             - databaseName: "admin"
               roleName: "atlasAdmin"
 
-    - name: "Create user via Atlas API"
-      uri:
-        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers"
-        method: POST
-        user: "{{ atlas_public_key }}"
-        password: "{{ atlas_private_key }}"
-        force_basic_auth: yes
-        headers:
-          Content-Type: "application/json"
-        body: "{{ atlas_user_config | to_json }}"
-        body_format: json
-        status_code: [201]
-        timeout: 180
-        return_content: yes
-        validate_certs: yes
-      register: atlas_user_create
+    - name: "Create user via Atlas API (using curl with digest auth)"
+      shell: |
+        curl --request POST \
+          --digest \
+          --user "{{ atlas_public_key }}:{{ atlas_private_key }}" \
+          --header "Content-Type: application/json" \
+          --header "Accept: application/json" \
+          --data '{{ atlas_user_config | to_json }}' \
+          --write-out "\n%{http_code}" \
+          --silent \
+          --show-error \
+          "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers"
+      register: atlas_user_create_raw
       retries: 3
       delay: 20
-      until: atlas_user_create.status == 201
+      until: atlas_user_create_raw.stdout_lines | last == "201"
+      failed_when: false
+      no_log: true
+      
+    - name: "Debug user creation response (if failed)"
+      debug:
+        msg:
+          - "HTTP Status: {{ atlas_user_create_raw.stdout_lines | last }}"
+          - "Response: {{ atlas_user_create_raw.stdout_lines[:-1] | join('\n') }}"
+      when: atlas_user_create_raw.stdout_lines | last != "201"
+      
+    - name: "Fail if user creation failed"
+      fail:
+        msg: "Failed to create database user. HTTP Status: {{ atlas_user_create_raw.stdout_lines | last }}"
+      when: atlas_user_create_raw.stdout_lines | last != "201"
+      
+    - name: "Set user creation result"
+      set_fact:
+        atlas_user_create:
+          status: "{{ atlas_user_create_raw.stdout_lines | last | int }}"
+          json: "{{ atlas_user_create_raw.stdout_lines[:-1] | join('\n') | from_json }}"
+      when: atlas_user_create_raw.stdout_lines | last == "201"
 
     - name: "Database user created"
       debug:
