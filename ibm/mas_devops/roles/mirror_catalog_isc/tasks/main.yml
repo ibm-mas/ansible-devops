@@ -40,8 +40,6 @@
   ansible.builtin.template:
     src: templates/auth.json.j2
     dest: "{{ ansible_env.HOME }}/containers/auth.json"
-  environment:
-    XDG_RUNTIME_DIR: "{{ ansible_env.HOME }}"
   no_log: true
 
 # 3. Modify the manifest
@@ -50,51 +48,26 @@
   assert:
     that: mirror_single_arch in ["", "amd64", "ppc64le", "s390x"]
 
-# - name: Set up exclusion rules for amd64
-#   when: mirror_single_arch == "amd64"
-#   set_fact:
-#     exclude_arch:
-#       - s390x
-#       - ppc64le
-
-# - name: Set up exclusion rules for ppc64le
-#   when: mirror_single_arch == "ppc64le"
-#   set_fact:
-#     exclude_arch:
-#       - s390x
-#       - amd64
-
-# - name: Set up exclusion rules for s390x
-#   when: mirror_single_arch == "s390x"
-#   set_fact:
-#     exclude_arch:
-#       - amd64
-#       - ppc64le
-
-# - name: "Remove any container images with a tag ending in '-{arch}'"
-#   when: mirror_single_arch in ["amd64", "ppc64le", "s390x"]
-#   ansible.builtin.lineinfile:
-#     path: "{{ mirror_working_dir }}/manifests/{{ mirror_mode }}/{{ manifest_name }}_{{ manifest_version }}.txt"
-#     state: absent
-#     regexp: "-{{ item }}$"
-#     backup: true
-#   with_items: "{{ exclude_arch }}"
-
-# # Special case for Db2u
-# # https://github.com/ibm-mas/ansible-devops/issues/1075
-# - name: "Remove CP4D Db2u images (11.5.8.0)"
-#   when: manifest_name == "ibm-db2uoperator"
-#   ansible.builtin.lineinfile:
-#     path: "{{ mirror_working_dir }}/manifests/{{ mirror_mode }}/{{ manifest_name }}_{{ manifest_version }}.txt"
-#     state: absent
-#     regexp: "11.5.8.0"
-#     backup: true
-
-- name: Path of ISC file to download
+- name: "{{ catalog_name }} : Set ISC file path"
   set_fact:
     isc_file_path: "https://{{ isc_registry }}/catalogs/{{ catalog_name }}.yaml"
 
+- name: "{{ catalog_name }} : Determine registry type"
+  set_fact:
+    is_artifactory: "{{ 'artifactory' in isc_registry | lower }}"
+    is_github: "{{ 'github' in isc_registry | lower or 'raw.githubusercontent.com' in isc_registry | lower }}"
+
+- name: "{{ catalog_name }} : Debug registry type"
+  debug:
+    msg:
+      - "ISC Registry ........................... {{ isc_registry }}"
+      - "ISC File Path ......................... {{ isc_file_path }}"
+      - "Is Artifactory ........................ {{ is_artifactory }}"
+      - "Is GitHub ............................. {{ is_github }}"
+
+
 - name: "{{ catalog_name }} : Download ISC file from Artifactory with token"
+  when: is_artifactory | bool
   get_url:
     url: "{{ isc_file_path }}"
     dest: "{{ ansible_env.HOME }}/.ibm-mas/{{ catalog_name }}.yaml"
@@ -102,6 +75,24 @@
     headers:
       Authorization: "Bearer {{ artifactory_token }}"
   #no_log: true
+
+- name: "{{ catalog_name }} : Download ISC file from GitHub"
+  when: is_github | bool
+  get_url:
+    url: "{{ isc_file_path }}"
+    dest: "{{ ansible_env.HOME }}/.ibm-mas/{{ catalog_name }}.yaml"
+    mode: '0755'
+    headers:
+      Authorization: "token {{ github_token }}"
+      Accept: "application/vnd.github.v3.raw"
+    validate_certs: yes
+  no_log: true
+
+- name: "{{ catalog_name }} : Verify ISC file was downloaded"
+  stat:
+    path: "{{ ansible_env.HOME }}/.ibm-mas/{{ catalog_name }}.yaml"
+  register: isc_file_stat
+  failed_when: not isc_file_stat.stat.exists
 
 # 4A. Execute the mirror (to filesystem)
 # -----------------------------------------------------------------------------
