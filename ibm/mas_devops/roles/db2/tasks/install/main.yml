@@ -175,6 +175,11 @@
     template: "templates/db2u_namespace.yaml"
   register: _db2_namespace_result
 
+- name: "Debug - Operator Installation Method"
+  debug:
+    msg:
+      - "Use Helm Operator ...................... {{ db2_use_helm_operator | default(false) }}"
+
 - name: Set 'ibm-registry' secret content
   no_log: true
   vars:
@@ -186,22 +191,37 @@
       - "}"
   set_fact:
     new_secret: "{{ content | join('') }}"
+    
+- name: "Debug - new_secret"
+  debug:
+    msg:
+      - "nw_secret ...................... {{ new_secret }}"
+
+- name: "Debug - ansible_version"
+  debug:
+    msg:
+      - "ansible_version.full ...................... {{ ansible_version.full }}"
 
 # Note: We use "new_secret | to_json " because older versions of Ansible create
 # invalid json representations containing single quotes
 # However, in newer versions of Ansible to_json returns an object, which can't be passed to b64encode
 - name: "Generate docker secret (old Ansible versions)"
-  when: ansible_version.full is version_compare(2.20, '<')
+  when: ansible_version.full is version_compare('2.20', '<')
   set_fact:
     dockerconfigjsonB64: "{{ new_secret | to_json | b64encode }}"
 
 - name: "Generate docker secret (new Ansible versions)"
-  when: ansible_version.full is version_compare(2.20, '>=')
+  when: ansible_version.full is version_compare('2.20', '>=')
   set_fact:
     dockerconfigjsonB64: "{{ new_secret | b64encode }}"
+    
+- name: "Debug - dockerconfigjsonB64"
+  debug:
+    msg:
+      - "dockerconfigjsonB64 ...................... {{ dockerconfigjsonB64 }}"
 
+#Jon removed no log from here - don't deliver this
 - name: "Generate 'ibm-registry' secret"
-  no_log: true
   kubernetes.core.k8s:
     definition:
       apiVersion: v1
@@ -217,12 +237,60 @@
 - name: "Delete old db2 subscription, operand request and csv from {{ ibm_common_services_namespace }}"
   include_tasks: "tasks/delete_db2_operand_request.yml"
 
-- name: "Create Db2 Universal Operator Subscription in {{ db2_namespace }} namespace"
-  ibm.mas_devops.apply_subscription:
-    namespace: "{{ db2_namespace }}"
-    package_name: db2u-operator
-    package_channel: "{{ db2_channel }}"
-  register: subscription
+- name: "Install DB2 Operator - Helm-based method"
+  when: db2_use_helm_operator | default(false) | bool
+  block:
+    - name: "Clean up old webhook configurations from previous installations"
+      kubernetes.core.k8s:
+        api_version: admissionregistration.k8s.io/v1
+        kind: "{{ item.kind }}"
+        name: "{{ item.name }}"
+        state: absent
+      loop:
+        - { kind: "MutatingWebhookConfiguration", name: "release-name-db2-operator-mutating-webhook-configuration" }
+        - { kind: "ValidatingWebhookConfiguration", name: "release-name-db2-operator-validating-webhook-configuration" }
+      ignore_errors: yes
+
+    - name: "Install DB2 CRDs for helm-based operator"
+      kubernetes.core.k8s:
+        apply: yes
+        definition: "{{ lookup('file', 'templates/crds/' + item) }}"
+      loop:
+        - db2uinstance.yaml
+        - db2uengine.yaml
+      register: crd_install_result
+
+    - name: "Apply helm-based DB2 operator manifests"
+      kubernetes.core.k8s:
+        apply: yes
+        template: "templates/db2_helm_operator.yml.j2"
+      register: helm_operator_result
+
+    - name: "Wait for DB2 operator deployment to be ready"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ db2_instance_name }}-db2-operator-controller-manager"
+        namespace: "{{ db2_namespace }}"
+      register: operator_deployment
+      until:
+        - operator_deployment.resources is defined
+        - operator_deployment.resources | length > 0
+        - operator_deployment.resources[0].status is defined
+        - operator_deployment.resources[0].status.readyReplicas is defined
+        - operator_deployment.resources[0].status.readyReplicas == operator_deployment.resources[0].status.replicas
+      retries: 30 # ~15 minutes
+      delay: 30
+
+- name: "Install DB2 Operator - Subscription-based method"
+  when: not (db2_use_helm_operator | default(false) | bool)
+  block:
+    - name: "Create Db2 Universal Operator Subscription in {{ db2_namespace }} namespace"
+      ibm.mas_devops.apply_subscription:
+        namespace: "{{ db2_namespace }}"
+        package_name: db2u-operator
+        package_channel: "{{ db2_channel }}"
+      register: subscription
 
 # 7. Get the cluster subdomain to be used for the certificate and route creation
 # -----------------------------------------------------------------------------
@@ -264,9 +332,16 @@
     template: "templates/certs/certificate.yml.j2"
   register: createCertificate
 
-# 9. Wait until the Db2uCluster CRD is available
+# 9. Wait until the appropriate DB2 CRD is available
 # -----------------------------------------------------------------------------
-- name: "Wait until the Db2uCluster CRD is available"
+- name: "Wait until the Db2uInstance CRD is available (helm-based operator)"
+  when: db2_use_helm_operator | default(false) | bool
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: "db2uinstances.db2u.databases.ibm.com"
+
+- name: "Wait until the Db2uCluster CRD is available (subscription-based operator)"
+  when: not (db2_use_helm_operator | default(false) | bool)
   include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
   vars:
     crd_name: "db2uclusters.db2u.databases.ibm.com"
@@ -323,6 +398,7 @@
   when: db2_version is not defined or db2_version == ""
 
 - name: Debug DB2 channel and determined version
+  when: not (db2_use_helm_operator | default(false) | bool)
   ansible.builtin.debug:
     msg:
       - "DB2 Channel ........................... {{ db2_channel }}"
@@ -332,6 +408,7 @@
 # 11. Fail if required parameters are not set
 # -----------------------------------------------------------------------------
 - name: "Verify db2_channel and db2_version set"
+  when: not (db2_use_helm_operator | default(false) | bool)
   assert:
     that:
       - db2_channel is defined and db2_channel != ""
@@ -339,6 +416,7 @@
     fail_msg: "Unable to determine db2_channel and/or db2_version"
 
 - name: Debug DB2 upgrade channel and version
+  when: not (db2_use_helm_operator | default(false) | bool)
   ansible.builtin.debug:
     msg:
       - "Db2 Channel ............................ {{ db2_channel }}"
@@ -346,7 +424,17 @@
 
 # 12. Lookup db2 instance to see if it exists already
 # -----------------------------------------------------------------------------
-- name: "See if db2u instance already exists"
+- name: "See if db2u instance already exists (Db2uInstance)"
+  when: db2_use_helm_operator | default(false) | bool
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    name: "{{ db2_instance_name | lower }}"
+    namespace: "{{db2_namespace}}"
+    kind: Db2uInstance
+  register: initial_db2_instance_lookup
+
+- name: "See if db2u instance already exists (Db2uCluster)"
+  when: not (db2_use_helm_operator | default(false) | bool)
   kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ db2_instance_name | lower }}"
@@ -356,7 +444,14 @@
 
 # 13. Create a Db2 instance
 # -----------------------------------------------------------------------------
-- name: "Create db2 instance"
+- name: "Create db2 instance (Db2uInstance)"
+  when: db2_use_helm_operator | default(false) | bool
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/db2uinstance.yml.j2"
+
+- name: "Create db2 instance (Db2uCluster)"
+  when: not (db2_use_helm_operator | default(false) | bool)
   kubernetes.core.k8s:
     apply: yes
     template: "templates/db2ucluster.yml.j2"
@@ -367,9 +462,27 @@
     - db2_timezone is defined
     - db2_timezone != ""
 
-# 14. Wait for the cluster to be ready
+# 14. Wait for the cluster/instance to be ready
 # -----------------------------------------------------------------------------
-- name: "Wait for db2u instance to be ready (5m delay)"
+- name: "Wait for db2u instance to be ready (Db2uInstance - 5m delay)"
+  when: db2_use_helm_operator | default(false) | bool
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    name: "{{ db2_instance_name | lower }}"
+    namespace: "{{db2_namespace}}"
+    kind: Db2uInstance
+  register: db2_instance_lookup
+  until:
+    - db2_instance_lookup.resources is defined
+    - db2_instance_lookup.resources | length == 1
+    - db2_instance_lookup.resources[0].status is defined
+    - db2_instance_lookup.resources[0].status.state is defined
+    - db2_instance_lookup.resources[0].status.state == "Ready"
+  retries: 24 # Approximately 2 hours before we give up
+  delay: 300 # 5 minutes
+
+- name: "Wait for db2u cluster to be ready (Db2uCluster - 5m delay)"
+  when: not (db2_use_helm_operator | default(false) | bool)
   kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ db2_instance_name | lower }}"
@@ -479,6 +592,7 @@
 # 18. Wait for the statefulset to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for Db2 Stateful set to be ready"
+  when: not (db2_use_helm_operator | default(false) | bool)
   kubernetes.core.k8s_info:
     api_version: apps/v1
     kind: StatefulSet

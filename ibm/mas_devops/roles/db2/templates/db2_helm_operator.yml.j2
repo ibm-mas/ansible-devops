@@ -1,0 +1,657 @@
+---
+# Helm-based DB2 Operator Installation
+# This template deploys the DB2 operator using helm-generated manifests
+# Source: db2-operator helm chart
+
+# SecurityContextConstraints for DB2 Operator Controller Manager
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: {{ db2_instance_name }}-db2-operator-controller-scc
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: true
+allowPrivilegedContainer: true
+allowedCapabilities:
+- '*'
+defaultAddCapabilities: null
+fsGroup:
+  type: RunAsAny
+groups: []
+priority: null
+readOnlyRootFilesystem: false
+requiredDropCapabilities: null
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+seccompProfiles:
+- '*'
+supplementalGroups:
+  type: RunAsAny
+users:
+- system:serviceaccount:{{ db2_namespace }}:db2-database-operator-controller-manager
+volumes:
+- '*'
+---
+# SecurityContextConstraints for DB2 Instance Service Account
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: {{ db2_instance_name }}-db2-instance-scc
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: true
+allowPrivilegedContainer: true
+allowedCapabilities:
+- '*'
+defaultAddCapabilities: null
+fsGroup:
+  type: RunAsAny
+groups: []
+priority: null
+readOnlyRootFilesystem: false
+requiredDropCapabilities: null
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+seccompProfiles:
+- '*'
+supplementalGroups:
+  type: RunAsAny
+users:
+- system:serviceaccount:{{ db2_namespace }}:db2-instance-service-account
+volumes:
+- '*'
+---
+# Service Account for DB2 Instances
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: db2-instance-service-account
+  namespace: {{ db2_namespace }}
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+imagePullSecrets:
+  - name: ibm-registry
+automountServiceAccountToken: true
+---
+# Service Account for DB2 Operator Controller
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: db2-database-operator-controller-manager
+  namespace: {{ db2_namespace }}
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+imagePullSecrets:
+  - name: ibm-registry
+---
+# ClusterRole for metrics authentication
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ db2_instance_name }}-db2-operator-metrics-auth-role
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+# ClusterRole for metrics reader
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ db2_instance_name }}-db2-operator-metrics-reader
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+# ClusterRole for DB2 Operator Manager
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ db2_instance_name }}-db2-operator-manager-role
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+---
+# ClusterRoleBinding for DB2 Operator Manager
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ db2_instance_name }}-db2-operator-manager-cluster-rolebinding
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ db2_instance_name }}-db2-operator-manager-role
+subjects:
+- kind: ServiceAccount
+  name: db2-database-operator-controller-manager
+  namespace: {{ db2_namespace }}
+---
+# ClusterRoleBinding for metrics authentication
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ db2_instance_name }}-db2-operator-metrics-auth-rolebinding
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ db2_instance_name }}-db2-operator-metrics-auth-role
+subjects:
+- kind: ServiceAccount
+  name: db2-database-operator-controller-manager
+  namespace: {{ db2_namespace }}
+---
+# Role for DB2 Instance
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: db2-instance-role
+  namespace: {{ db2_namespace }}
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - patch
+  - watch
+  - list
+  - update
+  - create
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - pods/exec
+  verbs:
+  - create
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - watch
+  - list
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - watch
+  - list
+  - get
+---
+# Role for leader election
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ db2_instance_name }}-db2-operator-leader-election-role
+  namespace: {{ db2_namespace }}
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+# Role for multitenancy
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: db2-operator-multitenancy-role
+  namespace: {{ db2_namespace }}
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - configmaps/finalizers
+  - persistentvolumeclaims
+  - persistentvolumeclaims/finalizers
+  - pods
+  - pods/exec
+  - pods/finalizers
+  - secrets
+  - secrets/finalizers
+  - serviceaccounts
+  - serviceaccounts/finalizers
+  - services
+  - services/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - db2u.databases.ibm.com
+  resources:
+  - db2uengines
+  - db2uinstances
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - db2u.databases.ibm.com
+  resources:
+  - db2uengines/finalizers
+  - db2uinstances/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - db2u.databases.ibm.com
+  resources:
+  - db2uengines/status
+  - db2uinstances/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - networkpolicies
+  - networkpolicies/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  - rolebindings/finalizers
+  - roles
+  - roles/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+---
+# RoleBinding for DB2 Instance
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: db2-instance-role-binding
+  namespace: {{ db2_namespace }}
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: db2-instance-role
+subjects:
+- kind: ServiceAccount
+  name: db2-instance-service-account
+  namespace: {{ db2_namespace }}
+---
+# RoleBinding for leader election
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ db2_instance_name }}-db2-operator-leader-election-rolebinding
+  namespace: {{ db2_namespace }}
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ db2_instance_name }}-db2-operator-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: db2-database-operator-controller-manager
+  namespace: {{ db2_namespace }}
+---
+# RoleBinding for multitenancy
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: db2-operator-multitenancy-rolebinding
+  namespace: {{ db2_namespace }}
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: db2-operator-multitenancy-role
+subjects:
+- kind: ServiceAccount
+  name: db2-database-operator-controller-manager
+  namespace: {{ db2_namespace }}
+---
+# Service for controller manager metrics
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ db2_instance_name }}-db2-operator-controller-manager-metrics-service
+  namespace: {{ db2_namespace }}
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+    control-plane: controller-manager
+spec:
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    app.kubernetes.io/name: db2-operator
+    control-plane: controller-manager
+---
+# Service for webhook
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ db2_instance_name }}-db2-operator-webhook-service
+  namespace: {{ db2_namespace }}
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 9443
+  selector:
+    app.kubernetes.io/name: db2-operator
+    control-plane: controller-manager
+---
+# Deployment for DB2 Operator Controller Manager
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ db2_instance_name }}-db2-operator-controller-manager
+  namespace: {{ db2_namespace }}
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+    control-plane: controller-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: db2-operator
+      control-plane: controller-manager
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        app.kubernetes.io/name: db2-operator
+        control-plane: controller-manager
+    spec:
+      serviceAccountName: db2-database-operator-controller-manager
+      securityContext:
+        runAsNonRoot: true
+      containers:
+      - name: manager
+        image: "{{ db2_operator_image | default('cp.stg.icr.io/cp/db2u/db2-operator:231-x86_64') }}"
+        imagePullPolicy: IfNotPresent
+        command:
+        - /manager
+        args:
+        - --metrics-bind-address=:8443
+        - --leader-elect
+        - --health-probe-bind-address=:8081
+        env:
+        - name: PLATFORM
+          value: "K8S"
+        - name: META_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: ENABLE_WEBHOOKS
+          value: "true"
+        - name: WATCH_NAMESPACE
+          value: "{{ db2_namespace }}"
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: webhook-server-cert
+---
+# Certificate for webhook
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ db2_instance_name }}-db2-operator-serving-cert
+  namespace: {{ db2_namespace }}
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: certificate
+spec:
+  dnsNames:
+  - {{ db2_instance_name }}-db2-operator-webhook-service.{{ db2_namespace }}.svc
+  - {{ db2_instance_name }}-db2-operator-webhook-service.{{ db2_namespace }}.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: {{ db2_instance_name }}-db2-operator-selfsigned-issuer
+  secretName: webhook-server-cert
+---
+# Issuer for self-signed certificates
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ db2_instance_name }}-db2-operator-selfsigned-issuer
+  namespace: {{ db2_namespace }}
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+spec:
+  selfSigned: {}
+---
+# MutatingWebhookConfiguration
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ db2_instance_name }}-db2-operator-mutating-webhook-configuration
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    cert-manager.io/inject-ca-from: {{ db2_namespace }}/{{ db2_instance_name }}-db2-operator-serving-cert
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ db2_instance_name }}-db2-operator-webhook-service
+      namespace: {{ db2_namespace }}
+      path: /mutate-db2u-databases-ibm-com-v1-db2uinstance
+  failurePolicy: Fail
+  name: mdb2uinstance.kb.io
+  rules:
+  - apiGroups:
+    - db2u.databases.ibm.com
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - db2uinstances
+  sideEffects: None
+---
+# ValidatingWebhookConfiguration
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ db2_instance_name }}-db2-operator-validating-webhook-configuration
+  labels:
+    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    cert-manager.io/inject-ca-from: {{ db2_namespace }}/{{ db2_instance_name }}-db2-operator-serving-cert
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ db2_instance_name }}-db2-operator-webhook-service
+      namespace: {{ db2_namespace }}
+      path: /validate-db2u-databases-ibm-com-v1-db2uinstance
+  failurePolicy: Fail
+  name: vdb2uinstance.kb.io
+  rules:
+  - apiGroups:
+    - db2u.databases.ibm.com
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - db2uinstances
+  sideEffects: None

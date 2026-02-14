@@ -1,0 +1,158 @@
+---
+- name: "Lookup db2 Pod"
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ db2_namespace }}"
+    label_selectors:
+      - type=engine
+      - app={{ db2_instance_name }}
+    wait: yes
+    wait_sleep: 30
+    wait_timeout: 300 # 5 mins until we give up waiting for the pod to get into the expected state
+    wait_condition:
+      type: Ready
+      status: "True"
+  register: db2_pod
+
+- name: Configure facts
+  set_fact:
+    db2_pod_name: "{{ db2_pod.resources[0].metadata.name }}"
+
+- name: "Debug information - part 2"
+  debug:
+    msg:
+      - "Pod name ............................... {{ db2_pod_name }}"
+
+- name: "Creating LOGARCHMETH1 folder in {{ db2_pod_name }}"
+  when: not db2_helm_operator_mode
+  shell: |
+    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc "mkdir -p /mnt/bludata0/db2/archive_log/" db2inst1
+  register: creating_logarchmeth1_folder_output
+
+- fail: msg="Failed to create path for LOGARCHMETH1"
+  when:
+    - not db2_helm_operator_mode
+    - creating_logarchmeth1_folder_output.rc != 0
+
+- name: "Creating DB2_OBJECT_STORAGE_LOCAL_STAGING_PATH folder in {{ db2_pod_name }}"
+  shell: |
+    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc "mkdir -p /mnt/backup/staging" db2inst1
+  register: creating_stagingpath_folder_output
+
+- fail: msg="Failed to create path for DB2_OBJECT_STORAGE_LOCAL_STAGING_PATH"
+  when:
+    - creating_stagingpath_folder_output.rc != 0
+
+- name: Lookup db2ucluster instance (legacy operator)
+  when: not db2_helm_operator_mode
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Db2uCluster
+    name: "{{db2_instance_name | lower}}"
+    namespace: "{{db2_namespace}}"
+  register: _db2_instance_engn_svc
+  until:
+    - _db2_instance_engn_svc.resources[0] is defined
+  retries: 15 # approx 5 minutes before we give up
+  delay: 20 # seconds
+
+- name: Lookup db2uinstance (helm operator)
+  when: db2_helm_operator_mode
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Db2uInstance
+    name: "{{db2_instance_name | lower}}"
+    namespace: "{{db2_namespace}}"
+  register: _db2_instance_engn_svc
+  until:
+    - _db2_instance_engn_svc.resources[0] is defined
+  retries: 15 # approx 5 minutes before we give up
+  delay: 20 # seconds
+
+- include_vars: vars/main.yml
+
+- name: Update DB2 configmaps (legacy operator)
+  when: not db2_helm_operator_mode
+  kubernetes.core.k8s:
+    merge_type: merge
+    definition:
+      apiVersion: v1
+      kind: Db2uCluster
+      metadata:
+        name: "{{db2_instance_name | lower}}"
+        namespace: "{{ db2_namespace }}"
+      spec: "{{ spec | from_yaml }}"
+  vars:
+    spec: |
+      {{db2_configs[db2_config_version]}}
+
+# Helm operator mode: Apply settings via DB2 commands instead of CR updates
+- name: Create updatedbsettings script in local /tmp (helm operator)
+  when: db2_helm_operator_mode
+  ansible.builtin.template:
+    src: updatedbsettings.sh.j2
+    dest: /tmp/updatedbsettings.sh
+    mode: '777'
+
+- name: Copy the updatedbsettings script into the db2u pod (helm operator)
+  when: db2_helm_operator_mode
+  shell: "oc cp /tmp/updatedbsettings.sh {{ db2_namespace }}/{{ db2_pod_name }}:/tmp/updatedbsettings.sh -c db2u"
+  register: copy_updatedb_result
+  retries: 10
+  delay: 30 # seconds
+  until: copy_updatedb_result.rc == 0
+
+- name: Run updatedbsettings to apply DB2 configuration (helm operator)
+  when: db2_helm_operator_mode
+  shell: |
+    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc '/tmp/updatedbsettings.sh 2>&1 | tee /tmp/updatedbsettings.log' db2inst1
+  register: updatedb_status
+  ignore_errors: true
+  retries: 3
+  delay: 30 # seconds
+  until:
+    - updatedb_status.rc == 0
+    - updatedb_status.stdout is defined
+    - updatedb_status.stdout | regex_search('DBConfigUpdate-Success', multiline=True) is not none
+
+- name: Print updatedbsettings.sh return code (helm operator)
+  when:
+    - db2_helm_operator_mode
+    - updatedb_status.rc is defined
+  debug:
+    msg:
+      - "UpdateDB return code (rc) .......................... {{ updatedb_status.rc }}"
+      - "UpdateDB output ..................................... {{ updatedb_status.stdout }}"
+
+- name: Assert that DB2 configuration was applied successfully (helm operator)
+  when: db2_helm_operator_mode
+  assert:
+    that:
+      - updatedb_status.rc is defined
+      - updatedb_status.rc == 0
+      - updatedb_status.stdout is defined
+      - updatedb_status.stdout | regex_search('DBConfigUpdate-Success', multiline=True) is not none
+    fail_msg: "updatedbsettings.sh failed - DB2 configuration may not have been applied"
+    success_msg: "DB2 configuration applied successfully via updatedbsettings.sh"
+
+- name: Verify DB2 configuration is in effect (helm operator)
+  when: db2_helm_operator_mode
+  shell: |
+    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc 'db2 get db cfg for {{ db2_dbname }} | grep "(CHNGPGS_THRESH) = 40"' db2inst1
+  register: verify_db2_config
+  until: verify_db2_config.rc == 0
+  retries: 5
+  delay: 30 # seconds
+
+- name: Display verification result (helm operator)
+  when: db2_helm_operator_mode
+  debug:
+    msg:
+      - "DB2 configuration verification successful"
+      - "CHNGPGS_THRESH is set to 40"
+
+- name: Create k8s configmaps for DB2 config version
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ db2_namespace }}"
+    template: "templates/db2_enforce_config.yaml.j2"
