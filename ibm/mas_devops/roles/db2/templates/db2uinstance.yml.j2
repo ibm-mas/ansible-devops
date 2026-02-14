@@ -27,6 +27,17 @@ spec:
       total: {{ db2_mln_count | default(4) }}
       volumePerPartition: true
 {% endif %}
+    ssl:
+      fromVolumeSource:
+        secret:
+          secretName: db2u-certificate-{{ db2_instance_name | lower }}
+          items:
+            - key: tls.crt
+              path: tls.crt
+            - key: tls.key
+              path: tls.key
+            - key: ca.crt
+              path: ca.crt
   podTemplate:
     db2u:
 {% if db2_affinity_key is defined and db2_affinity_key != "" %}
@@ -55,17 +66,6 @@ spec:
           requests:
             cpu: {{ db2_cpu_requests }}
             memory: {{ db2_memory_requests }}
-  ssl:
-    fromVolumeSource:
-      secret:
-        secretName: db2u-certificate-{{ db2_instance_name | lower }}
-        items:
-          - key: tls.crt
-            path: tls.crt
-          - key: tls.key
-            path: tls.key
-          - key: ca.crt
-            path: ca.crt
   storage:
   - name: meta
     spec:
