@@ -11,6 +11,9 @@ metadata:
 {% endif %}
 spec:
   secretName: "db2u-certificate-{{db2_instance_name}}"
+  secretTemplate:
+    labels:
+      com.db2u.databases.ibm.com/ssl-cert: {{db2_instance_name}}
   duration: "175200h0m0s"
   renewBefore: "2160h0m0s"
   issuerRef:
@@ -22,13 +25,18 @@ spec:
     - digital signature
     - key encipherment
     - server auth
-
-  commonName: "db2u"
+  commonName: {{db2_instance_name}}
   dnsNames:
+    - localhost
+    - "*.c-{{db2_instance_name | lower }}-db2u-head-engn-svc.{{ db2_namespace }}.svc"
+    - "*.c-{{db2_instance_name | lower }}-db2u-head-engn-svc.{{ db2_namespace }}.svc.cluster.local"
+    - "*.c-{{db2_instance_name | lower }}-db2u-engn-svc.{{ db2_namespace }}.svc.cluster.local"
+    - "*.c-{{db2_instance_name | lower }}-db2u-internal.{{ db2_namespace }}.svc.cluster.local"
+    - "*.c-{{db2_instance_name | lower }}-db2u-internal.{{ db2_namespace }}.svc"
     - "{{db2_instance_name | lower }}-{{db2_namespace}}.{{_cluster_subdomain.resources[0].spec.domain}}"
     - "*.{{db2_instance_name | lower }}-{{db2_namespace}}.{{_cluster_subdomain.resources[0].spec.domain}}"
-    - "c-{{db2_instance_name | lower}}-db2u-engn-svc.{{ db2_namespace }}.svc"
-    - "*.c-{{db2_instance_name | lower}}-db2u-engn-svc.{{ db2_namespace }}.svc"
+  ipAddresses:
+    - 127.0.0.1
   organization:
     - "IBM Maximo Application Suite"
   subject:

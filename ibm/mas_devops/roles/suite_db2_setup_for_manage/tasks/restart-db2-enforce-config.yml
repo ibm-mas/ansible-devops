@@ -1,0 +1,51 @@
+---
+# Restart DB2 to enforce configuration changes
+# This is only run when enforce_db2_config is true (downtime is allowed)
+
+- name: "Lookup db2 Pod"
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ db2_namespace }}"
+    label_selectors:
+      - type=engine
+      - app={{ db2_instance_name }}
+    wait: yes
+    wait_sleep: 30
+    wait_timeout: 300 # 5 mins until we give up waiting for the pod to get into the expected state
+    wait_condition:
+      type: Ready
+      status: "True"
+  register: db2_pod
+
+- name: Configure facts
+  set_fact:
+    db2_pod_name: "{{ db2_pod.resources[0].metadata.name }}"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "Pod name ............................... {{ db2_pod_name }}"
+      - "Restarting DB2 to enforce configuration changes..."
+
+- name: Restart DB2 instance to enforce configuration
+  shell: |
+    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc 'db2stop force && sleep 5 && db2start' db2inst1
+  register: restart_result
+  retries: 3
+  delay: 30 # seconds
+  until: restart_result.rc == 0
+
+- name: Verify DB2 instance is available after restart
+  shell: |
+    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc 'db2gcf -s | grep Available' db2inst1
+  register: verify_result
+  retries: 10
+  delay: 10 # seconds
+  until: verify_result.rc == 0
+
+- name: "DB2 restart completed"
+  debug:
+    msg:
+      - "DB2 instance restarted successfully"
+      - "Configuration changes are now in effect"
+

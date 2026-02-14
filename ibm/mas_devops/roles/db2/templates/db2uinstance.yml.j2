@@ -1,0 +1,118 @@
+---
+# DB2uInstance Custom Resource
+# This replaces the older Db2uCluster resource for helm-based operator installations
+apiVersion: db2u.databases.ibm.com/v1
+kind: Db2uInstance
+metadata:
+  name: "{{ db2_instance_name | lower }}"
+  namespace: "{{ db2_namespace }}"
+{% if custom_labels is defined and custom_labels.items() %}
+  labels:
+{% for key, value in custom_labels.items() %}
+    "{{ key }}": "{{ value }}"
+{% endfor %}
+{% endif %}
+spec:
+  imageRegistryOverride: true
+  image: "{{ db2_image | default('cp.stg.icr.io/cp/db2u/db2u.db2wh:12.1.3.0-761-amd64') }}"
+  license:
+    accept: true
+  nodes: {{ db2_num_pods | default(1) }}
+  environment:
+    dbType: {{ db2_type | default('db2wh') }}
+    databases:
+      - name: {{ db2_dbname }}
+{% if db2_workload == 'ANALYTICS' %}
+    partitionConfig:
+      total: {{ db2_mln_count | default(4) }}
+      volumePerPartition: true
+{% endif %}
+  podTemplate:
+    db2u:
+{% if db2_affinity_key is defined and db2_affinity_key != "" %}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: "{{ db2_affinity_key }}"
+                    operator: In
+                    values:
+                      - "{{ db2_affinity_value }}"
+{% endif %}
+{% if db2_tolerate_key is defined and db2_tolerate_key != "" %}
+      tolerations:
+        - key: "{{ db2_tolerate_key }}"
+          operator: "Equal"
+          value: "{{ db2_tolerate_value }}"
+          effect: "{{ db2_tolerate_effect }}"
+{% endif %}
+      resource:
+        db2u:
+          limits:
+            cpu: {{ db2_cpu_limits }}
+            memory: {{ db2_memory_limits }}
+          requests:
+            cpu: {{ db2_cpu_requests }}
+            memory: {{ db2_memory_requests }}
+  ssl:
+    fromVolumeSource:
+      secret:
+        secretName: db2u-certificate-{{ db2_instance_name | lower }}
+        items:
+          - key: tls.crt
+            path: tls.crt
+          - key: tls.key
+            path: tls.key
+          - key: ca.crt
+            path: ca.crt
+  storage:
+  - name: meta
+    spec:
+      accessModes:
+      - {{ db2_meta_storage_accessmode }}
+      resources:
+        requests:
+          storage: {{ db2_meta_storage_size }}
+      storageClassName: {{ db2_meta_storage_class }}
+    type: create
+  - name: archivelogs
+    spec:
+      accessModes:
+      - {{ db2_logs_storage_accessmode }}
+      resources:
+        requests:
+          storage: {{ db2_logs_storage_size }}
+      storageClassName: {{ db2_logs_storage_class }}
+    type: create
+  - name: data
+    type: {% if db2_workload == 'ANALYTICS' %}template{% else %}create{% endif %}
+
+    spec:
+      accessModes:
+        - {{ db2_data_storage_accessmode }}
+      resources:
+        requests:
+          storage: {{ db2_data_storage_size }}
+      storageClassName: {{ db2_data_storage_class }}
+  - name: tempts
+    type: {% if db2_workload == 'ANALYTICS' %}template{% else %}create{% endif %}
+
+    spec:
+      accessModes:
+        - {{ db2_temp_storage_accessmode }}
+      resources:
+        requests:
+          storage: {{ db2_temp_storage_size }}
+      storageClassName: {{ db2_temp_storage_class }}
+{% if db2_backup_storage_class is defined and db2_backup_storage_class != "" %}
+  - name: backup
+    spec:
+      accessModes:
+      - {{ db2_backup_storage_accessmode }}
+      resources:
+        requests:
+          storage: {{ db2_backup_storage_size }}
+      storageClassName: {{ db2_backup_storage_class }}
+    type: create
+{% endif %}
