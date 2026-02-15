@@ -90,13 +90,13 @@
 - name: Create updatedbsettings script in local /tmp (helm operator)
   when: db2_helm_operator_mode
   ansible.builtin.template:
-    src: updatedbsettings.sh.j2
-    dest: /tmp/updatedbsettings.sh
+    src: "updatedbsettings_{{ db2_config_version }}.sh.j2"
+    dest: "/tmp/updatedbsettings_{{ db2_config_version }}.sh"
     mode: '777'
 
 - name: Copy the updatedbsettings script into the db2u pod (helm operator)
   when: db2_helm_operator_mode
-  shell: "oc cp /tmp/updatedbsettings.sh {{ db2_namespace }}/{{ db2_pod_name }}:/tmp/updatedbsettings.sh -c db2u"
+  shell: "oc cp /tmp/updatedbsettings_{{ db2_config_version }}.sh {{ db2_namespace }}/{{ db2_pod_name }}:/tmp/updatedbsettings_{{ db2_config_version }}.sh -c db2u"
   register: copy_updatedb_result
   retries: 10
   delay: 30 # seconds
@@ -105,7 +105,7 @@
 - name: Run updatedbsettings to apply DB2 configuration (helm operator)
   when: db2_helm_operator_mode
   shell: |
-    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc '/tmp/updatedbsettings.sh 2>&1 | tee /tmp/updatedbsettings.log' db2inst1
+    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc '/tmp/updatedbsettings_{{ db2_config_version }}.sh 2>&1 | tee /tmp/updatedbsettings_{{ db2_config_version }}.log' db2inst1
   register: updatedb_status
   ignore_errors: true
   retries: 3
