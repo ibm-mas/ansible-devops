@@ -1,0 +1,222 @@
+---
+# MongoDB Atlas Provider - Configure Route Tables for VPC Peering
+# This task adds routes to AWS route tables for MongoDB Atlas VPC peering
+# Note: VPC peering connection must be created manually through AWS/Atlas console first
+
+# 1. Retrieve Atlas API credentials from AWS Secrets Manager (if configured)
+# -----------------------------------------------------------------------------
+- name: "Retrieve Atlas credentials from AWS Secrets Manager"
+  when:
+    - atlas_aws_secret_name is defined
+    - atlas_aws_secret_name != ""
+    - atlas_aws_secret_region is defined
+  block:
+    - name: "Get Atlas API credentials from AWS Secrets Manager"
+      shell: |
+        aws secretsmanager get-secret-value \
+          --secret-id "{{ atlas_aws_secret_name }}" \
+          --region "{{ atlas_aws_secret_region }}" \
+          --query SecretString \
+          --output text
+      register: atlas_secret_output
+      no_log: true
+
+    - name: "Parse Atlas credentials from secret"
+      set_fact:
+        atlas_credentials: "{{ atlas_secret_output.stdout | from_json }}"
+      no_log: true
+
+    - name: "Set Atlas API credentials from AWS Secrets Manager"
+      set_fact:
+        atlas_public_key: "{{ atlas_credentials.public_key }}"
+        atlas_private_key: "{{ atlas_credentials.private_key }}"
+      no_log: true
+
+# 2. Validate required variables
+# -----------------------------------------------------------------------------
+- name: "Fail if Atlas API credentials are not provided"
+  assert:
+    that:
+      - atlas_public_key is defined and atlas_public_key != ""
+      - atlas_private_key is defined and atlas_private_key != ""
+    fail_msg: "Atlas API credentials (atlas_public_key and atlas_private_key) are required"
+
+- name: "Fail if Atlas project information is not provided"
+  assert:
+    that:
+      - atlas_project_id is defined and atlas_project_id != ""
+    fail_msg: "Atlas project ID is required"
+
+# Set the working variable - use the converted array if available, otherwise use original
+- name: "Set working route table IDs variable"
+  set_fact:
+    atlas_aws_route_table_ids_working: "{{ atlas_aws_route_table_ids_final if atlas_aws_route_table_ids_final is defined else atlas_aws_route_table_ids }}"
+
+- name: "Fail if required configuration is not provided"
+  assert:
+    that:
+      - atlas_vpc_id is defined and atlas_vpc_id != ""
+      - atlas_aws_region is defined and atlas_aws_region != ""
+      - atlas_aws_route_table_ids_working is defined and atlas_aws_route_table_ids_working | length > 0
+      - atlas_provider_name is defined and atlas_provider_name != ""
+    fail_msg: "Required configuration (vpc_id, aws_region, route_table_ids, provider_name) is missing"
+
+# 3. Convert region format for AWS CLI (Atlas uses US_EAST_1, AWS CLI uses us-east-1)
+# -----------------------------------------------------------------------------
+- name: "Convert Atlas region format to AWS CLI format"
+  set_fact:
+    aws_cli_region: "{{ atlas_aws_region | lower | replace('_', '-') }}"
+
+# 4. Display initial configuration
+# -----------------------------------------------------------------------------
+- name: "MongoDB Atlas Route Table Configuration"
+  debug:
+    msg:
+      - "=========================================="
+      - "MongoDB Atlas Route Table Configuration"
+      - "=========================================="
+      - "Atlas Project ID ............ {{ atlas_project_id }}"
+      - "Provider Name ............... {{ atlas_provider_name }}"
+      - "Atlas Region (API format) ... {{ atlas_aws_region }}"
+      - "AWS Region (CLI format) ..... {{ aws_cli_region }}"
+      - "VPC ID ...................... {{ atlas_vpc_id }}"
+      - "Route Table IDs ............. {{ atlas_aws_route_table_ids_working | length }} tables"
+      - "=========================================="
+
+# 4. Get MongoDB Atlas network containers
+# -----------------------------------------------------------------------------
+- name: "Get Atlas network containers"
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/containers"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    status_code: [200]
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_containers_response
+  retries: 3
+  delay: 5
+
+- name: "Display network containers"
+  debug:
+    msg: "Found {{ atlas_containers_response.json.results | length }} network containers"
+
+# 5. Find the container for the specified region and provider
+# -----------------------------------------------------------------------------
+- name: "Find container for region {{ atlas_aws_region }} and provider {{ atlas_provider_name }}"
+  set_fact:
+    atlas_container: "{{ atlas_containers_response.json.results | selectattr('regionName', 'equalto', atlas_aws_region) | selectattr('providerName', 'equalto', atlas_provider_name) | first }}"
+  when:
+    - atlas_containers_response.json.results | selectattr('regionName', 'equalto', atlas_aws_region) | selectattr('providerName', 'equalto', atlas_provider_name) | list | length > 0
+
+- name: "Fail if no container found for region"
+  fail:
+    msg: "No Atlas network container found for region {{ atlas_aws_region }} and provider {{ atlas_provider_name }}"
+  when: atlas_container is not defined
+
+- name: "Display container information"
+  debug:
+    msg:
+      - "Container ID ................ {{ atlas_container.id }}"
+      - "Region Name ................. {{ atlas_container.regionName }}"
+      - "Atlas CIDR Block ............ {{ atlas_container.atlasCidrBlock }}"
+      - "Provider Name ............... {{ atlas_container.providerName }}"
+
+# 6. Get VPC peering connection ID
+# -----------------------------------------------------------------------------
+- name: "Get VPC peering connection ID"
+  shell: |
+    aws ec2 describe-vpc-peering-connections \
+      --region {{ aws_cli_region }} \
+      --filters "Name=requester-vpc-info.vpc-id,Values={{ atlas_vpc_id }}" \
+                "Name=requester-vpc-info.cidr-block,Values={{ atlas_container.atlasCidrBlock }}" \
+                "Name=status-code,Values=active" \
+      --query "VpcPeeringConnections[0].VpcPeeringConnectionId" \
+      --output text
+  register: vpc_peering_connection_result
+  changed_when: false
+
+- name: "Set VPC peering connection ID"
+  set_fact:
+    atlas_vpc_peering_connection_id: "{{ vpc_peering_connection_result.stdout }}"
+
+- name: "Fail if no active VPC peering connection found"
+  fail:
+    msg: "No active VPC peering connection found for VPC {{ atlas_vpc_id }} with Atlas CIDR {{ atlas_container.atlasCidrBlock }}"
+  when: atlas_vpc_peering_connection_id == "" or atlas_vpc_peering_connection_id == "None"
+
+- name: "Display VPC peering connection"
+  debug:
+    msg: "VPC Peering Connection ID: {{ atlas_vpc_peering_connection_id }}"
+
+# 7. Add routes to AWS route tables
+# -----------------------------------------------------------------------------
+- name: "Check if route already exists in route table"
+  shell: |
+    aws ec2 describe-route-tables \
+      --route-table-ids {{ item }} \
+      --region {{ aws_cli_region }} \
+      --query "RouteTables[0].Routes[?DestinationCidrBlock=='{{ atlas_container.atlasCidrBlock }}'].VpcPeeringConnectionId" \
+      --output text
+  register: existing_route_check
+  loop: "{{ atlas_aws_route_table_ids_working }}"
+  changed_when: false
+  failed_when: false
+
+- name: "Create route to Atlas for each route table"
+  shell: |
+    aws ec2 create-route \
+      --route-table-id {{ item.item }} \
+      --destination-cidr-block {{ atlas_container.atlasCidrBlock }} \
+      --vpc-peering-connection-id {{ atlas_vpc_peering_connection_id }} \
+      --region {{ aws_cli_region }}
+  loop: "{{ existing_route_check.results }}"
+  when: item.stdout == ""
+  register: route_creation_result
+  failed_when: false
+
+- name: "Display route creation results"
+  debug:
+    msg:
+      - "Route Table ID: {{ item.item.item }}"
+      - "Status: {{ 'Created' if item.changed else 'Already exists' }}"
+  loop: "{{ route_creation_result.results }}"
+  when: route_creation_result.results is defined
+
+# 8. Verify routes were created
+# -----------------------------------------------------------------------------
+- name: "Verify routes in route tables"
+  shell: |
+    aws ec2 describe-route-tables \
+      --route-table-ids {{ item }} \
+      --region {{ aws_cli_region }} \
+      --query "RouteTables[0].Routes[?DestinationCidrBlock=='{{ atlas_container.atlasCidrBlock }}']" \
+      --output json
+  register: route_verification
+  loop: "{{ atlas_aws_route_table_ids_working }}"
+  changed_when: false
+
+- name: "Display route verification"
+  debug:
+    msg:
+      - "Route Table: {{ item.item }}"
+      - "Routes: {{ item.stdout | from_json }}"
+  loop: "{{ route_verification.results }}"
+
+# 9. Display configuration results
+# -----------------------------------------------------------------------------
+- name: "Route table configuration completed successfully"
+  debug:
+    msg:
+      - "=========================================="
+      - "MongoDB Atlas Route Tables Configured!"
+      - "=========================================="
+      - "Atlas CIDR Block ............ {{ atlas_container.atlasCidrBlock }}"
+      - "VPC Peering Connection ...... {{ atlas_vpc_peering_connection_id }}"
+      - "Routes Added ................ {{ atlas_aws_route_table_ids_working | length }} route tables"
+      - "AWS Region .................. {{ atlas_aws_region }}"
+      - "Provider Name ............... {{ atlas_provider_name }}"
+      - "=========================================="
+
+# Made with Bob

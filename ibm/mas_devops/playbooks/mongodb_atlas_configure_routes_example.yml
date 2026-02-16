@@ -1,0 +1,161 @@
+---
+# MongoDB Atlas Configure Route Tables Playbook
+# This playbook configures AWS route tables for MongoDB Atlas VPC peering
+#
+# Prerequisites:
+#   - VPC peering connection must be created manually through AWS/Atlas console
+#   - AWS CLI must be configured with appropriate credentials
+#   - MongoDB Atlas API credentials (public/private key)
+#
+# Usage:
+#   ansible-playbook ibm.mas_devops.mongodb_atlas_configure_routes_example
+#
+# Environment Variables:
+#   Required:
+#     - ATLAS_PROJECT_ID: MongoDB Atlas project ID
+#     - ATLAS_PUBLIC_KEY: Atlas API public key (or use AWS Secrets Manager)
+#     - ATLAS_PRIVATE_KEY: Atlas API private key (or use AWS Secrets Manager)
+#     - ATLAS_VPC_ID: AWS VPC ID
+#     - ATLAS_AWS_ROUTE_TABLE_IDS: Comma-separated list of route table IDs
+#     - ATLAS_AWS_REGION: AWS region (default: us-east-1)
+#     - ATLAS_PROVIDER_NAME: Provider name (default: AWS)
+#
+#   Optional (AWS Secrets Manager):
+#     - ATLAS_AWS_SECRET_NAME: Name of AWS secret containing Atlas credentials
+#     - ATLAS_AWS_SECRET_REGION: AWS region where secret is stored
+#
+#   Note: VPC peering connection ID is automatically discovered based on VPC ID and Atlas CIDR
+#
+# Examples:
+#
+#   1. Using AWS Secrets Manager (Recommended):
+#      export ATLAS_PROJECT_ID="507f1f77bcf86cd799439011"
+#      export ATLAS_AWS_SECRET_NAME="/aws-dev/mongodb-atlas-cluster/apikeys"
+#      export ATLAS_AWS_SECRET_REGION="us-east-1"
+#      export ATLAS_VPC_ID="vpc-0123456789abcdef0"
+#      export ATLAS_AWS_ROUTE_TABLE_IDS="rtb-111111,rtb-222222,rtb-333333"
+#      export ATLAS_AWS_REGION="us-east-1"
+#      ansible-playbook ibm.mas_devops.mongodb_atlas_configure_routes_example
+#
+#   2. Using extra vars with AWS Secrets Manager:
+#      ansible-playbook ibm.mas_devops.mongodb_atlas_configure_routes_example \
+#        -e atlas_project_id="507f1f77bcf86cd799439011" \
+#        -e atlas_aws_secret_name="/aws-dev/mongodb-atlas-cluster/apikeys" \
+#        -e atlas_aws_secret_region="us-east-1" \
+#        -e atlas_vpc_id="vpc-0123456789abcdef0" \
+#        -e atlas_aws_route_table_ids="['rtb-111111','rtb-222222','rtb-333333']" \
+#        -e atlas_aws_region="us-east-1"
+#
+#   3. Using direct credentials (Not recommended for production):
+#      ansible-playbook ibm.mas_devops.mongodb_atlas_configure_routes_example \
+#        -e atlas_project_id="507f1f77bcf86cd799439011" \
+#        -e atlas_public_key="your-public-key" \
+#        -e atlas_private_key="your-private-key" \
+#        -e atlas_vpc_id="vpc-0123456789abcdef0" \
+#        -e atlas_aws_route_table_ids="['rtb-111111','rtb-222222','rtb-333333']" \
+#        -e atlas_aws_region="us-east-1"
+
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    # MongoDB provider and action
+    mongodb_provider: atlas
+    mongodb_action: configure_vpc_peering
+
+  pre_tasks:
+    # Convert route table IDs string to array
+    # Use a different variable name to avoid -e precedence issues
+    - name: "Convert route table IDs string to JSON array"
+      shell: |
+        echo '{{ atlas_aws_route_table_ids }}' | python3 -c "import sys, json; ids = sys.stdin.read().strip(); print(json.dumps(ids.split(',') if ',' in ids else [ids]))"
+      register: route_table_ids_json
+      when:
+        - atlas_aws_route_table_ids is defined
+        - atlas_aws_route_table_ids is string
+      changed_when: false
+
+    # Set the converted array to a NEW variable name
+    - name: "Set route table IDs array"
+      set_fact:
+        atlas_route_table_ids_array: "{{ route_table_ids_json.stdout | from_json }}"
+      when:
+        - route_table_ids_json is defined
+        - route_table_ids_json.stdout is defined
+
+    # Use the array if conversion happened, otherwise use original
+    - name: "Set final route table IDs variable"
+      set_fact:
+        atlas_aws_route_table_ids_final: "{{ atlas_route_table_ids_array if atlas_route_table_ids_array is defined else (atlas_aws_route_table_ids if atlas_aws_route_table_ids is not string else [atlas_aws_route_table_ids]) }}"
+
+    # Debug: Show final value
+    - name: "Debug: Final route table IDs"
+      debug:
+        msg:
+          - "Type: {{ atlas_aws_route_table_ids_final | type_debug }}"
+          - "Value: {{ atlas_aws_route_table_ids_final }}"
+          - "Length: {{ atlas_aws_route_table_ids_final | length }}"
+      when: atlas_aws_route_table_ids_final is defined
+
+    # Validate required variables
+    - name: "Validate required variables"
+      assert:
+        that:
+          - atlas_project_id is defined and atlas_project_id != ""
+          - (atlas_public_key is defined and atlas_public_key != "" and atlas_private_key is defined and atlas_private_key != "") or (atlas_aws_secret_name is defined and atlas_aws_secret_name != "")
+          - atlas_vpc_id is defined and atlas_vpc_id != ""
+          - atlas_aws_route_table_ids is defined and atlas_aws_route_table_ids | length > 0
+          - atlas_aws_region is defined and atlas_aws_region != ""
+        fail_msg: |
+          Required variables are missing. Please set:
+          - atlas_project_id (MongoDB Atlas project ID)
+          - Either (atlas_public_key and atlas_private_key) or atlas_aws_secret_name
+          - atlas_vpc_id (AWS VPC ID)
+          - atlas_aws_route_table_ids (List of route table IDs or comma-separated string)
+          - atlas_aws_region (AWS region)
+
+    - name: "Display route table configuration"
+      debug:
+        msg:
+          - "MongoDB Atlas Route Table Configuration:"
+          - "  Project ID: {{ atlas_project_id }}"
+          - "  VPC ID: {{ atlas_vpc_id }}"
+          - "  Route Tables: {{ atlas_aws_route_table_ids_final | length }} tables"
+          - "  AWS Region: {{ atlas_aws_region }}"
+          - "  Provider: {{ atlas_provider_name | default('AWS') }}"
+
+    - name: "Confirm route table configuration"
+      pause:
+        prompt: |
+          
+          This will add routes to AWS route tables for MongoDB Atlas VPC peering.
+          
+          Project ID: {{ atlas_project_id }}
+          VPC ID: {{ atlas_vpc_id }}
+          Route Tables: {{ atlas_aws_route_table_ids_final | length }} tables
+          Region: {{ atlas_aws_region }}
+          
+          The Atlas CIDR block and VPC peering connection ID will be discovered automatically.
+          Make sure VPC peering connection is already created in AWS/Atlas console.
+          Continue? (yes/no)
+      register: config_confirmation
+
+    - name: "Abort if not confirmed"
+      fail:
+        msg: "Route table configuration aborted by user"
+      when: config_confirmation.user_input | lower != 'yes'
+
+  roles:
+    - ibm.mas_devops.mongodb
+
+  post_tasks:
+    - name: "Configuration Summary"
+      debug:
+        msg:
+          - "=========================================="
+          - "MongoDB Atlas Route Tables Configured"
+          - "=========================================="
+          - "Routes have been added to {{ atlas_aws_route_table_ids_final | length }} route tables"
+          - "VPC ID: {{ atlas_vpc_id }}"
+          - "=========================================="
+
+# Made with Bob

@@ -160,13 +160,21 @@ atlas_db_password: "{{ lookup('env', 'ATLAS_DB_PASSWORD') }}"
 atlas_private_endpoint_enabled: "{{ lookup('env', 'ATLAS_PRIVATE_ENDPOINT_ENABLED') | default(false, True) | bool }}"
 atlas_private_endpoint_id: "{{ lookup('env', 'ATLAS_PRIVATE_ENDPOINT_ID') }}"
 
-# Atlas IP Access List (whitelist) - comma-separated list of CIDR blocks
-atlas_ip_access_list_str: "{{ lookup('env', 'ATLAS_IP_ACCESS_LIST') }}"
+# Atlas VPC Peering / Route Table Configuration
+# VPC peering connection must be created manually through AWS/Atlas console
+# The Atlas CIDR block and VPC peering connection ID are retrieved automatically
+atlas_provider_name: "{{ lookup('env', 'ATLAS_PROVIDER_NAME') | default('AWS', True) }}"
+atlas_vpc_id: "{{ lookup('env', 'ATLAS_VPC_ID') }}"
+atlas_aws_region: "{{ lookup('env', 'ATLAS_AWS_REGION') | default('us-east-1', True) }}"
 
-# Atlas Uninstall Configuration
-atlas_delete_ip_access_list: "{{ lookup('env', 'ATLAS_DELETE_IP_ACCESS_LIST') | default(false, True) | bool }}"
-atlas_delete_wait_timeout: "{{ lookup('env', 'ATLAS_DELETE_WAIT_TIMEOUT') | default(1800, True) | int }}"
-atlas_ip_access_list: "{{ atlas_ip_access_list_str.split(',') if atlas_ip_access_list_str else [] }}"
+# Route table IDs from environment variable (comma-separated string)
+# Note: If passed via -e flag, conversion happens in playbook pre_tasks
+# Only use this default if atlas_aws_route_table_ids is NOT already defined
+atlas_aws_route_table_ids_from_env: "{{ lookup('env', 'ATLAS_AWS_ROUTE_TABLE_IDS') }}"
+
+# Atlas Deprovision Configuration
+atlas_remove_db_users: "{{ lookup('env', 'ATLAS_REMOVE_DB_USERS') | default(true, True) | bool }}"
+atlas_wait_for_deletion: "{{ lookup('env', 'ATLAS_WAIT_FOR_DELETION') | default(true, True) | bool }}"
 
 # Only allow Mongo upgrades to be next compatible minor (or patch) version.
 # Example:
