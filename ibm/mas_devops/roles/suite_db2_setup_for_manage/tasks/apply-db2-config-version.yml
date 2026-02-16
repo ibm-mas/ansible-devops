@@ -1,4 +1,41 @@
 ---
+# Enhanced version with dual CR support (Db2uCluster and Db2uInstance)
+
+# Step 1: Detect which CR type exists
+- name: "Detect Db2 CR type (Db2uCluster or Db2uInstance)"
+  block:
+    - name: Set the retry count
+      set_fact: 
+        retry_count: "{{ 0 if retry_count is undefined else retry_count|int + 1 }}"
+
+    - name: Verify if the Db2 CR exists
+      assert:
+        that:
+          - db2_cr_exists | bool == true
+  rescue:
+    - fail:
+        msg: Ended after {{ db2_cr_detection_retries }}
+      when: retry_count|int == db2_cr_detection_retries
+
+    - include_tasks: tasks/detect-db2-cr-type.yml
+      register: _detect_result
+
+
+# Step 2: Validate detection results
+- name: "Validate CR detection and state"
+  include_tasks: tasks/validate-db2-cr.yml
+
+# Step 3: Display deprecation warning for Db2uCluster
+- name: "Deprecation notice for Db2uCluster"
+  when: db2_cr_type == "Db2uCluster"
+  debug:
+    msg:
+      - "WARNING: Db2uCluster is deprecated and will be removed in a future release"
+      - "Please plan to migrate to Db2uInstance for continued support"
+      - "Your existing Db2uCluster will continue to work with this role"
+      - "For migration guidance, refer to the db2 role documentation"
+
+# Step 4: Lookup and wait for Db2 Pod
 - name: "Lookup db2 Pod"
   kubernetes.core.k8s_info:
     kind: Pod
@@ -18,11 +55,14 @@
   set_fact:
     db2_pod_name: "{{ db2_pod.resources[0].metadata.name }}"
 
-- name: "Debug information - part 2"
+- name: "Debug information"
   debug:
     msg:
       - "Pod name ............................... {{ db2_pod_name }}"
+      - "CR Type ................................ {{ db2_cr_type }}"
+      - "CR Status .............................. {{ db2_cr_resource.status.state }}"
 
+# Step 5: Create required directories
 - name: "Creating LOGARCHMETH1 folder in {{ db2_pod_name }}"
   shell: |
     oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc "mkdir -p /mnt/bludata0/db2/archive_log/" db2inst1
@@ -41,35 +81,33 @@
   when:
     - creating_stagingpath_folder_output.rc != 0
 
-- name: Lookup db2ucluster instance
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Db2uCluster
-    name: "{{db2_instance_name | lower}}"
-    namespace: "{{db2_namespace}}"
-  register: _db2_instance_engn_svc
-  until:
-    - _db2_instance_engn_svc.resources[0] is defined
-  retries: 15 # approx 5 minutes before we give up
-  delay: 20 # seconds
+# Step 6: Transform configuration for detected CR type
+- name: "Transform configuration for {{ db2_cr_type }}"
+  include_tasks: tasks/transform-db2-config.yml
 
-- include_vars: vars/main.yml
-
-- name: Update DB2 configmaps
+# Step 7: Update CR with configuration
+- name: "Update {{ db2_cr_type }} configuration"
   kubernetes.core.k8s:
     merge_type: merge
     definition:
-      apiVersion: v1
-      kind: Db2uCluster
+      apiVersion: "{{ db2_cr_api_version }}"
+      kind: "{{ db2_cr_type }}"
       metadata:
-        name: "{{db2_instance_name | lower}}"
+        name: "{{ db2_instance_name | lower }}"
         namespace: "{{ db2_namespace }}"
-      spec: "{{ spec | from_yaml }}"
-  vars:
-    spec: |
-      {{db2_configs[db2_config_version]}}
+      spec: "{{ db2_config_transformed }}"
+  register: _config_update_result
 
-- name: Create k8s configmaps for DB2 config version
+- name: "Debug configuration update result"
+  when: ansible_verbosity >= 1
+  debug:
+    msg:
+      - "Configuration update changed: {{ _config_update_result.changed }}"
+      - "CR Type: {{ db2_cr_type }}"
+      - "Config Version: {{ db2_config_version }}"
+
+# Step 8: Create ConfigMap to track version
+- name: Create k8s configmap for DB2 config version
   kubernetes.core.k8s:
     state: present
     namespace: "{{ db2_namespace }}"

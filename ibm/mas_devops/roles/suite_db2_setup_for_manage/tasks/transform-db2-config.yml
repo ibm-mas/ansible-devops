@@ -1,0 +1,66 @@
+---
+# Transform DB2 configuration for the detected CR type
+# Handles differences between Db2uCluster and Db2uInstance structures
+
+- name: "Load base configuration"
+  include_vars: vars/main.yml
+
+- name: "Check if configuration version exists"
+  assert:
+    that:
+      - db2_configs is defined
+      - db2_config_version in db2_configs.keys()
+    fail_msg: |
+      Configuration version '{{ db2_config_version }}' not found in db2_configs.
+      Available versions: {{ db2_configs.keys() | list }}
+    success_msg: "Configuration version {{ db2_config_version }} found"
+
+- name: "Get configuration for CR type"
+  set_fact:
+    db2_config_raw: "{{ db2_configs[db2_config_version][db2_cr_type] }}"
+
+- name: "Debug raw configuration"
+  debug:
+    msg:
+      - "CR Type: {{ db2_cr_type }}"
+      - "Config Version: {{ db2_config_version }}"
+      - "Raw Configuration:"
+      - "{{ db2_config_raw }}"
+  when: ansible_verbosity >= 2
+
+- name: "Parse configuration as YAML"
+  set_fact:
+    db2_config_transformed: "{{ db2_config_raw | from_yaml }}"
+
+- name: "Validate transformed configuration structure"
+  assert:
+    that:
+      - db2_config_transformed is defined
+      - db2_config_transformed.environment is defined
+      - db2_config_transformed.environment.instance is defined
+    fail_msg: |
+      Transformed configuration is invalid or missing required fields.
+      Expected structure with 'environment.instance' but got:
+      {{ db2_config_transformed | to_nice_yaml }}
+    success_msg: "Configuration structure is valid"
+
+- name: "Validate database configuration exists"
+  assert:
+    that:
+      - (db2_cr_type == 'Db2uCluster' and db2_config_transformed.environment.database is defined) or
+        (db2_cr_type == 'Db2uInstance' and db2_config_transformed.environment.databases is defined)
+    fail_msg: |
+      Database configuration missing for {{ db2_cr_type }}.
+      Expected: {{ 'environment.database' if db2_cr_type == 'Db2uCluster' else 'environment.databases' }}
+      Got: {{ db2_config_transformed.environment.keys() | list }}
+    success_msg: "Database configuration is present"
+
+- name: "Display transformed configuration summary"
+  debug:
+    msg:
+      - "Configuration transformed successfully for {{ db2_cr_type }}"
+      - "Database config keys: {{ db2_config_transformed.environment.database.dbConfig.keys() | list if db2_cr_type == 'Db2uCluster' else db2_config_transformed.environment.databases[0].dbConfig.keys() | list }}"
+      - "Instance dbmConfig keys: {{ db2_config_transformed.environment.instance.dbmConfig.keys() | list }}"
+      - "Instance registry keys: {{ db2_config_transformed.environment.instance.registry.keys() | list }}"
+
+# Made with Bob
