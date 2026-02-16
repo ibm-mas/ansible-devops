@@ -15,8 +15,8 @@ MAS Devops Collection includes playbooks for backing up and restoring MAS compon
 **Supported Components:**
 - [MAS Core](#mas-core-backup-and-restore)
 - MongoDB Community Edition
-- Db2 (Coming soon)
-- Manage (Coming soon)
+- Db2w Universal Operator
+- Manage
 
 **Roles Supporting Backup/Restore:**
 - [`ibm.mas_devops.cert_manager`](../roles/cert_manager.md)

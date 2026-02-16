@@ -4,19 +4,25 @@
   vars:
     # Define the target for backup/restore
     mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
-    mongodb_action: "{{ lookup('env', 'MONGODB_ACTION') | default('backup', true) }}" # backup or restore_database or install
+    mongodb_action: "{{ lookup('env', 'MONGODB_ACTION') | default('backup', true) }}" # backup or backup_database or restore_database or install
     mas_backup_dir: "{{ lookup('env', 'MAS_BACKUP_DIR') }}" # eg: /tmp/mas_backups
-    mongodb_backup_version: "{{ lookup('env', 'MONGODB_BACKUP_VERSION') }}" # Required for install from backup or restore_database action
+    mongodb_backup_version: "{{ lookup('env', 'MONGODB_BACKUP_VERSION') }}" # Required for restore or restore_database action
     mongodb_instance_name: "{{ lookup('env', 'MONGODB_INSTANCE_NAME') | default('mas-mongo-ce', true) }}"
     mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', true) }}"
     mongodb_provider: "community" # only community is supported currently
     mas_app_id: "{{ lookup('env', 'MAS_APP_ID') }}" # Optional
+    # mongo restore configuration
+    override_storageclass: "{{ lookup('env', 'OVERRIDE_STORAGECLASS') | default('false', true) | bool }}" # Set to true to override
+    # when OVERRIDE_MONGODB_STORAGECLASS to true, MONGODB_STORAGECLASS_NAME_RWO will be used
+    mongodb_storageclass_rwo: "{{ lookup('env', 'MONGODB_STORAGECLASS_NAME_RWO') | default('', true) }}"
 
   pre_tasks:
-    - name: "Fail if mongodb_action is not set to backup|install|restore_database"
+    - name: "Fail if mongodb_action is not set to backup|backup_database|restore|restore_database"
       assert:
         that: mongodb_action in ["backup", "backup_database", "restore_database", "restore"]
         fail_msg: "mongodb_action is required and must be set to 'backup' or 'backup_database' or 'restore' or 'restore_database'"
 
   roles:
     - role: ibm.mas_devops.mongodb
+      vars:
+        mongodb_storage_class: "{{ mongodb_storageclass_rwo }}"
