@@ -1,0 +1,214 @@
+---
+# MongoDB Atlas Provider - Deprovision Task
+# This task decommissions MongoDB Atlas cluster and cleans up associated resources
+
+# 1. Retrieve Atlas API credentials from AWS Secrets Manager (if configured)
+# -----------------------------------------------------------------------------
+- name: "Retrieve Atlas credentials from AWS Secrets Manager"
+  when: 
+    - atlas_aws_secret_name is defined
+    - atlas_aws_secret_name != ""
+    - atlas_aws_secret_region is defined
+  block:
+    - name: "Get Atlas API credentials from AWS Secrets Manager"
+      shell: |
+        aws secretsmanager get-secret-value \
+          --secret-id "{{ atlas_aws_secret_name }}" \
+          --region "{{ atlas_aws_secret_region }}" \
+          --query SecretString \
+          --output text
+      register: atlas_secret_output
+      no_log: true
+
+    - name: "Parse Atlas credentials from secret"
+      set_fact:
+        atlas_credentials: "{{ atlas_secret_output.stdout | from_json }}"
+      no_log: true
+
+    - name: "Set Atlas API credentials from AWS Secrets Manager"
+      set_fact:
+        atlas_public_key: "{{ atlas_credentials.public_key }}"
+        atlas_private_key: "{{ atlas_credentials.private_key }}"
+      no_log: true
+
+# 2. Validate required variables
+# -----------------------------------------------------------------------------
+- name: "Fail if Atlas API credentials are not provided"
+  assert:
+    that:
+      - atlas_public_key is defined and atlas_public_key != ""
+      - atlas_private_key is defined and atlas_private_key != ""
+    fail_msg: "Atlas API credentials (atlas_public_key and atlas_private_key) are required. Provide them directly or via AWS Secrets Manager."
+
+- name: "Fail if Atlas project information is not provided"
+  assert:
+    that:
+      - atlas_project_id is defined and atlas_project_id != ""
+    fail_msg: "Atlas project ID is required"
+
+- name: "Fail if Atlas cluster name is not provided"
+  assert:
+    that:
+      - atlas_cluster_name is defined and atlas_cluster_name != ""
+    fail_msg: "Atlas cluster name is required"
+
+# 3. Display decommission configuration
+# -----------------------------------------------------------------------------
+- name: "MongoDB Atlas Decommission Configuration"
+  debug:
+    msg:
+      - "=========================================="
+      - "MongoDB Atlas Cluster Decommission"
+      - "=========================================="
+      - "Atlas Project ID ............ {{ atlas_project_id }}"
+      - "Cluster Name ................ {{ atlas_cluster_name }}"
+      - "Database Username ........... {{ atlas_db_username | default('N/A') }}"
+      - "Remove Database Users ....... {{ atlas_remove_db_users | default(true) }}"
+      - "=========================================="
+
+# 4. Check if cluster exists
+# -----------------------------------------------------------------------------
+- name: "Check if Atlas cluster exists"
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    status_code: [200, 404]
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_cluster_check
+  retries: 3
+  delay: 5
+
+- name: "Set cluster exists fact"
+  set_fact:
+    atlas_cluster_exists: "{{ atlas_cluster_check.status == 200 }}"
+
+- name: "Cluster not found"
+  when: not atlas_cluster_exists
+  debug:
+    msg: "Cluster '{{ atlas_cluster_name }}' does not exist or has already been deleted"
+
+# 5. Remove database users (if configured)
+# -----------------------------------------------------------------------------
+- name: "Remove database users"
+  when:
+    - atlas_cluster_exists
+    - atlas_remove_db_users | default(true) | bool
+  block:
+    - name: "Get all database users"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: [200]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_db_users_list
+      failed_when: false
+
+    - name: "Remove each database user"
+      when: atlas_db_users_list.status == 200 and atlas_db_users_list.json.results | length > 0
+      shell: |
+        curl --request DELETE \
+          --digest \
+          --user "{{ atlas_public_key }}:{{ atlas_private_key }}" \
+          --write-out "\n%{http_code}" \
+          --silent \
+          "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers/{{ item.databaseName }}/{{ item.username }}"
+      loop: "{{ atlas_db_users_list.json.results }}"
+      register: atlas_user_delete_result
+      failed_when: false
+      no_log: true
+
+    - name: "Database users cleanup completed"
+      debug:
+        msg: "Removed {{ atlas_db_users_list.json.results | length }} database users"
+      when: atlas_db_users_list.status == 200
+
+# 6. Delete the Atlas cluster
+# -----------------------------------------------------------------------------
+- name: "Delete MongoDB Atlas cluster"
+  when: atlas_cluster_exists
+  block:
+    - name: "Initiate cluster deletion"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}"
+        method: DELETE
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: [202, 204]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_cluster_delete
+
+    - name: "Cluster deletion initiated"
+      debug:
+        msg:
+          - "Cluster deletion initiated successfully"
+          - "Cluster will be deleted in the background"
+          - "This may take several minutes to complete"
+
+    - name: "Wait for cluster deletion to complete"
+      when: atlas_wait_for_deletion | default(true) | bool
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: [404]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_cluster_deletion_check
+      retries: 40
+      delay: 30
+      until: atlas_cluster_deletion_check.status == 404
+      failed_when: false
+
+    - name: "Cluster deletion status"
+      debug:
+        msg: "{{ 'Cluster deleted successfully' if atlas_cluster_deletion_check.status == 404 else 'Cluster deletion in progress (check Atlas console for status)' }}"
+      when: atlas_wait_for_deletion | default(true) | bool
+
+# 7. Clean up MAS configuration (if applicable)
+# -----------------------------------------------------------------------------
+- name: "Clean up MAS MongoDB configuration"
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  block:
+    - name: "Check if MAS config file exists"
+      stat:
+        path: "{{ mas_config_dir }}/{{ atlas_cluster_name }}-mongocfg.yaml"
+      register: mas_config_file
+
+    - name: "Remove MAS MongoDB configuration file"
+      file:
+        path: "{{ mas_config_dir }}/{{ atlas_cluster_name }}-mongocfg.yaml"
+        state: absent
+      when: mas_config_file.stat.exists
+
+    - name: "MAS configuration cleanup completed"
+      debug:
+        msg: "Removed MAS MongoDB configuration file"
+      when: mas_config_file.stat.exists
+
+# 8. Display decommission results
+# -----------------------------------------------------------------------------
+- name: "MongoDB Atlas cluster decommissioned successfully"
+  debug:
+    msg:
+      - "=========================================="
+      - "MongoDB Atlas Decommission Complete!"
+      - "=========================================="
+      - "Cluster Name ................ {{ atlas_cluster_name }}"
+      - "Project ID .................. {{ atlas_project_id }}"
+      - "Database Users Removed ...... {{ atlas_remove_db_users | default(true) }}"
+      - "Cluster Deleted ............. {{ atlas_cluster_exists }}"
+      - "=========================================="
+
+# Made with Bob

@@ -1,0 +1,123 @@
+---
+# MongoDB Atlas Deprovision Playbook
+# This playbook decommissions a MongoDB Atlas cluster and cleans up all associated resources
+#
+# Usage:
+#   ansible-playbook ibm.mas_devops.mongodb_atlas_deprovision_example
+#
+# Environment Variables:
+#   Required:
+#     - ATLAS_PROJECT_ID: Your MongoDB Atlas project ID
+#     - ATLAS_CLUSTER_NAME: Name of the cluster to deprovision
+#     - ATLAS_PUBLIC_KEY: Atlas API public key (or use AWS Secrets Manager)
+#     - ATLAS_PRIVATE_KEY: Atlas API private key (or use AWS Secrets Manager)
+#
+#   Optional (AWS Secrets Manager):
+#     - ATLAS_AWS_SECRET_NAME: Name of AWS secret containing Atlas credentials
+#     - ATLAS_AWS_SECRET_REGION: AWS region where secret is stored (default: us-east-1)
+#
+#   Optional (Deprovision Options):
+#     - ATLAS_REMOVE_DB_USERS: Remove database users (default: true)
+#     - ATLAS_WAIT_FOR_DELETION: Wait for cluster deletion to complete (default: true)
+#     - ATLAS_DB_USERNAME: Specific database user to remove (optional, removes all if not specified)
+#
+#   Optional (MAS Integration):
+#     - MAS_INSTANCE_ID: MAS instance ID (for config cleanup)
+#     - MAS_CONFIG_DIR: Directory containing MAS configs (for config cleanup)
+#
+# Examples:
+#
+#   1. Basic deprovision with direct credentials:
+#      export ATLAS_PROJECT_ID="your-project-id"
+#      export ATLAS_CLUSTER_NAME="mas-mongodb-cluster"
+#      export ATLAS_PUBLIC_KEY="your-public-key"
+#      export ATLAS_PRIVATE_KEY="your-private-key"
+#      ansible-playbook ibm.mas_devops.mongodb_atlas_deprovision_example
+#
+#   2. Deprovision using AWS Secrets Manager:
+#      export ATLAS_PROJECT_ID="your-project-id"
+#      export ATLAS_CLUSTER_NAME="mas-mongodb-cluster"
+#      export ATLAS_AWS_SECRET_NAME="atlas-api-credentials"
+#      export ATLAS_AWS_SECRET_REGION="us-east-1"
+#      ansible-playbook ibm.mas_devops.mongodb_atlas_deprovision_example
+#
+#   3. Deprovision without waiting for deletion:
+#      export ATLAS_PROJECT_ID="your-project-id"
+#      export ATLAS_CLUSTER_NAME="mas-mongodb-cluster"
+#      export ATLAS_PUBLIC_KEY="your-public-key"
+#      export ATLAS_PRIVATE_KEY="your-private-key"
+#      export ATLAS_WAIT_FOR_DELETION="false"
+#      ansible-playbook ibm.mas_devops.mongodb_atlas_deprovision_example
+#
+#   4. Deprovision with MAS config cleanup:
+#      export ATLAS_PROJECT_ID="your-project-id"
+#      export ATLAS_CLUSTER_NAME="mas-mongodb-cluster"
+#      export ATLAS_PUBLIC_KEY="your-public-key"
+#      export ATLAS_PRIVATE_KEY="your-private-key"
+#      export MAS_INSTANCE_ID="inst1"
+#      export MAS_CONFIG_DIR="/tmp/mas-config"
+#      ansible-playbook ibm.mas_devops.mongodb_atlas_deprovision_example
+
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    # MongoDB provider and action
+    mongodb_provider: atlas
+    mongodb_action: deprovision
+
+  pre_tasks:
+    # Validate required variables (from environment or extra vars)
+    - name: "Validate required variables"
+      assert:
+        that:
+          - atlas_project_id is defined and atlas_project_id != ""
+          - atlas_cluster_name is defined and atlas_cluster_name != ""
+          - (atlas_public_key is defined and atlas_public_key != "" and atlas_private_key is defined and atlas_private_key != "") or (atlas_aws_secret_name is defined and atlas_aws_secret_name != "")
+        fail_msg: |
+          Required variables are missing. Please set:
+          - atlas_project_id
+          - atlas_cluster_name
+          - Either (atlas_public_key and atlas_private_key) or atlas_aws_secret_name
+
+    - name: "Display deprovision configuration"
+      debug:
+        msg:
+          - "MongoDB Atlas Deprovision Configuration:"
+          - "  Project ID: {{ atlas_project_id }}"
+          - "  Cluster Name: {{ atlas_cluster_name }}"
+          - "  Using AWS Secrets Manager: {{ (atlas_aws_secret_name is defined and atlas_aws_secret_name != '') | bool }}"
+          - "  Remove Database Users: {{ atlas_remove_db_users | default(true) }}"
+          - "  Wait for Deletion: {{ atlas_wait_for_deletion | default(true) }}"
+
+    - name: "Confirm deprovision action"
+      pause:
+        prompt: |
+          
+          ⚠️  WARNING: This will permanently delete the MongoDB Atlas cluster and all its data!
+          
+          Cluster: {{ atlas_cluster_name }}
+          Project: {{ atlas_project_id }}
+          
+          This action cannot be undone. Are you sure you want to continue? (yes/no)
+      register: deprovision_confirmation
+
+    - name: "Abort if not confirmed"
+      fail:
+        msg: "Deprovision aborted by user"
+      when: deprovision_confirmation.user_input | lower != 'yes'
+
+  roles:
+    - ibm.mas_devops.mongodb
+
+  post_tasks:
+    - name: "Deprovision Summary"
+      debug:
+        msg:
+          - "=========================================="
+          - "MongoDB Atlas Deprovision Complete"
+          - "=========================================="
+          - "Cluster '{{ atlas_cluster_name }}' has been deprovisioned"
+          - "All associated resources have been cleaned up"
+          - "=========================================="
+
+# Made with Bob

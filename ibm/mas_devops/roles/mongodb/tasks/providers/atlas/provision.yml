@@ -132,7 +132,6 @@
         body_format: json
         status_code: [201]
         timeout: "{{ atlas_api_timeout }}"
-        force_basic_auth: false
         use_proxy: false
       register: atlas_cluster_create
 
@@ -184,6 +183,15 @@
   when: atlas_user_check.status == 404
   block:
 
+    - name: "Verify Atlas credentials are set"
+      assert:
+        that:
+          - atlas_public_key is defined
+          - atlas_public_key != ""
+          - atlas_private_key is defined
+          - atlas_private_key != ""
+        fail_msg: "Atlas API credentials are not properly set. Check AWS Secrets Manager retrieval or environment variables."
+
     - name: "Prepare database user configuration"
       set_fact:
         atlas_user_config:
@@ -212,7 +220,28 @@
       register: atlas_user_create
       retries: 3
       delay: 20
-      until: atlas_user_create.status == 201
+      until: atlas_user_create_raw.stdout_lines | last == "201"
+      failed_when: false
+      no_log: true
+      
+    - name: "Debug user creation response (if failed)"
+      debug:
+        msg:
+          - "HTTP Status: {{ atlas_user_create_raw.stdout_lines | last }}"
+          - "Response: {{ atlas_user_create_raw.stdout_lines[:-1] | join('\n') }}"
+      when: atlas_user_create_raw.stdout_lines | last != "201"
+      
+    - name: "Fail if user creation failed"
+      fail:
+        msg: "Failed to create database user. HTTP Status: {{ atlas_user_create_raw.stdout_lines | last }}"
+      when: atlas_user_create_raw.stdout_lines | last != "201"
+      
+    - name: "Set user creation result"
+      set_fact:
+        atlas_user_create:
+          status: "{{ atlas_user_create_raw.stdout_lines | last | int }}"
+          json: "{{ atlas_user_create_raw.stdout_lines[:-1] | join('\n') | from_json }}"
+      when: atlas_user_create_raw.stdout_lines | last == "201"
 
     - name: "Database user created"
       debug:
@@ -223,31 +252,7 @@
   debug:
     msg: "Database user '{{ atlas_db_username }}' already exists"
 
-# 8. Configure IP access list (whitelist)
-# -----------------------------------------------------------------------------
-- name: "Configure IP access list"
-  when: atlas_ip_access_list is defined and atlas_ip_access_list | length > 0
-  block:
-    - name: "Add IP addresses to access list"
-      uri:
-        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/accessList"
-        method: POST
-        user: "{{ atlas_public_key }}"
-        password: "{{ atlas_private_key }}"
-        force_basic_auth: no
-        body: "{{ [{'ipAddress': item, 'comment': 'Added by Ansible'}] | to_json }}"
-        body_format: json
-        status_code: [200, 201]
-        timeout: "{{ atlas_api_timeout }}"
-      loop: "{{ atlas_ip_access_list }}"
-      register: atlas_ip_access_result
-      failed_when: false
-
-    - name: "IP access list configured"
-      debug:
-        msg: "IP access list configured with {{ atlas_ip_access_list | length }} entries"
-
-# 9. Get connection strings
+# 8. Get connection strings
 # -----------------------------------------------------------------------------
 - name: "Get Atlas cluster connection strings"
   uri:
@@ -268,7 +273,7 @@
     atlas_standard_srv: "{{ atlas_connection_strings.json.connectionStrings.standardSrv }}"
     atlas_standard: "{{ atlas_connection_strings.json.connectionStrings.standard }}"
 
-# 10. Display provisioning results
+# 9. Display provisioning results
 # -----------------------------------------------------------------------------
 - name: "MongoDB Atlas cluster provisioned successfully"
   debug:
