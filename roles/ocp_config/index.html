@@ -744,6 +744,7 @@
 <p>This role can perform the following configuration:</p>
 <ul>
 <li>Tune the <code>IngressController</code> to avoid request failures due to timeout for long running requests</li>
+<li>Configure the <code>IngressController</code> namespace ownership for path-based routing support</li>
 <li>Update <code>APIServer</code> and <code>IngressController</code> to set a custom <code>tlsSecurityProfile</code> to accommodate ciphers supported by IBM Java Semeru runtime. This is required for allowing the Java applications using Semeru runtime to run in FIPS mode.  The following cipers will be enabled:<ul>
 <li><code>TLS_AES_128_GCM_SHA256</code></li>
 <li><code>TLS_AES_256_GCM_SHA384</code></li>
@@ -777,6 +778,13 @@
 <li>Default Value: <code>False</code></li>
 </ul>
 <h2 id="role-variables-ingress-controller">Role Variables - Ingress Controller<a class="headerlink" href="#role-variables-ingress-controller" title="Permanent link">¤</a></h2>
+<h3 id="ocp_ingress_controller_name">ocp_ingress_controller_name<a class="headerlink" href="#ocp_ingress_controller_name" title="Permanent link">¤</a></h3>
+<p>Specifies the name of the Ingress Controller to configure. This applies to both timeout and namespace ownership settings.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>OCP_INGRESS_CONTROLLER_NAME</code></li>
+<li>Default Value: <code>default</code></li>
+</ul>
 <h3 id="ocp_ingress_update_timeouts">ocp_ingress_update_timeouts<a class="headerlink" href="#ocp_ingress_update_timeouts" title="Permanent link">¤</a></h3>
 <p>Set to <code>True</code> if you want to customize the Ingress's client and server timeout values</p>
 <ul>
@@ -798,6 +806,17 @@
 <li>Environment Variable: <code>OCP_INGRESS_SERVER_TIMEOUT</code></li>
 <li>Default Value: <code>30s</code></li>
 </ul>
+<h3 id="ocp_ingress_namespace_ownership">ocp_ingress_namespace_ownership<a class="headerlink" href="#ocp_ingress_namespace_ownership" title="Permanent link">¤</a></h3>
+<p>Specifies the namespace ownership policy for the Ingress Controller. Set to <code>InterNamespaceAllowed</code> to enable path-based routing support, which allows routes to claim the same hostname across different namespaces.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>OCP_INGRESS_NAMESPACE_OWNERSHIP</code></li>
+<li>Default Value: Not set (empty string)</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>When both timeout settings and namespace ownership are configured, they will be applied in a single atomic operation to the IngressController resource.</p>
+</div>
 <h2 id="role-variables-operatorhub">Role Variables - OperatorHub<a class="headerlink" href="#role-variables-operatorhub" title="Permanent link">¤</a></h2>
 <h3 id="ocp_operatorhub_disable_redhat_sources">ocp_operatorhub_disable_redhat_sources<a class="headerlink" href="#ocp_operatorhub_disable_redhat_sources" title="Permanent link">¤</a></h3>
 <p>Set to <code>True</code> if you want to disable the default Red Hat catalog sources</p>
@@ -818,6 +837,8 @@
     ocp_ingress_update_timeouts: True
     ocp_ingress_client_timeout: 30s
     ocp_ingress_server_timeout: 30s
+    ocp_ingress_namespace_ownership: InterNamespaceAllowed
+    ocp_ingress_controller_name: default
     ocp_operatorhub_disable_redhat_sources: True
   roles:
     - ibm.mas_devops.ocp_config
@@ -883,6 +904,11 @@
                 </a>
                   <ul class="md-toc__list">
                       <li class="md-toc__item">
+                        <a href="#ocp_ingress_controller_name" class="md-toc__link" data-md-level="2">
+                          ocp_ingress_controller_name
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
                         <a href="#ocp_ingress_update_timeouts" class="md-toc__link" data-md-level="2">
                           ocp_ingress_update_timeouts
                         </a>
@@ -895,6 +921,11 @@
                       <li class="md-toc__item">
                         <a href="#ocp_ingress_server_timeout" class="md-toc__link" data-md-level="2">
                           ocp_ingress_server_timeout
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#ocp_ingress_namespace_ownership" class="md-toc__link" data-md-level="2">
+                          ocp_ingress_namespace_ownership
                         </a>
                       </li>
                   </ul>
