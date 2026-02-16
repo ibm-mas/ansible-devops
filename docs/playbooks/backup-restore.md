@@ -14,9 +14,8 @@ MAS Devops Collection includes playbooks for backing up and restoring MAS compon
 
 **Supported Components:**
 - [MAS Core](#mas-core-backup-and-restore)
-- MongoDB Community Edition
-- Db2w Universal Operator
-- Manage
+- [Db2 Backup and Restore](#db2-backup-and-restore)
+- [Manage Application](#manage-application-backup-and-restore)
 
 **Roles Supporting Backup/Restore:**
 - [`ibm.mas_devops.cert_manager`](../roles/cert_manager.md)
@@ -26,6 +25,8 @@ MAS Devops Collection includes playbooks for backing up and restoring MAS compon
 - [`ibm.mas_devops.sls`](../roles/sls.md)
 - [`ibm.mas_devops.suite_backup`](../roles/suite_backup.md)
 - [`ibm.mas_devops.suite_restore`](../roles/suite_restore.md)
+- [`ibm.mas_devops.suite_app_backup`](../roles/suite_app_backup.md)
+- [`ibm.mas_devops.suite_app_restore`](../roles/suite_app_restore.md)
 
 MAS Core Backup and Restore
 ===============================================================================
@@ -279,4 +280,399 @@ For detailed information about individual backup and restore operations, refer t
 - [SLS Backup/Restore](../roles/sls.md)
 - [MAS Core Backup](../roles/suite_backup.md)
 - [MAS Core Restore](../roles/suite_restore.md)
+- [Db2 Backup/Restore](../roles/db2.md)
+
+Db2 Backup and Restore
+===============================================================================
+
+## Overview
+This playbook performs backup and restore operations for IBM Db2 Universal Operator instances. It supports both online and offline backups, and can store backups either on disk or in S3-compatible object storage(database backups only).
+
+**Important**: The playbook supports multiple backup actions:
+- `backup` - Full Db2 instance backup
+- `backup_database` - Individual database backup
+- `restore` - Full Db2 instance restore
+- `restore_database` - Individual database restore
+
+## Required Environment Variables
+
+### Common Variables (Backup and Restore)
+- `MAS_INSTANCE_ID` - The instance ID of the MAS installation
+- `MAS_BACKUP_DIR` - Directory where backup files will be stored/retrieved (e.g., `/tmp/mas_backups`)
+- `DB2_INSTANCE_NAME` - Name of the Db2 instance
+- `DB2_ACTION` - Set to `backup`, `backup_database`, `restore`, or `restore_database`
+
+### Backup-Specific Variables
+- `DB2_BACKUP_TYPE` - Set to `online` or `offline` (default: `online`)
+- `BACKUP_VENDOR` - Set to `disk` or `s3` (default: `disk`)
+
+### Restore-Specific Variables
+- `DB2_BACKUP_VERSION` - (Required) The backup version identifier to restore
+
+### S3 Storage Variables (when BACKUP_VENDOR=s3)
+- `BACKUP_S3_ALIAS` - S3 alias name (default: `S3DB2COS`)
+- `BACKUP_S3_ENDPOINT` - S3 endpoint URL
+- `BACKUP_S3_BUCKET` - S3 bucket name
+- `BACKUP_S3_ACCESS_KEY` - S3 access key
+- `BACKUP_S3_SECRET_KEY` - S3 secret key
+
+## Optional Environment Variables
+
+### Db2 Configuration
+- `DB2_NAMESPACE` - Namespace where Db2 is installed (default: `db2u`)
+
+### Storage Class Override (Restore)
+- `OVERRIDE_STORAGECLASS` - Set to `true` to override storage class names from backup (default: `false`)
+- `DB2_META_STORAGE_CLASS` - Storage class for metadata
+- `DB2_DATA_STORAGE_CLASS` - Storage class for data
+- `DB2_BACKUP_STORAGE_CLASS` - Storage class for backups
+- `DB2_LOGS_STORAGE_CLASS` - Storage class for logs
+- `DB2_TEMP_STORAGE_CLASS` - Storage class for temporary files
+
+## Usage Examples
+
+### Backup Db2 to Disk (Online)
+Create an online backup of Db2 instance to local disk:
+
+```bash
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export DB2_INSTANCE_NAME=db2w-shared
+export DB2_ACTION=backup
+export DB2_BACKUP_TYPE=online
+export BACKUP_VENDOR=disk
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_db2
+```
+
+### Backup Db2 to S3
+Create a backup of Db2 instance to S3 storage:
+
+```bash
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export DB2_INSTANCE_NAME=db2w-shared
+export DB2_ACTION=backup
+export DB2_BACKUP_TYPE=online
+export BACKUP_VENDOR=s3
+export BACKUP_S3_ENDPOINT=https://s3.us-east.cloud-object-storage.appdomain.cloud
+export BACKUP_S3_BUCKET=mas-db2-backups
+export BACKUP_S3_ACCESS_KEY=your-access-key
+export BACKUP_S3_SECRET_KEY=your-secret-key
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_db2
+```
+
+### Restore Db2 from Backup
+Restore Db2 instance from a previous backup:
+
+```bash
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export DB2_INSTANCE_NAME=db2w-shared
+export DB2_ACTION=restore
+export DB2_BACKUP_VERSION=20260122-131500
+export BACKUP_VENDOR=disk
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_db2
+```
+
+### Restore with Storage Class Override
+Restore Db2 to a different cluster with different storage classes:
+
+```bash
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export DB2_INSTANCE_NAME=db2w-shared
+export DB2_ACTION=restore
+export DB2_BACKUP_VERSION=20260122-131500
+export BACKUP_VENDOR=disk
+
+# Override storage classes
+export OVERRIDE_STORAGECLASS=true
+export DB2_META_STORAGE_CLASS=ocs-storagecluster-ceph-rbd
+export DB2_DATA_STORAGE_CLASS=ocs-storagecluster-ceph-rbd
+export DB2_BACKUP_STORAGE_CLASS=ocs-storagecluster-ceph-rbd
+export DB2_LOGS_STORAGE_CLASS=ocs-storagecluster-ceph-rbd
+export DB2_TEMP_STORAGE_CLASS=ocs-storagecluster-ceph-rbd
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_db2
+```
+
+## Important Considerations
+
+### Backup Types
+- **Online Backup**: Database remains available during backup (recommended for production)
+- **Offline Backup**: Database is taken offline during backup (faster but causes downtime)
+
+### Storage Vendor Options
+- **Disk**: Stores backups on local filesystem or mounted storage
+- **S3**: Stores backups in S3-compatible object storage (recommended for production)
+
+### Prerequisites for Restore
+- Target cluster must have Db2 Universal Operator installed
+- Sufficient storage capacity for database restoration
+- Same or compatible Db2 version as the backup
+
+Manage Application Backup and Restore
+===============================================================================
+
+## Overview
+This playbook performs backup and restore operations for IBM Maximo Manage application.
+
+**Important**:
+- Backup can only be restored to an instance with the same MAS instance ID
+- **DB2 backup and restore is NOT automatically included** in the Manage backup/restore playbook
+- You **MUST** run the [DB2 backup and restore playbook](#db2-backup-and-restore) as a prerequisite step before running Manage backup or restore operations
+
+## Playbook Content
+
+The playbook executes the following operations:
+
+### Backup Operation
+1. **[Backup Db2 Database](../roles/db2.md) - PREREQUISITE STEP** (run `br_db2.yml` playbook separately first)
+2. [Backup Manage Application](../roles/suite_app_backup.md)
+
+### Restore Operation
+1. **[Restore Db2 Database](../roles/db2.md) - PREREQUISITE STEP** (run `br_db2.yml` playbook separately first)
+2. [Restore Manage Application](../roles/suite_app_restore.md)
+
+## Required Environment Variables
+
+### Common Variables (Backup and Restore)
+- `MAS_INSTANCE_ID` - The instance ID of the MAS installation
+- `MAS_WORKSPACE_ID` - The workspace ID for Manage
+- `MAS_BACKUP_DIR` - Directory where backup files will be stored/retrieved (e.g., `/tmp/mas_backups`)
+- `MAS_APP_ACTION` - Set to `backup` or `restore` (default: `backup`)
+
+### Backup-Specific Variables
+- `MAS_APP_BACKUP_VERSION` - (Optional) Custom version identifier for the backup. If not provided, defaults to timestamp format `YYYYMMDD-HHMMSS`
+
+### Restore-Specific Variables
+- `MAS_APP_BACKUP_VERSION_TO_RESTORE` - (Required) The backup version identifier to restore
+
+!!! warning "DB2 Backup/Restore Prerequisites"
+    Before running Manage backup or restore, you **MUST** first run the DB2 backup or restore playbook separately. See the [DB2 Backup and Restore](#db2-backup-and-restore) section for all required DB2 environment variables including:
+    
+    - `DB2_INSTANCE_NAME`
+    - `DB2_ACTION` (set to `backup` or `restore`)
+    - `DB2_BACKUP_TYPE`
+    - `BACKUP_VENDOR`
+    - `DB2_BACKUP_VERSION` (for restore operations)
+    - S3 variables (if using S3 storage)
+
+## Optional Environment Variables
+
+### Storage Class Override (Restore)
+- `OVERRIDE_STORAGECLASS` - Set to `true` to override storage class names from backup (default: `false`)
+- `MAS_APP_CUSTOM_STORAGE_CLASS_RWO` - Custom RWO storage class for Manage
+- `MAS_APP_CUSTOM_STORAGE_CLASS_RWX` - Custom RWX storage class for Manage
+
+### Db2 Configuration
+- `DB2_NAMESPACE` - Namespace where Db2 is installed (default: `db2u`)
+
+## Usage Examples
+
+### Backup Manage Application
+Create a complete backup of Manage application. **Note:** You must backup DB2 first as a separate step.
+
+```bash
+# STEP 1: Backup DB2 database (PREREQUISITE)
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export DB2_INSTANCE_NAME=db2w-shared
+export DB2_ACTION=backup
+export DB2_BACKUP_TYPE=online
+export BACKUP_VENDOR=disk
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_db2
+
+# STEP 2: Backup Manage application
+export MAS_INSTANCE_ID=inst1
+export MAS_WORKSPACE_ID=masdev
+export MAS_BACKUP_DIR=/backup/mas
+export MAS_APP_ACTION=backup
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_manage
+```
+
+### Backup with Custom Version
+Create a backup with a custom version identifier:
+
+```bash
+# STEP 1: Backup DB2 database (PREREQUISITE)
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export DB2_INSTANCE_NAME=db2w-shared
+export DB2_ACTION=backup
+export DB2_BACKUP_TYPE=online
+export BACKUP_VENDOR=disk
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_db2
+
+# STEP 2: Backup Manage application with custom version
+export MAS_INSTANCE_ID=inst1
+export MAS_WORKSPACE_ID=masdev
+export MAS_BACKUP_DIR=/backup/mas
+export MAS_APP_ACTION=backup
+export MAS_APP_BACKUP_VERSION=pre-upgrade-manage
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_manage
+```
+
+### Backup to S3 Storage
+Create a backup storing DB2 and Manage data to S3:
+
+```bash
+# STEP 1: Backup DB2 database to S3 (PREREQUISITE)
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export DB2_INSTANCE_NAME=db2w-shared
+export DB2_ACTION=backup
+export DB2_BACKUP_TYPE=online
+export BACKUP_VENDOR=s3
+export BACKUP_S3_ENDPOINT=https://s3.us-east.cloud-object-storage.appdomain.cloud
+export BACKUP_S3_BUCKET=mas-manage-backups
+export BACKUP_S3_ACCESS_KEY=your-access-key
+export BACKUP_S3_SECRET_KEY=your-secret-key
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_db2
+
+# STEP 2: Backup Manage application
+export MAS_INSTANCE_ID=inst1
+export MAS_WORKSPACE_ID=masdev
+export MAS_BACKUP_DIR=/backup/mas
+export MAS_APP_ACTION=backup
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_manage
+```
+
+### Restore Manage Application
+Restore Manage application. **Note:** You must restore DB2 first as a separate step.
+
+```bash
+# STEP 1: Restore DB2 database (PREREQUISITE)
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export DB2_INSTANCE_NAME=db2w-shared
+export DB2_ACTION=restore
+export DB2_BACKUP_VERSION=20260122-131500
+export BACKUP_VENDOR=disk
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_db2
+
+# STEP 2: Restore Manage application
+export MAS_INSTANCE_ID=inst1
+export MAS_WORKSPACE_ID=masdev
+export MAS_BACKUP_DIR=/backup/mas
+export MAS_APP_ACTION=restore
+export MAS_APP_BACKUP_VERSION_TO_RESTORE=20260122-131500
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_manage
+```
+
+### Restore with Storage Class Override
+Restore Manage to a different cluster with different storage classes:
+
+```bash
+# STEP 1: Restore DB2 database with storage override (PREREQUISITE)
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export DB2_INSTANCE_NAME=db2w-shared
+export DB2_ACTION=restore
+export DB2_BACKUP_VERSION=20260122-131500
+export BACKUP_VENDOR=disk
+export OVERRIDE_STORAGECLASS=true
+export DB2_META_STORAGE_CLASS=ocs-storagecluster-ceph-rbd
+export DB2_DATA_STORAGE_CLASS=ocs-storagecluster-ceph-rbd
+export DB2_BACKUP_STORAGE_CLASS=ocs-storagecluster-ceph-rbd
+export DB2_LOGS_STORAGE_CLASS=ocs-storagecluster-ceph-rbd
+export DB2_TEMP_STORAGE_CLASS=ocs-storagecluster-ceph-rbd
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_db2
+
+# STEP 2: Restore Manage application with storage override
+export MAS_INSTANCE_ID=inst1
+export MAS_WORKSPACE_ID=masdev
+export MAS_BACKUP_DIR=/backup/mas
+export MAS_APP_ACTION=restore
+export MAS_APP_BACKUP_VERSION_TO_RESTORE=20260122-131500
+export OVERRIDE_STORAGECLASS=true
+export MAS_APP_CUSTOM_STORAGE_CLASS_RWO=ocs-storagecluster-ceph-rbd
+export MAS_APP_CUSTOM_STORAGE_CLASS_RWX=ocs-storagecluster-cephfs
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_manage
+```
+
+## Important Considerations
+
+### Prerequisites for Restore
+- Target cluster must have MAS Core installed and configured
+- Target cluster must have Db2 Universal Operator installed
+- Workspace must exist with the same workspace ID
+- Sufficient resources (CPU, memory, storage) for both Db2 and Manage
+- Target cluster must use the same MAS instance ID as the backup
+
+### Backup Best Practices
+1. **Two-Step Process**: Always backup DB2 first, then Manage application
+   - Run `br_db2.yml` playbook before `br_manage.yml`
+   - DB2 backup is NOT automatically included in Manage backup
+2. **Version Alignment**: Use consistent version identifiers for both DB2 and Manage backups for easier tracking
+3. **Regular Schedule**: Perform backups regularly, especially before:
+   - Manage upgrades or updates
+   - Configuration changes
+   - Data migrations
+4. **Test Restores**: Periodically test restore procedures in non-production environments
+5. **Secure Storage**: Store backups in a secure location, preferably using S3 storage
+
+### Restore Best Practices
+1. **Pre-Restore Validation**:
+   - Verify both DB2 and Manage backup archives exist
+   - Confirm target cluster has sufficient resources
+   - Verify MAS instance ID and workspace ID match the backup
+2. **Restore Order**: **CRITICAL** - Always restore DB2 first, then Manage application
+   - Run `br_db2.yml` playbook before `br_manage.yml`
+   - DB2 restore is NOT automatically included in Manage restore
+3. **Post-Restore Verification**:
+   - Verify DB2 instance is running and accessible
+   - Verify Manage workspace status is Ready
+   - Test Manage application functionality
+   - Verify data integrity
+
+### Storage Requirements
+- Plan for sufficient storage for both Db2 and Manage backups
+- Db2 backups can be large depending on database size
+- Manage application configuration is relatively small
+- Consider using S3 storage for production backups
+
+### Security Considerations
+- Backup files contain sensitive data including database contents and credentials
+- Secure backup directory with appropriate permissions
+- Consider encrypting backups for long-term storage
+- Restrict access to backup files to authorized personnel only
+- Ensure secure transfer of backup files to restore environment
+
+!!! tip
+    If you do not want to set up all the dependencies on your local system, you can run the playbook inside our docker image: `docker run -ti --pull always quay.io/ibmmas/cli`
+
+## Additional Resources
+
+For detailed information about individual backup and restore operations, refer to the role documentation:
+- [Db2 Backup/Restore](../roles/db2.md)
+- [Manage Application Backup](../roles/suite_app_backup.md)
+- [Manage Application Restore](../roles/suite_app_restore.md)
 
