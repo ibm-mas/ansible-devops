@@ -153,8 +153,38 @@ atlas_mongodb_version: "{{ lookup('env', 'ATLAS_MONGODB_VERSION') | default('6.0
 atlas_backup_enabled: "{{ lookup('env', 'ATLAS_BACKUP_ENABLED') | default(true, True) | bool }}"
 
 # Atlas Database User Configuration
+# Legacy single-user configuration (for backward compatibility)
 atlas_db_username: "{{ lookup('env', 'ATLAS_DB_USERNAME') }}"
 atlas_db_password: "{{ lookup('env', 'ATLAS_DB_PASSWORD') }}"
+
+# Multi-user configuration (new approach)
+# Define multiple database users with roles
+# Example:
+# atlas_database_users:
+#   admin_user:
+#     username: "mas-admin"
+#     auth_database_name: "admin"
+#     roles:
+#       - database_name: "admin"
+#         role_name: "atlasAdmin"
+#   app_user:
+#     username: "mas-app"
+#     auth_database_name: "admin"
+#     roles:
+#       - database_name: "maximo"
+#         role_name: "readWrite"
+atlas_database_users: {}
+
+# Select which user's credentials to store in the secret
+# Must match a key from atlas_database_users
+atlas_mongodb_secret_user: "{{ lookup('env', 'ATLAS_MONGODB_SECRET_USER') }}"
+
+# Password generation settings
+atlas_password_length: 20
+atlas_password_special_chars: false
+
+# MongoDB certificate size for region-specific CA cert
+atlas_mongodb_certificate_size: "2048"
 
 # Atlas Network Configuration
 atlas_private_endpoint_enabled: "{{ lookup('env', 'ATLAS_PRIVATE_ENDPOINT_ENABLED') | default(false, True) | bool }}"
@@ -172,8 +202,27 @@ atlas_aws_region: "{{ lookup('env', 'ATLAS_AWS_REGION') | default('us-east-1', T
 # Only use this default if atlas_aws_route_table_ids is NOT already defined
 atlas_aws_route_table_ids_from_env: "{{ lookup('env', 'ATLAS_AWS_ROUTE_TABLE_IDS') }}"
 
+# Atlas Credentials Storage in AWS Secrets Manager
+# Store connection information (hosts, port, username, password, CA cert) in AWS Secrets Manager
+atlas_store_credentials_in_secret: "{{ lookup('env', 'ATLAS_STORE_CREDENTIALS_IN_SECRET') | default(false, True) | bool }}"
+
+# Option 1: Provide full secret name directly
+atlas_credentials_secret_name: "{{ lookup('env', 'ATLAS_CREDENTIALS_SECRET_NAME') }}"
+
+# Option 2: Build secret name from prefix and name (like Terraform: secret_prefix/mongodb_secret_name/mongo)
+atlas_credentials_secret_prefix: "{{ lookup('env', 'ATLAS_CREDENTIALS_SECRET_PREFIX') }}"
+atlas_mongodb_secret_name: "{{ lookup('env', 'ATLAS_MONGODB_SECRET_NAME') }}"
+
+# Final secret name - uses full name if provided, otherwise builds from prefix/name
+atlas_credentials_secret_name_final: "{{ atlas_credentials_secret_name if (atlas_credentials_secret_name is defined and atlas_credentials_secret_name != '') else (atlas_credentials_secret_prefix + '/' + atlas_mongodb_secret_name + '/mongo') }}"
+
+atlas_credentials_secret_region: "{{ lookup('env', 'ATLAS_CREDENTIALS_SECRET_REGION') | default('us-east-1', True) }}"
+# Custom tags for the secret (optional) - will be merged with default tags (Name, Cluster, ManagedBy)
+atlas_credentials_secret_tags: {}
+
 # Atlas Deprovision Configuration
 atlas_remove_db_users: "{{ lookup('env', 'ATLAS_REMOVE_DB_USERS') | default(true, True) | bool }}"
+atlas_remove_vpc_routes: "{{ lookup('env', 'ATLAS_REMOVE_VPC_ROUTES') | default(true, True) | bool }}"
 atlas_wait_for_deletion: "{{ lookup('env', 'ATLAS_WAIT_FOR_DELETION') | default(true, True) | bool }}"
 
 # Only allow Mongo upgrades to be next compatible minor (or patch) version.

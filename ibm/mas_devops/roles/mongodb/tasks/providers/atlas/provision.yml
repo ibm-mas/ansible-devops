@@ -58,9 +58,8 @@
 - name: "Fail if Atlas database user configuration is not provided"
   assert:
     that:
-      - atlas_db_username is defined and atlas_db_username != ""
-      - atlas_db_password is defined and atlas_db_password != ""
-    fail_msg: "Atlas database username and password are required"
+      - (atlas_db_username is defined and atlas_db_username != "" and atlas_db_password is defined and atlas_db_password != "") or (atlas_database_users is defined and atlas_database_users | length > 0)
+    fail_msg: "Atlas database user configuration is required. Provide either atlas_db_username/atlas_db_password (legacy) or atlas_database_users (multi-user)"
 
 # 3. Display provisioning configuration
 # -----------------------------------------------------------------------------
@@ -165,92 +164,10 @@
       - "MongoDB Version ............. {{ atlas_cluster_status.json.mongoDBVersion }}"
       - "Cluster Type ................ {{ atlas_cluster_status.json.clusterType }}"
 
-# 7. Create database user
+# 7. Create database users (supports both legacy single-user and new multi-user approach)
 # -----------------------------------------------------------------------------
-- name: "Check if database user exists"
-  uri:
-    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers/admin/{{ atlas_db_username }}"
-    method: GET
-    user: "{{ atlas_public_key }}"
-    password: "{{ atlas_private_key }}"
-    force_basic_auth: no
-    status_code: [200, 404]
-    timeout: 60
-    validate_certs: yes
-  register: atlas_user_check
-
-- name: "Create database user"
-  when: atlas_user_check.status == 404
-  block:
-
-    - name: "Verify Atlas credentials are set"
-      assert:
-        that:
-          - atlas_public_key is defined
-          - atlas_public_key != ""
-          - atlas_private_key is defined
-          - atlas_private_key != ""
-        fail_msg: "Atlas API credentials are not properly set. Check AWS Secrets Manager retrieval or environment variables."
-
-    - name: "Prepare database user configuration"
-      set_fact:
-        atlas_user_config:
-          databaseName: "admin"
-          username: "{{ atlas_db_username }}"
-          password: "{{ atlas_db_password }}"
-          roles:
-            - databaseName: "admin"
-              roleName: "atlasAdmin"
-
-    - name: "Create user via Atlas API"
-      uri:
-        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers"
-        method: POST
-        user: "{{ atlas_public_key }}"
-        password: "{{ atlas_private_key }}"
-        force_basic_auth: no
-        headers:
-          Content-Type: "application/json"
-        body: "{{ atlas_user_config | to_json }}"
-        body_format: json
-        status_code: [201]
-        timeout: 180
-        return_content: yes
-        validate_certs: yes
-      register: atlas_user_create
-      retries: 3
-      delay: 20
-      until: atlas_user_create_raw.stdout_lines | last == "201"
-      failed_when: false
-      no_log: true
-      
-    - name: "Debug user creation response (if failed)"
-      debug:
-        msg:
-          - "HTTP Status: {{ atlas_user_create_raw.stdout_lines | last }}"
-          - "Response: {{ atlas_user_create_raw.stdout_lines[:-1] | join('\n') }}"
-      when: atlas_user_create_raw.stdout_lines | last != "201"
-      
-    - name: "Fail if user creation failed"
-      fail:
-        msg: "Failed to create database user. HTTP Status: {{ atlas_user_create_raw.stdout_lines | last }}"
-      when: atlas_user_create_raw.stdout_lines | last != "201"
-      
-    - name: "Set user creation result"
-      set_fact:
-        atlas_user_create:
-          status: "{{ atlas_user_create_raw.stdout_lines | last | int }}"
-          json: "{{ atlas_user_create_raw.stdout_lines[:-1] | join('\n') | from_json }}"
-      when: atlas_user_create_raw.stdout_lines | last == "201"
-
-    - name: "Database user created"
-      debug:
-        msg: "Database user '{{ atlas_db_username }}' created successfully"
-
-- name: "Database user already exists"
-  when: atlas_user_check.status == 200
-  debug:
-    msg: "Database user '{{ atlas_db_username }}' already exists"
+- name: "Create database users"
+  include_tasks: "providers/atlas/create_database_users.yml"
 
 # 8. Get connection strings
 # -----------------------------------------------------------------------------
@@ -273,7 +190,162 @@
     atlas_standard_srv: "{{ atlas_connection_strings.json.connectionStrings.standardSrv }}"
     atlas_standard: "{{ atlas_connection_strings.json.connectionStrings.standard }}"
 
-# 9. Display provisioning results
+# 9. Load region-specific MongoDB Atlas CA certificate
+# -----------------------------------------------------------------------------
+- name: "Load region-specific MongoDB Atlas CA certificate"
+  when:
+    - atlas_store_credentials_in_secret | default(false) | bool
+    - atlas_credentials_secret_name_final is defined
+    - atlas_credentials_secret_name_final != ""
+  block:
+    - name: "Set CA certificate filename based on region and certificate size"
+      set_fact:
+        # Convert Atlas region format (US_EAST_1) to AWS format (us-east-1)
+        atlas_ca_cert_region: "{{ atlas_cluster_region | lower | replace('_', '-') }}"
+        atlas_ca_cert_filename: "root-ca-rsa{{ atlas_mongodb_certificate_size }}-{{ atlas_cluster_region | lower | replace('_', '-') }}.pem"
+
+    - name: "Check if region-specific CA certificate exists"
+      stat:
+        path: "{{ role_path }}/files/providers/aws/ca/{{ atlas_ca_cert_filename }}"
+      register: atlas_ca_cert_file
+
+    - name: "Read region-specific CA certificate"
+      when: atlas_ca_cert_file.stat.exists
+      slurp:
+        src: "{{ role_path }}/files/providers/aws/ca/{{ atlas_ca_cert_filename }}"
+      register: atlas_ca_cert_content
+
+    - name: "Set CA certificate fact"
+      when: atlas_ca_cert_file.stat.exists
+      set_fact:
+        atlas_ca_cert: "{{ atlas_ca_cert_content.content | b64decode }}"
+
+    - name: "Fail if region-specific CA certificate not found"
+      when: not atlas_ca_cert_file.stat.exists
+      fail:
+        msg: "CA certificate not found for region {{ atlas_ca_cert_region }} with size {{ atlas_mongodb_certificate_size }}. Expected file: {{ role_path }}/files/providers/aws/ca/{{ atlas_ca_cert_filename }}"
+
+# 10. Select user for secret storage and prepare connection information
+# -----------------------------------------------------------------------------
+- name: "Select user and prepare connection information for AWS Secrets Manager"
+  when:
+    - atlas_store_credentials_in_secret | default(false) | bool
+    - atlas_credentials_secret_name_final is defined
+    - atlas_credentials_secret_name_final != ""
+    - atlas_credentials_secret_region is defined
+  block:
+    - name: "Display secret name being used"
+      debug:
+        msg: "Secret will be created/updated at: {{ atlas_credentials_secret_name_final }}"
+
+    - name: "Extract cluster shard nodes from standard connection string"
+      set_fact:
+        # Extract the host part from mongodb://host1:port,host2:port,host3:port/database
+        atlas_hosts_with_ports: "{{ atlas_standard | regex_replace('^mongodb://([^/]+).*$', '\\1') }}"
+
+    - name: "Parse cluster nodes (remove ports)"
+      set_fact:
+        # Split by comma and remove port from each host (split by : and take first part)
+        atlas_cluster_nodes: "{{ atlas_hosts_with_ports.split(',') | map('split', ':') | map('first') | list }}"
+
+    - name: "Set MongoDB port"
+      set_fact:
+        atlas_mongodb_port: "27017"
+
+    - name: "Select user for secret storage"
+      set_fact:
+        atlas_selected_user: "{{ atlas_user_credentials[atlas_mongodb_secret_user] if (atlas_mongodb_secret_user is defined and atlas_mongodb_secret_user != '' and atlas_mongodb_secret_user in atlas_user_credentials) else atlas_user_credentials[atlas_user_credentials.keys() | first] }}"
+      when: atlas_user_credentials is defined
+
+    - name: "Display selected user"
+      debug:
+        msg:
+          - "Selected user for secret: {{ atlas_selected_user.username }}"
+          - "Auth database: {{ atlas_selected_user.auth_database_name }}"
+
+    - name: "Generate info.yml content from template"
+      set_fact:
+        atlas_info_yml_content: "{{ lookup('template', 'atlas_info.yml.j2') }}"
+
+    - name: "Prepare secret JSON content with selected user"
+      set_fact:
+        atlas_secret_content:
+          info: "{{ atlas_info_yml_content }}"
+          username: "{{ atlas_selected_user.username }}"
+          password: "{{ atlas_selected_user.password }}"
+          docdb_host: "{{ atlas_cluster_nodes[0] }}"
+          docdb_port: "{{ atlas_mongodb_port }}"
+      no_log: true
+    - name: "Check if secret exists"
+      shell: |
+        aws secretsmanager describe-secret \
+          --secret-id "{{ atlas_credentials_secret_name_final }}" \
+          --region "{{ atlas_credentials_secret_region }}"
+      register: atlas_secret_check
+      failed_when: false
+      changed_when: false
+
+    - name: "Set secret exists flag"
+      set_fact:
+        atlas_secret_exists: "{{ atlas_secret_check.rc == 0 }}"
+
+    - name: "Prepare secret tags"
+      set_fact:
+        atlas_secret_tags_dict: "{{ atlas_credentials_secret_tags | default({}) | combine({'Name': atlas_credentials_secret_name_final, 'Cluster': atlas_cluster_name, 'ManagedBy': 'Ansible'}) }}"
+
+    - name: "Convert tags to AWS CLI format (list of Key/Value pairs)"
+      set_fact:
+        atlas_secret_tags_list: "{{ atlas_secret_tags_dict | dict2items | map('combine', {'Key': 'key', 'Value': 'value'}) | list }}"
+
+    - name: "Build proper tags list"
+      set_fact:
+        atlas_secret_tags_formatted: "{{ atlas_secret_tags_formatted | default([]) + [{'Key': item.key, 'Value': item.value}] }}"
+      loop: "{{ atlas_secret_tags_dict | dict2items }}"
+
+    - name: "Create secret if it doesn't exist"
+      when: not atlas_secret_exists
+      shell: |
+        aws secretsmanager create-secret \
+          --name "{{ atlas_credentials_secret_name_final }}" \
+          --description "MongoDB Atlas cluster connection information for {{ atlas_cluster_name }}" \
+          --tags '{{ atlas_secret_tags_formatted | to_json }}' \
+          --region "{{ atlas_credentials_secret_region }}"
+      register: atlas_secret_create
+
+    - name: "Write secret content to temporary file"
+      copy:
+        content: "{{ atlas_secret_content | to_json }}"
+        dest: "/tmp/atlas_secret_content.json"
+        mode: '0600'
+      no_log: true
+
+    - name: "Update secret with connection information"
+      shell: |
+        aws secretsmanager put-secret-value \
+          --secret-id "{{ atlas_credentials_secret_name_final }}" \
+          --secret-string file:///tmp/atlas_secret_content.json \
+          --region "{{ atlas_credentials_secret_region }}"
+      register: atlas_secret_update
+
+    - name: "Remove temporary secret file"
+      file:
+        path: "/tmp/atlas_secret_content.json"
+        state: absent
+
+    - name: "Connection information stored in AWS Secrets Manager"
+      debug:
+        msg:
+          - "Secret Name: {{ atlas_credentials_secret_name_final }}"
+          - "Secret Region: {{ atlas_credentials_secret_region }}"
+          - "Secret ARN: {{ (atlas_secret_create.stdout | from_json).ARN if atlas_secret_create is defined and atlas_secret_create.stdout is defined else 'Updated existing secret' }}"
+
+    - name: "Clean up temporary CA certificate directory"
+      file:
+        path: "{{ atlas_ca_temp_dir.path }}"
+        state: absent
+      when: atlas_ca_temp_dir is defined
+
+# 11. Display provisioning results
 # -----------------------------------------------------------------------------
 - name: "MongoDB Atlas cluster provisioned successfully"
   debug:

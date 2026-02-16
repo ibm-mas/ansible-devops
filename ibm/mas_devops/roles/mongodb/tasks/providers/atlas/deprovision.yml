@@ -128,7 +128,18 @@
         msg: "Removed {{ atlas_db_users_list.json.results | length }} database users"
       when: atlas_db_users_list.status == 200
 
-# 6. Delete the Atlas cluster
+# 6. Remove VPC peering routes from AWS route tables (if configured)
+# -----------------------------------------------------------------------------
+- name: "Remove VPC peering routes from AWS route tables"
+  when:
+    - atlas_cluster_exists
+    - atlas_vpc_id is defined and atlas_vpc_id != ""
+    - atlas_aws_region is defined and atlas_aws_region != ""
+    - atlas_aws_route_table_ids is defined and atlas_aws_route_table_ids | length > 0
+    - atlas_remove_vpc_routes | default(true) | bool
+  include_tasks: "providers/atlas/deconfigure_vpc_peering.yml"
+
+# 7. Delete the Atlas cluster
 # -----------------------------------------------------------------------------
 - name: "Delete MongoDB Atlas cluster"
   when: atlas_cluster_exists
@@ -172,7 +183,7 @@
         msg: "{{ 'Cluster deleted successfully' if atlas_cluster_deletion_check.status == 404 else 'Cluster deletion in progress (check Atlas console for status)' }}"
       when: atlas_wait_for_deletion | default(true) | bool
 
-# 7. Clean up MAS configuration (if applicable)
+# 8. Clean up MAS configuration (if applicable)
 # -----------------------------------------------------------------------------
 - name: "Clean up MAS MongoDB configuration"
   when:
@@ -197,7 +208,7 @@
         msg: "Removed MAS MongoDB configuration file"
       when: mas_config_file.stat.exists
 
-# 8. Display decommission results
+# 9. Display decommission results
 # -----------------------------------------------------------------------------
 - name: "MongoDB Atlas cluster decommissioned successfully"
   debug:

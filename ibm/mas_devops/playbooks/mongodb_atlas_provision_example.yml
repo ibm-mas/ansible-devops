@@ -30,9 +30,71 @@
     atlas_mongodb_version: "7.0"
     atlas_backup_enabled: true
 
-    # Database User Configuration
-    atlas_db_username: "mas-admin"
-    atlas_db_password: "{{ lookup('env', 'ATLAS_DB_PASSWORD') }}"
+    # Database User Configuration - Multi-user approach (recommended)
+    # Passwords will be auto-generated (20 chars, alphanumeric only)
+    # Format matches Terraform's database_users variable
+    atlas_database_users:
+      user1:
+        username: "user1"
+        auth_database_name: "admin"
+        roles:
+          - database_name: "admin"
+            role_name: "readWriteAnyDatabase"
+      user2:
+        username: "user2"
+        auth_database_name: "admin"
+        roles:
+          - database_name: "admin"
+            role_name: "readWriteAnyDatabase"
+          - database_name: "admin"
+            role_name: "oplogRead"
+      user3:
+        username: "user3"
+        auth_database_name: "admin"
+        roles:
+          - database_name: "admin"
+            role_name: "readWriteAnyDatabase"
+
+    # Custom roles (optional) - for creating custom MongoDB roles
+    # atlas_custom_roles:
+    #   oplogRead:
+    #     role_name: "oplogRead"
+    #     actions:
+    #       - action: "FIND"
+    #         resources:
+    #           collection_name: ""
+    #           database_name: "anyDatabase"
+    #       - action: "CHANGE_STREAM"
+    #         resources:
+    #           collection_name: ""
+    #           database_name: "anyDatabase"
+
+    # Select which user's credentials to store in the secret
+    atlas_mongodb_secret_user: "user1"
+
+    # Legacy single-user configuration (for backward compatibility)
+    # atlas_db_username: "mas-admin"
+    # atlas_db_password: "{{ lookup('env', 'ATLAS_DB_PASSWORD') }}"
+
+    # Store connection information in AWS Secrets Manager (optional)
+    # This will create/update a secret with connection details (hosts, port, username, password, CA cert)
+    atlas_store_credentials_in_secret: true
+    
+    # Option 1: Provide full secret name directly
+    # atlas_credentials_secret_name: "/aws-dev/mongodb-atlas-cluster/connection-info"
+    
+    # Option 2: Build secret name from prefix and name (like Terraform: secret_prefix/mongodb_secret_name/mongo)
+    atlas_credentials_secret_prefix: "/aws-dev"
+    atlas_mongodb_secret_name: "mongodb-atlas-cluster"
+    # This will create secret at: /aws-dev/mongodb-atlas-cluster/mongo
+    
+    atlas_credentials_secret_region: "us-east-1"
+    
+    # Optional: Add custom tags to the secret (will be merged with default tags: Name, Cluster, ManagedBy)
+    atlas_credentials_secret_tags:
+      Environment: "development"
+      Project: "MAS"
+      Owner: "DevOps Team"
 
   roles:
     - ibm.mas_devops.mongodb
