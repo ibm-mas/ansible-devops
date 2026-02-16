@@ -1,0 +1,269 @@
+---
+# MongoDB Atlas Provider - Uninstall Task
+# This task removes a MongoDB Atlas cluster, database users, and optionally IP access list entries
+# Supports retrieving credentials from AWS Secrets Manager
+
+# 1. Retrieve Atlas API credentials from AWS Secrets Manager (if configured)
+# -----------------------------------------------------------------------------
+- name: "Retrieve Atlas credentials from AWS Secrets Manager"
+  when: 
+    - atlas_aws_secret_name is defined
+    - atlas_aws_secret_name != ""
+    - atlas_aws_secret_region is defined
+  block:
+    - name: "Get Atlas API credentials from AWS Secrets Manager"
+      shell: |
+        aws secretsmanager get-secret-value \
+          --secret-id "{{ atlas_aws_secret_name }}" \
+          --region "{{ atlas_aws_secret_region }}" \
+          --query SecretString \
+          --output text
+      register: atlas_secret_output
+      no_log: true
+
+    - name: "Parse Atlas credentials from secret"
+      set_fact:
+        atlas_credentials: "{{ atlas_secret_output.stdout | from_json }}"
+      no_log: true
+
+    - name: "Set Atlas API credentials from AWS Secrets Manager"
+      set_fact:
+        atlas_public_key: "{{ atlas_credentials.public_key }}"
+        atlas_private_key: "{{ atlas_credentials.private_key }}"
+      no_log: true
+
+# 2. Validate required variables
+# -----------------------------------------------------------------------------
+- name: "Fail if Atlas API credentials are not provided"
+  assert:
+    that:
+      - atlas_public_key is defined and atlas_public_key != ""
+      - atlas_private_key is defined and atlas_private_key != ""
+    fail_msg: "Atlas API credentials (atlas_public_key and atlas_private_key) are required. Provide them directly or via AWS Secrets Manager."
+
+- name: "Fail if Atlas project information is not provided"
+  assert:
+    that:
+      - atlas_project_id is defined and atlas_project_id != ""
+    fail_msg: "Atlas project ID is required"
+
+- name: "Fail if Atlas cluster name is not provided"
+  assert:
+    that:
+      - atlas_cluster_name is defined and atlas_cluster_name != ""
+    fail_msg: "Atlas cluster name is required"
+
+# 3. Display uninstall configuration
+# -----------------------------------------------------------------------------
+- name: "MongoDB Atlas Uninstall Configuration"
+  debug:
+    msg:
+      - "=========================================="
+      - "MongoDB Atlas Cluster Uninstall"
+      - "=========================================="
+      - "Atlas Project ID ............ {{ atlas_project_id }}"
+      - "Cluster Name ................ {{ atlas_cluster_name }}"
+      - "Database Username ........... {{ atlas_db_username | default('N/A - will not delete user') }}"
+      - "Delete IP Access List ....... {{ atlas_delete_ip_access_list | default(false) }}"
+      - "Using AWS Secrets Manager ... {{ (atlas_aws_secret_name is defined and atlas_aws_secret_name != '') | bool }}"
+      - "=========================================="
+
+# 4. Check if cluster exists
+# -----------------------------------------------------------------------------
+- name: "Check if Atlas cluster exists"
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    status_code: [200, 404]
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_cluster_check
+  retries: 3
+  delay: 5
+
+- name: "Set cluster exists fact"
+  set_fact:
+    atlas_cluster_exists: "{{ atlas_cluster_check.status == 200 }}"
+
+- name: "Cluster not found - already deleted"
+  when: not atlas_cluster_exists
+  debug:
+    msg:
+      - "=========================================="
+      - "Cluster '{{ atlas_cluster_name }}' not found"
+      - "It may have been already deleted"
+      - "Skipping uninstall operations"
+      - "=========================================="
+
+# 5. Delete database user (if cluster exists and username provided)
+# -----------------------------------------------------------------------------
+- name: "Delete database user"
+  when:
+    - atlas_cluster_exists
+    - atlas_db_username is defined
+    - atlas_db_username != ""
+  block:
+    - name: "Check if database user exists"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers/admin/{{ atlas_db_username }}"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: [200, 404]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_user_check
+
+    - name: "Delete database user if exists"
+      when: atlas_user_check.status == 200
+      block:
+        - name: "Remove database user via Atlas API"
+          uri:
+            url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers/admin/{{ atlas_db_username }}"
+            method: DELETE
+            user: "{{ atlas_public_key }}"
+            password: "{{ atlas_private_key }}"
+            force_basic_auth: no
+            status_code: [202, 204]
+            timeout: "{{ atlas_api_timeout }}"
+          register: atlas_user_delete
+
+        - name: "Database user deleted"
+          debug:
+            msg: "Database user '{{ atlas_db_username }}' deleted successfully"
+
+    - name: "Database user not found"
+      when: atlas_user_check.status == 404
+      debug:
+        msg: "Database user '{{ atlas_db_username }}' not found - may have been already deleted"
+
+# 6. Delete IP access list entries (optional)
+# -----------------------------------------------------------------------------
+- name: "Delete IP access list entries"
+  when:
+    - atlas_cluster_exists
+    - atlas_delete_ip_access_list | default(false) | bool
+    - atlas_ip_access_list is defined
+    - atlas_ip_access_list | length > 0
+  block:
+    - name: "Get current IP access list"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/accessList"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: [200]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_current_access_list
+      failed_when: false
+
+    - name: "Remove IP addresses from access list"
+      when: atlas_current_access_list.status == 200
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/accessList/{{ item | regex_replace('/', '%2F') }}"
+        method: DELETE
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: [202, 204, 404]
+        timeout: "{{ atlas_api_timeout }}"
+      loop: "{{ atlas_ip_access_list }}"
+      register: atlas_ip_delete_result
+      failed_when: false
+
+    - name: "IP access list cleanup completed"
+      debug:
+        msg: "Attempted to remove {{ atlas_ip_access_list | length }} IP access list entries"
+
+- name: "Skipping IP access list cleanup"
+  when:
+    - atlas_cluster_exists
+    - not (atlas_delete_ip_access_list | default(false) | bool)
+  debug:
+    msg: "IP access list cleanup skipped (atlas_delete_ip_access_list is false)"
+
+# 7. Delete Atlas cluster
+# -----------------------------------------------------------------------------
+- name: "Delete MongoDB Atlas cluster"
+  when: atlas_cluster_exists
+  block:
+    - name: "Display cluster information before deletion"
+      debug:
+        msg:
+          - "Cluster State ............... {{ atlas_cluster_check.json.stateName }}"
+          - "MongoDB Version ............. {{ atlas_cluster_check.json.mongoDBVersion }}"
+          - "Cluster Type ................ {{ atlas_cluster_check.json.clusterType }}"
+          - "Cloud Provider .............. {{ atlas_cluster_check.json.providerSettings.providerName }}"
+          - "Region ...................... {{ atlas_cluster_check.json.providerSettings.regionName }}"
+
+    - name: "Initiate cluster deletion via Atlas API"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}"
+        method: DELETE
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: [202, 204]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_cluster_delete
+
+    - name: "Cluster deletion initiated"
+      debug:
+        msg:
+          - "Cluster deletion initiated successfully"
+          - "Cluster will be deleted in a few minutes"
+          - "Waiting for deletion to complete..."
+
+# 8. Wait for cluster deletion to complete
+# -----------------------------------------------------------------------------
+- name: "Wait for Atlas cluster deletion to complete"
+  when: atlas_cluster_exists
+  block:
+    - name: "Monitor cluster deletion status"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: [200, 404]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_deletion_status
+      retries: "{{ (atlas_delete_wait_timeout | default(1800) | int / 30) | int }}"
+      delay: 30
+      until: atlas_deletion_status.status == 404
+      failed_when: false
+
+    - name: "Cluster deletion completed"
+      when: atlas_deletion_status.status == 404
+      debug:
+        msg: "Cluster '{{ atlas_cluster_name }}' has been successfully deleted"
+
+    - name: "Cluster deletion timeout warning"
+      when: atlas_deletion_status.status != 404
+      debug:
+        msg:
+          - "WARNING: Cluster deletion is still in progress"
+          - "Current state: {{ atlas_deletion_status.json.stateName | default('UNKNOWN') }}"
+          - "The cluster will continue deleting in the background"
+          - "You can check status in the Atlas console"
+
+# 9. Display uninstall results
+# -----------------------------------------------------------------------------
+- name: "MongoDB Atlas cluster uninstall completed"
+  debug:
+    msg:
+      - "=========================================="
+      - "MongoDB Atlas Uninstall Complete!"
+      - "=========================================="
+      - "Cluster Name ................ {{ atlas_cluster_name }}"
+      - "Cluster Deleted ............. {{ atlas_cluster_exists }}"
+      - "Database User Deleted ....... {{ (atlas_db_username is defined and atlas_db_username != '' and atlas_cluster_exists) | bool }}"
+      - "IP Access List Cleaned ...... {{ (atlas_delete_ip_access_list | default(false) and atlas_cluster_exists) | bool }}"
+      - "Deletion Status ............. {{ 'Complete' if (not atlas_cluster_exists or atlas_deletion_status.status == 404) else 'In Progress' }}"
+      - "=========================================="
+
+# Made with Bob - MongoDB Atlas Uninstall Support
