@@ -177,7 +177,3 @@ ansible-playbook ibm/mas_devops/playbooks/mongodb-atlas-install.yml
 - [MongoDB Atlas Uninstall Guide](../../../../../docs/mongodb-atlas-uninstall-guide.md)
 - [AWS Secrets Manager Setup](../../../../../docs/mongodb-atlas-aws-secrets-setup.md)
 - [MongoDB Atlas API Docs](https://www.mongodb.com/docs/atlas/api/)
-
----
-
-**Made with Bob** - MongoDB Atlas Provider Tasks

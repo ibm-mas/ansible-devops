@@ -1,9 +1,10 @@
 # mongodb
 
-This role currently supports provisioning of mongodb in three different providers:
+This role currently supports provisioning of mongodb in four different providers:
  - community
  - aws (documentdb)
  - ibm
+ - atlas (MongoDB Atlas)
 
 If the selected provider is `community` then the [MongoDB Community Kubernetes Operator](https://github.com/mongodb/mongodb-kubernetes-operator) will be configured and deployed into the specified namespace. By default a three member MongoDB replica set will be created.  The cluster will bind six PVCs, these provide persistence for the data and system logs across the three nodes.  Currently there is no support built-in for customizing the cluster beyond this configuration.
 

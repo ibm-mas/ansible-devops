@@ -208,7 +208,46 @@
         msg: "Removed MAS MongoDB configuration file"
       when: mas_config_file.stat.exists
 
-# 9. Display decommission results
+# 9. Clean up AWS Secrets Manager (if applicable)
+# -----------------------------------------------------------------------------
+- name: "Clean up AWS Secrets Manager secret"
+  when:
+    - atlas_delete_secret | default(false) | bool
+    - atlas_credentials_secret_name_final is defined
+    - atlas_credentials_secret_name_final != ""
+    - atlas_credentials_secret_region is defined
+  block:
+    - name: "Check if secret exists"
+      shell: |
+        aws secretsmanager describe-secret \
+          --secret-id "{{ atlas_credentials_secret_name_final }}" \
+          --region "{{ atlas_credentials_secret_region }}"
+      register: atlas_secret_exists_check
+      failed_when: false
+      changed_when: false
+
+    - name: "Delete AWS Secrets Manager secret"
+      when: atlas_secret_exists_check.rc == 0
+      shell: |
+        aws secretsmanager delete-secret \
+          --secret-id "{{ atlas_credentials_secret_name_final }}" \
+          --region "{{ atlas_credentials_secret_region }}" \
+          {{ '--force-delete-without-recovery' if (atlas_force_delete_secret | default(false)) else '--recovery-window-in-days 7' }}
+      register: atlas_secret_delete
+
+    - name: "Secret deletion status"
+      when: atlas_secret_exists_check.rc == 0
+      debug:
+        msg:
+          - "Secret '{{ atlas_credentials_secret_name_final }}' deleted"
+          - "Deletion type: {{ 'Immediate (force)' if (atlas_force_delete_secret | default(false)) else 'Scheduled (7 day recovery window)' }}"
+
+    - name: "Secret not found"
+      when: atlas_secret_exists_check.rc != 0
+      debug:
+        msg: "Secret '{{ atlas_credentials_secret_name_final }}' does not exist or has already been deleted"
+
+# 10. Display decommission results
 # -----------------------------------------------------------------------------
 - name: "MongoDB Atlas cluster decommissioned successfully"
   debug:
@@ -221,5 +260,3 @@
       - "Database Users Removed ...... {{ atlas_remove_db_users | default(true) }}"
       - "Cluster Deleted ............. {{ atlas_cluster_exists }}"
       - "=========================================="
-
-# Made with Bob
