@@ -1,0 +1,61 @@
+---
+# MongoDB Atlas - Remove VPC Peering Routes Example Playbook
+# This playbook removes routes from AWS route tables for MongoDB Atlas VPC peering
+# Use this during cluster decommissioning or when you need to remove VPC peering routes
+
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    # MongoDB provider and action
+    mongodb_provider: atlas
+    mongodb_action: deconfigure_vpc_peering
+
+  pre_tasks:
+    # Convert comma-separated route table IDs to array if provided as string
+    - name: "Convert route table IDs string to JSON array"
+      when: atlas_aws_route_table_ids is defined and atlas_aws_route_table_ids is string
+      shell: |
+        echo '{{ atlas_aws_route_table_ids }}' | python3 -c "import sys, json; ids = sys.stdin.read().strip(); print(json.dumps(ids.split(',') if ',' in ids else [ids]))"
+      register: route_table_ids_json
+
+    - name: "Set route table IDs array"
+      when: route_table_ids_json is defined and route_table_ids_json.stdout is defined
+      set_fact:
+        atlas_route_table_ids_array: "{{ route_table_ids_json.stdout | from_json }}"
+
+    - name: "Set final route table IDs variable"
+      set_fact:
+        atlas_aws_route_table_ids_final: "{{ atlas_route_table_ids_array if atlas_route_table_ids_array is defined else atlas_aws_route_table_ids }}"
+
+    - name: "Set working route table IDs variable for role"
+      set_fact:
+        atlas_aws_route_table_ids: "{{ atlas_aws_route_table_ids_final }}"
+
+  roles:
+    - ibm.mas_devops.mongodb
+
+# Example usage:
+# 
+# Using environment variables:
+# export MONGODB_PROVIDER=atlas
+# export MONGODB_ACTION=deconfigure_vpc_peering
+# export ATLAS_AWS_SECRET_NAME="/aws-dev/mongodb-atlas-cluster/apikeys"
+# export ATLAS_AWS_SECRET_REGION="us-east-1"
+# export ATLAS_PROJECT_ID="68ffa9d908ff531136cef231"
+# export ATLAS_VPC_ID="vpc-0a83006cb9c5ec6e2"
+# export ATLAS_AWS_ROUTE_TABLE_IDS="rtb-02618f7cf5ce1c3a8,rtb-0e4c50359ab3dd35a,rtb-0dada7bced9e82b0b"
+# export ATLAS_AWS_REGION="US_EAST_1"
+# export ATLAS_PROVIDER_NAME="AWS"
+# ansible-playbook playbooks/mongodb_atlas_deconfigure_routes_example.yml
+#
+# Using command line parameters:
+# ansible-playbook --connection=local \
+#   playbooks/mongodb_atlas_deconfigure_routes_example.yml \
+#   -e atlas_project_id="68ffa9d908ff531136cef231" \
+#   -e atlas_aws_secret_name="/aws-dev/mongodb-atlas-cluster/apikeys" \
+#   -e atlas_aws_secret_region="us-east-1" \
+#   -e atlas_vpc_id="vpc-0a83006cb9c5ec6e2" \
+#   -e atlas_aws_route_table_ids="rtb-02618f7cf5ce1c3a8,rtb-0e4c50359ab3dd35a,rtb-0dada7bced9e82b0b" \
+#   -e atlas_aws_region="US_EAST_1"
+
+# Made with Bob
