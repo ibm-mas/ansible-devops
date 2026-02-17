@@ -6,7 +6,7 @@
       - "Is Artifactory ........................ {{ is_artifactory }}"
       - "Is GitHub ............................. {{ is_github }}"
 
-
+# 1A. Download ISC file from Artifactory
 - name: "{{ image_name }} : Download ISC file from Artifactory with token"
   when: is_artifactory | bool
   get_url:
@@ -15,8 +15,12 @@
     mode: '755'
     headers:
       Authorization: "Bearer {{ artifactory_token }}"
+    status_code: [200, 304]
+  register: download_result_artifactory
+  ignore_errors: true
   #no_log: true
 
+# 1B. Download ISC file from Artifactory
 - name: "{{ image_name }} : Download ISC file from GitHub"
   when: is_github | bool
   get_url:
@@ -27,18 +31,46 @@
       Authorization: "token {{ github_token }}"
       Accept: "application/vnd.github.v3.raw"
     validate_certs: yes
+    status_code: [200, 304]
+  register: download_result_github
+  ignore_errors: true
   no_log: true
 
+# 1C. Check if download failed with 404
+- name: "{{ image_name }} : Check if download failed with 404"
+  set_fact:
+    download_failed_404: "{{ 
+      (is_artifactory | bool and download_result_artifactory.failed | default(false) and download_result_artifactory.status_code | default(0) == 404) or
+      (is_github | bool and download_result_github.failed | default(false) and download_result_github.status_code | default(0) == 404)
+      }}"
+
+- name: "{{ image_name }} : Log 404 error and skip"
+  when: download_failed_404 | bool
+  debug:
+    msg: "ISC file not found (404): {{ isc_file_path }}. Skipping mirror for this architecture."
+
+# 1D. Check for other download errors
+- name: "{{ image_name }} : Check for other download errors"
+  when: 
+    - not (download_failed_404 | bool)
+    - (is_artifactory | bool and download_result_artifactory.failed | default(false)) or (is_github | bool and download_result_github.failed | default(false))
+  fail:
+    msg: "Failed to download ISC file: {{ isc_file_path }}"
+
+# 1E. Verify ISC file was downloaded
 - name: "{{ image_name }} : Verify ISC file was downloaded"
+  when: not (download_failed_404 | bool)
   stat:
     path: "{{ ansible_env.HOME }}/.ibm-mas/{{ image_name }}.yaml"
   register: isc_file_stat
   failed_when: not isc_file_stat.stat.exists
 
-# 4A. Execute the mirror (to filesystem)
+# 2. Execute the mirror (to filesystem)
 # -----------------------------------------------------------------------------
 - name: "{{ image_name }} : Mirror Images to local filesystem"
-  when: mirror_mode == "to-filesystem"
+  when: 
+    - mirror_mode == "to-filesystem"
+    - not (download_failed_404 | default(false) | bool)
   block:
     - name: "{{ image_name }}: Run mirror command"
       shell: |
@@ -61,12 +93,13 @@
         that: ocimagemirror_result.rc == 0
         fail_msg: "Image mirroring failed (see debug information above)."
 
-# 4B. Create AWS ECR Repositories if required
+# 3. Create AWS ECR Repositories if required
 # -----------------------------------------------------------------------------
 - name: "Create AWS ECR Repositories - direct mode"
   when:
     - mirror_mode == "direct"
     - registry_is_ecr == true
+    - not (download_failed_404 | default(false) | bool)
   block:
     - name: "{{ manifest_name }} : dry mode mirror command - direct"
       shell: |

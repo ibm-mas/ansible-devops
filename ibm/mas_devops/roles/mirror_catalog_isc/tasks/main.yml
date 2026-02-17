@@ -9,10 +9,22 @@
       - mirror_working_dir is defined and mirror_working_dir != ""
     fail_msg: "One or more required properties are missing"
 
-- name: "{{ image_name }} : Debug"
+- name: "{{ image_name }} : Debug (Catalogs)"
+  when: mirror_images == 'catalogs'
   debug:
     msg:
       - "Catalog Name .......................... {{ image_name }}"
+
+- name: "{{ image_name }} : Debug (Package)"
+  when: mirror_images == 'packages'
+  debug:
+    msg:
+      - "Package Name .......................... {{ image_name }}"
+      - "Package Version .......................... {{ image_version }}"
+      
+- name: "{{ image_name }} : Debug"
+  debug:
+    msg:
       - "Mirror Single Architecture ............. {{ mirror_single_arch | default('<not set>', True) }}"
       - "Working Directory ...................... {{ mirror_working_dir }}"
       - "Mode ................................... {{ mirror_mode }}"
@@ -42,16 +54,10 @@
     dest: "{{ ansible_env.HOME }}/containers/auth.json"
   no_log: true
 
-# 3. Modify the manifest
-# -----------------------------------------------------------------------------
-- name: Validate that mirror_single_arch is correctly set
-  assert:
-    that: mirror_single_arch in ["", "amd64", "ppc64le", "s390x"]
-
 - name: "{{ image_name }} : Determine registry type"
   set_fact:
     is_artifactory: "{{ 'artifactory' in isc_registry | lower }}"
     is_github: "{{ 'github' in isc_registry | lower or 'raw.githubusercontent.com' in isc_registry | lower }}"
 
 - include_tasks: "{{ mirror_images }}.yml"
-  when: mirror_images in ['cataogs', 'packages']
+  when: mirror_images in ['catalogs', 'packages']

@@ -1,0 +1,21 @@
+# 3. Check 
+# -----------------------------------------------------------------------------
+- name: Validate that mirror_single_arch is correctly set
+  assert:
+    that: mirror_single_arch in ["", "amd64", "ppc64le", "s390x"]
+
+- name: "{{ image_name }} : Extract major.minor version"
+  set_fact:
+    major_minor_version: "{{ image_version.split('.')[0] }}.{{ image_version.split('.')[1] }}"
+
+- name: "{{ image_name }} : Set architectures to mirror"
+  set_fact:
+    architectures_to_mirror: "{{ [mirror_single_arch] if mirror_single_arch is defined and mirror_single_arch != '' else ['amd64', 'ppc64le', 's390x'] }}"
+
+- name: "{{ image_name }} : Mirror each architecture"
+  include_tasks: mirror_isc.yml
+  with_items: "{{ architectures_to_mirror }}"
+  vars:
+    arch: "{{ item }}"
+    isc_file_path: "https://{{ isc_registry }}/packages/{{ image_name }}/{{ major_minor_version }}/{{ item }}/{{ image_name }}-{{ image_version }}-{{ item }}.yaml"
+
