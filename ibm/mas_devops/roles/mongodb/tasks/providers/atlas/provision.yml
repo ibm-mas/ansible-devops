@@ -265,7 +265,7 @@
 
     - name: "Generate info.yml content from template"
       set_fact:
-        atlas_info_yml_content: "{{ lookup('template', 'atlas_info.yml.j2') }}"
+        atlas_info_yml_content: "{{ lookup('template', 'templates/atlas_info.yml.j2') }}"
 
     - name: "Prepare secret JSON content with selected user"
       set_fact:
@@ -280,7 +280,8 @@
       shell: |
         aws secretsmanager describe-secret \
           --secret-id "{{ atlas_credentials_secret_name_final }}" \
-          --region "{{ atlas_credentials_secret_region }}"
+          --region "{{ atlas_credentials_secret_region }}" \
+          --output json
       register: atlas_secret_check
       failed_when: false
       changed_when: false
@@ -309,7 +310,8 @@
           --name "{{ atlas_credentials_secret_name_final }}" \
           --description "MongoDB Atlas cluster connection information for {{ atlas_cluster_name }}" \
           --tags '{{ atlas_secret_tags_formatted | to_json }}' \
-          --region "{{ atlas_credentials_secret_region }}"
+          --region "{{ atlas_credentials_secret_region }}" \
+          --output json
       register: atlas_secret_create
 
     - name: "Write secret content to temporary file"
@@ -324,7 +326,8 @@
         aws secretsmanager put-secret-value \
           --secret-id "{{ atlas_credentials_secret_name_final }}" \
           --secret-string file:///tmp/atlas_secret_content.json \
-          --region "{{ atlas_credentials_secret_region }}"
+          --region "{{ atlas_credentials_secret_region }}" \
+          --output json
       register: atlas_secret_update
 
     - name: "Remove temporary secret file"
