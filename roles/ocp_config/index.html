@@ -741,71 +741,136 @@
           <div class="rst-content">
             
             <h1 id="ocp_config">ocp_config<a class="headerlink" href="#ocp_config" title="Permanent link">¤</a></h1>
-<p>This role can perform the following configuration:</p>
-<ul>
-<li>Tune the <code>IngressController</code> to avoid request failures due to timeout for long running requests</li>
-<li>Configure the <code>IngressController</code> namespace ownership for path-based routing support</li>
-<li>Update <code>APIServer</code> and <code>IngressController</code> to set a custom <code>tlsSecurityProfile</code> to accommodate ciphers supported by IBM Java Semeru runtime. This is required for allowing the Java applications using Semeru runtime to run in FIPS mode.  The following cipers will be enabled:<ul>
-<li><code>TLS_AES_128_GCM_SHA256</code></li>
-<li><code>TLS_AES_256_GCM_SHA384</code></li>
-<li><code>TLS_CHACHA20_POLY1305_SHA256</code></li>
-<li><code>ECDHE-ECDSA-AES128-GCM-SHA256</code></li>
-<li><code>ECDHE-RSA-AES128-GCM-SHA256</code></li>
-<li><code>ECDHE-ECDSA-AES256-GCM-SHA384</code></li>
-<li><code>ECDHE-RSA-AES256-GCM-SHA384</code></li>
-<li><code>ECDHE-ECDSA-CHACHA20-POLY1305</code></li>
-<li><code>ECDHE-RSA-CHACHA20-POLY1305</code></li>
-<li><code>DHE-RSA-AES128-GCM-SHA256</code></li>
-<li><code>DHE-RSA-AES256-GCM-SHA384</code></li>
-<li><code>ECDHE-RSA-AES128-SHA256</code></li>
-<li><code>ECDHE-RSA-AES128-SHA</code></li>
-<li><code>ECDHE-RSA-AES256-SHA</code></li>
-</ul>
-</li>
-<li>Disable the default Red Hat <code>CatalogSources</code>:<ul>
-<li><code>certified-operators</code></li>
-<li><code>community-operators</code></li>
-<li><code>redhat-operators</code></li>
-</ul>
-</li>
-</ul>
+<p>Configure OpenShift Container Platform cluster-level settings for optimal MAS deployment. This role provides essential tuning for ingress timeouts, TLS cipher compatibility with IBM Java Semeru FIPS mode, and OperatorHub catalog source management.</p>
+<p>Key capabilities:
+- <strong>Ingress timeout tuning</strong>: Prevent request failures for long-running operations
+- <strong>FIPS-compatible TLS ciphers</strong>: Enable IBM Java Semeru runtime in FIPS mode
+- <strong>Catalog source management</strong>: Disable default Red Hat catalogs for air-gapped environments
+- <strong>Path-based routing</strong>: Configure namespace ownership for multi-namespace route support</p>
+<p>This role configures:
+- Tune the <code>IngressController</code> to avoid request failures due to timeout for long running requests
+- Configure the <code>IngressController</code> namespace ownership for path-based routing support
+- Update <code>APIServer</code> and <code>IngressController</code> to set a custom <code>tlsSecurityProfile</code> to accommodate ciphers supported by IBM Java Semeru runtime. This is required for allowing the Java applications using Semeru runtime to run in FIPS mode. The following ciphers will be enabled:
+    - <code>TLS_AES_128_GCM_SHA256</code>
+    - <code>TLS_AES_256_GCM_SHA384</code>
+    - <code>TLS_CHACHA20_POLY1305_SHA256</code>
+    - <code>ECDHE-ECDSA-AES128-GCM-SHA256</code>
+    - <code>ECDHE-RSA-AES128-GCM-SHA256</code>
+    - <code>ECDHE-ECDSA-AES256-GCM-SHA384</code>
+    - <code>ECDHE-RSA-AES256-GCM-SHA384</code>
+    - <code>ECDHE-ECDSA-CHACHA20-POLY1305</code>
+    - <code>ECDHE-RSA-CHACHA20-POLY1305</code>
+    - <code>DHE-RSA-AES128-GCM-SHA256</code>
+    - <code>DHE-RSA-AES256-GCM-SHA384</code>
+    - <code>ECDHE-RSA-AES128-SHA256</code>
+    - <code>ECDHE-RSA-AES128-SHA</code>
+    - <code>ECDHE-RSA-AES256-SHA</code>
+- Disable the default Red Hat <code>CatalogSources</code>:
+    - <code>certified-operators</code>
+    - <code>community-operators</code>
+    - <code>redhat-operators</code></p>
 <h2 id="role-variables-api-server">Role Variables - API Server<a class="headerlink" href="#role-variables-api-server" title="Permanent link">¤</a></h2>
 <h3 id="ocp_update_ciphers_for_semeru">ocp_update_ciphers_for_semeru<a class="headerlink" href="#ocp_update_ciphers_for_semeru" title="Permanent link">¤</a></h3>
-<p>Set to <code>True</code> if you want to configure the API Server and Ingress Controller to use a custom set of ciphers that are compatible with IBM Java Semeru in FIPS mode.</p>
+<p>Enable custom TLS cipher configuration for IBM Java Semeru FIPS mode compatibility.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>OCP_UPDATE_CIPHERS_FOR_SEMERU</code></li>
-<li>Default Value: <code>False</code></li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Configures the API Server and Ingress Controller with a custom TLS security profile that includes ciphers compatible with IBM Java Semeru runtime in FIPS mode.</p>
+<p><strong>When to use</strong>: Required when running MAS applications (particularly Manage) in FIPS mode with IBM Java Semeru runtime.</p>
+<p><strong>Valid values</strong>:
+- <code>true</code> - Apply custom cipher configuration
+- <code>false</code> - Use default OpenShift cipher configuration</p>
+<p><strong>Impact</strong>: When enabled, updates the <code>tlsSecurityProfile</code> on both APIServer and IngressController resources to include the following ciphers:
+- TLS 1.3: <code>TLS_AES_128_GCM_SHA256</code>, <code>TLS_AES_256_GCM_SHA384</code>, <code>TLS_CHACHA20_POLY1305_SHA256</code>
+- TLS 1.2: <code>ECDHE-ECDSA-AES128-GCM-SHA256</code>, <code>ECDHE-RSA-AES128-GCM-SHA256</code>, <code>ECDHE-ECDSA-AES256-GCM-SHA384</code>, <code>ECDHE-RSA-AES256-GCM-SHA384</code>, <code>ECDHE-ECDSA-CHACHA20-POLY1305</code>, <code>ECDHE-RSA-CHACHA20-POLY1305</code>, <code>DHE-RSA-AES128-GCM-SHA256</code>, <code>DHE-RSA-AES256-GCM-SHA384</code>, <code>ECDHE-RSA-AES128-SHA256</code>, <code>ECDHE-RSA-AES128-SHA</code>, <code>ECDHE-RSA-AES256-SHA</code></p>
+<p><strong>Related variables</strong>: None</p>
+<p><strong>Notes</strong>:
+- Required for FIPS-compliant MAS deployments using Semeru runtime
+- Changes affect cluster-wide TLS configuration
+- May require cluster restart to fully apply
+- Verify compatibility with other applications in the cluster</p>
 <h2 id="role-variables-ingress-controller">Role Variables - Ingress Controller<a class="headerlink" href="#role-variables-ingress-controller" title="Permanent link">¤</a></h2>
 <h3 id="ocp_ingress_controller_name">ocp_ingress_controller_name<a class="headerlink" href="#ocp_ingress_controller_name" title="Permanent link">¤</a></h3>
-<p>Specifies the name of the Ingress Controller to configure. This applies to both timeout and namespace ownership settings.</p>
+<p>The name of the Ingress Controller to configure.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>OCP_INGRESS_CONTROLLER_NAME</code></li>
 <li>Default Value: <code>default</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which Ingress Controller instance to configure. This applies to both timeout and namespace ownership settings.</p>
+<p><strong>When to use</strong>: Use the default value unless you have multiple Ingress Controllers in your cluster and need to configure a specific one.</p>
+<p><strong>Valid values</strong>:
+- <code>default</code> - The default cluster Ingress Controller (most common)
+- Any custom Ingress Controller name in your cluster</p>
+<p><strong>Impact</strong>: All timeout and namespace ownership configurations will be applied to this specific Ingress Controller.</p>
+<p><strong>Related variables</strong>:
+- <a href="#ocp_ingress_update_timeouts"><code>ocp_ingress_update_timeouts</code></a> - Timeout settings apply to this controller
+- <a href="#ocp_ingress_namespace_ownership"><code>ocp_ingress_namespace_ownership</code></a> - Namespace policy applies to this controller</p>
+<p><strong>Notes</strong>:
+- Most OpenShift clusters use only the <code>default</code> Ingress Controller
+- Custom Ingress Controllers are rare and typically used for advanced routing scenarios
+- Verify the controller name exists before configuring</p>
 <h3 id="ocp_ingress_update_timeouts">ocp_ingress_update_timeouts<a class="headerlink" href="#ocp_ingress_update_timeouts" title="Permanent link">¤</a></h3>
-<p>Set to <code>True</code> if you want to customize the Ingress's client and server timeout values</p>
+<p>Enable custom timeout configuration for the OpenShift Ingress Controller.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>OCP_INGRESS_UPDATE_TIMEOUTS</code></li>
-<li>Default Value: <code>False</code></li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether to apply custom client and server timeout values to the Ingress Controller.</p>
+<p><strong>When to use</strong>: Enable when experiencing timeout issues with long-running MAS operations such as large file uploads, report generation, or data imports.</p>
+<p><strong>Valid values</strong>:
+- <code>true</code> - Apply custom timeout values
+- <code>false</code> - Use default OpenShift timeout values (30s)</p>
+<p><strong>Impact</strong>: When enabled, updates the IngressController with the values specified in <code>ocp_ingress_client_timeout</code> and <code>ocp_ingress_server_timeout</code>.</p>
+<p><strong>Related variables</strong>: <code>ocp_ingress_client_timeout</code>, <code>ocp_ingress_server_timeout</code></p>
+<p><strong>Notes</strong>:
+- Default 30s timeout may be insufficient for MAS Manage operations
+- Recommended to enable for production MAS deployments
+- Changes apply to all routes in the cluster</p>
 <h3 id="ocp_ingress_client_timeout">ocp_ingress_client_timeout<a class="headerlink" href="#ocp_ingress_client_timeout" title="Permanent link">¤</a></h3>
-<p>Specifies how long a connection is held open while waiting for a client response</p>
+<p>Client-side timeout duration for ingress connections.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>OCP_INGRESS_CLIENT_TIMEOUT</code></li>
-<li>Default Value: <code>30s</code></li>
+<li>Default: <code>30s</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies how long a connection is held open while waiting for a client to send data or complete a request.</p>
+<p><strong>When to use</strong>: Increase when clients need more time to upload large files or send data to MAS applications.</p>
+<p><strong>Valid values</strong>: Duration string with unit suffix (e.g., <code>30s</code>, <code>5m</code>, <code>1h</code>). Common values:
+- <code>30s</code> - Default, suitable for most operations
+- <code>5m</code> - Recommended for MAS Manage file uploads
+- <code>10m</code> - For very large file operations</p>
+<p><strong>Impact</strong>: Connections from clients will be kept alive for this duration while waiting for data. Too short may cause upload failures; too long may consume resources.</p>
+<p><strong>Related variables</strong>: <code>ocp_ingress_update_timeouts</code> (must be <code>true</code>), <code>ocp_ingress_server_timeout</code></p>
+<p><strong>Notes</strong>:
+- Only applies when <code>ocp_ingress_update_timeouts</code> is <code>true</code>
+- Consider network latency and file sizes when setting
+- Affects all routes in the cluster
+- Balance between user experience and resource consumption</p>
 <h3 id="ocp_ingress_server_timeout">ocp_ingress_server_timeout<a class="headerlink" href="#ocp_ingress_server_timeout" title="Permanent link">¤</a></h3>
-<p>Specifies how long a connection is held open while waiting for a server response</p>
+<p>Server-side timeout duration for ingress connections.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>OCP_INGRESS_SERVER_TIMEOUT</code></li>
-<li>Default Value: <code>30s</code></li>
+<li>Default: <code>30s</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies how long a connection is held open while waiting for a server (backend application) to respond.</p>
+<p><strong>When to use</strong>: Increase when MAS applications perform long-running operations like report generation, data processing, or complex queries.</p>
+<p><strong>Valid values</strong>: Duration string with unit suffix (e.g., <code>30s</code>, <code>5m</code>, <code>1h</code>). Common values:
+- <code>30s</code> - Default, suitable for most operations
+- <code>5m</code> - Recommended for MAS Manage report generation
+- <code>10m</code> - For complex data processing operations
+- <code>30m</code> - For very long-running batch operations</p>
+<p><strong>Impact</strong>: Backend connections will be kept alive for this duration while waiting for responses. Too short may cause operation failures; too long may mask application issues.</p>
+<p><strong>Related variables</strong>: <code>ocp_ingress_update_timeouts</code> (must be <code>true</code>), <code>ocp_ingress_client_timeout</code></p>
+<p><strong>Notes</strong>:
+- Only applies when <code>ocp_ingress_update_timeouts</code> is <code>true</code>
+- Critical for MAS Manage report generation and data imports
+- Affects all routes in the cluster
+- Monitor application logs to determine appropriate values</p>
 <h3 id="ocp_ingress_namespace_ownership">ocp_ingress_namespace_ownership<a class="headerlink" href="#ocp_ingress_namespace_ownership" title="Permanent link">¤</a></h3>
 <p>Specifies the namespace ownership policy for the Ingress Controller. Set to <code>InterNamespaceAllowed</code> to enable path-based routing support, which allows routes to claim the same hostname across different namespaces.</p>
 <ul>
@@ -819,16 +884,25 @@
 </div>
 <h2 id="role-variables-operatorhub">Role Variables - OperatorHub<a class="headerlink" href="#role-variables-operatorhub" title="Permanent link">¤</a></h2>
 <h3 id="ocp_operatorhub_disable_redhat_sources">ocp_operatorhub_disable_redhat_sources<a class="headerlink" href="#ocp_operatorhub_disable_redhat_sources" title="Permanent link">¤</a></h3>
-<p>Set to <code>True</code> if you want to disable the default Red Hat catalog sources</p>
+<p>Disable default Red Hat OperatorHub catalog sources.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>OCP_OPERATORHUB_DISABLE_REDHAT_SOURCES</code></li>
-<li>Default Value: <code>False</code></li>
+<li>Default: <code>false</code></li>
 </ul>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Setting this to <code>False</code> will not enable the default catalog sources if they are currently disabled, it will just instruct this role to take no action.</p>
-</div>
+<p><strong>Purpose</strong>: Disables the default Red Hat catalog sources (<code>certified-operators</code>, <code>community-operators</code>, <code>redhat-operators</code>) in OperatorHub.</p>
+<p><strong>When to use</strong>: Required for air-gapped/disconnected environments where external catalog sources are not accessible. Also useful to enforce use of mirrored catalogs only.</p>
+<p><strong>Valid values</strong>:
+- <code>true</code> - Disable default Red Hat catalog sources
+- <code>false</code> - Leave catalog sources unchanged (default)</p>
+<p><strong>Impact</strong>: When <code>true</code>, disables the three default Red Hat catalog sources. Operators must be installed from custom or mirrored catalogs.</p>
+<p><strong>Related variables</strong>: None</p>
+<p><strong>Notes</strong>:
+- <strong>Important</strong>: Setting to <code>false</code> does NOT re-enable disabled sources
+- Required for disconnected/air-gapped MAS installations
+- Ensure custom catalogs are configured before disabling defaults
+- Affects all operator installations in the cluster
+- Cannot install operators from Red Hat catalogs after disabling</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true

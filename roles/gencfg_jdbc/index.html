@@ -739,104 +739,215 @@
           <div class="rst-content">
             
             <h1 id="gencfg_jdbc">gencfg_jdbc<a class="headerlink" href="#gencfg_jdbc" title="Permanent link">¤</a></h1>
-<p>This role is used to configure database in Maximo Application Suite. It will use the database SSL certificate if ssl_enabled flag is true. The<code>db_pem-file</code> defines the location of the pem file used for JDBC connection in MAS installation.</p>
+<p>Generate JDBC configuration files for connecting Maximo Application Suite to external databases. This role creates JdbcCfg custom resources that can be applied to MAS instances to configure database connectivity for various applications including Manage, Health, Predict, and others.</p>
+<p>The role supports multiple database types (Db2, Oracle, SQL Server) with both secure and insecure connection options, and can generate configurations scoped at system, workspace, application, or workspace-application levels.</p>
 <h2 id="role-variables-data-source">Role Variables - Data Source<a class="headerlink" href="#role-variables-data-source" title="Permanent link">¤</a></h2>
 <h3 id="db_instance_id">db_instance_id<a class="headerlink" href="#db_instance_id" title="Permanent link">¤</a></h3>
-<p>Defines the instance id that is used for the db configure in MAS installation</p>
+<p>Database instance identifier used in the generated configuration.</p>
 <ul>
-<li><strong>Required</strong></li>
+<li>Optional</li>
 <li>Environment Variable: <code>DB_INSTANCE_ID</code></li>
 <li>Default: <code>dbinst</code></li>
 </ul>
+<p><strong>Purpose</strong>: Provides a unique identifier for the database instance within MAS configuration. This ID is used to reference the database connection in application configurations.</p>
+<p><strong>When to use</strong>: Always set this to a meaningful name that identifies the database instance, especially when managing multiple database connections.</p>
+<p><strong>Valid values</strong>: Alphanumeric string, typically lowercase with no spaces (e.g., <code>maxdb01</code>, <code>manage-prod</code>, <code>oracle-dev</code>).</p>
+<p><strong>Impact</strong>: This identifier appears in MAS configuration resources and must be unique within the scope of the MAS instance.</p>
+<p><strong>Related variables</strong>: <code>mas_config_scope</code>, <code>mas_instance_id</code></p>
+<p><strong>Notes</strong>:
+- Default value <code>dbinst</code> is suitable for simple single-database deployments
+- Use descriptive names in multi-database environments to avoid confusion</p>
 <h3 id="db_username">db_username<a class="headerlink" href="#db_username" title="Permanent link">¤</a></h3>
-<p>Defines the username that is used for the db configure in MAS installation</p>
+<p>Database username for authentication.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_JDBC_USER</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the database user account that MAS applications will use to connect to the database.</p>
+<p><strong>When to use</strong>: Always required. Must be a valid database user with appropriate permissions for the target MAS application.</p>
+<p><strong>Valid values</strong>: Valid database username according to the database system's naming rules.</p>
+<p><strong>Impact</strong>: This user must have the necessary privileges to access and modify the application schema. Insufficient permissions will cause application failures.</p>
+<p><strong>Related variables</strong>: <code>jdbc_instance_password</code>, <code>jdbc_url</code></p>
+<p><strong>Notes</strong>:
+- For Manage: User needs full access to the MAXIMO schema
+- For Oracle: May need to include schema prefix in some configurations
+- Ensure the user has appropriate connection limits configured in the database</p>
 <h3 id="jdbc_instance_password">jdbc_instance_password<a class="headerlink" href="#jdbc_instance_password" title="Permanent link">¤</a></h3>
-<p>Defines the password that is used to connect to db in MAS installation</p>
+<p>Database password for authentication.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_JDBC_PASSWORD</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the password for the database user account specified in <code>db_username</code>.</p>
+<p><strong>When to use</strong>: Always required for database authentication.</p>
+<p><strong>Valid values</strong>: Valid password string. Should meet your organization's password complexity requirements.</p>
+<p><strong>Impact</strong>: Stored as a Kubernetes secret in the MAS namespace. Incorrect password will prevent database connectivity.</p>
+<p><strong>Related variables</strong>: <code>db_username</code>, <code>jdbc_url</code></p>
+<p><strong>Notes</strong>:
+- Password is stored securely in Kubernetes secrets
+- Consider using strong passwords and regular rotation policies
+- Ensure password doesn't contain characters that require URL encoding if embedded in connection strings</p>
 <h3 id="jdbc_url">jdbc_url<a class="headerlink" href="#jdbc_url" title="Permanent link">¤</a></h3>
-<p>Defines the jdbc URL that is used to connect to db in MAS installation:</p>
+<p>JDBC connection URL for the database.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_JDBC_URL</code></li>
 <li>Default: None</li>
 </ul>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>Example URL strings:</p>
+<p><strong>Purpose</strong>: Defines the complete JDBC connection string including host, port, database name, and connection parameters.</p>
+<p><strong>When to use</strong>: Always required. Must be formatted correctly for the specific database type.</p>
+<p><strong>Valid values</strong>: Valid JDBC URL string for the target database type. Examples:</p>
 <ul>
-<li>IBM Db2 (insecure): <code>jdbc:db2://dbserverxx:50000/maxdbxx</code></li>
-<li>IBM Db2 (secure): <code>jdbc:db2://dbserverxx:50000/maxdbxx:sslConnection=true</code></li>
-<li>Oracle Database: <code>jdbc:oracle:thin:@dbserverxx:1521:maximo</code></li>
-<li>Microsoft SQL Server (insecure): <code>jdbc:sqlserver://;serverName=dbserverxx;portNumber=1433;databaseName=msdbxx;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=false;trustServerCertificate=false;</code></li>
-<li>Microsoft SQL Server (secure): <code>jdbc:sqlserver://;serverName=dbserverxx;portNumber=1433;databaseName=msdbxx;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=true;trustServerCertificate=true;</code></li>
+<li><strong>IBM Db2 (insecure)</strong>: <code>jdbc:db2://dbserver.example.com:50000/maxdb</code></li>
+<li><strong>IBM Db2 (secure)</strong>: <code>jdbc:db2://dbserver.example.com:50000/maxdb:sslConnection=true;</code></li>
+<li><strong>Oracle Database</strong>: <code>jdbc:oracle:thin:@dbserver.example.com:1521:maximo</code></li>
+<li><strong>SQL Server (insecure)</strong>: <code>jdbc:sqlserver://;serverName=dbserver.example.com;portNumber=1433;databaseName=maxdb;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=false;trustServerCertificate=false;</code></li>
+<li><strong>SQL Server (secure)</strong>: <code>jdbc:sqlserver://;serverName=dbserver.example.com;portNumber=1433;databaseName=maxdb;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=true;trustServerCertificate=true;</code></li>
 </ul>
-</div>
+<p><strong>Impact</strong>: Incorrect URL format will prevent database connectivity. SSL/TLS settings in the URL must match the <code>ssl_enabled</code> variable and database server configuration.</p>
+<p><strong>Related variables</strong>: <code>ssl_enabled</code>, <code>db_pem_file</code>, <code>db_username</code></p>
+<p><strong>Notes</strong>:
+- Always test the JDBC URL with a database client before using in MAS
+- For SSL connections, ensure the URL includes appropriate SSL parameters
+- Some databases require specific JDBC driver parameters for optimal performance
+- Port numbers and database names must match your actual database configuration</p>
 <h3 id="db_pem_file">db_pem_file<a class="headerlink" href="#db_pem_file" title="Permanent link">¤</a></h3>
-<p>Defines the location of the pem file used for JDBC connection in MAS installation</p>
+<p>Local file path to the database SSL/TLS certificate in PEM format.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>MAS_JDBC_CERT_LOCAL_FILE</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the SSL/TLS certificate for secure database connections. The certificate is embedded in the generated JdbcCfg resource.</p>
+<p><strong>When to use</strong>: Required when <code>ssl_enabled</code> is <code>true</code> and the database uses SSL/TLS encryption. Not needed for insecure connections.</p>
+<p><strong>Valid values</strong>: Absolute or relative file path to a valid PEM-encoded certificate file (e.g., <code>/tmp/db-ca.pem</code>, <code>./certs/database-cert.pem</code>).</p>
+<p><strong>Impact</strong>: Without the correct certificate, SSL connections will fail with certificate validation errors.</p>
+<p><strong>Related variables</strong>: <code>ssl_enabled</code>, <code>jdbc_url</code></p>
+<p><strong>Notes</strong>:
+- The file must be accessible from the Ansible controller
+- For self-signed certificates, this should be the CA certificate
+- For commercial certificates, may need to include the full certificate chain
+- Certificate must be in PEM format (Base64-encoded with BEGIN/END markers)</p>
 <h2 id="role-variables-mas-configuration">Role Variables - MAS Configuration<a class="headerlink" href="#role-variables-mas-configuration" title="Permanent link">¤</a></h2>
 <h3 id="mas_config_scope">mas_config_scope<a class="headerlink" href="#mas_config_scope" title="Permanent link">¤</a></h3>
-<p>Configure whether to generate a binding suitable for System, Workspace, Application, or Workspace-Application use within MAS (<code>system</code>, <code>ws</code>, <code>app</code>, or <code>wsapp</code>).</p>
+<p>Configuration scope level for the generated JDBC configuration.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_CONFIG_SCOPE</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Determines at what level the JDBC configuration will be available within MAS - system-wide, workspace-specific, application-specific, or workspace-application combination.</p>
+<p><strong>When to use</strong>: Always required. Choose based on how the database will be shared across MAS components.</p>
+<p><strong>Valid values</strong>:
+- <code>system</code> - Available to all workspaces and applications
+- <code>ws</code> - Available only to a specific workspace
+- <code>app</code> - Available only to a specific application across all workspaces
+- <code>wsapp</code> - Available only to a specific application in a specific workspace</p>
+<p><strong>Impact</strong>: Determines which MAS components can access this database configuration. Incorrect scope may prevent applications from finding the database configuration.</p>
+<p><strong>Related variables</strong>: <code>mas_workspace_id</code> (required for <code>ws</code> and <code>wsapp</code>), <code>mas_application_id</code> (required for <code>app</code> and <code>wsapp</code>)</p>
+<p><strong>Notes</strong>:
+- Use <code>system</code> scope for shared databases used by multiple applications
+- Use <code>wsapp</code> scope for dedicated databases per workspace-application combination
+- Scope cannot be changed after creation; requires recreation of the configuration</p>
 <h3 id="mas_config_dir">mas_config_dir<a class="headerlink" href="#mas_config_dir" title="Permanent link">¤</a></h3>
-<p>Configure the destination directory for the generated yaml file.</p>
+<p>Local directory path where the generated YAML configuration file will be saved.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_CONFIG_DIR</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the output directory for the generated JdbcCfg YAML file that can be applied to the MAS instance.</p>
+<p><strong>When to use</strong>: Always required. Directory must exist or be creatable by the Ansible user.</p>
+<p><strong>Valid values</strong>: Valid directory path (absolute or relative) where the Ansible controller has write permissions.</p>
+<p><strong>Impact</strong>: The generated YAML file will be created in this directory and can be applied using <code>kubectl apply</code> or the <code>suite_config</code> role.</p>
+<p><strong>Related variables</strong>: <code>mas_instance_id</code>, <code>db_instance_id</code></p>
+<p><strong>Notes</strong>:
+- Directory will be created if it doesn't exist
+- Generated filename format: <code>jdbccfg-&lt;db_instance_id&gt;.yml</code>
+- Keep generated files for documentation and disaster recovery purposes</p>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
-<p>MAS Instance ID we are generating a configuration for.</p>
+<p>MAS instance identifier for which the configuration is being generated.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies the target MAS instance where this JDBC configuration will be applied.</p>
+<p><strong>When to use</strong>: Always required. Must match an existing MAS instance ID.</p>
+<p><strong>Valid values</strong>: Valid MAS instance ID (typically 3-12 lowercase alphanumeric characters).</p>
+<p><strong>Impact</strong>: The generated configuration will be namespace-scoped to <code>mas-&lt;instance-id&gt;-core</code>. Incorrect instance ID will cause the configuration to be created in the wrong namespace.</p>
+<p><strong>Related variables</strong>: <code>mas_config_scope</code>, <code>mas_workspace_id</code></p>
+<p><strong>Notes</strong>:
+- Must match the instance ID used during MAS installation
+- Case-sensitive value
+- Cannot be changed after MAS installation</p>
 <h3 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link">¤</a></h3>
-<p>Set the workspace ID when generating a configuration for workspace or workspace-application scope.</p>
+<p>MAS workspace identifier for workspace-scoped configurations.</p>
 <ul>
-<li><strong>Required</strong> if <code>mas_config_scope</code> is set to either <code>ws</code> or <code>wsapp</code></li>
+<li><strong>Required</strong> if <code>mas_config_scope</code> is <code>ws</code> or <code>wsapp</code></li>
 <li>Environment Variable: <code>MAS_WORKSPACE_ID</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the target workspace when generating workspace-scoped or workspace-application-scoped JDBC configurations.</p>
+<p><strong>When to use</strong>: Required when <code>mas_config_scope</code> is set to <code>ws</code> or <code>wsapp</code>. Not used for <code>system</code> or <code>app</code> scopes.</p>
+<p><strong>Valid values</strong>: Valid MAS workspace ID (typically lowercase alphanumeric, e.g., <code>masdev</code>, <code>prod</code>, <code>test</code>).</p>
+<p><strong>Impact</strong>: The JDBC configuration will only be available to the specified workspace. Applications in other workspaces cannot access this database configuration.</p>
+<p><strong>Related variables</strong>: <code>mas_config_scope</code>, <code>mas_application_id</code></p>
+<p><strong>Notes</strong>:
+- Workspace must exist before applying the configuration
+- Use workspace-scoped configs for tenant isolation in multi-tenant deployments</p>
 <h3 id="mas_application_id">mas_application_id<a class="headerlink" href="#mas_application_id" title="Permanent link">¤</a></h3>
-<p>Set the application ID when generating a configuration for application or workspace-application scope.</p>
+<p>MAS application identifier for application-scoped configurations.</p>
 <ul>
-<li><strong>Required</strong> if <code>mas_config_scope</code> is set to either <code>app</code> or <code>wsapp</code></li>
+<li><strong>Required</strong> if <code>mas_config_scope</code> is <code>app</code> or <code>wsapp</code></li>
 <li>Environment Variable: <code>MAS_APP_ID</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the target application when generating application-scoped or workspace-application-scoped JDBC configurations.</p>
+<p><strong>When to use</strong>: Required when <code>mas_config_scope</code> is set to <code>app</code> or <code>wsapp</code>. Not used for <code>system</code> or <code>ws</code> scopes.</p>
+<p><strong>Valid values</strong>: Valid MAS application ID: <code>manage</code>, <code>health</code>, <code>predict</code>, <code>monitor</code>, <code>assist</code>, <code>visualinspection</code>, <code>iot</code>, <code>optimizer</code>, <code>safety</code>.</p>
+<p><strong>Impact</strong>: The JDBC configuration will only be available to the specified application. Other applications cannot access this database configuration.</p>
+<p><strong>Related variables</strong>: <code>mas_config_scope</code>, <code>mas_workspace_id</code></p>
+<p><strong>Notes</strong>:
+- Application must be installed before applying the configuration
+- Most commonly used with <code>manage</code> for Manage-specific databases</p>
 <h3 id="ssl_enabled">ssl_enabled<a class="headerlink" href="#ssl_enabled" title="Permanent link">¤</a></h3>
-<p>Some applications in MAS are unable to determine whether SSL is enabled or disable via the JDBC string, and require this additional setting.  Make sure to set this to match the setting in <code>jdbc_url</code>.</p>
+<p>Indicates whether SSL/TLS encryption is enabled for the database connection.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>SSL_ENABLED</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Explicitly declares SSL/TLS status for applications that cannot determine this from the JDBC URL alone. Must match the SSL configuration in <code>jdbc_url</code>.</p>
+<p><strong>When to use</strong>: Always required. Set to <code>true</code> for encrypted connections, <code>false</code> for unencrypted connections.</p>
+<p><strong>Valid values</strong>:
+- <code>true</code> - SSL/TLS encryption is enabled
+- <code>false</code> - No encryption (insecure connection)</p>
+<p><strong>Impact</strong>: Mismatch between this setting and the actual JDBC URL SSL parameters will cause connection failures in some MAS applications.</p>
+<p><strong>Related variables</strong>: <code>jdbc_url</code>, <code>db_pem_file</code></p>
+<p><strong>Notes</strong>:
+- Always use <code>true</code> for production environments
+- When <code>true</code>, ensure <code>db_pem_file</code> is provided
+- Must match the SSL settings in the <code>jdbc_url</code> parameter
+- Some MAS applications rely on this flag rather than parsing the JDBC URL</p>
 <h3 id="custom_labels">custom_labels<a class="headerlink" href="#custom_labels" title="Permanent link">¤</a></h3>
-<p>List of comma separated key=value pairs for setting custom labels on instance specific resources.</p>
+<p>Custom Kubernetes labels to apply to the generated JdbcCfg resource.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>CUSTOM_LABELS</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Adds custom labels to the JdbcCfg resource for organization, filtering, or automation purposes.</p>
+<p><strong>When to use</strong>: Use when you need to tag configurations for specific purposes like environment identification, cost tracking, or automated management.</p>
+<p><strong>Valid values</strong>: Comma-separated key=value pairs (e.g., <code>env=prod,team=platform,cost-center=12345</code>).</p>
+<p><strong>Impact</strong>: Labels are applied to the Kubernetes resource and can be used for selection, filtering, and automation workflows.</p>
+<p><strong>Related variables</strong>: None</p>
+<p><strong>Notes</strong>:
+- Labels must follow Kubernetes naming conventions
+- Useful for GitOps workflows and resource management
+- Can be used with label selectors in automation scripts</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">---
 

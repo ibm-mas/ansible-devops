@@ -741,69 +741,145 @@
           <div class="rst-content">
             
             <h1 id="ocp_node_config">ocp_node_config<a class="headerlink" href="#ocp_node_config" title="Permanent link">¤</a></h1>
-<p>Use the following command to verify the effect of any labels and taints that you apply to a node:</p>
-<pre><code>oc get pods --all-namespaces -o wide --field-selector spec.nodeName=xxx
+<p>Configure individual OpenShift nodes with custom labels and taints to control workload placement. This role enables creation of dedicated nodes for specific workloads (e.g., Db2, MongoDB, compute-intensive applications) by applying Kubernetes node selectors and taints.</p>
+<p>Use labels to direct workloads to specific nodes and taints to prevent unwanted workloads from running on dedicated nodes. This is essential for performance isolation, resource management, and meeting specific hardware requirements.</p>
+<p><strong>Verification</strong>: Use the following command to verify labels and taints:</p>
+<pre><code class="language-bash">oc get pods --all-namespaces -o wide --field-selector spec.nodeName=&lt;node-name&gt;
 </code></pre>
 <h2 id="role-variables-node-selection">Role Variables - Node Selection<a class="headerlink" href="#role-variables-node-selection" title="Permanent link">¤</a></h2>
-<p>Use either <code>ocp_node_name</code> or <code>ocp_node_index</code> to identify the node to be modified.  If you specify both then the index will take priority over the name, if you specify neither then the role will fail to execute.</p>
+<p><strong>Important</strong>: Specify either <code>ocp_node_name</code> OR <code>ocp_node_index</code> to identify the target node. If both are specified, <code>ocp_node_index</code> takes priority. If neither is specified, the role will fail.</p>
 <h3 id="ocp_node_name">ocp_node_name<a class="headerlink" href="#ocp_node_name" title="Permanent link">¤</a></h3>
-<p>The name of the node to work with</p>
+<p>Node name to configure with labels and/or taints.</p>
 <ul>
-<li>Optional</li>
+<li>Optional (but one of <code>ocp_node_name</code> or <code>ocp_node_index</code> is required)</li>
 <li>Environment Variable: <code>OCP_NODE_NAME</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies a specific node by its name for label and taint configuration.</p>
+<p><strong>When to use</strong>: Use when you know the exact node name. Preferred method for production environments where node names are predictable.</p>
+<p><strong>Valid values</strong>: Valid OpenShift node name (e.g., <code>worker-0.example.com</code>, <code>10.172.168.89</code>).</p>
+<p><strong>Impact</strong>: The specified node will be configured with the provided labels and taints. Incorrect node name will cause the role to fail.</p>
+<p><strong>Related variables</strong>: <code>ocp_node_index</code> (alternative selection method)</p>
+<p><strong>Notes</strong>:
+- Get node names with: <code>oc get nodes</code>
+- Node names may be hostnames, IP addresses, or cloud provider identifiers
+- If both <code>ocp_node_name</code> and <code>ocp_node_index</code> are set, index takes priority</p>
 <h3 id="ocp_node_index">ocp_node_index<a class="headerlink" href="#ocp_node_index" title="Permanent link">¤</a></h3>
-<p>The index (in the list of nodes) of the node to work with.  Note that the index starts at 0 (so use <code>ocp_node_index=0</code> if you want to work with the first node).</p>
+<p>Zero-based index of the node in the cluster's node list.</p>
 <ul>
-<li>Optional</li>
+<li>Optional (but one of <code>ocp_node_name</code> or <code>ocp_node_index</code> is required)</li>
 <li>Environment Variable: <code>OCP_NODE_INDEX</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies a node by its position in the sorted list of cluster nodes.</p>
+<p><strong>When to use</strong>: Useful in automation scenarios where node names are not known in advance, or when configuring nodes sequentially.</p>
+<p><strong>Valid values</strong>: Non-negative integer starting from 0 (e.g., <code>0</code> for first node, <code>1</code> for second node).</p>
+<p><strong>Impact</strong>: The node at the specified index position will be configured. Index out of range will cause the role to fail.</p>
+<p><strong>Related variables</strong>: <code>ocp_node_name</code> (alternative selection method)</p>
+<p><strong>Notes</strong>:
+- Index 0 refers to the first node in alphabetically sorted list
+- Node order may change if nodes are added/removed
+- Takes priority over <code>ocp_node_name</code> if both are set
+- Less reliable than node name for production use</p>
 <h2 id="role-variables-node-labels">Role Variables - Node Labels<a class="headerlink" href="#role-variables-node-labels" title="Permanent link">¤</a></h2>
 <h3 id="ocp_node_label_keys">ocp_node_label_keys<a class="headerlink" href="#ocp_node_label_keys" title="Permanent link">¤</a></h3>
-<p>A comma-seperated list of labels to add to the selected node</p>
+<p>Comma-separated list of label keys to add to the selected node.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>OCP_NODE_LABEL_KEYS</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Defines the label keys that will be applied to the node. Labels are used by pod node selectors to direct workloads to specific nodes.</p>
+<p><strong>When to use</strong>: Use to categorize nodes by workload type, hardware capabilities, or any custom classification scheme.</p>
+<p><strong>Valid values</strong>: Comma-separated list of valid Kubernetes label keys (e.g., <code>workload</code>, <code>storage-type,gpu-enabled</code>). Label keys must:
+- Start and end with alphanumeric characters
+- Contain only alphanumeric, dash, underscore, or dot characters
+- Be 63 characters or less</p>
+<p><strong>Impact</strong>: Labels enable pod scheduling based on node selectors. Pods with matching node selectors will prefer or require these nodes.</p>
+<p><strong>Related variables</strong>: <code>ocp_node_label_values</code> (must have same number of values as keys)</p>
+<p><strong>Notes</strong>:
+- Number of keys must match number of values
+- Common label keys: <code>workload</code>, <code>node-role</code>, <code>storage-type</code>, <code>hardware-type</code>
+- Labels are additive; existing labels are not removed
+- Use with pod <code>nodeSelector</code> or <code>nodeAffinity</code> for workload placement</p>
 <h3 id="ocp_node_label_values">ocp_node_label_values<a class="headerlink" href="#ocp_node_label_values" title="Permanent link">¤</a></h3>
-<p>A comma-seperated list of values for the labels being created</p>
+<p>Comma-separated list of label values corresponding to the label keys.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>OCP_NODE_LABEL_VALUES</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the values for each label key specified in <code>ocp_node_label_keys</code>.</p>
+<p><strong>When to use</strong>: Required when <code>ocp_node_label_keys</code> is set. Must provide exactly one value for each key.</p>
+<p><strong>Valid values</strong>: Comma-separated list of valid Kubernetes label values (e.g., <code>db2</code>, <code>ssd,true</code>). Label values must:
+- Start and end with alphanumeric characters
+- Contain only alphanumeric, dash, underscore, or dot characters
+- Be 63 characters or less</p>
+<p><strong>Impact</strong>: Combined with keys, creates complete labels (key=value pairs) on the node.</p>
+<p><strong>Related variables</strong>: <code>ocp_node_label_keys</code> (must have same number of keys as values)</p>
+<p><strong>Notes</strong>:
+- Number of values must exactly match number of keys
+- Order matters: first value pairs with first key, etc.
+- Common label values: <code>db2</code>, <code>mongodb</code>, <code>compute</code>, <code>storage</code>
+- Example: keys=<code>workload,storage</code> values=<code>db2,ssd</code> creates labels <code>workload=db2</code> and <code>storage=ssd</code></p>
 <h2 id="role-variables-node-taints">Role Variables - Node Taints<a class="headerlink" href="#role-variables-node-taints" title="Permanent link">¤</a></h2>
 <h3 id="ocp_node_taint_keys">ocp_node_taint_keys<a class="headerlink" href="#ocp_node_taint_keys" title="Permanent link">¤</a></h3>
-<p>A comma-seperated list of taints to add to the selected node</p>
+<p>Comma-separated list of taint keys to add to the selected node.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>OCP_NODE_TAINT_KEYS</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Defines the taint keys that will prevent pods without matching tolerations from being scheduled on the node.</p>
+<p><strong>When to use</strong>: Use to dedicate nodes to specific workloads by preventing other pods from running on them.</p>
+<p><strong>Valid values</strong>: Comma-separated list of valid Kubernetes taint keys (e.g., <code>dedicatedDb2Node</code>, <code>gpu-workload,high-memory</code>).</p>
+<p><strong>Impact</strong>: Pods without matching tolerations will not be scheduled on this node. Existing pods may be evicted depending on taint effect.</p>
+<p><strong>Related variables</strong>: <code>ocp_node_taint_values</code>, <code>ocp_node_taint_effects</code> (must have same number of entries)</p>
+<p><strong>Notes</strong>:
+- Number of keys must match number of values and effects
+- Taints are more restrictive than labels
+- Common taint keys: <code>dedicatedDb2Node</code>, <code>dedicatedMongoNode</code>, <code>gpu-required</code>
+- Pods must have matching tolerations to run on tainted nodes</p>
 <h3 id="ocp_node_taint_values">ocp_node_taint_values<a class="headerlink" href="#ocp_node_taint_values" title="Permanent link">¤</a></h3>
-<p>A comma-seperated list of values for the taints being created</p>
+<p>Comma-separated list of taint values corresponding to the taint keys.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>OCP_NODE_TAINT_VALUES</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the values for each taint key, typically identifying which workload or instance the node is dedicated to.</p>
+<p><strong>When to use</strong>: Required when <code>ocp_node_taint_keys</code> is set. Must provide exactly one value for each key.</p>
+<p><strong>Valid values</strong>: Comma-separated list of taint values (e.g., <code>masinst1</code>, <code>prod-db,gpu-cluster</code>).</p>
+<p><strong>Impact</strong>: Combined with keys and effects, creates complete taints that control pod scheduling.</p>
+<p><strong>Related variables</strong>: <code>ocp_node_taint_keys</code>, <code>ocp_node_taint_effects</code> (must have same number of entries)</p>
+<p><strong>Notes</strong>:
+- Number of values must exactly match number of keys and effects
+- Values often identify specific instances or workload identifiers
+- Example: key=<code>dedicatedDb2Node</code> value=<code>masinst1</code> effect=<code>NoExecute</code> dedicates node to masinst1's Db2</p>
 <h3 id="ocp_node_taint_effects">ocp_node_taint_effects<a class="headerlink" href="#ocp_node_taint_effects" title="Permanent link">¤</a></h3>
-<p>A comma-seperated list of taint effects to set:</p>
+<p>Comma-separated list of taint effects defining how the taint impacts pod scheduling.</p>
 <ul>
-<li><code>NoSchedule</code>: New pods will not be scheduled onto the node</li>
-<li><code>PreferNoSchedule</code>: New pods <em>try</em> not to be scheduled onto the node</li>
-<li>
-<p><code>NoExecute</code>: New pods are not schedules onto the node, existing pods are removed</p>
-</li>
-<li>
-<p>Optional</p>
-</li>
+<li>Optional</li>
 <li>Environment Variable: <code>OCP_NODE_TAINT_EFFECTS</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the enforcement level for each taint, controlling both new pod scheduling and existing pod eviction.</p>
+<p><strong>When to use</strong>: Required when <code>ocp_node_taint_keys</code> is set. Choose effect based on desired behavior.</p>
+<p><strong>Valid values</strong>: Comma-separated list of taint effects:
+- <code>NoSchedule</code> - New pods without tolerations will not be scheduled; existing pods remain
+- <code>PreferNoSchedule</code> - Scheduler tries to avoid placing pods without tolerations; not guaranteed
+- <code>NoExecute</code> - New pods without tolerations will not be scheduled; existing pods without tolerations are evicted</p>
+<p><strong>Impact</strong>:
+- <code>NoSchedule</code>: Prevents new workloads but preserves existing ones
+- <code>PreferNoSchedule</code>: Soft constraint, may be overridden by scheduler
+- <code>NoExecute</code>: Strongest enforcement, evicts non-tolerating pods immediately</p>
+<p><strong>Related variables</strong>: <code>ocp_node_taint_keys</code>, <code>ocp_node_taint_values</code> (must have same number of entries)</p>
+<p><strong>Notes</strong>:
+- Number of effects must exactly match number of keys and values
+- <code>NoExecute</code> is most disruptive but ensures dedicated nodes
+- <code>NoSchedule</code> is common for gradual migration to dedicated nodes
+- <code>PreferNoSchedule</code> is least restrictive, useful for soft preferences
+- Example: Use <code>NoExecute</code> for Db2 dedicated nodes to ensure no other workloads run</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true

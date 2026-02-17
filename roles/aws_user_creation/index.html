@@ -747,43 +747,157 @@
 Also, you need to have AWS user credentials configured via <code>aws configure</code> command or simply export <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code> environment variables with your corresponding AWS username credentials prior running this role.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="aws_username">aws_username<a class="headerlink" href="#aws_username" title="Permanent link">¤</a></h3>
-<p>AWS Username.</p>
+<p>The IAM username to create in AWS.</p>
 <ul>
-<li>Required.</li>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>AWS_USERNAME</code></li>
 <li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the name of the IAM user to be created in your AWS account. This user will be used for programmatic access to AWS services required by MAS.</p>
+<p><strong>When to use</strong>: Always required when creating a new IAM user. The username should follow your organization's naming conventions and clearly identify its purpose (e.g., <code>mas-service-user</code>, <code>maximo-automation</code>).</p>
+<p><strong>Valid values</strong>:
+- 1-64 characters
+- Alphanumeric characters, plus signs (+), equals signs (=), commas (,), periods (.), at signs (@), underscores (_), and hyphens (-)
+- Must be unique within your AWS account
+- Case-sensitive</p>
+<p><strong>Impact</strong>:
+- Creates a new IAM user with this name in your AWS account
+- The user can be assigned policies and access keys for authentication
+- Username cannot be changed after creation (requires deletion and recreation)
+- Will appear in AWS CloudTrail logs for audit purposes</p>
+<p><strong>Related variables</strong>:
+- <a href="#aws_username_create_access_key_flag"><code>aws_username_create_access_key_flag</code></a> - Controls access key creation
+- <a href="#aws_policy_arn"><code>aws_policy_arn</code></a> - Policy to attach to the user
+- <a href="#aws_username_access_key_id"><code>aws_username_access_key_id</code></a> - Existing access key (optional)
+- <a href="#aws_username_secret_access_key"><code>aws_username_secret_access_key</code></a> - Existing secret key (optional)</p>
+<p><strong>Notes</strong>:
+- Follow the principle of least privilege when assigning permissions
+- Consider using a descriptive name that indicates the user's purpose
+- IAM users incur no direct costs but their actions may incur AWS service charges
+- For production, consider using IAM roles with temporary credentials instead of long-lived access keys</p>
 <h3 id="aws_username_create_access_key_flag">aws_username_create_access_key_flag<a class="headerlink" href="#aws_username_create_access_key_flag" title="Permanent link">¤</a></h3>
-<p>Flag that defines if IAM Access Key ID and Secret Access Key should be created for the AWS Username.
-If set to <code>False</code>, then only the AWS Username will be created but no IAM Access Key ID and Secret Access Key.</p>
+<p>Controls whether to create new IAM access keys for the user.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>AWS_USERNAME_CREATE_ACCESS_KEY_FLAG</code></li>
-<li>Default Value: <code>True</code>.</li>
+<li>Default Value: <code>True</code></li>
 </ul>
+<p><strong>Purpose</strong>: Determines if the role should generate a new IAM Access Key ID and Secret Access Key pair for the created user. Access keys enable programmatic access to AWS services.</p>
+<p><strong>When to use</strong>:
+- Set to <code>True</code> (default) when creating a new user that needs programmatic access
+- Set to <code>False</code> when you only need to create the user identity without immediate access keys
+- Automatically set to <code>False</code> if both <code>aws_username_access_key_id</code> and <code>aws_username_secret_access_key</code> are provided</p>
+<p><strong>Valid values</strong>:
+- <code>True</code> - Create new access key pair
+- <code>False</code> - Do not create access keys</p>
+<p><strong>Impact</strong>:
+- When <code>True</code>: Generates new access key credentials that must be securely stored
+- When <code>False</code>: User is created but cannot authenticate programmatically until keys are added
+- Access keys are displayed only once during creation and cannot be retrieved later
+- Each IAM user can have a maximum of 2 active access keys</p>
+<p><strong>Related variables</strong>:
+- <a href="#aws_username"><code>aws_username</code></a> - The user for which keys are created
+- <a href="#aws_username_access_key_id"><code>aws_username_access_key_id</code></a> - Overrides key creation if provided
+- <a href="#aws_username_secret_access_key"><code>aws_username_secret_access_key</code></a> - Overrides key creation if provided</p>
+<p><strong>Notes</strong>:
+- Store generated access keys securely (e.g., in a secrets manager)
+- Rotate access keys regularly for security best practices
+- If you provide existing credentials via <code>aws_username_access_key_id</code> and <code>aws_username_secret_access_key</code>, this flag is automatically set to <code>False</code>
+- Consider using temporary credentials (STS) for enhanced security in production</p>
 <h3 id="aws_username_access_key_id">aws_username_access_key_id<a class="headerlink" href="#aws_username_access_key_id" title="Permanent link">¤</a></h3>
-<p>Defines an existing IAM Access Key ID for your AWS username.
-If both <code>aws_username_access_key_id</code> and <code>aws_username_secret_access_key</code> are defined, then <code>aws_username_create_access_key_flag</code> will be automatically forced to <code>False</code>, therefore if you want to create new pair of credentials for the username, do not set this property.</p>
+<p>An existing IAM Access Key ID to use instead of creating a new one.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>AWS_USERNAME_ACCESS_KEY_ID</code></li>
-<li>Default Value: None.</li>
+<li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Allows you to specify an existing IAM Access Key ID for the user instead of generating a new one. This is useful when you already have credentials and want to reuse them.</p>
+<p><strong>When to use</strong>:
+- When you have pre-existing access keys that you want to associate with the user
+- When rotating credentials and you want to use a specific key pair
+- Must be used together with <code>aws_username_secret_access_key</code></p>
+<p><strong>Valid values</strong>:
+- A valid AWS IAM Access Key ID (20 characters, alphanumeric, starting with "AKIA" for long-term credentials)
+- Must be a key that exists and is associated with the specified username
+- Example format: <code>AKIAIOSFODNN7EXAMPLE</code></p>
+<p><strong>Impact</strong>:
+- When provided (along with secret key), automatically sets <code>aws_username_create_access_key_flag</code> to <code>False</code>
+- No new access keys will be generated
+- The role will use these existing credentials for validation
+- Does not modify or rotate the existing access key</p>
+<p><strong>Related variables</strong>:
+- <a href="#aws_username_secret_access_key"><code>aws_username_secret_access_key</code></a> - Must be provided together with this variable
+- <a href="#aws_username_create_access_key_flag"><code>aws_username_create_access_key_flag</code></a> - Automatically set to <code>False</code> when this is provided
+- <a href="#aws_username"><code>aws_username</code></a> - The user these credentials belong to</p>
+<p><strong>Notes</strong>:
+- Both access key ID and secret access key must be provided together
+- Ensure the credentials are valid and not expired
+- The access key must belong to the user specified in <code>aws_username</code>
+- Do not set this variable if you want to generate new credentials</p>
 <h3 id="aws_username_secret_access_key">aws_username_secret_access_key<a class="headerlink" href="#aws_username_secret_access_key" title="Permanent link">¤</a></h3>
-<p>Defines and existing IAM Secret Access Key for your AWS username.
-If both <code>aws_username_access_key_id</code> and <code>aws_username_secret_access_key</code> are defined, then <code>aws_username_create_access_key_flag</code> will be automatically forced to <code>False</code>, therefore if you want to create new pair of credentials for the username, do not set this property.</p>
+<p>An existing IAM Secret Access Key to use instead of creating a new one.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>AWS_USERNAME_SECRET_ACCESS_KEY</code></li>
-<li>Default Value: None.</li>
+<li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Allows you to specify an existing IAM Secret Access Key for the user instead of generating a new one. This must be used in conjunction with <code>aws_username_access_key_id</code>.</p>
+<p><strong>When to use</strong>:
+- When you have pre-existing access keys that you want to associate with the user
+- When you need to use specific credentials for compliance or security reasons
+- Must be used together with <code>aws_username_access_key_id</code></p>
+<p><strong>Valid values</strong>:
+- A valid AWS IAM Secret Access Key (40 characters, alphanumeric with special characters)
+- Must correspond to the Access Key ID provided in <code>aws_username_access_key_id</code>
+- Example format: <code>wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY</code></p>
+<p><strong>Impact</strong>:
+- When provided (along with access key ID), automatically sets <code>aws_username_create_access_key_flag</code> to <code>False</code>
+- No new access keys will be generated
+- The role will use these existing credentials for validation
+- Does not modify or rotate the existing secret key</p>
+<p><strong>Related variables</strong>:
+- <a href="#aws_username_access_key_id"><code>aws_username_access_key_id</code></a> - Must be provided together with this variable
+- <a href="#aws_username_create_access_key_flag"><code>aws_username_create_access_key_flag</code></a> - Automatically set to <code>False</code> when this is provided
+- <a href="#aws_username"><code>aws_username</code></a> - The user these credentials belong to</p>
+<p><strong>Notes</strong>:
+- Both access key ID and secret access key must be provided together
+- Secret keys are sensitive credentials and should never be committed to version control
+- Store secret keys securely using environment variables or secrets management systems
+- The secret key must correspond to the access key ID provided
+- Do not set this variable if you want to generate new credentials</p>
 <h3 id="aws_policy_arn">aws_policy_arn<a class="headerlink" href="#aws_policy_arn" title="Permanent link">¤</a></h3>
-<p>If set, then it will attach the corresponding policy to the AWS Username's permissions.</p>
+<p>The ARN of an IAM policy to attach to the created user.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>AWS_POLICY_ARN</code></li>
-<li>Default Value: None.</li>
+<li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies an IAM policy to attach to the user, granting specific permissions required for MAS operations. This allows you to control what AWS resources and actions the user can access.</p>
+<p><strong>When to use</strong>:
+- When the user needs specific permissions to AWS services (S3, DocumentDB, EFS, etc.)
+- After creating a custom policy using the <code>aws_policy</code> role
+- When attaching AWS managed policies (e.g., <code>arn:aws:iam::aws:policy/AmazonS3FullAccess</code>)</p>
+<p><strong>Valid values</strong>:
+- A valid IAM policy ARN in the format: <code>arn:aws:iam::&lt;account-id&gt;:policy/&lt;policy-name&gt;</code>
+- Can be a customer-managed policy or AWS managed policy
+- The policy must exist in your AWS account before attaching
+- Examples:
+  - Custom policy: <code>arn:aws:iam::123456789012:policy/MASServicePolicy</code>
+  - AWS managed: <code>arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess</code></p>
+<p><strong>Impact</strong>:
+- Grants the user permissions defined in the specified policy
+- Multiple policies can be attached by running the role multiple times with different ARNs
+- Policy changes take effect immediately
+- User actions will be constrained by the policy's permissions</p>
+<p><strong>Related variables</strong>:
+- <a href="#aws_username"><code>aws_username</code></a> - The user to which the policy is attached
+- Can be used with policies created by the <code>aws_policy</code> role</p>
+<p><strong>Notes</strong>:
+- Follow the principle of least privilege - only grant necessary permissions
+- Consider using customer-managed policies for better control and auditability
+- You can attach up to 10 managed policies per IAM user
+- Policy attachment is idempotent - attaching the same policy multiple times has no effect
+- For MAS deployments, typical policies include S3 access, DocumentDB access, and EFS permissions</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <p>After installing the Ansible Collection you can include this role in your own custom playbooks.</p>
 <pre><code class="language-yaml">- hosts: localhost

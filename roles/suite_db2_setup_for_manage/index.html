@@ -722,6 +722,8 @@
     <cds-select id="breadcrumbs-toc" inline placeholder="..." oninput="changeAnchor(this.value)">
     
     
+      <cds-select-item value="#what-this-role-does">What This Role Does</cds-select-item>
+    
       <cds-select-item value="#role-variables">Role Variables</cds-select-item>
     
       <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
@@ -737,72 +739,188 @@
           <div class="rst-content">
             
             <h1 id="suite_db2_setup_for_manage">suite_db2_setup_for_manage<a class="headerlink" href="#suite_db2_setup_for_manage" title="Permanent link">¤</a></h1>
-<p>This role shouldn't need to exist, it should be part of the Manage operator, but is not so we have to do it as a seperate step in the install flow for now.  The role will perform some initial setup on the Db2 instance that is needed to prepare it for use with the Manage application and supports both CP4D version 3.5 and 4.0.</p>
-<p>The role will copy a bash script (setupdb.sh) into the Db2 pod and execute it inside the container, this script will perform a number of configuration changes to the database as well as configuring the tablespaces for Maximo Manage because the operator is not yet able to do this itself.</p>
+<p>This role performs initial Db2 database setup required for Maximo Manage application. It configures database parameters, creates tablespaces, and applies performance optimizations that the Manage operator cannot yet handle automatically.</p>
+<div class="admonition note">
+<p class="admonition-title">Temporary Role</p>
+<p>This role exists as a workaround until the Manage operator can perform these setup tasks automatically. It supports both CP4D version 3.5 and 4.0.</p>
+</div>
+<h2 id="what-this-role-does">What This Role Does<a class="headerlink" href="#what-this-role-does" title="Permanent link">¤</a></h2>
+<ul>
+<li>Copies setup script (<code>setupdb.sh</code>) into Db2 pod</li>
+<li>Executes database configuration changes inside container</li>
+<li>Creates and configures tablespaces for Manage</li>
+<li>Applies enhanced Db2 performance parameters</li>
+<li>Optionally restarts Db2 instance to apply configuration</li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Downtime Risk</p>
+<p>Setting <code>enforce_db2_config=true</code> will restart the Db2 instance, causing downtime. Schedule during maintenance windows or use with newly created instances.</p>
+</div>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="db2_instance_name">db2_instance_name<a class="headerlink" href="#db2_instance_name" title="Permanent link">¤</a></h3>
-<p>The name of the db2 instance to execute the setup in.</p>
+<p>Db2 instance name for Manage setup.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>DB2_INSTANCE_NAME</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies the Db2 Warehouse instance where Manage database setup will be performed.</p>
+<p><strong>When to use</strong>:
+- Always required for Manage database setup
+- Must match the Db2 instance name for Manage
+- Used to locate the correct Db2 pod</p>
+<p><strong>Valid values</strong>: Valid Db2 instance name (e.g., <code>db2w-manage</code>, <code>db2u-manage</code>)</p>
+<p><strong>Impact</strong>: Determines which Db2 instance receives the Manage-specific configuration and tablespace setup.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_namespace</code>: Namespace containing this instance
+- <code>db2_dbname</code>: Database within this instance</p>
+<p><strong>Note</strong>: To find the instance name, go to the Db2 namespace and look for pods with <code>label=engine</code>. Describe the pod and find the <code>app</code> label value.</p>
 <h3 id="db2_namespace">db2_namespace<a class="headerlink" href="#db2_namespace" title="Permanent link">¤</a></h3>
-<p>The namespace where the Db2 instance is running.</p>
+<p>Db2 instance namespace.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_NAMESPACE</code></li>
-<li>Default Value: <code>db2u</code></li>
+<li>Default: <code>db2u</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the OpenShift namespace where the Db2 instance is deployed.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>db2u</code>) for standard Db2 deployments
+- Override if Db2 is deployed in a custom namespace
+- Required to locate the Db2 pod</p>
+<p><strong>Valid values</strong>: Valid Kubernetes namespace name</p>
+<p><strong>Impact</strong>: Determines where to find the Db2 instance for setup script execution.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_instance_name</code>: Instance to find in this namespace</p>
+<p><strong>Note</strong>: The default <code>db2u</code> namespace is used by most Db2 Warehouse deployments.</p>
 <h3 id="db2_username">db2_username<a class="headerlink" href="#db2_username" title="Permanent link">¤</a></h3>
-<p>The username that will be used to connect to the database specified by <code>db2_dbname</code>.</p>
+<p>Database connection username.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: None</li>
-<li>Default Value: <code>db2inst1</code></li>
+<li>Default: <code>db2inst1</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the username for connecting to the Db2 database during setup script execution.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>db2inst1</code>) for standard Db2 deployments
+- Override if using custom database user
+- Must have appropriate database privileges</p>
+<p><strong>Valid values</strong>: Valid Db2 username with admin privileges</p>
+<p><strong>Impact</strong>: Determines which user account executes the setup script and database configuration changes.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_dbname</code>: Database to connect to
+- <code>db2_schema</code>: Schema to configure</p>
+<p><strong>Note</strong>: The user must have sufficient privileges to create tablespaces and modify database configuration.</p>
 <h3 id="db2_dbname">db2_dbname<a class="headerlink" href="#db2_dbname" title="Permanent link">¤</a></h3>
-<p>The name of the database in the instance to connect to when executing the setup script.</p>
+<p>Database name within Db2 instance.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: None</li>
-<li>Default Value: <code>BLUDB</code></li>
+<li>Default: <code>BLUDB</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the database name within the Db2 instance where Manage setup will be performed.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>BLUDB</code>) for standard Manage deployments
+- Override if using custom database name
+- Must exist before running this role</p>
+<p><strong>Valid values</strong>: Valid Db2 database name</p>
+<p><strong>Impact</strong>: Determines which database receives the Manage tablespace and configuration setup.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_instance_name</code>: Instance containing this database
+- <code>db2_schema</code>: Schema within this database</p>
+<p><strong>Note</strong>: <code>BLUDB</code> is the default database name for Manage deployments.</p>
 <h3 id="db2_schema">db2_schema<a class="headerlink" href="#db2_schema" title="Permanent link">¤</a></h3>
-<p>The name of the Manage schema where the hack should be targeted in.</p>
+<p>Manage database schema name.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: None</li>
-<li>Default Value: <code>maximo</code></li>
+<li>Default: <code>maximo</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the schema name where Manage tables and objects will be created.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>maximo</code>) for standard Manage deployments
+- Override if using custom schema name
+- Must match Manage configuration</p>
+<p><strong>Valid values</strong>: Valid Db2 schema name</p>
+<p><strong>Impact</strong>: Determines which schema receives the tablespace configuration and Manage-specific setup.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_dbname</code>: Database containing this schema
+- <code>db2_username</code>: User accessing this schema</p>
+<p><strong>Note</strong>: The default <code>maximo</code> schema is standard for Manage deployments. Ensure this matches your Manage database configuration.</p>
 <h3 id="db2_tablespace_data_size">db2_tablespace_data_size<a class="headerlink" href="#db2_tablespace_data_size" title="Permanent link">¤</a></h3>
-<p>The size of the tablespace data in the database.</p>
+<p>Data tablespace size.</p>
 <ul>
-<li>Optional</li>
-<li>Environment Variable: DB2_TABLESPACE_DATA_SIZE</li>
-<li>Default Value: <code>5000 M</code></li>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>DB2_TABLESPACE_DATA_SIZE</code></li>
+<li>Default: <code>5000 M</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the size of the data tablespace created for Manage application data.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>5000 M</code>) for small to medium deployments
+- Increase for large Manage deployments with extensive data
+- Consider data growth over time</p>
+<p><strong>Valid values</strong>: Db2 size format (e.g., <code>5000 M</code>, <code>10 G</code>, <code>50 G</code>)</p>
+<p><strong>Impact</strong>: Determines how much data can be stored in Manage tables. Insufficient size will prevent data insertion.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_tablespace_index_size</code>: Related index tablespace size</p>
+<p><strong>Note</strong>: Size requirements depend on:
+- Number of assets and work orders
+- Historical data retention
+- Attachment storage (if using database)
+- Custom fields and extensions
+Start with 5GB and monitor usage. Tablespaces can be expanded later if needed.</p>
 <h3 id="db2_tablespace_index_size">db2_tablespace_index_size<a class="headerlink" href="#db2_tablespace_index_size" title="Permanent link">¤</a></h3>
-<p>The size of the tablespace indexes in the database.</p>
+<p>Index tablespace size.</p>
 <ul>
-<li>Optional</li>
-<li>Environment Variable: DB2_TABLESPACE_INDEX_SIZE</li>
-<li>Default Value: <code>5000 M</code></li>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>DB2_TABLESPACE_INDEX_SIZE</code></li>
+<li>Default: <code>5000 M</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the size of the index tablespace created for Manage database indexes.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>5000 M</code>) for small to medium deployments
+- Increase for large Manage deployments with many indexes
+- Typically 20-30% of data tablespace size</p>
+<p><strong>Valid values</strong>: Db2 size format (e.g., <code>5000 M</code>, <code>10 G</code>, <code>20 G</code>)</p>
+<p><strong>Impact</strong>: Determines how many indexes can be created. Insufficient size will prevent index creation and impact performance.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_tablespace_data_size</code>: Related data tablespace size</p>
+<p><strong>Note</strong>: Indexes improve query performance but consume space. A good rule of thumb is to allocate 20-30% of the data tablespace size for indexes. Monitor usage and adjust as needed.</p>
 <h3 id="db2_config_version">db2_config_version<a class="headerlink" href="#db2_config_version" title="Permanent link">¤</a></h3>
-<p>Version of the enhanced DB2 parameters, currently support <code>1.0.0</code></p>
+<p>Db2 configuration parameter version.</p>
 <ul>
-<li><strong>Required</strong></li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_CONFIG_VERSION</code></li>
 <li>Default: <code>1.0.0</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the version of enhanced Db2 performance parameters to apply during setup.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>1.0.0</code>) for current parameter set
+- Override only if specific version required
+- Different versions may have different parameter sets</p>
+<p><strong>Valid values</strong>: <code>1.0.0</code> (currently supported version)</p>
+<p><strong>Impact</strong>: Determines which set of Db2 performance parameters are applied to optimize for Manage workloads.</p>
+<p><strong>Related variables</strong>:
+- <code>enforce_db2_config</code>: Controls whether parameters are applied with restart</p>
+<p><strong>Note</strong>: The parameter set includes optimizations for Manage's specific database access patterns. Future versions may include additional optimizations.</p>
 <h3 id="enforce_db2_config">enforce_db2_config<a class="headerlink" href="#enforce_db2_config" title="Permanent link">¤</a></h3>
-<p>Flag to indicate restart the DB2 instance or not, the enhanced DB2 parameters required restart DB2 instance, this will cause downtime, should execute during customer maintenance window or newly created DB2 instance if set to <code>True</code></p>
+<p>Force Db2 configuration with restart.</p>
 <ul>
-<li><strong>Required</strong></li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>ENFORCE_DB2_CONFIG</code></li>
-<li>Default: <code>True</code></li>
+<li>Default: <code>true</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether enhanced Db2 parameters are applied with a database restart. Restart is required for parameters to take effect but causes downtime.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> (default) for new Db2 instances
+- Set to <code>true</code> during scheduled maintenance windows
+- Set to <code>false</code> to skip parameter application (not recommended)</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- <code>true</code>: Applies enhanced parameters and restarts Db2 instance (causes downtime)
+- <code>false</code>: Skips enhanced parameter application (suboptimal performance)</p>
+<p><strong>Related variables</strong>:
+- <code>db2_config_version</code>: Version of parameters to apply</p>
+<p><strong>Note</strong>: <strong>CRITICAL</strong> - Setting to <code>true</code> will restart the Db2 instance, causing downtime for all applications using the database. Schedule during maintenance windows. For production systems, coordinate with stakeholders. For new instances, this is safe as no applications are using the database yet.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
@@ -860,6 +978,11 @@
       <div class="md-toc">
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
+              <li class="md-toc__item">
+                <a href="#what-this-role-does" class="md-toc__link" data-md-level="1">
+                  What This Role Does
+                </a>
+              </li>
               <li class="md-toc__item">
                 <a href="#role-variables" class="md-toc__link" data-md-level="1">
                   Role Variables

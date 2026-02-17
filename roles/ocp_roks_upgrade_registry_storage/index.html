@@ -737,14 +737,51 @@
           <div class="rst-content">
             
             <h1 id="ocp_roks_upgrade_registry_storage">ocp_roks_upgrade_registry_storage<a class="headerlink" href="#ocp_roks_upgrade_registry_storage" title="Permanent link">¤</a></h1>
-<p>This role will use IBMCloud APIs to upgrade the capacity of the volume backing the OCP cluster's image registry.  The volume will be increased from the default capacity of 100GB to 400GB.  This is needed if you intend to install all of the services available in CloudPak for Data because the 100GB volume is not large enough.</p>
+<p>Upgrade the storage capacity of the OpenShift image registry for IBM Cloud Red Hat OpenShift Kubernetes Service (ROKS) clusters. This role uses IBM Cloud APIs to expand the persistent volume backing the internal image registry from the default 100GB to 400GB.</p>
+<p><strong>Purpose</strong>: The default 100GB registry storage is insufficient for comprehensive Cloud Pak for Data installations or environments with many container images. This role prevents registry storage exhaustion that would block image pulls and deployments.</p>
+<p><strong>Important</strong>: This operation is specific to ROKS clusters on IBM Cloud and requires cluster downtime for the registry during the resize operation.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="ibmcloud_apikey">ibmcloud_apikey<a class="headerlink" href="#ibmcloud_apikey" title="Permanent link">¤</a></h3>
-<p>The APIKey to be used to modify the storage volume associated with the image registry.</p>
+<p>IBM Cloud API key for authentication and volume management.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>IBMCLOUD_APIKEY</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides authentication credentials for IBM Cloud APIs to modify the storage volume associated with the OpenShift image registry.</p>
+<p><strong>When to use</strong>: Always required. Must have permissions to manage storage volumes in the IBM Cloud account.</p>
+<p><strong>Valid values</strong>: Valid IBM Cloud API key string (typically 40+ characters).</p>
+<p><strong>Impact</strong>: Used to authenticate with IBM Cloud and perform volume resize operations. Insufficient permissions will cause the operation to fail.</p>
+<p><strong>Related variables</strong>: <code>image_registry_size</code></p>
+<p><strong>Notes</strong>:
+- Requires IAM permissions for Block Storage and Kubernetes Service
+- API key must have access to the cluster's resource group
+- Store securely, never commit to version control
+- Create API key in IBM Cloud console: Manage &gt; Access (IAM) &gt; API keys
+- Recommended: Use service ID API key rather than user API key</p>
+<h3 id="image_registry_size">image_registry_size<a class="headerlink" href="#image_registry_size" title="Permanent link">¤</a></h3>
+<p>Target size for the image registry storage volume in GB.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: None (hardcoded in defaults)</li>
+<li>Default: <code>400</code></li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the target capacity in gigabytes for the image registry persistent volume.</p>
+<p><strong>When to use</strong>: Default 400GB is suitable for most Cloud Pak for Data installations. Adjust if you need more or less storage.</p>
+<p><strong>Valid values</strong>: Integer representing GB capacity. Common values:
+- <code>200</code> - Minimal CP4D installation
+- <code>400</code> - Default, suitable for full CP4D with multiple services
+- <code>600</code> - Large deployments with many custom images
+- <code>1000</code> - Very large environments with extensive image catalogs</p>
+<p><strong>Impact</strong>: Determines the final size of the registry volume. Larger sizes cost more but provide more capacity for container images.</p>
+<p><strong>Related variables</strong>: <code>ibmcloud_apikey</code></p>
+<p><strong>Notes</strong>:
+- Default 400GB is 4x the original 100GB capacity
+- Volume can only be expanded, not shrunk
+- Expansion requires registry downtime (typically 5-15 minutes)
+- Consider image retention policies to manage storage usage
+- Monitor registry storage: <code>oc get pvc -n openshift-image-registry</code>
+- IBM Cloud charges based on provisioned storage capacity</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   roles:
@@ -801,6 +838,11 @@
                       <li class="md-toc__item">
                         <a href="#ibmcloud_apikey" class="md-toc__link" data-md-level="2">
                           ibmcloud_apikey
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#image_registry_size" class="md-toc__link" data-md-level="2">
+                          image_registry_size
                         </a>
                       </li>
                   </ul>

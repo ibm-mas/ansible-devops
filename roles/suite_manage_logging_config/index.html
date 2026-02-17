@@ -722,6 +722,8 @@
     <cds-select id="breadcrumbs-toc" inline placeholder="..." oninput="changeAnchor(this.value)">
     
     
+      <cds-select-item value="#what-this-role-does">What This Role Does</cds-select-item>
+    
       <cds-select-item value="#role-variables">Role Variables</cds-select-item>
     
       <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
@@ -737,60 +739,133 @@
           <div class="rst-content">
             
             <h1 id="suite_manage_logging_config">suite_manage_logging_config<a class="headerlink" href="#suite_manage_logging_config" title="Permanent link">¤</a></h1>
-<p>This role extends support for configuring IBM Cloud Object Storage to store <strong>Manage</strong> application server logs.</p>
-<p><strong>Note:</strong> This role should be executed <strong>after</strong> Manage application is deployed and activated as it needs Manage up and running prior configuring logging features.</p>
-<p>The default for Manage logging configuration is to use IBM Cloud Object Storage as persistent storage for Manage logging. You can run <code>cos</code> role to provision an IBM Cloud Object Storage or you can provide existing IBM Cloud Object Storage information to use it as storage for Manage application logs.</p>
-<p>In addition, you can also define an AWS S3 bucket as storage system for Manage logs.</p>
+<p>This role configures cloud object storage (IBM Cloud Object Storage or AWS S3) for storing Maximo Manage application server logs. Storing logs in object storage enables centralized log management, long-term retention, and analysis without consuming cluster storage.</p>
+<div class="admonition important">
+<p class="admonition-title">Prerequisites</p>
+<p>Manage application must be deployed and activated before configuring logging storage.</p>
+</div>
+<h2 id="what-this-role-does">What This Role Does<a class="headerlink" href="#what-this-role-does" title="Permanent link">¤</a></h2>
+<ul>
+<li>Configures cloud storage bucket for Manage server logs</li>
+<li>Updates Manage database with logging storage configuration</li>
+<li>Automatically executes <code>cos_bucket</code> role to set up bucket</li>
+<li>Enables log shipping from Manage pods to object storage</li>
+<li>Supports both IBM Cloud Object Storage and AWS S3</li>
+</ul>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
-<h3 id="storage-configuration">Storage Configuration<a class="headerlink" href="#storage-configuration" title="Permanent link">¤</a></h3>
-<h4 id="cos_type">cos_type<a class="headerlink" href="#cos_type" title="Permanent link">¤</a></h4>
-<p>Defines the storage provider type to be used to store Manage application's logs. Available options are <code>ibm</code> or <code>aws</code>.</p>
+<h3 id="cos_type">cos_type<a class="headerlink" href="#cos_type" title="Permanent link">¤</a></h3>
+<p>Cloud object storage provider type.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>COS_TYPE</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
-<p><strong>Provider Options:</strong>
-- <code>ibm</code>: Configures IBM Cloud Object Storage as storage system for Manage logging.
-- <code>aws</code>: Configures AWS S3 buckets as storage system for Manage logging.</p>
-<p><strong>Note:</strong> When running this role, the <a href="../cos_bucket/"><code>cos_bucket</code></a> role will be executed underneath the covers to setup a new or existing targeted IBM Cloud object or AWS S3 storage bucket to be used to store Manage logs, therefore make sure you set the expected variables to customize your Object Storage bucket accordingly to the desired provider.</p>
-<h3 id="mas-configuration">MAS Configuration<a class="headerlink" href="#mas-configuration" title="Permanent link">¤</a></h3>
-<h4 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h4>
-<p>The instance ID of Maximo Application Suite. This will be used to lookup for Manage application resources.</p>
+<p><strong>Purpose</strong>: Specifies which cloud storage provider to use for Manage application server logs.</p>
+<p><strong>When to use</strong>:
+- Always required for logging configuration
+- Choose based on your cloud infrastructure
+- Determines which credentials and configuration are needed</p>
+<p><strong>Valid values</strong>: <code>ibm</code>, <code>aws</code>
+- <code>ibm</code>: IBM Cloud Object Storage
+- <code>aws</code>: Amazon S3</p>
+<p><strong>Impact</strong>:
+- <code>ibm</code>: Uses IBM Cloud Object Storage (requires <code>ibmcloud_apikey</code>, <code>cos_instance_name</code>, <code>cos_bucket_name</code>)
+- <code>aws</code>: Uses AWS S3 (requires AWS credentials and bucket configuration)</p>
+<p><strong>Related variables</strong>:
+- <code>mas_instance_id</code>: Instance whose logs are stored
+- <code>db2_instance_name</code>: Database to update with logging config</p>
+<p><strong>Note</strong>: The <code>cos_bucket</code> role is automatically executed to set up the bucket. Ensure you provide the required variables for your chosen provider (e.g., <code>cos_instance_name</code> and <code>ibmcloud_apikey</code> for IBM, or AWS credentials for S3).</p>
+<h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
+<p>MAS instance identifier.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
-<h4 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link">¤</a></h4>
-<p>The workspace ID of Maximo Application Suite. This will be used to lookup for Manage application resources.</p>
+<p><strong>Purpose</strong>: Identifies which MAS instance contains the Manage application whose logs will be stored in object storage.</p>
+<p><strong>When to use</strong>:
+- Always required for logging configuration
+- Must match the instance ID from MAS installation
+- Used to locate Manage resources</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>masinst1</code>)</p>
+<p><strong>Impact</strong>: Determines which MAS instance's Manage application is configured for log storage in object storage.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_workspace_id</code>: Workspace within this instance
+- <code>db2_instance_name</code>: Database for this Manage instance</p>
+<p><strong>Note</strong>: This must match the instance ID used during Manage installation.</p>
+<h3 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link">¤</a></h3>
+<p>Workspace identifier for Manage application.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_WORKSPACE_ID</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
-<h3 id="database-configuration">Database Configuration<a class="headerlink" href="#database-configuration" title="Permanent link">¤</a></h3>
-<h4 id="db2_instance_name">db2_instance_name<a class="headerlink" href="#db2_instance_name" title="Permanent link">¤</a></h4>
-<p>The DB2 Warehouse instance name that stores your Manage application tables and data. This will be used to lookup for Manage application database and update it with the Object Storage configuration.</p>
+<p><strong>Purpose</strong>: Identifies which workspace within the MAS instance contains the Manage application whose logs will be stored.</p>
+<p><strong>When to use</strong>:
+- Always required for logging configuration
+- Must match the workspace ID where Manage is deployed
+- Used to locate Manage resources</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, typically 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>masdev</code>)</p>
+<p><strong>Impact</strong>: Determines which workspace's Manage application is configured for log storage.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_instance_id</code>: Parent instance
+- <code>db2_instance_name</code>: Database for this workspace's Manage</p>
+<p><strong>Note</strong>: This must match the workspace ID used during Manage installation.</p>
+<h3 id="db2_instance_name">db2_instance_name<a class="headerlink" href="#db2_instance_name" title="Permanent link">¤</a></h3>
+<p>Db2 Warehouse instance name.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>DB2_INSTANCE_NAME</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
-<h4 id="db2_namespace">db2_namespace<a class="headerlink" href="#db2_namespace" title="Permanent link">¤</a></h4>
-<p>The namespace in your cluster that hosts the DB2 Warehouse instance name. This will be used to lookup for Manage application database and update it with the Object Storage configuration. If you do not provide it, the role will try to find the Db2 Warehouse in <code>db2u</code> namespace.</p>
+<p><strong>Purpose</strong>: Identifies the Db2 Warehouse instance that stores Manage application data, which will be updated with logging storage configuration.</p>
+<p><strong>When to use</strong>:
+- Always required for logging configuration
+- Must match the Db2 instance name used by Manage
+- Used to connect to database for configuration updates</p>
+<p><strong>Valid values</strong>: Valid Db2 instance name (e.g., <code>db2w-manage</code>, <code>db2u-manage</code>)</p>
+<p><strong>Impact</strong>: Determines which Db2 instance is accessed to update logging configuration via SQL.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_namespace</code>: Namespace containing this instance
+- <code>db2_dbname</code>: Database name within the instance
+- <code>mas_instance_id</code>: MAS instance using this database</p>
+<p><strong>Note</strong>: To find the instance name, go to the Db2 namespace and look for pods with <code>label=engine</code>. Describe the pod and find the <code>app</code> label value - that's your instance name.</p>
+<h3 id="db2_namespace">db2_namespace<a class="headerlink" href="#db2_namespace" title="Permanent link">¤</a></h3>
+<p>Db2 Warehouse namespace.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_NAMESPACE</code></li>
-<li>Default Value: <code>db2u</code></li>
+<li>Default: <code>db2u</code></li>
 </ul>
-<h4 id="db2_dbname">db2_dbname<a class="headerlink" href="#db2_dbname" title="Permanent link">¤</a></h4>
-<p>Name of the database within the instance.</p>
+<p><strong>Purpose</strong>: Specifies the OpenShift namespace where the Db2 Warehouse instance is deployed.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>db2u</code>) for standard Db2 deployments
+- Override if Db2 is deployed in a custom namespace
+- Required to locate the Db2 instance</p>
+<p><strong>Valid values</strong>: Valid Kubernetes namespace name</p>
+<p><strong>Impact</strong>: Determines where to look for the Db2 instance when connecting for logging configuration updates.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_instance_name</code>: Instance to find in this namespace
+- <code>db2_dbname</code>: Database within the instance</p>
+<p><strong>Note</strong>: The default <code>db2u</code> namespace is used by most Db2 Warehouse deployments. Only change if you have a custom deployment.</p>
+<h3 id="db2_dbname">db2_dbname<a class="headerlink" href="#db2_dbname" title="Permanent link">¤</a></h3>
+<p>Database name within Db2 instance.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_DBNAME</code></li>
-<li>Default Value: <code>BLUDB</code></li>
+<li>Default: <code>BLUDB</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the database name within the Db2 instance where Manage tables and logging configuration are stored.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>BLUDB</code>) for standard Manage deployments
+- Override if Manage uses a custom database name
+- Required for database connection</p>
+<p><strong>Valid values</strong>: Valid Db2 database name</p>
+<p><strong>Impact</strong>: Determines which database within the Db2 instance is updated with logging storage configuration.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_instance_name</code>: Instance containing this database
+- <code>db2_namespace</code>: Namespace of the instance</p>
+<p><strong>Note</strong>: <code>BLUDB</code> is the default database name for Manage deployments. Only change if you have a custom database configuration.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <h3 id="configure-ibm-cloud-cos-for-existing-manage-instance">Configure IBM Cloud COS for Existing Manage Instance<a class="headerlink" href="#configure-ibm-cloud-cos-for-existing-manage-instance" title="Permanent link">¤</a></h3>
 <p>The following sample can be used to configure COS for an existing Manage application instance:</p>
@@ -884,23 +959,43 @@
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
               <li class="md-toc__item">
+                <a href="#what-this-role-does" class="md-toc__link" data-md-level="1">
+                  What This Role Does
+                </a>
+              </li>
+              <li class="md-toc__item">
                 <a href="#role-variables" class="md-toc__link" data-md-level="1">
                   Role Variables
                 </a>
                   <ul class="md-toc__list">
                       <li class="md-toc__item">
-                        <a href="#storage-configuration" class="md-toc__link" data-md-level="2">
-                          Storage Configuration
+                        <a href="#cos_type" class="md-toc__link" data-md-level="2">
+                          cos_type
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#mas-configuration" class="md-toc__link" data-md-level="2">
-                          MAS Configuration
+                        <a href="#mas_instance_id" class="md-toc__link" data-md-level="2">
+                          mas_instance_id
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#database-configuration" class="md-toc__link" data-md-level="2">
-                          Database Configuration
+                        <a href="#mas_workspace_id" class="md-toc__link" data-md-level="2">
+                          mas_workspace_id
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2_instance_name" class="md-toc__link" data-md-level="2">
+                          db2_instance_name
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2_namespace" class="md-toc__link" data-md-level="2">
+                          db2_namespace
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2_dbname" class="md-toc__link" data-md-level="2">
+                          db2_dbname
                         </a>
                       </li>
                   </ul>

@@ -737,79 +737,189 @@
           <div class="rst-content">
             
             <h1 id="ocp_cluster_monitoring">ocp_cluster_monitoring<a class="headerlink" href="#ocp_cluster_monitoring" title="Permanent link">¤</a></h1>
-<p>Configures the OpenShift Container Platform Cluster Monitoring enabling two settings:</p>
-<ul>
-<li><a href="https://docs.redhat.com/en/documentation/openshift_container_platform/4.19/html/monitoring/configuring-user-workload-monitoring#preparing-to-configure-the-monitoring-stack-uwm">OpenShift user defined project monitoring</a> is enabled (<code>openshift-monitoring</code> namespace)</li>
-<li><a href="https://docs.redhat.com/en/documentation/openshift_container_platform/4.19/html/monitoring/index">OpenShift monitoring stack</a> is configured to use persistent storage (<code>openshift-monitoring</code> namespace)</li>
-</ul>
-<p>This role is version-aware and will automatically apply the appropriate configuration template based on the detected OpenShift version:
-- For OpenShift 4.18 and higher: Uses a simplified configuration template compatible with newer versions
-- For OpenShift versions below 4.18: Uses the traditional configuration template</p>
+<p>Configure OpenShift Container Platform cluster monitoring with persistent storage and user-defined project monitoring. This role enables comprehensive monitoring capabilities essential for MAS deployments, including metrics collection, alerting, and user workload monitoring.</p>
+<p>Key capabilities:
+- <strong>User-defined project monitoring</strong>: Enable monitoring for user applications and MAS workloads
+- <strong>Persistent storage</strong>: Configure durable storage for Prometheus metrics and AlertManager data
+- <strong>Version-aware configuration</strong>: Automatically applies appropriate templates for OpenShift 4.18+ or earlier versions</p>
+<p>The role configures both the platform monitoring stack (for OpenShift infrastructure) and user workload monitoring (for MAS applications) in the <code>openshift-monitoring</code> namespace.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="cluster_monitoring_action">cluster_monitoring_action<a class="headerlink" href="#cluster_monitoring_action" title="Permanent link">¤</a></h3>
-<p>Inform the role whether to perform an <code>install</code> or an <code>uninstall</code> of the cluster monitoring stack.</p>
+<p>Action to perform on the cluster monitoring stack.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>CLUSTER_MONITORING_ACTION</code></li>
 <li>Default: <code>install</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether to install/configure or uninstall the cluster monitoring stack configuration.</p>
+<p><strong>When to use</strong>: Set to <code>install</code> for normal operations. Use <code>uninstall</code> to remove persistent storage configuration and revert to default ephemeral storage.</p>
+<p><strong>Valid values</strong>:
+- <code>install</code> - Configure monitoring with persistent storage (default)
+- <code>uninstall</code> - Remove persistent storage configuration</p>
+<p><strong>Impact</strong>:
+- <code>install</code>: Applies monitoring configuration with persistent storage
+- <code>uninstall</code>: Removes custom configuration, monitoring reverts to defaults with ephemeral storage (metrics will be lost on pod restart)</p>
+<p><strong>Related variables</strong>: All other variables only apply when action is <code>install</code></p>
+<p><strong>Notes</strong>:
+- Uninstall does not remove the monitoring stack itself, only the persistent storage configuration
+- Metrics data will be lost when reverting to ephemeral storage
+- Backup important metrics before uninstalling</p>
 <h3 id="prometheus_retention_period">prometheus_retention_period<a class="headerlink" href="#prometheus_retention_period" title="Permanent link">¤</a></h3>
-<p>Adjust the retention period for Prometheus metrics, only used when both <code>prometheus_storage_class</code> and <code>prometheus_alertmgr_storage_class</code> are set.</p>
+<p>Retention period for platform Prometheus metrics.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>PROMETHEUS_RETENTION_PERIOD</code></li>
-<li>Default Value: <code>15d</code></li>
+<li>Default: <code>15d</code></li>
 </ul>
+<p><strong>Purpose</strong>: Defines how long Prometheus retains metrics data before deletion. Longer retention enables historical analysis but requires more storage.</p>
+<p><strong>When to use</strong>: Adjust based on compliance requirements, troubleshooting needs, and storage capacity.</p>
+<p><strong>Valid values</strong>: Duration string with unit suffix (e.g., <code>7d</code>, <code>15d</code>, <code>30d</code>, <code>90d</code>). Common values:
+- <code>7d</code> - Minimal retention for basic troubleshooting
+- <code>15d</code> - Default, suitable for most deployments
+- <code>30d</code> - Extended retention for detailed analysis
+- <code>90d</code> - Long-term retention for compliance</p>
+<p><strong>Impact</strong>: Directly affects storage consumption. Longer retention requires proportionally more storage space.</p>
+<p><strong>Related variables</strong>: <code>prometheus_storage_size</code> (must be sized appropriately for retention period)</p>
+<p><strong>Notes</strong>:
+- Only applies when both <code>prometheus_storage_class</code> and <code>prometheus_alertmgr_storage_class</code> are set
+- Calculate storage needs: ~1-2GB per day for typical MAS deployment
+- Consider backup strategy for long-term metric retention</p>
 <h3 id="prometheus_storage_class">prometheus_storage_class<a class="headerlink" href="#prometheus_storage_class" title="Permanent link">¤</a></h3>
-<p>Declare the storage class for Prometheus' metrics data persistent volume. Storage class must support ReadWriteOnce(RWO) access mode.</p>
+<p>Storage class for platform Prometheus metrics persistent volume.</p>
 <ul>
-<li><strong>Required</strong> if one of the known supported storage classes is not installed in the cluster.</li>
+<li><strong>Required</strong> if known storage classes are not available</li>
 <li>Environment Variable: <code>PROMETHEUS_STORAGE_CLASS</code></li>
-<li>Default Value: <code>ibmc-block-gold</code>, <code>ocs-storagecluster-ceph-rbd</code>, or <code>managed-premium</code> (if available)</li>
+<li>Default: Auto-detected (<code>ibmc-block-gold</code>, <code>ocs-storagecluster-ceph-rbd</code>, or <code>managed-premium</code>)</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the storage class for Prometheus metrics data. Must support ReadWriteOnce (RWO) access mode.</p>
+<p><strong>When to use</strong>: Required if the cluster doesn't have one of the auto-detected storage classes. Always specify explicitly for production deployments.</p>
+<p><strong>Valid values</strong>: Valid storage class name that supports RWO access mode. Common values by platform:
+- <strong>IBM Cloud</strong>: <code>ibmc-block-gold</code>, <code>ibmc-block-silver</code>
+- <strong>OpenShift Container Storage</strong>: <code>ocs-storagecluster-ceph-rbd</code>
+- <strong>Azure</strong>: <code>managed-premium</code>, <code>managed-standard</code>
+- <strong>AWS</strong>: <code>gp3</code>, <code>gp2</code></p>
+<p><strong>Impact</strong>: Determines performance and availability characteristics of metrics storage. Block storage is recommended for performance.</p>
+<p><strong>Related variables</strong>: <code>prometheus_storage_size</code>, <code>prometheus_retention_period</code></p>
+<p><strong>Notes</strong>:
+- <strong>Critical</strong>: Must support RWO access mode
+- Block storage preferred over file storage for performance
+- Verify storage class exists: <code>oc get storageclass</code>
+- Role auto-detects common storage classes if not specified</p>
 <h3 id="prometheus_storage_size">prometheus_storage_size<a class="headerlink" href="#prometheus_storage_size" title="Permanent link">¤</a></h3>
-<p>Adjust the size of the volume used to store metrics, only used when both <code>prometheus_storage_class</code> and <code>prometheus_alertmgr_storage_class</code> are set.</p>
+<p>Size of the persistent volume for platform Prometheus metrics.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>PROMETHEUS_STORAGE_SIZE</code></li>
-<li>Default Value: <code>20Gi</code></li>
+<li>Default: <code>20Gi</code></li>
 </ul>
+<p><strong>Purpose</strong>: Defines the capacity of the persistent volume for storing Prometheus metrics data.</p>
+<p><strong>When to use</strong>: Adjust based on retention period, cluster size, and number of monitored workloads.</p>
+<p><strong>Valid values</strong>: Kubernetes resource quantity (e.g., <code>20Gi</code>, <code>50Gi</code>, <code>100Gi</code>, <code>200Gi</code>). Sizing guidelines:
+- <code>20Gi</code> - Default, suitable for small clusters (&lt; 50 nodes)
+- <code>50Gi</code> - Medium clusters (50-100 nodes) or extended retention
+- <code>100Gi</code> - Large clusters (100-200 nodes)
+- <code>200Gi+</code> - Very large clusters or long retention periods</p>
+<p><strong>Impact</strong>: Insufficient storage will cause metrics collection to fail. Over-provisioning wastes resources and costs.</p>
+<p><strong>Related variables</strong>: <code>prometheus_retention_period</code>, <code>prometheus_storage_class</code></p>
+<p><strong>Notes</strong>:
+- Only applies when both <code>prometheus_storage_class</code> and <code>prometheus_alertmgr_storage_class</code> are set
+- Calculate: ~1-2GB per day × retention days × number of nodes / 50
+- Monitor usage: <code>oc get pvc -n openshift-monitoring</code>
+- Can be expanded later if needed (depending on storage class)</p>
 <h3 id="prometheus_alertmgr_storage_class">prometheus_alertmgr_storage_class<a class="headerlink" href="#prometheus_alertmgr_storage_class" title="Permanent link">¤</a></h3>
-<p>Declare the storage class for AlertManager's persistent volume.</p>
+<p>Storage class for AlertManager persistent volume.</p>
 <ul>
-<li><strong>Required</strong> if one of the known supported storage classes is not installed in the cluster.</li>
+<li><strong>Required</strong> if known storage classes are not available</li>
 <li>Environment Variable: <code>PROMETHEUS_ALERTMGR_STORAGE_CLASS</code></li>
-<li>Default Value: <code>ibmc-file-gold-gid</code>, <code>ocs-storagecluster-cephfs</code>, <code>azurefiles-premium</code> (if available)</li>
-<li><strong>Note</strong>: Storage class must support ReadWriteMany(RWX) access mode.</li>
+<li>Default: Auto-detected (<code>ibmc-file-gold-gid</code>, <code>ocs-storagecluster-cephfs</code>, <code>azurefiles-premium</code>)</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the storage class for AlertManager data. Must support ReadWriteMany (RWX) access mode for high availability.</p>
+<p><strong>When to use</strong>: Required if the cluster doesn't have one of the auto-detected storage classes. Always specify explicitly for production deployments.</p>
+<p><strong>Valid values</strong>: Valid storage class name that supports RWX access mode. Common values by platform:
+- <strong>IBM Cloud</strong>: <code>ibmc-file-gold-gid</code>, <code>ibmc-file-silver-gid</code>
+- <strong>OpenShift Container Storage</strong>: <code>ocs-storagecluster-cephfs</code>
+- <strong>Azure</strong>: <code>azurefiles-premium</code>, <code>azurefiles-standard</code>
+- <strong>AWS</strong>: <code>efs-sc</code> (requires EFS CSI driver)</p>
+<p><strong>Impact</strong>: Determines AlertManager high availability and performance. RWX is required for multi-replica AlertManager deployment.</p>
+<p><strong>Related variables</strong>: <code>prometheus_alertmgr_storage_size</code></p>
+<p><strong>Notes</strong>:
+- <strong>Critical</strong>: Must support RWX access mode for HA
+- File storage required (block storage doesn't support RWX)
+- Verify storage class exists and supports RWX: <code>oc get storageclass</code>
+- Role auto-detects common storage classes if not specified</p>
 <h3 id="prometheus_alertmgr_storage_size">prometheus_alertmgr_storage_size<a class="headerlink" href="#prometheus_alertmgr_storage_size" title="Permanent link">¤</a></h3>
-<p>Adjust the size of the volume used by AlertManager, only used when both <code>prometheus_storage_class</code> and <code>prometheus_alertmgr_storage_class</code> are set.</p>
+<p>Size of the persistent volume for AlertManager.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>PROMETHEUS_ALERTMGR_STORAGE_SIZE</code></li>
-<li>Default Value: <code>20Gi</code></li>
+<li>Default: <code>20Gi</code></li>
 </ul>
+<p><strong>Purpose</strong>: Defines the capacity of the persistent volume for storing AlertManager configuration and notification state.</p>
+<p><strong>When to use</strong>: Default is usually sufficient. Increase if managing many alert rules or notification integrations.</p>
+<p><strong>Valid values</strong>: Kubernetes resource quantity (e.g., <code>20Gi</code>, <code>50Gi</code>). Sizing guidelines:
+- <code>20Gi</code> - Default, sufficient for most deployments
+- <code>50Gi</code> - Large number of alert rules or notification channels</p>
+<p><strong>Impact</strong>: AlertManager storage needs are typically minimal. Default size is adequate for most scenarios.</p>
+<p><strong>Related variables</strong>: <code>prometheus_alertmgr_storage_class</code></p>
+<p><strong>Notes</strong>:
+- Only applies when both <code>prometheus_storage_class</code> and <code>prometheus_alertmgr_storage_class</code> are set
+- AlertManager uses much less storage than Prometheus
+- Default 20Gi is generous for typical use cases</p>
 <h3 id="prometheus_userworkload_retention_period">prometheus_userworkload_retention_period<a class="headerlink" href="#prometheus_userworkload_retention_period" title="Permanent link">¤</a></h3>
-<p>Adjust the retention period for User Workload Prometheus metrics, this parameter applies only to the User Workload Prometheus instance.</p>
+<p>Retention period for user workload Prometheus metrics.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>PROMETHEUS_USERWORKLOAD_RETENTION_PERIOD</code></li>
-<li>Default Value: <code>15d</code></li>
+<li>Default: <code>15d</code></li>
 </ul>
+<p><strong>Purpose</strong>: Defines how long the user workload Prometheus instance retains metrics from user applications and MAS workloads.</p>
+<p><strong>When to use</strong>: Adjust based on application monitoring requirements and storage capacity. May differ from platform metrics retention.</p>
+<p><strong>Valid values</strong>: Duration string with unit suffix (e.g., <code>7d</code>, <code>15d</code>, <code>30d</code>). Common values:
+- <code>7d</code> - Minimal retention
+- <code>15d</code> - Default, suitable for most MAS deployments
+- <code>30d</code> - Extended retention for detailed application analysis</p>
+<p><strong>Impact</strong>: Affects storage consumption for user workload metrics. MAS applications generate significant metrics data.</p>
+<p><strong>Related variables</strong>: <code>prometheus_userworkload_storage_size</code></p>
+<p><strong>Notes</strong>:
+- Applies only to user workload monitoring, not platform monitoring
+- MAS applications (especially Manage) generate substantial metrics
+- Consider MAS-specific monitoring requirements when setting retention</p>
 <h3 id="prometheus_userworkload_storage_class">prometheus_userworkload_storage_class<a class="headerlink" href="#prometheus_userworkload_storage_class" title="Permanent link">¤</a></h3>
-<p>Declare the storage class for User Workload Prometheus' metrics data persistent volume. Storage class must support ReadWriteOnce(RWO) access mode.</p>
+<p>Storage class for user workload Prometheus metrics persistent volume.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>PROMETHEUS_USERWORKLOAD_STORAGE_CLASS</code></li>
-<li>Default Value: <code>PROMETHEUS_STORAGE_CLASS</code></li>
+<li>Default: Value of <code>prometheus_storage_class</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the storage class for user workload Prometheus metrics. Must support ReadWriteOnce (RWO) access mode.</p>
+<p><strong>When to use</strong>: Typically inherits from <code>prometheus_storage_class</code>. Set explicitly if user workload metrics require different storage characteristics.</p>
+<p><strong>Valid values</strong>: Valid storage class name that supports RWO access mode. Usually same as <code>prometheus_storage_class</code>.</p>
+<p><strong>Impact</strong>: Determines performance and availability of user workload metrics storage.</p>
+<p><strong>Related variables</strong>: <code>prometheus_storage_class</code>, <code>prometheus_userworkload_storage_size</code></p>
+<p><strong>Notes</strong>:
+- Defaults to same storage class as platform Prometheus
+- Must support RWO access mode
+- Can use different storage class if user workloads have specific requirements</p>
 <h3 id="prometheus_userworkload_storage_size">prometheus_userworkload_storage_size<a class="headerlink" href="#prometheus_userworkload_storage_size" title="Permanent link">¤</a></h3>
-<p>Adjust the size of the volume used to store User Workload metrics.</p>
+<p>Size of the persistent volume for user workload Prometheus metrics.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>PROMETHEUS_USERWORKLOAD_STORAGE_SIZE</code></li>
-<li>Default Value: <code>20Gi</code></li>
+<li>Default: <code>20Gi</code></li>
 </ul>
+<p><strong>Purpose</strong>: Defines the capacity of the persistent volume for storing user workload metrics from MAS applications.</p>
+<p><strong>When to use</strong>: Adjust based on number of MAS applications, retention period, and metrics volume.</p>
+<p><strong>Valid values</strong>: Kubernetes resource quantity (e.g., <code>20Gi</code>, <code>50Gi</code>, <code>100Gi</code>). Sizing guidelines:
+- <code>20Gi</code> - Default, suitable for 1-2 MAS applications
+- <code>50Gi</code> - Multiple MAS applications (3-5)
+- <code>100Gi</code> - Full MAS suite with extended retention</p>
+<p><strong>Impact</strong>: MAS applications generate significant metrics. Insufficient storage will cause metrics collection failures.</p>
+<p><strong>Related variables</strong>: <code>prometheus_userworkload_retention_period</code>, <code>prometheus_userworkload_storage_class</code></p>
+<p><strong>Notes</strong>:
+- MAS Manage generates substantial metrics data
+- Size based on: number of MAS apps × retention period × expected metrics volume
+- Monitor usage: <code>oc get pvc -n openshift-user-workload-monitoring</code>
+- Can be expanded later if needed</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   vars:

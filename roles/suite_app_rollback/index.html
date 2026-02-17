@@ -737,47 +737,142 @@
           <div class="rst-content">
             
             <h1 id="suite_app_rollback">suite_app_rollback<a class="headerlink" href="#suite_app_rollback" title="Permanent link">¤</a></h1>
-<p>This role is to roll back Maximo Application Suite Applications to an earlier version. Currently, this is designed for Manage Application only. Rollback is possible only in 8.7 and later. From 8.7 onwards, every version comes with a set of supported versions to which the Application can be rolled back. For example, you can roll back Manage Application from 8.7.x to 8.7.0.</p>
-<p>This role will rollback the version for an installed MAS application after validating:
-- That the specified version of application is compatible to rollback from the current version
-- That the specified version of application is compatible with the running MAS core platform</p>
-<p>It will rollback the Manage Application to the desired version and validate that the Manage Application has been successfully reconciled at the rolled back version.</p>
+<p>Roll back Maximo Application Suite applications to earlier versions when issues are encountered after upgrades. This role provides a safe rollback mechanism with built-in compatibility validation to ensure the target version is supported for rollback from the current version and compatible with the running MAS core platform.</p>
+<p><strong>Important</strong>: Currently designed for Manage application only. Rollback capability is available in MAS 8.7 and later versions. Each version defines a set of supported rollback targets (e.g., from 8.7.x to 8.7.0).</p>
+<p>The role performs comprehensive validation before rollback and monitors the reconciliation process to ensure successful completion at the target version.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
-<p>Set the instance ID for the MAS installation where you wish to rollback the application.</p>
+<p>MAS instance identifier where the application rollback will be performed.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies the target MAS instance containing the application to be rolled back.</p>
+<p><strong>When to use</strong>: Always required. Must match an existing MAS instance with the application installed.</p>
+<p><strong>Valid values</strong>: Valid MAS instance ID (typically 3-12 lowercase alphanumeric characters).</p>
+<p><strong>Impact</strong>: The rollback operation will target the application in the <code>mas-&lt;instance-id&gt;-&lt;app-id&gt;</code> namespace. Incorrect instance ID will cause the role to fail.</p>
+<p><strong>Related variables</strong>: <code>mas_app_id</code>, <code>mas_app_version</code></p>
+<p><strong>Notes</strong>:
+- Must match the instance ID used during MAS installation
+- Case-sensitive value
+- Ensure you have proper backups before performing rollback operations</p>
 <h3 id="mas_app_id">mas_app_id<a class="headerlink" href="#mas_app_id" title="Permanent link">¤</a></h3>
-<p>The name of the Maximo Application Suite Application. This will be used to lookup for application namespace and resources. Please be aware that at present, <code>manage</code> is the only supported value for this variable.</p>
+<p>MAS application identifier to be rolled back.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_APP_ID</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which MAS application will be rolled back to an earlier version.</p>
+<p><strong>When to use</strong>: Always required. Currently only <code>manage</code> is supported.</p>
+<p><strong>Valid values</strong>:
+- <code>manage</code> - Maximo Manage application (only supported value currently)</p>
+<p><strong>Impact</strong>: Determines which application namespace and resources will be targeted for rollback. Only Manage application rollback is currently implemented.</p>
+<p><strong>Related variables</strong>: <code>mas_instance_id</code>, <code>mas_app_version</code></p>
+<p><strong>Notes</strong>:
+- <strong>Critical</strong>: Only <code>manage</code> is supported in current implementation
+- Future versions may support additional applications
+- Application must be installed and running before rollback
+- Rollback capability requires MAS 8.7 or later</p>
 <h3 id="mas_app_version">mas_app_version<a class="headerlink" href="#mas_app_version" title="Permanent link">¤</a></h3>
-<p>The version you wish to rollback to. Built-in validation will ensure that the rollback will only proceed if a supportable rollback path is chosen. It is required when any of the <code>rollback_mas_app</code> and <code>verify_app_version</code> variables is set to <code>true</code>.</p>
+<p>Target version to roll back to.</p>
 <ul>
-<li><strong>Required</strong></li>
+<li><strong>Required</strong> when <code>rollback_mas_app</code> or <code>verify_app_version</code> is <code>true</code></li>
 <li>Environment Variable: <code>MAS_APP_VERSION</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the exact version to which the application should be rolled back.</p>
+<p><strong>When to use</strong>: Required for rollback operations or version verification. Must be a version that is supported for rollback from the current version.</p>
+<p><strong>Valid values</strong>: Valid MAS application version string (e.g., <code>8.7.0</code>, <code>8.7.1</code>, <code>8.8.0</code>). Must be:
+- A version supported for rollback from the current version
+- Compatible with the running MAS core platform version
+- Available in the configured catalog source</p>
+<p><strong>Impact</strong>: The application will be rolled back to this specific version. Built-in validation prevents unsupported rollback paths.</p>
+<p><strong>Related variables</strong>: <code>mas_app_id</code>, <code>rollback_mas_app</code>, <code>skip_compatibility_check</code></p>
+<p><strong>Notes</strong>:
+- Each MAS version defines supported rollback targets
+- Cannot roll back across major version boundaries in most cases
+- Verify rollback compatibility in IBM documentation before proceeding
+- Consider database schema compatibility when rolling back
+- <strong>Always backup before rollback operations</strong></p>
 <h3 id="rollback_mas_app">rollback_mas_app<a class="headerlink" href="#rollback_mas_app" title="Permanent link">¤</a></h3>
-<p>When set to <code>true</code> will ensure that the role performs rollback operation.</p>
+<p>Enable or disable the actual rollback operation.</p>
 <ul>
-<li><strong>Optional</strong></li>
+<li>Optional</li>
 <li>Environment Variable: <code>ROLLBACK_MAS_APP</code></li>
-<li>Default: <code>True</code></li>
+<li>Default: <code>true</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether the role performs the actual rollback operation or just validation checks.</p>
+<p><strong>When to use</strong>: Set to <code>true</code> to perform rollback, <code>false</code> to only validate without making changes.</p>
+<p><strong>Valid values</strong>:
+- <code>true</code> - Perform the rollback operation (default)
+- <code>false</code> - Validation only, no changes made</p>
+<p><strong>Impact</strong>: When <code>false</code>, the role will validate compatibility but not modify the application. Useful for testing rollback feasibility before execution.</p>
+<p><strong>Related variables</strong>: <code>verify_app_version</code>, <code>mas_app_version</code></p>
+<p><strong>Notes</strong>:
+- Default <code>true</code> means rollback will execute if validation passes
+- Set to <code>false</code> for dry-run validation before actual rollback
+- Combine with <code>verify_app_version</code> for post-rollback verification
+- Validation includes compatibility checks and version availability</p>
 <h3 id="verify_app_version">verify_app_version<a class="headerlink" href="#verify_app_version" title="Permanent link">¤</a></h3>
-<p>When set to <code>true</code> will ensure that the role checks the current Manage Application version matches with specified version.</p>
+<p>Enable verification that the application is at the specified version.</p>
 <ul>
-<li><strong>Optional</strong></li>
+<li>Optional</li>
 <li>Environment Variable: <code>VERIFY_APP_VERSION</code></li>
-<li>Default: <code>False</code></li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Checks whether the current application version matches the specified target version, useful for post-rollback verification.</p>
+<p><strong>When to use</strong>: Set to <code>true</code> to verify the application version without performing rollback. Useful after rollback to confirm success.</p>
+<p><strong>Valid values</strong>:
+- <code>true</code> - Verify current version matches <code>mas_app_version</code>
+- <code>false</code> - Skip version verification (default)</p>
+<p><strong>Impact</strong>: When <code>true</code>, the role will check if the application is at the specified version and report success or failure. No changes are made to the application.</p>
+<p><strong>Related variables</strong>: <code>mas_app_version</code>, <code>rollback_mas_app</code></p>
+<p><strong>Notes</strong>:
+- Useful for post-rollback validation in automation pipelines
+- Can be used independently of rollback operation
+- Set <code>rollback_mas_app=false</code> and <code>verify_app_version=true</code> for verification-only mode
+- Helps confirm rollback completed successfully</p>
+<h3 id="mas_rollback_dryrun">mas_rollback_dryrun<a class="headerlink" href="#mas_rollback_dryrun" title="Permanent link">¤</a></h3>
+<p>Enable dry-run mode for rollback operations.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MAS_ROLLBACK_DRYRUN</code></li>
+<li>Default: <code>false</code></li>
+</ul>
+<p><strong>Purpose</strong>: Performs all validation checks without actually executing the rollback, allowing you to test the rollback process safely.</p>
+<p><strong>When to use</strong>: Set to <code>true</code> when you want to validate rollback feasibility without making any changes to the system.</p>
+<p><strong>Valid values</strong>:
+- <code>true</code> - Dry-run mode, validation only
+- <code>false</code> - Normal operation (default)</p>
+<p><strong>Impact</strong>: When <code>true</code>, all compatibility checks and validations are performed, but no changes are made to the application or cluster.</p>
+<p><strong>Related variables</strong>: <code>rollback_mas_app</code>, <code>skip_compatibility_check</code></p>
+<p><strong>Notes</strong>:
+- Recommended to run in dry-run mode first before actual rollback
+- Helps identify potential issues before committing to rollback
+- All validation errors will be reported without risk
+- Does not affect the running application</p>
+<h3 id="skip_compatibility_check">skip_compatibility_check<a class="headerlink" href="#skip_compatibility_check" title="Permanent link">¤</a></h3>
+<p>Bypass compatibility validation checks.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>SKIP_COMPATIBILITY_CHECK</code></li>
+<li>Default: <code>false</code></li>
+</ul>
+<p><strong>Purpose</strong>: Allows skipping the built-in compatibility validation between the target rollback version and the current MAS core platform version.</p>
+<p><strong>When to use</strong>: <strong>Use with extreme caution</strong>. Only skip checks when you have verified compatibility through other means or are following IBM support guidance.</p>
+<p><strong>Valid values</strong>:
+- <code>true</code> - Skip compatibility validation (dangerous)
+- <code>false</code> - Perform all compatibility checks (default, recommended)</p>
+<p><strong>Impact</strong>: When <code>true</code>, the role will not validate version compatibility, potentially allowing unsupported rollback operations that could cause system instability or data corruption.</p>
+<p><strong>Related variables</strong>: <code>mas_app_version</code>, <code>rollback_mas_app</code></p>
+<p><strong>Notes</strong>:
+- <strong>Warning</strong>: Skipping compatibility checks can lead to unsupported configurations
+- Only use when explicitly instructed by IBM support
+- May result in application failures or data issues
+- Default <code>false</code> is strongly recommended for production environments
+- Compatibility checks protect against unsupported rollback paths</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <h3 id="automatic-target-selection">Automatic Target Selection<a class="headerlink" href="#automatic-target-selection" title="Permanent link">¤</a></h3>
 <p>Running this playbook will rollback Manage Application to the 8.7.1 version. If you run this playbook when you are already on the same version it will take no action.</p>
@@ -874,6 +969,16 @@
                       <li class="md-toc__item">
                         <a href="#verify_app_version" class="md-toc__link" data-md-level="2">
                           verify_app_version
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#mas_rollback_dryrun" class="md-toc__link" data-md-level="2">
+                          mas_rollback_dryrun
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#skip_compatibility_check" class="md-toc__link" data-md-level="2">
+                          skip_compatibility_check
                         </a>
                       </li>
                   </ul>

@@ -722,6 +722,10 @@
     <cds-select id="breadcrumbs-toc" inline placeholder="..." oninput="changeAnchor(this.value)">
     
     
+      <cds-select-item value="#what-this-role-does">What This Role Does</cds-select-item>
+    
+      <cds-select-item value="#default-bucket-names">Default Bucket Names</cds-select-item>
+    
       <cds-select-item value="#role-variables">Role Variables</cds-select-item>
     
       <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
@@ -737,72 +741,163 @@
           <div class="rst-content">
             
             <h1 id="suite_manage_customer_files_config">suite_manage_customer_files_config<a class="headerlink" href="#suite_manage_customer_files_config" title="Permanent link">¤</a></h1>
-<p>This role extends support for configuring S3 / Cloud Object Storage to store <strong>Manage</strong> application customer files.</p>
-<p><strong>Note:</strong> This role should be executed <strong>after</strong> Manage application is deployed and activated as it needs Manage up and running prior configuring customer files features.</p>
-<p>You can run <code>cos</code> role to provision an IBM Cloud Object Storage or you can provide existing IBM Cloud Object Storage or AWS S3 information to use it as storage for Manage application customer files.</p>
-<p>As part of this role, three defaulted buckets will be created:
-- <code>{{ mas_instance_id }}-{{ mas_workspace_id }}-custfiles</code>
-- <code>{{ mas_instance_id }}-{{ mas_workspace_id }}-custfilesbackup</code>
-- <code>{{ mas_instance_id }}-{{ mas_workspace_id }}-custfilesrecovery</code></p>
-<p>These buckets will be used to store Manage's customer documents and files, and also will be used on the backup and recovery process.</p>
+<p>This role configures cloud object storage (IBM Cloud Object Storage or AWS S3) for storing Maximo Manage application customer files. Customer files include user-uploaded documents, images, and other files that need to be stored separately from the database.</p>
+<div class="admonition important">
+<p class="admonition-title">Prerequisites</p>
+<p>This role must be executed <strong>after</strong> Manage application is deployed and activated. Manage must be up and running before configuring customer files features.</p>
+</div>
+<h2 id="what-this-role-does">What This Role Does<a class="headerlink" href="#what-this-role-does" title="Permanent link">¤</a></h2>
+<ul>
+<li>Creates three S3/COS buckets for customer files management:</li>
+<li><strong>Main bucket</strong>: Stores active customer files</li>
+<li><strong>Backup bucket</strong>: Stores backup copies of customer files</li>
+<li><strong>Recovery bucket</strong>: Used for disaster recovery scenarios</li>
+<li>Configures Manage to use cloud storage for customer files</li>
+<li>Automatically executes <code>cos_bucket</code> role to set up buckets</li>
+<li>Updates ManageWorkspace CR with storage configuration</li>
+</ul>
+<h2 id="default-bucket-names">Default Bucket Names<a class="headerlink" href="#default-bucket-names" title="Permanent link">¤</a></h2>
+<p>The role creates three buckets with these default names:
+- <code>{mas_instance_id}-{mas_workspace_id}-custfiles</code>
+- <code>{mas_instance_id}-{mas_workspace_id}-custfilesbackup</code>
+- <code>{mas_instance_id}-{mas_workspace_id}-custfilesrecovery</code></p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
-<h3 id="storage-configuration">Storage Configuration<a class="headerlink" href="#storage-configuration" title="Permanent link">¤</a></h3>
-<h4 id="cos_type">cos_type<a class="headerlink" href="#cos_type" title="Permanent link">¤</a></h4>
-<p>Defines the storage provider type to be used to store Manage application's customer files. Currently available options are <code>ibm</code> or <code>aws</code>.</p>
+<h3 id="cos_type">cos_type<a class="headerlink" href="#cos_type" title="Permanent link">¤</a></h3>
+<p>Cloud object storage provider type.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>COS_TYPE</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
-<p><strong>Provider Options:</strong>
-- <code>ibm</code>: Configures IBM Cloud Object Storage as storage system for Manage customer files.
-- <code>aws</code>: Configures Amazon S3 buckets as storage system for Manage customer files.</p>
-<p><strong>Note:</strong> If using <code>ibm</code> or <code>aws</code> as customer files provider, the <a href="../cos_bucket/"><code>cos_bucket</code></a> role will be executed to setup a new or existing targeted COS bucket to be used to store Manage customer files, therefore make sure you set the expected variables to customize your COS bucket for Manage customer files.</p>
-<p><strong>Note about S3:</strong> To run this role successfully for AWS S3 buckets, you must have already installed the <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">AWS CLI</a>. Also, you need to have AWS user credentials configured via <code>aws configure</code> command or simply export <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code> environment variables with your corresponding AWS username credentials prior running this role.</p>
-<h3 id="bucket-configuration">Bucket Configuration<a class="headerlink" href="#bucket-configuration" title="Permanent link">¤</a></h3>
-<h4 id="custfiles_bucketname">custfiles_bucketname<a class="headerlink" href="#custfiles_bucketname" title="Permanent link">¤</a></h4>
-<p>The main customer files bucket name.</p>
+<p><strong>Purpose</strong>: Specifies which cloud storage provider to use for Manage customer files storage.</p>
+<p><strong>When to use</strong>:
+- Always required for customer files configuration
+- Choose based on your cloud infrastructure
+- Determines which credentials and CLI tools are needed</p>
+<p><strong>Valid values</strong>: <code>ibm</code>, <code>aws</code>
+- <code>ibm</code>: IBM Cloud Object Storage
+- <code>aws</code>: Amazon S3</p>
+<p><strong>Impact</strong>:
+- <code>ibm</code>: Uses IBM Cloud Object Storage (requires <code>ibmcloud_apikey</code>, <code>cos_instance_name</code>)
+- <code>aws</code>: Uses AWS S3 (requires AWS CLI installed and AWS credentials configured)</p>
+<p><strong>Related variables</strong>:
+- <code>custfiles_bucketname</code>: Main bucket to create
+- <code>mas_instance_id</code>: Used in default bucket names</p>
+<p><strong>Note</strong>: For AWS, you must install <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">AWS CLI</a> and configure credentials via <code>aws configure</code> or export <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code> environment variables.</p>
+<h3 id="custfiles_bucketname">custfiles_bucketname<a class="headerlink" href="#custfiles_bucketname" title="Permanent link">¤</a></h3>
+<p>Main customer files bucket name.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MANAGE_CUSTFILES_BUCKET_NAME</code></li>
-<li>Default Value: <code>{{ mas_instance_id }}-{{ mas_workspace_id }}-custfiles</code></li>
+<li>Default: <code>{mas_instance_id}-{mas_workspace_id}-custfiles</code></li>
 </ul>
-<h4 id="custfiles_bucketname_backup">custfiles_bucketname_backup<a class="headerlink" href="#custfiles_bucketname_backup" title="Permanent link">¤</a></h4>
-<p>The customer files bucket name used for backup.</p>
+<p><strong>Purpose</strong>: Specifies the name of the primary S3/COS bucket where active customer files are stored.</p>
+<p><strong>When to use</strong>:
+- Use default for standard naming convention
+- Override for custom bucket naming requirements
+- Must be unique within the storage provider</p>
+<p><strong>Valid values</strong>: Valid S3/COS bucket name (lowercase, alphanumeric, hyphens)</p>
+<p><strong>Impact</strong>: Determines where Manage stores active customer files. The bucket will be created if it doesn't exist.</p>
+<p><strong>Related variables</strong>:
+- <code>cos_type</code>: Storage provider for this bucket
+- <code>custfiles_bucketname_backup</code>: Related backup bucket
+- <code>custfiles_bucketname_recovery</code>: Related recovery bucket</p>
+<p><strong>Note</strong>: Bucket names must be globally unique in AWS S3. For IBM COS, they must be unique within your account. The default naming includes instance and workspace IDs to ensure uniqueness.</p>
+<h3 id="custfiles_bucketname_backup">custfiles_bucketname_backup<a class="headerlink" href="#custfiles_bucketname_backup" title="Permanent link">¤</a></h3>
+<p>Backup customer files bucket name.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MANAGE_CUSTFILES_BACKUP_BUCKET_NAME</code></li>
-<li>Default Value: <code>{{ mas_instance_id }}-{{ mas_workspace_id }}-custfilesbackup</code></li>
+<li>Default: <code>{mas_instance_id}-{mas_workspace_id}-custfilesbackup</code></li>
 </ul>
-<h4 id="custfiles_bucketname_recovery">custfiles_bucketname_recovery<a class="headerlink" href="#custfiles_bucketname_recovery" title="Permanent link">¤</a></h4>
-<p>The customer files bucket name used for recovery.</p>
+<p><strong>Purpose</strong>: Specifies the name of the S3/COS bucket used to store backup copies of customer files.</p>
+<p><strong>When to use</strong>:
+- Use default for standard naming convention
+- Override for custom bucket naming requirements
+- Part of the backup and recovery strategy</p>
+<p><strong>Valid values</strong>: Valid S3/COS bucket name (lowercase, alphanumeric, hyphens)</p>
+<p><strong>Impact</strong>: Determines where backup copies of customer files are stored. Used during backup operations to preserve file versions.</p>
+<p><strong>Related variables</strong>:
+- <code>cos_type</code>: Storage provider for this bucket
+- <code>custfiles_bucketname</code>: Main files bucket
+- <code>custfiles_bucketname_recovery</code>: Recovery bucket</p>
+<p><strong>Note</strong>: Keep backup bucket separate from main bucket for data protection. The default naming appends "backup" to clearly identify the bucket purpose.</p>
+<h3 id="custfiles_bucketname_recovery">custfiles_bucketname_recovery<a class="headerlink" href="#custfiles_bucketname_recovery" title="Permanent link">¤</a></h3>
+<p>Recovery customer files bucket name.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MANAGE_CUSTFILES_RECOVERY_BUCKET_NAME</code></li>
-<li>Default Value: <code>{{ mas_instance_id }}-{{ mas_workspace_id }}-custfilesrecovery</code></li>
+<li>Default: <code>{mas_instance_id}-{mas_workspace_id}-custfilesrecovery</code></li>
 </ul>
-<h3 id="mas-configuration">MAS Configuration<a class="headerlink" href="#mas-configuration" title="Permanent link">¤</a></h3>
-<h4 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h4>
-<p>The instance ID of Maximo Application Suite. This will be used to lookup for Manage application resources.</p>
+<p><strong>Purpose</strong>: Specifies the name of the S3/COS bucket used for disaster recovery of customer files.</p>
+<p><strong>When to use</strong>:
+- Use default for standard naming convention
+- Override for custom bucket naming requirements
+- Part of the disaster recovery strategy</p>
+<p><strong>Valid values</strong>: Valid S3/COS bucket name (lowercase, alphanumeric, hyphens)</p>
+<p><strong>Impact</strong>: Determines where recovery copies of customer files are stored. Used during disaster recovery scenarios to restore files.</p>
+<p><strong>Related variables</strong>:
+- <code>cos_type</code>: Storage provider for this bucket
+- <code>custfiles_bucketname</code>: Main files bucket
+- <code>custfiles_bucketname_backup</code>: Backup bucket</p>
+<p><strong>Note</strong>: Keep recovery bucket separate from main and backup buckets for maximum data protection. The default naming appends "recovery" to clearly identify the bucket purpose.</p>
+<h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
+<p>MAS instance identifier.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
-<h4 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link">¤</a></h4>
-<p>The workspace ID of Maximo Application Suite. This will be used to lookup for Manage application resources.</p>
+<p><strong>Purpose</strong>: Identifies which MAS instance contains the Manage application to configure for customer files storage.</p>
+<p><strong>When to use</strong>:
+- Always required for customer files configuration
+- Must match the instance ID from MAS installation
+- Used in default bucket name construction</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>masinst1</code>)</p>
+<p><strong>Impact</strong>: Used to construct default bucket names and locate Manage application resources.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_workspace_id</code>: Workspace within this instance
+- <code>custfiles_bucketname</code>: Uses instance ID in default name
+- <code>manage_workspace_cr_name</code>: Constructed from instance and workspace IDs</p>
+<p><strong>Note</strong>: This must match the instance ID used during Manage installation.</p>
+<h3 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link">¤</a></h3>
+<p>Workspace identifier for Manage application.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_WORKSPACE_ID</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
-<h4 id="manage_workspace_cr_name">manage_workspace_cr_name<a class="headerlink" href="#manage_workspace_cr_name" title="Permanent link">¤</a></h4>
-<p>Name of the <code>ManageWorkspace</code> Custom Resource that will be targeted to configure the new customer files definitions.</p>
+<p><strong>Purpose</strong>: Identifies which workspace within the MAS instance contains the Manage application to configure for customer files storage.</p>
+<p><strong>When to use</strong>:
+- Always required for customer files configuration
+- Must match the workspace ID where Manage is deployed
+- Used in default bucket name construction</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, typically 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>masdev</code>)</p>
+<p><strong>Impact</strong>: Used to construct default bucket names and locate Manage application resources within the specified instance.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_instance_id</code>: Parent instance
+- <code>custfiles_bucketname</code>: Uses workspace ID in default name
+- <code>manage_workspace_cr_name</code>: Constructed from instance and workspace IDs</p>
+<p><strong>Note</strong>: This must match the workspace ID used during Manage installation.</p>
+<h3 id="manage_workspace_cr_name">manage_workspace_cr_name<a class="headerlink" href="#manage_workspace_cr_name" title="Permanent link">¤</a></h3>
+<p>ManageWorkspace custom resource name.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MANAGE_WORKSPACE_CR_NAME</code></li>
-<li>Default Value: <code>$MAS_INSTANCE_ID-$MAS_WORKSPACE_ID</code></li>
+<li>Default: <code>{mas_instance_id}-{mas_workspace_id}</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the name of the ManageWorkspace custom resource to update with customer files storage configuration.</p>
+<p><strong>When to use</strong>:
+- Use default unless you have a custom CR naming convention
+- Override if your ManageWorkspace CR has a non-standard name
+- Required to update storage configuration</p>
+<p><strong>Valid values</strong>: Valid Kubernetes resource name</p>
+<p><strong>Impact</strong>: Determines which ManageWorkspace CR is updated with customer files bucket configuration.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_instance_id</code>: Used in default name construction
+- <code>mas_workspace_id</code>: Used in default name construction
+- <code>cos_type</code>: Storage provider being configured</p>
+<p><strong>Note</strong>: The default naming convention <code>{instance}-{workspace}</code> matches standard Manage deployments. Only override if you have custom CR names.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <h3 id="configure-cos-for-existing-manage-instance">Configure COS for Existing Manage Instance<a class="headerlink" href="#configure-cos-for-existing-manage-instance" title="Permanent link">¤</a></h3>
 <p>The following sample can be used to configure COS for an existing Manage application instance:</p>
@@ -886,23 +981,53 @@
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
               <li class="md-toc__item">
+                <a href="#what-this-role-does" class="md-toc__link" data-md-level="1">
+                  What This Role Does
+                </a>
+              </li>
+              <li class="md-toc__item">
+                <a href="#default-bucket-names" class="md-toc__link" data-md-level="1">
+                  Default Bucket Names
+                </a>
+              </li>
+              <li class="md-toc__item">
                 <a href="#role-variables" class="md-toc__link" data-md-level="1">
                   Role Variables
                 </a>
                   <ul class="md-toc__list">
                       <li class="md-toc__item">
-                        <a href="#storage-configuration" class="md-toc__link" data-md-level="2">
-                          Storage Configuration
+                        <a href="#cos_type" class="md-toc__link" data-md-level="2">
+                          cos_type
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#bucket-configuration" class="md-toc__link" data-md-level="2">
-                          Bucket Configuration
+                        <a href="#custfiles_bucketname" class="md-toc__link" data-md-level="2">
+                          custfiles_bucketname
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#mas-configuration" class="md-toc__link" data-md-level="2">
-                          MAS Configuration
+                        <a href="#custfiles_bucketname_backup" class="md-toc__link" data-md-level="2">
+                          custfiles_bucketname_backup
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#custfiles_bucketname_recovery" class="md-toc__link" data-md-level="2">
+                          custfiles_bucketname_recovery
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#mas_instance_id" class="md-toc__link" data-md-level="2">
+                          mas_instance_id
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#mas_workspace_id" class="md-toc__link" data-md-level="2">
+                          mas_workspace_id
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#manage_workspace_cr_name" class="md-toc__link" data-md-level="2">
+                          manage_workspace_cr_name
                         </a>
                       </li>
                   </ul>

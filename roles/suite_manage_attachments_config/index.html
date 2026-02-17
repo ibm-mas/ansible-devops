@@ -722,6 +722,8 @@
     <cds-select id="breadcrumbs-toc" inline placeholder="..." oninput="changeAnchor(this.value)">
     
     
+      <cds-select-item value="#storage-provider-options">Storage Provider Options</cds-select-item>
+    
       <cds-select-item value="#role-variables">Role Variables</cds-select-item>
     
       <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
@@ -737,76 +739,168 @@
           <div class="rst-content">
             
             <h1 id="suite_manage_attachments_config">suite_manage_attachments_config<a class="headerlink" href="#suite_manage_attachments_config" title="Permanent link">¤</a></h1>
-<p>This role extends support for configuring IBM Cloud Object Storage or Persistent Volume/File Storages for <strong>Manage</strong> application attachments.</p>
-<p><strong>Note:</strong> This role should be executed <strong>after</strong> Manage application is deployed and activated as it needs Manage up and running prior configuring attachments features.</p>
-<p>By default, Manage attachments configuration uses <code>filestorage</code> provider; it corresponds to your cluster's default file storage system to persist the files. Alternatively, you can provide an existing IBM Cloud Object Storage by using <code>ibm</code> provider, or even provision a new instance by using <code>cos</code> role. Finally, an existing AWS S3 service can also be provided via <code>aws</code> provider by this same role (see details in the Role Variables below).</p>
+<p>This role configures storage for Maximo Manage application attachments, supporting multiple storage providers including IBM Cloud Object Storage, AWS S3, and persistent file storage. The role updates Manage configuration either through the ManageWorkspace custom resource or directly via database SQL updates.</p>
+<div class="admonition important">
+<p class="admonition-title">Prerequisites</p>
+<p>This role must be executed <strong>after</strong> Manage application is deployed and activated. Manage must be up and running before configuring attachment features.</p>
+</div>
+<h2 id="storage-provider-options">Storage Provider Options<a class="headerlink" href="#storage-provider-options" title="Permanent link">¤</a></h2>
+<p>The role supports three storage providers:</p>
+<ul>
+<li><strong>filestorage</strong> (default): Uses cluster's default file storage system (PVC)</li>
+<li><strong>ibm</strong>: Uses IBM Cloud Object Storage buckets</li>
+<li><strong>aws</strong>: Uses Amazon S3 buckets</li>
+</ul>
+<p>For cloud storage providers (<code>ibm</code> or <code>aws</code>), the <code>cos_bucket</code> role is automatically executed to set up the bucket configuration.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
-<h3 id="attachment-configuration">Attachment Configuration<a class="headerlink" href="#attachment-configuration" title="Permanent link">¤</a></h3>
-<h4 id="mas_manage_attachments_provider">mas_manage_attachments_provider<a class="headerlink" href="#mas_manage_attachments_provider" title="Permanent link">¤</a></h4>
-<p>Defines the storage provider type to be used to store Manage application's attachments. Available options are <code>filestorage</code> (default), <code>ibm</code>, or <code>aws</code>.</p>
+<h3 id="mas_manage_attachments_provider">mas_manage_attachments_provider<a class="headerlink" href="#mas_manage_attachments_provider" title="Permanent link">¤</a></h3>
+<p>Storage provider type for Manage attachments.</p>
 <ul>
-<li><strong>Required</strong></li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_MANAGE_ATTACHMENTS_PROVIDER</code></li>
-<li>Default Value: <code>filestorage</code></li>
+<li>Default: <code>filestorage</code></li>
 </ul>
-<p><strong>Provider Options:</strong>
-- <code>filestorage</code> (default option): Configures cluster's file storage system for Manage attachments.
-- <code>ibm</code>: Configures IBM Cloud Object Storage as storage system for Manage attachments.
-- <code>aws</code>: Configures Amazon S3 buckets as storage system for Manage attachments.</p>
-<p><strong>Note:</strong> If using <code>ibm</code> or <code>aws</code> as attachments provider, the <a href="../cos_bucket/"><code>cos_bucket</code></a> role will be executed to setup a new or existing targeted COS bucket to be used to store Manage attachments, therefore make sure you set the expected variables to customize your COS bucket for Manage attachments, i.e. <code>COS_APIKEY</code> and <code>COS_INSTANCE_NAME</code>.</p>
-<p><strong>Note about S3:</strong> To run this role successfully for AWS s3 buckets, you must have already installed the <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">AWS CLI</a>. Also, you need to have AWS user credentials configured via <code>aws configure</code> command or simply export <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code> environment variables with your corresponding AWS username credentials prior running this role.</p>
-<h4 id="mas_manage_attachment_configuration_mode">mas_manage_attachment_configuration_mode<a class="headerlink" href="#mas_manage_attachment_configuration_mode" title="Permanent link">¤</a></h4>
-<p>Defines how attachment properties will be configured in Manage. Possible values are <code>cr</code> and <code>db</code>.</p>
-<p>When <code>cr</code> is selected, attachment properties will be entered in ManageWorkspace CR for each bundle, under <code>bundleProperties</code> key. For this mode, <code>manage_workspace_cr_name</code> must be informed.</p>
-<p>When <code>db</code> is selected, attachment properties will be updated directly in the database via SQL updates. For this mode, <code>db2_instance_name</code>, <code>db2_namespace</code> and <code>db2_dbname</code> must be informed.</p>
+<p><strong>Purpose</strong>: Determines which storage backend is used to store Manage application attachments (documents, images, files).</p>
+<p><strong>When to use</strong>:
+- Use default <code>filestorage</code> for simple deployments with PVC storage
+- Use <code>ibm</code> when leveraging IBM Cloud Object Storage for scalability
+- Use <code>aws</code> when using AWS S3 for cloud-native storage</p>
+<p><strong>Valid values</strong>: <code>filestorage</code>, <code>ibm</code>, <code>aws</code></p>
+<p><strong>Impact</strong>:
+- <code>filestorage</code>: Attachments stored in cluster file storage (PVC mount)
+- <code>ibm</code>: Attachments stored in IBM Cloud Object Storage (requires COS credentials)
+- <code>aws</code>: Attachments stored in AWS S3 (requires AWS credentials and CLI)</p>
+<p><strong>Related variables</strong>:
+- <code>mas_manage_attachment_configuration_mode</code>: How configuration is applied
+- <code>db2_instance_name</code>: Required for database configuration mode</p>
+<p><strong>Note</strong>: For <code>ibm</code> or <code>aws</code> providers, ensure you set COS/S3 credentials (<code>COS_APIKEY</code>, <code>COS_INSTANCE_NAME</code> for IBM, or <code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code> for AWS). AWS provider requires <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">AWS CLI</a> to be installed.</p>
+<h3 id="mas_manage_attachment_configuration_mode">mas_manage_attachment_configuration_mode<a class="headerlink" href="#mas_manage_attachment_configuration_mode" title="Permanent link">¤</a></h3>
+<p>Configuration method for attachment properties.</p>
 <ul>
-<li><strong>Required</strong></li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_MANAGE_ATTACHMENT_CONFIGURATION_MODE</code></li>
-<li>Default Value: <code>db</code></li>
+<li>Default: <code>db</code></li>
 </ul>
-<h4 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h4>
-<p>The instance ID of Maximo Application Suite. This will be used to lookup for Manage application resources.</p>
+<p><strong>Purpose</strong>: Determines how attachment configuration properties are applied to Manage - either through Kubernetes custom resource or direct database updates.</p>
+<p><strong>When to use</strong>:
+- Use <code>db</code> (default) for direct database configuration (faster, simpler)
+- Use <code>cr</code> for GitOps workflows or when database access is restricted</p>
+<p><strong>Valid values</strong>: <code>db</code>, <code>cr</code></p>
+<p><strong>Impact</strong>:
+- <code>db</code>: Updates attachment properties via SQL directly in Manage database (requires <code>db2_instance_name</code>, <code>db2_namespace</code>, <code>db2_dbname</code>)
+- <code>cr</code>: Updates attachment properties in ManageWorkspace custom resource under <code>bundleProperties</code> (requires <code>manage_workspace_cr_name</code>)</p>
+<p><strong>Related variables</strong>:
+- <code>db2_instance_name</code>: Required when mode is <code>db</code>
+- <code>manage_workspace_cr_name</code>: Required when mode is <code>cr</code></p>
+<p><strong>Note</strong>: The <code>db</code> mode is recommended for most deployments as it's more direct. Use <code>cr</code> mode for declarative/GitOps approaches.</p>
+<h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
+<p>MAS instance identifier.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
-<h4 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link">¤</a></h4>
-<p>The workspace ID of Maximo Application Suite. This will be used to lookup for Manage application resources.</p>
+<p><strong>Purpose</strong>: Identifies which MAS instance contains the Manage application to configure.</p>
+<p><strong>When to use</strong>:
+- Always required for attachment configuration
+- Must match the instance ID from MAS installation</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>masinst1</code>)</p>
+<p><strong>Impact</strong>: Used to locate Manage application resources and construct resource names.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_workspace_id</code>: Workspace within this instance
+- <code>manage_workspace_cr_name</code>: Constructed from instance and workspace IDs</p>
+<p><strong>Note</strong>: This must match the instance ID used during Manage installation.</p>
+<h3 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link">¤</a></h3>
+<p>Workspace identifier for Manage application.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_WORKSPACE_ID</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
-<h4 id="manage_workspace_cr_name">manage_workspace_cr_name<a class="headerlink" href="#manage_workspace_cr_name" title="Permanent link">¤</a></h4>
-<p>Name of the <code>ManageWorkspace</code> Custom Resource that will be targeted to configure the new PVC definitions. Required when <code>mas_manage_attachment_configuration_mode</code> is set as <code>cr</code>.</p>
+<p><strong>Purpose</strong>: Identifies which workspace within the MAS instance contains the Manage application to configure.</p>
+<p><strong>When to use</strong>:
+- Always required for attachment configuration
+- Must match the workspace ID where Manage is deployed</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, typically 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>masdev</code>)</p>
+<p><strong>Impact</strong>: Used to locate Manage application resources within the specified instance.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_instance_id</code>: Parent instance
+- <code>manage_workspace_cr_name</code>: Constructed from instance and workspace IDs</p>
+<p><strong>Note</strong>: This must match the workspace ID used during Manage installation.</p>
+<h3 id="manage_workspace_cr_name">manage_workspace_cr_name<a class="headerlink" href="#manage_workspace_cr_name" title="Permanent link">¤</a></h3>
+<p>ManageWorkspace custom resource name.</p>
 <ul>
-<li><strong>Optional</strong></li>
+<li><strong>Optional</strong> (Required when <code>mas_manage_attachment_configuration_mode=cr</code>)</li>
 <li>Environment Variable: <code>MANAGE_WORKSPACE_CR_NAME</code></li>
-<li>Default Value: <code>$MAS_INSTANCE_ID-$MAS_WORKSPACE_ID</code></li>
+<li>Default: <code>{mas_instance_id}-{mas_workspace_id}</code></li>
 </ul>
-<h4 id="db2_instance_name">db2_instance_name<a class="headerlink" href="#db2_instance_name" title="Permanent link">¤</a></h4>
-<p>The DB2 Warehouse instance name that stores your Manage application tables and data. This will be used to lookup for Manage application database and update it with the IBM Object Storage configuration. Required when <code>mas_manage_attachment_configuration_mode</code> is set as <code>db</code>.</p>
-<p><strong>Note</strong>: In order to obtain the value for this variable, go to the namespace where db2 is installed and look for the pod where <code>label=engine</code>. Select/describe the pod representing your database, and look for the value of label <code>app</code>. That is your db2 instance name.</p>
+<p><strong>Purpose</strong>: Specifies the name of the ManageWorkspace custom resource to update when using CR configuration mode.</p>
+<p><strong>When to use</strong>:
+- Required only when <code>mas_manage_attachment_configuration_mode=cr</code>
+- Use default unless you have a custom CR naming convention
+- Override if your ManageWorkspace CR has a non-standard name</p>
+<p><strong>Valid values</strong>: Valid Kubernetes resource name</p>
+<p><strong>Impact</strong>: Determines which ManageWorkspace CR is updated with attachment properties in <code>bundleProperties</code> section.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_manage_attachment_configuration_mode</code>: Must be <code>cr</code> for this to be used
+- <code>mas_instance_id</code>: Used in default name construction
+- <code>mas_workspace_id</code>: Used in default name construction</p>
+<p><strong>Note</strong>: The default naming convention <code>{instance}-{workspace}</code> matches standard Manage deployments. Only override if you have custom CR names.</p>
+<h3 id="db2_instance_name">db2_instance_name<a class="headerlink" href="#db2_instance_name" title="Permanent link">¤</a></h3>
+<p>Db2 Warehouse instance name.</p>
 <ul>
-<li><strong>Optional</strong></li>
+<li><strong>Optional</strong> (Required when <code>mas_manage_attachment_configuration_mode=db</code>)</li>
 <li>Environment Variable: <code>DB2_INSTANCE_NAME</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
-<h4 id="db2_namespace">db2_namespace<a class="headerlink" href="#db2_namespace" title="Permanent link">¤</a></h4>
-<p>The namespace in your cluster that hosts the DB2 Warehouse instance name. This will be used to lookup for Manage application database and update it with the IBM Object Storage configuration. If you do not provide it, the role will try to find the Db2 Warehouse in <code>db2u</code> namespace. Required when <code>mas_manage_attachment_configuration_mode</code> is set as <code>db</code>.</p>
+<p><strong>Purpose</strong>: Identifies the Db2 Warehouse instance that stores Manage application data for direct database configuration updates.</p>
+<p><strong>When to use</strong>:
+- Required when <code>mas_manage_attachment_configuration_mode=db</code>
+- Must match the Db2 instance name used by Manage
+- Used to connect to database for SQL updates</p>
+<p><strong>Valid values</strong>: Valid Db2 instance name (e.g., <code>db2w-manage</code>, <code>db2u-iot</code>)</p>
+<p><strong>Impact</strong>: Determines which Db2 instance is accessed to update attachment configuration via SQL.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_manage_attachment_configuration_mode</code>: Must be <code>db</code> for this to be used
+- <code>db2_namespace</code>: Namespace containing this instance
+- <code>db2_dbname</code>: Database name within the instance</p>
+<p><strong>Note</strong>: To find the instance name, go to the Db2 namespace and look for pods with <code>label=engine</code>. Describe the pod and find the <code>app</code> label value - that's your instance name.</p>
+<h3 id="db2_namespace">db2_namespace<a class="headerlink" href="#db2_namespace" title="Permanent link">¤</a></h3>
+<p>Db2 Warehouse namespace.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_NAMESPACE</code></li>
-<li>Default Value: <code>db2u</code></li>
+<li>Default: <code>db2u</code></li>
 </ul>
-<h4 id="db2_dbname">db2_dbname<a class="headerlink" href="#db2_dbname" title="Permanent link">¤</a></h4>
-<p>Name of the database within the instance. Required when <code>mas_manage_attachment_configuration_mode</code> is set as <code>db</code>.</p>
+<p><strong>Purpose</strong>: Specifies the OpenShift namespace where the Db2 Warehouse instance is deployed.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>db2u</code>) for standard Db2 deployments
+- Override if Db2 is deployed in a custom namespace
+- Only relevant when <code>mas_manage_attachment_configuration_mode=db</code></p>
+<p><strong>Valid values</strong>: Valid Kubernetes namespace name</p>
+<p><strong>Impact</strong>: Determines where to look for the Db2 instance when connecting for database updates.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_instance_name</code>: Instance to find in this namespace
+- <code>mas_manage_attachment_configuration_mode</code>: Must be <code>db</code> for this to be relevant</p>
+<p><strong>Note</strong>: The default <code>db2u</code> namespace is used by most Db2 Warehouse deployments. Only change if you have a custom deployment.</p>
+<h3 id="db2_dbname">db2_dbname<a class="headerlink" href="#db2_dbname" title="Permanent link">¤</a></h3>
+<p>Database name within Db2 instance.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_DBNAME</code></li>
-<li>Default Value: <code>BLUDB</code></li>
+<li>Default: <code>BLUDB</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the database name within the Db2 instance where Manage tables are stored.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>BLUDB</code>) for standard Manage deployments
+- Override if Manage uses a custom database name
+- Only relevant when <code>mas_manage_attachment_configuration_mode=db</code></p>
+<p><strong>Valid values</strong>: Valid Db2 database name</p>
+<p><strong>Impact</strong>: Determines which database within the Db2 instance is updated with attachment configuration.</p>
+<p><strong>Related variables</strong>:
+- <code>db2_instance_name</code>: Instance containing this database
+- <code>mas_manage_attachment_configuration_mode</code>: Must be <code>db</code> for this to be relevant</p>
+<p><strong>Note</strong>: <code>BLUDB</code> is the default database name for Manage deployments. Only change if you have a custom database configuration.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <h3 id="configure-cos-via-manageworkspace-cr">Configure COS via ManageWorkspace CR<a class="headerlink" href="#configure-cos-via-manageworkspace-cr" title="Permanent link">¤</a></h3>
 <p>The following sample can be used to configure COS for an existing Manage application instance's attachments via ManageWorkspace CR update (note <code>cr</code> as configuration mode + <code>mas_instance_id</code> and <code>mas_workspace_id</code>, which will be used to infer the CR name):</p>
@@ -918,13 +1012,53 @@
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
               <li class="md-toc__item">
+                <a href="#storage-provider-options" class="md-toc__link" data-md-level="1">
+                  Storage Provider Options
+                </a>
+              </li>
+              <li class="md-toc__item">
                 <a href="#role-variables" class="md-toc__link" data-md-level="1">
                   Role Variables
                 </a>
                   <ul class="md-toc__list">
                       <li class="md-toc__item">
-                        <a href="#attachment-configuration" class="md-toc__link" data-md-level="2">
-                          Attachment Configuration
+                        <a href="#mas_manage_attachments_provider" class="md-toc__link" data-md-level="2">
+                          mas_manage_attachments_provider
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#mas_manage_attachment_configuration_mode" class="md-toc__link" data-md-level="2">
+                          mas_manage_attachment_configuration_mode
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#mas_instance_id" class="md-toc__link" data-md-level="2">
+                          mas_instance_id
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#mas_workspace_id" class="md-toc__link" data-md-level="2">
+                          mas_workspace_id
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#manage_workspace_cr_name" class="md-toc__link" data-md-level="2">
+                          manage_workspace_cr_name
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2_instance_name" class="md-toc__link" data-md-level="2">
+                          db2_instance_name
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2_namespace" class="md-toc__link" data-md-level="2">
+                          db2_namespace
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2_dbname" class="md-toc__link" data-md-level="2">
+                          db2_dbname
                         </a>
                       </li>
                   </ul>

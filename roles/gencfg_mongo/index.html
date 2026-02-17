@@ -737,75 +737,211 @@
           <div class="rst-content">
             
             <h1 id="gencfg_mongo">gencfg_mongo<a class="headerlink" href="#gencfg_mongo" title="Permanent link">¤</a></h1>
-<p>This role is used to generate mongo configuration in Maximo Application Suite
-This generated mongo configuration can be used as an input to the <a href="../suite_config/">suite_config</a> role, to configure a MAS instance to connect with an existing Mongo cluster</p>
+<p>Generate MongoDB configuration files for connecting Maximo Application Suite to external MongoDB or MongoDB-compatible databases. This role creates MongoCfg custom resources that can be applied to MAS instances to configure the system database connectivity.</p>
+<p>The role supports various MongoDB deployments including MongoDB Community Edition, MongoDB Enterprise, IBM Cloud Databases for MongoDB, and Amazon DocumentDB, with flexible authentication mechanisms and SSL/TLS support.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="mongodb_namespace">mongodb_namespace<a class="headerlink" href="#mongodb_namespace" title="Permanent link">¤</a></h3>
-<p>The generated Mongo Config file name will be suffixed with this namespace value eg, mongo-&lt;<mongodb_namespace>&gt;.yml</mongodb_namespace></p>
+<p>Namespace identifier used in the generated configuration filename.</p>
 <ul>
+<li>Optional</li>
 <li>Environment Variable: <code>MONGODB_NAMESPACE</code></li>
-<li>Default: mongoce</li>
+<li>Default: <code>mongoce</code></li>
 </ul>
+<p><strong>Purpose</strong>: Provides a suffix for the generated configuration filename to help identify the MongoDB deployment source or environment.</p>
+<p><strong>When to use</strong>: Customize when managing multiple MongoDB configurations or to clearly identify the MongoDB deployment type (e.g., <code>mongoce</code>, <code>docdb</code>, <code>ibmcloud</code>).</p>
+<p><strong>Valid values</strong>: Alphanumeric string, typically lowercase (e.g., <code>mongoce</code>, <code>docdb</code>, <code>prod-mongo</code>, <code>dev-mongodb</code>).</p>
+<p><strong>Impact</strong>: Only affects the generated filename (<code>mongo-&lt;namespace&gt;.yml</code>). Does not impact the actual MongoDB connection or MAS configuration.</p>
+<p><strong>Related variables</strong>: <code>mas_config_dir</code></p>
+<p><strong>Notes</strong>:
+- Default <code>mongoce</code> indicates MongoDB Community Edition
+- Use descriptive names when managing multiple MongoDB instances
+- Filename helps with organization but doesn't affect functionality</p>
 <h3 id="mongodb_admin_username">mongodb_admin_username<a class="headerlink" href="#mongodb_admin_username" title="Permanent link">¤</a></h3>
-<p>Required. MongoDB admin username</p>
+<p>MongoDB administrative username for authentication.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>MONGODB_ADMIN_USERNAME</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the MongoDB user account that MAS will use to connect to the MongoDB database for system data storage.</p>
+<p><strong>When to use</strong>: Always required. Must be a valid MongoDB user with appropriate permissions for MAS operations.</p>
+<p><strong>Valid values</strong>: Valid MongoDB username according to the authentication mechanism being used.</p>
+<p><strong>Impact</strong>: This user must have read/write access to the MAS databases. Insufficient permissions will cause MAS core services to fail.</p>
+<p><strong>Related variables</strong>: <code>mongodb_admin_password</code>, <code>mongodb_authentication_mechanism</code>, <code>mongodb_authentication_database</code></p>
+<p><strong>Notes</strong>:
+- For SCRAM authentication: Standard MongoDB username
+- For LDAP authentication: LDAP distinguished name or username
+- User must have <code>readWrite</code> role on MAS databases
+- Consider using a dedicated service account rather than the MongoDB admin user</p>
 <h3 id="mongodb_admin_password">mongodb_admin_password<a class="headerlink" href="#mongodb_admin_password" title="Permanent link">¤</a></h3>
-<p>Required. MongoDB admin password</p>
+<p>MongoDB password for authentication.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>MONGODB_ADMIN_PASSWORD</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the password for the MongoDB user account specified in <code>mongodb_admin_username</code>.</p>
+<p><strong>When to use</strong>: Always required for MongoDB authentication.</p>
+<p><strong>Valid values</strong>: Valid password string meeting your MongoDB security requirements.</p>
+<p><strong>Impact</strong>: Stored as a Kubernetes secret in the MAS namespace. Incorrect password will prevent MAS from connecting to MongoDB.</p>
+<p><strong>Related variables</strong>: <code>mongodb_admin_username</code>, <code>mongodb_authentication_mechanism</code></p>
+<p><strong>Notes</strong>:
+- Password is stored securely in Kubernetes secrets
+- Use strong passwords meeting your organization's security policies
+- For Amazon DocumentDB, use the master user password or IAM authentication
+- Consider implementing password rotation policies</p>
 <h3 id="mongodb_authentication_mechanism">mongodb_authentication_mechanism<a class="headerlink" href="#mongodb_authentication_mechanism" title="Permanent link">¤</a></h3>
-<p>Required. MongoDB authentication mechanism. Specify DEFAULT for SCRAM-SHA-256 or SCRAM-SHA-1. For LDAP authentication use PLAIN</p>
+<p>MongoDB authentication method to use for connections.</p>
 <ul>
+<li>Optional</li>
 <li>Environment Variable: <code>MONGODB_AUTHENTICATION_MECHANISM</code></li>
-<li>Default: DEFAULT</li>
+<li>Default: <code>DEFAULT</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the authentication mechanism for connecting to MongoDB, supporting both standard MongoDB authentication and LDAP integration.</p>
+<p><strong>When to use</strong>: Set to <code>DEFAULT</code> for standard MongoDB authentication (SCRAM-SHA-256/SCRAM-SHA-1), or <code>PLAIN</code> for LDAP authentication.</p>
+<p><strong>Valid values</strong>:
+- <code>DEFAULT</code> - Use MongoDB's default SCRAM authentication (SCRAM-SHA-256 or SCRAM-SHA-1)
+- <code>PLAIN</code> - Use LDAP authentication (requires LDAP-enabled MongoDB)</p>
+<p><strong>Impact</strong>: Must match the authentication configuration of your MongoDB deployment. Mismatch will cause authentication failures.</p>
+<p><strong>Related variables</strong>: <code>mongodb_authentication_database</code> (must be <code>$external</code> when using <code>PLAIN</code>)</p>
+<p><strong>Notes</strong>:
+- <code>DEFAULT</code> is suitable for most MongoDB deployments
+- <code>PLAIN</code> requires MongoDB Enterprise with LDAP integration
+- Amazon DocumentDB uses SCRAM authentication (use <code>DEFAULT</code>)
+- When using <code>PLAIN</code>, ensure <code>mongodb_authentication_database</code> is set to <code>$external</code></p>
 <h3 id="mongodb_authentication_database">mongodb_authentication_database<a class="headerlink" href="#mongodb_authentication_database" title="Permanent link">¤</a></h3>
-<p>Required. MongoDB authentication database. This value must be $external if PLAIN has been specified for mongodb_authentication_mechanism</p>
+<p>MongoDB database used for authentication.</p>
 <ul>
+<li>Optional</li>
 <li>Environment Variable: <code>MONGODB_AUTHENTICATION_DATABASE</code></li>
-<li>Default: admin</li>
+<li>Default: <code>admin</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which MongoDB database contains the user credentials for authentication.</p>
+<p><strong>When to use</strong>: Use <code>admin</code> for standard MongoDB authentication, or <code>$external</code> for LDAP authentication.</p>
+<p><strong>Valid values</strong>:
+- <code>admin</code> - Standard MongoDB authentication database
+- <code>$external</code> - External authentication (LDAP)
+- Custom database name if users are stored elsewhere</p>
+<p><strong>Impact</strong>: Must match where the user credentials are stored in MongoDB. Incorrect value will cause authentication failures.</p>
+<p><strong>Related variables</strong>: <code>mongodb_authentication_mechanism</code> (must be <code>PLAIN</code> when using <code>$external</code>)</p>
+<p><strong>Notes</strong>:
+- Default <code>admin</code> is correct for most deployments
+- Must be <code>$external</code> when <code>mongodb_authentication_mechanism</code> is <code>PLAIN</code>
+- For Amazon DocumentDB, use <code>admin</code>
+- Rarely needs to be changed from default unless using custom user databases</p>
 <h3 id="mongodb_hosts">mongodb_hosts<a class="headerlink" href="#mongodb_hosts" title="Permanent link">¤</a></h3>
-<p>Required. In case if there are multiple instances, the host address should be seperated by a ,. Example: docdb-1.abc.ca-central-1.docdb.amazonaws.com:27017,docdb-2.def.ca-central-1.docdb.amazonaws.com:27017</p>
+<p>MongoDB connection endpoints including hostnames and ports.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>MONGODB_HOSTS</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Defines the MongoDB server addresses that MAS will connect to, supporting both single-node and replica set deployments.</p>
+<p><strong>When to use</strong>: Always required. Provide all replica set members for high availability deployments.</p>
+<p><strong>Valid values</strong>: Comma-separated list of <code>hostname:port</code> pairs. Examples:
+- Single node: <code>mongodb.example.com:27017</code>
+- Replica set: <code>mongo-1.example.com:27017,mongo-2.example.com:27017,mongo-3.example.com:27017</code>
+- Amazon DocumentDB: <code>docdb-cluster.abc123.us-east-1.docdb.amazonaws.com:27017</code></p>
+<p><strong>Impact</strong>: MAS will attempt to connect to these hosts in order. For replica sets, providing all members ensures high availability and automatic failover.</p>
+<p><strong>Related variables</strong>: <code>mongodb_retry_writes</code>, <code>mongodb_ca_pem_local_file</code></p>
+<p><strong>Notes</strong>:
+- Always include port numbers (typically 27017)
+- For replica sets, list all members for redundancy
+- For Amazon DocumentDB, use the cluster endpoint or individual instance endpoints
+- Ensure hostnames are resolvable from the OpenShift cluster
+- For cloud databases, verify network connectivity and firewall rules</p>
 <h3 id="mongodb_retry_writes">mongodb_retry_writes<a class="headerlink" href="#mongodb_retry_writes" title="Permanent link">¤</a></h3>
-<p>Set to true if MongoDB support retryable writes. In case if retryable writes is not supported (like in case of Amazon DocumentDB), set to false</p>
+<p>Enable MongoDB retryable writes feature.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>MONGODB_RETRY_WRITES</code></li>
 <li>Default: <code>true</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether MongoDB driver will automatically retry write operations that fail due to transient network errors or replica set elections.</p>
+<p><strong>When to use</strong>: Set to <code>true</code> for MongoDB 3.6+ with replica sets. Set to <code>false</code> for Amazon DocumentDB or standalone MongoDB instances.</p>
+<p><strong>Valid values</strong>:
+- <code>true</code> - Enable retryable writes (recommended for MongoDB replica sets)
+- <code>false</code> - Disable retryable writes (required for Amazon DocumentDB)</p>
+<p><strong>Impact</strong>: When enabled, improves reliability by automatically retrying failed writes. Amazon DocumentDB does not support this feature and will fail if enabled.</p>
+<p><strong>Related variables</strong>: <code>mongodb_hosts</code></p>
+<p><strong>Notes</strong>:
+- <strong>Critical</strong>: Must be <code>false</code> for Amazon DocumentDB
+- Recommended to be <code>true</code> for MongoDB replica sets (3.6+)
+- Standalone MongoDB instances may not support retryable writes
+- Improves application resilience in replica set environments</p>
 <h3 id="mongodb_ca_pem_local_file">mongodb_ca_pem_local_file<a class="headerlink" href="#mongodb_ca_pem_local_file" title="Permanent link">¤</a></h3>
-<p>Required. defines the CA pem file's local file path</p>
+<p>Local file path to the MongoDB SSL/TLS CA certificate in PEM format.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>MONGODB_CA_PEM_LOCAL_FILE</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the SSL/TLS certificate authority certificate for secure MongoDB connections. The certificate is embedded in the generated MongoCfg resource.</p>
+<p><strong>When to use</strong>: Always required for production deployments. MongoDB connections should always use SSL/TLS encryption.</p>
+<p><strong>Valid values</strong>: Absolute or relative file path to a valid PEM-encoded CA certificate file (e.g., <code>/tmp/mongo-ca.pem</code>, <code>./certs/mongodb-cert.pem</code>).</p>
+<p><strong>Impact</strong>: Without the correct CA certificate, SSL/TLS connections will fail with certificate validation errors. MAS will not be able to connect to MongoDB.</p>
+<p><strong>Related variables</strong>: <code>mongodb_hosts</code></p>
+<p><strong>Notes</strong>:
+- The file must be accessible from the Ansible controller
+- For Amazon DocumentDB, download the CA certificate from AWS
+- For IBM Cloud Databases, download from the IBM Cloud console
+- Certificate must be in PEM format (Base64-encoded with BEGIN/END markers)
+- For self-signed certificates, this should be the CA that signed the MongoDB server certificate</p>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
-<p>Required. The instance ID of Maximo Application Suite for which the MongoCfg configuration will generate </p>
+<p>MAS instance identifier for which the MongoDB configuration is being generated.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies the target MAS instance where this MongoDB configuration will be applied.</p>
+<p><strong>When to use</strong>: Always required. Must match an existing MAS instance ID.</p>
+<p><strong>Valid values</strong>: Valid MAS instance ID (typically 3-12 lowercase alphanumeric characters).</p>
+<p><strong>Impact</strong>: The generated configuration will be namespace-scoped to <code>mas-&lt;instance-id&gt;-core</code>. Incorrect instance ID will cause the configuration to be created in the wrong namespace.</p>
+<p><strong>Related variables</strong>: <code>mas_config_dir</code></p>
+<p><strong>Notes</strong>:
+- Must match the instance ID used during MAS installation
+- Case-sensitive value
+- Cannot be changed after MAS installation
+- MongoDB is the system database for MAS core services</p>
 <h3 id="mas_config_dir">mas_config_dir<a class="headerlink" href="#mas_config_dir" title="Permanent link">¤</a></h3>
-<p>Required. Local directory to save the generated MongoCfg resource definition. This can be used as an input to the <a href="../suite_config/">suite_config</a> role, to configure a MAS instance to connect with an existing Mongo cluster</p>
+<p>Local directory path where the generated YAML configuration file will be saved.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_CONFIG_DIR</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the output directory for the generated MongoCfg YAML file that can be applied to the MAS instance.</p>
+<p><strong>When to use</strong>: Always required. Directory must exist or be creatable by the Ansible user.</p>
+<p><strong>Valid values</strong>: Valid directory path (absolute or relative) where the Ansible controller has write permissions.</p>
+<p><strong>Impact</strong>: The generated YAML file will be created in this directory and can be applied using <code>kubectl apply</code> or the <code>suite_config</code> role.</p>
+<p><strong>Related variables</strong>: <code>mas_instance_id</code>, <code>mongodb_namespace</code></p>
+<p><strong>Notes</strong>:
+- Directory will be created if it doesn't exist
+- Generated filename format: <code>mongo-&lt;mongodb_namespace&gt;.yml</code>
+- Keep generated files for documentation and disaster recovery purposes
+- Can be used as input to the <code>suite_config</code> role</p>
+<h3 id="custom_labels">custom_labels<a class="headerlink" href="#custom_labels" title="Permanent link">¤</a></h3>
+<p>Custom Kubernetes labels to apply to the generated MongoCfg resource.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>CUSTOM_LABELS</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Adds custom labels to the MongoCfg resource for organization, filtering, or automation purposes.</p>
+<p><strong>When to use</strong>: Use when you need to tag configurations for specific purposes like environment identification, cost tracking, or automated management.</p>
+<p><strong>Valid values</strong>: Comma-separated key=value pairs (e.g., <code>env=prod,team=platform,cost-center=12345</code>).</p>
+<p><strong>Impact</strong>: Labels are applied to the Kubernetes resource and can be used for selection, filtering, and automation workflows.</p>
+<p><strong>Related variables</strong>: None</p>
+<p><strong>Notes</strong>:
+- Labels must follow Kubernetes naming conventions
+- Useful for GitOps workflows and resource management
+- Can be used with label selectors in automation scripts</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">---
 
 - hosts: localhost
-  any_errors_fatal: true 
+  any_errors_fatal: true
   vars:
     mongodb_namespace: mongoce
     mongodb_admin_username: mongoadmin
@@ -814,7 +950,7 @@ This generated mongo configuration can be used as an input to the <a href="../su
     mongodb_retry_writes: false
     mongodb_ca_pem_local_file: /tmp/mongo-ca.pem
     mas_instance_id: masinst1
-    mas_config_dir: ~/masconfig  
+    mas_config_dir: ~/masconfig
   roles:
     - ibm.mas_devops.gencfg_mongo
 </code></pre>
@@ -903,6 +1039,11 @@ This generated mongo configuration can be used as an input to the <a href="../su
                       <li class="md-toc__item">
                         <a href="#mas_config_dir" class="md-toc__link" data-md-level="2">
                           mas_config_dir
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#custom_labels" class="md-toc__link" data-md-level="2">
+                          custom_labels
                         </a>
                       </li>
                   </ul>

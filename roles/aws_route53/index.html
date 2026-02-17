@@ -748,19 +748,57 @@
 Also, you need to have AWS user credentials configured via <code>aws configure</code> command or simply export <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code> environment variables with your corresponding AWS username credentials prior running this role.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="route53_hosted_zone_name">route53_hosted_zone_name<a class="headerlink" href="#route53_hosted_zone_name" title="Permanent link">¤</a></h3>
-<p>AWS Route53 Hosted Zone name.</p>
+<p>The domain name for the Route53 public hosted zone to be created.</p>
 <ul>
-<li>Required.</li>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>ROUTE53_HOSTED_ZONE_NAME</code></li>
 <li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Defines the DNS domain name that will be managed by the Route53 hosted zone. This zone will contain DNS records for routing traffic to your MAS deployment.</p>
+<p><strong>When to use</strong>: Always required when creating a Route53 hosted zone. The domain name should match your organization's domain or subdomain that you want to use for MAS endpoints.</p>
+<p><strong>Valid values</strong>:
+- Any valid domain name format (e.g., <code>mycompany.com</code>, <code>mas.example.org</code>)
+- Can be a root domain or subdomain
+- Must be unique within your AWS account
+- Should not include protocol (http/https) or trailing slashes</p>
+<p><strong>Impact</strong>:
+- Creates a public hosted zone with this domain name in Route53
+- Generates NS (nameserver) records that must be configured with your domain registrar
+- All DNS records for MAS endpoints will be created under this domain
+- Cannot be changed after creation without recreating the hosted zone</p>
+<p><strong>Related variables</strong>:
+- <a href="#route53_hosted_zone_region"><code>route53_hosted_zone_region</code></a> - Specifies the AWS region for the hosted zone</p>
+<p><strong>Notes</strong>:
+- After creation, you must update your domain registrar's nameservers to point to the Route53 NS records
+- The hosted zone will incur AWS charges based on the number of hosted zones and queries
+- Ensure you have ownership/control of the domain before creating the hosted zone
+- For production deployments, consider using a subdomain (e.g., <code>mas.mycompany.com</code>) to isolate MAS DNS records</p>
 <h3 id="route53_hosted_zone_region">route53_hosted_zone_region<a class="headerlink" href="#route53_hosted_zone_region" title="Permanent link">¤</a></h3>
-<p>AWS Route53 Hosted Zone region. </p>
+<p>The AWS region where the Route53 hosted zone will be created.</p>
 <ul>
-<li>Required.</li>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>ROUTE53_HOSTED_ZONE_REGION</code></li>
-<li>Default Value: Same value as defined in <code>AWS_REGION</code>, or if none defined, then <code>us-east-2</code> is the defaulted region.</li>
+<li>Default Value: Value from <code>AWS_REGION</code> environment variable, or <code>us-east-2</code> if not set</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the AWS region for creating the Route53 hosted zone. While Route53 is a global service, the API calls and zone metadata are associated with a specific region.</p>
+<p><strong>When to use</strong>: Should match the region where your primary MAS infrastructure is deployed, or use the default region configured in your AWS CLI.</p>
+<p><strong>Valid values</strong>:
+- Any valid AWS region identifier (e.g., <code>us-east-1</code>, <code>us-west-2</code>, <code>eu-west-1</code>, <code>ap-southeast-1</code>)
+- Must be a region where Route53 service is available (all standard AWS regions)
+- Defaults to <code>us-east-2</code> if neither this variable nor <code>AWS_REGION</code> is set</p>
+<p><strong>Impact</strong>:
+- Determines which regional Route53 API endpoint is used for zone creation
+- Does not affect DNS query routing (Route53 is globally distributed)
+- Should align with your AWS CLI configuration for consistency
+- May affect API latency for zone management operations</p>
+<p><strong>Related variables</strong>:
+- <a href="#route53_hosted_zone_name"><code>route53_hosted_zone_name</code></a> - The domain name for the hosted zone
+- Inherits from <code>AWS_REGION</code> environment variable if not explicitly set</p>
+<p><strong>Notes</strong>:
+- Route53 hosted zones are globally accessible regardless of the creation region
+- The region setting primarily affects API operations, not DNS resolution
+- For multi-region deployments, you only need one hosted zone (not per region)
+- Ensure your AWS credentials have Route53 permissions in the specified region</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <p>After installing the Ansible Collection you can include this role in your own custom playbooks.</p>
 <pre><code class="language-yaml">- hosts: localhost

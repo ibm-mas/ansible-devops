@@ -722,6 +722,8 @@
     <cds-select id="breadcrumbs-toc" inline placeholder="..." oninput="changeAnchor(this.value)">
     
     
+      <cds-select-item value="#what-this-role-does">What This Role Does</cds-select-item>
+    
       <cds-select-item value="#role-variables">Role Variables</cds-select-item>
     
       <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
@@ -739,42 +741,98 @@
           <div class="rst-content">
             
             <h1 id="suite_manage_birt_report_config">suite_manage_birt_report_config<a class="headerlink" href="#suite_manage_birt_report_config" title="Permanent link">¤</a></h1>
-<p>This role extends support for configuring Birt Report in <strong>Manage</strong> application as a separate and dedicated <strong>report</strong> bundle server workload.</p>
-<p>The following Manage properties will be added to every and each Manage server bundle:</p>
+<p>This role configures BIRT (Business Intelligence and Reporting Tools) reporting in Maximo Manage application by setting up a dedicated report bundle server workload. This enables scalable report generation by offloading report processing to dedicated pods.</p>
+<h2 id="what-this-role-does">What This Role Does<a class="headerlink" href="#what-this-role-does" title="Permanent link">¤</a></h2>
 <ul>
-<li><code>mxe.report.birt.viewerurl</code>= <code>https://{{ mas_workspace_id }}-{{ manage_report_bundle_server_name }}.manage.{{ mas_domain }}</code></li>
-<li><code>mxe.report.birt.disablequeuemanager</code>= 0 (if bundle type = <code>report</code>) or 1 (if bundle type != <code>report</code>)</li>
+<li>Configures dedicated report bundle server for BIRT report generation</li>
+<li>Sets up Manage report route endpoint for generated reports</li>
+<li>Updates Manage system properties for all bundles:</li>
+<li><code>mxe.report.birt.viewerurl</code>: Points to dedicated report server route</li>
+<li><code>mxe.report.birt.disablequeuemanager</code>: Enables queue manager only on report bundle (0 for report bundle, 1 for others)</li>
+<li>Forwards report workload to dedicated report-type bundle pods</li>
 </ul>
-<p>The goal for this role is to setup the specific Manage Report route to be the endpoint for the generated reports in Manage (which will forward the report workload to the dedicated <code>report</code> type bundle pod).</p>
+<div class="admonition tip">
+<p class="admonition-title">Performance Optimization</p>
+<p>Using a dedicated report bundle server improves Manage performance by isolating resource-intensive report generation from other Manage operations.</p>
+</div>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
-<p>The instance ID of Maximo Application Suite. This will be used to lookup for Manage application resources.</p>
+<p>MAS instance identifier.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies which MAS instance contains the Manage application to configure for BIRT reporting.</p>
+<p><strong>When to use</strong>:
+- Always required for BIRT report configuration
+- Must match the instance ID from MAS installation
+- Used to locate Manage resources</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>masinst1</code>)</p>
+<p><strong>Impact</strong>: Determines which MAS instance's Manage application is configured with BIRT report server.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_workspace_id</code>: Workspace within this instance
+- <code>manage_workspace_cr_name</code>: Constructed from instance and workspace IDs</p>
+<p><strong>Note</strong>: This must match the instance ID used during Manage installation.</p>
 <h3 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link">¤</a></h3>
-<p>The workspace ID of Maximo Application Suite. This will be used to lookup for Manage application resources.</p>
+<p>Workspace identifier for Manage application.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_WORKSPACE_ID</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies which workspace within the MAS instance contains the Manage application to configure for BIRT reporting.</p>
+<p><strong>When to use</strong>:
+- Always required for BIRT report configuration
+- Must match the workspace ID where Manage is deployed
+- Used in report route URL construction</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, typically 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>main</code>)</p>
+<p><strong>Impact</strong>: Used to construct the report server route URL: <code>https://{workspace_id}-{report_bundle_name}.manage.{domain}</code></p>
+<p><strong>Related variables</strong>:
+- <code>mas_instance_id</code>: Parent instance
+- <code>manage_report_bundle_server_name</code>: Report bundle name in route URL
+- <code>manage_workspace_cr_name</code>: Constructed from instance and workspace IDs</p>
+<p><strong>Note</strong>: This must match the workspace ID used during Manage installation.</p>
 <h3 id="manage_workspace_cr_name">manage_workspace_cr_name<a class="headerlink" href="#manage_workspace_cr_name" title="Permanent link">¤</a></h3>
-<p>Name of the <code>ManageWorkspace</code> Custom Resource that will be targeted to configure the new PVC definitions.</p>
+<p>ManageWorkspace custom resource name.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MANAGE_WORKSPACE_CR_NAME</code></li>
-<li>Default: <code>$MAS_INSTANCE_ID-$MAS_WORKSPACE_ID</code></li>
+<li>Default: <code>{mas_instance_id}-{mas_workspace_id}</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the name of the ManageWorkspace custom resource to update with BIRT report configuration.</p>
+<p><strong>When to use</strong>:
+- Use default unless you have a custom CR naming convention
+- Override if your ManageWorkspace CR has a non-standard name
+- Required to update bundle properties</p>
+<p><strong>Valid values</strong>: Valid Kubernetes resource name</p>
+<p><strong>Impact</strong>: Determines which ManageWorkspace CR is updated with report bundle configuration and system properties.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_instance_id</code>: Used in default name construction
+- <code>mas_workspace_id</code>: Used in default name construction
+- <code>manage_report_bundle_server_name</code>: Report bundle to configure</p>
+<p><strong>Note</strong>: The default naming convention <code>{instance}-{workspace}</code> matches standard Manage deployments. Only override if you have custom CR names.</p>
 <h3 id="manage_report_bundle_server_name">manage_report_bundle_server_name<a class="headerlink" href="#manage_report_bundle_server_name" title="Permanent link">¤</a></h3>
-<p>Name of the Manage report bundle server. It will be used to configure the Manage's report bundle server and its corresponding route. Not needed if the report bundle server is already configured.</p>
+<p>Report bundle server name.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MANAGE_REPORT_BUNDLE_SERVER_NAME</code></li>
 <li>Default: <code>rpt</code></li>
 </ul>
+<p><strong>Purpose</strong>: Defines the name of the dedicated report bundle server and its corresponding route for BIRT report generation.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>rpt</code>) for standard deployments
+- Override for custom naming conventions
+- Not needed if report bundle server is already configured</p>
+<p><strong>Valid values</strong>: Valid Kubernetes resource name (lowercase alphanumeric and hyphens)</p>
+<p><strong>Impact</strong>:
+- Determines the report bundle server name in Manage configuration
+- Used in report route URL: <code>https://{workspace_id}-{this_name}.manage.{domain}</code>
+- Identifies which bundle pods handle report generation</p>
+<p><strong>Related variables</strong>:
+- <code>mas_workspace_id</code>: Used in route URL construction
+- <code>manage_workspace_cr_name</code>: CR to update with this bundle configuration</p>
+<p><strong>Note</strong>: The default <code>rpt</code> is a common abbreviation for "report". Choose a meaningful name that clearly identifies the report bundle server purpose.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <p>The following sample can be used to configure BIRT report for an existing Manage application instance.</p>
 <pre><code class="language-yaml">- hosts: localhost
@@ -835,6 +893,11 @@ ROLE_NAME='suite_manage_birt_report_config' ansible-playbook playbooks/run_role.
       <div class="md-toc">
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
+              <li class="md-toc__item">
+                <a href="#what-this-role-does" class="md-toc__link" data-md-level="1">
+                  What This Role Does
+                </a>
+              </li>
               <li class="md-toc__item">
                 <a href="#role-variables" class="md-toc__link" data-md-level="1">
                   Role Variables

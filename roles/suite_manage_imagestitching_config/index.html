@@ -722,6 +722,8 @@
     <cds-select id="breadcrumbs-toc" inline placeholder="..." oninput="changeAnchor(this.value)">
     
     
+      <cds-select-item value="#what-this-role-does">What This Role Does</cds-select-item>
+    
       <cds-select-item value="#role-variables">Role Variables</cds-select-item>
     
       <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
@@ -737,65 +739,176 @@
           <div class="rst-content">
             
             <h1 id="suite_manage_imagestitching_config">suite_manage_imagestitching_config<a class="headerlink" href="#suite_manage_imagestitching_config" title="Permanent link">¤</a></h1>
-<p>This role configures the manage workspace to autodeploy the image stitching application. The role will only make changes if the Civil component has been installed. It will configure a PVC, patch the ManageWorkspace CR with the name of the PVC and also patch PV specifications based on the PVC. It also sets two key system properties required by the image stitching application: 'mci.imagestitching.apiurl' and 'imagestitching.dataInputPath'.</p>
-<p><strong>Note:</strong> This role should be executed <strong>after</strong> Manage application is deployed and activated as it needs Manage up and running in order to set system properties.</p>
+<p>This role configures image stitching functionality in Maximo Manage for the Civil Infrastructure component. Image stitching enables combining multiple images into panoramic views for infrastructure inspection and analysis. The role creates persistent storage, updates the ManageWorkspace CR, and sets required system properties.</p>
+<div class="admonition important">
+<p class="admonition-title">Prerequisites</p>
+<ul>
+<li>Manage application must be deployed and activated</li>
+<li>Civil Infrastructure component must be installed</li>
+<li>Storage class must support ReadWriteMany (RWX) access mode</li>
+</ul>
+</div>
+<h2 id="what-this-role-does">What This Role Does<a class="headerlink" href="#what-this-role-does" title="Permanent link">¤</a></h2>
+<ul>
+<li>Creates PVC for image stitching data storage</li>
+<li>Patches ManageWorkspace CR with PVC configuration</li>
+<li>Configures persistent volume specifications</li>
+<li>Sets system properties:</li>
+<li><code>mci.imagestitching.apiurl</code>: API endpoint for image stitching service</li>
+<li><code>imagestitching.dataInputPath</code>: Data input path for image processing</li>
+</ul>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
-<p>The instance ID of Maximo Application Suite. This will be used to lookup for Manage application resources.</p>
+<p>MAS instance identifier.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies which MAS instance contains the Manage application to configure for image stitching.</p>
+<p><strong>When to use</strong>:
+- Always required for image stitching configuration
+- Must match the instance ID from MAS installation
+- Used in PVC name construction</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, 3-12 characters (e.g., <code>civil</code>, <code>prod</code>, <code>masinst1</code>)</p>
+<p><strong>Impact</strong>: Used to construct PVC name (<code>{instance}-{workspace}-{pvcname}</code>) and locate Manage resources.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_workspace_id</code>: Workspace within this instance
+- <code>stitching_pvcname</code>: Combined to create full PVC name</p>
+<p><strong>Note</strong>: This must match the instance ID used during Manage installation with Civil component.</p>
 <h3 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link">¤</a></h3>
-<p>The workspace ID of Maximo Application Suite. This will be used to lookup for Manage application resources.</p>
+<p>Workspace identifier for Manage application.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_WORKSPACE_ID</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies which workspace within the MAS instance contains the Manage application with Civil component.</p>
+<p><strong>When to use</strong>:
+- Always required for image stitching configuration
+- Must match the workspace ID where Manage is deployed
+- Used in PVC name construction</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, typically 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>masdev</code>)</p>
+<p><strong>Impact</strong>: Used to construct PVC name (<code>{instance}-{workspace}-{pvcname}</code>) and locate Manage resources.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_instance_id</code>: Parent instance
+- <code>stitching_pvcname</code>: Combined to create full PVC name</p>
+<p><strong>Note</strong>: This must match the workspace ID used during Manage installation.</p>
 <h3 id="mas_domain">mas_domain<a class="headerlink" href="#mas_domain" title="Permanent link">¤</a></h3>
-<p>The domain name for the Manage cluster.</p>
+<p>MAS cluster domain name.</p>
 <ul>
-<li><strong>Required</strong></li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_DOMAIN</code></li>
 <li>Default: Discovered from Suite CR</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the domain name for the Manage cluster, used to construct the image stitching API URL.</p>
+<p><strong>When to use</strong>:
+- Use default (auto-discovery) for standard deployments
+- Override if auto-discovery fails or for custom domains
+- Required for constructing service endpoints</p>
+<p><strong>Valid values</strong>: Valid DNS domain name (e.g., <code>civil.ibmmasdev.com</code>, <code>apps.cluster.example.com</code>)</p>
+<p><strong>Impact</strong>: Used to construct the <code>mci.imagestitching.apiurl</code> system property for the image stitching service endpoint.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_instance_id</code>: Instance in this domain
+- <code>mas_workspace_id</code>: Workspace in this domain</p>
+<p><strong>Note</strong>: The role attempts to discover the domain from the Suite CR. Only override if auto-discovery doesn't work for your environment.</p>
 <h3 id="stitching_pvcname">stitching_pvcname<a class="headerlink" href="#stitching_pvcname" title="Permanent link">¤</a></h3>
-<p>The postfix for the PVC created for image stitching. The ManageWorkspace CR will prepend 'mas_instance_id-mas_workspace_id-' to generate the actual name of the PVC.</p>
+<p>PVC name postfix for image stitching storage.</p>
 <ul>
-<li><strong>Required</strong></li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IMAGESTITCHING_PVCNAME</code></li>
 <li>Default: <code>manage-imagestitching</code></li>
 </ul>
+<p><strong>Purpose</strong>: Defines the postfix for the PVC name. The full PVC name is constructed as <code>{mas_instance_id}-{mas_workspace_id}-{stitching_pvcname}</code>.</p>
+<p><strong>When to use</strong>:
+- Use default for standard deployments
+- Override for custom naming conventions
+- Must be unique within the namespace</p>
+<p><strong>Valid values</strong>: Valid Kubernetes resource name (lowercase alphanumeric and hyphens)</p>
+<p><strong>Impact</strong>: Determines the PVC name used for image stitching data storage. The ManageWorkspace CR is updated with this PVC reference.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_instance_id</code>: Prepended to create full PVC name
+- <code>mas_workspace_id</code>: Prepended to create full PVC name
+- <code>stitching_storage_class</code>: Storage class for this PVC
+- <code>stitching_storage_size</code>: Size of this PVC</p>
+<p><strong>Note</strong>: The default <code>manage-imagestitching</code> clearly identifies the PVC purpose. Full PVC name example: <code>civil-masdev-manage-imagestitching</code>.</p>
 <h3 id="stitching_storage_class">stitching_storage_class<a class="headerlink" href="#stitching_storage_class" title="Permanent link">¤</a></h3>
-<p>The storage class used for the PVC. If not specified the default value will be found by discovery. The storage class must support ReadWriteMany(RWX) access mode.</p>
+<p>Storage class for image stitching PVC.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IMAGESTITCHING_STORAGE_CLASS</code></li>
-<li>Default: None</li>
+<li>Default: Auto-discovered</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the Kubernetes storage class to use for the image stitching PVC. Must support ReadWriteMany (RWX) access mode.</p>
+<p><strong>When to use</strong>:
+- Use default (auto-discovery) if cluster has suitable RWX storage class
+- Override to specify a particular RWX-capable storage class
+- Required when multiple RWX storage classes exist</p>
+<p><strong>Valid values</strong>: Valid Kubernetes storage class name that supports RWX (e.g., <code>nfs-client</code>, <code>ocs-storagecluster-cephfs</code>, <code>ibmc-file-gold</code>)</p>
+<p><strong>Impact</strong>: Determines the underlying storage technology for image stitching data. Must support ReadWriteMany for multiple pod access.</p>
+<p><strong>Related variables</strong>:
+- <code>stitching_pvcname</code>: PVC using this storage class
+- <code>stitching_storage_mode</code>: Must be <code>ReadWriteMany</code>
+- <code>stitching_storage_size</code>: Size of storage to provision</p>
+<p><strong>Note</strong>: <strong>CRITICAL</strong> - The storage class MUST support ReadWriteMany (RWX) access mode as image stitching requires shared access from multiple pods. Common RWX storage classes include NFS, CephFS, and IBM Cloud File Storage.</p>
 <h3 id="stitching_storage_size">stitching_storage_size<a class="headerlink" href="#stitching_storage_size" title="Permanent link">¤</a></h3>
-<p>The size of the persistent volume claim.</p>
+<p>PVC storage size for image stitching.</p>
 <ul>
-<li><strong>Required</strong></li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IMAGESTITCHING_STORAGE_SIZE</code></li>
 <li>Default: <code>20Gi</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the size of the persistent volume claim for storing image stitching data and processed images.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>20Gi</code>) for small to medium deployments
+- Increase for large-scale infrastructure inspection projects
+- Consider image resolution and retention requirements</p>
+<p><strong>Valid values</strong>: Kubernetes storage size format (e.g., <code>20Gi</code>, <code>50Gi</code>, <code>100Gi</code>, <code>1Ti</code>)</p>
+<p><strong>Impact</strong>: Determines how much image data can be stored. Insufficient storage will prevent new image processing.</p>
+<p><strong>Related variables</strong>:
+- <code>stitching_pvcname</code>: PVC with this size
+- <code>stitching_storage_class</code>: Storage class providing this capacity</p>
+<p><strong>Note</strong>: Size requirements depend on:
+- Number of images processed
+- Image resolution and format
+- Retention period for processed images
+- Number of concurrent stitching operations
+Start with 20Gi and monitor usage to adjust as needed.</p>
 <h3 id="stitching_storage_mode">stitching_storage_mode<a class="headerlink" href="#stitching_storage_mode" title="Permanent link">¤</a></h3>
-<p>The access mode for the PVC.</p>
+<p>PVC access mode for image stitching.</p>
 <ul>
-<li><strong>Required</strong></li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IMAGESTITCHING_STORAGE_MODE</code></li>
 <li>Default: <code>ReadWriteMany</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the Kubernetes access mode for the image stitching PVC. Must be ReadWriteMany to allow multiple pods to access the storage simultaneously.</p>
+<p><strong>When to use</strong>:
+- Always use default <code>ReadWriteMany</code> for image stitching
+- Do not change unless you understand the implications
+- Required for multi-pod access to shared data</p>
+<p><strong>Valid values</strong>: <code>ReadWriteMany</code> (RWX) - other modes not supported</p>
+<p><strong>Impact</strong>: Enables multiple Manage pods to read and write image stitching data concurrently. Essential for distributed image processing.</p>
+<p><strong>Related variables</strong>:
+- <code>stitching_storage_class</code>: Must support this access mode
+- <code>stitching_pvcname</code>: PVC with this access mode</p>
+<p><strong>Note</strong>: <strong>CRITICAL</strong> - ReadWriteMany (RWX) is mandatory for image stitching functionality. Do not change this value. Ensure your storage class supports RWX access mode.</p>
 <h3 id="stitching_storage_mountpath">stitching_storage_mountpath<a class="headerlink" href="#stitching_storage_mountpath" title="Permanent link">¤</a></h3>
-<p>The mount path of the Persistent Volume.</p>
+<p>Mount path for image stitching storage.</p>
 <ul>
-<li><strong>Required</strong></li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IMAGESTITCHING_STORAGE_MOUNTPATH</code></li>
 <li>Default: <code>imagestitching</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the mount path where the image stitching PVC is mounted in Manage pods.</p>
+<p><strong>When to use</strong>:
+- Use default (<code>imagestitching</code>) for standard deployments
+- Override only if you have specific path requirements
+- Must not conflict with other mount paths</p>
+<p><strong>Valid values</strong>: Valid Linux filesystem path component (alphanumeric, no leading slash)</p>
+<p><strong>Impact</strong>: Determines where image stitching data is accessible within Manage pods. The <code>imagestitching.dataInputPath</code> system property is set to this path.</p>
+<p><strong>Related variables</strong>:
+- <code>stitching_pvcname</code>: PVC mounted at this path</p>
+<p><strong>Note</strong>: The default <code>imagestitching</code> is relative to the Manage pod's base mount path. The full path is constructed by Manage. Do not include leading or trailing slashes.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <p>The following sample will configure image stitching for an existing Manage application instance via ManageWorkspace CR update:</p>
 <pre><code class="language-yaml">- hosts: localhost
@@ -855,6 +968,11 @@
       <div class="md-toc">
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
+              <li class="md-toc__item">
+                <a href="#what-this-role-does" class="md-toc__link" data-md-level="1">
+                  What This Role Does
+                </a>
+              </li>
               <li class="md-toc__item">
                 <a href="#role-variables" class="md-toc__link" data-md-level="1">
                   Role Variables

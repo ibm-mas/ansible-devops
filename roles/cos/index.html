@@ -756,107 +756,462 @@
 <p>Currently this role only supports generating a system-scoped ObjectStorageCfg resource, but the generated file can be modified if you wish to use other scopes.</p>
 <h2 id="role-variables-general">Role Variables - General<a class="headerlink" href="#role-variables-general" title="Permanent link">¤</a></h2>
 <h3 id="cos_type">cos_type<a class="headerlink" href="#cos_type" title="Permanent link">¤</a></h3>
-<p>Which COS provider to use; can be set to either <code>ibm</code> for IBM Cloud Object Storage or <code>ocs</code> for OpenShift Container Storage</p>
+<p>The Cloud Object Storage provider to use for MAS.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>COS_TYPE</code></li>
 <li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Determines which object storage backend will be provisioned and configured for MAS. Different providers have different capabilities, costs, and operational characteristics.</p>
+<p><strong>When to use</strong>: Always required when provisioning object storage. Choose based on your deployment platform, cost requirements, and operational preferences.</p>
+<p><strong>Valid values</strong>:
+- <code>ibm</code> - IBM Cloud Object Storage (managed cloud service)
+- <code>ocs</code> - OpenShift Container Storage / OpenShift Data Foundation (in-cluster Ceph-based storage)</p>
+<p><strong>Impact</strong>:
+- <strong><code>ibm</code></strong>: Provisions IBM Cloud COS instance, requires IBM Cloud account and API key, incurs cloud costs, provides unlimited scalability
+- <strong><code>ocs</code></strong>: Creates Ceph object store within OpenShift cluster, requires OCS/ODF operator installed, uses cluster storage capacity, no external costs
+- Determines which set of configuration variables are required
+- Affects the generated ObjectStorageCfg resource format</p>
+<p><strong>Related variables</strong>:
+- When <code>cos_type=ibm</code>: Requires <a href="#ibmcloud_apikey"><code>ibmcloud_apikey</code></a>, <a href="#cos_instance_name"><code>cos_instance_name</code></a>, <a href="#cos_url"><code>cos_url</code></a>
+- When <code>cos_type=ocs</code>: Requires OCS/ODF operator to be installed in the cluster
+- <a href="#cos_action"><code>cos_action</code></a> - Whether to provision or deprovision</p>
+<p><strong>Notes</strong>:
+- IBM COS is recommended for production deployments requiring high availability and unlimited capacity
+- OCS is suitable for on-premises or air-gapped deployments where external cloud services are not available
+- OCS requires sufficient cluster storage capacity and OCS/ODF operator installation
+- IBM COS provides better separation of concerns (storage managed separately from compute)
+- Consider data residency and compliance requirements when choosing provider</p>
 <h3 id="cos_action">cos_action<a class="headerlink" href="#cos_action" title="Permanent link">¤</a></h3>
-<p>Which action you want to run for the COS instance. You can either <code>provision</code> or <code>deprovision</code> a COS instance in your IBM Cloud account.</p>
+<p>The action to perform on the Cloud Object Storage instance.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>COS_ACTION</code></li>
 <li>Default Value: <code>provision</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether to create a new COS instance or delete an existing one. This allows the same role to handle both lifecycle operations.</p>
+<p><strong>When to use</strong>:
+- Use <code>provision</code> (default) when setting up object storage for a new MAS deployment
+- Use <code>deprovision</code> when cleaning up COS resources after MAS uninstallation</p>
+<p><strong>Valid values</strong>:
+- <code>provision</code> - Create and configure COS instance, generate ObjectStorageCfg
+- <code>deprovision</code> - Delete COS instance (IBM COS only, not supported for OCS)</p>
+<p><strong>Impact</strong>:
+- <strong>Provision</strong>: Creates COS instance, generates credentials, creates ObjectStorageCfg resource
+- <strong>Deprovision</strong>: Permanently deletes IBM Cloud COS instance and all data (irreversible)
+- Deprovisioning is only supported for <code>cos_type=ibm</code>, not for OCS
+- All data stored in the COS instance will be lost during deprovisioning</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_type"><code>cos_type</code></a> - Determines which provider to provision/deprovision
+- <a href="#cos_instance_name"><code>cos_instance_name</code></a> - Identifies which instance to deprovision</p>
+<p><strong>Notes</strong>:
+- Deprovisioning is irreversible - ensure all data is backed up first
+- For OCS, deprovisioning must be done manually through OpenShift console
+- Verify no applications are using the COS instance before deprovisioning
+- IBM Cloud COS deprovisioning may fail if buckets contain data</p>
 <h3 id="ocp_ingress_tls_secret_name">ocp_ingress_tls_secret_name<a class="headerlink" href="#ocp_ingress_tls_secret_name" title="Permanent link">¤</a></h3>
-<p>This can be set to the name of the cluster default router certificate's secret, for use in rare cases where the role is unable to determine the secret name automatically.</p>
+<p>The name of the OpenShift cluster's default router certificate secret.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>OCP_INGRESS_TLS_SECRET_NAME</code></li>
-<li>Default Value: router-certs-default</li>
+<li>Default Value: <code>router-certs-default</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the secret containing the cluster's ingress TLS certificate. This is used when configuring OCS to ensure proper certificate validation for S3 API access.</p>
+<p><strong>When to use</strong>: Only needed in rare cases where the cluster uses a non-standard ingress certificate secret name, or when the role cannot automatically determine the correct secret name.</p>
+<p><strong>Valid values</strong>:
+- Any valid secret name in the <code>openshift-ingress</code> namespace
+- Default <code>router-certs-default</code> works for most OpenShift clusters
+- Must contain TLS certificate and key</p>
+<p><strong>Impact</strong>:
+- Used to extract the cluster's ingress certificate for OCS configuration
+- Incorrect value will cause certificate validation failures when accessing OCS
+- Only relevant when <code>cos_type=ocs</code></p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_type"><code>cos_type</code></a> - Only used when set to <code>ocs</code>
+- <a href="#include_cluster_ingress_cert_chain"><code>include_cluster_ingress_cert_chain</code></a> - Controls certificate chain inclusion</p>
+<p><strong>Notes</strong>:
+- The default value works for standard OpenShift installations
+- Only override if you have customized your cluster's ingress certificates
+- The secret must exist in the <code>openshift-ingress</code> namespace
+- Not used for IBM Cloud COS (<code>cos_type=ibm</code>)</p>
 <h3 id="custom_labels">custom_labels<a class="headerlink" href="#custom_labels" title="Permanent link">¤</a></h3>
-<p>List of comma separated key=value pairs for setting custom labels on instance specific resources.</p>
+<p>Custom key-value labels to apply to provisioned resources.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>CUSTOM_LABELS</code></li>
 <li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Allows adding custom labels to COS-related resources for organization, cost tracking, or automation purposes. Labels are applied to instance-specific resources.</p>
+<p><strong>When to use</strong>: When you need to tag resources for cost allocation, environment identification, team ownership, or integration with other automation tools.</p>
+<p><strong>Valid values</strong>:
+- Comma-separated key=value pairs
+- Example: <code>environment=production,team=platform,cost-center=engineering</code>
+- Keys and values must follow Kubernetes label naming conventions
+- Maximum 63 characters per key/value</p>
+<p><strong>Impact</strong>:
+- Labels are applied to COS instance and related resources
+- Useful for cost tracking and resource organization in IBM Cloud
+- Can be used by automation tools for resource discovery
+- Does not affect functionality, only metadata</p>
+<p><strong>Related variables</strong>:
+- Applied to resources created by this role regardless of <code>cos_type</code></p>
+<p><strong>Notes</strong>:
+- Labels are metadata only and do not affect resource behavior
+- Use consistent labeling across all MAS resources for better management
+- IBM Cloud supports label-based cost allocation and reporting
+- Labels can be modified after resource creation</p>
 <h2 id="role-variables-ibm-cos">Role Variables - IBM COS<a class="headerlink" href="#role-variables-ibm-cos" title="Permanent link">¤</a></h2>
 <h3 id="cos_instance_name">cos_instance_name<a class="headerlink" href="#cos_instance_name" title="Permanent link">¤</a></h3>
-<p>Provide an optional name for the Object Storage instance.  This is only used when cos_type is set to <code>ibm</code> for IBM Cloud Object Storage.</p>
+<p>The name for the IBM Cloud Object Storage instance.</p>
 <ul>
+<li><strong>Optional</strong> (IBM COS only)</li>
 <li>Environment Variable: <code>COS_INSTANCE_NAME</code></li>
-<li>Default Value: <code>Object Storage for MAS</code>, if <code>mas_instance_id</code> is set the MAS instance ID will be appended to this name.</li>
+<li>Default Value: <code>Object Storage for MAS</code> (appended with MAS instance ID if set)</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies a custom name for the IBM Cloud COS instance. This name appears in the IBM Cloud console and is used for identification and management.</p>
+<p><strong>When to use</strong>: Only relevant when <code>cos_type=ibm</code>. Provide a descriptive name that follows your organization's naming conventions.</p>
+<p><strong>Valid values</strong>:
+- Any string following IBM Cloud resource naming conventions
+- If not specified, defaults to <code>Object Storage for MAS</code> or <code>Object Storage for MAS &lt;mas_instance_id&gt;</code>
+- Recommended format: <code>&lt;environment&gt;-&lt;purpose&gt;-cos</code> (e.g., <code>prod-mas-cos</code>, <code>dev-maximo-cos</code>)</p>
+<p><strong>Impact</strong>:
+- Used as the display name in IBM Cloud console
+- Helps identify the COS instance among other cloud resources
+- Used during deprovisioning to locate the instance
+- Does not affect functionality, only identification</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_type"><code>cos_type</code></a> - Must be <code>ibm</code> for this to be used
+- <a href="#mas_instance_id"><code>mas_instance_id</code></a> - Appended to default name if set
+- <a href="#cos_resourcegroup"><code>cos_resourcegroup</code></a> - Resource group containing this instance</p>
+<p><strong>Notes</strong>:
+- Not used for OCS (<code>cos_type=ocs</code>)
+- Use descriptive names for easier management in multi-instance environments
+- The name can include the MAS instance ID for clarity
+- IBM Cloud allows renaming instances after creation</p>
 <h3 id="cos_location_info">cos_location_info<a class="headerlink" href="#cos_location_info" title="Permanent link">¤</a></h3>
-<p>Required. The location where the instance available
-  - Environment Variable: <code>COS_LOCATION</code>
-  - Default Value: <code>global</code></p>
+<p>The geographic location where the IBM Cloud COS instance will be available.</p>
+<ul>
+<li><strong>Required</strong> (IBM COS only)</li>
+<li>Environment Variable: <code>COS_LOCATION</code></li>
+<li>Default Value: <code>global</code></li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the geographic scope of the IBM Cloud COS instance. This determines data residency and availability characteristics.</p>
+<p><strong>When to use</strong>: Only relevant when <code>cos_type=ibm</code>. Use <code>global</code> for maximum flexibility, or specify a region for data residency compliance.</p>
+<p><strong>Valid values</strong>:
+- <code>global</code> - Instance available globally with automatic region selection
+- Specific region codes: <code>us-south</code>, <code>us-east</code>, <code>eu-gb</code>, <code>eu-de</code>, <code>jp-tok</code>, <code>au-syd</code>, etc.
+- Cross-region: <code>us</code>, <code>eu</code>, <code>ap</code> for multi-region redundancy</p>
+<p><strong>Impact</strong>:
+- <code>global</code> provides maximum flexibility and automatic failover
+- Regional instances ensure data stays within specific geographic boundaries
+- Affects data residency compliance and latency
+- Cannot be changed after instance creation</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_type"><code>cos_type</code></a> - Must be <code>ibm</code> for this to be used
+- <a href="#cos_url"><code>cos_url</code></a> - Should match the location for optimal performance</p>
+<p><strong>Notes</strong>:
+- <code>global</code> is recommended for most deployments unless data residency is required
+- Regional instances may have lower latency for local access
+- Consider compliance requirements (GDPR, data sovereignty) when choosing location
+- Not applicable for OCS (<code>cos_type=ocs</code>)</p>
 <h3 id="cos_plan_type">cos_plan_type<a class="headerlink" href="#cos_plan_type" title="Permanent link">¤</a></h3>
-<p>Required (For Provisioning). The plan type of the service
-  - Environment Variable: <code>COS_PLAN</code>
-  - Default Value: <code>standard</code></p>
+<p>The IBM Cloud COS service plan tier.</p>
+<ul>
+<li><strong>Required</strong> (IBM COS only, for provisioning)</li>
+<li>Environment Variable: <code>COS_PLAN</code></li>
+<li>Default Value: <code>standard</code></li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the IBM Cloud COS service plan, which determines pricing and available features.</p>
+<p><strong>When to use</strong>: Only relevant when <code>cos_type=ibm</code> and <code>cos_action=provision</code>. The standard plan is suitable for most MAS deployments.</p>
+<p><strong>Valid values</strong>:
+- <code>standard</code> - Standard plan with pay-as-you-go pricing
+- <code>lite</code> - Free tier with limited capacity (not recommended for production)</p>
+<p><strong>Impact</strong>:
+- Determines pricing model and billing
+- Standard plan provides unlimited capacity with usage-based pricing
+- Lite plan has capacity limits and is not suitable for production MAS
+- Cannot be changed after provisioning (requires recreation)</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_type"><code>cos_type</code></a> - Must be <code>ibm</code> for this to be used
+- <a href="#cos_action"><code>cos_action</code></a> - Only used during provisioning</p>
+<p><strong>Notes</strong>:
+- Always use <code>standard</code> plan for production MAS deployments
+- Lite plan is only suitable for development/testing with minimal data
+- Pricing is based on storage capacity, requests, and data transfer
+- Not applicable for OCS (<code>cos_type=ocs</code>)</p>
 <h3 id="cos_url">cos_url<a class="headerlink" href="#cos_url" title="Permanent link">¤</a></h3>
-<p>Required (For Provisioning). The COS region location url endpoint. Needed to generage a system-scoped ObjectStorageCfg resource configuration file for MAS.
-  - Environment Variable: <code>COS_REGION_LOCATION_URL</code>
-  - Default Value: <code>https://s3.us.cloud-object-storage.appdomain.cloud</code></p>
+<p>The IBM Cloud COS regional endpoint URL for S3 API access.</p>
+<ul>
+<li><strong>Required</strong> (IBM COS only, for provisioning)</li>
+<li>Environment Variable: <code>COS_REGION_LOCATION_URL</code></li>
+<li>Default Value: <code>https://s3.us.cloud-object-storage.appdomain.cloud</code></li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the S3-compatible API endpoint URL for accessing the IBM Cloud COS instance. This URL is used in the generated ObjectStorageCfg resource for MAS to connect to COS.</p>
+<p><strong>When to use</strong>: Only relevant when <code>cos_type=ibm</code>. Should match the region where your COS instance is located for optimal performance.</p>
+<p><strong>Valid values</strong>:
+- Regional endpoints: <code>https://s3.&lt;region&gt;.cloud-object-storage.appdomain.cloud</code>
+- Examples:
+  - US: <code>https://s3.us.cloud-object-storage.appdomain.cloud</code>
+  - EU: <code>https://s3.eu.cloud-object-storage.appdomain.cloud</code>
+  - AP: <code>https://s3.ap.cloud-object-storage.appdomain.cloud</code>
+- Private endpoints: <code>https://s3.private.&lt;region&gt;.cloud-object-storage.appdomain.cloud</code>
+- Direct endpoints: <code>https://s3.direct.&lt;region&gt;.cloud-object-storage.appdomain.cloud</code></p>
+<p><strong>Impact</strong>:
+- Determines which IBM Cloud COS endpoint MAS will use for object storage operations
+- Affects network latency and data transfer costs
+- Private endpoints provide better security and lower costs for in-cloud access
+- Must be accessible from the OpenShift cluster</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_type"><code>cos_type</code></a> - Must be <code>ibm</code> for this to be used
+- <a href="#cos_location_info"><code>cos_location_info</code></a> - Should align with the endpoint region</p>
+<p><strong>Notes</strong>:
+- Use regional endpoints matching your COS instance location for best performance
+- Private endpoints recommended for OpenShift clusters running in IBM Cloud
+- Direct endpoints provide better performance for high-throughput workloads
+- Ensure network connectivity from OpenShift cluster to the endpoint
+- Not applicable for OCS (<code>cos_type=ocs</code>)</p>
 <h3 id="cos_resource_key_iam_role">cos_resource_key_iam_role<a class="headerlink" href="#cos_resource_key_iam_role" title="Permanent link">¤</a></h3>
-<p>Provide an optional role when cos service credential is getting created during COS provisioning.
-  - Environment Variable: <code>COS_RESOURCE_KEY_IAM_ROLE</code>
-  - Default Value: <code>Manager</code></p>
+<p>The IAM role to assign to the COS service credentials.</p>
+<ul>
+<li><strong>Optional</strong> (IBM COS only)</li>
+<li>Environment Variable: <code>COS_RESOURCE_KEY_IAM_ROLE</code></li>
+<li>Default Value: <code>Manager</code></li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the IAM role level for the service credentials (resource key) created during COS provisioning. This determines the permissions granted to MAS for accessing the COS instance.</p>
+<p><strong>When to use</strong>: Only relevant when <code>cos_type=ibm</code>. The default <code>Manager</code> role provides full access required by MAS.</p>
+<p><strong>Valid values</strong>:
+- <code>Manager</code> - Full access to COS instance (create/read/update/delete buckets and objects)
+- <code>Writer</code> - Read and write access to objects, limited bucket operations
+- <code>Reader</code> - Read-only access to objects
+- <code>Content Reader</code> - Read-only access without listing capabilities</p>
+<p><strong>Impact</strong>:
+- Determines what operations MAS can perform on the COS instance
+- <code>Manager</code> role is required for MAS to create and manage buckets
+- Lower privilege roles will cause MAS functionality to fail
+- Credentials are generated with this role during provisioning</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_type"><code>cos_type</code></a> - Must be <code>ibm</code> for this to be used
+- <a href="#cos_use_hmac"><code>cos_use_hmac</code></a> - Controls credential format</p>
+<p><strong>Notes</strong>:
+- Always use <code>Manager</code> role for MAS deployments (default)
+- Lower privilege roles are not sufficient for MAS operations
+- The role is assigned to the service credentials, not the instance itself
+- Not applicable for OCS (<code>cos_type=ocs</code>)</p>
 <h3 id="cos_use_hmac">cos_use_hmac<a class="headerlink" href="#cos_use_hmac" title="Permanent link">¤</a></h3>
-<p>Set to false to disable the use of HMAC encrypted credentials, however doing so will prevent use of this COS instance with Maximo Application Suite.</p>
+<p>Controls whether to use HMAC-style credentials for COS access.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong> (IBM COS only)</li>
 <li>Environment Variable: <code>COS_USE_HMAC</code></li>
-<li>Default: <code>true</code></li>
+<li>Default Value: <code>true</code></li>
 </ul>
+<p><strong>Purpose</strong>: Determines whether to generate HMAC (AWS S3-compatible) credentials or IAM-based credentials for accessing IBM Cloud COS. MAS requires HMAC credentials for S3 API compatibility.</p>
+<p><strong>When to use</strong>: Should always be <code>true</code> for MAS deployments. Setting to <code>false</code> will prevent MAS from accessing the COS instance.</p>
+<p><strong>Valid values</strong>:
+- <code>true</code> - Generate HMAC credentials (AWS S3-compatible access key and secret key)
+- <code>false</code> - Use IAM API key authentication (not compatible with MAS)</p>
+<p><strong>Impact</strong>:
+- When <code>true</code>: Generates S3-compatible access key ID and secret access key
+- When <code>false</code>: MAS will not be able to access the COS instance
+- HMAC credentials are required for S3 API compatibility
+- Cannot be changed after credential creation (requires new credentials)</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_type"><code>cos_type</code></a> - Must be <code>ibm</code> for this to be used
+- <a href="#cos_resource_key_iam_role"><code>cos_resource_key_iam_role</code></a> - Role assigned to HMAC credentials</p>
+<p><strong>Notes</strong>:
+- <strong>Always use <code>true</code> for MAS deployments</strong> - this is critical
+- HMAC credentials provide S3 API compatibility required by MAS
+- Setting to <code>false</code> will cause MAS object storage configuration to fail
+- Not applicable for OCS (<code>cos_type=ocs</code>)</p>
 <h3 id="cos_apikey">cos_apikey<a class="headerlink" href="#cos_apikey" title="Permanent link">¤</a></h3>
-<p>Required if cos_type is set to <code>ibm</code>.  Provide your less priviledged IBM Cloud API Key for COS only</p>
+<p>The IBM Cloud API key specifically for COS operations.</p>
 <ul>
+<li><strong>Required</strong> (IBM COS only)</li>
 <li>Environment Variable: <code>COS_APIKEY</code></li>
-<li>Default Value: <code>ibmcloud_apikey</code></li>
+<li>Default Value: Falls back to <code>ibmcloud_apikey</code> if not set</li>
 </ul>
+<p><strong>Purpose</strong>: Provides an optional dedicated API key for COS operations. This allows using a less privileged API key specifically for COS management, following the principle of least privilege.</p>
+<p><strong>When to use</strong>: Only relevant when <code>cos_type=ibm</code>. Set this if you want to use a different API key for COS than for other IBM Cloud operations.</p>
+<p><strong>Valid values</strong>:
+- A valid IBM Cloud API key with COS service permissions
+- Must have permissions to create and manage COS instances
+- Format: 44-character alphanumeric string</p>
+<p><strong>Impact</strong>:
+- If set, this API key is used instead of <code>ibmcloud_apikey</code> for COS operations
+- Allows separation of permissions between COS and other IBM Cloud services
+- Falls back to <code>ibmcloud_apikey</code> if not specified</p>
+<p><strong>Related variables</strong>:
+- <a href="#ibmcloud_apikey"><code>ibmcloud_apikey</code></a> - Fallback if this is not set
+- <a href="#cos_type"><code>cos_type</code></a> - Must be <code>ibm</code> for this to be used</p>
+<p><strong>Notes</strong>:
+- Optional - defaults to <code>ibmcloud_apikey</code> if not provided
+- Use a dedicated key for better security and permission isolation
+- The key must have COS service management permissions
+- Not applicable for OCS (<code>cos_type=ocs</code>)</p>
 <h3 id="ibmcloud_apikey">ibmcloud_apikey<a class="headerlink" href="#ibmcloud_apikey" title="Permanent link">¤</a></h3>
-<p>Required if cos_type is set to <code>ibm</code>.  Provide your IBM Cloud API Key that will be used as the default API Key across multiple roles in this collection.</p>
+<p>The default IBM Cloud API key for all IBM Cloud operations.</p>
 <ul>
+<li><strong>Required</strong> (IBM COS only)</li>
 <li>Environment Variable: <code>IBMCLOUD_APIKEY</code></li>
 <li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the primary IBM Cloud API key used across multiple roles in the collection. This is the default authentication method for IBM Cloud services.</p>
+<p><strong>When to use</strong>: Always required when <code>cos_type=ibm</code>. This API key must have permissions to create and manage COS instances.</p>
+<p><strong>Valid values</strong>:
+- A valid IBM Cloud API key with appropriate permissions
+- Must have Editor or Administrator role on COS service
+- Must have access to the specified resource group
+- Format: 44-character alphanumeric string</p>
+<p><strong>Impact</strong>:
+- Used for all IBM Cloud operations unless <code>cos_apikey</code> is specified
+- Determines which IBM Cloud account owns the COS instance
+- Account will be billed for COS usage
+- Required permissions: COS service management, resource group access</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_apikey"><code>cos_apikey</code></a> - Can override this for COS-specific operations
+- <a href="#ibmcloud_resourcegroup"><code>ibmcloud_resourcegroup</code></a> - Must have access to this resource group
+- <a href="#cos_type"><code>cos_type</code></a> - Must be <code>ibm</code> for this to be used</p>
+<p><strong>Notes</strong>:
+- Store API keys securely using environment variables or secrets management
+- Never commit API keys to version control
+- Consider using service IDs with restricted permissions
+- Used by multiple roles in the collection for consistency
+- Not applicable for OCS (<code>cos_type=ocs</code>)</p>
 <h3 id="cos_resourcegroup">cos_resourcegroup<a class="headerlink" href="#cos_resourcegroup" title="Permanent link">¤</a></h3>
-<p>Only used when cos_type is set to <code>ibm</code>.  Provide the name of the resource group which will own the COS instance.</p>
+<p>The IBM Cloud resource group for the COS instance.</p>
 <ul>
+<li><strong>Optional</strong> (IBM COS only)</li>
 <li>Environment Variable: <code>COS_RESOURCEGROUP</code></li>
-<li>Default Value: <code>ibmcloud_resourcegroup</code></li>
+<li>Default Value: Falls back to <code>ibmcloud_resourcegroup</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the resource group in IBM Cloud where the COS instance will be created. This allows using a different resource group for COS than for other IBM Cloud resources.</p>
+<p><strong>When to use</strong>: Only relevant when <code>cos_type=ibm</code>. Set this if you want to organize COS in a different resource group than other IBM Cloud resources.</p>
+<p><strong>Valid values</strong>:
+- Any existing resource group name in your IBM Cloud account
+- Common examples: <code>Default</code>, <code>Storage</code>, <code>MAS-Resources</code>
+- Must exist before provisioning
+- Case-sensitive</p>
+<p><strong>Impact</strong>:
+- Determines billing and cost allocation for the COS instance
+- Controls IAM access policies
+- Falls back to <code>ibmcloud_resourcegroup</code> if not specified
+- Cannot be changed after instance creation</p>
+<p><strong>Related variables</strong>:
+- <a href="#ibmcloud_resourcegroup"><code>ibmcloud_resourcegroup</code></a> - Fallback if this is not set
+- <a href="#ibmcloud_apikey"><code>ibmcloud_apikey</code></a> - Must have access to this resource group
+- <a href="#cos_type"><code>cos_type</code></a> - Must be <code>ibm</code> for this to be used</p>
+<p><strong>Notes</strong>:
+- Optional - defaults to <code>ibmcloud_resourcegroup</code> if not provided
+- Use for organizing COS separately from other resources
+- Ensure the API key has access to the specified resource group
+- Not applicable for OCS (<code>cos_type=ocs</code>)</p>
 <h3 id="ibmcloud_resourcegroup">ibmcloud_resourcegroup<a class="headerlink" href="#ibmcloud_resourcegroup" title="Permanent link">¤</a></h3>
-<p>Only used when cos_type is set to <code>ibm</code>.  Provide the name of the default resource group used across multiple roles in this collection.</p>
+<p>The default IBM Cloud resource group for all IBM Cloud resources.</p>
 <ul>
+<li><strong>Optional</strong> (IBM COS only)</li>
 <li>Environment Variable: <code>IBMCLOUD_RESOURCEGROUP</code></li>
 <li>Default Value: <code>Default</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the default resource group used across multiple roles in the collection. This provides consistency in resource organization.</p>
+<p><strong>When to use</strong>: Only relevant when <code>cos_type=ibm</code>. Set this to organize all IBM Cloud resources in a specific resource group.</p>
+<p><strong>Valid values</strong>:
+- Any existing resource group name in your IBM Cloud account
+- Common examples: <code>Default</code>, <code>Production</code>, <code>Development</code>
+- Must exist before provisioning
+- Case-sensitive</p>
+<p><strong>Impact</strong>:
+- Used as the default resource group for COS and other IBM Cloud resources
+- Determines billing and cost allocation
+- Controls IAM access policies
+- Can be overridden by <code>cos_resourcegroup</code> for COS-specific placement</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_resourcegroup"><code>cos_resourcegroup</code></a> - Can override this for COS
+- <a href="#ibmcloud_apikey"><code>ibmcloud_apikey</code></a> - Must have access to this resource group
+- <a href="#cos_type"><code>cos_type</code></a> - Must be <code>ibm</code> for this to be used</p>
+<p><strong>Notes</strong>:
+- Defaults to <code>Default</code> resource group if not specified
+- Use consistent resource groups across all MAS-related services
+- Helps with cost tracking and access management
+- Not applicable for OCS (<code>cos_type=ocs</code>)</p>
 <h2 id="role-variables-mas-configuration">Role Variables - MAS Configuration<a class="headerlink" href="#role-variables-mas-configuration" title="Permanent link">¤</a></h2>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
-<p>The instance ID of Maximo Application Suite that the ObjectStorageCfg configuration will target.  If this or <code>mas_config_dir</code> are not set then the role will not generate a ObjectStorageCfg template.</p>
+<p>The MAS instance ID that the ObjectStorageCfg will target.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
 <li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies the specific MAS instance for which the ObjectStorageCfg resource will be generated. This ensures the object storage configuration is associated with the correct MAS deployment.</p>
+<p><strong>When to use</strong>: Required if you want the role to generate an ObjectStorageCfg resource. If not set (along with <code>mas_config_dir</code>), the role will only provision the storage but not generate MAS configuration.</p>
+<p><strong>Valid values</strong>:
+- Alphanumeric string, typically 3-12 characters
+- Common examples: <code>prod</code>, <code>dev</code>, <code>test</code>, <code>masinst1</code>
+- Should match the MAS instance ID used throughout your deployment
+- Lowercase recommended</p>
+<p><strong>Impact</strong>:
+- Used to generate the ObjectStorageCfg resource name and namespace
+- If not set, no ObjectStorageCfg will be generated (storage only)
+- Must match the actual MAS instance ID for configuration to work
+- Both this and <code>mas_config_dir</code> must be set for config generation</p>
+<p><strong>Related variables</strong>:
+- <a href="#mas_config_dir"><code>mas_config_dir</code></a> - Both must be set for config generation
+- Used consistently across all MAS DevOps roles</p>
+<p><strong>Notes</strong>:
+- Use the same <code>mas_instance_id</code> across all MAS components
+- If you only want to provision storage without MAS config, leave this unset
+- The ObjectStorageCfg will be created in the <code>mas-&lt;instance-id&gt;-core</code> namespace
+- Required for automated MAS configuration via <code>suite_config</code> role</p>
 <h3 id="mas_config_dir">mas_config_dir<a class="headerlink" href="#mas_config_dir" title="Permanent link">¤</a></h3>
-<p>Local directory to save the generated ObjectStorageCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Kafka cluster, or used as an input to the <a href="../suite_config/">suite_config</a> role. If this or <code>mas_instance_id</code> are not set then the role will not generate a ObjectStorageCfg template.</p>
+<p>Local directory where the ObjectStorageCfg resource will be saved.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>MAS_CONFIG_DIR</code></li>
 <li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the local directory path where the generated ObjectStorageCfg YAML file will be saved. This file can be used to manually configure MAS or as input to the <code>suite_config</code> role.</p>
+<p><strong>When to use</strong>: Required if you want the role to generate an ObjectStorageCfg resource. If not set (along with <code>mas_instance_id</code>), the role will only provision the storage but not generate MAS configuration.</p>
+<p><strong>Valid values</strong>:
+- Any valid local filesystem path (e.g., <code>~/masconfig</code>, <code>/opt/mas/config</code>)
+- Directory will be created if it doesn't exist
+- Should have write permissions
+- Recommended to use an absolute path</p>
+<p><strong>Impact</strong>:
+- ObjectStorageCfg YAML file is saved in this directory
+- If not set, no ObjectStorageCfg will be generated (storage only)
+- Required for subsequent MAS configuration steps
+- Both this and <code>mas_instance_id</code> must be set for config generation</p>
+<p><strong>Related variables</strong>:
+- <a href="#mas_instance_id"><code>mas_instance_id</code></a> - Both must be set for config generation
+- Used consistently across all MAS DevOps roles for configuration storage</p>
+<p><strong>Notes</strong>:
+- Use the same <code>mas_config_dir</code> across all MAS DevOps roles
+- The generated file can be applied manually with <code>oc apply -f</code>
+- Can be used as input to the <code>suite_config</code> role for automated configuration
+- If you only want to provision storage without MAS config, leave this unset</p>
 <h3 id="include_cluster_ingress_cert_chain">include_cluster_ingress_cert_chain<a class="headerlink" href="#include_cluster_ingress_cert_chain" title="Permanent link">¤</a></h3>
-<p>Optional. When set to <code>True</code>, includes the complete certificates chain in the generated MAS configuration, when a trusted certificate authority is found in your cluster's ingress.</p>
+<p>Controls whether to include the complete certificate chain in the ObjectStorageCfg.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>INCLUDE_CLUSTER_INGRESS_CERT_CHAIN</code></li>
-<li>Default: <code>False</code></li>
+<li>Default Value: <code>False</code></li>
 </ul>
+<p><strong>Purpose</strong>: When enabled, includes the complete TLS certificate chain from the cluster's ingress in the generated ObjectStorageCfg resource. This is useful when the cluster uses certificates from a trusted certificate authority.</p>
+<p><strong>When to use</strong>: Set to <code>True</code> when your OpenShift cluster's ingress uses certificates signed by a trusted CA and you want MAS to validate the complete certificate chain when accessing OCS.</p>
+<p><strong>Valid values</strong>:
+- <code>True</code> - Include complete certificate chain in ObjectStorageCfg
+- <code>False</code> - Include only the leaf certificate (default)</p>
+<p><strong>Impact</strong>:
+- When <code>True</code>: ObjectStorageCfg includes full certificate chain for proper validation
+- When <code>False</code>: Only the leaf certificate is included
+- Primarily relevant for OCS (<code>cos_type=ocs</code>) with custom certificates
+- Helps with certificate validation in environments with intermediate CAs</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_type"><code>cos_type</code></a> - Most relevant for <code>ocs</code>
+- <a href="#ocp_ingress_tls_secret_name"><code>ocp_ingress_tls_secret_name</code></a> - Source of certificates</p>
+<p><strong>Notes</strong>:
+- Default <code>False</code> is sufficient for most deployments
+- Enable if you experience certificate validation issues with OCS
+- Not typically needed for IBM Cloud COS (<code>cos_type=ibm</code>)
+- The certificate chain is extracted from the cluster's ingress configuration</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <p>Create the Ceph Object store on the existing OCS cluster and prepare the objectstorageCfg yaml to mas_config_dir.</p>
 <pre><code class="language-yaml">- hosts: localhost

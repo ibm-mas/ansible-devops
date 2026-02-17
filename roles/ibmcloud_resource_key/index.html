@@ -739,38 +739,149 @@
 <p>Create IBM Cloud resource keys (apikeys for specific services associated to the account)</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="service_instance">service_instance<a class="headerlink" href="#service_instance" title="Permanent link">¤</a></h3>
-<p>Name of the service that the key will be referencing. (Eg: DB2, Mongo, cp4d, etc)</p>
+<p>The name of the IBM Cloud service instance for which to create or manage resource keys.</p>
 <ul>
-<li>Required</li>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>SERVICE_INSTANCE</code></li>
+<li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies the IBM Cloud service instance (such as Db2, MongoDB, Cloud Object Storage, or Cloud Pak for Data) for which a resource key (service credentials) will be created or deleted.</p>
+<p><strong>When to use</strong>: Always required when creating or deleting service keys. The service instance must already exist in your IBM Cloud account.</p>
+<p><strong>Valid values</strong>:
+- Any valid IBM Cloud service instance name in your account
+- Common examples: <code>mas-db2-instance</code>, <code>mas-mongodb</code>, <code>mas-cos-bucket</code>, <code>cp4d-instance</code>
+- Must match the exact name of an existing service instance
+- Case-sensitive</p>
+<p><strong>Impact</strong>:
+- Determines which service instance the resource key will provide access to
+- The generated credentials will be scoped to this specific service instance
+- Different service types (Db2, COS, etc.) will generate different credential formats
+- Used to derive the default resource key name if not explicitly specified</p>
+<p><strong>Related variables</strong>:
+- <a href="#service_resource_key_name"><code>service_resource_key_name</code></a> - Name of the key to create (defaults to <code>&lt;service_instance&gt;_resource-key</code>)
+- <a href="#output_service_key_details_to_file"><code>output_service_key_details_to_file</code></a> - Whether to save credentials to file</p>
+<p><strong>Notes</strong>:
+- Ensure the service instance exists before running this role
+- You must have appropriate IAM permissions to create resource keys for the service
+- Resource keys provide full access to the service instance - protect them carefully
+- Each service instance can have multiple resource keys for different purposes</p>
 <h3 id="service_resource_key_name">service_resource_key_name<a class="headerlink" href="#service_resource_key_name" title="Permanent link">¤</a></h3>
-<p>Name of the key to either create or delete. If unset will be dervied from the <code>service_instance</code> as "<code>service_instance</code>_resource-key"</p>
+<p>The name to assign to the resource key (service credentials).</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>SERVICE_RESOURCE_KEY_NAME</code></li>
+<li>Default Value: <code>&lt;service_instance&gt;_resource-key</code> (derived from service_instance)</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies a custom name for the resource key. If not provided, the role automatically generates a name by appending <code>_resource-key</code> to the service instance name.</p>
+<p><strong>When to use</strong>:
+- When you need multiple resource keys for the same service instance
+- When you want a more descriptive name than the default
+- When following specific naming conventions in your organization</p>
+<p><strong>Valid values</strong>:
+- Any string that follows IBM Cloud resource naming conventions
+- Alphanumeric characters, hyphens, and underscores
+- Should be unique within the service instance
+- Recommended format: <code>&lt;purpose&gt;-&lt;service&gt;-key</code> (e.g., <code>mas-db2-key</code>, <code>backup-cos-key</code>)</p>
+<p><strong>Impact</strong>:
+- Used to identify the resource key in IBM Cloud console and CLI
+- Required when deleting a specific resource key
+- Appears in the output filename if <code>output_service_key_details_to_file</code> is enabled
+- Cannot be changed after creation (requires deletion and recreation)</p>
+<p><strong>Related variables</strong>:
+- <a href="#service_instance"><code>service_instance</code></a> - The service for which this key is created
+- <a href="#delete_service_key"><code>delete_service_key</code></a> - Uses this name to identify which key to delete
+- <a href="#output_service_key_details_to_file"><code>output_service_key_details_to_file</code></a> - Uses this name in the output filename</p>
+<p><strong>Notes</strong>:
+- If not specified, defaults to <code>&lt;service_instance&gt;_resource-key</code>
+- Use descriptive names to identify the purpose of each key
+- Keep track of key names for future deletion or rotation
+- Multiple keys can exist for the same service instance with different names</p>
 <h3 id="delete_service_key">delete_service_key<a class="headerlink" href="#delete_service_key" title="Permanent link">¤</a></h3>
-<p>Set this to true to force deletion of the <code>service_resource_key_name</code> provided</p>
+<p>Controls whether to delete the specified resource key instead of creating it.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DELETE_SERVICE_KEY</code></li>
-<li>Default: false</li>
+<li>Default Value: <code>False</code></li>
 </ul>
+<p><strong>Purpose</strong>: When set to <code>True</code>, the role will delete the specified resource key instead of creating a new one. This is used for credential rotation or cleanup operations.</p>
+<p><strong>When to use</strong>:
+- When rotating service credentials and removing old keys
+- During cleanup or deprovisioning operations
+- When a resource key is no longer needed
+- Before recreating a key with the same name</p>
+<p><strong>Valid values</strong>:
+- <code>True</code> - Delete the resource key specified by <code>service_resource_key_name</code>
+- <code>False</code> - Create a new resource key (default behavior)</p>
+<p><strong>Impact</strong>:
+- When <code>True</code>: Permanently deletes the specified resource key and its credentials
+- Applications using the deleted credentials will immediately lose access
+- Deletion is irreversible - credentials cannot be recovered
+- Does not affect the service instance itself, only the access credentials</p>
+<p><strong>Related variables</strong>:
+- <a href="#service_resource_key_name"><code>service_resource_key_name</code></a> - Identifies which key to delete
+- <a href="#service_instance"><code>service_instance</code></a> - The service instance containing the key</p>
+<p><strong>Notes</strong>:
+- Ensure no applications are using the credentials before deletion
+- Consider creating a new key before deleting the old one for zero-downtime rotation
+- Deletion will fail if the key doesn't exist (this is not an error condition)
+- Always verify the key name before deletion to avoid removing the wrong credentials</p>
 <h3 id="output_service_key_details_to_file">output_service_key_details_to_file<a class="headerlink" href="#output_service_key_details_to_file" title="Permanent link">¤</a></h3>
-<p>If set will output a json file with the full service key details and credentials as "service-key_<code>service_resource_key_name</code>.json"</p>
+<p>Controls whether to save the resource key credentials to a JSON file.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>OUTPUT_SERVICE_KEY_DETAILS_TO_FILE</code></li>
-<li>Default: false</li>
+<li>Default Value: <code>False</code></li>
 </ul>
+<p><strong>Purpose</strong>: When set to <code>True</code>, the role will export the complete resource key details and credentials to a JSON file for later use or reference.</p>
+<p><strong>When to use</strong>:
+- When you need to store credentials for manual configuration
+- For backup or documentation purposes
+- When integrating with other automation tools that consume JSON credentials
+- During initial setup to review credential structure</p>
+<p><strong>Valid values</strong>:
+- <code>True</code> - Export credentials to JSON file
+- <code>False</code> - Do not create output file (default)</p>
+<p><strong>Impact</strong>:
+- When <code>True</code>: Creates a JSON file named <code>service-key_&lt;service_resource_key_name&gt;.json</code>
+- File contains complete credential details including connection strings, passwords, and API keys
+- File is created in the directory specified by <code>output_dir</code>
+- Credentials in the file are sensitive and should be protected</p>
+<p><strong>Related variables</strong>:
+- <a href="#output_dir"><code>output_dir</code></a> - Directory where the JSON file will be created
+- <a href="#service_resource_key_name"><code>service_resource_key_name</code></a> - Used in the output filename</p>
+<p><strong>Notes</strong>:
+- The output file contains sensitive credentials - protect it appropriately
+- Do not commit credential files to version control
+- Consider encrypting the output file or storing it in a secrets manager
+- The JSON structure varies by service type (Db2, COS, MongoDB, etc.)
+- Useful for troubleshooting connection issues or manual configuration</p>
 <h3 id="output_dir">output_dir<a class="headerlink" href="#output_dir" title="Permanent link">¤</a></h3>
-<p>Location to output the service key details json file if <code>output_service_key_details_to_file</code> is set</p>
+<p>The directory path where the resource key JSON file will be saved.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>OUTPUT_DIR</code></li>
-<li>Default: <code>.</code> (which will set the directory file in ibm/mas_devops)</li>
+<li>Default Value: <code>.</code> (current directory, typically <code>ibm/mas_devops</code>)</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the local filesystem directory where the resource key credentials JSON file will be written when <code>output_service_key_details_to_file</code> is enabled.</p>
+<p><strong>When to use</strong>: Set this when you want to save credentials to a specific location other than the current directory, such as a secure credentials directory or a mounted volume.</p>
+<p><strong>Valid values</strong>:
+- Any valid local filesystem path (e.g., <code>~/credentials</code>, <code>/opt/mas/keys</code>, <code>./config</code>)
+- Can be relative or absolute path
+- Directory will be created if it doesn't exist
+- Must have write permissions</p>
+<p><strong>Impact</strong>:
+- Determines where the <code>service-key_&lt;service_resource_key_name&gt;.json</code> file is created
+- Only used when <code>output_service_key_details_to_file</code> is <code>True</code>
+- Default of <code>.</code> places the file in the Ansible collection directory</p>
+<p><strong>Related variables</strong>:
+- <a href="#output_service_key_details_to_file"><code>output_service_key_details_to_file</code></a> - Must be <code>True</code> for this to take effect
+- <a href="#service_resource_key_name"><code>service_resource_key_name</code></a> - Used in the output filename</p>
+<p><strong>Notes</strong>:
+- Ensure the directory has appropriate permissions for writing
+- Consider using a dedicated credentials directory with restricted access
+- The default <code>.</code> location is relative to where Ansible is executed
+- For production use, specify an absolute path to avoid confusion
+- Back up this directory if it contains important credentials</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">---
 - hosts: localhost

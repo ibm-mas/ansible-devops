@@ -744,122 +744,494 @@
 <p>This role extends support to create or deprovision Cloud Object Storage buckets.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="cos_type">cos_type<a class="headerlink" href="#cos_type" title="Permanent link">¤</a></h3>
-<p>Required.  Which COS provider to use; can be set to either <code>ibm</code> for IBM Cloud Object Storage or <code>aws</code> for S3 bucket types (aws support under development).</p>
+<p>The Cloud Object Storage provider for bucket operations.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>COS_TYPE</code></li>
 <li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Determines which object storage provider will be used for bucket creation or deletion. Different providers have different capabilities, APIs, and operational characteristics.</p>
+<p><strong>When to use</strong>: Always required when creating or deleting buckets. Choose based on your deployment platform and where your COS instance is hosted.</p>
+<p><strong>Valid values</strong>:
+- <code>ibm</code> - IBM Cloud Object Storage buckets
+- <code>aws</code> - AWS S3 buckets</p>
+<p><strong>Impact</strong>:
+- <strong><code>ibm</code></strong>: Creates buckets in IBM Cloud COS, requires IBM Cloud API key and COS instance name
+- <strong><code>aws</code></strong>: Creates buckets in AWS S3, requires AWS credentials (access key and secret key)
+- Determines which set of configuration variables are required
+- Affects bucket naming conventions, storage classes, and lifecycle policies</p>
+<p><strong>Related variables</strong>:
+- When <code>cos_type=ibm</code>: Requires <a href="#ibmcloud_apikey"><code>ibmcloud_apikey</code></a>, <a href="#cos_instance_name"><code>cos_instance_name</code></a>, <a href="#cos_bucket_storage_class"><code>cos_bucket_storage_class</code></a>
+- When <code>cos_type=aws</code>: Requires AWS credentials via environment or AWS CLI configuration, <a href="#aws_region"><code>aws_region</code></a>
+- <a href="#cos_bucket_action"><code>cos_bucket_action</code></a> - Whether to create or delete the bucket</p>
+<p><strong>Notes</strong>:
+- IBM COS buckets support advanced storage classes (smart, vault, cold, flex)
+- AWS S3 buckets support versioning and encryption configurations
+- Bucket names must be globally unique within each provider
+- Choose the provider that matches your COS instance location</p>
 <h3 id="cos_bucket_action">cos_bucket_action<a class="headerlink" href="#cos_bucket_action" title="Permanent link">¤</a></h3>
-<p>Required.  Which action you want to run for the COS bucket. You can either <code>create</code> or <code>delete</code> a COS bucket.</p>
+<p>The action to perform on the bucket.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>COS_BUCKET_ACTION</code></li>
 <li>Default Value: <code>create</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether to create a new bucket or delete an existing one. This allows the same role to handle both lifecycle operations.</p>
+<p><strong>When to use</strong>:
+- Use <code>create</code> (default) when setting up storage buckets for MAS workspaces or applications
+- Use <code>delete</code> when cleaning up buckets after workspace or application removal</p>
+<p><strong>Valid values</strong>:
+- <code>create</code> - Create a new bucket with specified configuration
+- <code>delete</code> - Delete an existing bucket</p>
+<p><strong>Impact</strong>:
+- <strong>Create</strong>: Creates bucket with specified storage class, region, and lifecycle policies
+- <strong>Delete</strong>: Permanently removes the bucket and potentially its contents (depending on force deletion settings)
+- Deletion is irreversible - all data in the bucket will be lost
+- For AWS, deletion behavior depends on <code>aws_bucket_force_deletion_flag</code></p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_type"><code>cos_type</code></a> - Determines which provider's bucket to create/delete
+- <a href="#cos_bucket_name"><code>cos_bucket_name</code></a> or <a href="#aws_bucket_name"><code>aws_bucket_name</code></a> - Identifies which bucket to operate on
+- <a href="#aws_bucket_force_deletion_flag"><code>aws_bucket_force_deletion_flag</code></a> - Controls AWS deletion behavior</p>
+<p><strong>Notes</strong>:
+- Always backup data before deleting buckets
+- IBM COS bucket deletion may fail if the bucket contains objects
+- AWS bucket deletion can force-delete objects if versioning is disabled
+- Verify the bucket name before deletion to avoid removing the wrong bucket</p>
 <h2 id="role-variables-ibm-cloud-object-storage-buckets">Role Variables - IBM Cloud Object Storage buckets<a class="headerlink" href="#role-variables-ibm-cloud-object-storage-buckets" title="Permanent link">¤</a></h2>
 <h3 id="cos_bucket_name">cos_bucket_name<a class="headerlink" href="#cos_bucket_name" title="Permanent link">¤</a></h3>
-<p>Optional name for your IBM Cloud Object Storage bucket.</p>
+<p>The name for the IBM Cloud Object Storage bucket.</p>
 <ul>
+<li><strong>Optional</strong> (IBM COS only)</li>
 <li>Environment Variable: <code>COS_BUCKET_NAME</code></li>
-<li>Default Value: <code>$MAS_INSTANCE_ID-$MAS_WORKSPACE_ID-bucket</code></li>
+<li>Default Value: <code>&lt;mas_instance_id&gt;-&lt;mas_workspace_id&gt;-bucket</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies a custom name for the IBM Cloud COS bucket. Bucket names must be globally unique across all IBM Cloud COS instances.</p>
+<p><strong>When to use</strong>: Only relevant when <code>cos_type=ibm</code>. Provide a descriptive name or use the default which includes MAS instance and workspace IDs for uniqueness.</p>
+<p><strong>Valid values</strong>:
+- 3-63 characters
+- Lowercase letters, numbers, hyphens, and periods only
+- Must start and end with a letter or number
+- Must be globally unique across all IBM Cloud COS
+- Cannot contain consecutive periods or hyphens
+- Examples: <code>prod-mas-workspace1-bucket</code>, <code>dev-maximo-data-bucket</code></p>
+<p><strong>Impact</strong>:
+- Bucket name must be globally unique or creation will fail
+- Used to identify the bucket for all operations
+- Cannot be changed after creation (requires recreation)
+- Appears in S3 API endpoints and URLs</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_type"><code>cos_type</code></a> - Must be <code>ibm</code> for this to be used
+- <a href="#mas_instance_id"><code>mas_instance_id</code></a> - Used in default name
+- <a href="#mas_workspace_id"><code>mas_workspace_id</code></a> - Used in default name</p>
+<p><strong>Notes</strong>:
+- Default naming includes instance and workspace IDs for uniqueness
+- Bucket names are globally visible - avoid including sensitive information
+- Use consistent naming conventions across all buckets
+- Not used for AWS buckets (see <code>aws_bucket_name</code>)</p>
 <h3 id="cos_bucket_storage_class">cos_bucket_storage_class<a class="headerlink" href="#cos_bucket_storage_class" title="Permanent link">¤</a></h3>
-<p>Optional. IBM Cloud Object Storage bucket storage class. Supported options are <code>smart</code>, <code>vault</code>, <code>cold</code> and <code>flex</code>.
-For more details, see <a href="https://cloud.ibm.com/docs/cloud-object-storage/iam?topic=cloud-object-storage-classes#classes-locationconstraint">IBM Cloud Object Storage documentation</a></p>
+<p>The IBM Cloud COS storage class for the bucket.</p>
 <ul>
+<li><strong>Optional</strong> (IBM COS only)</li>
 <li>Environment Variable: <code>COS_BUCKET_STORAGE_CLASS</code></li>
 <li>Default Value: <code>smart</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the storage class tier for the IBM Cloud COS bucket, which determines pricing, performance, and data retrieval characteristics.</p>
+<p><strong>When to use</strong>: Only relevant when <code>cos_type=ibm</code>. Choose based on your data access patterns and cost requirements.</p>
+<p><strong>Valid values</strong>:
+- <code>smart</code> - Automatically transitions data between hot and cool tiers based on access patterns (recommended)
+- <code>vault</code> - For data accessed less than once per month, lower storage cost, higher retrieval cost
+- <code>cold</code> - For data accessed less than once per year, lowest storage cost, highest retrieval cost
+- <code>flex</code> - For dynamic workloads with unpredictable access patterns</p>
+<p><strong>Impact</strong>:
+- Determines storage pricing and data retrieval costs
+- <code>smart</code> provides automatic cost optimization without manual intervention
+- Lower-tier classes (vault, cold) have higher retrieval costs and latency
+- Cannot be changed after bucket creation (requires data migration)</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_type"><code>cos_type</code></a> - Must be <code>ibm</code> for this to be used
+- <a href="#cos_bucket_region_location_type"><code>cos_bucket_region_location_type</code></a> - Storage class availability varies by location type</p>
+<p><strong>Notes</strong>:
+- <code>smart</code> is recommended for most MAS workloads (default)
+- Consider data access patterns when choosing storage class
+- Vault and cold classes suitable for backup and archival data
+- Review IBM Cloud COS pricing for cost implications
+- Not applicable for AWS buckets</p>
 <h3 id="cos_instance_name">cos_instance_name<a class="headerlink" href="#cos_instance_name" title="Permanent link">¤</a></h3>
-<p>Provide the Object Storage instance name, will be used to find the targeted COS instance to create/deprovision the buckets. This is only used when cos_type is set to <code>ibm</code> for IBM Cloud Object Storage.</p>
+<p>The name of the IBM Cloud COS instance where the bucket will be created.</p>
 <ul>
+<li><strong>Required</strong> (IBM COS only)</li>
 <li>Environment Variable: <code>COS_INSTANCE_NAME</code></li>
 <li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies the specific IBM Cloud COS instance where the bucket will be created or deleted. This must match an existing COS instance in your IBM Cloud account.</p>
+<p><strong>When to use</strong>: Always required when <code>cos_type=ibm</code>. Must match the name of a COS instance provisioned by the <code>cos</code> role or created manually.</p>
+<p><strong>Valid values</strong>:
+- Any valid IBM Cloud COS instance name in your account
+- Must exist in the specified resource group
+- Case-sensitive
+- Examples: <code>Object Storage for MAS prod</code>, <code>mas-cos-instance</code></p>
+<p><strong>Impact</strong>:
+- Determines which COS instance will contain the bucket
+- Incorrect name will cause bucket creation to fail
+- All buckets in the same instance share the same service credentials
+- Used to locate the instance for bucket operations</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_type"><code>cos_type</code></a> - Must be <code>ibm</code> for this to be used
+- <a href="#ibmcloud_resourcegroup"><code>ibmcloud_resourcegroup</code></a> - Resource group containing the instance
+- <a href="#ibmcloud_apikey"><code>ibmcloud_apikey</code></a> - Must have access to this instance</p>
+<p><strong>Notes</strong>:
+- The COS instance must be created before running this role
+- Use the <code>cos</code> role to provision the COS instance first
+- Verify the instance name in IBM Cloud console if unsure
+- Not applicable for AWS buckets</p>
 <h3 id="cos_location_info">cos_location_info<a class="headerlink" href="#cos_location_info" title="Permanent link">¤</a></h3>
-<p>Required. The location where the COS instance is available</p>
+<p>The geographic location of the IBM Cloud COS instance.</p>
 <ul>
+<li><strong>Required</strong> (IBM COS only)</li>
 <li>Environment Variable: <code>COS_LOCATION</code></li>
 <li>Default Value: <code>global</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the geographic scope of the IBM Cloud COS instance. This should match the location used when the COS instance was created.</p>
+<p><strong>When to use</strong>: Only relevant when <code>cos_type=ibm</code>. Should match the <code>cos_location_info</code> used in the <code>cos</code> role.</p>
+<p><strong>Valid values</strong>:
+- <code>global</code> - Instance available globally
+- Specific region codes: <code>us-south</code>, <code>us-east</code>, <code>eu-gb</code>, <code>eu-de</code>, etc.
+- Cross-region: <code>us</code>, <code>eu</code>, <code>ap</code></p>
+<p><strong>Impact</strong>:
+- Must match the actual COS instance location
+- Used to locate the correct COS instance
+- Mismatch will cause bucket creation to fail</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_instance_name"><code>cos_instance_name</code></a> - Instance in this location
+- <a href="#cos_bucket_region_location"><code>cos_bucket_region_location</code></a> - Bucket's specific region</p>
+<p><strong>Notes</strong>:
+- Default <code>global</code> works for most deployments
+- Must match the location used when creating the COS instance
+- Not applicable for AWS buckets</p>
 <h3 id="cos_bucket_region_location_type">cos_bucket_region_location_type<a class="headerlink" href="#cos_bucket_region_location_type" title="Permanent link">¤</a></h3>
-<p>Required. This defines the resiliency of your COS bucket. Supported options are <code>cross_region_location</code> (Highest availability) or <code>region_location</code> (Best performance).
-For more details, see <a href="https://cloud.ibm.com/docs/cloud-object-storage/basics?topic=cloud-object-storage-endpoints">IBM Cloud Object Storage documentation</a></p>
+<p>The resiliency type for the IBM Cloud COS bucket.</p>
 <ul>
+<li><strong>Required</strong> (IBM COS only)</li>
 <li>Environment Variable: <code>COS_BUCKET_REGION_LOCATION_TYPE</code></li>
 <li>Default Value: <code>cross_region_location</code></li>
 </ul>
-<p>cos_bucket_region_location: "{{ lookup('env', 'COS_BUCKET_REGION_LOCATION') | default(bucket_cross_reg_loc, true) }}"</p>
+<p><strong>Purpose</strong>: Defines the geographic distribution and resiliency level of the bucket. This determines data redundancy and availability characteristics.</p>
+<p><strong>When to use</strong>: Only relevant when <code>cos_type=ibm</code>. Choose based on your availability requirements and performance needs.</p>
+<p><strong>Valid values</strong>:
+- <code>cross_region_location</code> - Data replicated across multiple regions (highest availability, default)
+- <code>region_location</code> - Data stored in a single region (best performance, lower cost)
+- <code>single_site_location</code> - Data stored in a single data center (lowest cost, lowest availability)</p>
+<p><strong>Impact</strong>:
+- <strong>cross_region</strong>: Highest availability (99.99%), data replicated across 3+ regions, higher cost
+- <strong>region</strong>: High availability (99.95%), data replicated within one region, balanced cost/performance
+- <strong>single_site</strong>: Standard availability, lowest cost, suitable for non-critical data
+- Determines which values are valid for <code>cos_bucket_region_location</code>
+- Cannot be changed after bucket creation</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_bucket_region_location"><code>cos_bucket_region_location</code></a> - Specific region(s) for the bucket
+- <a href="#cos_bucket_storage_class"><code>cos_bucket_storage_class</code></a> - Storage class within the location type</p>
+<p><strong>Notes</strong>:
+- <code>cross_region_location</code> recommended for production MAS workloads (default)
+- <code>region_location</code> suitable for performance-sensitive workloads
+- Consider compliance and data residency requirements
+- Not applicable for AWS buckets</p>
 <h3 id="cos_bucket_region_location">cos_bucket_region_location<a class="headerlink" href="#cos_bucket_region_location" title="Permanent link">¤</a></h3>
-<p>Required. This defines the specific region of your COS bucket.</p>
-<p>For <code>cross_region_location</code> type, the supported regions are <code>us</code>, <code>ap</code> and <code>eu</code>.
-For <code>region_location</code> type, the supported regions are <code>au-syd</code>, <code>eu-de</code>, <code>eu-gb</code>, <code>jp-tok</code>, <code>us-east</code>, <code>us-south</code>, <code>ca-tor</code>, <code>jp-osa</code> and <code>br-sao</code>.</p>
-<p>For more details, see <a href="https://cloud.ibm.com/docs/cloud-object-storage/basics?topic=cloud-object-storage-endpoints">IBM Cloud Object Storage documentation</a></p>
-<h3 id="ibmcloud_region">ibmcloud_region<a class="headerlink" href="#ibmcloud_region" title="Permanent link">¤</a></h3>
-<p>Optional. For cross region location type buckets, the IBM Cloud region can be used as alternative to determine which cross region location to be used while creating the buckets.
-  - Environment Variable: <code>IBMCLOUD_REGION</code>
-  - Default Value: <code>us-east</code></p>
-<h3 id="cos_url">cos_url<a class="headerlink" href="#cos_url" title="Permanent link">¤</a></h3>
-<p>Required (For bucket creation). The COS region location url endpoint. Needed to specify the COS bucket region location.
-  - Environment Variable: <code>COS_REGION_LOCATION_URL</code>
-  - Default Value: <code>https://s3.us.cloud-object-storage.appdomain.cloud</code></p>
-<h3 id="cos_plan_type">cos_plan_type<a class="headerlink" href="#cos_plan_type" title="Permanent link">¤</a></h3>
-<p>Required (For Provisioning). The plan type of the service
-  - Environment Variable: <code>COS_PLAN</code>
-  - Default Value: <code>standard</code></p>
-<h3 id="resource_key_iam_role">resource_key_iam_role<a class="headerlink" href="#resource_key_iam_role" title="Permanent link">¤</a></h3>
-<p>Provide an optional role when cos service credential is getting created during COS bucket creation.
-  - Environment Variable: <code>RESOURCE_KEY_IAM_ROLE</code>
-  - Default Value: <code>Manager</code> </p>
-<h3 id="ibmcloud_apikey">ibmcloud_apikey<a class="headerlink" href="#ibmcloud_apikey" title="Permanent link">¤</a></h3>
-<p>Required if cos_type is set to <code>ibm</code>.  Provide your IBM Cloud API Key.</p>
+<p>The specific region(s) for the IBM Cloud COS bucket.</p>
 <ul>
+<li><strong>Required</strong> (IBM COS only)</li>
+<li>Environment Variable: <code>COS_BUCKET_REGION_LOCATION</code></li>
+<li>Default Value: Derived from <code>ibmcloud_region</code> (e.g., <code>us</code>, <code>eu</code>, <code>ap</code>)</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the exact geographic region(s) where the bucket data will be stored. Valid values depend on the <code>cos_bucket_region_location_type</code>.</p>
+<p><strong>When to use</strong>: Only relevant when <code>cos_type=ibm</code>. Choose based on data residency requirements and proximity to users.</p>
+<p><strong>Valid values</strong>:
+- <strong>For <code>cross_region_location</code></strong>: <code>us</code>, <code>eu</code>, <code>ap</code>
+- <strong>For <code>region_location</code></strong>: <code>us-south</code>, <code>us-east</code>, <code>eu-gb</code>, <code>eu-de</code>, <code>jp-tok</code>, <code>au-syd</code>, <code>ca-tor</code>, <code>jp-osa</code>, <code>br-sao</code>
+- <strong>For <code>single_site_location</code></strong>: Specific data center codes</p>
+<p><strong>Impact</strong>:
+- Determines physical location of data storage
+- Affects data residency compliance (GDPR, data sovereignty)
+- Influences network latency for data access
+- Cannot be changed after bucket creation
+- Must be compatible with <code>cos_bucket_region_location_type</code></p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_bucket_region_location_type"><code>cos_bucket_region_location_type</code></a> - Determines valid values
+- <a href="#ibmcloud_region"><code>ibmcloud_region</code></a> - Used to derive default cross-region location
+- <a href="#cos_url"><code>cos_url</code></a> - Should match the region for optimal performance</p>
+<p><strong>Notes</strong>:
+- Default automatically selects cross-region based on <code>ibmcloud_region</code>
+- For <code>cross_region_location</code>, <code>us</code> covers US regions, <code>eu</code> covers Europe, <code>ap</code> covers Asia-Pacific
+- Consider compliance requirements when selecting region
+- Not applicable for AWS buckets</p>
+<h3 id="ibmcloud_region">ibmcloud_region<a class="headerlink" href="#ibmcloud_region" title="Permanent link">¤</a></h3>
+<p>The IBM Cloud region used to derive the default cross-region location.</p>
+<ul>
+<li><strong>Optional</strong> (IBM COS only)</li>
+<li>Environment Variable: <code>IBMCLOUD_REGION</code></li>
+<li>Default Value: <code>us-east</code></li>
+</ul>
+<p><strong>Purpose</strong>: Provides a hint for automatically determining the appropriate cross-region location when <code>cos_bucket_region_location</code> is not explicitly set.</p>
+<p><strong>When to use</strong>: Only relevant when <code>cos_type=ibm</code> and using <code>cross_region_location</code> type without explicitly setting <code>cos_bucket_region_location</code>.</p>
+<p><strong>Valid values</strong>:
+- Any valid IBM Cloud region identifier
+- Examples: <code>us-east</code>, <code>us-south</code>, <code>eu-gb</code>, <code>eu-de</code>, <code>jp-tok</code>
+- Used to derive cross-region: <code>us-*</code> → <code>us</code>, <code>eu-*</code> → <code>eu</code>, <code>jp-*</code> or <code>au-*</code> → <code>ap</code></p>
+<p><strong>Impact</strong>:
+- Automatically determines cross-region location if not explicitly set
+- <code>us-*</code> regions default to <code>us</code> cross-region
+- <code>eu-*</code> regions default to <code>eu</code> cross-region
+- <code>jp-*</code> and <code>au-*</code> regions default to <code>ap</code> cross-region</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_bucket_region_location"><code>cos_bucket_region_location</code></a> - Can override the derived value
+- <a href="#cos_bucket_region_location_type"><code>cos_bucket_region_location_type</code></a> - Only used for cross-region type</p>
+<p><strong>Notes</strong>:
+- Only used when <code>cos_bucket_region_location</code> is not explicitly set
+- Provides convenience for cross-region bucket creation
+- Not applicable for AWS buckets</p>
+<h3 id="cos_url">cos_url<a class="headerlink" href="#cos_url" title="Permanent link">¤</a></h3>
+<p>The IBM Cloud COS S3 API endpoint URL.</p>
+<ul>
+<li><strong>Required</strong> (IBM COS only, for bucket creation)</li>
+<li>Environment Variable: <code>COS_REGION_LOCATION_URL</code></li>
+<li>Default Value: <code>https://s3.&lt;region&gt;.cloud-object-storage.appdomain.cloud</code></li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the S3-compatible API endpoint for accessing the IBM Cloud COS bucket. This URL is used for all bucket operations.</p>
+<p><strong>When to use</strong>: Only relevant when <code>cos_type=ibm</code>. Should match the bucket's region location for optimal performance.</p>
+<p><strong>Valid values</strong>:
+- Regional endpoints: <code>https://s3.&lt;region&gt;.cloud-object-storage.appdomain.cloud</code>
+- Cross-region endpoints: <code>https://s3.us.cloud-object-storage.appdomain.cloud</code>, <code>https://s3.eu.cloud-object-storage.appdomain.cloud</code>, <code>https://s3.ap.cloud-object-storage.appdomain.cloud</code>
+- Private endpoints: <code>https://s3.private.&lt;region&gt;.cloud-object-storage.appdomain.cloud</code>
+- Direct endpoints: <code>https://s3.direct.&lt;region&gt;.cloud-object-storage.appdomain.cloud</code></p>
+<p><strong>Impact</strong>:
+- Determines which IBM Cloud COS endpoint is used for bucket operations
+- Affects network latency and data transfer costs
+- Private endpoints provide better security and lower costs for in-cloud access
+- Must be accessible from where the role is executed</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_bucket_region_location"><code>cos_bucket_region_location</code></a> - Should align with the endpoint region
+- <a href="#cos_type"><code>cos_type</code></a> - Must be <code>ibm</code> for this to be used</p>
+<p><strong>Notes</strong>:
+- Default automatically constructed based on <code>cos_bucket_region_location</code>
+- Use regional endpoints matching your bucket location for best performance
+- Private endpoints recommended for OpenShift clusters in IBM Cloud
+- Not applicable for AWS buckets (see <code>aws_url</code>)</p>
+<h3 id="cos_resource_key_iam_role">cos_resource_key_iam_role<a class="headerlink" href="#cos_resource_key_iam_role" title="Permanent link">¤</a></h3>
+<p>The IAM role for COS service credentials created during bucket setup.</p>
+<ul>
+<li><strong>Optional</strong> (IBM COS only)</li>
+<li>Environment Variable: <code>COS_RESOURCE_KEY_IAM_ROLE</code></li>
+<li>Default Value: <code>Manager</code></li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the IAM role level for service credentials that may be created during bucket operations. This determines the permissions granted for accessing the bucket.</p>
+<p><strong>When to use</strong>: Only relevant when <code>cos_type=ibm</code>. The default <code>Manager</code> role provides full access required for bucket operations.</p>
+<p><strong>Valid values</strong>:
+- <code>Manager</code> - Full access to buckets and objects (create/read/update/delete)
+- <code>Writer</code> - Read and write access to objects
+- <code>Reader</code> - Read-only access to objects</p>
+<p><strong>Impact</strong>:
+- Determines permissions for any service credentials created
+- <code>Manager</code> role required for full bucket management
+- Lower privilege roles may limit functionality</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_type"><code>cos_type</code></a> - Must be <code>ibm</code> for this to be used
+- <a href="#cos_instance_name"><code>cos_instance_name</code></a> - Instance where credentials are created</p>
+<p><strong>Notes</strong>:
+- Default <code>Manager</code> role is recommended
+- Not applicable for AWS buckets</p>
+<h3 id="ibmcloud_apikey">ibmcloud_apikey<a class="headerlink" href="#ibmcloud_apikey" title="Permanent link">¤</a></h3>
+<p>The IBM Cloud API key for bucket operations.</p>
+<ul>
+<li><strong>Required</strong> (IBM COS only)</li>
 <li>Environment Variable: <code>IBMCLOUD_APIKEY</code></li>
 <li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides authentication credentials for IBM Cloud to create and manage COS buckets.</p>
+<p><strong>When to use</strong>: Always required when <code>cos_type=ibm</code>. Must have permissions to manage buckets in the specified COS instance.</p>
+<p><strong>Valid values</strong>:
+- A valid IBM Cloud API key with COS permissions
+- Must have access to the COS instance and resource group
+- Format: 44-character alphanumeric string</p>
+<p><strong>Impact</strong>:
+- Authenticates all IBM Cloud COS operations
+- Determines which account owns the bucket
+- Required permissions: COS bucket management, resource group access</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_type"><code>cos_type</code></a> - Must be <code>ibm</code> for this to be used
+- <a href="#ibmcloud_resourcegroup"><code>ibmcloud_resourcegroup</code></a> - Must have access to this resource group
+- <a href="#cos_instance_name"><code>cos_instance_name</code></a> - Must have access to this instance</p>
+<p><strong>Notes</strong>:
+- Store API keys securely
+- Never commit API keys to version control
+- Not applicable for AWS buckets</p>
 <h3 id="ibmcloud_resourcegroup">ibmcloud_resourcegroup<a class="headerlink" href="#ibmcloud_resourcegroup" title="Permanent link">¤</a></h3>
-<p>Only used when cos_type is set to <code>ibm</code>.  Provide the name of the resource group which will own the COS instance for the targeted buckets.</p>
+<p>The IBM Cloud resource group containing the COS instance.</p>
 <ul>
+<li><strong>Optional</strong> (IBM COS only)</li>
 <li>Environment Variable: <code>IBMCLOUD_RESOURCEGROUP</code></li>
 <li>Default Value: <code>Default</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the resource group where the COS instance is located.</p>
+<p><strong>When to use</strong>: Only relevant when <code>cos_type=ibm</code>. Should match the resource group used when creating the COS instance.</p>
+<p><strong>Valid values</strong>:
+- Any existing resource group name in your IBM Cloud account
+- Common examples: <code>Default</code>, <code>Production</code>, <code>MAS-Resources</code>
+- Case-sensitive</p>
+<p><strong>Impact</strong>:
+- Used to locate the COS instance
+- Must match the actual resource group of the COS instance
+- API key must have access to this resource group</p>
+<p><strong>Related variables</strong>:
+- <a href="#ibmcloud_apikey"><code>ibmcloud_apikey</code></a> - Must have access to this resource group
+- <a href="#cos_instance_name"><code>cos_instance_name</code></a> - Instance in this resource group</p>
+<p><strong>Notes</strong>:
+- Defaults to <code>Default</code> resource group
+- Must match the resource group used in the <code>cos</code> role
+- Not applicable for AWS buckets</p>
 <h2 id="role-variables-aws-s3-buckets">Role Variables - AWS S3 Buckets<a class="headerlink" href="#role-variables-aws-s3-buckets" title="Permanent link">¤</a></h2>
 <p>To run this role successfully for AWS s3 buckets, you must have already installed the <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">AWS CLI</a>.
 Also, you need to have AWS user credentials configured via <code>aws configure</code> command or simply export <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code> environment variables with your corresponding AWS username credentials prior running this role.</p>
 <h3 id="aws_bucket_name">aws_bucket_name<a class="headerlink" href="#aws_bucket_name" title="Permanent link">¤</a></h3>
-<p>Optional name for your AWS/S3 bucket.</p>
+<p>The name for the AWS S3 bucket.</p>
 <ul>
+<li><strong>Optional</strong> (AWS S3 only)</li>
 <li>Environment Variable: <code>COS_BUCKET_NAME</code></li>
-<li>Default Value: <code>$MAS_INSTANCE_ID-$MAS_WORKSPACE_ID-bucket</code></li>
+<li>Default Value: <code>&lt;mas_instance_id&gt;-&lt;mas_workspace_id&gt;-bucket</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies a custom name for the AWS S3 bucket. Bucket names must be globally unique across all AWS S3 buckets worldwide.</p>
+<p><strong>When to use</strong>: Only relevant when <code>cos_type=aws</code>. Provide a descriptive name or use the default which includes MAS instance and workspace IDs for uniqueness.</p>
+<p><strong>Valid values</strong>:
+- 3-63 characters
+- Lowercase letters, numbers, hyphens, and periods only
+- Must start and end with a letter or number
+- Must be globally unique across all AWS S3
+- Cannot contain consecutive periods or underscores
+- Cannot be formatted as an IP address
+- Examples: <code>prod-mas-workspace1-bucket</code>, <code>dev-maximo-data-bucket</code></p>
+<p><strong>Impact</strong>:
+- Bucket name must be globally unique or creation will fail
+- Used to identify the bucket for all operations
+- Cannot be changed after creation (requires recreation)
+- Appears in S3 API endpoints and URLs</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_type"><code>cos_type</code></a> - Must be <code>aws</code> for this to be used
+- <a href="#mas_instance_id"><code>mas_instance_id</code></a> - Used in default name
+- <a href="#mas_workspace_id"><code>mas_workspace_id</code></a> - Used in default name
+- <a href="#aws_region"><code>aws_region</code></a> - Region where the bucket is created</p>
+<p><strong>Notes</strong>:
+- Default naming includes instance and workspace IDs for uniqueness
+- Bucket names are globally visible - avoid including sensitive information
+- Use consistent naming conventions across all buckets
+- Not used for IBM COS buckets (see <code>cos_bucket_name</code>)</p>
 <h3 id="aws_region">aws_region<a class="headerlink" href="#aws_region" title="Permanent link">¤</a></h3>
-<p>The region where the bucket is located.</p>
+<p>The AWS region where the S3 bucket will be created.</p>
 <ul>
-<li>Required.</li>
+<li><strong>Required</strong> (AWS S3 only)</li>
 <li>Environment Variable: <code>AWS_REGION</code></li>
 <li>Default Value: <code>us-east-2</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the AWS region for S3 bucket creation. This determines the physical location of the bucket and affects latency and data residency.</p>
+<p><strong>When to use</strong>: Always required when <code>cos_type=aws</code>. Choose a region close to your OpenShift cluster and users for optimal performance.</p>
+<p><strong>Valid values</strong>:
+- Any valid AWS region identifier
+- Examples: <code>us-east-1</code>, <code>us-east-2</code>, <code>us-west-2</code>, <code>eu-west-1</code>, <code>eu-central-1</code>, <code>ap-southeast-1</code>
+- Must be a region where your AWS account has access</p>
+<p><strong>Impact</strong>:
+- Determines physical location of bucket storage
+- Affects data residency compliance (GDPR, data sovereignty)
+- Influences network latency for data access
+- Cannot be changed after bucket creation (requires data migration)
+- Affects pricing (varies by region)</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_type"><code>cos_type</code></a> - Must be <code>aws</code> for this to be used
+- <a href="#aws_bucket_name"><code>aws_bucket_name</code></a> - Bucket created in this region
+- <a href="#aws_url"><code>aws_url</code></a> - Should match the region</p>
+<p><strong>Notes</strong>:
+- Choose a region close to your OpenShift cluster for best performance
+- Consider compliance and data residency requirements
+- Some regions may have capacity constraints
+- Not applicable for IBM COS buckets</p>
 <h3 id="aws_bucket_versioning_flag">aws_bucket_versioning_flag<a class="headerlink" href="#aws_bucket_versioning_flag" title="Permanent link">¤</a></h3>
-<p>Flag to define if versioning should be enabled for the bucket</p>
+<p>Controls whether to enable versioning for the AWS S3 bucket.</p>
 <ul>
-<li>Optional.</li>
+<li><strong>Optional</strong> (AWS S3 only)</li>
 <li>Environment Variable: <code>COS_BUCKET_VERSIONING_FLAG</code></li>
 <li>Default Value: <code>True</code></li>
 </ul>
+<p><strong>Purpose</strong>: Determines if S3 versioning should be enabled for the bucket. Versioning keeps multiple variants of an object in the same bucket, providing protection against accidental deletion or overwrite.</p>
+<p><strong>When to use</strong>: Only relevant when <code>cos_type=aws</code>. Enable for production buckets to protect against accidental data loss.</p>
+<p><strong>Valid values</strong>:
+- <code>True</code> - Enable versioning (recommended for production)
+- <code>False</code> - Disable versioning</p>
+<p><strong>Impact</strong>:
+- When <code>True</code>: All object versions are retained, providing rollback capability
+- When <code>False</code>: Only the latest version of each object is kept
+- Versioning increases storage costs (all versions consume space)
+- Once enabled, versioning cannot be fully disabled (only suspended)
+- Affects <code>aws_bucket_force_deletion_flag</code> behavior</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_type"><code>cos_type</code></a> - Must be <code>aws</code> for this to be used
+- <a href="#aws_bucket_force_deletion_flag"><code>aws_bucket_force_deletion_flag</code></a> - Cannot force-delete if versioning is enabled</p>
+<p><strong>Notes</strong>:
+- Recommended to enable for production buckets
+- Provides protection against accidental deletion
+- Increases storage costs due to version retention
+- Consider lifecycle policies to manage old versions
+- Not applicable for IBM COS buckets</p>
 <h3 id="aws_bucket_encryption">aws_bucket_encryption<a class="headerlink" href="#aws_bucket_encryption" title="Permanent link">¤</a></h3>
-<p>JSON formatted string to define default encryption configuration for AWS S3 bucket.</p>
+<p>The encryption configuration for the AWS S3 bucket.</p>
 <ul>
-<li>Optional.</li>
+<li><strong>Optional</strong> (AWS S3 only)</li>
 <li>Environment Variable: <code>COS_BUCKET_ENCRYPTION</code></li>
 <li>Default Value: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the default server-side encryption configuration for objects stored in the S3 bucket. This ensures data is encrypted at rest.</p>
+<p><strong>When to use</strong>: Only relevant when <code>cos_type=aws</code>. Set this to enforce encryption for all objects in the bucket.</p>
+<p><strong>Valid values</strong>:
+- JSON-formatted string defining encryption rules
+- Example for AES256: <code>'{"Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]}'</code>
+- Example for KMS: <code>'{"Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "aws:kms", "KMSMasterKeyID": "arn:aws:kms:region:account:key/key-id"}}]}'</code>
+- Supported algorithms: <code>AES256</code> (S3-managed keys), <code>aws:kms</code> (KMS-managed keys)</p>
+<p><strong>Impact</strong>:
+- When set: All objects uploaded to the bucket are automatically encrypted
+- When not set: Encryption must be specified per-object or not used
+- KMS encryption provides additional key management and audit capabilities
+- KMS encryption incurs additional costs</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_type"><code>cos_type</code></a> - Must be <code>aws</code> for this to be used
+- <a href="#aws_bucket_name"><code>aws_bucket_name</code></a> - Bucket where encryption is applied</p>
+<p><strong>Notes</strong>:
+- Recommended for production buckets containing sensitive data
+- AES256 is simpler and has no additional cost
+- KMS provides better key management and audit trails
+- Encryption can be changed after bucket creation
+- Not applicable for IBM COS buckets</p>
 <h3 id="aws_bucket_force_deletion_flag">aws_bucket_force_deletion_flag<a class="headerlink" href="#aws_bucket_force_deletion_flag" title="Permanent link">¤</a></h3>
-<p>Deletes S3 AWS bucket objects prior deleting the S3 bucket. This option only works if versioning <strong>is not enabled</strong> in the bucket.
-<strong>Note:</strong> To delete AWS bucket, <code>cos_bucket_action</code> must be set to <code>delete</code>.</p>
+<p>Controls whether to force-delete bucket contents before deleting the bucket.</p>
 <ul>
-<li>Optional.</li>
+<li><strong>Optional</strong> (AWS S3 only)</li>
 <li>Environment Variable: <code>COS_BUCKET_FORCE_DELETION_FLAG</code></li>
 <li>Default Value: <code>True</code></li>
 </ul>
+<p><strong>Purpose</strong>: When deleting an AWS S3 bucket, this flag determines whether to automatically delete all objects in the bucket first. This only works if versioning is disabled.</p>
+<p><strong>When to use</strong>: Only relevant when <code>cos_type=aws</code> and <code>cos_bucket_action=delete</code>. Enable to automatically clean up bucket contents during deletion.</p>
+<p><strong>Valid values</strong>:
+- <code>True</code> - Automatically delete all objects before deleting the bucket (default)
+- <code>False</code> - Fail if bucket contains objects (safer, requires manual cleanup)</p>
+<p><strong>Impact</strong>:
+- When <code>True</code>: All objects in the bucket are permanently deleted before bucket deletion
+- When <code>False</code>: Bucket deletion fails if it contains any objects
+- <strong>Only works if versioning is disabled</strong> - versioned buckets cannot be force-deleted
+- Deletion is irreversible - all data will be lost</p>
+<p><strong>Related variables</strong>:
+- <a href="#cos_type"><code>cos_type</code></a> - Must be <code>aws</code> for this to be used
+- <a href="#cos_bucket_action"><code>cos_bucket_action</code></a> - Must be <code>delete</code> for this to take effect
+- <a href="#aws_bucket_versioning_flag"><code>aws_bucket_versioning_flag</code></a> - Must be <code>False</code> for force deletion to work</p>
+<p><strong>Notes</strong>:
+- <strong>WARNING</strong>: Force deletion permanently removes all data
+- Does not work with versioned buckets - disable versioning first
+- Consider backing up data before force deletion
+- Setting to <code>False</code> is safer but requires manual object cleanup
+- Not applicable for IBM COS buckets</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <p>Create the IBM Cloud Object storage bucket.</p>
 <pre><code class="language-yaml">- hosts: localhost
@@ -992,13 +1364,8 @@ Also, you need to have AWS user credentials configured via <code>aws configure</
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#cos_plan_type" class="md-toc__link" data-md-level="2">
-                          cos_plan_type
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#resource_key_iam_role" class="md-toc__link" data-md-level="2">
-                          resource_key_iam_role
+                        <a href="#cos_resource_key_iam_role" class="md-toc__link" data-md-level="2">
+                          cos_resource_key_iam_role
                         </a>
                       </li>
                       <li class="md-toc__item">

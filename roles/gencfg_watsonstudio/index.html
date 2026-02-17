@@ -737,54 +737,170 @@
           <div class="rst-content">
             
             <h1 id="gencfg_watsonstudio">gencfg_watsonstudio<a class="headerlink" href="#gencfg_watsonstudio" title="Permanent link">¤</a></h1>
-<p>This role is used to configure WatsonStudio in Maximo Application Suite.</p>
+<p>Generate Watson Studio configuration files for connecting Maximo Application Suite to IBM Cloud Pak for Data Watson Studio instances. This role creates WatsonStudioCfg custom resources that enable MAS applications (particularly Predict and Health) to leverage Watson Studio's machine learning and analytics capabilities.</p>
+<p>The role supports flexible configuration scoping to make Watson Studio available at system, workspace, application, or workspace-application levels within MAS.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
-<p>Providing this and <code>mas_config_dir</code> will instruct the role to generate a WatsonStudioCfg template that can be used to configure MAS to connect to WatsonStudio.</p>
+<p>MAS instance identifier for which the Watson Studio configuration is being generated.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
 <li>Default: None</li>
-<li></li>
 </ul>
+<p><strong>Purpose</strong>: Identifies the target MAS instance where this Watson Studio configuration will be applied.</p>
+<p><strong>When to use</strong>: Always required when generating Watson Studio configuration. Must match an existing MAS instance ID.</p>
+<p><strong>Valid values</strong>: Valid MAS instance ID (typically 3-12 lowercase alphanumeric characters).</p>
+<p><strong>Impact</strong>: The generated configuration will be namespace-scoped to <code>mas-&lt;instance-id&gt;-core</code>. Incorrect instance ID will cause the configuration to be created in the wrong namespace.</p>
+<p><strong>Related variables</strong>: <code>mas_config_dir</code>, <code>mas_config_scope</code></p>
+<p><strong>Notes</strong>:
+- Must match the instance ID used during MAS installation
+- Case-sensitive value
+- Watson Studio integration is primarily used by Predict and Health applications
+- Required for AI/ML model training and deployment in MAS</p>
 <h3 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link">¤</a></h3>
-<p>This is only used when both <code>mas_config_dir</code> and <code>mas_instance_id</code> are set, and <code>mas_config_scope</code> is set to either <code>ws</code> or <code>wsapp</code></p>
+<p>MAS workspace identifier for workspace-scoped configurations.</p>
 <ul>
+<li><strong>Required</strong> if <code>mas_config_scope</code> is <code>ws</code> or <code>wsapp</code></li>
 <li>Environment Variable: <code>MAS_WORKSPACE_ID</code></li>
 <li>Default: None</li>
 </ul>
-<h3 id="cpd_admin_username">CPD_ADMIN_USERNAME<a class="headerlink" href="#cpd_admin_username" title="Permanent link">¤</a></h3>
-<p>Defines the username that is used for the WatsonStudio configure in MAS installation</p>
+<p><strong>Purpose</strong>: Specifies the target workspace when generating workspace-scoped or workspace-application-scoped Watson Studio configurations.</p>
+<p><strong>When to use</strong>: Required when <code>mas_config_scope</code> is set to <code>ws</code> or <code>wsapp</code>. Not used for <code>system</code> or <code>app</code> scopes.</p>
+<p><strong>Valid values</strong>: Valid MAS workspace ID (typically lowercase alphanumeric, e.g., <code>masdev</code>, <code>prod</code>, <code>test</code>).</p>
+<p><strong>Impact</strong>: The Watson Studio configuration will only be available to the specified workspace. Applications in other workspaces cannot access this Watson Studio instance.</p>
+<p><strong>Related variables</strong>: <code>mas_config_scope</code>, <code>mas_application_id</code></p>
+<p><strong>Notes</strong>:
+- Workspace must exist before applying the configuration
+- Use workspace-scoped configs for tenant isolation in multi-tenant deployments
+- Each workspace can have its own Watson Studio instance for data isolation</p>
+<h3 id="mas_config_scope">mas_config_scope<a class="headerlink" href="#mas_config_scope" title="Permanent link">¤</a></h3>
+<p>Configuration scope level for the generated Watson Studio configuration.</p>
 <ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MAS_CONFIG_SCOPE</code></li>
+<li>Default: <code>system</code></li>
+</ul>
+<p><strong>Purpose</strong>: Determines at what level the Watson Studio configuration will be available within MAS - system-wide, workspace-specific, application-specific, or workspace-application combination.</p>
+<p><strong>When to use</strong>: Set based on how Watson Studio will be shared across MAS components. Default <code>system</code> scope makes it available to all workspaces and applications.</p>
+<p><strong>Valid values</strong>:
+- <code>system</code> - Available to all workspaces and applications (default)
+- <code>ws</code> - Available only to a specific workspace
+- <code>app</code> - Available only to a specific application across all workspaces
+- <code>wsapp</code> - Available only to a specific application in a specific workspace</p>
+<p><strong>Impact</strong>: Determines which MAS components can access this Watson Studio configuration. Incorrect scope may prevent applications from finding the Watson Studio connection.</p>
+<p><strong>Related variables</strong>: <code>mas_workspace_id</code> (required for <code>ws</code> and <code>wsapp</code>), <code>mas_application_id</code> (required for <code>app</code> and <code>wsapp</code>)</p>
+<p><strong>Notes</strong>:
+- Default <code>system</code> scope is suitable for most deployments
+- Use <code>wsapp</code> scope for dedicated Watson Studio instances per workspace-application
+- Scope cannot be changed after creation; requires recreation of the configuration
+- Predict and Health are the primary consumers of Watson Studio</p>
+<h3 id="mas_config_dir">mas_config_dir<a class="headerlink" href="#mas_config_dir" title="Permanent link">¤</a></h3>
+<p>Local directory path where the generated YAML configuration file will be saved.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>MAS_CONFIG_DIR</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the output directory for the generated WatsonStudioCfg YAML file that can be applied to the MAS instance.</p>
+<p><strong>When to use</strong>: Always required. Directory must exist or be creatable by the Ansible user.</p>
+<p><strong>Valid values</strong>: Valid directory path (absolute or relative) where the Ansible controller has write permissions.</p>
+<p><strong>Impact</strong>: The generated YAML file will be created in this directory and can be applied using <code>kubectl apply</code> or the <code>suite_config</code> role.</p>
+<p><strong>Related variables</strong>: <code>mas_instance_id</code></p>
+<p><strong>Notes</strong>:
+- Directory will be created if it doesn't exist
+- Generated filename format: <code>watsonstudiocfg-&lt;scope&gt;.yml</code>
+- Keep generated files for documentation and disaster recovery purposes
+- Can be used as input to the <code>suite_config</code> role</p>
+<h3 id="mas_application_id">mas_application_id<a class="headerlink" href="#mas_application_id" title="Permanent link">¤</a></h3>
+<p>MAS application identifier for application-scoped configurations.</p>
+<ul>
+<li><strong>Required</strong> if <code>mas_config_scope</code> is <code>app</code> or <code>wsapp</code></li>
+<li>Environment Variable: <code>MAS_APP_ID</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the target application when generating application-scoped or workspace-application-scoped Watson Studio configurations.</p>
+<p><strong>When to use</strong>: Required when <code>mas_config_scope</code> is set to <code>app</code> or <code>wsapp</code>. Not used for <code>system</code> or <code>ws</code> scopes.</p>
+<p><strong>Valid values</strong>: Valid MAS application ID, typically <code>predict</code> or <code>health</code> (the primary Watson Studio consumers).</p>
+<p><strong>Impact</strong>: The Watson Studio configuration will only be available to the specified application. Other applications cannot access this Watson Studio instance.</p>
+<p><strong>Related variables</strong>: <code>mas_config_scope</code>, <code>mas_workspace_id</code></p>
+<p><strong>Notes</strong>:
+- Application must be installed before applying the configuration
+- Predict and Health are the main applications that use Watson Studio
+- Use application-scoped configs when different applications need different Watson Studio instances</p>
+<h3 id="cpd_admin_username">cpd_admin_username<a class="headerlink" href="#cpd_admin_username" title="Permanent link">¤</a></h3>
+<p>Cloud Pak for Data administrative username for Watson Studio access.</p>
+<ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>CPD_ADMIN_USERNAME</code></li>
 <li>Default: None</li>
-<li></li>
 </ul>
-<h3 id="cpd_admin_password">CPD_ADMIN_PASSWORD<a class="headerlink" href="#cpd_admin_password" title="Permanent link">¤</a></h3>
-<p>Defines the password that is used to connect to WatsonStudio in MAS installation</p>
+<p><strong>Purpose</strong>: Specifies the Cloud Pak for Data user account that MAS will use to connect to Watson Studio for AI/ML operations.</p>
+<p><strong>When to use</strong>: Always required. Must be a valid CP4D user with appropriate Watson Studio permissions.</p>
+<p><strong>Valid values</strong>: Valid Cloud Pak for Data username with Watson Studio access rights.</p>
+<p><strong>Impact</strong>: This user must have permissions to create and manage Watson Studio projects, deployments, and models. Insufficient permissions will cause Predict/Health AI features to fail.</p>
+<p><strong>Related variables</strong>: <code>cpd_admin_password</code>, <code>cpd_admin_url</code></p>
+<p><strong>Notes</strong>:
+- User must have Watson Studio service access
+- Requires permissions to create projects and deploy models
+- Consider using a dedicated service account rather than a personal admin account
+- User should have appropriate resource quotas for ML workloads</p>
+<h3 id="cpd_admin_password">cpd_admin_password<a class="headerlink" href="#cpd_admin_password" title="Permanent link">¤</a></h3>
+<p>Cloud Pak for Data password for authentication.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>CPD_ADMIN_PASSWORD</code></li>
 <li>Default: None</li>
-<li></li>
 </ul>
-<h3 id="cpd_admin_url">CPD_ADMIN_URL<a class="headerlink" href="#cpd_admin_url" title="Permanent link">¤</a></h3>
-<p>Defines the url that is used to connect to WatsonStudio in MAS installation</p>
+<p><strong>Purpose</strong>: Provides the password for the Cloud Pak for Data user account specified in <code>cpd_admin_username</code>.</p>
+<p><strong>When to use</strong>: Always required for CP4D authentication.</p>
+<p><strong>Valid values</strong>: Valid password string meeting Cloud Pak for Data security requirements.</p>
+<p><strong>Impact</strong>: Stored as a Kubernetes secret in the MAS namespace. Incorrect password will prevent MAS from connecting to Watson Studio.</p>
+<p><strong>Related variables</strong>: <code>cpd_admin_username</code>, <code>cpd_admin_url</code></p>
+<p><strong>Notes</strong>:
+- Password is stored securely in Kubernetes secrets
+- Use strong passwords meeting your organization's security policies
+- Consider implementing password rotation policies
+- Ensure password doesn't expire or require periodic changes that could break integration</p>
+<h3 id="cpd_admin_url">cpd_admin_url<a class="headerlink" href="#cpd_admin_url" title="Permanent link">¤</a></h3>
+<p>Cloud Pak for Data console URL for Watson Studio access.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>CPD_ADMIN_URL</code></li>
 <li>Default: None</li>
-<li></li>
 </ul>
+<p><strong>Purpose</strong>: Defines the Cloud Pak for Data web console URL that MAS will use to connect to Watson Studio services.</p>
+<p><strong>When to use</strong>: Always required. Must be the accessible URL to the CP4D console.</p>
+<p><strong>Valid values</strong>: Valid HTTPS URL to the Cloud Pak for Data console (e.g., <code>https://cpd-cpd.apps.ocp.example.com</code>).</p>
+<p><strong>Impact</strong>: MAS applications will use this URL to access Watson Studio APIs. Incorrect or inaccessible URL will prevent AI/ML functionality.</p>
+<p><strong>Related variables</strong>: <code>cpd_admin_username</code>, <code>cpd_admin_password</code></p>
+<p><strong>Notes</strong>:
+- Must be the full HTTPS URL including protocol
+- URL must be accessible from the OpenShift cluster where MAS is running
+- Verify network connectivity and firewall rules
+- For multi-cluster deployments, ensure proper routing is configured
+- URL should point to the CP4D console route, not individual service routes</p>
 <h3 id="custom_labels">custom_labels<a class="headerlink" href="#custom_labels" title="Permanent link">¤</a></h3>
-<p>List of comma separated key=value pairs for setting custom labels on instance specific resources.</p>
+<p>Custom Kubernetes labels to apply to the generated WatsonStudioCfg resource.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>CUSTOM_LABELS</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Adds custom labels to the WatsonStudioCfg resource for organization, filtering, or automation purposes.</p>
+<p><strong>When to use</strong>: Use when you need to tag configurations for specific purposes like environment identification, cost tracking, or automated management.</p>
+<p><strong>Valid values</strong>: Comma-separated key=value pairs (e.g., <code>env=prod,team=ai-ml,cost-center=12345</code>).</p>
+<p><strong>Impact</strong>: Labels are applied to the Kubernetes resource and can be used for selection, filtering, and automation workflows.</p>
+<p><strong>Related variables</strong>: None</p>
+<p><strong>Notes</strong>:
+- Labels must follow Kubernetes naming conventions
+- Useful for GitOps workflows and resource management
+- Can be used with label selectors in automation scripts
+- Helpful for tracking Watson Studio configurations across multiple environments</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">---
 
 - hosts: localhost
-  any_errors_fatal: true  
+  any_errors_fatal: true
   roles:
     - ibm.mas_devops.gencfg_watsonstudio
 </code></pre>
@@ -847,18 +963,33 @@
                         </a>
                       </li>
                       <li class="md-toc__item">
+                        <a href="#mas_config_scope" class="md-toc__link" data-md-level="2">
+                          mas_config_scope
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#mas_config_dir" class="md-toc__link" data-md-level="2">
+                          mas_config_dir
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#mas_application_id" class="md-toc__link" data-md-level="2">
+                          mas_application_id
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
                         <a href="#cpd_admin_username" class="md-toc__link" data-md-level="2">
-                          CPD_ADMIN_USERNAME
+                          cpd_admin_username
                         </a>
                       </li>
                       <li class="md-toc__item">
                         <a href="#cpd_admin_password" class="md-toc__link" data-md-level="2">
-                          CPD_ADMIN_PASSWORD
+                          cpd_admin_password
                         </a>
                       </li>
                       <li class="md-toc__item">
                         <a href="#cpd_admin_url" class="md-toc__link" data-md-level="2">
-                          CPD_ADMIN_URL
+                          cpd_admin_url
                         </a>
                       </li>
                       <li class="md-toc__item">

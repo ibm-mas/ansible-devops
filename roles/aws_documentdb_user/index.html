@@ -722,6 +722,8 @@
     <cds-select id="breadcrumbs-toc" inline placeholder="..." oninput="changeAnchor(this.value)">
     
     
+      <cds-select-item value="#role-variables">Role Variables</cds-select-item>
+    
     </cds-select>
   </cds-breadcrumb-item>
 </cds-breadcrumb>
@@ -730,42 +732,168 @@
           <!-- Page content -->
           <div class="rst-content">
             
-            <h2 id="aws_documentdb_user">aws_documentdb_user<a class="headerlink" href="#aws_documentdb_user" title="Permanent link">¤</a></h2>
-<p>This role creates a docdb user for MAS instance and saves username and password as k8 Secret in specified config directory</p>
-<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">¤</a></h2>
-<p>To run this role with providers you must have already installed the <a href="https://www.mongodb.com/docs/mongodb-shell/install/">Mongo Shell</a>.</p>
-<h1 id="role-variables">Role variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h1>
+            <h1 id="aws_documentdb_user">aws_documentdb_user<a class="headerlink" href="#aws_documentdb_user" title="Permanent link">¤</a></h1>
+<p>Create dedicated database users in AWS DocumentDB for Maximo Application Suite instances. This role automates user creation with appropriate permissions and generates Kubernetes secrets containing the credentials for MAS MongoDB configuration.</p>
+<p>AWS DocumentDB is a MongoDB-compatible database service that can serve as the system database for MAS. This role creates instance-specific users with proper authentication credentials.</p>
+<p><strong>Prerequisites</strong>:
+- MongoDB Shell (mongosh) must be installed
+- AWS DocumentDB cluster must be running and accessible
+- Master user credentials for DocumentDB must be available</p>
+<h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
-<p>Required.The instance ID of Maximo Application Suite required for creating docdb user credentials secret</p>
+<p>MAS instance identifier for which the DocumentDB user will be created.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies the MAS instance and is used to generate the DocumentDB username and Kubernetes secret name.</p>
+<p><strong>When to use</strong>: Always required. Must match the MAS instance that will use this DocumentDB.</p>
+<p><strong>Valid values</strong>: Valid MAS instance ID (typically 3-12 lowercase alphanumeric characters).</p>
+<p><strong>Impact</strong>: Used to create username format <code>&lt;instance-id&gt;-docdb-user</code> and secret name <code>docdb-&lt;instance-id&gt;-instance-credentials</code>.</p>
+<p><strong>Related variables</strong>: <code>mas_config_dir</code></p>
+<p><strong>Notes</strong>:
+- Username will be <code>&lt;mas_instance_id&gt;-docdb-user</code>
+- Secret name will be <code>docdb-&lt;mas_instance_id&gt;-instance-credentials</code>
+- Must match the instance ID used during MAS installation</p>
 <h3 id="docdb_host">docdb_host<a class="headerlink" href="#docdb_host" title="Permanent link">¤</a></h3>
-<p>AWS DocumentDB Instance Host Address, Required if docdb_hosts is not set</p>
+<p>AWS DocumentDB cluster endpoint hostname.</p>
 <ul>
+<li><strong>Required</strong> if <code>docdb_hosts</code> is not set</li>
 <li>Environment Variable: <code>DOCDB_HOST</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the DocumentDB cluster endpoint for single-host connection configuration.</p>
+<p><strong>When to use</strong>: Use for simple single-endpoint connections. For replica sets with multiple endpoints, use <code>docdb_hosts</code> instead.</p>
+<p><strong>Valid values</strong>: Valid DocumentDB cluster endpoint hostname (e.g., <code>docdb-cluster.abc123.us-east-1.docdb.amazonaws.com</code>).</p>
+<p><strong>Impact</strong>: Combined with <code>docdb_port</code> to form the connection string. If <code>docdb_hosts</code> is also set, <code>docdb_hosts</code> takes precedence.</p>
+<p><strong>Related variables</strong>: <code>docdb_port</code>, <code>docdb_hosts</code></p>
+<p><strong>Notes</strong>:
+- Use cluster endpoint for automatic failover
+- Instance endpoints can also be used but don't provide automatic failover
+- <code>docdb_hosts</code> takes precedence if both are set
+- Obtain from AWS DocumentDB console or CLI</p>
 <h3 id="docdb_port">docdb_port<a class="headerlink" href="#docdb_port" title="Permanent link">¤</a></h3>
-<p>AWS DocumentDB Port Address, Required if docdb_hosts is not set</p>
+<p>AWS DocumentDB connection port.</p>
 <ul>
+<li><strong>Required</strong> if <code>docdb_hosts</code> is not set</li>
 <li>Environment Variable: <code>DOCDB_PORT</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the port number for DocumentDB connections.</p>
+<p><strong>When to use</strong>: Required when using <code>docdb_host</code>. Not needed if using <code>docdb_hosts</code> (port included in hosts string).</p>
+<p><strong>Valid values</strong>: Valid port number, typically <code>27017</code> (default MongoDB port).</p>
+<p><strong>Impact</strong>: Combined with <code>docdb_host</code> to form the connection string.</p>
+<p><strong>Related variables</strong>: <code>docdb_host</code>, <code>docdb_hosts</code></p>
+<p><strong>Notes</strong>:
+- Default DocumentDB port is <code>27017</code>
+- Must match the port configured in DocumentDB cluster
+- Not used if <code>docdb_hosts</code> is set</p>
 <h3 id="docdb_hosts">docdb_hosts<a class="headerlink" href="#docdb_hosts" title="Permanent link">¤</a></h3>
-<p>AWS DocumentDB Instance Host Address &amp; Port Address, Required if both docdb_host &amp; docdb_port are not set.
-docdb_hosts takes precedence if both docdb_hosts and (docdb_host &amp; docdb_port) are set</p>
+<p>AWS DocumentDB connection string with multiple hosts and ports.</p>
 <ul>
+<li><strong>Required</strong> if both <code>docdb_host</code> and <code>docdb_port</code> are not set</li>
 <li>Environment Variable: <code>DOCDB_HOSTS</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides a complete connection string with multiple DocumentDB endpoints for replica set configurations.</p>
+<p><strong>When to use</strong>: Use for replica set deployments with multiple endpoints. Takes precedence over <code>docdb_host</code> and <code>docdb_port</code> if all are set.</p>
+<p><strong>Valid values</strong>: Comma-separated list of <code>host:port</code> pairs (e.g., <code>docdb-1.abc.us-east-1.docdb.amazonaws.com:27017,docdb-2.abc.us-east-1.docdb.amazonaws.com:27017,docdb-3.abc.us-east-1.docdb.amazonaws.com:27017</code>).</p>
+<p><strong>Impact</strong>: Enables connection to multiple DocumentDB instances for high availability and automatic failover.</p>
+<p><strong>Related variables</strong>: <code>docdb_host</code>, <code>docdb_port</code></p>
+<p><strong>Notes</strong>:
+- <strong>Recommended</strong> for production deployments
+- Takes precedence over <code>docdb_host</code> and <code>docdb_port</code>
+- Include all replica set members for best availability
+- Format: <code>host1:port1,host2:port2,host3:port3</code>
+- Obtain from AWS DocumentDB cluster details</p>
 <h3 id="docdb_master_username">docdb_master_username<a class="headerlink" href="#docdb_master_username" title="Permanent link">¤</a></h3>
-<p>Required. AWS DocumentDB Master Username</p>
+<p>AWS DocumentDB master username for administrative access.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>DOCDB_MASTER_USERNAME</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the master user credentials to create the MAS-specific database user.</p>
+<p><strong>When to use</strong>: Always required. Must be the master username configured during DocumentDB cluster creation.</p>
+<p><strong>Valid values</strong>: Valid DocumentDB master username.</p>
+<p><strong>Impact</strong>: Used to authenticate to DocumentDB and create the new MAS user. Must have permissions to create users and grant roles.</p>
+<p><strong>Related variables</strong>: <code>docdb_master_password</code></p>
+<p><strong>Notes</strong>:
+- This is the master user created with the DocumentDB cluster
+- Credentials are only used during user creation, not stored permanently
+- Ensure master user has <code>userAdmin</code> or equivalent permissions
+- Obtain from AWS Secrets Manager or secure credential store</p>
 <h3 id="docdb_master_password">docdb_master_password<a class="headerlink" href="#docdb_master_password" title="Permanent link">¤</a></h3>
-<p>Required. AWS DocumentDB Master Password</p>
+<p>AWS DocumentDB master password for administrative access.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>DOCDB_MASTER_PASSWORD</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the master user password to authenticate and create the MAS-specific database user.</p>
+<p><strong>When to use</strong>: Always required. Must be the master password configured during DocumentDB cluster creation.</p>
+<p><strong>Valid values</strong>: Valid DocumentDB master password string.</p>
+<p><strong>Impact</strong>: Used to authenticate to DocumentDB and create the new MAS user.</p>
+<p><strong>Related variables</strong>: <code>docdb_master_username</code></p>
+<p><strong>Notes</strong>:
+- Store securely and never commit to version control
+- Credentials are only used during user creation
+- Consider using AWS Secrets Manager for credential management
+- Rotate master password regularly per security best practices</p>
+<h3 id="docdb_instance_password">docdb_instance_password<a class="headerlink" href="#docdb_instance_password" title="Permanent link">¤</a></h3>
+<p>Password for the MAS-specific DocumentDB user being created.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>DOCDB_INSTANCE_PASSWORD</code></li>
+<li>Default: Auto-generated if not provided</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the password for the new MAS DocumentDB user. If not provided, a secure password is automatically generated.</p>
+<p><strong>When to use</strong>: Provide if you need a specific password. Otherwise, let the role generate a secure random password.</p>
+<p><strong>Valid values</strong>: Strong password string meeting DocumentDB password requirements.</p>
+<p><strong>Impact</strong>: This password will be stored in the Kubernetes secret and used by MAS to connect to DocumentDB.</p>
+<p><strong>Related variables</strong>: <code>mas_instance_id</code>, <code>mas_config_dir</code></p>
+<p><strong>Notes</strong>:
+- Auto-generation is recommended for security
+- If provided, ensure it meets complexity requirements
+- Password is stored in Kubernetes secret <code>docdb-&lt;instance-id&gt;-instance-credentials</code>
+- Keep password secure and rotate regularly</p>
+<h3 id="user_action">user_action<a class="headerlink" href="#user_action" title="Permanent link">¤</a></h3>
+<p>Action to perform on the DocumentDB user.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>USER_ACTION</code></li>
+<li>Default: <code>add</code></li>
+</ul>
+<p><strong>Purpose</strong>: Controls whether to create or remove the DocumentDB user.</p>
+<p><strong>When to use</strong>: Set to <code>add</code> to create user (default), or <code>remove</code> to delete the user.</p>
+<p><strong>Valid values</strong>:
+- <code>add</code> - Create the DocumentDB user (default)
+- <code>remove</code> - Delete the DocumentDB user</p>
+<p><strong>Impact</strong>: Determines whether the role creates or removes the user from DocumentDB.</p>
+<p><strong>Related variables</strong>: <code>mas_instance_id</code></p>
+<p><strong>Notes</strong>:
+- Default <code>add</code> is for normal user creation
+- Use <code>remove</code> when decommissioning a MAS instance
+- Removing user does not delete the Kubernetes secret
+- Verify user removal: <code>mongosh</code> to DocumentDB and check users</p>
+<h3 id="mas_config_dir">mas_config_dir<a class="headerlink" href="#mas_config_dir" title="Permanent link">¤</a></h3>
+<p>Local directory where the generated Kubernetes secret YAML will be saved.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MAS_CONFIG_DIR</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the output directory for the generated Kubernetes secret containing DocumentDB credentials.</p>
+<p><strong>When to use</strong>: Set when you want to save the generated secret YAML for later application or documentation.</p>
+<p><strong>Valid values</strong>: Valid directory path where the Ansible controller has write permissions.</p>
+<p><strong>Impact</strong>: If set, a YAML file with the DocumentDB credentials secret will be created in this directory.</p>
+<p><strong>Related variables</strong>: <code>mas_instance_id</code></p>
+<p><strong>Notes</strong>:
+- Secret filename: <code>docdb-&lt;instance-id&gt;-instance-credentials.yaml</code>
+- Can be applied with: <code>oc apply -f &lt;file&gt;</code>
+- Keep generated files secure as they contain credentials
+- Useful for GitOps workflows or manual secret management</p>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
@@ -831,18 +959,8 @@ docdb_hosts takes precedence if both docdb_hosts and (docdb_host &amp; docdb_por
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
               <li class="md-toc__item">
-                <a href="#aws_documentdb_user" class="md-toc__link" data-md-level="1">
-                  aws_documentdb_user
-                </a>
-              </li>
-              <li class="md-toc__item">
-                <a href="#prerequisites" class="md-toc__link" data-md-level="1">
-                  Prerequisites
-                </a>
-              </li>
-              <li class="md-toc__item">
                 <a href="#role-variables" class="md-toc__link" data-md-level="1">
-                  Role variables
+                  Role Variables
                 </a>
                   <ul class="md-toc__list">
                       <li class="md-toc__item">
@@ -873,6 +991,21 @@ docdb_hosts takes precedence if both docdb_hosts and (docdb_host &amp; docdb_por
                       <li class="md-toc__item">
                         <a href="#docdb_master_password" class="md-toc__link" data-md-level="2">
                           docdb_master_password
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#docdb_instance_password" class="md-toc__link" data-md-level="2">
+                          docdb_instance_password
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#user_action" class="md-toc__link" data-md-level="2">
+                          user_action
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#mas_config_dir" class="md-toc__link" data-md-level="2">
+                          mas_config_dir
                         </a>
                       </li>
                   </ul>

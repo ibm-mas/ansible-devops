@@ -722,6 +722,8 @@
     <cds-select id="breadcrumbs-toc" inline placeholder="..." oninput="changeAnchor(this.value)">
     
     
+      <cds-select-item value="#what-this-role-does">What This Role Does</cds-select-item>
+    
       <cds-select-item value="#role-variables">Role Variables</cds-select-item>
     
       <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
@@ -737,32 +739,83 @@
           <div class="rst-content">
             
             <h1 id="suite_manage_load_dbc_scripts">suite_manage_load_dbc_scripts<a class="headerlink" href="#suite_manage_load_dbc_scripts" title="Permanent link">¤</a></h1>
-<p>This role allows to load and execute one or more ad-hoc DBC script files into Manage/Health server. Only <code>dbc</code> format files will be accepted.</p>
-<p>The role will assert if each script executed successfully and fail in case of errors while locating the DBC scripts or executing them against the Manage/Health server.</p>
+<p>This role loads and executes ad-hoc DBC (Database Configuration) script files into Maximo Manage or Health server. DBC scripts are used to customize Manage/Health database configurations, add custom fields, modify system properties, or perform database maintenance tasks.</p>
+<div class="admonition important">
+<p class="admonition-title">Script Requirements</p>
+<ul>
+<li>Only <code>.dbc</code> format files are accepted</li>
+<li>Scripts must be valid Maximo DBC syntax</li>
+<li>Role validates successful execution and fails on errors</li>
+</ul>
+</div>
+<h2 id="what-this-role-does">What This Role Does<a class="headerlink" href="#what-this-role-does" title="Permanent link">¤</a></h2>
+<ul>
+<li>Locates DBC script files from specified local directory</li>
+<li>Copies scripts to Manage/Health server pods</li>
+<li>Executes scripts using Maximo's DBC processor</li>
+<li>Validates each script execution for errors</li>
+<li>Fails if any script encounters errors</li>
+</ul>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
-<h3 id="mas-configuration">MAS Configuration<a class="headerlink" href="#mas-configuration" title="Permanent link">¤</a></h3>
-<h4 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h4>
-<p>Defines the instance id that was used for the MAS installation. It is used to lookup the Manage/Health namespace.</p>
+<h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
+<p>MAS instance identifier.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
-<h4 id="mas_app_id">mas_app_id<a class="headerlink" href="#mas_app_id" title="Permanent link">¤</a></h4>
-<p>The MAS application ID. Must be either <code>health</code> or <code>manage</code>.</p>
+<p><strong>Purpose</strong>: Identifies which MAS instance contains the Manage or Health application where DBC scripts will be executed.</p>
+<p><strong>When to use</strong>:
+- Always required for DBC script execution
+- Must match the instance ID from MAS installation
+- Used to construct namespace for script execution</p>
+<p><strong>Valid values</strong>: Lowercase alphanumeric string, 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>masinst1</code>)</p>
+<p><strong>Impact</strong>: Determines which MAS instance's Manage/Health application receives the DBC scripts. Namespace format: <code>mas-{instance_id}-{app_id}</code>.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_app_id</code>: Application within this instance (manage or health)
+- <code>dbc_script_path_local</code>: Location of scripts to execute</p>
+<p><strong>Note</strong>: This must match the instance ID used during Manage/Health installation.</p>
+<h3 id="mas_app_id">mas_app_id<a class="headerlink" href="#mas_app_id" title="Permanent link">¤</a></h3>
+<p>MAS application identifier.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_APP_ID</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
-<h3 id="script-configuration">Script Configuration<a class="headerlink" href="#script-configuration" title="Permanent link">¤</a></h3>
-<h4 id="dbc_script_path_local">dbc_script_path_local<a class="headerlink" href="#dbc_script_path_local" title="Permanent link">¤</a></h4>
-<p>Defines the local path/folder where the DBC script files should be located in order to be loaded onto the Manage/Health server.</p>
+<p><strong>Purpose</strong>: Specifies which MAS application (Manage or Health) will execute the DBC scripts.</p>
+<p><strong>When to use</strong>:
+- Always required for DBC script execution
+- Must match the deployed application
+- Determines target namespace and server</p>
+<p><strong>Valid values</strong>: <code>manage</code>, <code>health</code></p>
+<p><strong>Impact</strong>: Determines which application server executes the DBC scripts. Different applications have different database schemas and configurations.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_instance_id</code>: Instance containing this application
+- <code>dbc_script_path_local</code>: Scripts to execute on this application</p>
+<p><strong>Note</strong>: DBC scripts are application-specific. Scripts written for Manage may not work in Health and vice versa. Ensure scripts are compatible with the target application.</p>
+<h3 id="dbc_script_path_local">dbc_script_path_local<a class="headerlink" href="#dbc_script_path_local" title="Permanent link">¤</a></h3>
+<p>Local directory path for DBC script files.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DBC_SCRIPT_PATH_LOCAL</code></li>
-<li>Default Value: <code>suite_manage_load_dbc_scripts/files</code></li>
+<li>Default: <code>suite_manage_load_dbc_scripts/files</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the local filesystem directory containing DBC script files to be loaded and executed on the Manage/Health server.</p>
+<p><strong>When to use</strong>:
+- Use default for scripts in role's files directory
+- Override to specify custom script location
+- Directory must contain <code>.dbc</code> files</p>
+<p><strong>Valid values</strong>: Valid local filesystem path (e.g., <code>/path/to/dbc/scripts</code>, <code>~/manage-scripts</code>)</p>
+<p><strong>Impact</strong>: The role scans this directory for <code>.dbc</code> files, copies them to the server, and executes them in alphabetical order.</p>
+<p><strong>Related variables</strong>:
+- <code>mas_instance_id</code>: Instance where scripts execute
+- <code>mas_app_id</code>: Application executing the scripts</p>
+<p><strong>Note</strong>:
+- All <code>.dbc</code> files in the directory will be executed
+- Scripts execute in alphabetical order by filename
+- Use filename prefixes (e.g., <code>01-</code>, <code>02-</code>) to control execution order
+- Ensure scripts are idempotent if role may be run multiple times
+- Test scripts in non-production environment first</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
@@ -817,18 +870,28 @@
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
               <li class="md-toc__item">
+                <a href="#what-this-role-does" class="md-toc__link" data-md-level="1">
+                  What This Role Does
+                </a>
+              </li>
+              <li class="md-toc__item">
                 <a href="#role-variables" class="md-toc__link" data-md-level="1">
                   Role Variables
                 </a>
                   <ul class="md-toc__list">
                       <li class="md-toc__item">
-                        <a href="#mas-configuration" class="md-toc__link" data-md-level="2">
-                          MAS Configuration
+                        <a href="#mas_instance_id" class="md-toc__link" data-md-level="2">
+                          mas_instance_id
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#script-configuration" class="md-toc__link" data-md-level="2">
-                          Script Configuration
+                        <a href="#mas_app_id" class="md-toc__link" data-md-level="2">
+                          mas_app_id
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#dbc_script_path_local" class="md-toc__link" data-md-level="2">
+                          dbc_script_path_local
                         </a>
                       </li>
                   </ul>
