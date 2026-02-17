@@ -1,8 +1,22 @@
 ---
 # Detect which Db2 CR type exists in the namespace
 # This task supports both Db2uCluster (deprecated) and Db2uInstance (current)
+#
+# Usage:
+# - name: "Detect Db2 CR type"
+#   include_tasks: "{{ role_path }}/../../common_tasks/detect_db2_cr_type.yml"
+#
+# Required variables:
+#   - db2_instance_name: Name of the Db2 instance
+#   - db2_namespace: Namespace where Db2 is deployed
+#
+# Sets the following facts:
+#   - db2_cr_type: Either 'Db2uCluster' or 'Db2uInstance'
+#   - db2_cr_exists: Boolean indicating if a CR was found
+#   - db2_cr_resource: The full CR resource object
+#   - db2_cr_api_version: API version (db2u.databases.ibm.com/v1)
 
-- name: "Lookup Db2uCluster instance"
+- name: "detect-db2-cr-type : Lookup Db2uCluster instance"
   kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     kind: Db2uCluster
@@ -11,7 +25,7 @@
   register: _db2_cluster_lookup
   failed_when: false
 
-- name: "Lookup Db2uInstance instance"
+- name: "detect-db2-cr-type : Lookup Db2uInstance instance"
   kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     kind: Db2uInstance
@@ -20,7 +34,7 @@
   register: _db2_instance_lookup
   failed_when: false
 
-- name: "Determine CR type and validate"
+- name: "detect-db2-cr-type : Determine CR type and validate"
   set_fact:
     db2_cr_type: >-
       {%- if _db2_cluster_lookup.resources | default([]) | length > 0 and _db2_instance_lookup.resources | default([]) | length > 0 -%}
@@ -36,7 +50,7 @@
       {{ (_db2_cluster_lookup.resources | default([]) | length > 0) or
          (_db2_instance_lookup.resources | default([]) | length > 0) }}
 
-- name: "Fail if both CR types exist"
+- name: "detect-db2-cr-type : Fail if both CR types exist"
   fail:
     msg: |
       ERROR: Both Db2uCluster and Db2uInstance resources exist for '{{ db2_instance_name }}'.
@@ -52,7 +66,7 @@
          oc delete db2uinstance {{ db2_instance_name | lower }} -n {{ db2_namespace }}
   when: db2_cr_type == "both"
 
-- name: "Fail if no CR exists"
+- name: "detect-db2-cr-type : Fail if no CR exists"
   fail:
     msg: |
       ERROR: No Db2 instance found with name '{{ db2_instance_name }}' in namespace '{{ db2_namespace }}'.
@@ -64,14 +78,14 @@
       3. Ensure the Db2 instance has been created before running this role
   when: db2_cr_type == "none"
 
-- name: "Set CR-specific facts"
+- name: "detect-db2-cr-type : Set CR-specific facts"
   set_fact:
     db2_cr_resource: >-
       {{ _db2_cluster_lookup.resources[0] if db2_cr_type == 'Db2uCluster' 
          else _db2_instance_lookup.resources[0] }}
     db2_cr_api_version: "db2u.databases.ibm.com/v1"
 
-- name: "Display detected CR type"
+- name: "detect-db2-cr-type : Display detected CR type"
   debug:
     msg:
       - "Detected Db2 CR Type .................. {{ db2_cr_type }}"

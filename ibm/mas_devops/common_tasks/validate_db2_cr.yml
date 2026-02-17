@@ -1,7 +1,22 @@
 ---
 # Validate CR detection results and ensure CR is in proper state
+#
+# Usage:
+# - name: "Validate Db2 CR"
+#   include_tasks: "{{ role_path }}/../../common_tasks/validate_db2_cr.yml"
+#
+# Required variables:
+#   - db2_cr_type: The detected CR type
+#   - db2_cr_exists: Boolean indicating if CR was found
+#   - db2_cr_resource: The CR resource object
+#   - db2_instance_name: Name of the Db2 instance
+#   - db2_namespace: Namespace where Db2 is deployed
+#   - db2_config_version: Configuration version to apply
+#
+# Sets the following facts:
+#   - db2_cr_is_ready: Boolean indicating if CR is in Ready state
 
-- name: "Validate CR detection results"
+- name: "validate-db2-cr : Validate CR detection results"
   assert:
     that:
       - db2_cr_type is defined
@@ -20,7 +35,7 @@
       - db2_namespace: {{ db2_namespace }}
     success_msg: "CR validation successful: {{ db2_cr_type }} detected"
 
-- name: "Validate CR has status information"
+- name: "validate-db2-cr : Validate CR has status information"
   assert:
     that:
       - db2_cr_resource.status is defined
@@ -35,17 +50,17 @@
       oc logs -n {{ db2_namespace }} -l name=db2u-operator --tail=50
     success_msg: "CR has valid status information"
 
-- name: "Check if CR is in Ready state"
+- name: "validate-db2-cr : Check if CR is in Ready state"
   set_fact:
     db2_cr_is_ready: "{{ db2_cr_resource.status.state == 'Ready' }}"
 
-- name: "Display CR status"
+- name: "validate-db2-cr : Display CR status"
   debug:
     msg:
       - "CR Status ................................ {{ db2_cr_resource.status.state }}"
       - "CR Ready ................................. {{ db2_cr_is_ready }}"
 
-- name: "Validate CR is in Ready state"
+- name: "validate-db2-cr : Validate CR is in Ready state"
   assert:
     that:
       - db2_cr_is_ready | bool
@@ -64,7 +79,7 @@
       - Failed: Instance creation failed, check operator logs
     success_msg: "Db2 instance is Ready"
 
-- name: "Validate required configuration version"
+- name: "validate-db2-cr : Validate required configuration version"
   assert:
     that:
       - db2_config_version is defined

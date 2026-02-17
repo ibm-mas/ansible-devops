@@ -1,11 +1,21 @@
 ---
 # Transform DB2 configuration for the detected CR type
 # Handles differences between Db2uCluster and Db2uInstance structures
+#
+# Usage:
+# - name: "Transform Db2 configuration"
+#   include_tasks: "{{ role_path }}/../../common_tasks/transform_db2_config.yml"
+#
+# Required variables:
+#   - db2_cr_type: The detected CR type ('Db2uCluster' or 'Db2uInstance')
+#   - db2_config_version: Version of the configuration to apply
+#   - db2_configs: Dictionary containing configurations for each version and CR type
+#
+# Sets the following facts:
+#   - db2_config_raw: Raw configuration string from vars
+#   - db2_config_transformed: Parsed YAML configuration ready to apply
 
-- name: "Load base configuration"
-  include_vars: vars/main.yml
-
-- name: "Check if configuration version exists"
+- name: "transform-db2-config : Check if configuration version exists"
   assert:
     that:
       - db2_configs is defined
@@ -15,11 +25,11 @@
       Available versions: {{ db2_configs.keys() | list }}
     success_msg: "Configuration version {{ db2_config_version }} found"
 
-- name: "Get configuration for CR type"
+- name: "transform-db2-config : Get configuration for CR type"
   set_fact:
     db2_config_raw: "{{ db2_configs[db2_config_version][db2_cr_type] }}"
 
-- name: "Debug raw configuration"
+- name: "transform-db2-config : Debug raw configuration"
   debug:
     msg:
       - "CR Type: {{ db2_cr_type }}"
@@ -28,11 +38,11 @@
       - "{{ db2_config_raw }}"
   when: ansible_verbosity >= 2
 
-- name: "Parse configuration as YAML"
+- name: "transform-db2-config : Parse configuration as YAML"
   set_fact:
     db2_config_transformed: "{{ db2_config_raw | from_yaml }}"
 
-- name: "Validate transformed configuration structure"
+- name: "transform-db2-config : Validate transformed configuration structure"
   assert:
     that:
       - db2_config_transformed is defined
@@ -44,7 +54,7 @@
       {{ db2_config_transformed | to_nice_yaml }}
     success_msg: "Configuration structure is valid"
 
-- name: "Validate database configuration exists"
+- name: "transform-db2-config : Validate database configuration exists"
   assert:
     that:
       - (db2_cr_type == 'Db2uCluster' and db2_config_transformed.environment.database is defined) or
@@ -55,7 +65,7 @@
       Got: {{ db2_config_transformed.environment.keys() | list }}
     success_msg: "Database configuration is present"
 
-- name: "Display transformed configuration summary"
+- name: "transform-db2-config : Display transformed configuration summary"
   debug:
     msg:
       - "Configuration transformed successfully for {{ db2_cr_type }}"
