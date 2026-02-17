@@ -13,7 +13,7 @@ cat $GITHUB_WORKSPACE/ibm/mas_devops/galaxy.yml
 
 
 # Update this when we have new catalog
-MAS_PREVIOUS_CATALOG='v9-260129-amd64'
+MAS_PREVIOUS_CATALOG='v9-260216-amd64'
 MAS_LATEST_CATALOG='v9-260226-amd64'
 
 
