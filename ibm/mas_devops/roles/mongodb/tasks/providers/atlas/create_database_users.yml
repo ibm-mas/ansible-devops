@@ -1,0 +1,163 @@
+---
+# MongoDB Atlas Provider - Create Multiple Database Users
+# This task creates multiple database users with auto-generated passwords
+
+# 1. Determine which approach to use (legacy single-user or new multi-user)
+# -----------------------------------------------------------------------------
+- name: "Determine user creation approach"
+  set_fact:
+    use_multi_user_approach: "{{ atlas_database_users is defined and atlas_database_users | length > 0 }}"
+    use_legacy_approach: "{{ (atlas_db_username is defined and atlas_db_username != '') and (atlas_database_users is not defined or atlas_database_users | length == 0) }}"
+
+- name: "Display user creation approach"
+  debug:
+    msg:
+      - "Multi-user approach: {{ use_multi_user_approach }}"
+      - "Legacy single-user approach: {{ use_legacy_approach }}"
+      - "Number of users to create: {{ atlas_database_users | length if use_multi_user_approach else (1 if use_legacy_approach else 0) }}"
+
+# 2. Generate passwords for all users (multi-user approach)
+# -----------------------------------------------------------------------------
+- name: "Generate random passwords for database users"
+  when: use_multi_user_approach
+  block:
+    - name: "Generate password for each user"
+      shell: |
+        python3 -c "import random, string; chars = string.ascii_letters + string.digits; print(''.join(random.choice(chars) for _ in range({{ atlas_password_length }})))"
+      register: generated_password
+      loop: "{{ atlas_database_users | dict2items }}"
+      loop_control:
+        loop_var: user_item
+      no_log: true
+
+    - name: "Build user credentials dictionary"
+      set_fact:
+        atlas_user_credentials: "{{ atlas_user_credentials | default({}) | combine({item.user_item.key: {'username': item.user_item.value.username, 'password': item.stdout, 'auth_database_name': item.user_item.value.auth_database_name, 'roles': item.user_item.value.roles}}) }}"
+      loop: "{{ generated_password.results }}"
+      no_log: true
+
+    - name: "Display users to be created"
+      debug:
+        msg: "Will create {{ atlas_user_credentials | length }} database users"
+
+# 3. Create database users (multi-user approach)
+# -----------------------------------------------------------------------------
+- name: "Create multiple database users"
+  when: use_multi_user_approach
+  block:
+    - name: "Check if user exists"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers/{{ item.value.auth_database_name }}/{{ item.value.username }}"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: [200, 404]
+        timeout: 60
+      register: atlas_multi_user_check
+      loop: "{{ atlas_user_credentials | dict2items }}"
+      loop_control:
+        label: "{{ item.value.username }}"
+
+    - name: "Create users that don't exist"
+      shell: |
+        curl --request POST \
+          --digest \
+          --user "{{ atlas_public_key }}:{{ atlas_private_key }}" \
+          --header "Content-Type: application/json" \
+          --data '{
+            "databaseName": "{{ item.item.value.auth_database_name }}",
+            "username": "{{ item.item.value.username }}",
+            "password": "{{ item.item.value.password }}",
+            "roles": {{ item.item.value.roles | to_json }},
+            "scopes": [{
+              "name": "{{ atlas_cluster_name }}",
+              "type": "CLUSTER"
+            }]
+          }' \
+          --write-out "\n%{http_code}" \
+          --silent \
+          "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers"
+      loop: "{{ atlas_multi_user_check.results }}"
+      when: item.status == 404
+      register: atlas_multi_user_create
+      no_log: true
+      loop_control:
+        label: "{{ item.item.value.username }}"
+
+    - name: "Display user creation results"
+      debug:
+        msg:
+          - "User: {{ item.item.item.value.username }}"
+          - "Status: {{ 'Created' if item.changed else 'Already exists' }}"
+      loop: "{{ atlas_multi_user_create.results }}"
+      when: atlas_multi_user_create.results is defined
+      loop_control:
+        label: "{{ item.item.item.value.username }}"
+
+# 4. Create single database user (legacy approach)
+# -----------------------------------------------------------------------------
+- name: "Create single database user (legacy)"
+  when: use_legacy_approach
+  block:
+    - name: "Check if database user exists"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers/admin/{{ atlas_db_username }}"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: [200, 404]
+        timeout: 60
+      register: atlas_legacy_user_check
+
+    - name: "Create user if it doesn't exist"
+      when: atlas_legacy_user_check.status == 404
+      shell: |
+        curl --request POST \
+          --digest \
+          --user "{{ atlas_public_key }}:{{ atlas_private_key }}" \
+          --header "Content-Type: application/json" \
+          --data '{
+            "databaseName": "admin",
+            "username": "{{ atlas_db_username }}",
+            "password": "{{ atlas_db_password }}",
+            "roles": [
+              {
+                "databaseName": "admin",
+                "roleName": "atlasAdmin"
+              }
+            ]
+          }' \
+          --write-out "\n%{http_code}" \
+          --silent \
+          "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers"
+      register: atlas_legacy_user_create
+      no_log: true
+
+    - name: "Set legacy user credentials"
+      set_fact:
+        atlas_user_credentials:
+          legacy_user:
+            username: "{{ atlas_db_username }}"
+            password: "{{ atlas_db_password }}"
+            auth_database_name: "admin"
+      no_log: true
+
+    - name: "Database user created (legacy)"
+      debug:
+        msg: "Database user '{{ atlas_db_username }}' {{ 'created' if atlas_legacy_user_check.status == 404 else 'already exists' }}"
+
+# 5. Summary
+# -----------------------------------------------------------------------------
+- name: "Database users creation summary"
+  debug:
+    msg:
+      - "=========================================="
+      - "Database Users Created/Verified"
+      - "=========================================="
+      - "Approach: {{ 'Multi-user' if use_multi_user_approach else 'Legacy single-user' }}"
+      - "Total users: {{ atlas_user_credentials | length }}"
+      - "=========================================="
+
+# Made with Bob
