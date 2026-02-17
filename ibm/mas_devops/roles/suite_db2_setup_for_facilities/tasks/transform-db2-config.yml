@@ -1,0 +1,30 @@
+---
+# Transform DB2 configuration for the detected CR type
+
+- name: "Load base configuration for version {{ db2_config_version }}"
+  set_fact:
+    db2_base_config: "{{ db2_configs[db2_config_version] }}"
+
+- name: "Transform configuration for {{ db2_cr_type }}"
+  set_fact:
+    db2_config_transformed: >-
+      {{ db2_configs[db2_config_version][db2_cr_type] if db2_cr_type in db2_configs[db2_config_version] 
+         else db2_configs[db2_config_version] }}
+
+- name: "Validate transformed configuration"
+  assert:
+    that:
+      - db2_config_transformed is defined
+      - db2_config_transformed | length > 0
+    fail_msg: "Configuration transformation failed for {{ db2_cr_type }}"
+    success_msg: "Configuration successfully transformed for {{ db2_cr_type }}"
+
+- name: "Debug transformed configuration"
+  debug:
+    msg:
+      - "CR Type: {{ db2_cr_type }}"
+      - "Config Version: {{ db2_config_version }}"
+      - "Transformed Config Length: {{ db2_config_transformed | length }}"
+  when: ansible_verbosity >= 1
+
+# Made with Bob

@@ -1,4 +1,13 @@
 ---
+# Step 1: Detect CR type
+- name: "Detect Db2 CR type"
+  include_tasks: tasks/detect-db2-cr-type.yml
+
+# Step 2: Validate detection results
+- name: "Validate CR detection"
+  include_tasks: tasks/validate-db2-cr.yml
+
+# Step 3: Lookup and wait for Db2 Pod (already done in main.yml, but verify)
 - name: "Lookup db2 Pod"
   kubernetes.core.k8s_info:
     kind: Pod
@@ -8,7 +17,7 @@
       - app={{ db2_instance_name }}
     wait: yes
     wait_sleep: 30
-    wait_timeout: 300 # 5 mins until we give up waiting for the pod to get into the expected state
+    wait_timeout: 300
     wait_condition:
       type: Ready
       status: "True"
@@ -18,42 +27,48 @@
   set_fact:
     db2_pod_name: "{{ db2_pod.resources[0].metadata.name }}"
 
-- name: "Debug information - part 2"
+- name: "Debug information"
   debug:
     msg:
       - "Pod name ............................... {{ db2_pod_name }}"
+      - "CR Type ................................ {{ db2_cr_type }}"
+      - "DB2 Schema ............................. {{ db2_schema }}"
+      - "DB2 Username ........................... {{ db2_username }}"
 
-- name: Lookup db2ucluster instance
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Db2uCluster
-    name: "{{db2_instance_name | lower}}"
-    namespace: "{{db2_namespace}}"
-  register: _db2_instance_engn_svc
-  until:
-    - _db2_instance_engn_svc.resources[0] is defined
-  retries: 30 # approx 5 minutes before we give up
-  delay: 20 # seconds
+# Step 4: Load and transform configuration
+- name: "Load configuration variables"
+  include_vars: vars/main.yml
 
-- name: Update DB2 configmaps
+- name: "Transform configuration for CR type"
+  include_tasks: tasks/transform-db2-config.yml
+
+# Step 5: Update CR with configuration
+- name: "Update {{ db2_cr_type }} configuration"
   kubernetes.core.k8s:
     merge_type: merge
     definition:
-      apiVersion: v1
-      kind: Db2uCluster
+      apiVersion: "{{ db2_cr_api_version }}"
+      kind: "{{ db2_cr_type }}"
       metadata:
-        name: "{{db2_instance_name | lower}}"
+        name: "{{ db2_instance_name | lower }}"
         namespace: "{{ db2_namespace }}"
-      spec: "{{ spec | from_yaml }}"
-  vars:
-    spec: |
-      {{db2_configs[db2_config_version]}}
+      spec: "{{ db2_config_transformed | from_yaml }}"
+  register: _config_update_result
 
-- name: Set db2_instance_uid variable required to set ownershipreference in the -enforce-config configmap
+- name: "Debug configuration update result"
+  debug:
+    msg:
+      - "Configuration update status: {{ _config_update_result.changed }}"
+      - "CR Type: {{ db2_cr_type }}"
+  when: ansible_verbosity >= 1
+
+# Step 6: Set db2_instance_uid for ConfigMap ownership reference
+- name: "Set db2_instance_uid variable"
   set_fact:
-    db2_instance_uid: "{{ _db2_instance_engn_svc.resources[0].metadata.uid }}"
+    db2_instance_uid: "{{ db2_cr_resource.metadata.uid }}"
 
-- name: Create k8s configmaps for DB2 config version
+# Step 7: Create ConfigMap to track version
+- name: Create k8s configmap for DB2 config version
   kubernetes.core.k8s:
     state: present
     namespace: "{{ db2_namespace }}"
