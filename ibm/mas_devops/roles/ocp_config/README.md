@@ -7,6 +7,30 @@ Key capabilities:
 - **Ingress timeout tuning**: Prevent request failures for long-running operations
 - **FIPS-compatible TLS ciphers**: Enable IBM Java Semeru runtime in FIPS mode
 - **Catalog source management**: Disable default Red Hat catalogs for air-gapped environments
+- **Path-based routing**: Configure namespace ownership for multi-namespace route support
+
+This role configures:
+- Tune the `IngressController` to avoid request failures due to timeout for long running requests
+- Configure the `IngressController` namespace ownership for path-based routing support
+- Update `APIServer` and `IngressController` to set a custom `tlsSecurityProfile` to accommodate ciphers supported by IBM Java Semeru runtime. This is required for allowing the Java applications using Semeru runtime to run in FIPS mode. The following ciphers will be enabled:
+    - `TLS_AES_128_GCM_SHA256`
+    - `TLS_AES_256_GCM_SHA384`
+    - `TLS_CHACHA20_POLY1305_SHA256`
+    - `ECDHE-ECDSA-AES128-GCM-SHA256`
+    - `ECDHE-RSA-AES128-GCM-SHA256`
+    - `ECDHE-ECDSA-AES256-GCM-SHA384`
+    - `ECDHE-RSA-AES256-GCM-SHA384`
+    - `ECDHE-ECDSA-CHACHA20-POLY1305`
+    - `ECDHE-RSA-CHACHA20-POLY1305`
+    - `DHE-RSA-AES128-GCM-SHA256`
+    - `DHE-RSA-AES256-GCM-SHA384`
+    - `ECDHE-RSA-AES128-SHA256`
+    - `ECDHE-RSA-AES128-SHA`
+    - `ECDHE-RSA-AES256-SHA`
+- Disable the default Red Hat `CatalogSources`:
+    - `certified-operators`
+    - `community-operators`
+    - `redhat-operators`
 
 
 Role Variables - API Server
@@ -42,6 +66,31 @@ Enable custom TLS cipher configuration for IBM Java Semeru FIPS mode compatibili
 
 Role Variables - Ingress Controller
 -------------------------------------------------------------------------------
+### ocp_ingress_controller_name
+The name of the Ingress Controller to configure.
+
+- **Optional**
+- Environment Variable: `OCP_INGRESS_CONTROLLER_NAME`
+- Default Value: `default`
+
+**Purpose**: Specifies which Ingress Controller instance to configure. This applies to both timeout and namespace ownership settings.
+
+**When to use**: Use the default value unless you have multiple Ingress Controllers in your cluster and need to configure a specific one.
+
+**Valid values**:
+- `default` - The default cluster Ingress Controller (most common)
+- Any custom Ingress Controller name in your cluster
+
+**Impact**: All timeout and namespace ownership configurations will be applied to this specific Ingress Controller.
+
+**Related variables**:
+- [`ocp_ingress_update_timeouts`](#ocp_ingress_update_timeouts) - Timeout settings apply to this controller
+- [`ocp_ingress_namespace_ownership`](#ocp_ingress_namespace_ownership) - Namespace policy applies to this controller
+
+**Notes**:
+- Most OpenShift clusters use only the `default` Ingress Controller
+- Custom Ingress Controllers are rare and typically used for advanced routing scenarios
+- Verify the controller name exists before configuring
 
 ### ocp_ingress_update_timeouts
 Enable custom timeout configuration for the OpenShift Ingress Controller.
@@ -120,6 +169,16 @@ Server-side timeout duration for ingress connections.
 - Affects all routes in the cluster
 - Monitor application logs to determine appropriate values
 
+### ocp_ingress_namespace_ownership
+Specifies the namespace ownership policy for the Ingress Controller. Set to `InterNamespaceAllowed` to enable path-based routing support, which allows routes to claim the same hostname across different namespaces.
+
+- Optional
+- Environment Variable: `OCP_INGRESS_NAMESPACE_OWNERSHIP`
+- Default Value: Not set (empty string)
+
+!!! note
+    When both timeout settings and namespace ownership are configured, they will be applied in a single atomic operation to the IngressController resource.
+
 
 Role Variables - OperatorHub
 -------------------------------------------------------------------------------
@@ -161,6 +220,8 @@ Example Playbook
     ocp_ingress_update_timeouts: True
     ocp_ingress_client_timeout: 30s
     ocp_ingress_server_timeout: 30s
+    ocp_ingress_namespace_ownership: InterNamespaceAllowed
+    ocp_ingress_controller_name: default
     ocp_operatorhub_disable_redhat_sources: True
   roles:
     - ibm.mas_devops.ocp_config
