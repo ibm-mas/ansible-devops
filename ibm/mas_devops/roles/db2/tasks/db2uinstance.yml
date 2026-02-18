@@ -1,0 +1,51 @@
+---
+# Db2uInstance Deployment Tasks
+# =============================================================================
+# This file contains tasks specific to Db2uInstance deployments.
+# Db2uInstance is the current recommended deployment method.
+# =============================================================================
+
+# 1. Create Db2uInstance CR
+# -----------------------------------------------------------------------------
+- name: "Create Db2uInstance"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "{{ role_path }}/templates/db2uinstance.yml.j2"
+
+# 2. Wait for the Db2uInstance to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for Db2uInstance instance to be ready (5m delay)"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    name: "{{ db2_instance_name | lower }}"
+    namespace: "{{ db2_namespace }}"
+    kind: Db2uInstance
+  register: db2_instance_lookup
+  until:
+    - db2_instance_lookup.resources is defined
+    - db2_instance_lookup.resources | length == 1
+    - db2_instance_lookup.resources[0].status is defined
+    - db2_instance_lookup.resources[0].status.state is defined
+    - db2_instance_lookup.resources[0].status.state == "Ready"
+  retries: 24 # Approximately 2 hours before we give up
+  delay: 300 # 5 minutes
+
+# 3. Wait for Db2uEngine to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for Db2UEngine to be ready"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1alpha1
+    kind: Db2uEngine
+    name: "c-{{ db2_instance_name | lower }}-db2u"
+    namespace: "{{ db2_namespace }}"
+  register: db2_engine
+  until:
+    - db2_engine.resources is defined
+    - db2_engine.resources | length > 0
+    - db2_engine.resources[0].status is defined
+    - db2_engine.resources[0].status.state is defined
+    - db2_engine.resources[0].status.state == 'Ready'
+  retries: 20 # approx 10 minutes before we give up
+  delay: 30 # seconds
+
+# Made with Bob

@@ -351,91 +351,86 @@
       - "Db2 Channel ............................ {{ db2_channel }}"
       - "Db2 Version ............................ {{ db2_version }}"
 
-- name: Notice of deprecation of Db2uCluster
-  when:
-    - initial_db2_cluster_lookup.resources is defined
-    - initial_db2_cluster_lookup.resources | length == 1
+# 12. Display deprecation notice for Db2uCluster
+# -----------------------------------------------------------------------------
+- name: "Notice of deprecation of Db2uCluster"
+  when: db2u_kind == "db2ucluster"
   ansible.builtin.debug:
     msg:
       - "Db2uCluster CR is being deprecated and replaced by Db2uInstance."
-      - "Your existing Db2uCluster will continue to work but cannot be automatically converted."
+      - "Consider migrating to Db2uInstance for new deployments."
       - "For migration guidance, refer to the db2uinstance_migration role documentation."
 
-
-# 12. Lookup Db2uCluster to see if it exists already
+# 13. Detect existing Db2uCluster deployment
 # -----------------------------------------------------------------------------
-- name: "Detect Db2Cluster CR"
+- name: "Detect existing Db2uCluster CR"
   kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ db2_instance_name | lower }}"
-    namespace: "{{db2_namespace}}"
+    namespace: "{{ db2_namespace }}"
     kind: Db2uCluster
   register: initial_db2_cluster_lookup
 
-# 13. Create a Db2 Cluster
+# 14. Strict validation: Ensure DB2U_KIND matches existing deployment
 # -----------------------------------------------------------------------------
-- name: "Create Db2uCluster - DEPRECATED"
-  kubernetes.core.k8s:
-    apply: yes
-    template: "templates/db2ucluster.yml.j2"
+- name: "Set detected deployment type"
+  set_fact:
+    detected_db2u_kind: "{{ 'db2ucluster' if (initial_db2_cluster_lookup.resources is defined and initial_db2_cluster_lookup.resources | length == 1) else 'db2uinstance' }}"
+
+- name: "Debug deployment type information"
+  ansible.builtin.debug:
+    msg:
+      - "Requested DB2U_KIND .................... {{ db2u_kind }}"
+      - "Detected deployment type ............... {{ detected_db2u_kind }}"
+      - "Existing Db2uCluster found ............. {{ (initial_db2_cluster_lookup.resources is defined and initial_db2_cluster_lookup.resources | length == 1) | string }}"
+
+- name: "Validate DB2U_KIND matches existing deployment (strict mode)"
   when:
     - initial_db2_cluster_lookup.resources is defined
     - initial_db2_cluster_lookup.resources | length == 1
+  assert:
+    that:
+      - db2u_kind == detected_db2u_kind
+    fail_msg: |
+      ================================================================================
+      DB2U_KIND MISMATCH DETECTED!
+      ================================================================================
+      
+      Requested DB2U_KIND: {{ db2u_kind }}
+      Existing deployment: {{ detected_db2u_kind }}
+      Instance name:       {{ db2_instance_name }}
+      Namespace:           {{ db2_namespace }}
+      
+      ERROR: Cannot change deployment type for existing Db2 instance.
+      
+      RESOLUTION:
+      - To manage existing Db2uCluster: Set DB2U_KIND=db2ucluster
+      - To deploy new Db2uInstance: Use a different instance name
+      - For migration: Refer to db2uinstance_migration role documentation
+      
+      ================================================================================
 
-- name: "Create Db2uInstance"
-  kubernetes.core.k8s:
-    apply: yes
-    template: "templates/db2uinstance.yml.j2"
-  when:
-    - initial_db2_cluster_lookup.resources is not defined or initial_db2_cluster_lookup.resources | length == 0
+# 15. Deploy Db2uCluster (for existing or explicitly requested deployments)
+# -----------------------------------------------------------------------------
+- name: "Deploy Db2uCluster"
+  include_tasks: tasks/db2ucluster.yml
+  when: db2u_kind == "db2ucluster"
 
+# 16. Deploy Db2uInstance (recommended for new deployments)
+# -----------------------------------------------------------------------------
+- name: "Deploy Db2uInstance"
+  include_tasks: tasks/db2uinstance.yml
+  when: db2u_kind == "db2uinstance"
+
+# 17. Set db2 instance timezone
+# -----------------------------------------------------------------------------
 - name: "Set db2 instance timezone"
   include_tasks: "tasks/install/setup_timezone.yml"
   when:
     - db2_timezone is defined
     - db2_timezone != ""
 
-# 14. Wait for the Db2uCluster to be ready - DEPRECATED
-# -----------------------------------------------------------------------------
-- name: "Wait for Db2uCluster instance to be ready (5m delay) - DEPRECATED"
-  when:
-    - initial_db2_cluster_lookup.resources is defined
-    - initial_db2_cluster_lookup.resources | length == 1
-  kubernetes.core.k8s_info:
-    api_version: db2u.databases.ibm.com/v1
-    name: "{{ db2_instance_name | lower }}"
-    namespace: "{{db2_namespace}}"
-    kind: Db2uCluster
-  register: db2_cluster_lookup
-  until:
-    - db2_cluster_lookup.resources is defined
-    - db2_cluster_lookup.resources | length == 1
-    - db2_cluster_lookup.resources[0].status is defined
-    - db2_cluster_lookup.resources[0].status.state is defined
-    - db2_cluster_lookup.resources[0].status.state == "Ready"
-  retries: 24 # Approximately 2 hours before we give up
-  delay: 300 # 5 minutes
-
-# 14. Wait for the Db2uInstance to be ready
-# -----------------------------------------------------------------------------
-- name: "Wait for Db2uInstance instance to be ready (5m delay)"
-  when: initial_db2_cluster_lookup.resources is not defined or initial_db2_cluster_lookup.resources | length == 0
-  kubernetes.core.k8s_info:
-    api_version: db2u.databases.ibm.com/v1
-    name: "{{ db2_instance_name | lower }}"
-    namespace: "{{db2_namespace}}"
-    kind: Db2uInstance
-  register: db2_instance_lookup
-  until:
-    - db2_instance_lookup.resources is defined
-    - db2_instance_lookup.resources | length == 1
-    - db2_instance_lookup.resources[0].status is defined
-    - db2_instance_lookup.resources[0].status.state is defined
-    - db2_instance_lookup.resources[0].status.state == "Ready"
-  retries: 24 # Approximately 2 hours before we give up
-  delay: 300 # 5 minutes
-
-# 15. Configure a public route for Db2
+# 18. Configure a public route for Db2
 # -----------------------------------------------------------------------------
 - name: Lookup db2u Engn Service
   kubernetes.core.k8s_info:
@@ -501,7 +496,7 @@
     state: absent
 
 
-## 16. create an LDAP user if db2_ldap_username specified
+## 19. create an LDAP user if db2_ldap_username specified
 # -----------------------------------------------------------------------------
 - name: Create LDAP user if username and password is provided
   include_tasks: tasks/install/create_ldap_user.yml
@@ -517,7 +512,7 @@
       - "{{db2_ldap_username}}"
       - "{{db2_rotate_password}}"
 
-# 17. Rotate db2 ldap password
+# 20. Rotate db2 ldap password
 # -----------------------------------------------------------------------------
 - name: Rotate Db2 LDAP password if db2_rotate_password is True and username is provided
   include_tasks: tasks/install/rotate_ldap_user_password.yml
@@ -526,47 +521,7 @@
     - db2_ldap_username != ""
     - db2_rotate_password == true
 
-# 18. Wait for the statefulset to be ready - DEPRECATED
-# -----------------------------------------------------------------------------
-- name: "Wait for Db2 Stateful set to be ready - DEPRECATED"
-  when:
-    - initial_db2_cluster_lookup.resources is defined
-    - initial_db2_cluster_lookup.resources | length == 1
-  kubernetes.core.k8s_info:
-    api_version: apps/v1
-    kind: StatefulSet
-    name: "c-{{ db2_instance_name | lower }}-db2u"
-    namespace: "{{ db2_namespace }}"
-  register: db2_sts
-  until:
-    - db2_sts.resources is defined
-    - db2_sts.resources | length > 0
-    - db2_sts.resources[0].status is defined
-    - db2_sts.resources[0].status.replicas is defined
-    - db2_sts.resources[0].status.readyReplicas is defined
-    - db2_sts.resources[0].status.readyReplicas == db2_sts.resources[0].status.replicas
-  retries: 20 # approx 10 minutes before we give up
-  delay: 30 # seconds
-
-- name: "Wait for Db2UEngine to be ready"
-  when: initial_db2_cluster_lookup.resources is not defined or initial_db2_cluster_lookup.resources | length == 0
-  kubernetes.core.k8s_info:
-    api_version: db2u.databases.ibm.com/v1alpha1
-    kind: Db2uEngine
-    name: "c-{{ db2_instance_name | lower }}-db2u"
-    namespace: "{{ db2_namespace }}"
-  register: db2_engine
-  until:
-    - db2_engine.resources is defined
-    - db2_engine.resources | length > 0
-    - db2_engine.resources[0].status is defined
-    - db2_engine.resources[0].status.state is defined
-    - db2_engine.resources[0].status.state == 'Ready'
-
-  retries: 20 # approx 10 minutes before we give up
-  delay: 30 # seconds
-
-# 19. Generate a JdbcCfg for MAS configuration
+# 21. Generate a JdbcCfg for MAS configuration
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/install/suite_jdbccfg.yml
   when:
