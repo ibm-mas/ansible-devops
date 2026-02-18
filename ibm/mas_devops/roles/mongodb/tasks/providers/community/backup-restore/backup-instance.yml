@@ -1,71 +1,92 @@
 ---
 # Backup Mongodb Community edition cluster Instance
 # -----------------------------------------------------------------------------
+# Check if GrafanaDashboard CRD exists
+# -----------------------------------------------------------------------------
+- name: "Check if GrafanaDashboard CRD exists"
+  ibm.mas_devops.crd_exists:
+    crdName: grafanadashboards.grafana.integreatly.org
+  register: grafana_crd_check
+
 - name: "Set fact: MongoDB CE backup resources"
+  set_fact:
+    mongoce_namespace_backup_resources:
+      - kind: Project
+        api_version: project.openshift.io/v1
+        name: "{{ mongodb_namespace }}"
+      # CRD - mongodbcommunity.mongodbcommunity.mongodb.com
+      - kind: CustomResourceDefinition
+        api_version: apiextensions.k8s.io/v1
+        name: mongodbcommunity.mongodbcommunity.mongodb.com
+      # mongodbcommunity.mongodb.com
+      - kind: MongoDBCommunity
+        api_version: mongodbcommunity.mongodb.com/v1
+        name: "{{ mongodb_instance_name }}"
+      # Role
+      - kind: Role
+        api_version: rbac.authorization.k8s.io/v1
+        name: mongodb-kubernetes-operator
+      - kind: Role
+        api_version: rbac.authorization.k8s.io/v1
+        name: mongodb-database
+      # RoleBinding
+      - kind: RoleBinding
+        api_version: rbac.authorization.k8s.io/v1
+        name: mongodb-kubernetes-operator
+      - kind: RoleBinding
+        api_version: rbac.authorization.k8s.io/v1
+        name: mongodb-database
+      # ServiceAccount
+      - kind: ServiceAccount
+        api_version: v1
+        name: mongodb-kubernetes-operator
+      - kind: ServiceAccount
+        api_version: v1
+        name: mongodb-database
+      # Issuers
+      - kind: Issuer
+        api_version: cert-manager.io/v1
+      # Certificates
+      - kind: Certificate
+        api_version: cert-manager.io/v1
+      # Deployment
+      - kind: Deployment
+        api_version: apps/v1
+        name: mongodb-kubernetes-operator
+      # secrets
+      - kind: Secret
+        api_version: v1
+        name: "{{ mongodb_instance_name }}-scram-scram-credentials"
+      - kind: Secret
+        api_version: v1
+        name: "{{ mongodb_instance_name }}-admin-password"
+      # Configmap
+      - kind: ConfigMap
+        api_version: v1
+        name: "{{ mongodb_instance_name }}-cert-map"
+      # Service Monitor
+      - kind: ServiceMonitor
+        api_version: monitoring.coreos.com/v1
+        name: "{{ mongodb_instance_name }}-service-monitor"
+
+# Add GrafanaDashboard resource only if CRD exists
+# -----------------------------------------------------------------------------
+- name: "Set fact: MongoDB Grafana Dashboard backup resources"
+  set_fact:
+    grafana_mongodb_backup_resources:
+      - kind: GrafanaDashboard
+        api_version: grafana.integreatly.org/v1beta1
+
+- name: Add GrafanaDashboard to backup resources if CRD exists
+  set_fact:
+    mongoce_namespace_backup_resources: "{{ mongoce_namespace_backup_resources + grafana_mongodb_backup_resources }}"
+  when: grafana_crd_check.exists | bool
+
+- name: "Set fact: MongoDB backup resources"
   set_fact:
     mongoce_backup_resources:
       - namespace: "{{ mongodb_namespace }}"
-        resources:
-          - kind: Project
-            api_version: project.openshift.io/v1
-            name: "{{ mongodb_namespace }}"
-          # CRD - mongodbcommunity.mongodbcommunity.mongodb.com
-          - kind: CustomResourceDefinition
-            api_version: apiextensions.k8s.io/v1
-            name: mongodbcommunity.mongodbcommunity.mongodb.com
-          # mongodbcommunity.mongodb.com
-          - kind: MongoDBCommunity
-            api_version: mongodbcommunity.mongodb.com/v1
-            name: "{{ mongodb_instance_name }}"
-          # Role
-          - kind: Role
-            api_version: rbac.authorization.k8s.io/v1
-            name: mongodb-kubernetes-operator
-          - kind: Role
-            api_version: rbac.authorization.k8s.io/v1
-            name: mongodb-database
-          # RoleBinding
-          - kind: RoleBinding
-            api_version: rbac.authorization.k8s.io/v1
-            name: mongodb-kubernetes-operator
-          - kind: RoleBinding
-            api_version: rbac.authorization.k8s.io/v1
-            name: mongodb-database
-          # ServiceAccount
-          - kind: ServiceAccount
-            api_version: v1
-            name: mongodb-kubernetes-operator
-          - kind: ServiceAccount
-            api_version: v1
-            name: mongodb-database
-          # Issuers
-          - kind: Issuer
-            api_version: cert-manager.io/v1
-          # Certificates
-          - kind: Certificate
-            api_version: cert-manager.io/v1
-          # Deployment
-          - kind: Deployment
-            api_version: apps/v1
-            name: mongodb-kubernetes-operator
-          # secrets
-          - kind: Secret
-            api_version: v1
-            name: "{{ mongodb_instance_name }}-scram-scram-credentials"
-          - kind: Secret
-            api_version: v1
-            name: "{{ mongodb_instance_name }}-admin-password"
-          # Configmap
-          - kind: ConfigMap
-            api_version: v1
-            name: "{{ mongodb_instance_name }}-cert-map"
-          # grafanaDashboard
-          - kind: GrafanaDashboard
-            api_version: grafana.integreatly.org/v1beta1
-          # Service Monitor
-          - kind: ServiceMonitor
-            api_version: monitoring.coreos.com/v1
-            name: "{{ mongodb_instance_name }}-service-monitor"
+        resources: "{{ mongoce_namespace_backup_resources }}"
 
 # Call the backup_resources plugin to execute the backup to the path provided
 # -----------------------------------------------------------------------------
