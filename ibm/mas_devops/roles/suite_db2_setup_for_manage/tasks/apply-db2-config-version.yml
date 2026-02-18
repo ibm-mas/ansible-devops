@@ -66,10 +66,12 @@
 - name: "Creating LOGARCHMETH1 folder in {{ db2_pod_name }}"
   shell: |
     oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc "mkdir -p /mnt/bludata0/db2/archive_log/" db2inst1
+  when: db2_cr_type == "Db2uCluster" # Db2uInstance already have archive folder mounted into a PVC
   register: creating_logarchmeth1_folder_output
 
 - fail: msg="Failed to create path for LOGARCHMETH1"
   when:
+    - db2_cr_type == "Db2uCluster"
     - creating_logarchmeth1_folder_output.rc != 0
 
 - name: "Creating DB2_OBJECT_STORAGE_LOCAL_STAGING_PATH folder in {{ db2_pod_name }}"
@@ -81,9 +83,25 @@
   when:
     - creating_stagingpath_folder_output.rc != 0
 
-# Step 6: Transform configuration for detected CR type
-- name: "Transform configuration for {{ db2_cr_type }}"
-  include_tasks: "{{ role_path }}/../../common_tasks/transform_db2_config.yml"
+# Step 6: Validate configuration exists
+- name: "Validate configuration version exists"
+  assert:
+    that:
+      - db2_configs is defined
+      - db2_config_version in db2_configs.keys()
+    fail_msg: |
+      Configuration version '{{ db2_config_version }}' not found in db2_configs.
+      Available versions: {{ db2_configs.keys() | list }}
+    success_msg: "Configuration version {{ db2_config_version }} found"
+
+- name: "Validate CR type configuration exists"
+  assert:
+    that:
+      - db2_cr_type in db2_configs[db2_config_version].keys()
+    fail_msg: |
+      Configuration for CR type '{{ db2_cr_type }}' not found in version '{{ db2_config_version }}'.
+      Available CR types: {{ db2_configs[db2_config_version].keys() | list }}
+    success_msg: "Configuration for {{ db2_cr_type }} found"
 
 # Step 7: Update CR with configuration
 - name: "Update {{ db2_cr_type }} configuration"
@@ -95,7 +113,7 @@
       metadata:
         name: "{{ db2_instance_name | lower }}"
         namespace: "{{ db2_namespace }}"
-      spec: "{{ db2_config_transformed }}"
+      spec: "{{ db2_configs[db2_config_version][db2_cr_type] | from_yaml }}"
   register: _config_update_result
 
 - name: "Debug configuration update result"

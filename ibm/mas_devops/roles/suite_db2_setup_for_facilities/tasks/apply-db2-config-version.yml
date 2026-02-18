@@ -35,12 +35,28 @@
       - "DB2 Schema ............................. {{ db2_schema }}"
       - "DB2 Username ........................... {{ db2_username }}"
 
-# Step 4: Load and transform configuration
+# Step 4: Load and validate configuration
 - name: "Load configuration variables"
   include_vars: vars/main.yml
 
-- name: "Transform configuration for CR type"
-  include_tasks: "{{ role_path }}/../../common_tasks/transform_db2_config.yml"
+- name: "Validate configuration version exists"
+  assert:
+    that:
+      - db2_configs is defined
+      - db2_config_version in db2_configs.keys()
+    fail_msg: |
+      Configuration version '{{ db2_config_version }}' not found in db2_configs.
+      Available versions: {{ db2_configs.keys() | list }}
+    success_msg: "Configuration version {{ db2_config_version }} found"
+
+- name: "Validate CR type configuration exists"
+  assert:
+    that:
+      - db2_cr_type in db2_configs[db2_config_version].keys()
+    fail_msg: |
+      Configuration for CR type '{{ db2_cr_type }}' not found in version '{{ db2_config_version }}'.
+      Available CR types: {{ db2_configs[db2_config_version].keys() | list }}
+    success_msg: "Configuration for {{ db2_cr_type }} found"
 
 # Step 5: Update CR with configuration
 - name: "Update {{ db2_cr_type }} configuration"
@@ -52,7 +68,7 @@
       metadata:
         name: "{{ db2_instance_name | lower }}"
         namespace: "{{ db2_namespace }}"
-      spec: "{{ db2_config_transformed | from_yaml }}"
+      spec: "{{ db2_configs[db2_config_version][db2_cr_type] | from_yaml }}"
   register: _config_update_result
 
 - name: "Debug configuration update result"
