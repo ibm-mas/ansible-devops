@@ -2,7 +2,7 @@
 
 This role creates or upgrades a Db2 instance using the Db2u Operator. When installing db2, the db2u operator will now be installed into the same namespace as the db2 instance. 
 
-**IMPORTANT:** `Db2uCluster` is deprecated. Existing `Db2uCluster` deployments will continue to work but CANNOT be automatically converted to `Db2uInstance`. New deployments will use `Db2uInstance`. For migration of existing `Db2uCluster` instances, refer to the `db2uinstance_migration` role.
+**IMPORTANT:** The Db2uCluster resource is deprecated (replaced by Db2uInstance). This Ansible collection will retain support for Db2uCluster until it's eventual EOL.
 
 If you already have db2 operator and db2 instances running in separate namespaces, this role will migrate the db2 **operators** (not the instances) from `ibm-common-services` to the namespace defined by `db2_namespace` property (in case of a new role execution for a db2 install or db2 upgrade). A private root CA certificate is created and is used to secure the TLS connections to the database. A Db2 Warehouse cluster will be created along with a public TLS encrypted route to allow external access to the cluster (access is via the ssl-server nodeport port on the *-db2u-engn-svc service). Internal access is via the *-db2u-engn-svc service and port 50001. Both the external route and the internal service use the same server certificate.
 
@@ -25,6 +25,47 @@ When upgrading db2, specify the existing namespace where the `Db2uInstance` inst
 ## Role Variables
 
 ### Installation Variables
+
+#### db2u_kind
+Specifies which Db2 deployment type to use.
+
+- **Optional**
+- Environment Variable: `DB2U_KIND`
+- Default: `db2ucluster`
+
+**Purpose**: Controls whether to deploy Db2uCluster (deprecated) or Db2uInstance (current). This variable enables explicit control over deployment type while maintaining backward compatibility with existing deployments.
+
+**When to use**:
+- Use `db2ucluster` for maintaining existing deprecated deployments
+- Use `db2uinstance` (recommended) for all new deployments
+- **IMPORTANT**: Cannot change deployment type for existing instances - strict validation enforces this
+
+**Valid values**: `db2ucluster`, `db2uinstance`
+
+**Impact**:
+- `db2ucluster`: Deploys deprecated Db2uCluster CR (for existing deployments only)
+- `db2uinstance`: Deploys current Db2uInstance CR (recommended for new deployments)
+- Strict validation ensures DB2U_KIND matches existing deployment type to prevent accidental changes
+- Attempting to change deployment type for an existing instance will fail with a clear error message
+
+**Related variables**: Works with all db2 configuration variables. The deployment type affects which Kubernetes custom resource is created but uses the same underlying configuration variables.
+
+**Note**: **Db2uCluster is deprecated**. New deployments should use `db2uinstance`. Existing Db2uCluster deployments will continue to work but cannot be automatically converted. The default value of `db2ucluster` ensures backward compatibility for existing automation and scripts.
+
+**Example usage**:
+```bash
+# New deployment with Db2uInstance (recommended)
+export DB2U_KIND=db2uinstance
+export DB2_INSTANCE_NAME=my-new-db
+
+# Existing Db2uCluster deployment (backward compatible)
+export DB2U_KIND=db2ucluster
+export DB2_INSTANCE_NAME=my-existing-cluster
+
+# Default behavior (backward compatible)
+# If DB2U_KIND is not set, defaults to db2ucluster
+export DB2_INSTANCE_NAME=my-db
+```
 
 #### common_services_namespace
 OpenShift namespace where IBM Common Services is installed.
