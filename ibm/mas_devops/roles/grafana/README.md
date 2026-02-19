@@ -1,13 +1,11 @@
-grafana
-===============================================================================
+# grafana
 Installs and configures an instance of [Grafana](https://grafana.com/) for use with IBM Maximo Application Suite, using the [community grafana operator](https://github.com/grafana-operator/grafana-operator)
 
 !!! note
     The credentials for the grafana admin user are stored in `grafana-admin-credentials` secret in the grafana namespace. A route is created in the grafana namespace to allow access to the grafana UI.
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 ### grafana_action
 Action to perform on Grafana installation.
 
@@ -155,8 +153,7 @@ Storage volume size for Grafana user data.
 **Note**: The default 10Gi is sufficient for typical MAS monitoring deployments. When upgrading from v4 to v5, the new instance inherits the v4 storage size unless explicitly overridden.
 
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -180,7 +177,6 @@ To Upgrade from Grafana Operator from V4 to V5
 !!! note
     note that the upgraded v5 grafana inherits the storage class and size from the v4 configuration unless they are defined as environment variables.
 
-License
--------------------------------------------------------------------------------
+## License
 
 EPL-2.0

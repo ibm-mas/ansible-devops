@@ -1,5 +1,4 @@
-ocp_efs
-===============================================================================
+# ocp_efs
 
 Provision and configure AWS Elastic File System (EFS) storage for Red Hat OpenShift Service on AWS (ROSA) clusters. This role automates the complete EFS setup including security group configuration, EFS instance creation, access points, mount targets, and StorageClass creation.
 
@@ -13,8 +12,7 @@ The role performs the following operations:
 5. Deploys EFS CSI driver and StorageClass
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 
 ### aws_access_key_id
 AWS access key ID for authentication.
@@ -182,7 +180,17 @@ Enable automatic StorageClass creation for the EFS instance.
 - StorageClass supports dynamic provisioning with RWX access mode
 - Set to `false` only if you need custom StorageClass parameters
 
-License
--------
+
+## Example Playbook
+
+```yaml
+- hosts: localhost
+  vars:
+    # Add required variables here
+  roles:
+    - ibm.mas_devops.ocp_efs
+```
+
+## License
 
 EPL-2.0

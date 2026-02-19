@@ -1,9 +1,7 @@
-mirror_extras_prepare
-===============================================================================
+# mirror_extras_prepare
 This role generates a mirror manifest file suitable for use with the `oc mirror` command (or the `ibm.mas_devops.mirror_images` role) for a specific set of extra images.
 
 Available Extras
--------------------------------------------------------------------------------
 
 | Extra        | Versions     | Description                                                                                    |
 | ------------ | ------------ | ---------------------------------------------------------------------------------------------- |
@@ -14,8 +12,7 @@ Available Extras
 | odf          | 4.15         | Extra images needed for ODF 4.15                                                               |
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 ### extras_name
 Name of the extras package to prepare for mirroring.
 
@@ -147,8 +144,7 @@ Path prefix in target registry for mirrored images.
 **Note**: The prefix helps organize images in the registry. Example: with prefix `mas-extras`, images go to `registry.example.com:5000/mas-extras/mongodb-community-operator`.
 
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -165,6 +161,5 @@ Example Playbook
 ```
 
 
-License
--------
+## License
 EPL-2.0

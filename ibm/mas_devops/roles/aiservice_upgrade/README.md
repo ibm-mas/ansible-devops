@@ -1,5 +1,4 @@
-aiservice_upgrade
-===============================================================================
+# aiservice_upgrade
 This role validates if a given AI SERVICE installation is ready to be upgraded to a specific subscription channel, and (as long as dry run mode is not enabled) will execute the upgrade.
 
 - It will validate that the current subscription channel is able to be upgraded to the target channel.
@@ -8,8 +7,7 @@ This role validates if a given AI SERVICE installation is ready to be upgraded t
 - It will **not** validate that all AI Service services successfully deploy after the reconcile (but we will be working on this limitation).
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 
 ### aiservice_instance_id
 AI Service instance identifier to upgrade.
@@ -89,8 +87,7 @@ Enable dry run mode for upgrade validation only.
 - All validation checks are performed, but no changes are made to the subscription channel or AI Service
 - Helps ensure upgrade feasibility before committing to the operation
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 ### Automatic Target Selection
 Running this playbook will upgrade AI Service to the next release.  If you run this playbook when you are already on the latest release then it will take no action.
 
@@ -116,3 +113,7 @@ Running this playbook will attempt to upgrade AI Service to the specified releas
   roles:
     - ibm.mas_devops.aiservice_upgrade
 ```
+
+## License
+
+EPL-2.0

@@ -1,5 +1,4 @@
-aws_route53
-=========
+# aws_route53
 
 This role will create an AWS Route53 public hosted zone in the targeted AWS Account.
 

@@ -1,5 +1,4 @@
-longhorn
-===============================================================================
+# longhorn
 
 Deploy Longhorn distributed block storage system for Kubernetes, providing both ReadWriteMany (RWX) and ReadWriteOnce (RWO) storage for Maximo Application Suite.
 
@@ -47,8 +46,7 @@ longhorn-static             driver.longhorn.io   Delete          Immediate      
 - [Longhorn on OpenShift](https://github.com/longhorn/longhorn/blob/master/chart/ocp-readme.md)
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 
 ### longhorn_namespace
 Namespace for Longhorn installation.
@@ -109,8 +107,7 @@ Number of data replicas for Longhorn volumes.
 - Consider storage capacity when setting replica count (3 replicas = 3x storage consumption)
 
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -135,6 +132,5 @@ For development environments with reduced storage requirements:
 ```
 
 
-License
--------------------------------------------------------------------------------
+## License
 EPL-2.0

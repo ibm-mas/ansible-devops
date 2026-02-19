@@ -1,5 +1,4 @@
-dro [Data Reporter Operator]
-===============================================================================
+# dro
 DRO will be supported on the following MAS versions
 - MAS 8.10.6 +
 - MAS 8.11.2 +
@@ -8,8 +7,9 @@ DRO will be supported on the following MAS versions
 Installs [Data Reporter Operator](https://github.com/redhat-marketplace/redhat-marketplace-operator/tree/develop/datareporter/v2) in the `redhat-marketplace` namespace.  If `mas_instance_id` and the others associated parameters are provided then the role will also generate a configuration file that can be directly applied to IBM Maximo Application Suite.
 
 
-Role Variables - Installation
--------------------------------------------------------------------------------
+## Role Variables - Installation
+## Role Variables - General
+
 ### dro_action
 Action to perform with the Data Reporter Operator deployment.
 
@@ -98,8 +98,7 @@ Storage class for DRO persistent volumes.
 - The storage class must support RWO (Read Write Once) access mode
 - Auto-detection works for most standard cluster configurations
 
-Role Variables - BASCfg Generation
--------------------------------------------------------------------------------
+## Role Variables - BASCfg Generation
 ### mas_instance_id
 MAS instance identifier for BasCfg generation.
 
@@ -320,13 +319,12 @@ Include complete certificate chain in MAS configuration.
 
 **Notes**: Only applicable when a trusted CA is found in your cluster's ingress configuration.
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 ### Install in-cluster and generate MAS configuration
 
 To install DRO
-```
+```bash
 export IBM_ENTITLEMENT_KEY=<valid ibm entitlement key>
 export DRO_CONTACT_EMAIL=xxx@xxx.com
 export DRO_CONTACT_FIRSTNAME=xxx
@@ -343,7 +341,7 @@ ansible-playbook playbooks/run_role.yml
 
 To connect to an existing DRO
 
-```
+```bash
 export DRO_ENDPOINT_URL=<valid DRO url>
 export DRO_APIKEY=<valid DRO apikey>
 export DRO_CERTIFICATE_PATH=/temp/cert.pem
@@ -360,13 +358,12 @@ ansible-playbook playbooks/run_role.yml
 ```
 
 To uninstall DRO
-```
+```bash
 export DRO_ACTION=uninstall
 export ROLE_NAME='dro'
 export DRO_NAMESPACE=ibm-dro
 
 ansible-playbook playbooks/run_role.yml
-
 ```
 
 ```yaml
@@ -383,6 +380,6 @@ ansible-playbook playbooks/run_role.yml
   roles:
   - ibm.mas_devops.dro
 ```
-License
--------------------------------------------------------------------------------
+
+## License
 EPL-2.0
