@@ -326,7 +326,7 @@ Example Playbook
 ### Install in-cluster and generate MAS configuration
 
 To install DRO
-```
+```bash
 export IBM_ENTITLEMENT_KEY=<valid ibm entitlement key>
 export DRO_CONTACT_EMAIL=xxx@xxx.com
 export DRO_CONTACT_FIRSTNAME=xxx
@@ -343,7 +343,7 @@ ansible-playbook playbooks/run_role.yml
 
 To connect to an existing DRO
 
-```
+```bash
 export DRO_ENDPOINT_URL=<valid DRO url>
 export DRO_APIKEY=<valid DRO apikey>
 export DRO_CERTIFICATE_PATH=/temp/cert.pem
@@ -360,13 +360,12 @@ ansible-playbook playbooks/run_role.yml
 ```
 
 To uninstall DRO
-```
+```bash
 export DRO_ACTION=uninstall
 export ROLE_NAME='dro'
 export DRO_NAMESPACE=ibm-dro
 
 ansible-playbook playbooks/run_role.yml
-
 ```
 
 ```yaml
@@ -383,6 +382,7 @@ ansible-playbook playbooks/run_role.yml
   roles:
   - ibm.mas_devops.dro
 ```
+
 License
 -------------------------------------------------------------------------------
 EPL-2.0

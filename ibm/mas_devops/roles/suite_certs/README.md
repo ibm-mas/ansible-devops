@@ -16,7 +16,7 @@ This role manages TLS certificates for Maximo Application Suite core platform an
 ## Certificate Directory Structure
 
 ### Required Structure
-```
+```plaintext
 $MAS_CONFIG_DIR/certs/
 ├── core/
 │   ├── tls.crt

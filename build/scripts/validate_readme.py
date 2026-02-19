@@ -3,12 +3,12 @@
 README Validation Script for ibm.mas_devops Ansible Collection
 
 This script validates README files against the standard template defined in
-docs/templates/README_TEMPLATE.md and docs/README_VALIDATION_CHECKLIST.md
+build/scripts/templates/README_TEMPLATE.md
 
 Usage:
-    python scripts/validate_readme.py ibm/mas_devops/roles/role_name
-    python scripts/validate_readme.py ibm/mas_devops/roles --all
-    python scripts/validate_readme.py ibm/mas_devops/roles --all --report
+    python3 build/scripts/validate_readme.py ibm/mas_devops/roles/role_name
+    python3 build/scripts/validate_readme.py ibm/mas_devops/roles --all
+    python3 build/scripts/validate_readme.py ibm/mas_devops/roles --all --report
 """
 
 import os

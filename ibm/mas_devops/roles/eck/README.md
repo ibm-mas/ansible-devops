@@ -5,7 +5,7 @@ This role provides support to install [Elastic Cloud on Kubernetes](https://www.
 
 Elasticsearch is configured with a default user named `elastic`, you can obtain the password for this user by running the following command:
 
-```
+```bash
 oc -n eck get secret mas-es-elastic-user -o go-template='{{.data.elastic | base64decode}}'; echo
 ```
 
@@ -53,7 +53,7 @@ Enable Elasticsearch deployment.
 
 **Valid values**: `true`, `false`
 
-**Impact**: 
+**Impact**:
 - `true`: Deploys Elasticsearch cluster in ECK namespace
 - `false`: Skips Elasticsearch deployment
 
@@ -80,7 +80,7 @@ Enable Kibana deployment.
 
 **Valid values**: `true`, `false`
 
-**Impact**: 
+**Impact**:
 - `true`: Deploys Kibana instance connected to Elasticsearch
 - `false`: Skips Kibana deployment
 
@@ -107,7 +107,7 @@ Enable Logstash deployment.
 
 **Valid values**: `true`, `false`
 
-**Impact**: 
+**Impact**:
 - `true`: Deploys Logstash instance for log processing
 - `false`: Skips Logstash deployment
 
@@ -134,7 +134,7 @@ Enable Filebeat deployment.
 
 **Valid values**: `true`, `false`
 
-**Impact**: 
+**Impact**:
 - `true`: Deploys Filebeat DaemonSet for log collection
 - `false`: Skips Filebeat deployment
 
