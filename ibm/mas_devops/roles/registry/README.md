@@ -60,39 +60,123 @@ Role Variables
 --------------
 
 ### registry_action
-The action to perform with this role. Can be set to `tear-down` to remove an existing registry and its namespace. Default is `setup`
+Action to perform with the registry deployment.
 
 - Optional
 - Environment Variable: `REGISTRY_ACTION`
-- Default Value: `setup`
+- Default: `setup`
+
+**Purpose**: Controls whether to set up a new registry or tear down an existing one.
+
+**When to use**: Set to `tear-down` when you need to completely remove a registry to free disk space or start fresh. Use default `setup` for normal installation.
+
+**Valid values**:
+- `setup` - Install and configure the registry
+- `tear-down` - Permanently delete the registry, namespace, and all stored images
+
+**Impact**: The `tear-down` action is destructive and irreversible. All images stored in the registry will be lost, and the PVC storage will be deleted. A new CA certificate will be generated if the registry is recreated.
+
+**Related variables**: [`registry_namespace`](#registry_namespace)
+
+**Notes**:
+- Use tear-down when the registry contains too many unused images or when migrating to newer versions
+- After tear-down, you must re-mirror all required images
+- Docker clients will need to trust the new CA certificate after recreation
 
 ### registry_namespace
-The namespace where the registry to run
+Namespace where the Docker registry will be deployed.
 
 - Optional
 - Environment Variable: `REGISTRY_NAMESPACE`
-- Default Value: `airgap-registry`
+- Default: `airgap-registry`
+
+**Purpose**: Isolates the registry resources in a dedicated namespace for organization and access control.
+
+**When to use**: Override the default if you have namespace naming conventions or need multiple registries in the same cluster.
+
+**Valid values**: Any valid Kubernetes namespace name (lowercase alphanumeric and hyphens)
+
+**Impact**: All registry resources (deployment, service, PVC, secrets) will be created in this namespace. The namespace will be deleted during tear-down operations.
+
+**Related variables**: [`registry_action`](#registry_action)
+
+**Notes**: Ensure the namespace name doesn't conflict with existing namespaces in your cluster.
 
 ### registry_storage_class
-**Required**:  The name of the storage class to configure the MongoDb operator to use for persistent storage in the MongoDb cluster. Storage class must support ReadWriteOnce(RWO) access mode.
+Storage class for the registry's persistent volume.
 
-- **Required**, unless running in IBM Cloud ROKS, where the storage class will default to `ibmc-block-gold`.
+- **Required** (except on IBM Cloud ROKS where it defaults to `ibmc-block-gold`)
 - Environment Variable: `REGISTRY_STORAGE_CLASS`
-- Default Value: None
+- Default: None (IBM Cloud ROKS: `ibmc-block-gold`)
+
+**Purpose**: Provides persistent storage for container images stored in the registry.
+
+**When to use**: Must be specified for all non-ROKS clusters. On ROKS, the default is usually appropriate unless you have specific performance requirements.
+
+**Valid values**: Any storage class name available in your cluster that supports ReadWriteOnce (RWO) access mode. Common examples:
+- IBM Cloud ROKS: `ibmc-block-gold`, `ibmc-block-silver`, `ibmc-block-bronze`
+- AWS: `gp2`, `gp3`, `io1`
+- Azure: `managed-premium`, `managed-standard`
+- On-premises: Depends on your storage provider
+
+**Impact**: Determines the performance characteristics and availability of the registry storage. The storage class must support RWO access mode.
+
+**Related variables**: [`registry_storage_capacity`](#registry_storage_capacity)
+
+**Notes**:
+- Verify the storage class exists before deployment: `oc get storageclass`
+- The storage class cannot be changed after initial deployment without recreating the registry
 
 ### registry_storage_capacity
-The size of the PVC that will be created for data storage in the cluster.
+Size of the persistent volume claim for registry storage.
 
 - Optional
 - Environment Variable: `REGISTRY_STORAGE_CAPACITY`
-- Default Value: `100Gi`
+- Default: `100Gi`
+
+**Purpose**: Allocates disk space for storing container images in the registry.
+
+**When to use**: Increase from the default based on the number and size of images you plan to store. Consider your mirroring requirements and image retention policies.
+
+**Valid values**: Any valid Kubernetes storage size (e.g., `100Gi`, `500Gi`, `1Ti`). Must be supported by your storage class.
+
+**Impact**: Determines how many images can be stored before the registry runs out of space. Insufficient capacity will cause push operations to fail.
+
+**Related variables**: [`registry_storage_class`](#registry_storage_class)
+
+**Notes**:
+- Plan for growth - container images can be large (1-5GB each)
+- Monitor usage regularly: `oc get pvc -n <registry_namespace>`
+- Expanding PVC size after deployment depends on your storage class capabilities
+- For airgap environments, calculate total size of all images to be mirrored plus 20% buffer
 
 ### registry_service_type
-The type of service to set up in front of the registry, either `loadbalancer` or `clusterip`.  Using `loadbalancer` will allow you to access the registry from outside of your cluster via the cluster domain on port `32500`.  If you have other loadbalancers on the cluster that already claim port `32500` this role can not be usedbecause currently the loadbalancer port can not be customised.
+Service type for exposing the registry.
 
 - Optional
 - Environment Variable: `REGISTRY_SERVICE_TYPE`
-- Default Value: `loadbalancer`
+- Default: `loadbalancer`
+
+**Purpose**: Controls how the registry is exposed for access from Docker clients.
+
+**When to use**:
+- Use `loadbalancer` (default) when you need to push images from outside the cluster
+- Use `clusterip` when you only need internal cluster access or will use port-forwarding
+
+**Valid values**:
+- `loadbalancer` - Exposes registry externally via cluster domain on port 32500
+- `clusterip` - Internal cluster access only (requires port-forwarding for external access)
+
+**Impact**:
+- **loadbalancer**: Enables direct external access via `<cluster-domain>:32500`, but requires port 32500 to be available
+- **clusterip**: More secure (no external exposure) but requires `oc port-forward` for each push operation
+
+**Related variables**: None
+
+**Notes**:
+- **LIMITATION**: The loadbalancer port (32500) cannot be customized. If port 32500 is already in use by another service, you must use `clusterip` mode
+- With loadbalancer, you must install the registry's CA certificate on your Docker client (see Usage section)
+- With clusterip, you still need to configure Docker trust for localhost:9000 (see Usage section)
 
 
 Example Playbook
