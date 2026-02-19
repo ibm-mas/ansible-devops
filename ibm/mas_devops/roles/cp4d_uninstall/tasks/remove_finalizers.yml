@@ -1,0 +1,89 @@
+---
+# Capture CP4D namespaces targeted for finalizer cleanup
+- name: Ensure CP4D namespaces list
+  set_fact:
+    cp4d_target_namespaces: "{{ cp4d_namespaces }}"
+
+# Discover all namespaced API resources available in the cluster
+- name: Discover all namespaced API resources
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: APIResource
+  register: api_resources
+  failed_when: false
+  changed_when: false
+
+# Filter namespaced API resources that support list operations
+- name: Filter listable namespaced resources
+  set_fact:
+    namespaced_resources: >-
+      {{
+        api_resources.resources
+        | selectattr('namespaced', 'equalto', true)
+        | selectattr('verbs', 'contains', 'list')
+        | list
+      }}
+  changed_when: false
+
+# Discover all remaining namespaced objects in CP4D namespaces
+- name: Discover remaining objects in CP4D namespaces
+  kubernetes.core.k8s_info:
+    api_version: "{{ item.0.groupVersion }}"
+    kind: "{{ item.0.kind }}"
+    namespace: "{{ item.1 }}"
+  loop: "{{ namespaced_resources | product(cp4d_target_namespaces) | list }}"
+  loop_control:
+    label: "{{ item.0.kind }} in {{ item.1 }}"
+  register: discovered_objects
+  failed_when: false
+  changed_when: false
+
+# Consolidate remaining CP4D objects that still have finalizers
+- name: Consolidate remaining CP4D objects
+  set_fact:
+    cp4d_remaining_objects: >-
+      {{
+        discovered_objects.results
+        | map(attribute='resources')
+        | flatten(1)
+        | selectattr('metadata.finalizers', 'defined')
+        | list
+      }}
+  changed_when: false
+
+# Remove finalizers from all remaining CP4D objects to unblock deletion
+- name: Remove finalizers from remaining CP4D objects
+  kubernetes.core.k8s:
+    api_version: "{{ item.apiVersion }}"
+    kind: "{{ item.kind }}"
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ item.metadata.namespace }}"
+    merge_type: merge
+    definition:
+      metadata:
+        finalizers: []
+    wait: no
+  loop: "{{ cp4d_remaining_objects }}"
+  loop_control:
+    label: "{{ item.kind }} {{ item.metadata.namespace }}/{{ item.metadata.name }}"
+  failed_when: false
+
+# Allow API server time to persist finalizer removals
+- name: Pause to allow finalizer updates
+  pause:
+    seconds: 5
+
+# Force delete any CP4D objects that still remain after finalizer cleanup
+- name: Force delete remaining CP4D objects
+  kubernetes.core.k8s:
+    api_version: "{{ item.apiVersion }}"
+    kind: "{{ item.kind }}"
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ item.metadata.namespace }}"
+    state: absent
+    force: true
+    wait: false
+  loop: "{{ cp4d_remaining_objects }}"
+  loop_control:
+    label: "{{ item.kind }} {{ item.metadata.namespace }}/{{ item.metadata.name }}"
+  failed_when: false
