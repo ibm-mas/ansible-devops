@@ -56,11 +56,13 @@ class ActionModule(ActionBase):
             return dict(
                 message=f"Application {resourceName} is ready",
                 success=True,
+                failed=False,
                 changed=False
             )
         else:
             return dict(
                 message=f"Application {resourceName} is not ready",
                 success=False,
+                failed=True,
                 changed=False
             )
