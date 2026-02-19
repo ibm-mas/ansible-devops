@@ -95,11 +95,16 @@
 - include_tasks: "tasks/upgrade/run-db2-subscription-upgrade.yml"
   when: db2_channel != old_db2_channel or current_db2_operator_namespace != db2_namespace
 
-# 4. Run Db2 instance upgrade
+# 4. Run Db2 instance upgrade based on DB2U_KIND
 # -----------------------------------------------------------------------------
-- include_tasks: "tasks/upgrade/run-db2-instances-upgrade.yml"
-  loop:
-    - Db2uCluster
-    - Db2uInstance
-  loop_control:
-    loop_var: instanceKind
+- name: "Upgrade Db2uCluster instances"
+  include_tasks: "tasks/upgrade/run-db2-instances-upgrade.yml"
+  vars:
+    instanceKind: Db2uCluster
+  when: db2u_kind == "db2ucluster"
+
+- name: "Upgrade Db2uInstance instances"
+  include_tasks: "tasks/upgrade/run-db2-instances-upgrade.yml"
+  vars:
+    instanceKind: Db2uInstance
+  when: db2u_kind == "db2uinstance"

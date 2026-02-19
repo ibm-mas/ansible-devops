@@ -18,6 +18,74 @@
   when:
     - not found_db2_namespace
 
-# If DB2 namespace exists, then we prepare for the upgrade
+# 2. Detect existing Db2 deployment type
+# -------------------------------------------------------------------------
+- name: "Detect existing Db2uCluster CR"
+  when: found_db2_namespace
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    namespace: "{{ db2_namespace }}"
+    kind: Db2uCluster
+  register: existing_db2_cluster_lookup
+
+- name: "Detect existing Db2uInstance CR"
+  when: found_db2_namespace
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    namespace: "{{ db2_namespace }}"
+    kind: Db2uInstance
+  register: existing_db2_instance_lookup
+
+# 3. Determine detected deployment type
+# -------------------------------------------------------------------------
+- name: "Set detected deployment type"
+  when: found_db2_namespace
+  set_fact:
+    detected_db2u_kind: "{{ 'db2ucluster' if (existing_db2_cluster_lookup.resources is defined and existing_db2_cluster_lookup.resources | length > 0) else 'db2uinstance' }}"
+
+- name: "Debug deployment type information"
+  when: found_db2_namespace
+  ansible.builtin.debug:
+    msg:
+      - "Requested DB2U_KIND .................... {{ db2u_kind }}"
+      - "Detected deployment type ............... {{ detected_db2u_kind }}"
+      - "Existing Db2uCluster count ............. {{ existing_db2_cluster_lookup.resources | default([]) | length }}"
+      - "Existing Db2uInstance count ............ {{ existing_db2_instance_lookup.resources | default([]) | length }}"
+
+# 4. Validate DB2U_KIND matches existing deployment
+# -------------------------------------------------------------------------
+- name: "Validate DB2U_KIND matches existing deployment"
+  when:
+    - found_db2_namespace
+    - detected_db2u_kind is defined
+  assert:
+    that:
+      - db2u_kind == detected_db2u_kind
+    fail_msg: |
+      DB2U_KIND MISMATCH DETECTED!
+      
+      Requested DB2U_KIND: {{ db2u_kind }}
+      Existing deployment: {{ detected_db2u_kind }}
+      Namespace:           {{ db2_namespace }}
+      
+      ERROR: Cannot change deployment type during upgrade.
+      
+      RESOLUTION:
+      - To upgrade existing Db2uCluster: Set DB2U_KIND=db2ucluster
+      - To upgrade existing Db2uInstance: Set DB2U_KIND=db2uinstance
+
+# 5. Display deprecation notice for Db2uCluster
+# -------------------------------------------------------------------------
+- name: "Notice of deprecation of Db2uCluster"
+  when:
+    - found_db2_namespace
+    - db2u_kind == "db2ucluster"
+  ansible.builtin.debug:
+    msg:
+      - "Deprecation Notice: The Db2uCluster resource is deprecated (replaced by Db2uInstance)."
+      - "This Ansible collection will retain support for Db2uCluster until its eventual EOL."
+
+# 6. If DB2 namespace exists, then we prepare for the upgrade
+# -------------------------------------------------------------------------
 - include_tasks: "tasks/upgrade/prepare-db2-upgrade.yml"
   when: found_db2_namespace

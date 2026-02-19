@@ -1,3 +1,9 @@
+# Db2 Instance Upgrade Tasks
+# =============================================================================
+# This file handles the upgrade of Db2 instances based on the instanceKind parameter.
+# Supports both Db2uCluster (deprecated) and Db2uInstance (current).
+# =============================================================================
+
 # 1. Get the list of all Db2u instances
 # -----------------------------------------------------------------------------
 - name: "Get {{ instanceKind }} instances list"
@@ -10,14 +16,22 @@
 - name: "Debug list of {{ instanceKind }} instances"
   debug:
     msg:
-      - "Db2u Instance Names ...................... {{ db2_instance_list.resources | map(attribute='metadata.name') }}"
+      - "Instance Kind ............................ {{ instanceKind }}"
+      - "Db2u Instance Names ...................... {{ db2_instance_list.resources | map(attribute='metadata.name') | list }}"
       - "Db2u Instance Namespace .................. {{ db2_namespace }}"
-      - "Db2u instance Versions ................... {{ db2_instance_list.resources | map(attribute='spec.version') }}"
+      - "Db2u Instance Versions ................... {{ db2_instance_list.resources | map(attribute='spec.version') | list }}"
+      - "Number of Instances ...................... {{ db2_instance_list.resources | length }}"
+
+- name: "Skip upgrade if no {{ instanceKind }} instances found"
+  when: db2_instance_list.resources | length == 0
+  debug:
+    msg: "No {{ instanceKind }} instances found in namespace {{ db2_namespace }}. Skipping upgrade."
 
 - name: "Get and set variables to store the lists"
+  when: db2_instance_list.resources | length > 0
   set_fact:
-    db2Instance_names: "{{ db2_instance_list.resources | map(attribute='metadata.name') }}"
-    db2Instance_versions: "{{ db2_instance_list.resources | map(attribute='spec.version') }}"
+    db2Instance_names: "{{ db2_instance_list.resources | map(attribute='metadata.name') | list }}"
+    db2Instance_versions: "{{ db2_instance_list.resources | map(attribute='spec.version') | list }}"
 
 # 2. Determine if upgrade is needed and perform it
 # -----------------------------------------------------------------------------
@@ -58,21 +72,31 @@
   when: db2_version is not defined or db2_version == ""
 
 - name: Debug target DB2 channel and engine version
+  when: db2_instance_list.resources | length > 0
   ansible.builtin.debug:
     msg:
+      - "Instance Kind .......................... {{ instanceKind }}"
       - "Current Db2 Channel .................... {{ old_db2_channel }}"
       - "Target Db2 Channel ..................... {{ db2_channel }}"
       - "Target Db2 Engine Version .............. {{ db2_version }}"
       - "Target Db2 instance namespace .......... {{ db2_namespace }}"
 
-- name: "Check if Db2 instance is at version {{ db2_version }}"
-  when: item.1 != db2_version
+# 3. Check which instances need upgrade
+# -----------------------------------------------------------------------------
+- name: "Check if {{ instanceKind }} instance is at version {{ db2_version }}"
+  when:
+    - db2_instance_list.resources | length > 0
+    - item.1 != db2_version
   debug:
-    msg: "Upgrade required for DB2uInstance {{ item.0 }} in namespace {{ db2_namespace }}. DB2 version {{ item.1 }} to {{ db2_version }}"
+    msg: "Upgrade required for {{ instanceKind }} {{ item.0 }} in namespace {{ db2_namespace }}. DB2 version {{ item.1 }} to {{ db2_version }}"
   loop: "{{ db2Instance_names | zip(db2Instance_versions) | list }}"
 
-- name: "Update db2u instance version when required"
-  when: item.1 != db2_version
+# 4. Perform the upgrade
+# -----------------------------------------------------------------------------
+- name: "Update {{ instanceKind }} version when required"
+  when:
+    - db2_instance_list.resources | length > 0
+    - item.1 != db2_version
   kubernetes.core.k8s_json_patch:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ item.0 }}"
@@ -84,8 +108,12 @@
         value: "{{ db2_version }}"
   loop: "{{ db2Instance_names | zip(db2Instance_versions) | list }}"
 
-- name: "Wait for db2u instance to be ready (1m delay)"
-  when: item.1 != db2_version
+# 5. Wait for upgrade to complete
+# -----------------------------------------------------------------------------
+- name: "Wait for {{ instanceKind }} instance to be ready (1m delay)"
+  when:
+    - db2_instance_list.resources | length > 0
+    - item.1 != db2_version
   kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ item.0 }}"
