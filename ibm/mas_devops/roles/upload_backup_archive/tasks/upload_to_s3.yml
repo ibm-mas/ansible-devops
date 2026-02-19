@@ -1,14 +1,10 @@
 ---
 # Upload backup archive to S3
-- name: "Set S3 region default"
-  ansible.builtin.set_fact:
-    region: "{{ s3_region | default('us-east-1') }}"
-
 - name: "Display S3 upload information"
   ansible.builtin.debug:
     msg:
       - "Uploading to S3 bucket: {{ s3_bucket_name }}"
-      - "Region: {{ region }}"
+      - "Region: {{ s3_region }}"
       - "Archive: {{ backup_archive_name }}"
 
 - name: "Upload archive to S3"
@@ -18,7 +14,7 @@
     bucket_name: "{{ s3_bucket_name }}"
     object_name: "{{ backup_archive_name }}"
     file_path: "{{ backup_temp_dir }}/{{ backup_archive_name }}"
-    region_name: "{{ region }}"
+    region_name: "{{ s3_region }}"
     endpoint_url: "{{ s3_endpoint_url | default(omit) }}"
   register: s3_upload_result
   poll: 10
