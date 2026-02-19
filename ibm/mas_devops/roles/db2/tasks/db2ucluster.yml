@@ -1,0 +1,53 @@
+---
+# Db2uCluster Deployment Tasks (DEPRECATED)
+# =============================================================================
+# This file contains tasks specific to Db2uCluster deployments.
+# Db2uCluster is deprecated and maintained only for existing deployments.
+# New deployments should use db2uinstance.yml
+# =============================================================================
+
+# 1. Create Db2uCluster CR
+# -----------------------------------------------------------------------------
+- name: "Create Db2uCluster - DEPRECATED"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "{{ role_path }}/templates/db2ucluster.yml.j2"
+
+# 2. Wait for the Db2uCluster to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for Db2uCluster instance to be ready (5m delay) - DEPRECATED"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    name: "{{ db2_instance_name | lower }}"
+    namespace: "{{ db2_namespace }}"
+    kind: Db2uCluster
+  register: db2_cluster_lookup
+  until:
+    - db2_cluster_lookup.resources is defined
+    - db2_cluster_lookup.resources | length == 1
+    - db2_cluster_lookup.resources[0].status is defined
+    - db2_cluster_lookup.resources[0].status.state is defined
+    - db2_cluster_lookup.resources[0].status.state == "Ready"
+  retries: 24 # Approximately 2 hours before we give up
+  delay: 300 # 5 minutes
+
+# 3. Wait for the statefulset to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for Db2 Stateful set to be ready - DEPRECATED"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: StatefulSet
+    name: "c-{{ db2_instance_name | lower }}-db2u"
+    namespace: "{{ db2_namespace }}"
+  register: db2_sts
+  until:
+    - db2_sts.resources is defined
+    - db2_sts.resources | length > 0
+    - db2_sts.resources[0].status is defined
+    - db2_sts.resources[0].status.replicas is defined
+    - db2_sts.resources[0].status.readyReplicas is defined
+    - db2_sts.resources[0].status.readyReplicas == db2_sts.resources[0].status.replicas
+  retries: 20 # approx 10 minutes before we give up
+  delay: 30 # seconds
+
+# Made with Bob

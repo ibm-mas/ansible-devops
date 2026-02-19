@@ -1,0 +1,79 @@
+---
+# Path mappings and structure definitions for different CR types
+# This file defines the structural differences between Db2uCluster and Db2uInstance
+
+# Path mappings for accessing configuration in different CR types
+cr_spec_paths:
+  Db2uCluster:
+    database_config: "spec.environment.database.dbConfig"
+    database_settings: "spec.environment.database.settings"
+    database_name: "spec.environment.database.name"
+    instance_config: "spec.environment.instance"
+    instance_dbm_config: "spec.environment.instance.dbmConfig"
+    instance_registry: "spec.environment.instance.registry"
+    pod_resources: "spec.podConfig.db2u.resource"
+    size_field: "spec.size"
+    mln_field: "spec.environment.mln.total"
+
+  Db2uInstance:
+    database_config: "spec.environment.databases[0].dbConfig"
+    database_settings: "spec.environment.databases[0].settings"
+    database_name: "spec.environment.databases[0].name"
+    instance_config: "spec.environment.instance"
+    instance_dbm_config: "spec.environment.instance.dbmConfig"
+    instance_registry: "spec.environment.instance.registry"
+    pod_resources: "spec.podTemplate.db2u.resource"
+    size_field: "spec.nodes"
+    partition_field: "spec.environment.partitionConfig.total"
+
+# Field name mappings between CR types
+cr_field_mappings:
+  Db2uCluster:
+    size: "size"
+    pod_config: "podConfig"
+    mln: "mln"
+    database: "database"  # singular
+
+  Db2uInstance:
+    size: "nodes"
+    pod_config: "podTemplate"
+    mln: "partitionConfig"
+    database: "databases"  # array
+
+# Configuration structure templates for validation
+cr_config_structure:
+  Db2uCluster:
+    required_fields:
+      - "environment"
+      - "environment.database"
+      - "environment.instance"
+    optional_fields:
+      - "environment.mln"
+      - "podConfig"
+      - "storage"
+
+  Db2uInstance:
+    required_fields:
+      - "environment"
+      - "environment.databases"
+      - "environment.instance"
+    optional_fields:
+      - "environment.partitionConfig"
+      - "podTemplate"
+      - "storage"
+
+# API version information
+cr_api_info:
+  Db2uCluster:
+    api_version: "db2u.databases.ibm.com/v1"
+    kind: "Db2uCluster"
+    deprecated: true
+    deprecation_message: "Db2uCluster is deprecated. Please migrate to Db2uInstance."
+
+  Db2uInstance:
+    api_version: "db2u.databases.ibm.com/v1"
+    kind: "Db2uInstance"
+    deprecated: false
+    recommended: true
+
+# Made with Bob

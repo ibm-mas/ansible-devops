@@ -1,24 +1,26 @@
 # suite_db2_setup_for_manage
 
+
+This role performs initial setup on Db2 instances for use with the Maximo Manage application. It supports both CP4D version 3.5 and 4.0, and **now supports both Db2uCluster (deprecated) and Db2uInstance (current) custom resources**.
+
+The role will copy a bash script (setupdb.sh) into the Db2 pod and execute it inside the container, performing configuration changes to the database and configuring tablespaces for Maximo Manage.
+
+## Supported Db2 Custom Resources
+
+- **Db2uCluster** (deprecated, maintained for backward compatibility)
+- **Db2uInstance** (current, recommended for new deployments)
+
+The role automatically detects which CR type is deployed and applies the appropriate configuration. No changes to your playbooks are required.
 This role performs initial Db2 database setup required for Maximo Manage application. It configures database parameters, creates tablespaces, and applies performance optimizations that the Manage operator cannot yet handle automatically.
-
-!!! note "Temporary Role"
-    This role exists as a workaround until the Manage operator can perform these setup tasks automatically. It supports both CP4D version 3.5 and 4.0.
-
-## What This Role Does
-
-- Copies setup script (`setupdb.sh`) into Db2 pod
-- Executes database configuration changes inside container
-- Creates and configures tablespaces for Manage
-- Applies enhanced Db2 performance parameters
-- Optionally restarts Db2 instance to apply configuration
 
 !!! warning "Downtime Risk"
     Setting `enforce_db2_config=true` will restart the Db2 instance, causing downtime. Schedule during maintenance windows or use with newly created instances.
 
 ## Role Variables
 
+
 ### db2_instance_name
+
 Db2 instance name for Manage setup.
 
 - **Required**
@@ -189,11 +191,14 @@ Index tablespace size.
 **Note**: Indexes improve query performance but consume space. A good rule of thumb is to allocate 20-30% of the data tablespace size for indexes. Monitor usage and adjust as needed.
 
 ### db2_config_version
+
 Db2 configuration parameter version.
+
 
 - **Optional**
 - Environment Variable: `DB2_CONFIG_VERSION`
 - Default: `1.0.0`
+- Supported versions: `1.0.0`
 
 **Purpose**: Specifies the version of enhanced Db2 performance parameters to apply during setup.
 
@@ -212,10 +217,13 @@ Db2 configuration parameter version.
 **Note**: The parameter set includes optimizations for Manage's specific database access patterns. Future versions may include additional optimizations.
 
 ### enforce_db2_config
+
 Force Db2 configuration with restart.
+
 
 - **Optional**
 - Environment Variable: `ENFORCE_DB2_CONFIG`
+
 - Default: `true`
 
 **Purpose**: Controls whether enhanced Db2 parameters are applied with a database restart. Restart is required for parameters to take effect but causes downtime.
@@ -236,22 +244,68 @@ Force Db2 configuration with restart.
 
 **Note**: **CRITICAL** - Setting to `true` will restart the Db2 instance, causing downtime for all applications using the database. Schedule during maintenance windows. For production systems, coordinate with stakeholders. For new instances, this is safe as no applications are using the database yet.
 
-Example Playbook
-----------------
 
+## CR Type Detection
+
+The role automatically:
+1. Queries for both Db2uCluster and Db2uInstance resources
+2. Validates that exactly one CR type exists
+3. Applies configuration appropriate for the detected CR type
+4. Fails with clear error messages if:
+   - No CR is found
+   - Both CR types exist (invalid state)
+   - CR is not in Ready state
+
+## Example Playbooks
+
+### Example 1: With Db2uCluster (Legacy)
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    db2_instancename: mydb2
-
+    db2_instance_name: mydb2-cluster
     db2_namespace: db2u
     db2_config_version: "1.0.0"
-
-    # It will cause downtime if set to true, please be careful.
     enforce_db2_config: true
   roles:
     - ibm.mas_devops.suite_db2_setup_for_manage
+```
+
+### Example 2: With Db2uInstance (Current)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    db2_instance_name: mydb2-instance
+    db2_namespace: db2u
+    db2_config_version: "1.0.0"
+    enforce_db2_config: true
+  roles:
+    - ibm.mas_devops.suite_db2_setup_for_manage
+```
+
+**Note**: The playbook syntax is identical for both CR types. The role handles the differences automatically.
+
+## Troubleshooting
+
+### Error: "Both Db2uCluster and Db2uInstance resources exist"
+This indicates an invalid state. Ensure only one CR type exists:
+```bash
+oc get db2ucluster -n <namespace>
+oc get db2uinstance -n <namespace>
+```
+Delete the unwanted CR (Db2uInstance is recommended for new deployments).
+
+### Error: "No Db2 instance found"
+Verify the instance name and namespace:
+```bash
+oc get db2ucluster,db2uinstance -n <namespace>
+```
+
+### Configuration Not Applied
+Check the ConfigMap to see if configuration was already applied:
+```bash
+oc get configmap <instance-name>-enforce-config -n <namespace> -o yaml
 ```
 
 
