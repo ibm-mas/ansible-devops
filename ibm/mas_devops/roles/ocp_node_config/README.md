@@ -14,7 +14,7 @@ oc get pods --all-namespaces -o wide --field-selector spec.nodeName=<node-name>
 
 **Important**: Specify either `ocp_node_name` OR `ocp_node_index` to identify the target node. If both are specified, `ocp_node_index` takes priority. If neither is specified, the role will fail.
 
-## Role Variables
+## Role Variables - General
 
 ### ocp_node_name
 Node name to configure with labels and/or taints.

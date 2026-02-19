@@ -4,7 +4,7 @@ Install **IBM Suite License Service** and generate a configuration that can be d
 
 The role assumes that you have already installed the Certificate Manager in the target cluster.  This action is performed by the [cert_manager](cert_manager.md) role if you want to use this collection to install the cert-manager operator.
 
-## Role Variables
+## Role Variables - General
 
 ### General Variables
 

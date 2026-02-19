@@ -15,7 +15,7 @@ The list of namespaces to be updated with new username/password credentials are:
 **Note**
 This role uses [`ocp_login`](../roles/ocp_login.md) to login into the target clusters, therefore make sure you export the corresponding environment variables accordingly to the cluster type you want to target.
 
-## Role Variables
+## Role Variables - General
 ### artifactory_username 
 
 - Required to rotate the `ibm-entitlement` and `wiotp-docker-local` secret credentials which is used to pull images across MAS namespaces for development installs and pre-release catalog sources.

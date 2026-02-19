@@ -11,7 +11,7 @@ Currently this role only supports generating a system-scoped ObjectStorageCfg re
 
 
 ## Role Variables - General
-## Role Variables
+## Role Variables - General
 
 ### cos_type
 The Cloud Object Storage provider to use for MAS.

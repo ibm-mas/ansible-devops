@@ -7,7 +7,7 @@ The biggest benefit of using it is that you could have both IBM Maximo Location 
 
 **Note:** IBM Maximo Location Services for Esri will make use of MAS cluster issuers while managing internal and public certificates thus, you while using [suite_dns](suite_dns.md) to setup cluster issuer and public certificates for your MAS instances, these are automatically reused for your instance of `IBM Maximo Location Services for Esri`.
 
-## Role Variables
+## Role Variables - General
 
 ### Deployment details
 

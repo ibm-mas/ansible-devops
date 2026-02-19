@@ -34,7 +34,7 @@ This role configures:
 
 ## Role Variables - API Server
 
-## Role Variables
+## Role Variables - General
 
 ### ocp_update_ciphers_for_semeru
 Enable custom TLS cipher configuration for IBM Java Semeru FIPS mode compatibility.

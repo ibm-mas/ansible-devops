@@ -2,7 +2,7 @@
 
 Create new apikey for user in cloud account and delete the existing one.
 
-## Role Variables
+## Role Variables - General
 ### cluster_type
 Required.  Specify the cluster type, supported values are `roks`, and `rosa`.
 

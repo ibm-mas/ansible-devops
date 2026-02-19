@@ -22,7 +22,7 @@ To run the `docdb_secret_rotate` MONGODB_ACTION when the provider is `aws` you m
 This role will install a GrafanaDashboard used for monitoring the MongoDB instance when the provided is `community` and you have run the [grafana role](https://ibm-mas.github.io/ansible-devops/roles/grafana/) previously. If you did not run the [grafana role](https://ibm-mas.github.io/ansible-devops/roles/grafana/) then the GrafanaDashboard won't be installed.
 
 
-## Role Variables
+## Role Variables - General
 
 ### Common Variables
 

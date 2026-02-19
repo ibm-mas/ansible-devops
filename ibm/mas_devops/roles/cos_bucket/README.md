@@ -1,7 +1,7 @@
 # cos_bucket
 This role extends support to create or deprovision Cloud Object Storage buckets.
 
-## Role Variables
+## Role Variables - General
 ### cos_type
 The Cloud Object Storage provider for bucket operations.
 

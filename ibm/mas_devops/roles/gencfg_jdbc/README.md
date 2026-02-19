@@ -7,7 +7,7 @@ The role supports multiple database types (Db2, Oracle, SQL Server) with both se
 
 ## Role Variables - Data Source
 
-## Role Variables
+## Role Variables - General
 
 ### db_instance_id
 Database instance identifier used in the generated configuration.

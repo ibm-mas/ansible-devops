@@ -9,7 +9,7 @@ oc -n eck get secret mas-es-elastic-user -o go-template='{{.data.elastic | base6
 ```
 
 
-## Role Variables
+## Role Variables - General
 ### eck_action
 Action to perform on ECK installation.
 

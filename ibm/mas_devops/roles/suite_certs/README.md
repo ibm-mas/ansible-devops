@@ -56,7 +56,7 @@ $MAS_CONFIG_DIR/certs/
 !!! note "Secret Names"
     TLS secret names for each application are defined in `suite_certs/defaults/main.yml`. Changes to secret names or adding new applications requires updating this file.
 
-## Role Variables
+## Role Variables - General
 
 ### mas_instance_id
 MAS instance identifier for certificate management.

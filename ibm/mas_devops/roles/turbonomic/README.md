@@ -14,7 +14,7 @@ Installs and configures [kubeturbo](https://github.com/turbonomic/kubeturbo) to 
 
 ## Role Variables - KubeTurbo Configuration
 
-## Role Variables
+## Role Variables - General
 
 ### kubeturbo_namespace
 Namespace for KubeTurbo operator installation.

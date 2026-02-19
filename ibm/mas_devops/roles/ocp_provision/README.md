@@ -4,7 +4,7 @@ Provision OCP cluster on IBM Cloud ROKS, ROSA, or DevIT Fyre.
 Fyre clusters will be automatically reconfigured to enable NFS storage.  By default this is made available via the `nfs-client` storage class and supports both `ReadWriteOnce` and `ReadWriteMany` access modes.  The `image-registry-storage` PVC used by the OpenShift image registry component will also be reconfigured to use this storage class.
 
 
-## Role Variables
+## Role Variables - General
 ### cluster_type
 Infrastructure provider type for cluster provisioning.
 

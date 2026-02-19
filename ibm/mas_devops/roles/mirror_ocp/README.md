@@ -36,7 +36,7 @@ Three catalogs are mirrored, containing the following content:
 - `oc-mirror` plugin must be installed
 
 
-## Role Variables
+## Role Variables - General
 ### mirror_mode
 Mirroring operation mode for Red Hat content.
 

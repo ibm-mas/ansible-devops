@@ -3,7 +3,7 @@
 This role provides support to login to a cluster using the `oc` CLI by looking up cluster information from the infrastructure provider's APIs, it also supports setting `ocp_server` and `ocp_token` directly to support login to any Kubernetes cluster.
 
 
-## Role Variables
+## Role Variables - General
 
 ### cluster_name
 Cluster name for credential lookup.

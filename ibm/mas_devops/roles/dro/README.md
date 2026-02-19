@@ -8,7 +8,7 @@ Installs [Data Reporter Operator](https://github.com/redhat-marketplace/redhat-m
 
 
 ## Role Variables - Installation
-## Role Variables
+## Role Variables - General
 
 ### dro_action
 Action to perform with the Data Reporter Operator deployment.

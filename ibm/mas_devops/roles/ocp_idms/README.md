@@ -57,7 +57,7 @@ All content from the subset of the Red Hat operator catalogs supported by [mirro
 If you are managing the Red Hat Operator Catalogs yourself the content therein may well be different depending how you have configured mirroring.
 
 
-## Role Variables
+## Role Variables - General
 ### product_family
 Product family for ImageDigestMirrorSet configuration.
 

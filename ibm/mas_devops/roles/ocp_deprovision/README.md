@@ -1,7 +1,7 @@
 # ocp_deprovision
 Deprovision OCP cluster in Fyre, IBM Cloud, & ROSA.
 
-## Role Variables
+## Role Variables - General
 ### cluster_type
 Infrastructure provider type for cluster deprovisioning.
 

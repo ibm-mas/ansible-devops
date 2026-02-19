@@ -18,7 +18,7 @@ If the `mas_instance_id` and `mas_config_dir` are provided then the role will ge
 When upgrading db2, specify the existing namespace where the `db2uCluster` instances exist. All the instances under that namespace will be upgraded to the db2 version specified. The version of db2 **must** match the channel of db2 being used for the upgrade.
 
 
-## Role Variables
+## Role Variables - General
 
 ### Installation Variables
 

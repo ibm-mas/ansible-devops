@@ -5,7 +5,7 @@ This role generates a mirror manifest file suitable for use with the `oc mirror`
 The [ibm-pak plugin](https://github.com/IBM/ibm-pak-plugin) must be installed.
 
 
-## Role Variables
+## Role Variables - General
 ### case_name
 Name of the IBM CASE bundle to prepare for mirroring.
 
