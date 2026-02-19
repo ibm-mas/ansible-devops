@@ -1,5 +1,4 @@
-dro [Data Reporter Operator]
-===============================================================================
+# dro [Data Reporter Operator]
 DRO will be supported on the following MAS versions
 - MAS 8.10.6 +
 - MAS 8.11.2 +
@@ -9,7 +8,8 @@ Installs [Data Reporter Operator](https://github.com/redhat-marketplace/redhat-m
 
 
 Role Variables - Installation
--------------------------------------------------------------------------------
+## Role Variables
+
 ### dro_action
 Action to perform with the Data Reporter Operator deployment.
 
@@ -99,7 +99,6 @@ Storage class for DRO persistent volumes.
 - Auto-detection works for most standard cluster configurations
 
 Role Variables - BASCfg Generation
--------------------------------------------------------------------------------
 ### mas_instance_id
 MAS instance identifier for BasCfg generation.
 
@@ -320,8 +319,7 @@ Include complete certificate chain in MAS configuration.
 
 **Notes**: Only applicable when a trusted CA is found in your cluster's ingress configuration.
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 ### Install in-cluster and generate MAS configuration
 
@@ -383,6 +381,5 @@ ansible-playbook playbooks/run_role.yml
   - ibm.mas_devops.dro
 ```
 
-License
--------------------------------------------------------------------------------
+## License
 EPL-2.0

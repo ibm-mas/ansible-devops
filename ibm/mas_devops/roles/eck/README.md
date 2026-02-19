@@ -1,5 +1,4 @@
-eck
-===============================================================================
+# eck
 
 This role provides support to install [Elastic Cloud on Kubernetes](https://www.elastic.co/guide/en/cloud-on-k8s/master/index.html) (ECK).
 
@@ -10,8 +9,7 @@ oc -n eck get secret mas-es-elastic-user -o go-template='{{.data.elastic | base6
 ```
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 ### eck_action
 Action to perform on ECK installation.
 
@@ -146,7 +144,6 @@ Enable Filebeat deployment.
 
 
 Role Variables - Remote Elasticsearch
--------------------------------------------------------------------------------
 When `eck_remote_es_hosts`, `eck_remote_es_username`, and `eck_remote_es_password` are all set, and `eck_enable_logstash` is `true`, the Logstash server will be configured to send log messages to the remote Elasticsearch instance defined.
 
 ### eck_remote_es_hosts
@@ -226,7 +223,6 @@ Remote Elasticsearch password.
 
 
 Role Variables - Domains and Certificates
--------------------------------------------------------------------------------
 Elasticsearch and Kibana can be configured with a custom domain and a certificate signed by [LetsEncrypt](https://letsencrypt.org/).
 
 ### es_domain
@@ -302,8 +298,7 @@ Email for LetsEncrypt certificate registration.
 **Note**: Requires Cert-Manager to be installed in the cluster. The Issuer uses LetsEncrypt production environment with HTTP-01 challenge solver. Email receives important certificate notifications.
 
 
-Example Playbook
-----------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -317,7 +312,6 @@ Example Playbook
     - ibm.mas_devops.eck
 ```
 
-License
--------
+## License
 
 EPL-2.0

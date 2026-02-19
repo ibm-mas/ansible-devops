@@ -1,5 +1,4 @@
-mirror_ocp
-===============================================================================
+# mirror_ocp
 This role supports mirroring the Red Hat Platform and **selected content from the Red Hat operator catalogs**.  Only content in the Red Hat catalogs directly used by IBM Maximo Application Suite is mirrored.
 
 Four actions are supported:
@@ -8,7 +7,9 @@ Four actions are supported:
 - `to-filesystem` Mirror content to the local filesystem
 - `from-filesystem` Mirror content from the local filesystem to your target registry
 
-Three **Catalogs** are mirrored, containing the following content:
+## Catalogs
+
+Three catalogs are mirrored, containing the following content:
 
 ### certified-operator-index
 1. gpu-operator-certified (required by ibm.mas_devops.nvidia_gpu role)
@@ -30,14 +31,12 @@ Three **Catalogs** are mirrored, containing the following content:
 7. openshift-cert-manager-operator (required by ibm.mas_devops.cert_manager role)
 8. lvms-operator (not directly used, but often used in SNO environments)
 
-Requirements
--------------------------------------------------------------------------------
+## Requirements
 - `oc` tool must be installed
 - `oc-mirror` plugin must be installed
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 ### mirror_mode
 Mirroring operation mode for Red Hat content.
 
@@ -69,7 +68,6 @@ Mirroring operation mode for Red Hat content.
 
 
 Role Variables - Mirror Actions
--------------------------------------------------------------------------------
 ### mirror_working_dir
 Working directory for mirroring operations.
 
@@ -169,7 +167,6 @@ Path to Red Hat pull secret file.
 
 
 Role Variables - OpenShift Version
--------------------------------------------------------------------------------
 ### ocp_release
 OpenShift release version to mirror.
 
@@ -247,7 +244,6 @@ Maximum OpenShift patch version to mirror.
 
 
 Role Variables - Target Registry
--------------------------------------------------------------------------------
 ### registry_public_host
 Target registry hostname for mirrored images.
 
@@ -416,8 +412,7 @@ Password for target registry authentication.
 **Note**: Keep passwords secure. Never commit to version control. Use environment variables or secure vaults.
 
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -441,7 +436,6 @@ Example Playbook
 ```
 
 
-License
--------------------------------------------------------------------------------
+## License
 
 EPL-2.0

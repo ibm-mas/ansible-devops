@@ -1,5 +1,4 @@
-ocp_simulate_disconnected_network
-===============================================================================
+# ocp_simulate_disconnected_network
 
 Simulate an air-gapped/disconnected network environment for testing purposes by modifying DNS resolution on OpenShift cluster nodes. This role adds bogus entries to the `/etc/hosts` file on all nodes (workers and masters) to break DNS resolution for external container registries, forcing the cluster to use mirrored registries.
 
@@ -18,8 +17,7 @@ sh-4.4# cat /host/etc/hosts
 ```
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 
 ### airgap_network_exclusions
 Space-separated list of container registry hostnames to block.
@@ -126,3 +124,17 @@ Enable multiple MachineConfig updates in a single operation.
 - `true` can save time in development environments
 - Node reboots are required to apply host file changes
 - Monitor MachineConfigPool status: `oc get mcp`
+
+## Example Playbook
+
+```yaml
+- hosts: localhost
+  vars:
+    # Add required variables here
+  roles:
+    - ibm.mas_devops.ocp_simulate_disconnected_network
+```
+
+## License
+
+EPL-2.0

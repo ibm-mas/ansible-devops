@@ -1,14 +1,11 @@
-mirror_case_prepare
-===============================================================================
+# mirror_case_prepare
 This role generates a mirror manifest file suitable for use with the `oc mirror` command (or the `ibm.mas_devops.mirror_images` role) from an IBM CASE bundle.
 
-Requirements
--------------------------------------------------------------------------------
+## Requirements
 The [ibm-pak plugin](https://github.com/IBM/ibm-pak-plugin) must be installed.
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 ### case_name
 Name of the IBM CASE bundle to prepare for mirroring.
 
@@ -156,7 +153,6 @@ List of child CASE bundles to exclude from mirroring.
 
 
 Role Variables - IBM Pak
--------------------------------------------------------------------------------
 ### ibmpak_skip_verify
 Skip certificate verification when downloading CASE bundles.
 
@@ -233,8 +229,7 @@ Skip TLS/SSL verification when downloading CASE bundles.
 **Note**: Only use `true` in development/testing environments. Production should use valid TLS certificates and keep this `false`.
 
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -258,7 +253,6 @@ Example Playbook
 ```
 
 
-License
--------
+## License
 
 EPL-2.0

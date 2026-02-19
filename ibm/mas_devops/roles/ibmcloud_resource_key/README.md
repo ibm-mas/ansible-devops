@@ -1,11 +1,9 @@
-ibmcloud_resource_key
-=========
+# ibmcloud_resource_key
 
 Create IBM Cloud resource keys (apikeys for specific services associated to the account)
 
 
-Role Variables
---------------
+## Role Variables
 
 ### service_instance
 The name of the IBM Cloud service instance for which to create or manage resource keys.
@@ -182,11 +180,9 @@ The directory path where the resource key JSON file will be saved.
 - Back up this directory if it contains important credentials
 
 
-Example Playbook
-----------------
+## Example Playbook
 
 ```yaml
----
 - hosts: localhost
   any_errors_fatal: true
   vars:
@@ -199,7 +195,6 @@ Example Playbook
     - ibmcloud_resource_key
 ```
 
-License
--------
+## License
 
 EPL-2.0

@@ -1,11 +1,9 @@
-ocp_login
-=========
+# ocp_login
 
 This role provides support to login to a cluster using the `oc` CLI by looking up cluster information from the infrastructure provider's APIs, it also supports setting `ocp_server` and `ocp_token` directly to support login to any Kubernetes cluster.
 
 
-Role Variables
---------------
+## Role Variables
 
 ### cluster_name
 Cluster name for credential lookup.
@@ -112,7 +110,6 @@ Authentication token for direct login.
 
 
 Role Variables - IBMCloud ROKS
-------------------------------
 ### ibmcloud_apikey
 IBM Cloud API key for ROKS authentication.
 
@@ -164,7 +161,6 @@ IBM Cloud API endpoint URL.
 
 
 Role Variables - IBM DevIT Fyre
-------------------------------
 ### fyre_username
 IBM DevIT Fyre username.
 
@@ -266,7 +262,6 @@ Enable IPv6 for Fyre RTP site.
 **Note**: Only required for Fyre RTP site. SVL and other sites use IPv4.
 
 Role Variables - AWS ROSA
--------------------------
 ### rosa_token
 AWS ROSA authentication token.
 
@@ -318,7 +313,6 @@ ROSA cluster-admin account password.
 **Note**: **SECURITY** - Password should be kept secure and not committed to version control. This is the cluster-admin account password set during ROSA cluster provisioning.
 
 Example Playbooks
-----------------
 
 ### Direct Login
 ```yaml
@@ -366,7 +360,17 @@ Example Playbooks
     - ibm.mas_devops.ocp_login
 ```
 
-License
--------
+
+## Example Playbook
+
+```yaml
+- hosts: localhost
+  vars:
+    # Add required variables here
+  roles:
+    - ibm.mas_devops.ocp_login
+```
+
+## License
 
 EPL-2.0

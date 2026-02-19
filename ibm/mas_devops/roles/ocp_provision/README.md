@@ -1,12 +1,10 @@
-ocp_provision
-===============================================================================
+# ocp_provision
 Provision OCP cluster on IBM Cloud ROKS, ROSA, or DevIT Fyre.
 
 Fyre clusters will be automatically reconfigured to enable NFS storage.  By default this is made available via the `nfs-client` storage class and supports both `ReadWriteOnce` and `ReadWriteMany` access modes.  The `image-registry-storage` PVC used by the OpenShift image registry component will also be reconfigured to use this storage class.
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 ### cluster_type
 Infrastructure provider type for cluster provisioning.
 
@@ -115,7 +113,6 @@ Storage provider configuration for Fyre clusters.
 
 
 Role Variables - GPU Node Support
--------------------------------------------------------------------------------
 ### ocp_provision_gpu
 Enable GPU worker nodes during provisioning.
 
@@ -197,7 +194,6 @@ Number of GPU worker nodes to provision in the cluster.
 
 
 Role Variables - ROKS
--------------------------------------------------------------------------------
 The following variables are only used when `cluster_type = roks`.
 
 ### ibmcloud_apikey
@@ -366,7 +362,6 @@ Additional flags for ROKS cluster creation.
 
 
 Role Variables - ROSA
--------------------------------------------------------------------------------
 The following variables are only used when `cluster_type = rosa`.
 
 ### rosa_token
@@ -492,7 +487,6 @@ Directory for storing ROSA cluster configuration files.
 
 
 Role Variables - FYRE
--------------------------------------------------------------------------------
 The following variables are only used when `cluster_type = fyre`.
 
 ### fyre_username
@@ -832,7 +826,6 @@ Enable IPv6 networking for Fyre cluster.
 **Note**: **IMPORTANT** - IPv6 is only supported at the RTP (Raleigh) Fyre site. Will fail at other sites.
 
 Role Variables - IPI
--------------------------------------------------------------------------------
 These variables are only used when `cluster_type = ipi`.
 
 !!! note
@@ -1097,7 +1090,6 @@ Root volume size for cluster nodes.
 **Note**: Platform defaults are typically sufficient. Only increase if you have specific requirements for more disk space.
 
 Role Variables - AWS
--------------------------------------------------------------------------------
 The following variables are only used when `cluster_type = ipi` and `ipi_platform = aws`.
 
 ### aws_access_key_id
@@ -1147,7 +1139,6 @@ AWS secret access key for authentication.
 **Note**: Keep secret keys secure. Never commit to version control. Use environment variables or secure vaults. Rotate keys regularly.
 
 Role Variables - GCP
--------------------------------------------------------------------------------
 The following variables are only used when `cluster_type = ipi` and `ipi_platform = gcp`.
 
 ### gcp_service_account_file
@@ -1197,8 +1188,7 @@ GCP project ID for cluster deployment.
 **Note**: The project must exist before provisioning. Ensure the service account has appropriate permissions in the project. All cluster costs are billed to this project.
 
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -1212,7 +1202,6 @@ Example Playbook
     - ibm.mas_devops.ocp_provision
 ```
 
-License
--------------------------------------------------------------------------------
+## License
 
 EPL-2.0

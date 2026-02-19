@@ -1,5 +1,4 @@
-ocp_config
-===============================================================================
+# ocp_config
 
 Configure OpenShift Container Platform cluster-level settings for optimal MAS deployment. This role provides essential tuning for ingress timeouts, TLS cipher compatibility with IBM Java Semeru FIPS mode, and OperatorHub catalog source management.
 
@@ -34,7 +33,8 @@ This role configures:
 
 
 Role Variables - API Server
--------------------------------------------------------------------------------
+
+## Role Variables
 
 ### ocp_update_ciphers_for_semeru
 Enable custom TLS cipher configuration for IBM Java Semeru FIPS mode compatibility.
@@ -65,7 +65,6 @@ Enable custom TLS cipher configuration for IBM Java Semeru FIPS mode compatibili
 
 
 Role Variables - Ingress Controller
--------------------------------------------------------------------------------
 ### ocp_ingress_controller_name
 The name of the Ingress Controller to configure.
 
@@ -181,7 +180,6 @@ Specifies the namespace ownership policy for the Ingress Controller. Set to `Int
 
 
 Role Variables - OperatorHub
--------------------------------------------------------------------------------
 
 ### ocp_operatorhub_disable_redhat_sources
 Disable default Red Hat OperatorHub catalog sources.
@@ -209,8 +207,7 @@ Disable default Red Hat OperatorHub catalog sources.
 - Affects all operator installations in the cluster
 - Cannot install operators from Red Hat catalogs after disabling
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -228,6 +225,5 @@ Example Playbook
 ```
 
 
-License
--------------------------------------------------------------------------------
+## License
 EPL-2.0

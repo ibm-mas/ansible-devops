@@ -35,7 +35,6 @@ Specifies which operation to perform on the Suite License Service (SLS) instance
 
 
 Role Variables - Installation
--------------------------------------------------------------------------------
 If `sls_url` is set then the role will skip the installation of an SLS instance and simply generate the SLSCfg resource for the SLS instance defined.
 
 #### artifactory_username
@@ -299,7 +298,6 @@ SLS-specific IBM entitlement key override (SLS 3.7.0 and earlier only).
 
 
 Role Variables - Configuration
--------------------------------------------------------------------------------
 #### sls_domain
 Custom domain name for external access to SLS via OpenShift routes.
 
@@ -596,7 +594,6 @@ Local file path to the IBM license entitlement file for bootstrapping SLS.
 
 
 Role Variables - Bootstrap [Partly deprecated in SLS 3.7.0]
--------------------------------------------------------------------------------
 #### bootstrap.license_file
 **Deprecated in SLS 3.7.0**
 

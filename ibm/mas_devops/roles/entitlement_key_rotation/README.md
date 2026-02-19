@@ -1,5 +1,4 @@
-entitlement_key_rotation
-===============================================================================
+# entitlement_key_rotation
 
 This role creates/updates the entitlement username and password that are stored in the secrets used to pull images throughout all MAS related namespaces for one or multiple clusters.
 
@@ -16,8 +15,7 @@ The list of namespaces to be updated with new username/password credentials are:
 **Note**
 This role uses [`ocp_login`](../roles/ocp_login.md) to login into the target clusters, therefore make sure you export the corresponding environment variables accordingly to the cluster type you want to target.
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 ### artifactory_username 
 
 - Required to rotate the `ibm-entitlement` and `wiotp-docker-local` secret credentials which is used to pull images across MAS namespaces for development installs and pre-release catalog sources.
@@ -53,7 +51,6 @@ Role Variables
 - Default Value: `ibm-sls`
 
 Role Variables - Advanced mode
--------------------------------------------------------------------------------
 
 Use the following variables to change the default behavior of this role to only rotate the entitlement key for specific clusters or namespaces, instead of running it for all MAS related namespaces.
 
@@ -71,8 +68,7 @@ Use the following variables to change the default behavior of this role to only 
 - Example:
 `export MAS_NAMESPACES_ENTITLEMENT_KEY_ROTATION_LIST='ibm-sls,openshift-marketplace'`
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 Rotate entitlement credentials across all MAS instances for a given target cluster:
 
@@ -111,7 +107,6 @@ Rotate entitlement credentials across a specific list of namespaces, targeting m
     - ibm.mas_devops.entitlement_key_rotation
 ```
 
-License
--------
+## License
 
 EPL-2.0

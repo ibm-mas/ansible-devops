@@ -768,7 +768,6 @@ Specify the type of taint effect that will be tolerated (`NoSchedule`, `PreferNo
 
 
 Role Variables - DB2UCluster Database Configuration Settings
------------------------------------------------------------------------------------------------------------------
 The following variables will overwrite DB2UCluster default properties for the DB2 configuration sections:
 
 - `spec.environment.database.dbConfig`
@@ -856,7 +855,6 @@ This is only used when both `mas_config_dir` and `mas_instance_id` are set, and 
 
 
 Role Variables - Backup and Restore
------------------------------------------------------------------------------------------------------------------
 #### masbr_confirm_cluster
 Set `true` or `false` to indicate the role whether to confirm the currently connected cluster before running the backup or restore job.
 

@@ -1,13 +1,11 @@
-gencfg_watsonstudio
-============
+# gencfg_watsonstudio
 
 Generate Watson Studio configuration files for connecting Maximo Application Suite to IBM Cloud Pak for Data Watson Studio instances. This role creates WatsonStudioCfg custom resources that enable MAS applications (particularly Predict and Health) to leverage Watson Studio's machine learning and analytics capabilities.
 
 The role supports flexible configuration scoping to make Watson Studio available at system, workspace, application, or workspace-application levels within MAS.
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 
 ### mas_instance_id
 MAS instance identifier for which the Watson Studio configuration is being generated.
@@ -220,11 +218,9 @@ Custom Kubernetes labels to apply to the generated WatsonStudioCfg resource.
 - Helpful for tracking Watson Studio configurations across multiple environments
 
 
-Example Playbook
-----------------
+## Example Playbook
 
 ```yaml
----
 
 - hosts: localhost
   any_errors_fatal: true
@@ -232,7 +228,6 @@ Example Playbook
     - ibm.mas_devops.gencfg_watsonstudio
 ```
 
-License
--------
+## License
 
 EPL-2.0

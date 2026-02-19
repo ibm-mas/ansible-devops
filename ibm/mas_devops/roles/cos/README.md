@@ -1,5 +1,4 @@
-cos
-===============================================================================
+# cos
 This role provides support for:
 
 - Provisioning and Configuring Cloud Object Storage in MAS. It currently supports two providers:
@@ -12,7 +11,8 @@ Currently this role only supports generating a system-scoped ObjectStorageCfg re
 
 
 Role Variables - General
--------------------------------------------------------------------------------
+## Role Variables
+
 ### cos_type
 The Cloud Object Storage provider to use for MAS.
 
@@ -144,7 +144,6 @@ Custom key-value labels to apply to provisioned resources.
 
 
 Role Variables - IBM COS
--------------------------------------------------------------------------------
 ### cos_instance_name
 The name for the IBM Cloud Object Storage instance.
 
@@ -478,7 +477,6 @@ The default IBM Cloud resource group for all IBM Cloud resources.
 
 
 Role Variables - MAS Configuration
--------------------------------------------------------------------------------
 ### mas_instance_id
 The MAS instance ID that the ObjectStorageCfg will target.
 
@@ -577,8 +575,7 @@ Controls whether to include the complete certificate chain in the ObjectStorageC
 - The certificate chain is extracted from the cluster's ingress configuration
 
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 Create the Ceph Object store on the existing OCS cluster and prepare the objectstorageCfg yaml to mas_config_dir.
 
@@ -606,6 +603,5 @@ Create the IBM Cloud Object storage Instance and prepare the objectstorageCfg ya
   roles:
     - ibm.mas_devops.cos
 ```
-License
--------------------------------------------------------------------------------
+## License
 EPL-2.0

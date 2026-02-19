@@ -1,5 +1,4 @@
-ocp_node_config
-===============================================================================
+# ocp_node_config
 
 Configure individual OpenShift nodes with custom labels and taints to control workload placement. This role enables creation of dedicated nodes for specific workloads (e.g., Db2, MongoDB, compute-intensive applications) by applying Kubernetes node selectors and taints.
 
@@ -12,9 +11,10 @@ oc get pods --all-namespaces -o wide --field-selector spec.nodeName=<node-name>
 
 
 Role Variables - Node Selection
--------------------------------------------------------------------------------
 
 **Important**: Specify either `ocp_node_name` OR `ocp_node_index` to identify the target node. If both are specified, `ocp_node_index` takes priority. If neither is specified, the role will fail.
+
+## Role Variables
 
 ### ocp_node_name
 Node name to configure with labels and/or taints.
@@ -63,7 +63,6 @@ Zero-based index of the node in the cluster's node list.
 
 
 Role Variables - Node Labels
--------------------------------------------------------------------------------
 
 ### ocp_node_label_keys
 Comma-separated list of label keys to add to the selected node.
@@ -119,7 +118,6 @@ Comma-separated list of label values corresponding to the label keys.
 
 
 Role Variables - Node Taints
--------------------------------------------------------------------------------
 
 ### ocp_node_taint_keys
 Comma-separated list of taint keys to add to the selected node.
@@ -197,8 +195,7 @@ Comma-separated list of taint effects defining how the taint impacts pod schedul
 - Example: Use `NoExecute` for Db2 dedicated nodes to ensure no other workloads run
 
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -223,7 +220,6 @@ Example Playbook
 ```
 
 
-License
--------------------------------------------------------------------------------
+## License
 
 EPL-2.0

@@ -227,55 +227,9 @@ class READMEFixer:
         return content, fixes
 
     def _fix_code_blocks(self, content: str) -> Tuple[str, List[str]]:
-        """Add language tags to code blocks without them and fix malformed closings"""
+        """Code block fixes disabled - use report_missing_code_tags.py for manual fixes"""
         fixes = []
-
-        # Fix malformed code block closings like ```yaml or ```bash at end
-        malformed_pattern = r'```(yaml|bash|shell|python|json)\s*$'
-        def fix_malformed_closing(match):
-            fixes.append(f"Fixed malformed code block closing: ```{match.group(1)} -> ```")
-            return '```'
-        
-        content = re.sub(malformed_pattern, fix_malformed_closing, content, flags=re.MULTILINE)
-
-        # Find code blocks without language tags
-        # Pattern: ``` at start of line followed immediately by newline (not a language tag)
-        # This ensures we don't match ```bash, ```yaml, etc.
-        lines = content.split('\n')
-        new_lines = []
-        i = 0
-        
-        while i < len(lines):
-            line = lines[i]
-            
-            # Check if this is an opening code fence without language
-            if line.strip() == '```':
-                # Look ahead to detect language from content
-                language = 'yaml'  # default
-                
-                # Check next few lines for language hints
-                if i + 1 < len(lines):
-                    next_line = lines[i + 1].strip()
-                    # Check for shell/bash indicators
-                    if next_line.startswith(('export ', 'ansible-playbook', 'oc ', 'kubectl ', 'aws ', 'ibmcloud ', 'echo ', 'cd ', 'git ', 'python ', 'pip ', 'npm ', 'docker ', 'podman ')):
-                        language = 'bash'
-                    # Check for YAML indicators
-                    elif next_line.startswith(('- ', '  - ', 'apiVersion:', 'kind:', 'metadata:', 'spec:', 'hosts:', 'vars:', 'roles:', 'tasks:')):
-                        language = 'yaml'
-                    # Check for JSON indicators
-                    elif next_line.startswith(('{', '[')):
-                        language = 'json'
-                
-                new_lines.append(f'```{language}')
-                fixes.append(f"Added language tag '{language}' to code block at line {i+1}")
-            else:
-                new_lines.append(line)
-            
-            i += 1
-        
-        if fixes:
-            content = '\n'.join(new_lines)
-
+        # All code block logic disabled - manual fixes only
         return content, fixes
     
     def _remove_duplicate_sections(self, content: str) -> Tuple[str, List[str]]:

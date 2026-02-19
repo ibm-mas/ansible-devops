@@ -1,5 +1,4 @@
-AI Service RHOAI
-===============================================================================
+# AI Service RHOAI
 This role provides support to deploy rhoai components for AI Broker Application:
 
 * Install Red Hat OpenShift Serverless Operator
@@ -10,8 +9,7 @@ This role provides support to deploy rhoai components for AI Broker Application:
 * Create Data Science Cluster
 * Create Create Data Science Pipelines Application
 
-Role Variables
---------------
+## Role Variables
 
 ### tenantName
 Tenant identifier for the Red Hat OpenShift AI deployment.
@@ -176,6 +174,17 @@ Catalog source for Red Hat OpenShift AI Operator.
 - RHOAI may be available in redhat-operators or community-operators depending on version
 - For air-gapped environments, mirror the catalog and update this variable
 - Requires valid Red Hat subscription for enterprise support
+
+
+## Example Playbook
+
+```yaml
+- hosts: localhost
+  vars:
+    # Add required variables here
+  roles:
+    - ibm.mas_devops.aiservice_rhoai
+```
 
 ## License
 

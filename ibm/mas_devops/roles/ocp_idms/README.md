@@ -1,5 +1,4 @@
-ocp_idms
-===============================================================================
+# ocp_idms
 Installs an **ImageDigestMirrorSet** (IDMS)for IBM Maximo Application Suite's Maximo Operator Catalog.
 Also install IDMS suitable for the Red Hat Operator Catalogs created by [mirror_ocp](mirror_ocp.md).
 If there are legacy **ImageContentSourcePolicies** installed by previous versions of this role, they will be deleted.
@@ -11,7 +10,6 @@ If PRODUCT_FAMILY is aiservice then it will install an **ImageTagMirrorSet** for
 
 
 IBM Maximo Operator Catalog Content
--------------------------------------------------------------------------------
 All content used in the MAS install is sourced from three registries: **icr.io**, **cp.icr.io**, & **quay.io**:
 
 - **icr.io/cpopen** All IBM operators
@@ -25,7 +23,6 @@ All content used in the MAS install is sourced from three registries: **icr.io**
 - **quay.io/ibmmas** Non-product IBM Maximo Application Suite images (e.g. MAS CLI)
 
 Red Hat Operator Catalog Content
--------------------------------------------------------------------------------
 All content from the subset of the Red Hat operator catalogs supported by [mirror_ocp](mirror_ocp.md) is sourced from eight registries: **icr.io**, **docker.io**, **quay.io**, **gcr.io**, **ghcr.io**, **nvcr.io**, **registry.connect.redhat.com**, and **registry.redhat.io**:
 
 - **icr.io/cpopen**
@@ -60,8 +57,7 @@ All content from the subset of the Red Hat operator catalogs supported by [mirro
 If you are managing the Red Hat Operator Catalogs yourself the content therein may well be different depending how you have configured mirroring.
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 ### product_family
 Product family for ImageDigestMirrorSet configuration.
 
@@ -142,7 +138,6 @@ Enable CatalogSources and ImageDigestMirrorSet for Red Hat operator catalogs.
 
 
 Role Variables - Target Registry
--------------------------------------------------------------------------------
 ### registry_private_host
 Private hostname for the mirror registry.
 
@@ -358,8 +353,7 @@ Enable parallel node updates during MachineConfig application.
 
 **Note**: **WARNING** - Only enable during initial setup when nodes are lightly loaded. In production, leave as `false` to ensure workload availability during node updates. MachineConfig changes cause node reboots.
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -378,7 +372,6 @@ Example Playbook
 ```
 
 
-License
--------------------------------------------------------------------------------
+## License
 
 EPL-2.0
