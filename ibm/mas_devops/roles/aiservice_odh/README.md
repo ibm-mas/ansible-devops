@@ -1,4 +1,4 @@
-# AI Service ODH
+# aiservice_odh
 This role provides support to deploy odh components for AI Broker Application:
 
 * Install Red Hat OpenShift Serverless Operator

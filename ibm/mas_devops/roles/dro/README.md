@@ -1,4 +1,4 @@
-# dro [Data Reporter Operator]
+# dro
 DRO will be supported on the following MAS versions
 - MAS 8.10.6 +
 - MAS 8.11.2 +

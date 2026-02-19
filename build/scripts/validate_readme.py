@@ -88,17 +88,7 @@ class READMEValidator:
         first_line = lines[0].strip()
 
         # Check if starts with single #
-        if first_line.startswith('# '):
-            result.checks_passed += 1
-
-            # Check if matches role name
-            title_text = first_line[2:].strip()
-            if title_text.lower() != result.role_name.lower():
-                result.warnings += 1
-                result.warnings_list.append(
-                    f"Title '{title_text}' doesn't match role name '{result.role_name}'"
-                )
-        else:
+        if not first_line.startswith('# '):
             result.checks_failed += 1
             if first_line.startswith('##'):
                 result.issues.append("Title uses ## instead of # (line 1)")
@@ -106,6 +96,17 @@ class READMEValidator:
                 result.issues.append("Title doesn't start with # (line 1)")
             else:
                 result.issues.append("Title format incorrect (line 1)")
+            return
+
+        # Check if matches role name exactly
+        title_text = first_line[2:].strip()
+        if title_text == result.role_name:
+            result.checks_passed += 1
+        else:
+            result.checks_failed += 1
+            result.issues.append(
+                f"Title '{title_text}' must exactly match role name '{result.role_name}' (line 1)"
+            )
 
     def _check_decorative_separators(self, lines: List[str], result: ValidationResult):
         """Check for decorative separators like ===== or -----"""

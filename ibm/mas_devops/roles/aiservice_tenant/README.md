@@ -1,4 +1,4 @@
-# AI Broker
+# aiservice_tenant
 
 This role provides support to install and configure AI Broker:
 
