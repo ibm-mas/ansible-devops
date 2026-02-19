@@ -723,7 +723,7 @@
     
       <cds-select-item value="#role-variables">Role Variables</cds-select-item>
     
-      <cds-select-item value="#entitlement">Entitlement</cds-select-item>
+      <cds-select-item value="#entitlement-configuration">Entitlement Configuration</cds-select-item>
     
       <cds-select-item value="#license">License</cds-select-item>
     
@@ -747,64 +747,155 @@
 </ul>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="tenant_action">tenant_action<a class="headerlink" href="#tenant_action" title="Permanent link">¤</a></h3>
-<p>Action to be performed by AI Broker role. Valid values are <code>install</code> or <code>remove</code> .</p>
+<p>Action to perform on the AI Broker tenant.</p>
 <ul>
+<li>Optional</li>
 <li>Environment Variable: <code>TENANT_ACTION</code></li>
-<li>Default Value: <code>install</code></li>
+<li>Default: <code>install</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether to create/configure or remove an AI Broker tenant.</p>
+<p><strong>When to use</strong>: Set to <code>install</code> for tenant creation/configuration. Use <code>remove</code> to delete a tenant.</p>
+<p><strong>Valid values</strong>:
+- <code>install</code> - Create or configure AI Broker tenant (default)
+- <code>remove</code> - Delete AI Broker tenant</p>
+<p><strong>Impact</strong>: Determines whether tenant resources are created or removed. Removal is permanent and deletes all tenant data.</p>
+<p><strong>Related variables</strong>: <a href="#tenantid"><code>tenantID</code></a></p>
+<p><strong>Notes</strong>: <strong>Warning</strong> - <code>remove</code> action permanently deletes the tenant and all associated data.</p>
 <h3 id="tenantid">tenantID<a class="headerlink" href="#tenantid" title="Permanent link">¤</a></h3>
-<p>The tenant ID for AI Broker role.</p>
+<p>Unique identifier for the AI Broker tenant.</p>
 <ul>
+<li>Optional</li>
 <li>Environment Variable: <code>AISERVICE_TENANT_ID</code></li>
-<li>Default Value: <code>user</code></li>
+<li>Default: <code>user</code></li>
 </ul>
+<p><strong>Purpose</strong>: Identifies the AI Broker tenant for resource isolation and management in multi-tenant deployments.</p>
+<p><strong>When to use</strong>: Override the default when creating multiple tenants or when organizational naming conventions require specific identifiers.</p>
+<p><strong>Valid values</strong>: Alphanumeric string (e.g., <code>user</code>, <code>team1</code>, <code>prod-tenant</code>)</p>
+<p><strong>Impact</strong>: Determines the tenant context for all AI Broker resources and API keys.</p>
+<p><strong>Related variables</strong>: <a href="#tenant_action"><code>tenant_action</code></a>, <a href="#tenant_entitlement_type"><code>tenant_entitlement_type</code></a></p>
+<p><strong>Notes</strong>: The default <code>user</code> is suitable for single-tenant deployments. Use descriptive names for multi-tenant environments.</p>
 <h3 id="app_domain">app_domain<a class="headerlink" href="#app_domain" title="Permanent link">¤</a></h3>
-<p>The application domain for AI Broker role. Valid values is domain string <code>apps.domain</code></p>
+<p>Application domain for AI Broker API endpoints.</p>
 <ul>
+<li>Optional</li>
 <li>Environment Variable: <code>APP_DOMAIN</code></li>
-<li>Default Value: ``</li>
+<li>Default: None (empty string)</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the base domain for AI Broker application routes and API endpoints.</p>
+<p><strong>When to use</strong>: Required for AI Broker installation. Must match the OpenShift cluster's application domain.</p>
+<p><strong>Valid values</strong>: Valid domain string in format <code>apps.domain</code> (e.g., <code>apps.cluster.example.com</code>)</p>
+<p><strong>Impact</strong>: Determines the URLs for AI Broker API endpoints. Incorrect domain will prevent API access.</p>
+<p><strong>Related variables</strong>: None</p>
+<p><strong>Notes</strong>:
+- Get cluster domain: <code>oc get ingress.config cluster -o jsonpath='{.spec.domain}'</code>
+- Format must be the full apps domain (e.g., <code>apps.mycluster.example.com</code>)</p>
 <h3 id="aiservice_watsonx_action">aiservice_watsonx_action<a class="headerlink" href="#aiservice_watsonx_action" title="Permanent link">¤</a></h3>
-<p>Action to be performed by AI Broker role. Valid values are <code>install</code> or <code>remove</code></p>
+<p>Action to perform on WatsonX AI integration.</p>
 <ul>
+<li>Optional</li>
 <li>Environment Variable: <code>AISERVICE_WATSONX_ACTION</code></li>
-<li>Default Value: <code>install</code></li>
+<li>Default: <code>install</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether to configure or remove WatsonX AI integration for the tenant.</p>
+<p><strong>When to use</strong>: Set to <code>install</code> to configure WatsonX AI credentials. Use <code>remove</code> to delete WatsonX AI integration.</p>
+<p><strong>Valid values</strong>:
+- <code>install</code> - Configure WatsonX AI integration (default)
+- <code>remove</code> - Remove WatsonX AI integration</p>
+<p><strong>Impact</strong>: Determines whether WatsonX AI API keys and configuration are created or removed for the tenant.</p>
+<p><strong>Related variables</strong>: <a href="#aiservice_watsonxai_apikey"><code>aiservice_watsonxai_apikey</code></a>, <a href="#aiservice_watsonxai_url"><code>aiservice_watsonxai_url</code></a>, <a href="#aiservice_watsonxai_project_id"><code>aiservice_watsonxai_project_id</code></a></p>
+<p><strong>Notes</strong>: WatsonX AI integration enables AI model access through IBM watsonx.ai platform.</p>
 <h3 id="aiservice_watsonxai_apikey">aiservice_watsonxai_apikey<a class="headerlink" href="#aiservice_watsonxai_apikey" title="Permanent link">¤</a></h3>
-<p>The watsonxai apikey for AI Broker role.</p>
+<p>WatsonX AI API key for authentication.</p>
 <ul>
+<li>Optional</li>
 <li>Environment Variable: <code>AISERVICE_WATSONXAI_APIKEY</code></li>
-<li>Default Value: ``</li>
+<li>Default: None (empty string)</li>
 </ul>
+<p><strong>Purpose</strong>: Provides authentication credentials for accessing WatsonX AI services.</p>
+<p><strong>When to use</strong>: Required when <code>aiservice_watsonx_action</code> is <code>install</code>. Obtain from IBM Cloud watsonx.ai service.</p>
+<p><strong>Valid values</strong>: Valid WatsonX AI API key string</p>
+<p><strong>Impact</strong>: Enables AI Broker to authenticate with WatsonX AI services. Invalid key will prevent AI model access.</p>
+<p><strong>Related variables</strong>: <a href="#aiservice_watsonx_action"><code>aiservice_watsonx_action</code></a>, <a href="#aiservice_watsonxai_url"><code>aiservice_watsonxai_url</code></a>, <a href="#aiservice_watsonxai_project_id"><code>aiservice_watsonxai_project_id</code></a></p>
+<p><strong>Notes</strong>:
+- <strong>Security</strong>: Store securely, never commit to version control
+- Obtain from IBM Cloud console under watsonx.ai service credentials
+- API key is stored as Kubernetes secret</p>
 <h3 id="aiservice_watsonxai_url">aiservice_watsonxai_url<a class="headerlink" href="#aiservice_watsonxai_url" title="Permanent link">¤</a></h3>
-<p>The watsonxai url for AI Broker role.</p>
+<p>WatsonX AI service endpoint URL.</p>
 <ul>
+<li>Optional</li>
 <li>Environment Variable: <code>AISERVICE_WATSONXAI_URL</code></li>
-<li>Default Value: ``</li>
+<li>Default: None (empty string)</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the WatsonX AI API endpoint for model inference and management.</p>
+<p><strong>When to use</strong>: Required when <code>aiservice_watsonx_action</code> is <code>install</code>. Obtain from IBM Cloud watsonx.ai service details.</p>
+<p><strong>Valid values</strong>: Valid HTTPS URL to WatsonX AI endpoint (e.g., <code>https://us-south.ml.cloud.ibm.com</code>)</p>
+<p><strong>Impact</strong>: Determines which WatsonX AI region/endpoint the AI Broker connects to.</p>
+<p><strong>Related variables</strong>: <a href="#aiservice_watsonx_action"><code>aiservice_watsonx_action</code></a>, <a href="#aiservice_watsonxai_apikey"><code>aiservice_watsonxai_apikey</code></a>, <a href="#aiservice_watsonxai_project_id"><code>aiservice_watsonxai_project_id</code></a></p>
+<p><strong>Notes</strong>:
+- URL varies by IBM Cloud region
+- Common endpoints: <code>https://us-south.ml.cloud.ibm.com</code>, <code>https://eu-de.ml.cloud.ibm.com</code>
+- Verify endpoint in IBM Cloud watsonx.ai service details</p>
 <h3 id="aiservice_watsonxai_project_id">aiservice_watsonxai_project_id<a class="headerlink" href="#aiservice_watsonxai_project_id" title="Permanent link">¤</a></h3>
-<p>The watsonxai project id for AI Broker role.</p>
+<p>WatsonX AI project identifier.</p>
 <ul>
+<li>Optional</li>
 <li>Environment Variable: <code>AISERVICE_WATSONXAI_PROJECT_ID</code></li>
-<li>Default Value: ``</li>
+<li>Default: None (empty string)</li>
 </ul>
-<h2 id="entitlement">Entitlement<a class="headerlink" href="#entitlement" title="Permanent link">¤</a></h2>
-<p>Configure the tenant's entitlement to the AI Service.</p>
+<p><strong>Purpose</strong>: Identifies the WatsonX AI project containing the AI models and resources to be accessed.</p>
+<p><strong>When to use</strong>: Required when <code>aiservice_watsonx_action</code> is <code>install</code>. Obtain from IBM Cloud watsonx.ai project settings.</p>
+<p><strong>Valid values</strong>: Valid WatsonX AI project ID (UUID format)</p>
+<p><strong>Impact</strong>: Determines which WatsonX AI project's models and resources are accessible to the AI Broker tenant.</p>
+<p><strong>Related variables</strong>: <a href="#aiservice_watsonx_action"><code>aiservice_watsonx_action</code></a>, <a href="#aiservice_watsonxai_apikey"><code>aiservice_watsonxai_apikey</code></a>, <a href="#aiservice_watsonxai_url"><code>aiservice_watsonxai_url</code></a></p>
+<p><strong>Notes</strong>:
+- Find project ID in IBM Cloud watsonx.ai project settings
+- Format is typically a UUID (e.g., <code>12345678-1234-1234-1234-123456789012</code>)
+- Project must exist before configuring AI Broker</p>
+<h2 id="entitlement-configuration">Entitlement Configuration<a class="headerlink" href="#entitlement-configuration" title="Permanent link">¤</a></h2>
+<p>Configure the tenant's entitlement to the AI Service for licensing and access control.</p>
 <h3 id="tenant_entitlement_type">tenant_entitlement_type<a class="headerlink" href="#tenant_entitlement_type" title="Permanent link">¤</a></h3>
-<p>Set the tenant's entitlement type.</p>
+<p>Type of entitlement for the tenant.</p>
 <ul>
+<li>Optional</li>
 <li>Environment Variable: <code>AISERVICE_TENANT_ENTITLEMENT_TYPE</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the entitlement type for the tenant, controlling access levels and features.</p>
+<p><strong>When to use</strong>: Set when configuring tenant entitlements for licensing or feature access control.</p>
+<p><strong>Valid values</strong>: Valid entitlement type string (specific values depend on AI Service configuration)</p>
+<p><strong>Impact</strong>: Determines which AI Service features and capacity the tenant can access.</p>
+<p><strong>Related variables</strong>: <a href="#tenant_entitlement_start_date"><code>tenant_entitlement_start_date</code></a>, <a href="#tenant_entitlement_end_date"><code>tenant_entitlement_end_date</code></a></p>
+<p><strong>Notes</strong>: Entitlement types are defined by the AI Service deployment configuration.</p>
 <h3 id="tenant_entitlement_start_date">tenant_entitlement_start_date<a class="headerlink" href="#tenant_entitlement_start_date" title="Permanent link">¤</a></h3>
-<p>Set the tenant's entitlement start date in format <code>YYYY-MM-DD</code>.</p>
+<p>Start date for tenant entitlement period.</p>
 <ul>
+<li>Optional</li>
 <li>Environment Variable: <code>AISERVICE_TENANT_ENTITLEMENT_START_DATE</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Defines when the tenant's entitlement becomes active.</p>
+<p><strong>When to use</strong>: Set when configuring time-bound entitlements for the tenant.</p>
+<p><strong>Valid values</strong>: Date string in format <code>YYYY-MM-DD</code> (e.g., <code>2024-01-01</code>)</p>
+<p><strong>Impact</strong>: Tenant cannot access AI Service before this date.</p>
+<p><strong>Related variables</strong>: <a href="#tenant_entitlement_type"><code>tenant_entitlement_type</code></a>, <a href="#tenant_entitlement_end_date"><code>tenant_entitlement_end_date</code></a></p>
+<p><strong>Notes</strong>: Must be in <code>YYYY-MM-DD</code> format. Ensure date is valid and in the past or present for immediate access.</p>
 <h3 id="tenant_entitlement_end_date">tenant_entitlement_end_date<a class="headerlink" href="#tenant_entitlement_end_date" title="Permanent link">¤</a></h3>
-<p>Set the tenant's entitlement end date in format <code>YYYY-MM-DD</code>.</p>
+<p>End date for tenant entitlement period.</p>
 <ul>
+<li>Optional</li>
 <li>Environment Variable: <code>AISERVICE_TENANT_ENTITLEMENT_END_DATE</code></li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Defines when the tenant's entitlement expires.</p>
+<p><strong>When to use</strong>: Set when configuring time-bound entitlements for the tenant.</p>
+<p><strong>Valid values</strong>: Date string in format <code>YYYY-MM-DD</code> (e.g., <code>2024-12-31</code>)</p>
+<p><strong>Impact</strong>: Tenant cannot access AI Service after this date.</p>
+<p><strong>Related variables</strong>: <a href="#tenant_entitlement_type"><code>tenant_entitlement_type</code></a>, <a href="#tenant_entitlement_start_date"><code>tenant_entitlement_start_date</code></a></p>
+<p><strong>Notes</strong>:
+- Must be in <code>YYYY-MM-DD</code> format
+- Should be after <code>tenant_entitlement_start_date</code>
+- Plan for entitlement renewal before expiration</p>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">¤</a></h2>
 <p>EPL-2.0</p>
             
@@ -869,8 +960,8 @@
                   </ul>
               </li>
               <li class="md-toc__item">
-                <a href="#entitlement" class="md-toc__link" data-md-level="1">
-                  Entitlement
+                <a href="#entitlement-configuration" class="md-toc__link" data-md-level="1">
+                  Entitlement Configuration
                 </a>
                   <ul class="md-toc__list">
                       <li class="md-toc__item">

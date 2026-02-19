@@ -752,48 +752,106 @@
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="gpu-operator-variables">GPU Operator Variables<a class="headerlink" href="#gpu-operator-variables" title="Permanent link">¤</a></h3>
 <h4 id="gpu_namespace">gpu_namespace<a class="headerlink" href="#gpu_namespace" title="Permanent link">¤</a></h4>
-<p>The namespace where the NVIDIA GPU Operator will be installed.</p>
+<p>Namespace for NVIDIA GPU Operator installation.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>GPU_NAMESPACE</code></li>
-<li>Default Value: <code>nvidia-gpu-operator</code></li>
+<li>Default: <code>nvidia-gpu-operator</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the OpenShift namespace where the NVIDIA GPU Operator and its components will be deployed.</p>
+<p><strong>When to use</strong>: Use default unless you have specific namespace requirements or multiple GPU operator instances.</p>
+<p><strong>Valid values</strong>: Valid Kubernetes namespace name (lowercase alphanumeric with hyphens)</p>
+<p><strong>Impact</strong>: All GPU Operator resources (deployments, services, ClusterPolicy) will be created in this namespace.</p>
+<p><strong>Related variables</strong>: <a href="#nfd_namespace"><code>nfd_namespace</code></a></p>
+<p><strong>Notes</strong>:
+- Default namespace is recommended for most deployments
+- Namespace will be created if it doesn't exist
+- GPU Operator manages cluster-wide GPU resources regardless of namespace</p>
 <h4 id="gpu_channel">gpu_channel<a class="headerlink" href="#gpu_channel" title="Permanent link">¤</a></h4>
-<p>The subscription channel for the GPU Operator. This determines which version of the operator will be installed.</p>
+<p>NVIDIA GPU Operator subscription channel.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>GPU_CHANNEL</code></li>
-<li>Default Value: <code>v24.9</code></li>
+<li>Default: <code>v24.9</code></li>
 </ul>
+<p><strong>Purpose</strong>: Determines which version stream of the NVIDIA GPU Operator will be installed from OperatorHub.</p>
+<p><strong>When to use</strong>: Use default for latest stable version. Specify older channel for compatibility with specific OpenShift versions or when stability is prioritized over features.</p>
+<p><strong>Valid values</strong>: Valid GPU Operator channel versions (e.g., <code>v24.9</code>, <code>v24.6</code>, <code>v23.9</code>)</p>
+<p><strong>Impact</strong>: Controls which operator version is installed and which features are available. Newer channels may require newer OpenShift versions.</p>
+<p><strong>Related variables</strong>: <a href="#gpu_driver_version"><code>gpu_driver_version</code></a></p>
+<p><strong>Notes</strong>:
+- Check <a href="https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/platform-support.html">NVIDIA GPU Operator releases</a> for compatibility
+- Newer channels provide latest features and driver support
+- Consider OpenShift version compatibility when selecting channel</p>
 <h4 id="gpu_driver_version">gpu_driver_version<a class="headerlink" href="#gpu_driver_version" title="Permanent link">¤</a></h4>
-<p>Specific NVIDIA driver version to install. If not specified, the latest compatible driver version will be used.</p>
+<p>Specific NVIDIA GPU driver version to install.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>GPU_DRIVER_VERSION</code></li>
-<li>Default Value: None (uses latest)</li>
+<li>Default: None (uses latest compatible version)</li>
 </ul>
+<p><strong>Purpose</strong>: Pins the NVIDIA GPU driver to a specific version instead of using the latest version provided by the operator channel.</p>
+<p><strong>When to use</strong>: Specify when you need a particular driver version for compatibility, stability, or certification requirements. Leave unset to use the latest compatible driver.</p>
+<p><strong>Valid values</strong>: Valid NVIDIA driver version string (e.g., <code>535.129.03</code>, <code>550.54.15</code>)</p>
+<p><strong>Impact</strong>: When set, the specified driver version will be installed. When unset, the operator installs the latest driver compatible with the operator channel.</p>
+<p><strong>Related variables</strong>: <a href="#gpu_channel"><code>gpu_channel</code></a>, <a href="#gpu_driver_repository_path"><code>gpu_driver_repository_path</code></a></p>
+<p><strong>Notes</strong>:
+- Latest driver is usually recommended unless specific version is required
+- Verify driver compatibility with your GPU hardware
+- Check <a href="https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/platform-support.html">NVIDIA driver compatibility matrix</a>
+- Driver version must be available in the specified repository</p>
 <h4 id="gpu_driver_repository_path">gpu_driver_repository_path<a class="headerlink" href="#gpu_driver_repository_path" title="Permanent link">¤</a></h4>
-<p>The container registry path for NVIDIA driver images.</p>
+<p>Container registry path for NVIDIA driver images.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>GPU_DRIVER_REPOSITORY_PATH</code></li>
-<li>Default Value: <code>nvcr.io/nvidia</code></li>
+<li>Default: <code>nvcr.io/nvidia</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the container registry location where NVIDIA GPU driver container images are stored.</p>
+<p><strong>When to use</strong>: Use default for public NVIDIA registry. Override for air-gapped environments or when using a mirrored registry.</p>
+<p><strong>Valid values</strong>: Valid container registry path (e.g., <code>nvcr.io/nvidia</code>, <code>registry.example.com/nvidia-drivers</code>)</p>
+<p><strong>Impact</strong>: GPU Operator will pull driver container images from this registry location.</p>
+<p><strong>Related variables</strong>: <a href="#gpu_driver_version"><code>gpu_driver_version</code></a></p>
+<p><strong>Notes</strong>:
+- Default points to NVIDIA's official registry
+- For air-gapped deployments, mirror images to internal registry
+- Ensure registry is accessible from OpenShift cluster
+- May require image pull secrets for private registries</p>
 <h3 id="node-feature-discovery-variables">Node Feature Discovery Variables<a class="headerlink" href="#node-feature-discovery-variables" title="Permanent link">¤</a></h3>
 <h4 id="nfd_namespace">nfd_namespace<a class="headerlink" href="#nfd_namespace" title="Permanent link">¤</a></h4>
-<p>The namespace where the Node Feature Discovery Operator will be installed. NFD is required by the GPU Operator to detect GPU hardware.</p>
+<p>Namespace for Node Feature Discovery Operator installation.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>NFD_NAMESPACE</code></li>
-<li>Default Value: <code>openshift-nfd</code></li>
+<li>Default: <code>openshift-nfd</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the OpenShift namespace where the Node Feature Discovery (NFD) Operator will be deployed. NFD is a prerequisite for GPU Operator.</p>
+<p><strong>When to use</strong>: Use default unless you have specific namespace requirements. NFD must be installed before GPU Operator.</p>
+<p><strong>Valid values</strong>: Valid Kubernetes namespace name (lowercase alphanumeric with hyphens)</p>
+<p><strong>Impact</strong>: NFD Operator resources will be created in this namespace. NFD detects GPU hardware and labels nodes accordingly.</p>
+<p><strong>Related variables</strong>: <a href="#gpu_namespace"><code>gpu_namespace</code></a>, <a href="#nfd_channel"><code>nfd_channel</code></a></p>
+<p><strong>Notes</strong>:
+- NFD is automatically installed by this role as a prerequisite
+- Default <code>openshift-nfd</code> is the standard namespace for NFD
+- NFD labels nodes with hardware features for GPU Operator to use
+- Namespace will be created if it doesn't exist</p>
 <h4 id="nfd_channel">nfd_channel<a class="headerlink" href="#nfd_channel" title="Permanent link">¤</a></h4>
-<p>The subscription channel for the Node Feature Discovery Operator.</p>
+<p>Node Feature Discovery Operator subscription channel.</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>NFD_CHANNEL</code></li>
-<li>Default Value: <code>stable</code></li>
+<li>Default: <code>stable</code></li>
 </ul>
+<p><strong>Purpose</strong>: Determines which version stream of the Node Feature Discovery Operator will be installed from OperatorHub.</p>
+<p><strong>When to use</strong>: Use default <code>stable</code> for production deployments. Other channels may be available for testing or specific versions.</p>
+<p><strong>Valid values</strong>: Valid NFD Operator channel (typically <code>stable</code>, may include version-specific channels)</p>
+<p><strong>Impact</strong>: Controls which NFD operator version is installed. The <code>stable</code> channel provides production-ready releases.</p>
+<p><strong>Related variables</strong>: <a href="#nfd_namespace"><code>nfd_namespace</code></a>, <a href="#gpu_channel"><code>gpu_channel</code></a></p>
+<p><strong>Notes</strong>:
+- <code>stable</code> channel is recommended for production
+- NFD is a prerequisite for GPU Operator functionality
+- Check OperatorHub for available channels in your OpenShift version
+- NFD version should be compatible with OpenShift version</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <p>After installing the Ansible Collection you can include this role in your own custom playbooks.</p>
 <pre><code class="language-yaml">- hosts: localhost

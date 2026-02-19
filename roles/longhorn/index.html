@@ -715,16 +715,26 @@
   </cds-breadcrumb-item>
       <cds-breadcrumb-item>Roles: Dependency Mgmt</cds-breadcrumb-item>
   <cds-breadcrumb-item>
-    <cds-breadcrumb-link href="#role-variables">Role Variables</cds-breadcrumb-link>
+    <cds-breadcrumb-link href="#longhorn">longhorn</cds-breadcrumb-link>
   </cds-breadcrumb-item>
 
   <cds-breadcrumb-item aria-current="page">
     <cds-select id="breadcrumbs-toc" inline placeholder="..." oninput="changeAnchor(this.value)">
     
     
-      <cds-select-item value="#longhorn_namespace">longhorn_namespace</cds-select-item>
+      <cds-select-item value="#features">Features</cds-select-item>
     
-      <cds-select-item value="#longhorn_replica_count">longhorn_replica_count</cds-select-item>
+      <cds-select-item value="#deployed-components">Deployed Components</cds-select-item>
+    
+      <cds-select-item value="#storage-classes">Storage Classes</cds-select-item>
+    
+      <cds-select-item value="#additional-resources">Additional Resources</cds-select-item>
+    
+      <cds-select-item value="#role-variables">Role Variables</cds-select-item>
+    
+      <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
+    
+      <cds-select-item value="#license">License</cds-select-item>
     
     </cds-select>
   </cds-breadcrumb-item>
@@ -734,17 +744,20 @@
           <!-- Page content -->
           <div class="rst-content">
             
-            <p>Longhorn provides a single solution to fulfil both the <code>ReadWriteMany</code> and <code>ReadWriteOnce</code> storage requirements for Maximo Application Suite.</p>
-<blockquote>
-<p>Longhorn is a lightweight, reliable and easy-to-use distributed block storage system for Kubernetes.</p>
-<p>Longhorn is free, open source software. Originally developed by Rancher Labs, it is now being developed as a incubating project of the Cloud Native Computing Foundation.</p>
-</blockquote>
-<p>The Longhorn UI will be available at <code>https://longhorn-ui-longhorn-system.{clusterdomain}</code> (authentication via OpenShift OAuth).</p>
-<p>More information:
-- <a href="https://longhorn.io/docs/latest/what-is-longhorn/">What is Longhorn?</a>
-- <a href="https://longhorn.io/docs/latest/references/helm-values/">Longhorn Helm Chart Settings</a>
-- <a href="https://github.com/longhorn/longhorn/blob/master/chart/ocp-readme.md">Longhorn on OpemShift Readme</a></p>
-<pre><code>oc -n longhorn-system get deployments
+            <h1 id="longhorn">longhorn<a class="headerlink" href="#longhorn" title="Permanent link">¤</a></h1>
+<p>Deploy Longhorn distributed block storage system for Kubernetes, providing both ReadWriteMany (RWX) and ReadWriteOnce (RWO) storage for Maximo Application Suite.</p>
+<p>Longhorn is a lightweight, reliable, and easy-to-use distributed block storage system for Kubernetes. Originally developed by Rancher Labs, it is now an incubating project of the Cloud Native Computing Foundation (CNCF).</p>
+<h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">¤</a></h2>
+<ul>
+<li><strong>Unified Storage Solution</strong>: Provides both RWX and RWO storage classes for MAS</li>
+<li><strong>High Availability</strong>: Configurable replica count for data redundancy</li>
+<li><strong>Web UI</strong>: Management interface available at <code>https://longhorn-ui-longhorn-system.{clusterdomain}</code> (OpenShift OAuth authentication)</li>
+<li><strong>Dynamic Provisioning</strong>: Automatic volume provisioning for MAS workloads</li>
+<li><strong>Snapshot Support</strong>: Built-in backup and snapshot capabilities</li>
+</ul>
+<h2 id="deployed-components">Deployed Components<a class="headerlink" href="#deployed-components" title="Permanent link">¤</a></h2>
+<p>After installation, the following deployments will be available:</p>
+<pre><code class="language-bash">oc -n longhorn-system get deployments
 NAME                       READY   UP-TO-DATE   AVAILABLE   AGE
 csi-attacher               3/3     3            3           38m
 csi-provisioner            3/3     3            3           38m
@@ -753,26 +766,86 @@ csi-snapshotter            3/3     3            3           38m
 longhorn-driver-deployer   1/1     1            1           40m
 longhorn-ui                2/2     2            2           40m
 </code></pre>
-<p>Two storage classes will be set up automatically, Maximo Application Suite uses dynamic provisioning and as such will not use the <code>longhorn-static</code> storage class:</p>
-<pre><code>oc get storageclass | grep longhorn
+<h2 id="storage-classes">Storage Classes<a class="headerlink" href="#storage-classes" title="Permanent link">¤</a></h2>
+<p>Two storage classes are automatically created:</p>
+<pre><code class="language-bash">oc get storageclass | grep longhorn
 longhorn (default)          driver.longhorn.io   Delete          Immediate           true                   40m
 longhorn-static             driver.longhorn.io   Delete          Immediate           true                   40m
 </code></pre>
+<p><strong>Note</strong>: MAS uses dynamic provisioning with the <code>longhorn</code> storage class. The <code>longhorn-static</code> storage class is not used by MAS.</p>
+<h2 id="additional-resources">Additional Resources<a class="headerlink" href="#additional-resources" title="Permanent link">¤</a></h2>
+<ul>
+<li><a href="https://longhorn.io/docs/latest/what-is-longhorn/">What is Longhorn?</a></li>
+<li><a href="https://longhorn.io/docs/latest/references/helm-values/">Longhorn Helm Chart Settings</a></li>
+<li><a href="https://github.com/longhorn/longhorn/blob/master/chart/ocp-readme.md">Longhorn on OpenShift</a></li>
+</ul>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="longhorn_namespace">longhorn_namespace<a class="headerlink" href="#longhorn_namespace" title="Permanent link">¤</a></h3>
-<p>Define the namespace where Longhorn will be installed.</p>
+<p>Namespace for Longhorn installation.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>LONGHORN_NAMESPACE</code></li>
-<li>Default Value: <code>longhorn-system</code></li>
+<li>Default: <code>longhorn-system</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the OpenShift namespace where Longhorn components will be deployed.</p>
+<p><strong>When to use</strong>: Use default unless you have specific namespace requirements or multiple Longhorn instances.</p>
+<p><strong>Valid values</strong>: Valid Kubernetes namespace name (lowercase alphanumeric with hyphens)</p>
+<p><strong>Impact</strong>: All Longhorn resources (deployments, services, storage classes) will be created in this namespace.</p>
+<p><strong>Related variables</strong>: None</p>
+<p><strong>Notes</strong>:
+- Default <code>longhorn-system</code> is the standard namespace for Longhorn
+- Namespace will be created if it doesn't exist
+- Longhorn UI will be accessible at <code>https://longhorn-ui-{namespace}.{clusterdomain}</code>
+- Storage classes are cluster-wide regardless of namespace</p>
 <h3 id="longhorn_replica_count">longhorn_replica_count<a class="headerlink" href="#longhorn_replica_count" title="Permanent link">¤</a></h3>
-<p>The replica count in Longhorn determines the number of copies of a volume's data stored across different nodes in a Kubernetes cluster, which directly impacts data availability and resilience. The default replica count of 3 allows the system to tolerate up to two replica failures while maintaining data integrity, but in development system you may prefer to set this to 1 to sacrifice resiliance in favour of reduced storage requirements.</p>
+<p>Number of data replicas for Longhorn volumes.</p>
 <ul>
-<li>Optional</li>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>LONGHORN_REPLICA_COUNT</code></li>
-<li>Default Value: <code>3</code></li>
+<li>Default: <code>3</code></li>
 </ul>
+<p><strong>Purpose</strong>: Determines how many copies of volume data are stored across different nodes in the cluster, directly impacting data availability and resilience.</p>
+<p><strong>When to use</strong>:
+- Use default <code>3</code> for production deployments requiring high availability
+- Set to <code>2</code> for moderate availability with reduced storage overhead
+- Set to <code>1</code> for development/testing environments to minimize storage requirements</p>
+<p><strong>Valid values</strong>: Integer between <code>1</code> and the number of worker nodes. Common values:
+- <code>3</code> - Production (tolerates 2 node failures, recommended)
+- <code>2</code> - Moderate availability (tolerates 1 node failure)
+- <code>1</code> - Development only (no redundancy, data loss if node fails)</p>
+<p><strong>Impact</strong>:
+- <strong>Availability</strong>: Higher replica count = better fault tolerance
+- <strong>Storage</strong>: Each replica consumes storage space (3 replicas = 3x storage usage)
+- <strong>Performance</strong>: More replicas may impact write performance slightly
+- <strong>Node Requirements</strong>: Replica count cannot exceed number of available nodes</p>
+<p><strong>Related variables</strong>: None</p>
+<p><strong>Notes</strong>:
+- Default <code>3</code> allows system to tolerate up to 2 replica failures while maintaining data integrity
+- Setting to <code>1</code> sacrifices resilience for reduced storage requirements (development only)
+- Replicas are distributed across different nodes for fault tolerance
+- Cannot change replica count after volumes are created (requires volume recreation)
+- Ensure cluster has sufficient nodes for desired replica count
+- Consider storage capacity when setting replica count (3 replicas = 3x storage consumption)</p>
+<h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    longhorn_namespace: longhorn-system
+    longhorn_replica_count: 3
+  roles:
+    - ibm.mas_devops.longhorn
+</code></pre>
+<p>For development environments with reduced storage requirements:</p>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    longhorn_namespace: longhorn-system
+    longhorn_replica_count: 1
+  roles:
+    - ibm.mas_devops.longhorn
+</code></pre>
+<h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">¤</a></h2>
+<p>EPL-2.0</p>
             
           </div>
 
@@ -815,13 +888,50 @@ longhorn-static             driver.longhorn.io   Delete          Immediate      
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
               <li class="md-toc__item">
-                <a href="#longhorn_namespace" class="md-toc__link" data-md-level="1">
-                  longhorn_namespace
+                <a href="#features" class="md-toc__link" data-md-level="1">
+                  Features
                 </a>
               </li>
               <li class="md-toc__item">
-                <a href="#longhorn_replica_count" class="md-toc__link" data-md-level="1">
-                  longhorn_replica_count
+                <a href="#deployed-components" class="md-toc__link" data-md-level="1">
+                  Deployed Components
+                </a>
+              </li>
+              <li class="md-toc__item">
+                <a href="#storage-classes" class="md-toc__link" data-md-level="1">
+                  Storage Classes
+                </a>
+              </li>
+              <li class="md-toc__item">
+                <a href="#additional-resources" class="md-toc__link" data-md-level="1">
+                  Additional Resources
+                </a>
+              </li>
+              <li class="md-toc__item">
+                <a href="#role-variables" class="md-toc__link" data-md-level="1">
+                  Role Variables
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#longhorn_namespace" class="md-toc__link" data-md-level="2">
+                          longhorn_namespace
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#longhorn_replica_count" class="md-toc__link" data-md-level="2">
+                          longhorn_replica_count
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#example-playbook" class="md-toc__link" data-md-level="1">
+                  Example Playbook
+                </a>
+              </li>
+              <li class="md-toc__item">
+                <a href="#license" class="md-toc__link" data-md-level="1">
+                  License
                 </a>
               </li>
         </ul>

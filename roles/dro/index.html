@@ -746,112 +746,224 @@
 <p>Installs <a href="https://github.com/redhat-marketplace/redhat-marketplace-operator/tree/develop/datareporter/v2">Data Reporter Operator</a> in the <code>redhat-marketplace</code> namespace.  If <code>mas_instance_id</code> and the others associated parameters are provided then the role will also generate a configuration file that can be directly applied to IBM Maximo Application Suite.</p>
 <h2 id="role-variables-installation">Role Variables - Installation<a class="headerlink" href="#role-variables-installation" title="Permanent link">¤</a></h2>
 <h3 id="dro_action">dro_action<a class="headerlink" href="#dro_action" title="Permanent link">¤</a></h3>
-<p>Inform the role whether to perform an install or uninstall of Data Reporter Operator. Supported values are <code>install</code> and <code>uninstall</code>.</p>
+<p>Action to perform with the Data Reporter Operator deployment.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>DRO_ACTION</code></li>
 <li>Default: <code>install</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether to install or uninstall the Data Reporter Operator.</p>
+<p><strong>When to use</strong>: Set to <code>uninstall</code> when removing DRO from the cluster. Use default <code>install</code> for normal deployment.</p>
+<p><strong>Valid values</strong>:
+- <code>install</code> - Deploy and configure DRO
+- <code>uninstall</code> - Remove DRO from the cluster</p>
+<p><strong>Impact</strong>: The <code>uninstall</code> action removes all DRO resources from the specified namespace.</p>
+<p><strong>Related variables</strong>: <a href="#dro_namespace"><code>dro_namespace</code></a></p>
+<p><strong>Notes</strong>: DRO is supported on MAS 8.10.6+, 8.11.2+, and 9.0+.</p>
 <h3 id="dro_namespace">dro_namespace<a class="headerlink" href="#dro_namespace" title="Permanent link">¤</a></h3>
-<p>DRO can be installed on a different namespace, on certain type of OCP clusters where redhat* namespaces have restricted access, User can configure and install DRO on a custom namespace of their choosing by supplying a name using <code>DRO_NAMESPACE</code></p>
+<p>Namespace where the Data Reporter Operator will be deployed.</p>
 <ul>
+<li>Optional</li>
 <li>Environment Variable: <code>DRO_NAMESPACE</code></li>
-<li>Default Value: redhat-marketplace</li>
+<li>Default: <code>redhat-marketplace</code></li>
 </ul>
+<p><strong>Purpose</strong>: Allows DRO installation in a custom namespace when the default <code>redhat-marketplace</code> namespace has restricted access.</p>
+<p><strong>When to use</strong>: Override the default on OCP clusters where <code>redhat*</code> namespaces have restricted access or when organizational policies require custom namespace naming.</p>
+<p><strong>Valid values</strong>: Any valid Kubernetes namespace name (lowercase alphanumeric and hyphens)</p>
+<p><strong>Impact</strong>: All DRO resources will be created in this namespace. The namespace must be specified during uninstall operations.</p>
+<p><strong>Related variables</strong>: <a href="#dro_action"><code>dro_action</code></a></p>
+<p><strong>Notes</strong>: Ensure the namespace has appropriate permissions for DRO operator deployment.</p>
 <h3 id="ibm_entitlement_key">ibm_entitlement_key<a class="headerlink" href="#ibm_entitlement_key" title="Permanent link">¤</a></h3>
-<p>Provide your <a href="https://myibm.ibm.com/products-services/containerlibrary">IBM entitlement key</a>.</p>
+<p>IBM entitlement key for accessing container images.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>IBM_ENTITLEMENT_KEY</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Authenticates access to IBM container registry for pulling DRO operator images.</p>
+<p><strong>When to use</strong>: Required for all DRO installations. Obtain from <a href="https://myibm.ibm.com/products-services/containerlibrary">IBM Container Library</a>.</p>
+<p><strong>Valid values</strong>: Valid IBM entitlement key string from your IBM account.</p>
+<p><strong>Impact</strong>: Without a valid key, the DRO operator images cannot be pulled and installation will fail.</p>
+<p><strong>Related variables</strong>: None</p>
+<p><strong>Notes</strong>:
+- Keep the entitlement key secure and do not commit it to version control
+- The key is associated with your IBM ID and product entitlements
+- Verify key validity before deployment to avoid installation failures</p>
 <h3 id="dro_storage_class">dro_storage_class<a class="headerlink" href="#dro_storage_class" title="Permanent link">¤</a></h3>
-<p>Required. Storage class where DRO will be installed. MAS ansible playbooks will automatically try to determine a RWO (Read Write Once) storage class from a cluster if DRO_STORAGE_CLASS is not supplied. If a cluster is setup with a customized storage solution, please provide a valid RWO storage class name using DRO_STORAGE_CLASS.</p>
+<p>Storage class for DRO persistent volumes.</p>
 <ul>
-<li>Optional</li>
+<li>Optional (auto-detected if not provided)</li>
 <li>Environment Variable: <code>DRO_STORAGE_CLASS</code></li>
-<li>Default Value: None</li>
-<li><strong>Note</strong>: The storage class must support the RWO(Read Write Once) access Mode</li>
+<li>Default: None (automatically determined)</li>
 </ul>
+<p><strong>Purpose</strong>: Provides persistent storage for DRO data and metrics.</p>
+<p><strong>When to use</strong>: Specify explicitly when using customized storage solutions or when automatic detection fails. The playbooks will attempt to auto-detect a suitable RWO storage class if not provided.</p>
+<p><strong>Valid values</strong>: Any storage class name available in your cluster that supports ReadWriteOnce (RWO) access mode. Common examples:
+- IBM Cloud ROKS: <code>ibmc-block-gold</code>, <code>ibmc-block-silver</code>
+- AWS: <code>gp2</code>, <code>gp3</code>
+- Azure: <code>managed-premium</code>
+- On-premises: Depends on your storage provider</p>
+<p><strong>Impact</strong>: Determines where DRO stores its operational data. Must support RWO access mode.</p>
+<p><strong>Related variables</strong>: None</p>
+<p><strong>Notes</strong>:
+- Verify the storage class exists: <code>oc get storageclass</code>
+- The storage class must support RWO (Read Write Once) access mode
+- Auto-detection works for most standard cluster configurations</p>
 <h2 id="role-variables-bascfg-generation">Role Variables - BASCfg Generation<a class="headerlink" href="#role-variables-bascfg-generation" title="Permanent link">¤</a></h2>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
-<p>The instance ID of Maximo Application Suite that the BasCfg configuration will target.  If this or <code>mas_config_dir</code> are not set then the role will not generate a BasCfg template.</p>
+<p>MAS instance identifier for BasCfg generation.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Identifies which MAS instance the DRO BasCfg configuration will target.</p>
+<p><strong>When to use</strong>: Required when generating MAS configuration files. If not set (along with <code>mas_config_dir</code>), no BasCfg template will be generated.</p>
+<p><strong>Valid values</strong>: Valid MAS instance ID (lowercase alphanumeric, max 12 characters)</p>
+<p><strong>Impact</strong>: Determines the target MAS instance for the generated DRO configuration.</p>
+<p><strong>Related variables</strong>: <a href="#mas_config_dir"><code>mas_config_dir</code></a>, <a href="#dro_contactemail"><code>dro_contact.email</code></a>, <a href="#dro_contactfirst_name"><code>dro_contact.first_name</code></a>, <a href="#dro_contactlast_name"><code>dro_contact.last_name</code></a></p>
+<p><strong>Notes</strong>: Both <code>mas_instance_id</code> and <code>mas_config_dir</code> must be set to generate BasCfg templates.</p>
 <h3 id="mas_config_dir">mas_config_dir<a class="headerlink" href="#mas_config_dir" title="Permanent link">¤</a></h3>
-<p>Local directory to save the generated BasCfg resource definition.  This can be used to manually configure a MAS instance to connect to BAS instance, or used as an input to the <a href="../suite_config/">suite_config</a> role. If this or <code>mas_instance_id</code> are not set then the role will not generate a BasCfg template.</p>
+<p>Local directory for saving generated BasCfg resource definitions.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>MAS_CONFIG_DIR</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Specifies where to save the generated DRO BasCfg configuration file for MAS.</p>
+<p><strong>When to use</strong>: Required when generating MAS configuration files. The generated file can be manually applied or used as input to the <a href="../suite_config/"><code>suite_config</code></a> role.</p>
+<p><strong>Valid values</strong>: Any valid local filesystem path with write permissions</p>
+<p><strong>Impact</strong>: If not set (along with <code>mas_instance_id</code>), no BasCfg template will be generated.</p>
+<p><strong>Related variables</strong>: <a href="#mas_instance_id"><code>mas_instance_id</code></a></p>
+<p><strong>Notes</strong>: Ensure the directory exists and has appropriate write permissions.</p>
 <h3 id="dro_endpoint_url">dro_endpoint_url<a class="headerlink" href="#dro_endpoint_url" title="Permanent link">¤</a></h3>
-<p>DRO url from ibm-data-reporter route found in redhat-marketplace namespace, this variable is needed if you wish to connect to an existing DRO instance.</p>
+<p>URL of an existing DRO instance to connect to.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>DRO_ENDPOINT_URL</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Enables connection to an existing DRO deployment instead of installing a new one.</p>
+<p><strong>When to use</strong>: When you want to configure MAS to use an already-deployed DRO instance. Obtain from the <code>ibm-data-reporter</code> route in the DRO namespace.</p>
+<p><strong>Valid values</strong>: Valid HTTPS URL to the DRO endpoint (e.g., <code>https://ibm-data-reporter.apps.cluster.domain.com</code>)</p>
+<p><strong>Impact</strong>: When set, the role will not install DRO but will generate configuration to connect to the existing instance.</p>
+<p><strong>Related variables</strong>: <a href="#dro_api_key"><code>dro_api_key</code></a>, <a href="#dro_crt_path"><code>dro_crt_path</code></a></p>
+<p><strong>Notes</strong>: All three variables (<code>dro_endpoint_url</code>, <code>dro_api_key</code>, <code>dro_crt_path</code>) must be provided to connect to an existing DRO instance.</p>
 <h3 id="dro_api_key">dro_api_key<a class="headerlink" href="#dro_api_key" title="Permanent link">¤</a></h3>
-<p>DRO api_key is a token obtained from ibm-data-reporter-operator-api-token secret found in redhat-marketplace namespace, this variable is needed if you wish to connect to an existing DRO instance.</p>
+<p>API token for authenticating to an existing DRO instance.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>DRO_APIKEY</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides authentication credentials for connecting to an existing DRO deployment.</p>
+<p><strong>When to use</strong>: Required when connecting to an existing DRO instance. Obtain from the <code>ibm-data-reporter-operator-api-token</code> secret in the DRO namespace.</p>
+<p><strong>Valid values</strong>: Valid DRO API token string</p>
+<p><strong>Impact</strong>: Without a valid API key, MAS cannot authenticate to the existing DRO instance.</p>
+<p><strong>Related variables</strong>: <a href="#dro_endpoint_url"><code>dro_endpoint_url</code></a>, <a href="#dro_crt_path"><code>dro_crt_path</code></a></p>
+<p><strong>Notes</strong>:
+- Extract from secret: <code>oc get secret ibm-data-reporter-operator-api-token -n &lt;dro-namespace&gt; -o jsonpath='{.data.token}' | base64 -d</code>
+- Keep the API key secure</p>
 <h3 id="dro_crt_path">dro_crt_path<a class="headerlink" href="#dro_crt_path" title="Permanent link">¤</a></h3>
-<p>DRO uses default OCP cluster ingress certificates. these can be obtained from either router-certs-default secret found in openshift-ingress namespace or trustedCA config map found in openshift-config namespace, copy the contents of tls.crt into a .pem file and provide the filepath of the .pem file to <code>DRO_CERTIFICATE_PATH</code>, this variable is needed if you wish to connect to an existing DRO instance.</p>
+<p>Path to DRO certificate file for TLS verification.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>DRO_CERTIFICATE_PATH</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the certificate for secure TLS communication with an existing DRO instance.</p>
+<p><strong>When to use</strong>: Required when connecting to an existing DRO instance. DRO uses default OCP cluster ingress certificates.</p>
+<p><strong>Valid values</strong>: Valid filesystem path to a .pem certificate file</p>
+<p><strong>Impact</strong>: Without the certificate, TLS verification will fail when connecting to the existing DRO instance.</p>
+<p><strong>Related variables</strong>: <a href="#dro_endpoint_url"><code>dro_endpoint_url</code></a>, <a href="#dro_api_key"><code>dro_api_key</code></a></p>
+<p><strong>Notes</strong>:
+- Obtain certificate from <code>router-certs-default</code> secret in <code>openshift-ingress</code> namespace or <code>trustedCA</code> configmap in <code>openshift-config</code> namespace
+- Extract and save tls.crt contents to a .pem file
+- Example: <code>oc get secret router-certs-default -n openshift-ingress -o jsonpath='{.data.tls\.crt}' | base64 -d &gt; /tmp/dro-cert.pem</code></p>
 <h3 id="dro_contactemail">dro_contact.email<a class="headerlink" href="#dro_contactemail" title="Permanent link">¤</a></h3>
-<p>Sets the Contact e-mail address used by the MAS instance's DRO configuration.</p>
+<p>Contact email address for DRO configuration.</p>
 <ul>
-<li><strong>Required</strong> when <code>mas_instance_id</code> and <code>mas_config_dir</code> are set</li>
+<li><strong>Required</strong> when generating BasCfg (when <code>mas_instance_id</code> and <code>mas_config_dir</code> are set)</li>
 <li>Environment Variable: <code>DRO_CONTACT_EMAIL</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides contact information for the DRO deployment in MAS configuration.</p>
+<p><strong>When to use</strong>: Required for BasCfg generation. Used for administrative and support purposes.</p>
+<p><strong>Valid values</strong>: Valid email address format</p>
+<p><strong>Impact</strong>: This email will be associated with the DRO configuration in MAS.</p>
+<p><strong>Related variables</strong>: <a href="#dro_contactfirst_name"><code>dro_contact.first_name</code></a>, <a href="#dro_contactlast_name"><code>dro_contact.last_name</code></a>, <a href="#mas_instance_id"><code>mas_instance_id</code></a>, <a href="#mas_config_dir"><code>mas_config_dir</code></a></p>
+<p><strong>Notes</strong>: Use a monitored email address for receiving DRO-related notifications.</p>
 <h3 id="dro_contactfirst_name">dro_contact.first_name<a class="headerlink" href="#dro_contactfirst_name" title="Permanent link">¤</a></h3>
-<p>Sets the Contact first name used by the MAS instance's DRO configuration.</p>
+<p>Contact first name for DRO configuration.</p>
 <ul>
-<li><strong>Required</strong> when <code>mas_instance_id</code> and <code>mas_config_dir</code> are set</li>
+<li><strong>Required</strong> when generating BasCfg (when <code>mas_instance_id</code> and <code>mas_config_dir</code> are set)</li>
 <li>Environment Variable: <code>DRO_CONTACT_FIRSTNAME</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides contact information for the DRO deployment in MAS configuration.</p>
+<p><strong>When to use</strong>: Required for BasCfg generation along with email and last name.</p>
+<p><strong>Valid values</strong>: Any string representing a first name</p>
+<p><strong>Impact</strong>: This name will be associated with the DRO configuration in MAS.</p>
+<p><strong>Related variables</strong>: <a href="#dro_contactemail"><code>dro_contact.email</code></a>, <a href="#dro_contactlast_name"><code>dro_contact.last_name</code></a></p>
+<p><strong>Notes</strong>: Used for administrative identification purposes.</p>
 <h3 id="dro_contactlast_name">dro_contact.last_name<a class="headerlink" href="#dro_contactlast_name" title="Permanent link">¤</a></h3>
-<p>Sets the Contact last name used by the MAS instance's DRO configuration.</p>
+<p>Contact last name for DRO configuration.</p>
 <ul>
-<li><strong>Required</strong> when <code>mas_instance_id</code> and <code>mas_config_dir</code> are set</li>
+<li><strong>Required</strong> when generating BasCfg (when <code>mas_instance_id</code> and <code>mas_config_dir</code> are set)</li>
 <li>Environment Variable: <code>DRO_CONTACT_LASTNAME</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides contact information for the DRO deployment in MAS configuration.</p>
+<p><strong>When to use</strong>: Required for BasCfg generation along with email and first name.</p>
+<p><strong>Valid values</strong>: Any string representing a last name</p>
+<p><strong>Impact</strong>: This name will be associated with the DRO configuration in MAS.</p>
+<p><strong>Related variables</strong>: <a href="#dro_contactemail"><code>dro_contact.email</code></a>, <a href="#dro_contactfirst_name"><code>dro_contact.first_name</code></a></p>
+<p><strong>Notes</strong>: Used for administrative identification purposes.</p>
 <h3 id="custom_labels">custom_labels<a class="headerlink" href="#custom_labels" title="Permanent link">¤</a></h3>
-<p>List of comma separated key=value pairs for setting custom labels on instance specific resources.</p>
+<p>Custom labels to apply to DRO instance resources.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>CUSTOM_LABELS</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Enables tagging of DRO resources with custom metadata for organization, tracking, or automation purposes.</p>
+<p><strong>When to use</strong>: When you need to apply organizational labels for cost tracking, environment identification, or resource management.</p>
+<p><strong>Valid values</strong>: Comma-separated list of key=value pairs (e.g., <code>env=prod,team=platform,cost-center=12345</code>)</p>
+<p><strong>Impact</strong>: Labels are applied to instance-specific DRO resources for identification and filtering.</p>
+<p><strong>Related variables</strong>: None</p>
+<p><strong>Notes</strong>:
+- Labels must follow Kubernetes label syntax (alphanumeric, hyphens, underscores, dots)
+- Useful for cost allocation, resource queries, and automation scripts</p>
 <h3 id="mas_pod_templates_dir">mas_pod_templates_dir<a class="headerlink" href="#mas_pod_templates_dir" title="Permanent link">¤</a></h3>
-<p>Provide the directory where supported pod templates configuration files are defined.  This role will look for a configuration file named <code>ibm-mas-bascfg.yml</code> in the named directory.  The content of the configuration file should be the yaml block that you wish to be inserted into the BasCfg spec under a top level <code>podTemplates</code> element, e.g. <code>podTemplates: {object}</code>.</p>
-<p>For examples refer to the <a href="https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/ibm-mas-bascfg.yml">BestEfforts reference configuration in the MAS CLI</a>, for full documentation of the supported options refer to the <a href="https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads">Customizing Pod Templates</a> in the product documentation.</p>
+<p>Directory containing pod template configurations for DRO.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>MAS_POD_TEMPLATES_DIR</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Allows customization of DRO pod specifications through template files.</p>
+<p><strong>When to use</strong>: When you need to customize resource limits, node selectors, tolerations, or other pod-level configurations for DRO.</p>
+<p><strong>Valid values</strong>: Valid filesystem path to a directory containing <code>ibm-mas-bascfg.yml</code></p>
+<p><strong>Impact</strong>: The pod template configuration will be inserted into the BasCfg spec under the <code>podTemplates</code> element, customizing DRO workload behavior.</p>
+<p><strong>Related variables</strong>: None</p>
+<p><strong>Notes</strong>:
+- The configuration file must be named <code>ibm-mas-bascfg.yml</code>
+- Content should be a YAML block for the <code>podTemplates</code> element
+- See <a href="https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/ibm-mas-bascfg.yml">BestEfforts reference configuration</a> for examples
+- Full documentation: <a href="https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads">Customizing Pod Templates</a></p>
 <h3 id="include_cluster_ingress_cert_chain">include_cluster_ingress_cert_chain<a class="headerlink" href="#include_cluster_ingress_cert_chain" title="Permanent link">¤</a></h3>
-<p>Optional. When set to <code>True</code>, includes the complete certificates chain in the generated MAS configuration, when a trusted certificate authority is found in your cluster's ingress.</p>
+<p>Include complete certificate chain in MAS configuration.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>INCLUDE_CLUSTER_INGRESS_CERT_CHAIN</code></li>
 <li>Default: <code>False</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether to include the full certificate chain from the cluster ingress in the generated MAS configuration.</p>
+<p><strong>When to use</strong>: Set to <code>True</code> when your cluster uses a trusted certificate authority and you need the complete certificate chain for proper TLS validation.</p>
+<p><strong>Valid values</strong>: <code>True</code> or <code>False</code></p>
+<p><strong>Impact</strong>: When enabled, the complete certificate chain is included in the BasCfg, ensuring proper TLS trust validation for DRO connections.</p>
+<p><strong>Related variables</strong>: <a href="#dro_crt_path"><code>dro_crt_path</code></a></p>
+<p><strong>Notes</strong>: Only applicable when a trusted CA is found in your cluster's ingress configuration.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <h3 id="install-in-cluster-and-generate-mas-configuration">Install in-cluster and generate MAS configuration<a class="headerlink" href="#install-in-cluster-and-generate-mas-configuration" title="Permanent link">¤</a></h3>
 <p>To install DRO</p>

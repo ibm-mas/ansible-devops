@@ -722,11 +722,21 @@
     <cds-select id="breadcrumbs-toc" inline placeholder="..." oninput="changeAnchor(this.value)">
     
     
+      <cds-select-item value="#version-detection">Version Detection</cds-select-item>
+    
+      <cds-select-item value="#platform-limitations">Platform Limitations</cds-select-item>
+    
+      <cds-select-item value="#features">Features</cds-select-item>
+    
       <cds-select-item value="#role-variables">Role Variables</cds-select-item>
     
       <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
     
       <cds-select-item value="#license">License</cds-select-item>
+    
+      <cds-select-item value="#example-playbook_1">Example Playbook</cds-select-item>
+    
+      <cds-select-item value="#license_1">License</cds-select-item>
     
     </cds-select>
   </cds-breadcrumb-item>
@@ -737,30 +747,114 @@
           <div class="rst-content">
             
             <h1 id="ocs">ocs<a class="headerlink" href="#ocs" title="Permanent link">¤</a></h1>
-<p>This role provides support to install/update OpenShift Data Foundation Operator (ODF) (formerly called Openshift Container Storage (OCS)) and the Local Storage Operator (LSO). This role is not used by default when setting up IBM Cloud ROKS clusters because they are automatically provisioned with their own storage plugin already.</p>
-<p>The OCP Version is autodetected and if it is found to be at version <code>4.10</code> or less then the <code>ocs</code> operator is used, else the <code>odf</code> operator is used.</p>
-<p>Unfortunately, starting from OCP 4.8 IBM/Red Hat have decided to stop supporting OCS on IBMCloud ROKS.  So this role is of limited value to users of ROKS going forward.  If you attempt to install OpenShift Container Storage on ROKS via a Subscription channel you will be met by the following error as the admission webhook has been coded to prevent use of the OCS operator on IBM Cloud ROKS: <strong>Failed to apply object: "admission webhook "validate.managed.openshift.io" denied the request: Installing OpenShift Data Foundation on IBM Cloud by using OperatorHub is not supported. You can install OpenShift Data Foundation by using the IBM Cloud add-on. For more information, see https://cloud.ibm.com/docs/openshift?topic=openshift-ocs-storage-prep.</strong></p>
+<p>Install and configure OpenShift Data Foundation (ODF) Operator, formerly known as OpenShift Container Storage (OCS), along with the Local Storage Operator (LSO) for persistent storage in OpenShift clusters.</p>
+<p>This role provides automated installation and upgrade of ODF/OCS with local storage backend. The role automatically detects the OpenShift version and installs the appropriate operator version.</p>
+<h2 id="version-detection">Version Detection<a class="headerlink" href="#version-detection" title="Permanent link">¤</a></h2>
+<ul>
+<li><strong>OCP 4.10 and earlier</strong>: Installs OCS operator</li>
+<li><strong>OCP 4.11 and later</strong>: Installs ODF operator</li>
+</ul>
+<h2 id="platform-limitations">Platform Limitations<a class="headerlink" href="#platform-limitations" title="Permanent link">¤</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">IBM Cloud ROKS Limitation</p>
+<p>Starting from OCP 4.8, IBM/Red Hat no longer support OCS/ODF installation via OperatorHub on IBM Cloud ROKS clusters. ROKS clusters are automatically provisioned with their own storage plugin.</p>
+<p>If you attempt to install ODF on ROKS via OperatorHub, you will encounter this error:</p>
+<p><strong>"Failed to apply object: admission webhook 'validate.managed.openshift.io' denied the request: Installing OpenShift Data Foundation on IBM Cloud by using OperatorHub is not supported. You can install OpenShift Data Foundation by using the IBM Cloud add-on."</strong></p>
+<p>For ROKS deployments, use the <a href="https://cloud.ibm.com/docs/openshift?topic=openshift-ocs-storage-prep">IBM Cloud add-on</a> instead.</p>
+</div>
+<h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">¤</a></h2>
+<ul>
+<li><strong>Automatic Version Detection</strong>: Installs OCS or ODF based on OpenShift version</li>
+<li><strong>Local Storage Integration</strong>: Configures Local Storage Operator for block storage</li>
+<li><strong>Storage Cluster Setup</strong>: Creates and configures ODF/OCS storage cluster</li>
+<li><strong>Upgrade Support</strong>: Can upgrade existing ODF/OCS installations</li>
+</ul>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="lso_device_path">lso_device_path<a class="headerlink" href="#lso_device_path" title="Permanent link">¤</a></h3>
-<p>Set this value with your actual local disk filepath to be used in the LocalVolume for block storage using the localblock storageclass.</p>
+<p>Local disk device path for block storage.</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>LSO_DEVICE_PATH</code></li>
-<li>Default Value: <code>/dev/vdb</code></li>
+<li>Default: <code>/dev/vdb</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the local disk device path to be used by the Local Storage Operator for block storage provisioning.</p>
+<p><strong>When to use</strong>: Always required when installing ODF/OCS. Must point to an available, unformatted local disk on worker nodes.</p>
+<p><strong>Valid values</strong>: Valid Linux block device path (e.g., <code>/dev/vdb</code>, <code>/dev/sdc</code>, <code>/dev/nvme0n1</code>)</p>
+<p><strong>Impact</strong>: This disk will be used for ODF/OCS storage cluster. All data on the disk will be erased during setup.</p>
+<p><strong>Related variables</strong>: <a href="#ocs_action"><code>ocs_action</code></a></p>
+<p><strong>Notes</strong>:
+- <strong>Critical</strong>: Disk must be unformatted and not in use
+- All data on the specified disk will be permanently erased
+- Disk must be available on all worker nodes designated for storage
+- Verify disk path: <code>lsblk</code> on worker nodes
+- Common paths: <code>/dev/vdb</code> (virtual machines), <code>/dev/sdc</code> (physical servers)
+- For NVMe drives, use format <code>/dev/nvme0n1</code>, <code>/dev/nvme1n1</code>, etc.
+- Ensure disk has sufficient capacity for your storage requirements</p>
 <h3 id="ocs_action">ocs_action<a class="headerlink" href="#ocs_action" title="Permanent link">¤</a></h3>
-<p>Set this value to the required action for <code>install</code> or <code>upgrade</code>. If set to install, the local storage and OCF/ODF storage operators will be installed with their storage cluster. If set to upgrade, the operators and storage cluster will be updated based on the ocp version in the cluster.</p>
+<p>Action to perform on ODF/OCS installation.</p>
 <ul>
+<li><strong>Optional</strong></li>
 <li>Environment Variable: <code>OCS_ACTION</code></li>
-<li>Default Value: <code>install</code></li>
+<li>Default: <code>install</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether to perform a fresh installation or upgrade of ODF/OCS operators and storage cluster.</p>
+<p><strong>When to use</strong>:
+- Use <code>install</code> (default) for new ODF/OCS deployments
+- Use <code>upgrade</code> to update existing ODF/OCS installation to match current OpenShift version</p>
+<p><strong>Valid values</strong>:
+- <code>install</code> - Fresh installation of Local Storage Operator, ODF/OCS operator, and storage cluster
+- <code>upgrade</code> - Upgrade existing operators and storage cluster based on OpenShift version</p>
+<p><strong>Impact</strong>:
+- <strong>install</strong>: Creates new LSO and ODF/OCS operators, configures local storage, creates storage cluster
+- <strong>upgrade</strong>: Updates operator subscriptions and storage cluster configuration to match OpenShift version</p>
+<p><strong>Related variables</strong>: <a href="#lso_device_path"><code>lso_device_path</code></a></p>
+<p><strong>Notes</strong>:
+- Default <code>install</code> is for new deployments
+- Use <code>upgrade</code> after OpenShift cluster upgrades to keep storage in sync
+- Upgrade process updates operators to versions compatible with current OCP version
+- Always backup data before performing upgrades
+- Verify cluster health before and after upgrade operations</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
+<h3 id="fresh-installation">Fresh Installation<a class="headerlink" href="#fresh-installation" title="Permanent link">¤</a></h3>
+<pre><code class="language-yaml">---
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    lso_device_path: /dev/vdb
+    ocs_action: install
+  roles:
+    - ibm.mas_devops.ocs
+</code></pre>
+<h3 id="upgrade-existing-installation">Upgrade Existing Installation<a class="headerlink" href="#upgrade-existing-installation" title="Permanent link">¤</a></h3>
+<pre><code class="language-yaml">---
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    lso_device_path: /dev/vdb
+    ocs_action: upgrade
+  roles:
+    - ibm.mas_devops.ocs
+</code></pre>
+<h3 id="custom-disk-path">Custom Disk Path<a class="headerlink" href="#custom-disk-path" title="Permanent link">¤</a></h3>
+<pre><code class="language-yaml">---
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    lso_device_path: /dev/nvme0n1
+    ocs_action: install
+  roles:
+    - ibm.mas_devops.ocs
+</code></pre>
+<h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">¤</a></h2>
+<p>EPL-2.0</p>
+<h2 id="example-playbook_1">Example Playbook<a class="headerlink" href="#example-playbook_1" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">---
 - hosts: localhost
   any_errors_fatal: true
   roles:
     - ibm.mas_devops.ocs
 </code></pre>
-<h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">¤</a></h2>
+<h2 id="license_1">License<a class="headerlink" href="#license_1" title="Permanent link">¤</a></h2>
 <p>EPL-2.0</p>
             
           </div>
@@ -804,6 +898,21 @@
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
               <li class="md-toc__item">
+                <a href="#version-detection" class="md-toc__link" data-md-level="1">
+                  Version Detection
+                </a>
+              </li>
+              <li class="md-toc__item">
+                <a href="#platform-limitations" class="md-toc__link" data-md-level="1">
+                  Platform Limitations
+                </a>
+              </li>
+              <li class="md-toc__item">
+                <a href="#features" class="md-toc__link" data-md-level="1">
+                  Features
+                </a>
+              </li>
+              <li class="md-toc__item">
                 <a href="#role-variables" class="md-toc__link" data-md-level="1">
                   Role Variables
                 </a>
@@ -824,9 +933,36 @@
                 <a href="#example-playbook" class="md-toc__link" data-md-level="1">
                   Example Playbook
                 </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#fresh-installation" class="md-toc__link" data-md-level="2">
+                          Fresh Installation
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#upgrade-existing-installation" class="md-toc__link" data-md-level="2">
+                          Upgrade Existing Installation
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#custom-disk-path" class="md-toc__link" data-md-level="2">
+                          Custom Disk Path
+                        </a>
+                      </li>
+                  </ul>
               </li>
               <li class="md-toc__item">
                 <a href="#license" class="md-toc__link" data-md-level="1">
+                  License
+                </a>
+              </li>
+              <li class="md-toc__item">
+                <a href="#example-playbook_1" class="md-toc__link" data-md-level="1">
+                  Example Playbook
+                </a>
+              </li>
+              <li class="md-toc__item">
+                <a href="#license_1" class="md-toc__link" data-md-level="1">
                   License
                 </a>
               </li>

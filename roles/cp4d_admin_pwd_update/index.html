@@ -738,42 +738,101 @@
 <p>This role will update the password on an existing cp4d instance. By default it will update the password to a randomly generated new password only when the instance is still using the 'initial_admin_password' although using the 'cp4d_admin_password_force_update' variable referenced below will override this to update the password regardless of the current one being used. The new password will be added to the same yaml file that the 'initial_admin_password' was generated into - 'admin-user-details' by default.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
-<p>The instance ID of Maximo Application Suite that the cp4d password updater will target.</p>
+<p>MAS instance identifier associated with the CP4D deployment.</p>
 <ul>
+<li>Optional</li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Associates the CP4D password update operation with a specific MAS instance for tracking and organization purposes.</p>
+<p><strong>When to use</strong>: Set when CP4D is deployed as part of a MAS installation to maintain the association between CP4D and MAS.</p>
+<p><strong>Valid values</strong>: Valid MAS instance ID (typically 3-12 lowercase alphanumeric characters)</p>
+<p><strong>Impact</strong>: Used for logging and tracking purposes. Does not affect the password update operation itself.</p>
+<p><strong>Related variables</strong>: <a href="#cp4d_namespace"><code>cp4d_namespace</code></a></p>
+<p><strong>Notes</strong>: Optional but recommended for MAS-integrated CP4D deployments to maintain clear associations.</p>
 <h3 id="cp4d_namespace">cp4d_namespace<a class="headerlink" href="#cp4d_namespace" title="Permanent link">¤</a></h3>
-<p>The instance of cp4d in your cluster that the cp4d password updater will target - defaults to 'ibm-cpd'.</p>
+<p>CP4D instance namespace where password will be updated.</p>
 <ul>
+<li>Optional</li>
 <li>Environment Variable: <code>CP4D_NAMESPACE</code></li>
-<li>Default Value: 'ibm-cpd'</li>
+<li>Default: <code>ibm-cpd</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the OpenShift namespace where the CP4D instance is deployed.</p>
+<p><strong>When to use</strong>: Use default (<code>ibm-cpd</code>) for standard CP4D deployments. Override if CP4D is deployed in a custom namespace.</p>
+<p><strong>Valid values</strong>: Valid Kubernetes namespace name</p>
+<p><strong>Impact</strong>: Determines where to find the CP4D admin credentials secret and where to execute the password update.</p>
+<p><strong>Related variables</strong>: <a href="#cp4d_admin_credentials_secret_name"><code>cp4d_admin_credentials_secret_name</code></a></p>
+<p><strong>Notes</strong>: The default <code>ibm-cpd</code> is the standard namespace for CP4D deployments.</p>
 <h3 id="cp4d_admin_credentials_secret_name">cp4d_admin_credentials_secret_name<a class="headerlink" href="#cp4d_admin_credentials_secret_name" title="Permanent link">¤</a></h3>
-<p>The secret inside your cp4d instance that stores the intial admin password - defaults to 'admin-user-details'.</p>
+<p>Kubernetes secret name containing CP4D admin credentials.</p>
 <ul>
+<li>Optional</li>
 <li>Environment Variable: <code>CP4D_ADMIN_CREDENTIALS_SECRET_NAME</code></li>
-<li>Default Value: 'admin-user-details'</li>
+<li>Default: <code>admin-user-details</code></li>
 </ul>
+<p><strong>Purpose</strong>: Identifies the Kubernetes secret that stores the CP4D admin password, used to retrieve the current password and store the new one.</p>
+<p><strong>When to use</strong>: Use default (<code>admin-user-details</code>) for standard CP4D deployments. Override if using a custom secret name.</p>
+<p><strong>Valid values</strong>: Valid Kubernetes secret name</p>
+<p><strong>Impact</strong>: The role reads the current password from this secret and updates it with the new password after the change.</p>
+<p><strong>Related variables</strong>: <a href="#cp4d_namespace"><code>cp4d_namespace</code></a>, <a href="#cp4d_admin_password"><code>cp4d_admin_password</code></a></p>
+<p><strong>Notes</strong>:
+- The default <code>admin-user-details</code> is the standard secret name for CP4D admin credentials
+- Secret must exist in the CP4D namespace
+- New password is written back to this same secret</p>
 <h3 id="cp4d_admin_username">cp4d_admin_username<a class="headerlink" href="#cp4d_admin_username" title="Permanent link">¤</a></h3>
-<p>The username for your cp4d instance - defaults to 'admin'.</p>
+<p>CP4D administrator username.</p>
 <ul>
+<li>Optional</li>
 <li>Environment Variable: <code>CP4D_ADMIN_USERNAME</code></li>
-<li>Default Value: 'admin'</li>
+<li>Default: <code>admin</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies the CP4D admin user account whose password will be updated.</p>
+<p><strong>When to use</strong>: Use default (<code>admin</code>) for standard CP4D deployments. Override if using a custom admin username.</p>
+<p><strong>Valid values</strong>: Valid CP4D username</p>
+<p><strong>Impact</strong>: Determines which user account's password will be changed in CP4D.</p>
+<p><strong>Related variables</strong>: <a href="#cp4d_admin_password"><code>cp4d_admin_password</code></a>, <a href="#cp4d_admin_credentials_secret_name"><code>cp4d_admin_credentials_secret_name</code></a></p>
+<p><strong>Notes</strong>: The default <code>admin</code> is the standard administrator username for CP4D.</p>
 <h3 id="cp4d_admin_password">cp4d_admin_password<a class="headerlink" href="#cp4d_admin_password" title="Permanent link">¤</a></h3>
-<p>The password for your cp4d insrance - an optional addition as the password updater will attempt to collect this value from the 'cp4d_admin_credentials_secret_name' secret.</p>
+<p>Current CP4D admin password (optional).</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>CP4D_ADMIN_PASSWORD</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Provides the current admin password if not retrievable from the credentials secret.</p>
+<p><strong>When to use</strong>:
+- Leave unset (recommended) to auto-retrieve from the credentials secret
+- Set explicitly if the secret is not accessible or contains incorrect password
+- Useful for manual password recovery scenarios</p>
+<p><strong>Valid values</strong>: Valid CP4D admin password string</p>
+<p><strong>Impact</strong>: When set, this password is used instead of retrieving from the secret. Must match the current CP4D admin password.</p>
+<p><strong>Related variables</strong>: <a href="#cp4d_admin_credentials_secret_name"><code>cp4d_admin_credentials_secret_name</code></a>, <a href="#cp4d_admin_username"><code>cp4d_admin_username</code></a></p>
+<p><strong>Notes</strong>:
+- <strong>Security</strong>: Avoid setting this in plain text; prefer secret-based retrieval
+- The role will attempt to retrieve the password from the secret if not provided
+- Only set if you cannot retrieve the password from the secret</p>
 <h3 id="cp4d_admin_password_force_update">cp4d_admin_password_force_update<a class="headerlink" href="#cp4d_admin_password_force_update" title="Permanent link">¤</a></h3>
-<p>Typically the password updater will only update the password if the cp4d instance is using the initial password provided in the secret - setting this value to 'True' will ensure that is resets the password regardless.</p>
+<p>Force password update regardless of current password.</p>
 <ul>
+<li>Optional</li>
 <li>Environment Variable: <code>CP4D_ADMIN_PASSWORD_FORCE_UPDATE</code></li>
-<li>Default Value: 'False'</li>
+<li>Default: <code>false</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls whether to update the password only if it matches the initial password, or to update it regardless of the current value.</p>
+<p><strong>When to use</strong>:
+- Leave as <code>false</code> (default) for safe updates that only change initial passwords
+- Set to <code>true</code> to force password update regardless of current password
+- Use <code>true</code> for password rotation policies or recovery scenarios</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- <code>false</code>: Only updates password if CP4D is still using the initial password from the secret (safe default)
+- <code>true</code>: Updates password regardless of current value (use with caution)</p>
+<p><strong>Related variables</strong>: <a href="#cp4d_admin_password"><code>cp4d_admin_password</code></a></p>
+<p><strong>Notes</strong>:
+- <strong>Warning</strong>: Setting to <code>true</code> will change the password even if it has been customized
+- Default <code>false</code> is safer as it only updates passwords that haven't been changed from initial value
+- Use <code>true</code> for scheduled password rotation or when you need to reset a forgotten password
+- New randomly generated password is stored in the credentials secret</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true

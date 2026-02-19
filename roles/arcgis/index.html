@@ -855,41 +855,85 @@ queue-data-volume-arcgis-queue-store-cgatl-0                        Bound    pvc
 <p>Average of 182 gigabyes of required capacity.</p>
 <h2 id="role-variables-installation">Role Variables - Installation<a class="headerlink" href="#role-variables-installation" title="Permanent link">¤</a></h2>
 <h3 id="ibm_entitlement_key">ibm_entitlement_key<a class="headerlink" href="#ibm_entitlement_key" title="Permanent link">¤</a></h3>
-<p>Provide your <a href="https://myibm.ibm.com/products-services/containerlibrary">IBM entitlement key</a>.</p>
+<p>IBM entitlement key for accessing container images.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>IBM_ENTITLEMENT_KEY</code></li>
 <li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Authenticates access to IBM container registry for pulling IBM Maximo Location Services for Esri images.</p>
+<p><strong>When to use</strong>: Required for all ArcGIS installations. Obtain from <a href="https://myibm.ibm.com/products-services/containerlibrary">IBM Container Library</a>.</p>
+<p><strong>Valid values</strong>: Valid IBM entitlement key string from your IBM account.</p>
+<p><strong>Impact</strong>: Without a valid key, the ArcGIS operator and component images cannot be pulled and installation will fail.</p>
+<p><strong>Related variables</strong>: None</p>
+<p><strong>Notes</strong>:
+- Keep the entitlement key secure and do not commit it to version control
+- The key is associated with your IBM ID and product entitlements
+- Verify key validity before deployment to avoid installation failures</p>
 <h3 id="mas_catalog_source">mas_catalog_source<a class="headerlink" href="#mas_catalog_source" title="Permanent link">¤</a></h3>
-<p>Defines the catalog to be used to install MAS. You can set it to ibm-operator-catalog for both release as well as for development install</p>
+<p>Catalog source for MAS operator installation.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>MAS_CATALOG_SOURCE</code></li>
-<li>Default Value: <code>ibm-operator-catalog</code></li>
+<li>Default: <code>ibm-operator-catalog</code></li>
 </ul>
+<p><strong>Purpose</strong>: Specifies which operator catalog to use for installing IBM Maximo Location Services for Esri.</p>
+<p><strong>When to use</strong>: The default is appropriate for both release and development installations. Override only if using a custom or mirrored catalog.</p>
+<p><strong>Valid values</strong>:
+- <code>ibm-operator-catalog</code> (default) - Standard IBM operator catalog
+- Custom catalog name for airgap or development environments</p>
+<p><strong>Impact</strong>: Determines the source of operator images and available versions.</p>
+<p><strong>Related variables</strong>: <a href="#mas_arcgis_channel"><code>mas_arcgis_channel</code></a></p>
+<p><strong>Notes</strong>: For airgap installations, ensure the catalog has been properly mirrored with all required ArcGIS images.</p>
 <h3 id="mas_arcgis_channel">mas_arcgis_channel<a class="headerlink" href="#mas_arcgis_channel" title="Permanent link">¤</a></h3>
-<p>Subscription channel for IBM Maximo Location Services for Esri.</p>
+<p>Subscription channel for IBM Maximo Location Services for Esri operator.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>MAS_ARCGIS_CHANNEL</code></li>
-<li>Default Value: <code>9.1.x</code></li>
+<li>Default: <code>9.1.x</code></li>
 </ul>
+<p><strong>Purpose</strong>: Controls which version stream of IBM Maximo Location Services for Esri will be installed and receive updates.</p>
+<p><strong>When to use</strong>: Override the default when you need a specific version or want to control upgrade timing. The channel determines which updates are automatically applied.</p>
+<p><strong>Valid values</strong>: Version-specific channels (e.g., <code>9.1.x</code>, <code>9.0.x</code>)</p>
+<p><strong>Impact</strong>: Determines the ArcGIS version installed and which automatic updates are received. Changing channels may trigger upgrades.</p>
+<p><strong>Related variables</strong>: <a href="#mas_catalog_source"><code>mas_catalog_source</code></a></p>
+<p><strong>Notes</strong>:
+- The <code>9.1.x</code> channel receives updates within the 9.1 version stream
+- Review release notes before changing channels
+- Channel changes may require operator restarts</p>
 <h2 id="role-variables-mas-configuration">Role Variables - MAS Configuration<a class="headerlink" href="#role-variables-mas-configuration" title="Permanent link">¤</a></h2>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
-<p>The instance ID of Maximo Application Suite.</p>
+<p>MAS instance identifier for ArcGIS deployment.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Associates the IBM Maximo Location Services for Esri deployment with a specific MAS instance.</p>
+<p><strong>When to use</strong>: Required when deploying ArcGIS for a specific MAS instance. The ArcGIS namespace will be created as <code>mas-&lt;instance-id&gt;-arcgis</code>.</p>
+<p><strong>Valid values</strong>: Valid MAS instance ID (lowercase alphanumeric, max 12 characters)</p>
+<p><strong>Impact</strong>: Determines the namespace where ArcGIS will be deployed and which MAS instance it will integrate with.</p>
+<p><strong>Related variables</strong>: None</p>
+<p><strong>Notes</strong>:
+- The deployment namespace will be <code>mas-&lt;mas_instance_id&gt;-arcgis</code>
+- ArcGIS will automatically use the MAS cluster issuers for certificate management
+- Ensure the MAS instance exists before deploying ArcGIS</p>
 <h3 id="custom_labels">custom_labels<a class="headerlink" href="#custom_labels" title="Permanent link">¤</a></h3>
-<p>List of comma separated key=value pairs for setting custom labels on instance specific resources.</p>
+<p>Custom labels to apply to ArcGIS instance resources.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>CUSTOM_LABELS</code></li>
-<li>Default Value: None</li>
+<li>Default: None</li>
 </ul>
+<p><strong>Purpose</strong>: Enables tagging of ArcGIS resources with custom metadata for organization, tracking, or automation purposes.</p>
+<p><strong>When to use</strong>: When you need to apply organizational labels for cost tracking, environment identification, or resource management.</p>
+<p><strong>Valid values</strong>: Comma-separated list of key=value pairs (e.g., <code>env=prod,team=spatial,cost-center=12345</code>)</p>
+<p><strong>Impact</strong>: Labels are applied to instance-specific ArcGIS resources for identification and filtering.</p>
+<p><strong>Related variables</strong>: None</p>
+<p><strong>Notes</strong>:
+- Labels must follow Kubernetes label syntax (alphanumeric, hyphens, underscores, dots)
+- Useful for cost allocation, resource queries, and automation scripts
+- Applied to all 49 ArcGIS deployment resources</p>
 <h2 id="example-playbooks">Example Playbooks<a class="headerlink" href="#example-playbooks" title="Permanent link">¤</a></h2>
 <h3 id="install-ibm-maximo-location-services-for-esri">Install IBM Maximo Location Services for Esri<a class="headerlink" href="#install-ibm-maximo-location-services-for-esri" title="Permanent link">¤</a></h3>
 <pre><code class="language-yaml">- hosts: localhost
