@@ -61,9 +61,6 @@ class READMEFixer:
         content, license_fixes = self._add_license_section(content)
         fixes.extend(license_fixes)
 
-        content, code_fixes = self._fix_code_blocks(content)
-        fixes.extend(code_fixes)
-
         content, duplicate_fixes = self._remove_duplicate_sections(content)
         fixes.extend(duplicate_fixes)
 
@@ -129,7 +126,7 @@ class READMEFixer:
                         # Convert previous line to proper heading
                         new_lines[-1] = f"## {prev_line}"
                         fixes.append(f"Fixed section heading: '{prev_line}' -> '## {prev_line}'")
-                
+
                 # Skip the separator line
                 fixes.append(f"Removed decorative separator at line {i+1}: {stripped[:50]}")
                 i += 1
@@ -146,7 +143,7 @@ class READMEFixer:
                         fixes.append(f"Fixed section heading: '{stripped}' -> '## {stripped}'")
                         i += 2  # Skip both the heading and separator
                         continue
-                
+
                 # Standalone section heading without separator - still convert to ##
                 new_lines.append(f"## {stripped}")
                 fixes.append(f"Fixed section heading: '{stripped}' -> '## {stripped}'")
@@ -226,29 +223,24 @@ class READMEFixer:
 
         return content, fixes
 
-    def _fix_code_blocks(self, content: str) -> Tuple[str, List[str]]:
-        """Code block fixes disabled - use report_missing_code_tags.py for manual fixes"""
-        fixes = []
-        # All code block logic disabled - manual fixes only
-        return content, fixes
-    
+
     def _remove_duplicate_sections(self, content: str) -> Tuple[str, List[str]]:
         """Remove duplicate sections (e.g., multiple License sections)"""
         fixes = []
         lines = content.split('\n')
-        
+
         # Track sections we've seen
         seen_sections = {}
         new_lines = []
         i = 0
-        
+
         while i < len(lines):
             line = lines[i].strip()
-            
+
             # Check if this is a section heading
             if line.startswith('## '):
                 section_name = line[3:].strip()
-                
+
                 if section_name in seen_sections:
                     # This is a duplicate - skip until next section or end
                     fixes.append(f"Removed duplicate section: {section_name}")
@@ -259,26 +251,26 @@ class READMEFixer:
                     continue
                 else:
                     seen_sections[section_name] = True
-            
+
             new_lines.append(lines[i])
             i += 1
-        
+
         if fixes:
             content = '\n'.join(new_lines)
-        
+
         return content, fixes
-    
+
     def _add_no_variables_note(self, content: str, role_name: str) -> Tuple[str, List[str]]:
         """Add Role Variables section header or note for roles with no variables"""
         fixes = []
-        
+
         # Check if Role Variables section exists
         role_vars_match = re.search(r'^##\s+Role\s+Variables\s*$', content, re.MULTILINE)
-        
+
         if not role_vars_match:
             # No ## Role Variables section - check if there are any ### variable definitions
             first_var_match = re.search(r'^###\s+\w+', content, re.MULTILINE)
-            
+
             if first_var_match:
                 # Has variables but missing ## Role Variables header - add it before first variable
                 insert_pos = first_var_match.start()
@@ -287,13 +279,13 @@ class READMEFixer:
             else:
                 # No variables at all - add Role Variables section with note
                 example_match = re.search(r'^##\s+Example\s+Playbook', content, re.MULTILINE)
-                
+
                 no_vars_section = """## Role Variables
 
 This role has no configurable variables.
 
 """
-                
+
                 if example_match:
                     insert_pos = example_match.start()
                     content = content[:insert_pos] + no_vars_section + content[insert_pos:]
@@ -303,9 +295,9 @@ This role has no configurable variables.
                     if license_match:
                         insert_pos = license_match.start()
                         content = content[:insert_pos] + no_vars_section + content[insert_pos:]
-                
+
                 fixes.append("Added Role Variables section with 'no variables' note")
-        
+
         return content, fixes
 
 
