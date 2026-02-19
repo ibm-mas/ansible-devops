@@ -11,6 +11,34 @@
     - atlas_aws_secret_name != ""
     - atlas_aws_secret_region is defined
   block:
+    - name: "Check if AWS CLI is available"
+      command: which aws
+      register: aws_cli_check
+      failed_when: false
+      changed_when: false
+
+    - name: "Fail if AWS CLI is not installed"
+      fail:
+        msg: |
+          AWS CLI is not installed or not in PATH.
+          Please install AWS CLI: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+      when: aws_cli_check.rc != 0
+
+    - name: "Verify AWS credentials are configured"
+      command: aws sts get-caller-identity
+      register: aws_identity_check
+      failed_when: false
+      changed_when: false
+      no_log: true
+
+    - name: "Fail if AWS credentials are not configured"
+      fail:
+        msg: |
+          AWS credentials are not configured or invalid.
+          Please configure AWS CLI: aws configure
+          Or set environment variables: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+      when: aws_identity_check.rc != 0
+
     - name: "Get Atlas API credentials from AWS Secrets Manager"
       shell: |
         aws secretsmanager get-secret-value \
@@ -19,6 +47,7 @@
           --query SecretString \
           --output text
       register: atlas_secret_output
+      failed_when: atlas_secret_output.rc != 0
       no_log: true
 
     - name: "Parse Atlas credentials from secret"
@@ -31,6 +60,30 @@
         atlas_public_key: "{{ atlas_credentials.public_key }}"
         atlas_private_key: "{{ atlas_credentials.private_key }}"
       no_log: true
+
+  rescue:
+    - name: "Display AWS Secrets Manager error details"
+      debug:
+        msg:
+          - "=========================================="
+          - "Failed to retrieve Atlas credentials from AWS Secrets Manager"
+          - "=========================================="
+          - "Secret Name: {{ atlas_aws_secret_name }}"
+          - "Region: {{ atlas_aws_secret_region }}"
+          - "=========================================="
+          - "Common issues:"
+          - "1. AWS CLI not configured (run: aws configure)"
+          - "2. Secret doesn't exist in the specified region"
+          - "3. Insufficient IAM permissions (need secretsmanager:GetSecretValue)"
+          - "4. Secret name is incorrect (case-sensitive)"
+          - "=========================================="
+          - "To troubleshoot, run:"
+          - "  aws secretsmanager describe-secret --secret-id {{ atlas_aws_secret_name }} --region {{ atlas_aws_secret_region }}"
+          - "=========================================="
+
+    - name: "Fail with helpful error message"
+      fail:
+        msg: "Failed to retrieve Atlas API credentials from AWS Secrets Manager. See debug output above for troubleshooting steps."
 
 # 2. Validate required variables
 # -----------------------------------------------------------------------------
@@ -47,10 +100,11 @@
       - atlas_project_id is defined and atlas_project_id != ""
     fail_msg: "Atlas project ID is required"
 
-# Set the working variable - use the converted array if available, otherwise use original
+# Set the working variable - convert string to list if needed
 - name: "Set working route table IDs variable"
   set_fact:
-    atlas_aws_route_table_ids_working: "{{ atlas_aws_route_table_ids_final if atlas_aws_route_table_ids_final is defined else atlas_aws_route_table_ids }}"
+    atlas_aws_route_table_ids_working: "{{ atlas_aws_route_table_ids if atlas_aws_route_table_ids is not string else atlas_aws_route_table_ids.split(',') }}"
+  when: atlas_aws_route_table_ids is defined
 
 - name: "Fail if required configuration is not provided"
   assert:

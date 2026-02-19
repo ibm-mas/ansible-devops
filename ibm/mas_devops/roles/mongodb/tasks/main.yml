@@ -11,7 +11,7 @@
 # MongoDB Atlas Provider - Provision Action
 # Creates a new MongoDB Atlas cluster with database users and network configuration
 - name: "Provision MongoDB Atlas cluster"
-  include_tasks: providers/atlas/provision.yml
+  include_tasks: "{{ role_path }}/tasks/providers/atlas/provision.yml"
   when:
     - mongodb_provider == "atlas"
     - mongodb_action == "provision"
@@ -48,7 +48,7 @@
       - "Condition check: {{ (mongodb_provider == 'atlas') and (mongodb_action == 'configure_vpc_peering') }}"
 
 - name: "Configure MongoDB Atlas VPC Peering"
-  include_tasks: providers/atlas/configure_vpc_peering.yml
+  include_tasks: "{{ role_path }}/tasks/providers/atlas/configure_vpc_peering.yml"
   when:
     - mongodb_provider == "atlas"
     - mongodb_action == "configure_vpc_peering"
@@ -56,7 +56,7 @@
 # MongoDB Atlas Provider - Deconfigure VPC Peering Action
 # Removes VPC peering routes from AWS route tables
 - name: "Deconfigure MongoDB Atlas VPC Peering"
-  include_tasks: providers/atlas/deconfigure_vpc_peering.yml
+  include_tasks: "{{ role_path }}/tasks/providers/atlas/deconfigure_vpc_peering.yml"
   when:
     - mongodb_provider == "atlas"
     - mongodb_action == "deconfigure_vpc_peering"
@@ -64,9 +64,15 @@
 # MongoDB Atlas Provider - Deprovision Action
 # Deletes the Atlas cluster and cleans up all associated resources
 - name: "Deprovision MongoDB Atlas cluster"
-  include_tasks: providers/atlas/deprovision.yml
+  include_tasks: "{{ role_path }}/tasks/providers/atlas/deprovision.yml"
   when:
     - mongodb_provider == "atlas"
     - mongodb_action == "deprovision"
 
-# MongoDB Atlas Provider - Uninstall Action (Removed - use deprovision instead)
+# MongoDB Atlas Provider - Uninstall Action
+# Alias for deprovision - deletes the Atlas cluster and cleans up all associated resources
+- name: "Uninstall MongoDB Atlas cluster"
+  include_tasks: "{{ role_path }}/tasks/providers/atlas/deprovision.yml"
+  when:
+    - mongodb_provider == "atlas"
+    - mongodb_action == "uninstall"
