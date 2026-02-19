@@ -1,35 +1,98 @@
 # suite_manage_load_dbc_scripts
 
-This role allows to load and execute one or more ad-hoc DBC script files into Manage/Health server. Only `dbc` format files will be accepted.
+This role loads and executes ad-hoc DBC (Database Configuration) script files into Maximo Manage or Health server. DBC scripts are used to customize Manage/Health database configurations, add custom fields, modify system properties, or perform database maintenance tasks.
 
-The role will assert if each script executed successfully and fail in case of errors while locating the DBC scripts or executing them against the Manage/Health server.
+!!! important "Script Requirements"
+    - Only `.dbc` format files are accepted
+    - Scripts must be valid Maximo DBC syntax
+    - Role validates successful execution and fails on errors
+
+## What This Role Does
+
+- Locates DBC script files from specified local directory
+- Copies scripts to Manage/Health server pods
+- Executes scripts using Maximo's DBC processor
+- Validates each script execution for errors
+- Fails if any script encounters errors
 
 ## Role Variables
 
-### MAS Configuration
-
-#### mas_instance_id
-Defines the instance id that was used for the MAS installation. It is used to lookup the Manage/Health namespace.
+### mas_instance_id
+MAS instance identifier.
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
+- Default: None
 
-#### mas_app_id
-The MAS application ID. Must be either `health` or `manage`.
+**Purpose**: Identifies which MAS instance contains the Manage or Health application where DBC scripts will be executed.
+
+**When to use**:
+- Always required for DBC script execution
+- Must match the instance ID from MAS installation
+- Used to construct namespace for script execution
+
+**Valid values**: Lowercase alphanumeric string, 3-12 characters (e.g., `prod`, `dev`, `masinst1`)
+
+**Impact**: Determines which MAS instance's Manage/Health application receives the DBC scripts. Namespace format: `mas-{instance_id}-{app_id}`.
+
+**Related variables**:
+- `mas_app_id`: Application within this instance (manage or health)
+- `dbc_script_path_local`: Location of scripts to execute
+
+**Note**: This must match the instance ID used during Manage/Health installation.
+
+### mas_app_id
+MAS application identifier.
 
 - **Required**
 - Environment Variable: `MAS_APP_ID`
-- Default Value: None
+- Default: None
 
-### Script Configuration
+**Purpose**: Specifies which MAS application (Manage or Health) will execute the DBC scripts.
 
-#### dbc_script_path_local
-Defines the local path/folder where the DBC script files should be located in order to be loaded onto the Manage/Health server.
+**When to use**:
+- Always required for DBC script execution
+- Must match the deployed application
+- Determines target namespace and server
+
+**Valid values**: `manage`, `health`
+
+**Impact**: Determines which application server executes the DBC scripts. Different applications have different database schemas and configurations.
+
+**Related variables**:
+- `mas_instance_id`: Instance containing this application
+- `dbc_script_path_local`: Scripts to execute on this application
+
+**Note**: DBC scripts are application-specific. Scripts written for Manage may not work in Health and vice versa. Ensure scripts are compatible with the target application.
+
+### dbc_script_path_local
+Local directory path for DBC script files.
 
 - **Optional**
 - Environment Variable: `DBC_SCRIPT_PATH_LOCAL`
-- Default Value: `suite_manage_load_dbc_scripts/files`
+- Default: `suite_manage_load_dbc_scripts/files`
+
+**Purpose**: Specifies the local filesystem directory containing DBC script files to be loaded and executed on the Manage/Health server.
+
+**When to use**:
+- Use default for scripts in role's files directory
+- Override to specify custom script location
+- Directory must contain `.dbc` files
+
+**Valid values**: Valid local filesystem path (e.g., `/path/to/dbc/scripts`, `~/manage-scripts`)
+
+**Impact**: The role scans this directory for `.dbc` files, copies them to the server, and executes them in alphabetical order.
+
+**Related variables**:
+- `mas_instance_id`: Instance where scripts execute
+- `mas_app_id`: Application executing the scripts
+
+**Note**:
+- All `.dbc` files in the directory will be executed
+- Scripts execute in alphabetical order by filename
+- Use filename prefixes (e.g., `01-`, `02-`) to control execution order
+- Ensure scripts are idempotent if role may be run multiple times
+- Test scripts in non-production environment first
 
 ## Example Playbook
 
