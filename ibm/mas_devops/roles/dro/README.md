@@ -7,7 +7,7 @@ DRO will be supported on the following MAS versions
 Installs [Data Reporter Operator](https://github.com/redhat-marketplace/redhat-marketplace-operator/tree/develop/datareporter/v2) in the `redhat-marketplace` namespace.  If `mas_instance_id` and the others associated parameters are provided then the role will also generate a configuration file that can be directly applied to IBM Maximo Application Suite.
 
 
-Role Variables - Installation
+## Role Variables - Installation
 ## Role Variables
 
 ### dro_action
@@ -98,7 +98,7 @@ Storage class for DRO persistent volumes.
 - The storage class must support RWO (Read Write Once) access mode
 - Auto-detection works for most standard cluster configurations
 
-Role Variables - BASCfg Generation
+## Role Variables - BASCfg Generation
 ### mas_instance_id
 MAS instance identifier for BasCfg generation.
 

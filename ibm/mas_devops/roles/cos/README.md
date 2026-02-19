@@ -10,7 +10,7 @@ This role provides support for:
 Currently this role only supports generating a system-scoped ObjectStorageCfg resource, but the generated file can be modified if you wish to use other scopes.
 
 
-Role Variables - General
+## Role Variables - General
 ## Role Variables
 
 ### cos_type
@@ -143,7 +143,7 @@ Custom key-value labels to apply to provisioned resources.
 - Labels can be modified after resource creation
 
 
-Role Variables - IBM COS
+## Role Variables - IBM COS
 ### cos_instance_name
 The name for the IBM Cloud Object Storage instance.
 
@@ -476,7 +476,7 @@ The default IBM Cloud resource group for all IBM Cloud resources.
 - Not applicable for OCS (`cos_type=ocs`)
 
 
-Role Variables - MAS Configuration
+## Role Variables - MAS Configuration
 ### mas_instance_id
 The MAS instance ID that the ObjectStorageCfg will target.
 

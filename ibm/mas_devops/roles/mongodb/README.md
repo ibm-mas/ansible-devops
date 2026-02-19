@@ -757,7 +757,7 @@ Timestamp of the backup version to restore.
 **Note**: **Verify backup version before restoring**. List available backups in storage location first. Restore is destructive and cannot be undone without another backup.
 
 
-Role Variables - IBM Cloud
+## Role Variables - IBM Cloud
 #### ibm_mongo_name
 Name for the IBM Cloud Databases for MongoDB instance.
 
@@ -1155,7 +1155,7 @@ Name for the MongoDB service when restoring from backup.
 **Note**: Using a different name allows side-by-side comparison of restored and current instances before switching over.
 
 
-Role Variables - AWS DocumentDB
+## Role Variables - AWS DocumentDB
 
 #### aws_access_key_id
 AWS account access key ID for authentication.

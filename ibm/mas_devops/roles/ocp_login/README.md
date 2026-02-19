@@ -109,7 +109,7 @@ Authentication token for direct login.
 **Note**: **SECURITY** - Both `ocp_server` and `ocp_token` must be provided together. Token should be kept secure and not committed to version control. This method works with any Kubernetes cluster.
 
 
-Role Variables - IBMCloud ROKS
+## Role Variables - IBMCloud ROKS
 ### ibmcloud_apikey
 IBM Cloud API key for ROKS authentication.
 
@@ -160,7 +160,7 @@ IBM Cloud API endpoint URL.
 **Note**: The default public endpoint works for most deployments. Override only for specific regional or private cloud requirements.
 
 
-Role Variables - IBM DevIT Fyre
+## Role Variables - IBM DevIT Fyre
 ### fyre_username
 IBM DevIT Fyre username.
 
@@ -261,7 +261,7 @@ Enable IPv6 for Fyre RTP site.
 
 **Note**: Only required for Fyre RTP site. SVL and other sites use IPv4.
 
-Role Variables - AWS ROSA
+## Role Variables - AWS ROSA
 ### rosa_token
 AWS ROSA authentication token.
 

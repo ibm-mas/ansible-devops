@@ -68,7 +68,7 @@ The action to perform on the bucket.
 - AWS bucket deletion can force-delete objects if versioning is disabled
 - Verify the bucket name before deletion to avoid removing the wrong bucket
 
-Role Variables - IBM Cloud Object Storage buckets
+## Role Variables - IBM Cloud Object Storage buckets
 ### cos_bucket_name
 The name for the IBM Cloud Object Storage bucket.
 
@@ -424,7 +424,7 @@ The IBM Cloud resource group containing the COS instance.
 - Must match the resource group used in the `cos` role
 - Not applicable for AWS buckets
 
-Role Variables - AWS S3 Buckets
+## Role Variables - AWS S3 Buckets
 
 To run this role successfully for AWS s3 buckets, you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
 Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role.

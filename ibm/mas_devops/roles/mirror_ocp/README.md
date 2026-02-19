@@ -67,7 +67,7 @@ Mirroring operation mode for Red Hat content.
 **Note**: For air-gapped environments, use `to-filesystem` on a connected system, transfer files, then use `from-filesystem` on the disconnected system.
 
 
-Role Variables - Mirror Actions
+## Role Variables - Mirror Actions
 ### mirror_working_dir
 Working directory for mirroring operations.
 
@@ -166,7 +166,7 @@ Path to Red Hat pull secret file.
 **Note**: Download your pull secret from the Red Hat OpenShift Console. Keep the file secure as it contains authentication credentials. The pull secret must be valid and associated with an active Red Hat account.
 
 
-Role Variables - OpenShift Version
+## Role Variables - OpenShift Version
 ### ocp_release
 OpenShift release version to mirror.
 
@@ -243,7 +243,7 @@ Maximum OpenShift patch version to mirror.
 **Note**: Only affects platform image mirroring, not operators. Use to limit mirror size when you know the specific OpenShift versions you need.
 
 
-Role Variables - Target Registry
+## Role Variables - Target Registry
 ### registry_public_host
 Target registry hostname for mirrored images.
 

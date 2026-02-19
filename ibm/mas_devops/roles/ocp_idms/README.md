@@ -137,7 +137,7 @@ Enable CatalogSources and ImageDigestMirrorSet for Red Hat operator catalogs.
 **Note**: This creates CatalogSources for certified-operator-index, community-operator-index, and redhat-operator-index. Only enable if you've mirrored operator catalogs using the `mirror_ocp` role with `mirror_redhat_operators=true`.
 
 
-Role Variables - Target Registry
+## Role Variables - Target Registry
 ### registry_private_host
 Private hostname for the mirror registry.
 

@@ -10,7 +10,7 @@ oc get pods --all-namespaces -o wide --field-selector spec.nodeName=<node-name>
 ```
 
 
-Role Variables - Node Selection
+## Role Variables - Node Selection
 
 **Important**: Specify either `ocp_node_name` OR `ocp_node_index` to identify the target node. If both are specified, `ocp_node_index` takes priority. If neither is specified, the role will fail.
 
@@ -62,7 +62,7 @@ Zero-based index of the node in the cluster's node list.
 - Less reliable than node name for production use
 
 
-Role Variables - Node Labels
+## Role Variables - Node Labels
 
 ### ocp_node_label_keys
 Comma-separated list of label keys to add to the selected node.
@@ -117,7 +117,7 @@ Comma-separated list of label values corresponding to the label keys.
 - Example: keys=`workload,storage` values=`db2,ssd` creates labels `workload=db2` and `storage=ssd`
 
 
-Role Variables - Node Taints
+## Role Variables - Node Taints
 
 ### ocp_node_taint_keys
 Comma-separated list of taint keys to add to the selected node.

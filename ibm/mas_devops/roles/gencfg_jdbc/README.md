@@ -5,7 +5,7 @@ Generate JDBC configuration files for connecting Maximo Application Suite to ext
 The role supports multiple database types (Db2, Oracle, SQL Server) with both secure and insecure connection options, and can generate configurations scoped at system, workspace, application, or workspace-application levels.
 
 
-Role Variables - Data Source
+## Role Variables - Data Source
 
 ## Role Variables
 
@@ -127,7 +127,7 @@ Local file path to the database SSL/TLS certificate in PEM format.
 - Certificate must be in PEM format (Base64-encoded with BEGIN/END markers)
 
 
-Role Variables - MAS Configuration
+## Role Variables - MAS Configuration
 
 ### mas_config_scope
 Configuration scope level for the generated JDBC configuration.

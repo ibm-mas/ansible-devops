@@ -143,7 +143,7 @@ Enable Filebeat deployment.
 **Note**: Filebeat runs as a DaemonSet on cluster nodes to collect logs and forward them to Elasticsearch or Logstash.
 
 
-Role Variables - Remote Elasticsearch
+## Role Variables - Remote Elasticsearch
 When `eck_remote_es_hosts`, `eck_remote_es_username`, and `eck_remote_es_password` are all set, and `eck_enable_logstash` is `true`, the Logstash server will be configured to send log messages to the remote Elasticsearch instance defined.
 
 ### eck_remote_es_hosts
@@ -222,7 +222,7 @@ Remote Elasticsearch password.
 **Note**: **SECURITY** - Store password securely. All three remote Elasticsearch variables must be set together. Credentials are stored in Kubernetes secrets.
 
 
-Role Variables - Domains and Certificates
+## Role Variables - Domains and Certificates
 Elasticsearch and Kibana can be configured with a custom domain and a certificate signed by [LetsEncrypt](https://letsencrypt.org/).
 
 ### es_domain

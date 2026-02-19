@@ -152,7 +152,7 @@ List of child CASE bundles to exclude from mirroring.
 **Note**: Use this to exclude MAS applications you don't need (e.g., exclude Assist, IoT, Manage if only using Monitor). Cannot be set via environment variable; must be set in playbook vars.
 
 
-Role Variables - IBM Pak
+## Role Variables - IBM Pak
 ### ibmpak_skip_verify
 Skip certificate verification when downloading CASE bundles.
 

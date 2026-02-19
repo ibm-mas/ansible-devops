@@ -254,7 +254,7 @@ deployment.apps/cognos-analytics-cognos-analytics-addon                      1/1
 ```
 
 
-Role Variables - Installation
+## Role Variables - Installation
 ### cpd_service_name
 Name of the service to install, supported values are: `wsl`, `wml`, `spark`, and `ca`
 
@@ -323,7 +323,7 @@ For more information, refer to [Managing resources](https://www.ibm.com/docs/en/
 - Environment Variable: `CPD_SERVICE_SCALE_CONFIG`
 - Default Value: `small`
 
-Role Variables - Watson Studio
+## Role Variables - Watson Studio
 ### cpd_wsl_project_name
 Stores the CP4D Watson Studio Project name that can be used to configure HP Utilities application in MAS.
 
@@ -339,7 +339,7 @@ Optional - Stores the CP4D Watson Studio Project description that can be used to
 - Default Value: `Watson Studio Project for Maximo Application Suite`
 
 
-Role Variables - MAS Configuration Generation
+## Role Variables - MAS Configuration Generation
 ### mas_instance_id
 The instance ID of Maximo Application Suite that a generated configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a resource template.
 

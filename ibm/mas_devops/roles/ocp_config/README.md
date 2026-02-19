@@ -32,7 +32,7 @@ This role configures:
     - `redhat-operators`
 
 
-Role Variables - API Server
+## Role Variables - API Server
 
 ## Role Variables
 
@@ -64,7 +64,7 @@ Enable custom TLS cipher configuration for IBM Java Semeru FIPS mode compatibili
 - Verify compatibility with other applications in the cluster
 
 
-Role Variables - Ingress Controller
+## Role Variables - Ingress Controller
 ### ocp_ingress_controller_name
 The name of the Ingress Controller to configure.
 
@@ -179,7 +179,7 @@ Specifies the namespace ownership policy for the Ingress Controller. Set to `Int
     When both timeout settings and namespace ownership are configured, they will be applied in a single atomic operation to the IngressController resource.
 
 
-Role Variables - OperatorHub
+## Role Variables - OperatorHub
 
 ### ocp_operatorhub_disable_redhat_sources
 Disable default Red Hat OperatorHub catalog sources.

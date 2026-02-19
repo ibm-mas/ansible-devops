@@ -129,7 +129,7 @@ queue-data-volume-arcgis-queue-store-cgatl-0                        Bound    pvc
 
 Average of 182 gigabyes of required capacity.
 
-Role Variables - Installation
+## Role Variables - Installation
 ### ibm_entitlement_key
 IBM entitlement key for accessing container images.
 
@@ -195,7 +195,7 @@ Subscription channel for IBM Maximo Location Services for Esri operator.
 - Review release notes before changing channels
 - Channel changes may require operator restarts
 
-Role Variables - MAS Configuration
+## Role Variables - MAS Configuration
 ### mas_instance_id
 MAS instance identifier for ArcGIS deployment.
 

@@ -50,7 +50,7 @@ This role uses [`ocp_login`](../roles/ocp_login.md) to login into the target clu
 - Environment Variable: `SLS_NAMESPACE`
 - Default Value: `ibm-sls`
 
-Role Variables - Advanced mode
+## Role Variables - Advanced mode
 
 Use the following variables to change the default behavior of this role to only rotate the entitlement key for specific clusters or namespaces, instead of running it for all MAS related namespaces.
 
