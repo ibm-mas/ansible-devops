@@ -10,13 +10,21 @@
     db2_action: "{{ lookup('env', 'DB2_ACTION') }}" # backup or backup_database or restore or restore_database
     db2_backup_version: "{{ lookup('env', 'DB2_BACKUP_VERSION') }}" # Required for restore action
     backup_type: "{{ lookup('env', 'DB2_BACKUP_TYPE') | default('online', true) }}" # Supported values are online, offline and required for backup
-    backup_vendor: "{{ lookup('env', 'BACKUP_VENDOR') | default('disk', true) }}"
+    backup_vendor: "{{ lookup('env', 'BACKUP_VENDOR') | default('disk', true) | lower }}"
     backup_s3_alias: "{{ lookup('env', 'BACKUP_S3_ALIAS') | default('S3DB2COS', true) }}" # Required for backup_vendor=s3
     backup_s3_endpoint: "{{ lookup('env', 'BACKUP_S3_ENDPOINT') }}" # Required for backup_vendor=s3
     backup_s3_bucket: "{{ lookup('env', 'BACKUP_S3_BUCKET') }}" # Required for backup_vendor=s3
     backup_s3_access_key: "{{ lookup('env', 'BACKUP_S3_ACCESS_KEY') }}" # Required for backup_vendor=s3
     backup_s3_secret_key: "{{ lookup('env', 'BACKUP_S3_SECRET_KEY') }}" # Required for backup_vendor=s3
-
+    # Set OVERRIDE_STORAGECLASS to true to override the storage class names in backup
+    override_storageclass: "{{ lookup('env', 'OVERRIDE_STORAGECLASS') | default(false, true) }}"
+    # Set OVERRIDE_STORAGECLASS to true and use the below storage classes.
+    # when OVERRIDE_STORAGECLASS is true and below classes are not set, then the cluster's default storage classes will be used.
+    db2_meta_storage_class: "{{ lookup('env', 'DB2_META_STORAGE_CLASS') }}"
+    db2_data_storage_class: "{{ lookup('env', 'DB2_DATA_STORAGE_CLASS') }}"
+    db2_backup_storage_class: "{{ lookup('env', 'DB2_BACKUP_STORAGE_CLASS') }}"
+    db2_logs_storage_class: "{{ lookup('env', 'DB2_LOGS_STORAGE_CLASS') }}"
+    db2_temp_storage_class: "{{ lookup('env', 'DB2_TEMP_STORAGE_CLASS') }}"
 
   pre_tasks:
     - name: "Fail if DB2_ACTION is not set to backup|restore"
@@ -44,6 +52,7 @@
         backup_s3_secret_key: "{{ backup_s3_secret_key }}"
         action: "s3_setup"
         component: "db2"
+      when: backup_vendor == "s3"
 
   roles:
     - role: ibm.mas_devops.db2

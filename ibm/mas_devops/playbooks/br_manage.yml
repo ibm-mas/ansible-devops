@@ -1,19 +1,35 @@
 ---
-- name: "MAS Manage Application Backup"
+- name: "MAS Manage Application Backup and Restore"
   hosts: localhost
   any_errors_fatal: true
   vars:
-    # Define the target for backup
+    # Define the target for backup/restore
     mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
     mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') }}"
     mas_app_id: "manage"
 
-    # The top level location to save the archive files
+    # Set the action for this playbook of either backup or restore
+    mas_app_action: "{{ lookup('env', 'MAS_APP_ACTION') | default('backup', true) }}"
+
+    # The top level location to save (on backup) or retrieve (on restore) the archive files
     mas_backup_dir: "{{ lookup('env', 'MAS_BACKUP_DIR') }}" # eg: /tmp/mas_backups
 
     # Backup version to use during backup action
     # Note: The default timestamp will be set in pre_tasks
     mas_app_backup_version: "{{ lookup('env', 'MAS_APP_BACKUP_VERSION') }}"
+
+    # Required for restore action, the backup version to use on restore
+    mas_app_backup_version_to_restore: "{{ lookup('env', 'MAS_APP_BACKUP_VERSION_TO_RESTORE') }}"
+
+    # Computed variable: use mas_app_backup_version for backup action, mas_app_backup_version_to_restore for restore action
+    mas_app_action_version: "{{ mas_app_backup_version if mas_app_action == 'backup' else mas_app_backup_version_to_restore }}"
+
+    # Storage Class Override Options for restore
+    # Set OVERRIDE_STORAGECLASS to true to override the storage class names from backup
+    override_storageclass: "{{ lookup('env', 'OVERRIDE_STORAGECLASS') | default('false', true) | bool }}"
+    # When OVERRIDE_STORAGECLASS is true, use the below storage classes
+    mas_app_custom_storage_class_rwo: "{{ lookup('env', 'MAS_APP_CUSTOM_STORAGE_CLASS_RWO') | default('', true) }}"
+    mas_app_custom_storage_class_rwx: "{{ lookup('env', 'MAS_APP_CUSTOM_STORAGE_CLASS_RWX') | default('', true) }}"
 
   pre_tasks:
     - name: "Set mas_app_backup_version with timestamp if not provided"
@@ -42,7 +58,33 @@
           - mas_backup_dir != ''
         fail_msg: "mas_backup_dir is required and must be set"
 
+    - name: "Fail if mas_app_action is not set to backup|restore"
+      ansible.builtin.assert:
+        that:
+          - mas_app_action is defined
+          - mas_app_action in ["backup", "restore"]
+        fail_msg: "mas_app_action is required and must be set to 'backup' or 'restore'"
+
+    - name: "Fail if mas_app_backup_version_to_restore is not set on restore"
+      ansible.builtin.assert:
+        that:
+          - mas_app_backup_version_to_restore is defined
+          - mas_app_backup_version_to_restore != ''
+        fail_msg: "mas_app_backup_version_to_restore is required when running 'restore'"
+      when: mas_app_action == "restore"
+
   roles:
     - role: ibm.mas_devops.suite_app_backup
+      when: mas_app_action == "backup"
       vars:
         mas_app_id: "manage"
+        mas_app_backup_version: "{{ mas_app_action_version }}"
+
+    - role: ibm.mas_devops.suite_app_restore
+      when: mas_app_action == "restore"
+      vars:
+        mas_app_id: "manage"
+        mas_app_backup_version: "{{ mas_app_action_version }}"
+        override_storageclass: "{{ override_storageclass }}"
+        mas_app_custom_storage_class_rwo: "{{ mas_app_custom_storage_class_rwo }}"
+        mas_app_custom_storage_class_rwx: "{{ mas_app_custom_storage_class_rwx }}"
