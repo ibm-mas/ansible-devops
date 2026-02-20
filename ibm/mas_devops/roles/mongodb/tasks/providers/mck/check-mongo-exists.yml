@@ -1,0 +1,54 @@
+---
+- name: "mck : check-mongo-exists : Check for existing mongodb instance"
+  kubernetes.core.k8s_info:
+    api_version: mongodbcommunity.mongodb.com/v1
+    kind: MongoDBCommunity
+    name: mas-mongo-mck
+    namespace: "{{ mongodb_namespace }}"
+  register: existing_mongodb
+
+- name: "mck : check-mongo-exists : Check for existing mongo operator instance"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    label_selectors:
+      - "name = mongodb-kubernetes-operator"
+    namespace: "{{ mongodb_namespace }}"
+  register: existing_mongo_operator
+
+- name: "mck : check-mongo-exists : Debug existing resources"
+  debug:
+    msg:
+      - "Existing MongoDb  ............... {{ existing_mongodb.resources[0] | default('Not Found', true) }}"
+      - "Existing operator version ....... {{ existing_mongo_operator.resources[0] | default('Not Found', true)  }}"
+      - "Existing MongoDb storage class .. {{ existing_mongodb.resources[0].spec.statefulSet.spec.volumeClaimTemplates[0].spec.storageClassName | default('Not Found', true) }}"
+
+- name: "mck : check-mongo-exists : upgrade details"
+  debug:
+    msg:
+      - "Existing MongoDb version ........ {{ existing_mongodb.resources[0].spec.version | default('Not found', true) }}"
+
+- block:
+    # Note: this step assumes that the data volume is always defined before the logs volume.  We could/should improve this TBH.
+    - name: Set existing_mongo_storage_class & capacity
+      set_fact:
+        existing_mongo_storage_class: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.volumeClaimTemplates[0].spec.storageClassName }}"
+        existing_mongodb_storage_capacity_data: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.volumeClaimTemplates[0].spec.resources.requests.storage }}"
+        existing_mongodb_storage_capacity_logs: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.volumeClaimTemplates[1].spec.resources.requests.storage }}"
+
+    - name: Set existing_mongo_version
+      set_fact:
+        existing_mongo_version: "{{ existing_mongodb.resources[0].spec.version }}"
+
+    # MongoDb version strings are (currently) always in the format {single_digit}.{single_digit} so
+    # we can avoid the regex problems seen previously by using a simple substring function to
+    # get the minor version string from the first three characters of the full version string
+    - name: Set existing_mongo_minor_version
+      set_fact:
+        existing_mongo_minor_version: "{{ existing_mongo_version[:3] }}"
+
+    - include_tasks: "{{ role_path }}/../../common_tasks/determine-ibmcatalog-tag.yml"
+
+  when:
+    - existing_mongodb.resources[0].spec.version is defined
+    - existing_mongodb.resources[0].spec.version | length > 0
