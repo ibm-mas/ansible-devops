@@ -1,0 +1,140 @@
+apiVersion: db2u.databases.ibm.com/v1
+kind: Db2uInstance
+metadata:
+  name: "{{ db2_instance_name | lower }}"
+  namespace: "{{ db2_namespace }}"
+{% if custom_labels is defined and custom_labels.items() %}
+  labels:
+{% for key, value in custom_labels.items() %}
+    "{{ key }}": "{{ value }}"
+{% endfor %}
+{% endif %}
+spec:
+  account:
+    privileged: true
+    imagePullSecrets:
+      - ibm-registry
+{% if db2_timezone is defined and db2_timezone != "" %}
+  advOpts:
+    timezone: "{{ db2_timezone }}"
+{% endif %}
+  addOns:
+    graph:
+      enabled: false
+    rest:
+      enabled: false
+
+  version: "{{ db2_version }}"
+  size: {{ db2_num_pods }}
+
+{% if db2_affinity_key != "" and db2_affinity_value != "" %}
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: "{{ db2_affinity_key }}"
+            operator: In
+            values:
+            - "{{ db2_affinity_value }}"
+{% endif %}
+{% if db2_tolerate_key != "" and db2_tolerate_value != "" and db2_tolerate_effect != "" %}
+  tolerations:
+  - effect: "{{ db2_tolerate_effect }}"
+    key: "{{ db2_tolerate_key }}"
+    operator: Equal
+    value: "{{ db2_tolerate_value }}"
+{% endif %}
+
+  environment:
+    dbType: "{{ db2_type }}" # db2wh or db2oltp
+    database:
+      name: "{{ db2_dbname }}"
+{% if db2_database_db_config is defined and db2_database_db_config != "" %}
+      dbConfig:
+        {{ db2_database_db_config }}
+{% endif %}
+      settings:
+        dftTableOrg: "{{db2_table_org }}"
+      ssl:
+        secretName: "db2u-certificate-{{db2_instance_name}}"
+        certLabel: "CN=db2u"
+    instance:
+{% if db2_instance_registry is defined and db2_instance_registry != "" %}
+      registry:
+        {{ db2_instance_registry }}
+{% endif %}
+{% if db2_instance_dbm_config is defined and db2_instance_dbm_config != "" %}
+      dbmConfig:
+        {{ db2_instance_dbm_config }}
+{% endif %}
+
+    mln:
+      total: {{ db2_mln_count }}
+
+  license:
+    accept: true
+
+  podConfig:
+    db2u:
+      resource:
+        db2u:
+          requests:
+            cpu: "{{ db2_cpu_requests }}"
+            memory: "{{ db2_memory_requests }}"
+          limits:
+            cpu: "{{ db2_cpu_limits }}"
+            memory: "{{ db2_memory_limits }}"
+
+  storage:
+    - name: meta
+      type: create
+      spec:
+        storageClassName: "{{ db2_meta_storage_class }}"
+        accessModes:
+          - "{{ db2_meta_storage_accessmode }}"
+        resources:
+          requests:
+            storage: "{{ db2_meta_storage_size }}"
+    - name: data
+      type: template
+      spec:
+        storageClassName: "{{ db2_data_storage_class }}"
+        accessModes:
+          - "{{ db2_data_storage_accessmode }}"
+        resources:
+          requests:
+            storage: "{{ db2_data_storage_size }}"
+{% if db2_backup_storage_class is defined and db2_backup_storage_class != "None" %}
+    - name: backup
+      type: create
+      spec:
+        accessModes:
+        - "{{ db2_backup_storage_accessmode }}"
+        resources:
+          requests:
+            storage: "{{ db2_backup_storage_size }}"
+        storageClassName: "{{ db2_backup_storage_class }}"
+{% endif %}
+{% if db2_logs_storage_class is defined and db2_logs_storage_class != "None" %}
+    - name: activelogs
+      spec:
+        accessModes:
+          - "{{ db2_logs_storage_accessmode }}"
+        resources:
+          requests:
+            storage: "{{ db2_logs_storage_size }}"
+        storageClassName: "{{ db2_logs_storage_class }}"
+      type: template
+{% endif %}
+{% if db2_temp_storage_class is defined and db2_temp_storage_class != "None" %}
+    - name: tempts
+      spec:
+        accessModes:
+          - "{{ db2_temp_storage_accessmode }}"
+        resources:
+          requests:
+            storage: "{{ db2_temp_storage_size }}"
+        storageClassName: "{{ db2_temp_storage_class }}"
+      type: template
+{% endif %}

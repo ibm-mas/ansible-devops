@@ -1,0 +1,69 @@
+---
+# Extract configuration from source Db2uCluster
+# -----------------------------------------------------------------------------
+
+- name: "Get source Db2uCluster details"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    kind: Db2uCluster
+    name: "{{ db2_migrate_source_instance }}"
+    namespace: "{{ db2_namespace }}"
+  register: source_cluster
+
+- name: "Extract source configuration"
+  set_fact:
+    source_config:
+      version: "{{ source_cluster.resources[0].spec.version }}"
+      size: "{{ source_cluster.resources[0].spec.size | default(1) }}"
+      dbType: "{{ source_cluster.resources[0].spec.environment.dbType }}"
+      database:
+        name: "{{ source_cluster.resources[0].spec.environment.database.name }}"
+        settings: "{{ source_cluster.resources[0].spec.environment.database.settings | default({}) }}"
+        dbConfig: "{{ source_cluster.resources[0].spec.environment.database.dbConfig | default({}) }}"
+        ssl: "{{ source_cluster.resources[0].spec.environment.database.ssl | default({}) }}"
+      instance:
+        registry: "{{ source_cluster.resources[0].spec.environment.instance.registry | default({}) }}"
+        dbmConfig: "{{ source_cluster.resources[0].spec.environment.instance.dbmConfig | default({}) }}"
+      mln:
+        total: "{{ source_cluster.resources[0].spec.environment.mln.total | default(1) }}"
+      storage: "{{ source_cluster.resources[0].spec.storage }}"
+      podConfig: "{{ source_cluster.resources[0].spec.podConfig | default({}) }}"
+      affinity: "{{ source_cluster.resources[0].spec.affinity | default({}) }}"
+      tolerations: "{{ source_cluster.resources[0].spec.tolerations | default([]) }}"
+      advOpts: "{{ source_cluster.resources[0].spec.advOpts | default({}) }}"
+      account: "{{ source_cluster.resources[0].spec.account | default({}) }}"
+      addOns: "{{ source_cluster.resources[0].spec.addOns | default({}) }}"
+
+- name: "Create backup directory if it doesn't exist"
+  file:
+    path: "{{ masbr_storage_local_folder }}"
+    state: directory
+    mode: '0755'
+  delegate_to: localhost
+
+- name: "Save source configuration to file"
+  copy:
+    content: "{{ source_config | to_nice_yaml }}"
+    dest: "{{ masbr_storage_local_folder }}/source-config-{{ db2_migrate_source_instance }}.yml"
+    mode: '0644'
+  delegate_to: localhost
+
+- name: "Save complete source Db2uCluster CR to file"
+  copy:
+    content: "{{ source_cluster.resources[0] | to_nice_yaml }}"
+    dest: "{{ masbr_storage_local_folder }}/source-db2ucluster-{{ db2_migrate_source_instance }}.yml"
+    mode: '0644'
+  delegate_to: localhost
+
+- name: "Debug: Source configuration captured"
+  debug:
+    msg:
+      - "Source configuration captured successfully"
+      - "Version: {{ source_config.version }}"
+      - "Database: {{ source_config.database.name }}"
+      - "Type: {{ source_config.dbType }}"
+      - "Size: {{ source_config.size }}"
+      - "MLN Count: {{ source_config.mln.total }}"
+      - "Config saved to: {{ masbr_storage_local_folder }}/source-config-{{ db2_migrate_source_instance }}.yml"
+
+
