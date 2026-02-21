@@ -32,7 +32,7 @@ Infrastructure provider type for cluster provisioning.
 - `ocp_version`: OpenShift version to install
 - Provider-specific variables (ibmcloud_apikey, rosa_token, fyre_apikey, etc.)
 
-**Note**: Fyre clusters automatically configure NFS storage. ROKS requires version format like `4.19_openshift`.
+**Note**: Fyre clusters automatically configure NFS storage. ROKS requires version format like `4.20_openshift`.
 
 ### cluster_name
 Name for the new cluster.
@@ -69,15 +69,15 @@ OpenShift version to install.
 
 **When to use**:
 - Always required for cluster provisioning
-- Use specific version for production (e.g., `4.19.14`)
+- Use specific version for production (e.g., `4.20.8`)
 - Use `default` for latest MAS-supported version
 - Use `rotate` for testing (version changes by day of week)
 
-**Valid values**:
-- Specific version: `4.19`, `4.19.14`
+**Valid values**: 
+- Specific version: `4.20`, `4.20.8`
 - Alias: `default` (newest MAS-supported version)
 - Alias: `rotate` (predetermined version by day, for testing)
-- **ROKS format**: Must append `_openshift` (e.g., `4.19_openshift`, `4.19.14_openshift`)
+- **ROKS format**: Must append `_openshift` (e.g., `4.20_openshift`, `4.20.8_openshift`)
 
 **Impact**: Determines OpenShift version installed. Version must be compatible with MAS and available from the provider.
 

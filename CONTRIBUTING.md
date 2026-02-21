@@ -77,7 +77,7 @@ It is possible to develop the Ansible roles without needing to build the collect
   vars:
     cluster_type: rosa
     cluster_name: fvtrosa
-    ocp_version: "4.19.14"
+    ocp_version: "4.20.8"
 
   roles:
     - ocp_provision
