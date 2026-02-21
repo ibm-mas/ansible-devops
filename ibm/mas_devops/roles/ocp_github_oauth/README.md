@@ -1,5 +1,4 @@
-ocp_github_oauth
-===============================================================================
+# ocp_github_oauth
 
 Configure OpenShift cluster authentication using GitHub OAuth. This role enables users to log into OpenShift using their GitHub credentials, with support for both public GitHub and GitHub Enterprise. It also manages user groups and cluster role bindings based on GitHub organization membership.
 
@@ -11,8 +10,7 @@ Configure OpenShift cluster authentication using GitHub OAuth. This role enables
 The role creates OAuth configuration, manages user groups, and assigns cluster roles based on GitHub organization membership.
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 
 ### oauth.github_client_secret_value
 GitHub OAuth application client secret.
@@ -206,3 +204,17 @@ List of cluster roles to bind to the group.
 - Use least privilege principle when assigning roles
 - Multiple roles can be assigned to a single group
 - Verify roles exist: `oc get clusterroles`
+
+## Example Playbook
+
+```yaml
+- hosts: localhost
+  vars:
+    # Add required variables here
+  roles:
+    - ibm.mas_devops.ocp_github_oauth
+```
+
+## License
+
+EPL-2.0

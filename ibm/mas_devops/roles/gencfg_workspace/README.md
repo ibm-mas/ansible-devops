@@ -132,11 +132,9 @@ Custom Kubernetes labels for workspace resources.
 **Note**: Labels must follow Kubernetes naming conventions (alphanumeric, hyphens, dots, max 63 chars per segment). Common uses include environment tags, team ownership, and cost center tracking.
 
 
-Example Playbook
-----------------
+## Example Playbook
 
 ```yaml
----
 - hosts: localhost
   any_errors_fatal: true
   vars:
@@ -152,7 +150,6 @@ Example Playbook
 
 ```
 
-License
--------
+## License
 
 EPL-2.0

@@ -1,13 +1,13 @@
-gencfg_jdbc
-============
+# gencfg_jdbc
 
 Generate JDBC configuration files for connecting Maximo Application Suite to external databases. This role creates JdbcCfg custom resources that can be applied to MAS instances to configure database connectivity for various applications including Manage, Health, Predict, and others.
 
 The role supports multiple database types (Db2, Oracle, SQL Server) with both secure and insecure connection options, and can generate configurations scoped at system, workspace, application, or workspace-application levels.
 
 
-Role Variables - Data Source
--------------------------------------------------------------------------------
+## Role Variables - Data Source
+
+## Role Variables - General
 
 ### db_instance_id
 Database instance identifier used in the generated configuration.
@@ -127,8 +127,7 @@ Local file path to the database SSL/TLS certificate in PEM format.
 - Certificate must be in PEM format (Base64-encoded with BEGIN/END markers)
 
 
-Role Variables - MAS Configuration
--------------------------------------------------------------------------------
+## Role Variables - MAS Configuration
 
 ### mas_config_scope
 Configuration scope level for the generated JDBC configuration.
@@ -290,11 +289,9 @@ Custom Kubernetes labels to apply to the generated JdbcCfg resource.
 - Can be used with label selectors in automation scripts
 
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 ```yaml
----
 
 - hosts: localhost
   any_errors_fatal: true
@@ -302,6 +299,5 @@ Example Playbook
     - ibm.mas_devops.gencfg_jdbc
 ```
 
-License
--------------------------------------------------------------------------------
+## License
 EPL-2.0

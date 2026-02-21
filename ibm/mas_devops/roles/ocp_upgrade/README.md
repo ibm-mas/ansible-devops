@@ -1,10 +1,8 @@
-ocp_upgrade
-=============
+# ocp_upgrade
 
 This role supports the upgrade of the Openshift Cluster version for master and worker nodes in IBM Cloud provider.
 
-Role Variables
---------------
+## Role Variables
 
 ### cluster_type
 Cluster type for upgrade operation.
@@ -78,8 +76,7 @@ Target OpenShift version for upgrade.
 
 **Note**: **IMPORTANT** - Version must include `_openshift` suffix for ROKS clusters (e.g., `4.10_openshift`). Verify the version is a supported upgrade path from your current version. Upgrades cannot be rolled back. Plan for maintenance window as upgrade causes temporary disruption. Check IBM Cloud documentation for available versions and supported upgrade paths.
 
-Example Playbook
-----------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -92,7 +89,6 @@ Example Playbook
     - ibm.mas_devops.ocp_upgrade
 ```
 
-License
--------
+## License
 
 EPL-2.0
