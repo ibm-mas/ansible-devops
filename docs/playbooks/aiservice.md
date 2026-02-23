@@ -5,9 +5,9 @@ Install AI Service
 
     These playbooks are samples to demonstrate how to use the roles in this collection.
 
-    They are **note intended for production use** as-is, they are a starting point for power users to aid in the development of their own Ansible playbooks using the roles in this collection.
+    They are **not intended for production use** as-is, they are a starting point for power users to aid in the development of their own Ansible playbooks using the roles in this collection.
 
-    The recommended way to install MAS is to use the [MAS CLI](https://ibm-mas.github.io/cli/), which uses this Ansible Collection to deliver a complete managed lifecycle for your MAS instance.
+    The recommended way to install AI Service is to use the [MAS CLI](https://ibm-mas.github.io/cli/), which uses this Ansible Collection to deliver a complete managed lifecycle for your MAS instance.
 
 Dependencies
 -------------------------------------------------------------------------------
@@ -15,8 +15,8 @@ Dependencies
 * IBM Suite License Service installed on OCP cluster or external instance or details from external instance
 * IBM Data Reporter Operator installed on OCP cluster or external instance or details from external instance
 * Object Storage
-  + Minio (installed on the same cluster what aiservice) or external instance or details from external instance
-  + AWS S3 (if customer use AWS S3 bucket bucket) buckets needs to have unique names
+  - Minio (installed on the same cluster as aiservice)
+  - AWS S3 (Provide details to connect to AWS S3. Bucket names must be unique globally. Ensure to use a unique bucket prefix when using AWS S3)
 
 Overview
 -------------------------------------------------------------------------------
@@ -25,21 +25,20 @@ This playbook will add **AI Service v9.1.x** to OCP cluster.
 This playbook can be ran against any OCP cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
 
 * Install dependencies:
-    - IBM Maximo Operator Catalog **optional**
-    - RedHat Certificate Manager **optional**
-    - MongoDb **optional**
-    - IBM Suite License Service (~10 Minutes) **optional**
-    - IBM Data Reporter Operator (~10 Minutes) **optional**
-    - IBM Db2 **optional**
-    - Minio (~5 minutes) **optional**
+    - IBM Maximo Operator Catalog 
+    - RedHat Certificate Manager 
+    - MongoDb **optional if SLS is not being installed on same cluster**
+    - IBM Suite License Service (~10 Minutes) **optional if customer chooses to use SLS from external cluster**
+    - IBM Data Reporter Operator (~10 Minutes) **optional if customer chooses to use DRO from external cluster**
+    - IBM Db2
+    - Minio (~5 minutes) **optional if customer choose to use external object storage**
 * Install ODH:
-    - Install Red Hat OpenShift Serverless Operator
-    - Install Red Hat OpenShift Service Mesh Operator
+    - Install Red Hat OpenShift Serverless Operator **Required when using serverless deployment mode for ODH**
+    - Install Red Hat OpenShift Service Mesh Operator **Required when using serverless deployment mode for ODH**
     - Install Authorino Operator
     - Install Open Data Hub Operator
     - Create DSCInitialization instance
-    - Create Data Science Cluster
-    - Create Create Data Science Pipelines Application
+    - Create DataScienceCluster instance
 * Install AI Service (using playbook):
     - Install application (~20 Minutes)
     - Configure AI Service (kmodels, tenant, etc) (~20 Minutes)
@@ -49,17 +48,18 @@ All timings are estimates, see the individual pages for each of these playbooks 
 Required environment variables
 -------------------------------------------------------------------------------
 
-* `MAS_INSTANCE_ID` Declare the instance ID for the AI service install
+* `AISERVICE_INSTANCE_ID` Declare the instance ID for the AI service install
 * `MAS_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
 * `MAS_ENTITLEMENT_USERNAME` Your IBM Entitlement user to access the IBM Container Registry
-* `MAS_APP_CHANNEL` Aiservice application channel
-* `AISERVICE_S3_ACCESSKEY` Your strage provider access key
-* `AISERVICE_S3_SECRETKEY` Your storage provider secret key
-* `AISERVICE_S3_HOST` Your storage provider host
-* `AISERVICE_S3_REGION` Your storage provider region - only when use AWS S3 instance
-* `AISERVICE_S3_SSL` Your storage ssl (true/false)
-* `AISERVICE_S3_TENANTS_BUCKET` Your tenants bucket
-* `AISERVICE_S3_TEMPLATES_BUCKET` Your templates bucket
+* `AISERVICE_CHANNEL` Aiservice application channel
+* `AISERVICE_S3_ACCESSKEY` Access Key for object storage provider
+* `AISERVICE_S3_SECRETKEY` Secret key for object storage provider
+* `AISERVICE_S3_HOST` Your object storage provider host
+* `AISERVICE_S3_REGION` Your object storage provider region - only when use AWS S3 instance
+* `AISERVICE_S3_SSL` Is your object storage SSL enabled? (true/false)
+* `AISERVICE_S3_TENANTS_BUCKET` Bucket name to store tenants info
+* `AISERVICE_S3_TEMPLATES_BUCKET` Bucket name to store templates info
+* `AISERVICE_S3_BUCKET_PREFIX` Bucket prefix configured with object storage provider
 * `AISERVICE_WATSONXAI_APIKEY` You WatsonX AI api key
 * `AISERVICE_WATSONXAI_URL` You WatsonX AI url
 * `AISERVICE_WATSONXAI_PROJECT_ID` You WatsonX projedt Id
@@ -110,6 +110,9 @@ Optional environment variables
 * `AISERVICE_WATSONXAI_INSTANCE_ID` optional on prem define instance id (default: openshift)
 * `AISERVICE_WATSONXAI_USERNAME` optional on prem define user name
 * `AISERVICE_WATSONXAI_VERSION` optional on prem define version of CPD
+* `AISERVICE_CERTIFICATE_ISSUER` Optional to specify pre-configured certificate issuer to use for AI Service public certificates
+* `AISERVICE_CERTIFICATE_DURATION` Optional to specify expiration duration for public certificates (default: 8760h0m0s)
+* `AISERVICE_CERTIFICATE_RENEW_BEFORE` Optional to specify when to renew public certificates before they expire (default: 72h0m0s)
 
 Usage
 -------------------------------------------------------------------------------

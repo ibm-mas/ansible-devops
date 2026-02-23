@@ -1,85 +1,217 @@
 # suite_manage_attachments_config
 
-This role extends support for configuring IBM Cloud Object Storage or Persistent Volume/File Storages for **Manage** application attachments.
+This role configures storage for Maximo Manage application attachments, supporting multiple storage providers including IBM Cloud Object Storage, AWS S3, and persistent file storage. The role updates Manage configuration either through the ManageWorkspace custom resource or directly via database SQL updates.
 
-**Note:** This role should be executed **after** Manage application is deployed and activated as it needs Manage up and running prior configuring attachments features.
+!!! important "Prerequisites"
+    This role must be executed **after** Manage application is deployed and activated. Manage must be up and running before configuring attachment features.
 
-By default, Manage attachments configuration uses `filestorage` provider; it corresponds to your cluster's default file storage system to persist the files. Alternatively, you can provide an existing IBM Cloud Object Storage by using `ibm` provider, or even provision a new instance by using `cos` role. Finally, an existing AWS S3 service can also be provided via `aws` provider by this same role (see details in the Role Variables below).
+## Storage Provider Options
+
+The role supports three storage providers:
+
+- **filestorage** (default): Uses cluster's default file storage system (PVC)
+- **ibm**: Uses IBM Cloud Object Storage buckets
+- **aws**: Uses Amazon S3 buckets
+
+For cloud storage providers (`ibm` or `aws`), the `cos_bucket` role is automatically executed to set up the bucket configuration.
 
 ## Role Variables
 
-### Attachment Configuration
+### mas_manage_attachments_provider
+Storage provider type for Manage attachments.
 
-#### mas_manage_attachments_provider
-Defines the storage provider type to be used to store Manage application's attachments. Available options are `filestorage` (default), `ibm`, or `aws`.
-
-- **Required**
+- **Optional**
 - Environment Variable: `MAS_MANAGE_ATTACHMENTS_PROVIDER`
-- Default Value: `filestorage`
+- Default: `filestorage`
 
-**Provider Options:**
-- `filestorage` (default option): Configures cluster's file storage system for Manage attachments.
-- `ibm`: Configures IBM Cloud Object Storage as storage system for Manage attachments.
-- `aws`: Configures Amazon S3 buckets as storage system for Manage attachments.
+**Purpose**: Determines which storage backend is used to store Manage application attachments (documents, images, files).
 
-**Note:** If using `ibm` or `aws` as attachments provider, the [`cos_bucket`](../roles/cos_bucket.md) role will be executed to setup a new or existing targeted COS bucket to be used to store Manage attachments, therefore make sure you set the expected variables to customize your COS bucket for Manage attachments, i.e. `COS_APIKEY` and `COS_INSTANCE_NAME`.
+**When to use**:
+- Use default `filestorage` for simple deployments with PVC storage
+- Use `ibm` when leveraging IBM Cloud Object Storage for scalability
+- Use `aws` when using AWS S3 for cloud-native storage
 
-**Note about S3:** To run this role successfully for AWS s3 buckets, you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html). Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role.
+**Valid values**: `filestorage`, `ibm`, `aws`
 
-#### mas_manage_attachment_configuration_mode
-Defines how attachment properties will be configured in Manage. Possible values are `cr` and `db`.
+**Impact**:
+- `filestorage`: Attachments stored in cluster file storage (PVC mount)
+- `ibm`: Attachments stored in IBM Cloud Object Storage (requires COS credentials)
+- `aws`: Attachments stored in AWS S3 (requires AWS credentials and CLI)
 
-When `cr` is selected, attachment properties will be entered in ManageWorkspace CR for each bundle, under `bundleProperties` key. For this mode, `manage_workspace_cr_name` must be informed.
+**Related variables**:
+- `mas_manage_attachment_configuration_mode`: How configuration is applied
+- `db2_instance_name`: Required for database configuration mode
 
-When `db` is selected, attachment properties will be updated directly in the database via SQL updates. For this mode, `db2_instance_name`, `db2_namespace` and `db2_dbname` must be informed.
+**Note**: For `ibm` or `aws` providers, ensure you set COS/S3 credentials (`COS_APIKEY`, `COS_INSTANCE_NAME` for IBM, or `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` for AWS). AWS provider requires [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) to be installed.
 
-- **Required**
+### mas_manage_attachment_configuration_mode
+Configuration method for attachment properties.
+
+- **Optional**
 - Environment Variable: `MAS_MANAGE_ATTACHMENT_CONFIGURATION_MODE`
-- Default Value: `db`
+- Default: `db`
 
-#### mas_instance_id
-The instance ID of Maximo Application Suite. This will be used to lookup for Manage application resources.
+**Purpose**: Determines how attachment configuration properties are applied to Manage - either through Kubernetes custom resource or direct database updates.
+
+**When to use**:
+- Use `db` (default) for direct database configuration (faster, simpler)
+- Use `cr` for GitOps workflows or when database access is restricted
+
+**Valid values**: `db`, `cr`
+
+**Impact**:
+- `db`: Updates attachment properties via SQL directly in Manage database (requires `db2_instance_name`, `db2_namespace`, `db2_dbname`)
+- `cr`: Updates attachment properties in ManageWorkspace custom resource under `bundleProperties` (requires `manage_workspace_cr_name`)
+
+**Related variables**:
+- `db2_instance_name`: Required when mode is `db`
+- `manage_workspace_cr_name`: Required when mode is `cr`
+
+**Note**: The `db` mode is recommended for most deployments as it's more direct. Use `cr` mode for declarative/GitOps approaches.
+
+### mas_instance_id
+MAS instance identifier.
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
+- Default: None
 
-#### mas_workspace_id
-The workspace ID of Maximo Application Suite. This will be used to lookup for Manage application resources.
+**Purpose**: Identifies which MAS instance contains the Manage application to configure.
+
+**When to use**:
+- Always required for attachment configuration
+- Must match the instance ID from MAS installation
+
+**Valid values**: Lowercase alphanumeric string, 3-12 characters (e.g., `prod`, `dev`, `masinst1`)
+
+**Impact**: Used to locate Manage application resources and construct resource names.
+
+**Related variables**:
+- `mas_workspace_id`: Workspace within this instance
+- `manage_workspace_cr_name`: Constructed from instance and workspace IDs
+
+**Note**: This must match the instance ID used during Manage installation.
+
+### mas_workspace_id
+Workspace identifier for Manage application.
 
 - **Required**
 - Environment Variable: `MAS_WORKSPACE_ID`
-- Default Value: None
+- Default: None
 
-#### manage_workspace_cr_name
-Name of the `ManageWorkspace` Custom Resource that will be targeted to configure the new PVC definitions. Required when `mas_manage_attachment_configuration_mode` is set as `cr`.
+**Purpose**: Identifies which workspace within the MAS instance contains the Manage application to configure.
 
-- **Optional**
+**When to use**:
+- Always required for attachment configuration
+- Must match the workspace ID where Manage is deployed
+
+**Valid values**: Lowercase alphanumeric string, typically 3-12 characters (e.g., `prod`, `dev`, `masdev`)
+
+**Impact**: Used to locate Manage application resources within the specified instance.
+
+**Related variables**:
+- `mas_instance_id`: Parent instance
+- `manage_workspace_cr_name`: Constructed from instance and workspace IDs
+
+**Note**: This must match the workspace ID used during Manage installation.
+
+### manage_workspace_cr_name
+ManageWorkspace custom resource name.
+
+- **Optional** (Required when `mas_manage_attachment_configuration_mode=cr`)
 - Environment Variable: `MANAGE_WORKSPACE_CR_NAME`
-- Default Value: `$MAS_INSTANCE_ID-$MAS_WORKSPACE_ID`
+- Default: `{mas_instance_id}-{mas_workspace_id}`
 
-#### db2_instance_name
-The DB2 Warehouse instance name that stores your Manage application tables and data. This will be used to lookup for Manage application database and update it with the IBM Object Storage configuration. Required when `mas_manage_attachment_configuration_mode` is set as `db`.
+**Purpose**: Specifies the name of the ManageWorkspace custom resource to update when using CR configuration mode.
 
-**Note**: In order to obtain the value for this variable, go to the namespace where db2 is installed and look for the pod where `label=engine`. Select/describe the pod representing your database, and look for the value of label `app`. That is your db2 instance name.
+**When to use**:
+- Required only when `mas_manage_attachment_configuration_mode=cr`
+- Use default unless you have a custom CR naming convention
+- Override if your ManageWorkspace CR has a non-standard name
 
-- **Optional**
+**Valid values**: Valid Kubernetes resource name
+
+**Impact**: Determines which ManageWorkspace CR is updated with attachment properties in `bundleProperties` section.
+
+**Related variables**:
+- `mas_manage_attachment_configuration_mode`: Must be `cr` for this to be used
+- `mas_instance_id`: Used in default name construction
+- `mas_workspace_id`: Used in default name construction
+
+**Note**: The default naming convention `{instance}-{workspace}` matches standard Manage deployments. Only override if you have custom CR names.
+
+### db2_instance_name
+Db2 Warehouse instance name.
+
+- **Optional** (Required when `mas_manage_attachment_configuration_mode=db`)
 - Environment Variable: `DB2_INSTANCE_NAME`
-- Default Value: None
+- Default: None
 
-#### db2_namespace
-The namespace in your cluster that hosts the DB2 Warehouse instance name. This will be used to lookup for Manage application database and update it with the IBM Object Storage configuration. If you do not provide it, the role will try to find the Db2 Warehouse in `db2u` namespace. Required when `mas_manage_attachment_configuration_mode` is set as `db`.
+**Purpose**: Identifies the Db2 Warehouse instance that stores Manage application data for direct database configuration updates.
+
+**When to use**:
+- Required when `mas_manage_attachment_configuration_mode=db`
+- Must match the Db2 instance name used by Manage
+- Used to connect to database for SQL updates
+
+**Valid values**: Valid Db2 instance name (e.g., `db2w-manage`, `db2u-iot`)
+
+**Impact**: Determines which Db2 instance is accessed to update attachment configuration via SQL.
+
+**Related variables**:
+- `mas_manage_attachment_configuration_mode`: Must be `db` for this to be used
+- `db2_namespace`: Namespace containing this instance
+- `db2_dbname`: Database name within the instance
+
+**Note**: To find the instance name, go to the Db2 namespace and look for pods with `label=engine`. Describe the pod and find the `app` label value - that's your instance name.
+
+### db2_namespace
+Db2 Warehouse namespace.
 
 - **Optional**
 - Environment Variable: `DB2_NAMESPACE`
-- Default Value: `db2u`
+- Default: `db2u`
 
-#### db2_dbname
-Name of the database within the instance. Required when `mas_manage_attachment_configuration_mode` is set as `db`.
+**Purpose**: Specifies the OpenShift namespace where the Db2 Warehouse instance is deployed.
+
+**When to use**:
+- Use default (`db2u`) for standard Db2 deployments
+- Override if Db2 is deployed in a custom namespace
+- Only relevant when `mas_manage_attachment_configuration_mode=db`
+
+**Valid values**: Valid Kubernetes namespace name
+
+**Impact**: Determines where to look for the Db2 instance when connecting for database updates.
+
+**Related variables**:
+- `db2_instance_name`: Instance to find in this namespace
+- `mas_manage_attachment_configuration_mode`: Must be `db` for this to be relevant
+
+**Note**: The default `db2u` namespace is used by most Db2 Warehouse deployments. Only change if you have a custom deployment.
+
+### db2_dbname
+Database name within Db2 instance.
 
 - **Optional**
 - Environment Variable: `DB2_DBNAME`
-- Default Value: `BLUDB`
+- Default: `BLUDB`
+
+**Purpose**: Specifies the database name within the Db2 instance where Manage tables are stored.
+
+**When to use**:
+- Use default (`BLUDB`) for standard Manage deployments
+- Override if Manage uses a custom database name
+- Only relevant when `mas_manage_attachment_configuration_mode=db`
+
+**Valid values**: Valid Db2 database name
+
+**Impact**: Determines which database within the Db2 instance is updated with attachment configuration.
+
+**Related variables**:
+- `db2_instance_name`: Instance containing this database
+- `mas_manage_attachment_configuration_mode`: Must be `db` for this to be relevant
+
+**Note**: `BLUDB` is the default database name for Manage deployments. Only change if you have a custom database configuration.
 
 ## Example Playbook
 

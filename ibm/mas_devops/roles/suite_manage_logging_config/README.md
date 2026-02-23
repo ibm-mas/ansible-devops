@@ -1,68 +1,168 @@
 # suite_manage_logging_config
 
-This role extends support for configuring IBM Cloud Object Storage to store **Manage** application server logs.
+This role configures cloud object storage (IBM Cloud Object Storage or AWS S3) for storing Maximo Manage application server logs. Storing logs in object storage enables centralized log management, long-term retention, and analysis without consuming cluster storage.
 
-**Note:** This role should be executed **after** Manage application is deployed and activated as it needs Manage up and running prior configuring logging features.
+!!! important "Prerequisites"
+    Manage application must be deployed and activated before configuring logging storage.
 
-The default for Manage logging configuration is to use IBM Cloud Object Storage as persistent storage for Manage logging. You can run `cos` role to provision an IBM Cloud Object Storage or you can provide existing IBM Cloud Object Storage information to use it as storage for Manage application logs.
+## What This Role Does
 
-In addition, you can also define an AWS S3 bucket as storage system for Manage logs.
+- Configures cloud storage bucket for Manage server logs
+- Updates Manage database with logging storage configuration
+- Automatically executes `cos_bucket` role to set up bucket
+- Enables log shipping from Manage pods to object storage
+- Supports both IBM Cloud Object Storage and AWS S3
 
 ## Role Variables
 
-### Storage Configuration
-
-#### cos_type
-Defines the storage provider type to be used to store Manage application's logs. Available options are `ibm` or `aws`.
+### cos_type
+Cloud object storage provider type.
 
 - **Required**
 - Environment Variable: `COS_TYPE`
-- Default Value: None
+- Default: None
 
-**Provider Options:**
-- `ibm`: Configures IBM Cloud Object Storage as storage system for Manage logging.
-- `aws`: Configures AWS S3 buckets as storage system for Manage logging.
+**Purpose**: Specifies which cloud storage provider to use for Manage application server logs.
 
-**Note:** When running this role, the [`cos_bucket`](../roles/cos_bucket.md) role will be executed underneath the covers to setup a new or existing targeted IBM Cloud object or AWS S3 storage bucket to be used to store Manage logs, therefore make sure you set the expected variables to customize your Object Storage bucket accordingly to the desired provider.
+**When to use**:
+- Always required for logging configuration
+- Choose based on your cloud infrastructure
+- Determines which credentials and configuration are needed
 
-### MAS Configuration
+**Valid values**: `ibm`, `aws`
+- `ibm`: IBM Cloud Object Storage
+- `aws`: Amazon S3
 
-#### mas_instance_id
-The instance ID of Maximo Application Suite. This will be used to lookup for Manage application resources.
+**Impact**:
+- `ibm`: Uses IBM Cloud Object Storage (requires `ibmcloud_apikey`, `cos_instance_name`, `cos_bucket_name`)
+- `aws`: Uses AWS S3 (requires AWS credentials and bucket configuration)
+
+**Related variables**:
+- `mas_instance_id`: Instance whose logs are stored
+- `db2_instance_name`: Database to update with logging config
+
+**Note**: The `cos_bucket` role is automatically executed to set up the bucket. Ensure you provide the required variables for your chosen provider (e.g., `cos_instance_name` and `ibmcloud_apikey` for IBM, or AWS credentials for S3).
+
+### mas_instance_id
+MAS instance identifier.
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
+- Default: None
 
-#### mas_workspace_id
-The workspace ID of Maximo Application Suite. This will be used to lookup for Manage application resources.
+**Purpose**: Identifies which MAS instance contains the Manage application whose logs will be stored in object storage.
+
+**When to use**:
+- Always required for logging configuration
+- Must match the instance ID from MAS installation
+- Used to locate Manage resources
+
+**Valid values**: Lowercase alphanumeric string, 3-12 characters (e.g., `prod`, `dev`, `masinst1`)
+
+**Impact**: Determines which MAS instance's Manage application is configured for log storage in object storage.
+
+**Related variables**:
+- `mas_workspace_id`: Workspace within this instance
+- `db2_instance_name`: Database for this Manage instance
+
+**Note**: This must match the instance ID used during Manage installation.
+
+### mas_workspace_id
+Workspace identifier for Manage application.
 
 - **Required**
 - Environment Variable: `MAS_WORKSPACE_ID`
-- Default Value: None
+- Default: None
 
-### Database Configuration
+**Purpose**: Identifies which workspace within the MAS instance contains the Manage application whose logs will be stored.
 
-#### db2_instance_name
-The DB2 Warehouse instance name that stores your Manage application tables and data. This will be used to lookup for Manage application database and update it with the Object Storage configuration.
+**When to use**:
+- Always required for logging configuration
+- Must match the workspace ID where Manage is deployed
+- Used to locate Manage resources
+
+**Valid values**: Lowercase alphanumeric string, typically 3-12 characters (e.g., `prod`, `dev`, `masdev`)
+
+**Impact**: Determines which workspace's Manage application is configured for log storage.
+
+**Related variables**:
+- `mas_instance_id`: Parent instance
+- `db2_instance_name`: Database for this workspace's Manage
+
+**Note**: This must match the workspace ID used during Manage installation.
+
+### db2_instance_name
+Db2 Warehouse instance name.
 
 - **Required**
 - Environment Variable: `DB2_INSTANCE_NAME`
-- Default Value: None
+- Default: None
 
-#### db2_namespace
-The namespace in your cluster that hosts the DB2 Warehouse instance name. This will be used to lookup for Manage application database and update it with the Object Storage configuration. If you do not provide it, the role will try to find the Db2 Warehouse in `db2u` namespace.
+**Purpose**: Identifies the Db2 Warehouse instance that stores Manage application data, which will be updated with logging storage configuration.
+
+**When to use**:
+- Always required for logging configuration
+- Must match the Db2 instance name used by Manage
+- Used to connect to database for configuration updates
+
+**Valid values**: Valid Db2 instance name (e.g., `db2w-manage`, `db2u-manage`)
+
+**Impact**: Determines which Db2 instance is accessed to update logging configuration via SQL.
+
+**Related variables**:
+- `db2_namespace`: Namespace containing this instance
+- `db2_dbname`: Database name within the instance
+- `mas_instance_id`: MAS instance using this database
+
+**Note**: To find the instance name, go to the Db2 namespace and look for pods with `label=engine`. Describe the pod and find the `app` label value - that's your instance name.
+
+### db2_namespace
+Db2 Warehouse namespace.
 
 - **Optional**
 - Environment Variable: `DB2_NAMESPACE`
-- Default Value: `db2u`
+- Default: `db2u`
 
-#### db2_dbname
-Name of the database within the instance.
+**Purpose**: Specifies the OpenShift namespace where the Db2 Warehouse instance is deployed.
+
+**When to use**:
+- Use default (`db2u`) for standard Db2 deployments
+- Override if Db2 is deployed in a custom namespace
+- Required to locate the Db2 instance
+
+**Valid values**: Valid Kubernetes namespace name
+
+**Impact**: Determines where to look for the Db2 instance when connecting for logging configuration updates.
+
+**Related variables**:
+- `db2_instance_name`: Instance to find in this namespace
+- `db2_dbname`: Database within the instance
+
+**Note**: The default `db2u` namespace is used by most Db2 Warehouse deployments. Only change if you have a custom deployment.
+
+### db2_dbname
+Database name within Db2 instance.
 
 - **Optional**
 - Environment Variable: `DB2_DBNAME`
-- Default Value: `BLUDB`
+- Default: `BLUDB`
+
+**Purpose**: Specifies the database name within the Db2 instance where Manage tables and logging configuration are stored.
+
+**When to use**:
+- Use default (`BLUDB`) for standard Manage deployments
+- Override if Manage uses a custom database name
+- Required for database connection
+
+**Valid values**: Valid Db2 database name
+
+**Impact**: Determines which database within the Db2 instance is updated with logging storage configuration.
+
+**Related variables**:
+- `db2_instance_name`: Instance containing this database
+- `db2_namespace`: Namespace of the instance
+
+**Note**: `BLUDB` is the default database name for Manage deployments. Only change if you have a custom database configuration.
 
 ## Example Playbook
 
