@@ -13,6 +13,7 @@ Overview
 MAS Devops Collection includes playbooks for backing up and restoring MAS components and their dependencies. The backup and restore operations are designed to protect your MAS installation and enable disaster recovery, cluster migration, and testing scenarios.
 
 **Supported Components:**
+- [MongoDB Community](#mongodb-community-backup-and-restore)
 - [MAS Core](#mas-core-backup-and-restore)
 - [Db2 Backup and Restore](#db2-backup-and-restore)
 - [Manage Application](#manage-application-backup-and-restore)
@@ -27,6 +28,204 @@ MAS Devops Collection includes playbooks for backing up and restoring MAS compon
 - [`ibm.mas_devops.suite_restore`](../roles/suite_restore.md)
 - [`ibm.mas_devops.suite_app_backup`](../roles/suite_app_backup.md)
 - [`ibm.mas_devops.suite_app_restore`](../roles/suite_app_restore.md)
+
+MongoDB Community Backup and Restore
+===============================================================================
+
+## Overview
+This playbook performs backup and restore operations for MongoDB Community Edition instances. It supports backing up both the MongoDB instance configuration and database data.
+
+**Important**: 
+- Supports MongoDB Community Edition only
+- Can backup/restore entire instance or individual databases
+- Backup includes both Kubernetes resources and database data
+
+## Playbook Content
+
+The playbook executes the following operations:
+
+### Backup Operation
+1. [Backup MongoDB Instance Resources](../roles/mongodb.md) - Kubernetes resources (StatefulSet, Services, ConfigMaps, Secrets)
+2. [Backup MongoDB Database Data](../roles/mongodb.md) - Database data using mongodump
+
+### Restore Operation
+1. [Restore MongoDB Instance Resources](../roles/mongodb.md) - Recreate Kubernetes resources
+2. [Restore MongoDB Database Data](../roles/mongodb.md) - Restore database data using mongorestore
+
+## Required Environment Variables
+
+### Common Variables (Backup and Restore)
+- `MAS_INSTANCE_ID` - The instance ID of the MAS installation
+- `MAS_BACKUP_DIR` - Directory where backup files will be stored/retrieved (e.g., `/tmp/mas_backups`)
+- `MONGODB_ACTION` - Set to `backup`, `backup_database`, `restore`, or `restore_database`
+- `MONGODB_INSTANCE_NAME` - MongoDB instance name (default: `mas-mongo-ce`)
+- `MONGODB_NAMESPACE` - Namespace where MongoDB is installed (default: `mongoce`)
+
+### Backup-Specific Variables
+- `MONGODB_BACKUP_VERSION` - (Optional) Custom version identifier for the backup. If not provided, defaults to timestamp format `YYYYMMDD-HHMMSS`
+
+### Restore-Specific Variables
+- `MONGODB_BACKUP_VERSION` - (Required) The backup version identifier to restore
+
+## Optional Environment Variables
+
+### Storage Class Override (Restore)
+- `OVERRIDE_STORAGECLASS` - Set to `true` to override storage class names from backup (default: `false`)
+- `MONGODB_STORAGECLASS_NAME_RWO` - Custom RWO storage class for MongoDB
+
+### Application-Specific
+- `MAS_APP_ID` - (Optional) MAS application ID if backing up application-specific database
+
+## Usage Examples
+
+### Backup MongoDB Instance
+Create a complete backup of MongoDB instance and all databases:
+
+```bash
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export MONGODB_ACTION=backup
+export MONGODB_INSTANCE_NAME=mas-mongo-ce
+export MONGODB_NAMESPACE=mongoce
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_mongodb
+```
+
+### Backup with Custom Version
+Create a backup with a custom version identifier:
+
+```bash
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export MONGODB_ACTION=backup
+export MONGODB_BACKUP_VERSION=pre-upgrade-mongo
+export MONGODB_INSTANCE_NAME=mas-mongo-ce
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_mongodb
+```
+
+### Backup Individual Database
+Create a backup of a specific database only:
+
+```bash
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export MONGODB_ACTION=backup_database
+export MONGODB_INSTANCE_NAME=mas-mongo-ce
+export MAS_APP_ID=manage
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_mongodb
+```
+
+### Restore MongoDB Instance
+Restore MongoDB instance from a backup:
+
+```bash
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export MONGODB_ACTION=restore
+export MONGODB_BACKUP_VERSION=20260122-131500
+export MONGODB_INSTANCE_NAME=mas-mongo-ce
+export MONGODB_NAMESPACE=mongoce
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_mongodb
+```
+
+### Restore with Storage Class Override
+Restore MongoDB to a different cluster with different storage class:
+
+```bash
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export MONGODB_ACTION=restore
+export MONGODB_BACKUP_VERSION=20260122-131500
+export MONGODB_INSTANCE_NAME=mas-mongo-ce
+export MONGODB_NAMESPACE=mongoce
+
+# Override storage class
+export OVERRIDE_STORAGECLASS=true
+export MONGODB_STORAGECLASS_NAME_RWO=ocs-storagecluster-ceph-rbd
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_mongodb
+```
+
+### Restore Individual Database
+Restore a specific database only:
+
+```bash
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export MONGODB_ACTION=restore_database
+export MONGODB_BACKUP_VERSION=20260122-131500
+export MONGODB_INSTANCE_NAME=mas-mongo-ce
+export MAS_APP_ID=manage
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_mongodb
+```
+
+## Important Considerations
+
+### Backup Actions
+- **backup**: Full backup of MongoDB instance (Kubernetes resources + all database data)
+- **backup_database**: Backup specific database data only (requires `MAS_APP_ID`)
+
+### Restore Actions
+- **restore**: Full restore of MongoDB instance (Kubernetes resources + all database data)
+- **restore_database**: Restore specific database data only (requires `MAS_APP_ID`)
+
+### Prerequisites for Restore
+- Target cluster must have MongoDB Community Operator installed
+- Sufficient storage capacity for database restoration
+- Same or compatible MongoDB version as the backup
+- Target cluster must use the same MAS instance ID as the backup
+
+### Backup Best Practices
+1. **Regular Schedule**: Perform backups regularly, especially before:
+   - MongoDB upgrades
+   - MAS upgrades
+   - Configuration changes
+2. **Full vs Database Backups**: 
+   - Use full backups for complete disaster recovery
+   - Use database backups for application-specific data protection
+3. **Test Restores**: Periodically test restore procedures in non-production environments
+4. **Secure Storage**: Store backups in a secure location separate from the cluster
+
+### Restore Best Practices
+1. **Pre-Restore Validation**:
+   - Verify backup archive exists and is complete
+   - Confirm target cluster has sufficient resources
+   - Verify MongoDB instance name matches the backup
+2. **Post-Restore Verification**:
+   - Verify MongoDB pods are running
+   - Test database connectivity
+   - Verify data integrity
+   - Check application connectivity to MongoDB
+
+### Storage Requirements
+- Plan for sufficient storage for MongoDB backups
+- Database backups can be large depending on data size
+- Backup directory structure: `{mas_backup_dir}/backup-{version}-mongoce/`
+
+### Security Considerations
+- Backup files contain sensitive data including database contents and credentials
+- Secure backup directory with appropriate permissions (chmod 700 recommended)
+- Consider encrypting backups for long-term storage
+- Restrict access to backup files to authorized personnel only
+
+!!! tip
+    If you do not want to set up all the dependencies on your local system, you can run the playbook inside our docker image: `docker run -ti --pull always quay.io/ibmmas/cli`
+
+## Additional Resources
+
+For detailed information about MongoDB backup and restore operations, refer to the role documentation:
+- [MongoDB Backup/Restore](../roles/mongodb.md)
+
 
 MAS Core Backup and Restore
 ===============================================================================
