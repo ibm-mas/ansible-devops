@@ -123,18 +123,13 @@
 
 # 5. Install CP4D Service Subscriptions
 # -----------------------------------------------------------------------------
-- name: "Install CP4D Service Subscription"
-  vars:
-    cpd_service_subscription_name: "cpd-{{ cpd_service_name }}-operator"
-    cpd_service_package_name: "{{ cpd_service_package_name }}"
-    cpd_service_channel_name: "{{ cpd_service_channel }}"
-    cpd_service_catalog_source: "{{ cpd_service_info[cpd_service_name].catalog_source }}"
-  kubernetes.core.k8s:
-    apply: yes
-    template: "templates/subscription.yml.j2"
-    server_side_apply:
-      field_manager: ansible
-      force_conflicts: true
+- name: "Create CP4D Service Subscription"
+  ibm.mas_devops.apply_subscription:
+    namespace: "{{ cpd_operators_namespace }}"
+    package_name: "{{ cpd_service_package_name }}"
+    package_channel: "{{ cpd_service_channel }}"
+    catalog_source: "{{ cpd_service_info[cpd_service_name].catalog_source }}"
+  register: subscription
 
 
 # 6. Wait until the Service CRD is available
