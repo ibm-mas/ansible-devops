@@ -22,7 +22,7 @@ If the `mas_instance_id` and `mas_config_dir` are provided then the role will ge
 When upgrading db2, specify the existing namespace where the `Db2uInstance` instances exist. All the instances under that namespace will be upgraded to the db2 version specified. The version of db2 **must** match the channel of db2 being used for the upgrade.
 
 
-## Role Variables
+## Role Variables - General
 
 ### Installation Variables
 
@@ -899,8 +899,7 @@ Specify the type of taint effect that will be tolerated (`NoSchedule`, `PreferNo
 - Default: None
 
 
-Role Variables - DB2UCluster Database Configuration Settings
------------------------------------------------------------------------------------------------------------------
+## Role Variables - DB2UCluster Database Configuration Settings
 The following variables will overwrite DB2UCluster default properties for the DB2 configuration sections:
 
 - `spec.environment.database.dbConfig`
@@ -993,8 +992,7 @@ This is only used when both `mas_config_dir` and `mas_instance_id` are set, and 
 - Default: None
 
 
-Role Variables - Backup and Restore
------------------------------------------------------------------------------------------------------------------
+## Role Variables - Backup and Restore
 #### masbr_confirm_cluster
 Set `true` or `false` to indicate the role whether to confirm the currently connected cluster before running the backup or restore job.
 

@@ -14,6 +14,8 @@ Installs and configures [kubeturbo](https://github.com/turbonomic/kubeturbo) to 
 
 ## Role Variables - KubeTurbo Configuration
 
+## Role Variables - General
+
 ### kubeturbo_namespace
 Namespace for KubeTurbo operator installation.
 
@@ -161,8 +163,7 @@ Turbonomic server password.
 **Note**: **SECURITY** - Password should be kept secure and not committed to version control. Store in secure secret management systems. Use strong passwords following your organization's security policies.
 
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -177,6 +178,5 @@ Example Playbook
     - ibm.mas_devops.turbonomic
 ```
 
-License
--------------------------------------------------------------------------------
+## License
 EPL-2.0

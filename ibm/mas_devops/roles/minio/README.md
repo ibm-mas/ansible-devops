@@ -1,5 +1,4 @@
-minio
-===============================================================================
+# minio
 
 Deploy a MinIO object storage instance in OpenShift for development and testing with IBM Maximo Application Suite.
 
@@ -17,8 +16,7 @@ MinIO provides S3-compatible object storage and is deployed with persistent volu
 - **Auto-Configuration**: Automatic credential generation and setup
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 
 ### General Variables
 

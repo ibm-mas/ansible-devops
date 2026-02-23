@@ -1,5 +1,4 @@
-ocp_roks_upgrade_registry_storage
-===============================================================================
+# ocp_roks_upgrade_registry_storage
 
 Upgrade the storage capacity of the OpenShift image registry for IBM Cloud Red Hat OpenShift Kubernetes Service (ROKS) clusters. This role uses IBM Cloud APIs to expand the persistent volume backing the internal image registry from the default 100GB to 400GB.
 
@@ -8,8 +7,7 @@ Upgrade the storage capacity of the OpenShift image registry for IBM Cloud Red H
 **Important**: This operation is specific to ROKS clusters on IBM Cloud and requires cluster downtime for the registry during the resize operation.
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 
 ### ibmcloud_apikey
 IBM Cloud API key for authentication and volume management.
@@ -65,8 +63,7 @@ Target size for the image registry storage volume in GB.
 - IBM Cloud charges based on provisioned storage capacity
 
 
-Example Playbook
-----------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -75,7 +72,6 @@ Example Playbook
 ```
 
 
-License
--------
+## License
 
 EPL-2.0

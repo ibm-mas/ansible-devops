@@ -4,7 +4,7 @@ Install **IBM Suite License Service** and generate a configuration that can be d
 
 The role assumes that you have already installed the Certificate Manager in the target cluster.  This action is performed by the [cert_manager](cert_manager.md) role if you want to use this collection to install the cert-manager operator.
 
-## Role Variables
+## Role Variables - General
 
 ### General Variables
 
@@ -34,8 +34,7 @@ Specifies which operation to perform on the Suite License Service (SLS) instance
 **Note**: Always backup license data before using `uninstall`. The `gencfg` action is useful when SLS is shared across multiple MAS instances.
 
 
-Role Variables - Installation
--------------------------------------------------------------------------------
+## Role Variables - Installation
 If `sls_url` is set then the role will skip the installation of an SLS instance and simply generate the SLSCfg resource for the SLS instance defined.
 
 #### artifactory_username
@@ -298,8 +297,7 @@ SLS-specific IBM entitlement key override (SLS 3.7.0 and earlier only).
 **Note**: **DEPRECATED in SLS 3.8.0** - SLS images moved to public registry. This variable is only required for SLS versions up to 3.7.0. For SLS 3.8.0+, no entitlement key is needed.
 
 
-Role Variables - Configuration
--------------------------------------------------------------------------------
+## Role Variables - Configuration
 #### sls_domain
 Custom domain name for external access to SLS via OpenShift routes.
 
@@ -595,8 +593,7 @@ Local file path to the IBM license entitlement file for bootstrapping SLS.
 **Note**: **Application Support: SLS 3.7.0 and higher**. The license file is obtained from IBM and contains your MAS product entitlements. Keep this file secure as it represents your license rights.
 
 
-Role Variables - Bootstrap [Partly deprecated in SLS 3.7.0]
--------------------------------------------------------------------------------
+## Role Variables - Bootstrap [Partly deprecated in SLS 3.7.0]
 #### bootstrap.license_file
 **Deprecated in SLS 3.7.0**
 

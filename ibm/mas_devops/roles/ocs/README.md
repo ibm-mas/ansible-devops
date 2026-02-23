@@ -1,5 +1,4 @@
-ocs
-===============================================================================
+# ocs
 
 Install and configure OpenShift Data Foundation (ODF) Operator, formerly known as OpenShift Container Storage (OCS), along with the Local Storage Operator (LSO) for persistent storage in OpenShift clusters.
 
@@ -29,8 +28,7 @@ This role provides automated installation and upgrade of ODF/OCS with local stor
 - **Upgrade Support**: Can upgrade existing ODF/OCS installations
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 
 ### lso_device_path
 Local disk device path for block storage.
@@ -89,13 +87,11 @@ Action to perform on ODF/OCS installation.
 - Verify cluster health before and after upgrade operations
 
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 ### Fresh Installation
 
 ```yaml
----
 - hosts: localhost
   any_errors_fatal: true
   vars:
@@ -108,7 +104,6 @@ Example Playbook
 ### Upgrade Existing Installation
 
 ```yaml
----
 - hosts: localhost
   any_errors_fatal: true
   vars:
@@ -121,7 +116,6 @@ Example Playbook
 ### Custom Disk Path
 
 ```yaml
----
 - hosts: localhost
   any_errors_fatal: true
   vars:
@@ -132,23 +126,6 @@ Example Playbook
 ```
 
 
-License
--------------------------------------------------------------------------------
+## License
 EPL-2.0
 
-
-Example Playbook
-----------------
-
-```yaml
----
-- hosts: localhost
-  any_errors_fatal: true
-  roles:
-    - ibm.mas_devops.ocs
-```
-
-License
--------
-
-EPL-2.0

@@ -1,10 +1,8 @@
-key_rotation
-===============================================================================
+# key_rotation
 
 Create new apikey for user in cloud account and delete the existing one.
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables - General
 ### cluster_type
 Required.  Specify the cluster type, supported values are `roks`, and `rosa`.
 
@@ -12,8 +10,7 @@ Required.  Specify the cluster type, supported values are `roks`, and `rosa`.
 - Default Value: None
 
 
-Role Variables - ROKS
--------------------------------------------------------------------------------
+## Role Variables - ROKS
 ### ibmcloud_apikey
 
 - Required. A new key will be created and this key will be deleted.
@@ -33,8 +30,7 @@ Role Variables - ROKS
 - Default: '/tmp'
 
 
-Role Variables - ROSA or IPI/AWS
--------------------------------------------------------------------------------
+## Role Variables - ROSA or IPI/AWS
 The following variables are used when `cluster_type = rosa` or `cluster_type=ipe` and `cluster_platform=aws`.
 
 ### aws_region
@@ -62,8 +58,7 @@ The following variables are used when `cluster_type = rosa` or `cluster_type=ipe
 - Default: None
 
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -76,7 +71,6 @@ Example Playbook
     - ibm.mas_devops.key_rotation
 ```
 
-License
--------------------------------------------------------------------------------
+## License
 
 EPL-2.0

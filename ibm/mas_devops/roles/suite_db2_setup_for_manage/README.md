@@ -244,6 +244,7 @@ Force Db2 configuration with restart.
 
 **Note**: **CRITICAL** - Setting to `true` will restart the Db2 instance, causing downtime for all applications using the database. Schedule during maintenance windows. For production systems, coordinate with stakeholders. For new instances, this is safe as no applications are using the database yet.
 
+## Example Playbook
 
 ## CR Type Detection
 
@@ -309,7 +310,6 @@ oc get configmap <instance-name>-enforce-config -n <namespace> -o yaml
 ```
 
 
-License
--------
+## License
 
 EPL-2.0

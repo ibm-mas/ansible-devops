@@ -1,5 +1,4 @@
-arcgis
-===============================================================================
+# arcgis
 
 Installs **IBM Maximo Location Services for Esri**.
 
@@ -7,6 +6,8 @@ This dependency is an alternative solution if you are planning to leverage geosp
 The biggest benefit of using it is that you could have both IBM Maximo Location Services for Esri and Maximo Spatial deployed and running into the same cluster, which improves significantly your overall networking performance.
 
 **Note:** IBM Maximo Location Services for Esri will make use of MAS cluster issuers while managing internal and public certificates thus, you while using [suite_dns](suite_dns.md) to setup cluster issuer and public certificates for your MAS instances, these are automatically reused for your instance of `IBM Maximo Location Services for Esri`.
+
+## Role Variables - General
 
 ### Deployment details
 
@@ -128,8 +129,7 @@ queue-data-volume-arcgis-queue-store-cgatl-0                        Bound    pvc
 
 Average of 182 gigabyes of required capacity.
 
-Role Variables - Installation
--------------------------------------------------------------------------------
+## Role Variables - Installation
 ### ibm_entitlement_key
 IBM entitlement key for accessing container images.
 
@@ -195,8 +195,7 @@ Subscription channel for IBM Maximo Location Services for Esri operator.
 - Review release notes before changing channels
 - Channel changes may require operator restarts
 
-Role Variables - MAS Configuration
--------------------------------------------------------------------------------
+## Role Variables - MAS Configuration
 ### mas_instance_id
 MAS instance identifier for ArcGIS deployment.
 
@@ -243,7 +242,6 @@ Custom labels to apply to ArcGIS instance resources.
 
 
 Example Playbooks
--------------------------------------------------------------------------------
 ### Install IBM Maximo Location Services for Esri
 ```yaml
 - hosts: localhost
@@ -255,7 +253,17 @@ Example Playbooks
     - ibm.mas_devops.arcgis
 ```
 
-License
--------------------------------------------------------------------------------
+
+## Example Playbook
+
+```yaml
+- hosts: localhost
+  vars:
+    # Add required variables here
+  roles:
+    - ibm.mas_devops.arcgis
+```
+
+## License
 
 EPL-2.0

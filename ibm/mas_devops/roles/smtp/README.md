@@ -1,5 +1,4 @@
-smtp
-===============================================================================
+# smtp
 
 Generate an SMTP configuration that can be directly applied to IBM Maximo Application Suite.
 The role supports the Twilio SendGrid email provider.  [Twilio SendGrid](https://docs.sendgrid.com/)
@@ -12,8 +11,7 @@ Prior to running this role, you must create an account with SendGrid.  The SendG
 
 This role will create a subuser that must be validated.  An email with a validation link will be sent to the primary email address.  You need to validate the subuser using this link.  If validation fails, you can resend the email using the SendGrid admin UI.
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 
 ### smtp_type
 SMTP email provider type for MAS email notifications.
@@ -493,8 +491,7 @@ Enable debug logging for SendGrid API calls.
 - Disable after troubleshooting is complete
 
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 ### Generate a configuration
 ```yaml
@@ -518,7 +515,6 @@ Example Playbook
 ```
 
 
-License
--------------------------------------------------------------------------------
+## License
 
 EPL-2.0

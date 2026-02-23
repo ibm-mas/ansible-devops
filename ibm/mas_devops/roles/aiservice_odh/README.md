@@ -1,5 +1,4 @@
-AI Service ODH
-===============================================================================
+# aiservice_odh
 This role provides support to deploy odh components for AI Broker Application:
 
 * Install Red Hat OpenShift Serverless Operator
@@ -10,8 +9,7 @@ This role provides support to deploy odh components for AI Broker Application:
 * Create Data Science Cluster
 * Create Create Data Science Pipelines Application
 
-Role Variables
---------------
+## Role Variables
 
 ### tenantName
 Tenant identifier for the Open Data Hub deployment.
@@ -174,6 +172,17 @@ Catalog source for Open Data Hub Operator.
 **Notes**:
 - ODH is available in community-operators catalog
 - For air-gapped environments, mirror the catalog and update this variable
+
+
+## Example Playbook
+
+```yaml
+- hosts: localhost
+  vars:
+    # Add required variables here
+  roles:
+    - ibm.mas_devops.aiservice_odh
+```
 
 ## License
 

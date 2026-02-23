@@ -1,13 +1,11 @@
-suite_app_uninstall
-============
+# suite_app_uninstall
 
 Uninstall Maximo Application Suite applications from a MAS instance. This role provides a clean removal process for MAS applications, removing all application-specific resources, configurations, and namespaces while preserving the MAS core platform and other applications.
 
 The role supports uninstallation of all MAS applications including Assist, Health, IoT, Manage, Monitor, Optimizer, Predict, Visual Inspection, and Facilities (TRIRIGA).
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 
 ### mas_instance_id
 MAS instance identifier from which the application will be uninstalled.
