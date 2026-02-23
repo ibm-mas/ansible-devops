@@ -224,13 +224,33 @@
 
 # 8. Configure VPC peering (if enabled)
 # -----------------------------------------------------------------------------
+- name: "Debug VPC peering configuration variables"
+  debug:
+    msg:
+      - "=========================================="
+      - "VPC Peering Configuration Check"
+      - "=========================================="
+      - "atlas_configure_vpc_peering: {{ atlas_configure_vpc_peering | default('NOT SET') }}"
+      - "atlas_configure_vpc_peering (bool): {{ atlas_configure_vpc_peering | default(false) | bool }}"
+      - "atlas_vpc_id defined: {{ atlas_vpc_id is defined }}"
+      - "atlas_vpc_id value: {{ atlas_vpc_id | default('NOT SET') }}"
+      - "atlas_aws_region defined: {{ atlas_aws_region is defined }}"
+      - "atlas_aws_region value: {{ atlas_aws_region | default('NOT SET') }}"
+      - "atlas_aws_route_table_ids defined: {{ atlas_aws_route_table_ids is defined }}"
+      - "atlas_aws_subnet_ids defined: {{ atlas_aws_subnet_ids is defined }}"
+      - "atlas_aws_subnet_ids value: {{ atlas_aws_subnet_ids | default('NOT SET') }}"
+      - "atlas_provider_name defined: {{ atlas_provider_name is defined }}"
+      - "atlas_provider_name value: {{ atlas_provider_name | default('NOT SET') }}"
+      - "Route table or subnet condition: {{ (atlas_aws_route_table_ids is defined or atlas_aws_subnet_ids is defined) }}"
+      - "=========================================="
+
 - name: "Configure VPC peering"
   when:
     - atlas_configure_vpc_peering | default(false) | bool
     - atlas_vpc_id is defined
     - atlas_vpc_id != ""
     - atlas_aws_region is defined
-    - atlas_aws_route_table_ids is defined
+    - (atlas_aws_route_table_ids is defined or atlas_aws_subnet_ids is defined)
     - atlas_provider_name is defined
   include_tasks: "providers/atlas/configure_vpc_peering.yml"
 

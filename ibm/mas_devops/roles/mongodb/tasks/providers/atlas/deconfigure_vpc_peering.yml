@@ -99,11 +99,56 @@
       - atlas_project_id is defined and atlas_project_id != ""
     fail_msg: "Atlas project ID is required"
 
-# Set the working variable - handle both string and array formats
-- name: "Convert route table IDs to array if needed"
+# Convert region format for AWS CLI (Atlas uses US_EAST_1, AWS CLI uses us-east-1)
+# This must be done BEFORE using aws_cli_region in subsequent tasks
+- name: "Convert Atlas region format to AWS CLI format"
   set_fact:
-    atlas_aws_route_table_ids_working: "{{ atlas_aws_route_table_ids if atlas_aws_route_table_ids is not string else atlas_aws_route_table_ids.split(',') }}"
-  when: atlas_aws_route_table_ids is defined
+    aws_cli_region: "{{ atlas_aws_region | lower | replace('_', '-') }}"
+
+# Set the working variable for subnet IDs - convert string to list if needed
+- name: "Set working subnet IDs variable"
+  set_fact:
+    atlas_aws_subnet_ids_working: "{{ atlas_aws_subnet_ids if atlas_aws_subnet_ids is not string else atlas_aws_subnet_ids.split(',') }}"
+  when: atlas_aws_subnet_ids is defined and atlas_aws_subnet_ids != ""
+
+# Set the working variable for manually specified route table IDs - convert string to list if needed
+- name: "Set working route table IDs variable (manual)"
+  set_fact:
+    atlas_aws_route_table_ids_manual: "{{ atlas_aws_route_table_ids if atlas_aws_route_table_ids is not string else atlas_aws_route_table_ids.split(',') }}"
+  when: atlas_aws_route_table_ids is defined and atlas_aws_route_table_ids != ""
+
+# Discover route tables associated with the provided subnets
+- name: "Discover route tables from subnets"
+  shell: |
+    aws ec2 describe-route-tables \
+      --region {{ aws_cli_region }} \
+      --filters "Name=association.subnet-id,Values={{ item }}" \
+      --query 'RouteTables[0].RouteTableId' \
+      --output text
+  register: subnet_route_tables
+  loop: "{{ atlas_aws_subnet_ids_working }}"
+  when: atlas_aws_subnet_ids_working is defined
+  changed_when: false
+  failed_when: false
+
+- name: "Build list of discovered route table IDs from subnets"
+  set_fact:
+    atlas_aws_route_table_ids_discovered: "{{ subnet_route_tables.results | map(attribute='stdout') | select('ne', '') | select('ne', 'None') | list | unique }}"
+  when: atlas_aws_subnet_ids_working is defined
+
+- name: "Display discovered route tables from subnets"
+  debug:
+    msg:
+      - "Discovered {{ atlas_aws_route_table_ids_discovered | length }} route table(s) from subnets:"
+      - "{{ atlas_aws_route_table_ids_discovered }}"
+  when:
+    - atlas_aws_subnet_ids_working is defined
+    - atlas_aws_route_table_ids_discovered is defined
+
+# Combine manual and discovered route tables (remove duplicates)
+- name: "Combine manual and discovered route tables"
+  set_fact:
+    atlas_aws_route_table_ids_working: "{{ (atlas_aws_route_table_ids_manual | default([]) + atlas_aws_route_table_ids_discovered | default([])) | unique }}"
 
 - name: "Fail if required configuration is not provided"
   assert:
@@ -112,15 +157,9 @@
       - atlas_aws_region is defined and atlas_aws_region != ""
       - atlas_aws_route_table_ids_working is defined and atlas_aws_route_table_ids_working | length > 0
       - atlas_provider_name is defined and atlas_provider_name != ""
-    fail_msg: "Required configuration (vpc_id, aws_region, route_table_ids, provider_name) is missing"
+    fail_msg: "Required configuration is missing. Either provide atlas_aws_route_table_ids or atlas_aws_subnet_ids to discover route tables."
 
-# 3. Convert region format for AWS CLI (Atlas uses US_EAST_1, AWS CLI uses us-east-1)
-# -----------------------------------------------------------------------------
-- name: "Convert Atlas region format to AWS CLI format"
-  set_fact:
-    aws_cli_region: "{{ atlas_aws_region | lower | replace('_', '-') }}"
-
-# 4. Display initial configuration
+# 3. Display initial configuration
 # -----------------------------------------------------------------------------
 - name: "MongoDB Atlas Route Table Removal Configuration"
   debug:
@@ -133,10 +172,13 @@
       - "Atlas Region (API format) ... {{ atlas_aws_region }}"
       - "AWS Region (CLI format) ..... {{ aws_cli_region }}"
       - "VPC ID ...................... {{ atlas_vpc_id }}"
-      - "Route Table IDs ............. {{ atlas_aws_route_table_ids_working | length }} tables"
+      - "Subnet IDs (provided) ....... {{ atlas_aws_subnet_ids_working | length if atlas_aws_subnet_ids_working is defined else 0 }} subnets"
+      - "Route Tables (manual) ....... {{ atlas_aws_route_table_ids_manual | length if atlas_aws_route_table_ids_manual is defined else 0 }} tables"
+      - "Route Tables (discovered) ... {{ atlas_aws_route_table_ids_discovered | length if atlas_aws_route_table_ids_discovered is defined else 0 }} tables"
+      - "Route Tables (total) ........ {{ atlas_aws_route_table_ids_working | length }} tables"
       - "=========================================="
 
-# 5. Get MongoDB Atlas network containers
+# 4. Get MongoDB Atlas network containers
 # -----------------------------------------------------------------------------
 - name: "Get Atlas network containers"
   uri:
@@ -157,7 +199,7 @@
     msg: "Found {{ atlas_containers_response.json.results | length }} network containers"
   when: atlas_containers_response.status == 200
 
-# 6. Find the container for the specified region and provider
+# 5. Find the container for the specified region and provider
 # -----------------------------------------------------------------------------
 - name: "Find container for region {{ atlas_aws_region }} and provider {{ atlas_provider_name }}"
   set_fact:
@@ -180,7 +222,7 @@
       - "Provider Name ............... {{ atlas_container.providerName }}"
   when: atlas_container is defined
 
-# 7. Remove routes from AWS route tables
+# 6. Remove routes from AWS route tables
 # -----------------------------------------------------------------------------
 - name: "Remove routes from route tables"
   when: atlas_container is defined
@@ -216,7 +258,7 @@
       loop: "{{ route_deletion_result.results }}"
       when: route_deletion_result.results is defined
 
-# 8. Verify routes were removed
+# 7. Verify routes were removed
 # -----------------------------------------------------------------------------
 - name: "Verify routes removed from route tables"
   when: atlas_container is defined
@@ -240,7 +282,7 @@
           - "Remaining Routes: {{ (item.stdout | from_json) | length }}"
       loop: "{{ route_verification.results }}"
 
-# 9. Display removal results
+# 8. Display removal results
 # -----------------------------------------------------------------------------
 - name: "Route table removal completed successfully"
   debug:
@@ -250,6 +292,7 @@
       - "=========================================="
       - "Atlas CIDR Block ............ {{ atlas_container.atlasCidrBlock if atlas_container is defined else 'N/A' }}"
       - "Routes Removed .............. {{ atlas_aws_route_table_ids_working | length }} route tables"
+      - "Subnets Processed ........... {{ atlas_aws_subnet_ids_working | length if atlas_aws_subnet_ids_working is defined else 0 }} subnets"
       - "AWS Region .................. {{ atlas_aws_region }}"
       - "Provider Name ............... {{ atlas_provider_name }}"
       - "=========================================="
