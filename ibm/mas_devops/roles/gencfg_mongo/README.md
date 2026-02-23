@@ -1,13 +1,11 @@
-gencfg_mongo
-============
+# gencfg_mongo
 
 Generate MongoDB configuration files for connecting Maximo Application Suite to external MongoDB or MongoDB-compatible databases. This role creates MongoCfg custom resources that can be applied to MAS instances to configure the system database connectivity.
 
 The role supports various MongoDB deployments including MongoDB Community Edition, MongoDB Enterprise, IBM Cloud Databases for MongoDB, and Amazon DocumentDB, with flexible authentication mechanisms and SSL/TLS support.
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 
 ### mongodb_namespace
 Namespace identifier used in the generated configuration filename.
@@ -272,11 +270,9 @@ Custom Kubernetes labels to apply to the generated MongoCfg resource.
 - Useful for GitOps workflows and resource management
 - Can be used with label selectors in automation scripts
 
-Example Playbook
-----------------
+## Example Playbook
 
 ```yaml
----
 
 - hosts: localhost
   any_errors_fatal: true
@@ -293,7 +289,6 @@ Example Playbook
     - ibm.mas_devops.gencfg_mongo
 ```
 
-License
--------
+## License
 
 EPL-2.0

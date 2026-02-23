@@ -1,17 +1,15 @@
-eck
-===============================================================================
+# eck
 
 This role provides support to install [Elastic Cloud on Kubernetes](https://www.elastic.co/guide/en/cloud-on-k8s/master/index.html) (ECK).
 
 Elasticsearch is configured with a default user named `elastic`, you can obtain the password for this user by running the following command:
 
-```
+```bash
 oc -n eck get secret mas-es-elastic-user -o go-template='{{.data.elastic | base64decode}}'; echo
 ```
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables - General
 ### eck_action
 Action to perform on ECK installation.
 
@@ -53,7 +51,7 @@ Enable Elasticsearch deployment.
 
 **Valid values**: `true`, `false`
 
-**Impact**: 
+**Impact**:
 - `true`: Deploys Elasticsearch cluster in ECK namespace
 - `false`: Skips Elasticsearch deployment
 
@@ -80,7 +78,7 @@ Enable Kibana deployment.
 
 **Valid values**: `true`, `false`
 
-**Impact**: 
+**Impact**:
 - `true`: Deploys Kibana instance connected to Elasticsearch
 - `false`: Skips Kibana deployment
 
@@ -107,7 +105,7 @@ Enable Logstash deployment.
 
 **Valid values**: `true`, `false`
 
-**Impact**: 
+**Impact**:
 - `true`: Deploys Logstash instance for log processing
 - `false`: Skips Logstash deployment
 
@@ -134,7 +132,7 @@ Enable Filebeat deployment.
 
 **Valid values**: `true`, `false`
 
-**Impact**: 
+**Impact**:
 - `true`: Deploys Filebeat DaemonSet for log collection
 - `false`: Skips Filebeat deployment
 
@@ -145,8 +143,7 @@ Enable Filebeat deployment.
 **Note**: Filebeat runs as a DaemonSet on cluster nodes to collect logs and forward them to Elasticsearch or Logstash.
 
 
-Role Variables - Remote Elasticsearch
--------------------------------------------------------------------------------
+## Role Variables - Remote Elasticsearch
 When `eck_remote_es_hosts`, `eck_remote_es_username`, and `eck_remote_es_password` are all set, and `eck_enable_logstash` is `true`, the Logstash server will be configured to send log messages to the remote Elasticsearch instance defined.
 
 ### eck_remote_es_hosts
@@ -225,8 +222,7 @@ Remote Elasticsearch password.
 **Note**: **SECURITY** - Store password securely. All three remote Elasticsearch variables must be set together. Credentials are stored in Kubernetes secrets.
 
 
-Role Variables - Domains and Certificates
--------------------------------------------------------------------------------
+## Role Variables - Domains and Certificates
 Elasticsearch and Kibana can be configured with a custom domain and a certificate signed by [LetsEncrypt](https://letsencrypt.org/).
 
 ### es_domain
@@ -302,8 +298,7 @@ Email for LetsEncrypt certificate registration.
 **Note**: Requires Cert-Manager to be installed in the cluster. The Issuer uses LetsEncrypt production environment with HTTP-01 challenge solver. Email receives important certificate notifications.
 
 
-Example Playbook
-----------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -317,7 +312,6 @@ Example Playbook
     - ibm.mas_devops.eck
 ```
 
-License
--------
+## License
 
 EPL-2.0

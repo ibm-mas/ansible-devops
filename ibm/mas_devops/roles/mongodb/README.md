@@ -22,7 +22,7 @@ To run the `docdb_secret_rotate` MONGODB_ACTION when the provider is `aws` you m
 This role will install a GrafanaDashboard used for monitoring the MongoDB instance when the provided is `community` and you have run the [grafana role](https://ibm-mas.github.io/ansible-devops/roles/grafana/) previously. If you did not run the [grafana role](https://ibm-mas.github.io/ansible-devops/roles/grafana/) then the GrafanaDashboard won't be installed.
 
 
-## Role Variables
+## Role Variables - General
 
 ### Common Variables
 
@@ -922,8 +922,7 @@ Deploy a new MongoDB instance using configuration from a backup and restore data
 **Note**: **Verify backup version before restoring**. List available backups in storage location first. Restore is destructive and cannot be undone without another backup.
 
 
-Role Variables - IBM Cloud
--------------------------------------------------------------------------------
+## Role Variables - IBM Cloud
 #### ibm_mongo_name
 Name for the IBM Cloud Databases for MongoDB instance.
 
@@ -1112,8 +1111,9 @@ IBM Cloud service plan for MongoDB instance.
 #### ibm_mongo_service
 IBM Cloud service type identifier for MongoDB.
 
-- **Read-only**
-- Value: `databases-for-mongodb`
+- **Required** (Read-only constant)
+- Environment Variable: None (internal constant)
+- Default Value: `databases-for-mongodb`
 
 **Purpose**: Identifies the IBM Cloud service type. This is a fixed value used internally by the role.
 
@@ -1320,8 +1320,7 @@ Name for the MongoDB service when restoring from backup.
 **Note**: Using a different name allows side-by-side comparison of restored and current instances before switching over.
 
 
-Role Variables - AWS DocumentDB
--------------------------------------------------------------------------------
+## Role Variables - AWS DocumentDB
 
 #### aws_access_key_id
 AWS account access key ID for authentication.
@@ -1449,6 +1448,7 @@ Name for the AWS DocumentDB cluster.
 Name for the DocumentDB subnet group.
 
 - **Optional**
+- Environment Variable: `DOCDB_SUBNET_GROUP_NAME`
 - Default Value: `docdb-{{ docdb_cluster_name }}`
 
 **Purpose**: Specifies the name for the DocumentDB subnet group that defines which subnets the cluster can use. The role creates this subnet group automatically.
@@ -1471,6 +1471,7 @@ Name for the DocumentDB subnet group.
 Name for the DocumentDB security group.
 
 - **Optional**
+- Environment Variable: `DOCDB_SECURITY_GROUP_NAME`
 - Default Value: `docdb-{{ docdb_cluster_name }}`
 
 **Purpose**: Specifies the name for the security group that controls network access to the DocumentDB cluster. The role creates this security group automatically.
@@ -1494,6 +1495,7 @@ Name for the DocumentDB security group.
 Name of the Kubernetes secret containing DocumentDB admin credentials.
 
 - **Optional**
+- Environment Variable: `DOCDB_ADMIN_CREDENTIALS_SECRET_NAME`
 - Default Value: `{{ docdb_cluster_name }}-admin-credentials`
 
 **Purpose**: Specifies the Kubernetes secret name where DocumentDB administrator credentials are stored. This secret is created automatically by the role.
@@ -1912,7 +1914,6 @@ DocumentDB master username for administrative operations.
 **Note**: This should match the master username set during DocumentDB cluster creation.
 
 AWS DocumentDB destroy-data action Variables
-----------------------------------
 ### mas_instance_id
 The specified MAS instance ID
 

@@ -1,5 +1,4 @@
-# AI Broker
-=====
+# aiservice_tenant
 
 This role provides support to install and configure AI Broker:
 
@@ -9,8 +8,7 @@ This role provides support to install and configure AI Broker:
 * Create, delete AWS S3 API Key
 * Create, delete WatsonX AI API Key
 
-Role Variables
---------------
+## Role Variables
 
 ### tenant_action
 Action to perform on the AI Broker tenant.
@@ -224,7 +222,17 @@ End date for tenant entitlement period.
 - Plan for entitlement renewal before expiration
 
 
-License
--------
+
+## Example Playbook
+
+```yaml
+- hosts: localhost
+  vars:
+    # Add required variables here
+  roles:
+    - ibm.mas_devops.aiservice_tenant
+```
+
+## License
 
 EPL-2.0

@@ -1,23 +1,19 @@
-cis
-===
+# cis
 
-This role provides support for Configuring IBM Cloud Internet Services.During CIS provisioning it performs four tasks during provisioning in given order:
-```
+This role provides support for Configuring IBM Cloud Internet Services. During CIS provisioning it performs four tasks during provisioning in given order:
+
 1. Provision CIS Instance in customer account
 2. Add customer domain to customer's CIS Instance
 3. Configure Domain settings in customer CIS Instance
 4. Add DNS Records of type `NS` for customer's Domain nameservers to Master CIS Account
-```
 
-During CIS Instance deprovisioing role will perform following tasks:
-```
+During CIS Instance deprovisioning role will perform following tasks:
+
 1. Delete DNS Record from Master Account
 2. Delete Domain from Customer Account
 3. Delete Customer CIS Instance
-```
 
-Role Variables
---------------
+## Role Variables
 
 ### cis_action
 The action to perform on the Cloud Internet Services instance.
@@ -390,8 +386,7 @@ Local directory where generated CIS configuration will be saved.
 - The directory structure follows MAS configuration conventions
 - ConfigMaps generated here are applied to the OpenShift cluster during MAS installation
 
-Example Playbook
-----------------
+## Example Playbook
 Create CIS Instance alongwith save Instance details in MAS_CONFIG_DIR path as ConfigMap
 
 ```yaml
@@ -407,3 +402,7 @@ Create CIS Instance alongwith save Instance details in MAS_CONFIG_DIR path as Co
   roles:
     - ibm.mas_devops.cis
 ```
+
+## License
+
+EPL-2.0
