@@ -37,6 +37,11 @@
     dro_contact_firstname: "{{ lookup('env', 'DRO_CONTACT_FIRSTNAME') }}"
     dro_contact_lastname: "{{ lookup('env', 'DRO_CONTACT_LASTNAME') }}"
 
+    # mongo restore configuration
+    override_mongodb_storageclass: "{{ lookup('env', 'OVERRIDE_MONGODB_STORAGECLASS') | default('false', true) | bool }}" # Set to true to override
+    # when OVERRIDE_MONGODB_STORAGECLASS to true, MONGODB_STORAGECLASS_NAME_RWO will be used
+    mongodb_storageclass_rwo: "{{ lookup('env', 'MONGODB_STORAGECLASS_NAME_RWO') | default('', true) }}"
+
     # Set the following vars to control the domain and urls used on the restore.
     # This is used when you are restoring to a different cluster than the one that was backed up,
     # and the domain will be different.
@@ -120,6 +125,8 @@
         mongodb_backup_version: "{{ br_action_version }}"
         mongodb_instance_name: "{{ lookup('env', 'MONGODB_INSTANCE_NAME') | default('mas-mongo-ce', true) }}"
         mongodb_provider: "community" # only community is supported
+        override_storageclass: "{{ override_mongodb_storageclass }}"
+        mongodb_storage_class: "{{ mongodb_storageclass_rwo }}"
 
     - role: ibm.mas_devops.sls
       when: include_sls | bool
