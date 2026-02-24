@@ -173,13 +173,31 @@ Whether to remove the archive file and temporary directory after successful extr
 - Environment Variable: `CLEANUP_ARCHIVE`
 - Default Value: `true`
 
-#### include_manage_archives
-Whether to download Manage related archives (`-manage.tar.gz` and `-db2u-manage.tar.gz`) from S3 or Artifactory.
+#### include_sls_archive
+Whether to download SLS archive (`-sls.tar.gz`) from S3 or Artifactory.
 
-**Important:** When set to `false`, the role will automatically skip downloading manage-related archives (`-manage.tar.gz` and `-db2u-manage.tar.gz`) from S3 or Artifactory. This prevents unnecessary downloads when manage component restore is not needed.
+**Important:** When set to `false`, the role will automatically skip downloading sls archive from S3 or Artifactory. This prevents unnecessary downloads when SLS component restore is not needed.
 
 - **Optional**
-- Environment Variable: `INCLUDE_MANAGE_ARCHIVES`
+- Environment Variable: `INCLUDE_SLS_ARCHIVE`
+- Default Value: `true`
+
+#### include_manage_app_archive
+Whether to download Manage app archive (`-app-manage.tar.gz`) from S3 or Artifactory.
+
+**Important:** When set to `false`, the role will automatically skip downloading manage-app archive from S3 or Artifactory. This prevents unnecessary downloads when manage component restore is not needed.
+
+- **Optional**
+- Environment Variable: `INCLUDE_MANAGE_DB_ARCHIVE`
+- Default Value: `true`
+
+#### include_manage_db_archive
+Whether to download Manage DB2 archive (`-db2u-manage.tar.gz`) from S3 or Artifactory.
+
+**Important:** When set to `false`, the role will automatically skip downloading manage-db2 archive (`-db2u-manage.tar.gz`) from S3 or Artifactory. This prevents unnecessary downloads when manage component restore is not needed.
+
+- **Optional**
+- Environment Variable: `INCLUDE_MANAGE_DB_ARCHIVE`
 - Default Value: `true`
 
 ## Example Playbook
@@ -287,7 +305,7 @@ After installing the Ansible Collection you can include this role in your own cu
     - ibm.mas_devops.download_backup_archive
 ```
 
-### Download with Archive Management - without Manage archives
+### Download with Archive Management - without Manage DB2 archives
 
 ```yaml
 - hosts: localhost
@@ -295,7 +313,7 @@ After installing the Ansible Collection you can include this role in your own cu
     mas_instance_id: inst1
     mas_restore_dir: /restore/mas
     backup_version: "20260117-191500"
-    include_manage_archives: false
+    include_manage_db_archive: false
     aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
     aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
     s3_bucket_name: my-mas-backups

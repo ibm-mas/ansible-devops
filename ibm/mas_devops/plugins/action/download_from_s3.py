@@ -51,13 +51,13 @@ class ActionModule(ActionBase):
         
         endpoint_url = normalize_endpoint_url(endpoint=endpoint_url)
 
-        upload_status = downloadFromS3(
+        download_status = downloadFromS3(
             local_dir=local_dir, bucket_name=bucket_name, object_name=object_name, 
             endpoint_url=endpoint_url, aws_access_key_id=aws_access_key_id, 
             aws_secret_access_key=aws_secret_access_key, region_name=region_name
             )
         
         return dict(
-            success=upload_status
+            success=download_status
         )
 

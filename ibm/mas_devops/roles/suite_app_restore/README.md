@@ -196,7 +196,7 @@ The role expects the backup directory to have the following structure:
 
 ```
 <mas_backup_dir>/
-└── backup-<version>-manage/
+└── backup-<version>-app-manage/
     ├── resources/
     │   ├── projects
     │   │   └── mas-<instance_id>-manage.yaml

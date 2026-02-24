@@ -46,22 +46,32 @@
       - "mas-{{ mas_instance_id }}-backup-{{ mongodb_backup_version }}-mongoce.tar.gz"
       - "mas-{{ mas_instance_id }}-backup-{{ sls_backup_version }}-sls.tar.gz"
       - "mas-{{ mas_instance_id }}-backup-{{ suite_backup_version }}-suite.tar.gz"
-      - "mas-{{ mas_instance_id }}-backup-{{ manage_backup_version }}-manage.tar.gz"
+      - "mas-{{ mas_instance_id }}-backup-{{ manage_backup_version }}-app-manage.tar.gz"
       - "mas-{{ mas_instance_id }}-backup-{{ db2_backup_version }}-db2u-manage.tar.gz"
   when: backup_archives_to_download | length == 0
 
-# Filter out manage archives if include_manage_archives is false
-- name: "Filter out manage archives when include_manage_archives is false"
+
+- name: "Filter out SLS archive when include_sls_archive is false"
   ansible.builtin.set_fact:
-    backup_archives_to_download: "{{ backup_archives_to_download | reject('search', '-manage\\.tar\\.gz$') | reject('search', '-db2u-manage\\.tar\\.gz$') | list }}"
-  when: not (include_manage_archives | bool)
+    backup_archives_to_download: "{{ backup_archives_to_download | reject('search', '-sls\\.tar\\.gz$') | list }}"
+  when: not (include_sls_archive | bool)
+
+- name: "Filter out manage app archive when include_manage_app_archive is false"
+  ansible.builtin.set_fact:
+    backup_archives_to_download: "{{ backup_archives_to_download | reject('search', '-app-manage\\.tar\\.gz$') | list }}"
+  when: not (include_manage_db_archive | bool)
+
+# Filter out manage archives if include_manage_db_archive is false
+- name: "Filter out manage archives when include_manage_db_archive is false"
+  ansible.builtin.set_fact:
+    backup_archives_to_download: "{{ backup_archives_to_download | reject('search', '-db2u-manage\\.tar\\.gz$') | list }}"
+  when: not (include_manage_db_archive | bool)
 
 - name: "Display archives to download"
   ansible.builtin.debug:
     msg:
       - "Will download {{ backup_archives_to_download | length }} archive(s):"
       - "{{ backup_archives_to_download }}"
-      - "Manage archives filtering: {{ 'disabled (will download manage archives)' if (include_manage_archives | bool) else 'enabled (skipping manage archives)' }}"
 
 # Determine download source
 - name: "Check if S3 credentials are provided"
