@@ -1,7 +1,7 @@
 - name: "Set fact backup_path for the backup script when backup vendor is disk"
   set_fact:
     pod_full_backup_path: "/mnt/backup/{{ db2_backup_version }}"
-    local_full_backup_path: "{{ mas_backup_dir }}/backup-{{ db2_backup_version }}-db2u/data"
+    local_full_backup_path: "{{ mas_backup_dir }}/backup-{{ db2_backup_version }}-db2u-{{ mas_application_id }}/data"
 
 # Check backup files in local backup directory if vendor is disk
 # -----------------------------------------------------------------------------
@@ -15,7 +15,7 @@
   assert:
     that:
       - db2_backup_info_file_stat.stat.exists == true
-    fail_msg: "db2-backup-info.yaml file does not exist in {{ mas_backup_dir }}/data. Cannot proceed with restore."
+    fail_msg: "db2-backup-info.yaml file does not exist in {{ local_full_backup_path }}. Cannot proceed with restore."
 
 - name: include vars from db2-backup-info.yaml
   include_vars:
@@ -25,18 +25,18 @@
 # check tar.gz file exists in local backup directory
 - name: Check for tar.gz file in backup directory
   stat:
-    path: "{{ local_full_backup_path }}/db2-{{ db2_backup_info.database }}-backup-{{ db2_backup_info.source_db2_backup_version }}.tar.gz"
+    path: "{{ local_full_backup_path }}/db2-{{ mas_application_id }}-{{ db2_backup_info.database }}-backup-{{ db2_backup_info.source_db2_backup_version }}.tar.gz"
   register: db2_backup_tar_stat
 
-- name: "Fail if db2-{{ db2_backup_info.database }}-backup-{{ db2_backup_info.source_db2_backup_version }}.tar.gz file not found"
+- name: "Fail if db2-{{ mas_application_id }}-{{ db2_backup_info.database }}-backup-{{ db2_backup_info.source_db2_backup_version }}.tar.gz file not found"
   assert:
     that:
       - db2_backup_tar_stat.stat.exists == true
-    fail_msg: "No db2-{{ db2_backup_info.database }}-backup-{{ db2_backup_info.source_db2_backup_version }}.tar.gz file found in {{ local_full_backup_path }}. Cannot proceed with restore."
+    fail_msg: "No db2-{{ mas_application_id }}-{{ db2_backup_info.database }}-backup-{{ db2_backup_info.source_db2_backup_version }}.tar.gz file found in {{ local_full_backup_path }}. Cannot proceed with restore."
 
 - name: "Set fact backup_archive"
   set_fact:
-    backup_archive_filename: "db2-{{ db2_backup_info.database }}-backup-{{ db2_backup_info.source_db2_backup_version }}.tar.gz"
+    backup_archive_filename: "db2-{{ mas_application_id }}-{{ db2_backup_info.database }}-backup-{{ db2_backup_info.source_db2_backup_version }}.tar.gz"
 
 # Check if Db2 instance is running and version match with backup version
 # -----------------------------------------------------------------------------
