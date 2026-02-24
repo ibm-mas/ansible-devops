@@ -10,15 +10,58 @@
     msg: "mas_instance_id is required but not defined"
   when: mas_instance_id is not defined or mas_instance_id == ''
 
-- name: "Fail if either backup_version or backup_archive_name is not defined"
+- name: "Fail if backup_version is not defined"
   ansible.builtin.fail:
-    msg: "Either backup_version or backup_archive_name is required but not defined"
-  when: (backup_version is not defined or backup_version == '') and (backup_archive_name is not defined or backup_archive_name == '')
+    msg: "backup_version is required but not defined"
+  when: backup_version is not defined or backup_version == ''
 
-- name: Set backup_archive_name if backup_version is provided
+# Determine which archives to download
+- name: "Set backup archive names list"
   ansible.builtin.set_fact:
-    backup_archive_name: "mas-{{ mas_instance_id }}-backup-{{ backup_version }}.tar.gz"  # Default name if backup_version is provided
-  when: backup_version is defined and backup_version != '' and (backup_archive_name is not defined or backup_archive_name == '')
+    backup_archives_to_download: []
+
+# Handle explicit list of archives
+- name: "Parse backup_archive_names if provided as string"
+  ansible.builtin.set_fact:
+    backup_archives_to_download: "{{ backup_archive_names.split(',') | map('trim') | list }}"
+  when:
+    - backup_archive_names is defined
+    - backup_archive_names != ''
+    - backup_archive_names is string
+
+- name: "Use backup_archive_names if provided as list"
+  ansible.builtin.set_fact:
+    backup_archives_to_download: "{{ backup_archive_names }}"
+  when:
+    - backup_archive_names is defined
+    - backup_archive_names != ''
+    - backup_archive_names is not string
+
+# Auto-generate archive names based on component versions
+- name: "Auto-generate archive names from component versions"
+  ansible.builtin.set_fact:
+    backup_archives_to_download:
+      - "mas-{{ mas_instance_id }}-backup-{{ ibm_catalogs_backup_version }}-catalog.tar.gz"
+      - "mas-{{ mas_instance_id }}-backup-{{ certmanager_backup_version }}-certmanager.tar.gz"
+      - "mas-{{ mas_instance_id }}-backup-{{ mongodb_backup_version }}-mongoce.tar.gz"
+      - "mas-{{ mas_instance_id }}-backup-{{ sls_backup_version }}-sls.tar.gz"
+      - "mas-{{ mas_instance_id }}-backup-{{ suite_backup_version }}-suite.tar.gz"
+      - "mas-{{ mas_instance_id }}-backup-{{ manage_backup_version }}-manage.tar.gz"
+      - "mas-{{ mas_instance_id }}-backup-{{ db2_backup_version }}-db2u-manage.tar.gz"
+  when: backup_archives_to_download | length == 0
+
+# Filter out manage archives if include_manage_archives is false
+- name: "Filter out manage archives when include_manage_archives is false"
+  ansible.builtin.set_fact:
+    backup_archives_to_download: "{{ backup_archives_to_download | reject('search', '-manage\\.tar\\.gz$') | reject('search', '-db2u-manage\\.tar\\.gz$') | list }}"
+  when: not (include_manage_archives | bool)
+
+- name: "Display archives to download"
+  ansible.builtin.debug:
+    msg:
+      - "Will download {{ backup_archives_to_download | length }} archive(s):"
+      - "{{ backup_archives_to_download }}"
+      - "Manage archives filtering: {{ 'disabled (will download manage archives)' if (include_manage_archives | bool) else 'enabled (skipping manage archives)' }}"
 
 # Determine download source
 - name: "Check if S3 credentials are provided"
@@ -67,16 +110,17 @@
   ansible.builtin.include_tasks: download_from_artifactory.yml
   when: download_from_artifactory and not download_from_s3
 
-# Extract archive
-- name: "Extract backup archive"
+# Extract archives
+- name: "Extract backup archives"
   ansible.builtin.include_tasks: extract_archive.yml
   when: extract_archive | bool
 
 # Cleanup
-- name: "Remove temporary archive file"
+- name: "Remove temporary archive files"
   ansible.builtin.file:
-    path: "{{ backup_temp_dir }}/{{ backup_archive_name }}"
+    path: "{{ backup_temp_dir }}/{{ item }}"
     state: absent
+  loop: "{{ backup_archives_to_download }}"
   when:
     - cleanup_archive | bool
     - extract_archive | bool
@@ -88,3 +132,10 @@
   when:
     - cleanup_archive | bool
     - extract_archive | bool
+
+- name: "Display archive management information"
+  ansible.builtin.debug:
+    msg:
+      - "Archives are being managed in: {{ backup_temp_dir }}"
+      - "Downloaded archives: {{ backup_archives_to_download }}"
+      - "To cleanup manually, remove the directory: {{ backup_temp_dir }}"

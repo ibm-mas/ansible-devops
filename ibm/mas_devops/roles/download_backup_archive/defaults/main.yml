@@ -7,7 +7,20 @@ mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
 
 # Backup version to download
 backup_version: "{{ lookup('env', 'BACKUP_VERSION') }}"
-backup_archive_name: "{{ lookup('env', 'BACKUP_ARCHIVE_NAME') }}"
+
+# Multiple archives download - list of archive names to download
+# If not provided, will auto-generate based on backup_version and component versions
+backup_archive_names: "{{ lookup('env', 'BACKUP_ARCHIVE_NAMES') }}"
+
+# Specific backup versions for each component (optional - override backup_version)
+# These are used to auto-generate archive names when backup_archive_names is not provided
+ibm_catalogs_backup_version: "{{ lookup('env', 'IBM_CATALOGS_BACKUP_VERSION') | default (backup_version, true) }}"
+certmanager_backup_version: "{{ lookup('env', 'CERTMANAGER_BACKUP_VERSION') | default (backup_version, true) }}"
+mongodb_backup_version: "{{ lookup('env', 'MONGODB_BACKUP_VERSION') | default (backup_version, true) }}"
+sls_backup_version: "{{ lookup('env', 'SLS_BACKUP_VERSION') | default (backup_version, true) }}"
+db2_backup_version: "{{ lookup('env', 'DB2_BACKUP_VERSION') | default (backup_version, true) }}"
+suite_backup_version: "{{ lookup('env', 'SUITE_BACKUP_VERSION') | default (backup_version, true) }}"
+manage_backup_version: "{{ lookup('env', 'MANAGE_BACKUP_VERSION') | default (backup_version, true) }}"
 
 # S3 Configuration (provide these to download from S3)
 aws_access_key_id: "{{ lookup('env', 'S3_ACCESS_KEY_ID') }}"
@@ -27,3 +40,4 @@ backup_temp_dir: "{{ mas_restore_dir }}/mas-{{ mas_instance_id }}-restore-{{ bac
 download_timeout: "{{ lookup('env', 'DOWNLOAD_TIMEOUT_SECS') | default(3600, true) }}"  # Download timeout in seconds (1 hour)
 extract_archive: "{{ lookup('env', 'EXTRACT_ARCHIVE') | default(true, true) }}"  # Whether to extract the archive after download
 cleanup_archive: "{{ lookup('env', 'CLEANUP_ARCHIVE') | default(true, true) }}"  # Whether to remove the archive file after extraction
+include_manage_archives: "{{ lookup('env', 'INCLUDE_MANAGE_ARCHIVES') | default(false, true) }}"

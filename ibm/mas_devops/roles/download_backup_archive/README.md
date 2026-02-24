@@ -6,6 +6,9 @@ This role automates the process of downloading MAS backup archives from remote s
 Key features:
 - Downloads compressed tar.gz archives from AWS S3 or S3-compatible storage
 - Downloads compressed tar.gz archives from Artifactory repositories
+- **Support for downloading multiple archives in a single operation**
+- **Auto-generation of archive names based on component versions**
+- **Archive management option to keep downloaded archives organized**
 - Automatic extraction of downloaded archives
 - Configurable download timeouts for large archives
 - Optional cleanup of temporary files after extraction
@@ -38,20 +41,36 @@ Directory where the backup archive will be downloaded and extracted. This is the
 ### Backup Archive Variables
 
 #### backup_version
-Version identifier for the backup to download. This must match the version used when the backup was created. This is used to construct the value `mas-backup-<backup_version>.tar.gz` for `backup_archive_name`. 
-If you are using a custom archive name using `backup_archive_name`, you can omit this variable.
+Version identifier for the backup to download. This must match the version used when the backup was created. When downloading multiple archives, this is used as the default version for all components unless specific component versions are provided.
 
-- **optional**
+- **Required**
 - Environment Variable: `BACKUP_VERSION`
 - Default Value: None
 
-#### backup_archive_name
-Custom archive name of the tar.gz archive file to download, including the `.tar.gz` extension.
-If you are using `backup_version`, you can omit this variable.
+#### backup_archive_names
+List of archive names to download. Can be provided as a comma-separated string or as a list. If not provided, the role will auto-generate archive names based on component versions.
+
+Examples:
+- String format: `"archive1.tar.gz,archive2.tar.gz,archive3.tar.gz"`
+- List format: `["archive1.tar.gz", "archive2.tar.gz", "archive3.tar.gz"]`
 
 - **Optional**
-- Environment Variable: `BACKUP_ARCHIVE_NAME`
-- Default Value: None
+- Environment Variable: `BACKUP_ARCHIVE_NAMES`
+- Default Value: Auto-generated from component versions
+
+#### Component-Specific Backup Versions
+
+These variables allow you to specify different backup versions for each component. If not provided, they default to the value of `backup_version`. These are used to auto-generate archive names when `backup_archive_names` is not provided.
+
+- `ibm_catalogs_backup_version` - Environment Variable: `IBM_CATALOGS_BACKUP_VERSION`
+- `certmanager_backup_version` - Environment Variable: `CERTMANAGER_BACKUP_VERSION`
+- `mongodb_backup_version` - Environment Variable: `MONGODB_BACKUP_VERSION`
+- `sls_backup_version` - Environment Variable: `SLS_BACKUP_VERSION`
+- `db2_backup_version` - Environment Variable: `DB2_BACKUP_VERSION`
+- `suite_backup_version` - Environment Variable: `SUITE_BACKUP_VERSION`
+- `manage_backup_version` - Environment Variable: `MANAGE_BACKUP_VERSION`
+
+All are **Optional** and default to `backup_version`.
 
 ### S3 Download Variables
 
@@ -148,22 +167,68 @@ Whether to automatically extract the downloaded archive. Set to `false` if you o
 - Default Value: `true`
 
 #### cleanup_archive
-Whether to remove the archive file and temporary directory after successful extraction. Set to `false` to keep the downloaded archive.
+Whether to remove the archive file and temporary directory after successful extraction. Set to `false` to keep the downloaded archive. 
 
 - **Optional**
 - Environment Variable: `CLEANUP_ARCHIVE`
 - Default Value: `true`
 
+#### include_manage_archives
+Whether to download Manage related archives (`-manage.tar.gz` and `-db2u-manage.tar.gz`) from S3 or Artifactory.
+
+**Important:** When set to `false`, the role will automatically skip downloading manage-related archives (`-manage.tar.gz` and `-db2u-manage.tar.gz`) from S3 or Artifactory. This prevents unnecessary downloads when manage component restore is not needed.
+
+- **Optional**
+- Environment Variable: `INCLUDE_MANAGE_ARCHIVES`
+- Default Value: `true`
+
 ## Example Playbook
 
-### S3 Download
+### Download Multiple Archives from S3 (Auto-generated names)
 After installing the Ansible Collection you can include this role in your own custom playbooks.
 
 ```yaml
 - hosts: localhost
   vars:
+    mas_instance_id: inst1
     mas_restore_dir: /restore/mas
     backup_version: "20260117-191500"
+    aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
+    aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
+    s3_bucket_name: my-mas-backups
+    s3_region: us-west-2
+  roles:
+    - ibm.mas_devops.download_backup_archive
+```
+
+### Download Specific Archives from S3
+```yaml
+- hosts: localhost
+  vars:
+    mas_instance_id: inst1
+    mas_restore_dir: /restore/mas
+    backup_version: "20260117-191500"
+    backup_archive_names:
+      - mas-inst1-backup-20260117-191500-catalog.tar.gz
+      - mas-inst1-backup-20260117-191500-suite.tar.gz
+      - mas-inst1-backup-20260117-191500-manage.tar.gz
+    aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
+    aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
+    s3_bucket_name: my-mas-backups
+    s3_region: us-west-2
+  roles:
+    - ibm.mas_devops.download_backup_archive
+```
+
+### Download with Different Component Versions
+```yaml
+- hosts: localhost
+  vars:
+    mas_instance_id: inst1
+    mas_restore_dir: /restore/mas
+    backup_version: "20260117-191500"
+    mongodb_backup_version: "20260116-120000"
+    db2_backup_version: "20260115-100000"
     aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
     aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
     s3_bucket_name: my-mas-backups
@@ -177,6 +242,7 @@ After installing the Ansible Collection you can include this role in your own cu
 ```yaml
 - hosts: localhost
   vars:
+    mas_instance_id: inst1
     mas_restore_dir: /restore/mas
     backup_version: "20260117-191500"
     artifactory_username: "{{ lookup('env', 'ARTIFACTORY_USERNAME') }}"
@@ -192,6 +258,7 @@ After installing the Ansible Collection you can include this role in your own cu
 ```yaml
 - hosts: localhost
   vars:
+    mas_instance_id: inst1
     mas_restore_dir: /restore/mas
     backup_version: "20260117-191500"
     aws_access_key_id: "{{ lookup('env', 'S3_ACCESS_KEY') }}"
@@ -208,6 +275,7 @@ After installing the Ansible Collection you can include this role in your own cu
 ```yaml
 - hosts: localhost
   vars:
+    mas_instance_id: inst1
     mas_restore_dir: /restore/mas
     backup_version: "20260117-191500"
     extract_archive: false
@@ -219,14 +287,59 @@ After installing the Ansible Collection you can include this role in your own cu
     - ibm.mas_devops.download_backup_archive
 ```
 
+### Download with Archive Management - without Manage archives
+
+```yaml
+- hosts: localhost
+  vars:
+    mas_instance_id: inst1
+    mas_restore_dir: /restore/mas
+    backup_version: "20260117-191500"
+    include_manage_archives: false
+    aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
+    aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
+    s3_bucket_name: my-mas-backups
+  roles:
+    - ibm.mas_devops.download_backup_archive
+```
+
 ## Run Role Playbook
 After installing the Ansible Collection you can easily run the role standalone using the `run_role` playbook provided.
 
-### S3 Download
+### Download Multiple Archives from S3 (Auto-generated)
 
 ```bash
+export MAS_INSTANCE_ID=inst1
 export MAS_RESTORE_DIR=/restore/mas
 export BACKUP_VERSION=20260117-191500
+export S3_ACCESS_KEY_ID=your_access_key
+export S3_SECRET_ACCESS_KEY=your_secret_key
+export S3_BUCKET_NAME=my-mas-backups
+export S3_REGION=us-west-2
+ROLE_NAME=download_backup_archive ansible-playbook ibm.mas_devops.run_role
+```
+
+### Download Specific Archives from S3
+
+```bash
+export MAS_INSTANCE_ID=inst1
+export MAS_RESTORE_DIR=/restore/mas
+export BACKUP_VERSION=20260117-191500
+export BACKUP_ARCHIVE_NAMES="mas-inst1-backup-20260117-191500-catalog.tar.gz,mas-inst1-backup-20260117-191500-suite.tar.gz"
+export S3_ACCESS_KEY_ID=your_access_key
+export S3_SECRET_ACCESS_KEY=your_secret_key
+export S3_BUCKET_NAME=my-mas-backups
+export S3_REGION=us-west-2
+ROLE_NAME=download_backup_archive ansible-playbook ibm.mas_devops.run_role
+```
+
+### Download with Archive Management
+
+```bash
+export MAS_INSTANCE_ID=inst1
+export MAS_RESTORE_DIR=/restore/mas
+export BACKUP_VERSION=20260117-191500
+export MANAGE_ARCHIVES=false
 export S3_ACCESS_KEY_ID=your_access_key
 export S3_SECRET_ACCESS_KEY=your_secret_key
 export S3_BUCKET_NAME=my-mas-backups
@@ -237,6 +350,7 @@ ROLE_NAME=download_backup_archive ansible-playbook ibm.mas_devops.run_role
 ### Artifactory Download
 
 ```bash
+export MAS_INSTANCE_ID=inst1
 export MAS_RESTORE_DIR=/restore/mas
 export BACKUP_VERSION=20260117-191500
 export ARTIFACTORY_USERNAME=your_username
