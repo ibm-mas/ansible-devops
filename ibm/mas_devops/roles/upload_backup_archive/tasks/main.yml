@@ -47,8 +47,15 @@
   when: upload_to_artifactory and not upload_to_s3
 
 # Cleanup
-- name: "Remove temporary archive file"
+- name: "Remove temporary archive files"
   ansible.builtin.file:
-    path: "{{ backup_temp_dir }}/{{ backup_archive_name }}"
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ backup_archives }}"
+  when: backup_archives is defined
+
+- name: "Remove temporary directory"
+  ansible.builtin.file:
+    path: "{{ backup_temp_dir }}"
     state: absent
   when: backup_temp_dir is defined
