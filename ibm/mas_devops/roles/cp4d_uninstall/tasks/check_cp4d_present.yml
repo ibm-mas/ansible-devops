@@ -12,57 +12,46 @@
   failed_when: false
   changed_when: false
 
-# Build list of CP4D namespaces that actually exist
+# Initialize list
+- name: Initialize CP4D present namespaces list
+  set_fact:
+    cp4d_present_namespaces: []
+  changed_when: false
+
+# Build list of namespaces that exist
 - name: Set CP4D present namespaces
   set_fact:
-    cp4d_present_namespaces: >-
-      {{
-        cp4d_present_namespaces | default([]) +
-        (
-          [ item.item ]
-          if (item.resources | default([]) | length > 0)
-          else []
-        )
-      }}
+    cp4d_present_namespaces: "{{ cp4d_present_namespaces + [ item.item ] }}"
   loop: "{{ cp4d_ns_checks.results | default([]) }}"
   loop_control:
-    label: "{{ item.item | default('unknown') }}"
+    label: "{{ item.item }}"
+  when: item.resources | default([]) | length > 0
   changed_when: false
 
-# Set flag indicating whether CP4D is present
+# Set CP4D present flag
 - name: Set CP4D present flag
   set_fact:
-    cp4d_present: "{{ cp4d_present_namespaces | default([]) | length > 0 }}"
+    cp4d_present: "{{ cp4d_present_namespaces | length > 0 }}"
   changed_when: false
 
-# Ask user confirmation before proceeding with uninstall
-- name: Ask confirmation to proceed with CP4D uninstall
-  pause:
-    prompt: >-
-      CP4D namespaces detected: {{ cp4d_present_namespaces }}.
-      Do you want to proceed with uninstall? (yes/no)
-  register: cp4d_uninstall_confirm
-  when: cp4d_present | bool
-
-# Determine whether uninstall is approved
-- name: Set uninstall approval flag
+# Resolve uninstall confirmation from environment
+- name: Resolve uninstall confirmation flag
   set_fact:
-    cp4d_uninstall_approved: >-
+    cp4d_uninstall_confirmed: >-
       {{
-        cp4d_auto_approve_uninstall | default(false)
-        or (
-          cp4d_uninstall_confirm.user_input | default('no')
-          | lower
-          | trim
-          in ['y', 'yes']
-        )
+        lookup('env', 'CP4D_UNINSTALL_CONFIRMED') | default('false', true)
+        | lower
+        | trim
+        in ['true', '1', 'yes']
       }}
-  when: cp4d_present | bool
+  changed_when: false
 
-# Exit safely when uninstall is not approved
-- name: Exit safely if uninstall not approved
-  debug:
-    msg: "CP4D uninstall aborted by user. No changes were made."
+# Require explicit confirmation before uninstall
+- name: Require explicit confirmation before uninstall
+  fail:
+    msg: >
+      CP4D namespaces detected: {{ cp4d_present_namespaces }}.
+      To proceed with force uninstall, export CP4D_UNINSTALL_CONFIRMED=true
   when:
-    - cp4d_present | bool
-    - not cp4d_uninstall_approved | bool
+    - cp4d_present
+    - not cp4d_uninstall_confirmed

@@ -1,27 +1,35 @@
-**CP4D_UNINSTALL**
-=========
+**Role Name**
+===========
 
-This role provides a **controlled, safe, and repeatable uninstallation of IBM Cloud Pak for Data (CP4D)**
-from an OpenShift cluster.
+**cp4d_uninstall**
+
+This role provides a **force cleanup uninstall** of IBM Cloud Pak for Data (CP4D) from a cluster.
 
 It is designed to handle:
-- normal CP4D uninstalls
-- partially completed or failed uninstalls
-- clusters where CP4D namespaces are stuck in `Terminating`
-- custom resources blocked by finalizers after operator removal
+   - complete removal of a CP4D installation
+   - partially completed or failed uninstalls
+   - clusters where CP4D namespaces are stuck in Terminating
+   - custom resources blocked by finalizers after operator removal
+   - recovery scenarios where operator controllers are no longer reconciling
 
-The role follows a **safe-first, force-last** execution model and includes
-an explicit confirmation step to prevent accidental uninstall.
+This role performs a full teardown of the CP4D namespaces and all CP4D-related services.
+
+It is **not intended for selective or service-level uninstall** (for example removing WSL, WML, or Spark while keeping the rest of CP4D operational).
+
+The role follows a controlled execution model and requires explicit confirmation before performing destructive operations.
 
 **Scope and Intent**
 ----------------
 
-This role is **only** intended for uninstalling CP4D.
+This role is intended to remove the entire CP4D installation, including all services deployed within:
+   - ibm-cpd
+   - ibm-cpd-operators
 
-It is **not** intended to:
-- uninstall other Cloud Paks
-- clean shared cluster services
-- remove non-CP4D workloads running in unrelated namespaces
+It is not designed to:
+   - selectively uninstall individual CP4D services
+   - uninstall other Cloud Paks
+   - clean shared cluster services
+   - remove non-CP4D workloads running in unrelated namespaces
 
 All actions are scoped strictly to CP4D namespaces and CP4D-related resources.
 
@@ -29,38 +37,39 @@ All actions are scoped strictly to CP4D namespaces and CP4D-related resources.
 ------------
 
 The role enforces safety at multiple levels:
-1. **CP4D presence detection**
+1. CP4D presence detection
    - The role first checks whether CP4D namespaces exist.
    - If CP4D is not detected, the role exits without making changes.
 
-2. **Interactive confirmation**
-   - If CP4D is detected, the user is prompted to confirm uninstall.
-   - Default behaviour is **safe exit** (no uninstall).
+2. Explicit confirmation required
+   - Uninstall proceeds only when explicitly confirmed.
+   - If confirmation is not provided, the role exits safely without performing any destructive actions.
 
-3. **Safe-to-force execution order**
-   - Operator and workload cleanup first
-   - Finalizer removal only when required
-   - Namespace deletion as the final step
+3. Controlled execution order
+   - Operator reconciliation sources are removed first
+   - Workloads are cleaned before namespace deletion
+   - Finalizer removal is used only when required
+   - Namespace deletion is performed as the final step
 
-4. **Automation-friendly override**
-   - Interactive confirmation can be skipped explicitly for CI/CD.
+4. Automation-friendly execution
+   - Confirmation can be provided via environment variable for CI/CD usage.
 
 **Uninstall Strategy**
 ------------------
 
 The uninstall process is intentionally staged:
-
 1. Stop operator reconciliation (OLM objects, CatalogSources)
 2. Remove CP4D workloads (Deployments, StatefulSets, Jobs)
-3. Clean known operator-scoped custom resources
-4. Perform a last-resort finalizer cleanup for any remaining resources
-5. Delete CP4D-related CRDs actually used by CP4D
+3. Clean operator-scoped custom resources
+4. Perform finalizer cleanup for remaining blocking resources
+5. Delete CP4D-related CRDs actively used by CP4D
 6. Delete CP4D namespaces
 
 This ordering ensures:
-- no resources are recreated during uninstall
-- finalizers do not block namespace deletion
-- partial failures can be re-run safely
+- resources are not recreated during uninstall
+- finalizers do not permanently block namespace deletion
+- broken installations can be cleaned successfully
+- the role can be safely re-run in recovery scenarios
 
 **Finalizer Handling**
 ------------------
