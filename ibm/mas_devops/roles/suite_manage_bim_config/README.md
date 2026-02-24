@@ -1,53 +1,143 @@
 # suite_manage_bim_config
 
-This role extends support for configuring existing PVC mounted path for BIM (Building Information Models) in **Manage** application.
+This role configures Building Information Modeling (BIM) support in Maximo Manage application by setting up the persistent volume mount path and updating database system properties. BIM enables 3D visualization and management of building models within Manage.
 
-In order for this task to run successfully your Manage application must have been configured with a proper persistent volume and mounted path.
+!!! important "Prerequisites"
+    - Manage application must be deployed with persistent volume storage configured
+    - A PVC with appropriate mount path must exist before running this role
+    - Use `suite_app_config` with `mas_app_settings_persistent_volumes_flag: true` to create default persistent storage
 
-You can run `suite_app_config` with `mas_app_settings_persistent_volumes_flag: true` while installing `mas_app_id: manage` to have a default persistent storage configured as part of Manage deployment that can be used in this role to setup BIM.
+For detailed information on persistent storage configuration, see [Configuring persistent volume claims](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=storage-configuring-persistent-volume-claims).
 
-For more details on how to configure persistent storage for Manage refer to [Configuring persistent volume claims](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=storage-configuring-persistent-volume-claims).
+## What This Role Does
+
+- Configures BIM folder paths in Manage system properties
+- Updates Manage database with BIM mount path configuration
+- Enables BIM functionality for 3D building model visualization
+- Validates persistent volume mount path exists
 
 ## Role Variables
 
-### BIM Configuration
+### mas_app_settings_bim_mount_path
+Persistent volume mount path for BIM files.
 
-#### mas_app_settings_bim_mount_path
-Defines the persistent volume mount path to be used while configuring Manage BIM folders. If you used `suite_app_config` role to configure the persistent volumes while deploying Manage application, the default BIM persistent volume mount path will be the same.
-
-- **Required**
+- **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_BIM_MOUNT_PATH`
-- Default Value: `/bim`
+- Default: `/bim`
 
-#### mas_instance_id
-The instance ID of Maximo Application Suite. This will be used to lookup for Manage application resources.
+**Purpose**: Specifies the container mount path where BIM files (3D models, drawings, documents) are stored in persistent storage.
+
+**When to use**:
+- Use default `/bim` when using `suite_app_config` with persistent volumes
+- Override if you have a custom mount path configuration
+- Must match the actual PVC mount path in Manage pods
+
+**Valid values**: Valid Linux filesystem path (e.g., `/bim`, `/data/bim`, `/mnt/bim`)
+
+**Impact**: Determines where Manage stores and retrieves BIM files. The path must exist as a mounted volume in Manage pods.
+
+**Related variables**:
+- `mas_instance_id`: Instance containing Manage
+- `db2_instance_name`: Database to update with BIM configuration
+
+**Note**: The mount path must correspond to an actual PVC mounted in the Manage deployment. If using `suite_app_config` with `mas_app_settings_persistent_volumes_flag: true`, the default `/bim` path is automatically configured.
+
+### mas_instance_id
+MAS instance identifier.
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
+- Default: None
 
-### Database Configuration
+**Purpose**: Identifies which MAS instance contains the Manage application to configure for BIM.
 
-#### db2_instance_name
-The DB2 Warehouse instance name that stores your Manage application tables and data. This will be used to lookup for Manage application database and update it with the BIM system properties.
+**When to use**:
+- Always required for BIM configuration
+- Must match the instance ID from MAS installation
+- Used to locate Manage resources
+
+**Valid values**: Lowercase alphanumeric string, 3-12 characters (e.g., `prod`, `dev`, `masinst1`)
+
+**Impact**: Determines which MAS instance's Manage application is configured with BIM support.
+
+**Related variables**:
+- `mas_app_settings_bim_mount_path`: BIM storage path to configure
+- `db2_instance_name`: Database instance for this Manage deployment
+
+**Note**: This must match the instance ID used during Manage installation.
+
+### db2_instance_name
+Db2 Warehouse instance name.
 
 - **Required**
 - Environment Variable: `DB2_INSTANCE_NAME`
-- Default Value: None
+- Default: None
 
-#### db2_namespace
-The namespace in your cluster that hosts the DB2 Warehouse instance name. This will be used to lookup for Manage application database and update it with the BIM system properties. If you do not provide it, the role will try to find the Db2 Warehouse in `db2u` namespace.
+**Purpose**: Identifies the Db2 Warehouse instance that stores Manage application data, which will be updated with BIM system properties.
+
+**When to use**:
+- Always required for BIM configuration
+- Must match the Db2 instance name used by Manage
+- Used to connect to database for SQL updates
+
+**Valid values**: Valid Db2 instance name (e.g., `db2w-manage`, `db2u-manage`)
+
+**Impact**: Determines which Db2 instance is accessed to update BIM configuration system properties via SQL.
+
+**Related variables**:
+- `db2_namespace`: Namespace containing this instance
+- `db2_dbname`: Database name within the instance
+- `mas_instance_id`: MAS instance using this database
+
+**Note**: To find the instance name, go to the Db2 namespace and look for pods with `label=engine`. Describe the pod and find the `app` label value - that's your instance name.
+
+### db2_namespace
+Db2 Warehouse namespace.
 
 - **Optional**
 - Environment Variable: `DB2_NAMESPACE`
-- Default Value: `db2u`
+- Default: `db2u`
 
-#### db2_dbname
-Name of the database within the instance.
+**Purpose**: Specifies the OpenShift namespace where the Db2 Warehouse instance is deployed.
+
+**When to use**:
+- Use default (`db2u`) for standard Db2 deployments
+- Override if Db2 is deployed in a custom namespace
+- Required to locate the Db2 instance
+
+**Valid values**: Valid Kubernetes namespace name
+
+**Impact**: Determines where to look for the Db2 instance when connecting for BIM configuration updates.
+
+**Related variables**:
+- `db2_instance_name`: Instance to find in this namespace
+- `db2_dbname`: Database within the instance
+
+**Note**: The default `db2u` namespace is used by most Db2 Warehouse deployments. Only change if you have a custom deployment.
+
+### db2_dbname
+Database name within Db2 instance.
 
 - **Optional**
 - Environment Variable: `DB2_DBNAME`
-- Default Value: `BLUDB`
+- Default: `BLUDB`
+
+**Purpose**: Specifies the database name within the Db2 instance where Manage tables and BIM configuration are stored.
+
+**When to use**:
+- Use default (`BLUDB`) for standard Manage deployments
+- Override if Manage uses a custom database name
+- Required for database connection
+
+**Valid values**: Valid Db2 database name
+
+**Impact**: Determines which database within the Db2 instance is updated with BIM system properties.
+
+**Related variables**:
+- `db2_instance_name`: Instance containing this database
+- `db2_namespace`: Namespace of the instance
+
+**Note**: `BLUDB` is the default database name for Manage deployments. Only change if you have a custom database configuration.
 
 ## Example Playbook
 

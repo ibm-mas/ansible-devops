@@ -314,6 +314,81 @@ WatsonX AI project identifier.
 
 **Note**: The project ID is found in your WatsonX AI project settings in IBM Cloud. Ensure the API key has appropriate permissions for the project. The project should have the required AI models and resources configured.
 
+### Certificate Management
+
+#### aiservice_certificate_issuer
+Name of the cert-manager Issuer to use for automatic certificate generation.
+
+- **Optional**
+- Environment Variable: `AISERVICE_CERTIFICATE_ISSUER`
+- Default: None
+
+**Purpose**: Specifies which cert-manager Issuer will generate and manage SSL/TLS certificates for AI Service. The Issuer defines the Certificate Authority and authentication method used for certificate issuance.
+
+**When to use**:
+- Set to the Issuer created by `suite_dns` role (e.g., `{aiservice_instance_id}-cloudflare-le-prod`)
+- Set to a custom Issuer if you have specific certificate requirements
+
+**Valid values**: Name of any valid Issuer resource in the cluster (e.g., `prod-le-issuer`, `{mas_instance_id}-cloudflare-le-prod`)
+
+**Impact**: The specified Issuer will be used to generate all certificates for AI Service. If the Issuer is not properly configured or lacks necessary credentials, certificate generation will fail and AI Service will not be accessible.
+
+**Related variables**:
+- Created by `suite_dns` role for Let's Encrypt integration
+- Works with `aiservice_certificate_duration` and `aiservice_certificate_renew_before`
+
+**Note**: Ensure the Issuer is created and functional before installing AI Service. Test certificate generation with a test Certificate resource first.
+
+#### aiservice_certificate_duration
+Specifies the validity period for AI Service certificates.
+
+- **Optional**
+- Environment Variable: `AISERVICE_CERTIFICATE_DURATION`
+- Default: `8760h0m0s` (1 year)
+
+**Purpose**: Defines how long certificates will be valid before they expire. This affects how often certificates need to be renewed and the security posture of your installation.
+
+**When to use**:
+- Use default (8760h = 1 year) for most installations
+- Reduce for higher security environments requiring frequent rotation
+- Increase only if certificate renewal is problematic in your environment
+- Must be longer than `aiservice_certificate_renew_before`
+
+**Valid values**: Duration string in format `{hours}h{minutes}m{seconds}s` (e.g., `8760h0m0s`, `2160h0m0s`, `17520h0m0s`)
+
+**Impact**: Shorter durations increase security but require more frequent renewals. Longer durations reduce renewal frequency but increase risk if certificates are compromised. Cert-manager will automatically renew certificates before expiration.
+
+**Related variables**:
+- Must be greater than `aiservice_certificate_renew_before`
+- Only applies when using automatic certificate management
+- Affects all AI Service certificates
+
+#### aiservice_certificate_renew_before
+Specifies when to renew certificates before they expire.
+
+- **Optional**
+- Environment Variable: `AISERVICE_CERTIFICATE_RENEW_BEFORE`
+- Default: `720h0m0s` (30 days)
+
+**Purpose**: Defines the renewal window - how far in advance cert-manager will renew certificates before they expire. This ensures certificates are renewed with sufficient time to handle any renewal issues.
+
+**When to use**:
+- Use default (720h = 30 days) for most installations
+- Increase in environments where certificate renewal may be slow or problematic
+- Decrease only if you need to minimize the number of certificate changes
+- Must be shorter than `aiservice_certificate_duration`
+
+**Valid values**: Duration string in format `{hours}h{minutes}m{seconds}s` (e.g., `720h0m0s`, `1440h0m0s`, `168h0m0s`)
+
+**Impact**: Longer renewal windows provide more time to resolve renewal issues but result in more frequent certificate changes. Shorter windows reduce certificate churn but increase risk of expiration if renewal fails.
+
+**Related variables**:
+- Must be less than `aiservice_certificate_duration`
+- Only applies when using automatic certificate management
+- Affects all AI Service certificates
+
+**Note**: Ensure this value provides adequate time to detect and resolve certificate renewal issues before expiration.
+
 ## Example Playbook
 After installing the Ansible Collection you can include this role in your own custom playbooks.
 

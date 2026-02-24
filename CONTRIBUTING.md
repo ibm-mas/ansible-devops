@@ -116,11 +116,18 @@ This test layer covers:
 ## README Documentation Standards
 
 ### Overview
-All role README files must follow standardized structure and formatting guidelines to ensure consistency and quality across the collection.
+All role README files must follow standardized structure and formatting guidelines to ensure consistency and quality across the collection. This section provides comprehensive guidance for writing and maintaining role documentation.
+
+**Quick Start for New READMEs**:
+1. Copy `build/scripts/templates/README_TEMPLATE.md` to your role directory as `README.md`
+2. Replace placeholder text with role-specific content
+3. Remove sections that don't apply (e.g., Prerequisites if none exist)
+4. Review existing roles for concrete examples
+5. Run `python3 build/scripts/validate_readme.py` to validate your README against standards
 
 ### Standard README Structure
 
-Every README must follow this structure:
+Every README must follow this exact structure:
 
 ```markdown
 # role_name
@@ -137,9 +144,88 @@ Description
 ## License
 ```
 
+**Section Rules**:
+- **Title**: Single `#` with exact role directory name (lowercase with underscores)
+- **Description**: Immediately after title, no heading required
+- **Prerequisites**: Optional, only include if external dependencies exist
+- **Role Variables**: Required, organized by categories
+- **Example Playbook**: Required, shows realistic usage
+- **Run Role Playbook**: Required, shows standalone execution
+- **License**: Required, always last section with `EPL-2.0`
+
+### Title and Description Guidelines
+
+#### Title Section
+**Format**: `# role_name`
+
+**Rules**:
+- Use single `#` (level 1 heading)
+- Use exact role directory name (lowercase with underscores)
+- No decorative separators (`=====` or `-----`)
+- No additional formatting or styling
+
+**Examples**:
+```markdown
+✅ CORRECT:
+# ibm_catalogs
+# mongodb
+# suite_install
+
+❌ INCORRECT:
+# IBM Catalogs
+=====
+## ibm_catalogs
+# ibm-catalogs
+```
+
+#### Description Section
+**Position**: Immediately after title (no heading)
+
+**Content Structure**:
+1. **First paragraph**: Brief, clear description (1-2 sentences)
+   - What the role does
+   - Primary purpose
+
+2. **Additional paragraphs**: Detailed explanation
+   - Key features or capabilities
+   - Important context or background
+   - Integration points
+   - Architectural notes
+
+**Writing Tips**:
+- Start with action verbs: "This role installs...", "This role configures...", "This role manages..."
+- Be specific about what gets created/modified
+- Mention important dependencies or relationships
+- Include links to external documentation where relevant
+
+### Prerequisites Section
+
+**Heading**: `## Prerequisites` (level 2)
+
+**When to Include**:
+- External tools must be installed (CLI tools, utilities)
+- Credentials or access must be configured
+- Other resources must exist before running the role
+- Specific environment setup is required
+
+**When to Omit**:
+- Role has no external dependencies
+- Only requires standard Ansible/OpenShift setup
+
+**Format**: Bulleted list with clear, actionable items
+
+**Example**:
+```markdown
+## Prerequisites
+- [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) must be installed
+- AWS credentials configured via `aws configure` or by exporting `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
+- OpenShift cluster must be accessible via `oc` CLI
+- Certificate Manager must be installed (see [`cert_manager`](cert_manager.md) role)
+```
+
 ### Variable Documentation Format
 
-Each variable must follow this enhanced format:
+Each variable must follow this comprehensive 8-section format:
 
 ```markdown
 #### variable_name
@@ -162,7 +248,7 @@ One-line summary of what the variable does.
 
 **Related variables**: List of variables that interact with this one.
 
-**Note**: Any warnings, version-specific behavior, or deprecation notices (if applicable).
+**Notes**: Any warnings, version-specific behavior, or deprecation notices (if applicable).
 ```
 
 ### Variable Documentation Guidelines
@@ -183,6 +269,13 @@ One-line summary of what the variable does.
 - Always include all three items
 - Use exact environment variable names
 - Specify actual default values or `None`
+
+**Format**:
+```markdown
+- **Required** or **Optional**
+- Environment Variable: `ENV_VAR_NAME`
+- Default: `value` or `None`
+```
 
 #### 3. Purpose Statement
 - Explain **why** the variable exists
@@ -259,73 +352,357 @@ One-line summary of what the variable does.
 
 **Examples**:
 ```markdown
-**Note**: Only available in MAS 8.11 and above. Has no effect in earlier versions.
+**Notes**: Only available in MAS 8.11 and above. Has no effect in earlier versions.
 
-**Note**: **DEPRECATED in SLS 3.8.0** - Use `sls_icr_cpopen` instead. This variable is only required for SLS versions up to 3.7.0.
+**Notes**: **DEPRECATED in SLS 3.8.0** - Use `sls_icr_cpopen` instead. This variable is only required for SLS versions up to 3.7.0.
 
-**Note**: Choose carefully as this cannot be changed after installation.
+**Notes**: Choose carefully as this cannot be changed after installation.
 ```
 
 ### Variable Categories
 
-Organize variables into logical groups using level 3 headings:
+Organize variables into logical groups using level 3 headings (`###`):
 
-- **General Variables** or **Basic Install**: Common variables used across the role
-- **Basic Configuration**: Core configuration settings
+**Common Categories**:
+- **General Variables**: Common variables used across the role
+- **Installation Variables**: Variables controlling installation behavior
+- **Configuration Variables**: Variables for configuring the installed component
 - **Advanced Configuration**: Optional advanced settings
 - **Certificate Management**: Certificate-related variables
 - **Provider-Specific Variables**: Variables for specific providers (AWS, IBM Cloud, etc.)
 - **Feature-Specific Variables**: Variables for optional features
 
-### Quality Checklist for Variables
+**Category Guidelines**:
+- Use descriptive category names
+- Group related variables together
+- Add brief category description if helpful
+- Keep categories focused and logical
 
-Before submitting, verify each variable has:
+### Common Variable Patterns
 
-- [x] Clear one-sentence summary
-- [x] Metadata immediately after summary (Required/Optional, Env Var, Default)
-- [x] Purpose statement explaining the "why"
-- [x] When to use guidance (for optional variables)
-- [x] Valid values clearly specified
-- [x] Impact description
-- [x] Related variables documented (if applicable)
-- [x] Notes/warnings for special cases (if applicable)
-- [x] No technical jargon without explanation
-- [x] Consistent terminology
-- [x] Proper grammar and spelling
+#### Conditional Variables
+When a variable is only required under certain conditions:
 
-### Example Playbook and Run Role Playbook Sections
+```markdown
+#### db2_namespace
+The namespace in your cluster that hosts the DB2 Warehouse instance.
 
-#### Example Playbook
+- **Optional** (Required when `mas_manage_attachment_configuration_mode=db`)
+- Environment Variable: `DB2_NAMESPACE`
+- Default: `db2u`
+```
+
+#### Variables with Complex Values
+For variables that accept complex values:
+
+```markdown
+#### mongodb_action
+Determines which action to perform with respect to MongoDB for a specified provider.
+
+- **Optional**
+- Environment Variable: `MONGODB_ACTION`
+- Default: `install`
+
+**Purpose**: Controls the operation performed on the MongoDB instance.
+
+**When to use**: Set based on the desired operation for your MongoDB deployment.
+
+**Valid values**: Each provider supports different actions:
+- **community**: `install`, `uninstall`, `backup`, `restore`
+- **aws**: `install`, `uninstall`, `docdb_secret_rotate`, `destroy-data`
+- **ibm**: `install`, `uninstall`, `backup`, `restore`, `create-mongo-service-credentials`
+
+**Impact**: Determines which tasks are executed by the role.
+
+**Related variables**: `mongodb_provider`
+```
+
+#### Deprecated Variables
+For variables that are deprecated:
+
+```markdown
+#### sls_icr_cp
+**[Deprecated in SLS 3.8.0]** The container registry source for all container images.
+
+- **Optional**
+- Environment Variable: `SLS_ICR_CP`
+- Default: None
+
+**Purpose**: Previously used to specify the container registry for SLS images.
+
+**When to use**: Only use for SLS versions up to 3.7.0. For SLS 3.8.0 and later, use `sls_icr_cpopen` instead.
+
+**Valid values**: Valid container registry URL
+
+**Impact**: Has no effect in SLS 3.8.0 and later.
+
+**Related variables**: `sls_icr_cpopen` (replacement variable)
+
+**Notes**: **DEPRECATED** - Use `sls_icr_cpopen` for SLS 3.8.0+
+```
+
+### Example Playbook Section
+
+**Heading**: `## Example Playbook` (level 2)
+
+**Standard Introduction**:
+"After installing the Ansible Collection you can include this role in your own custom playbooks."
+
+**Format**: YAML code block with realistic example
+
+**Content Guidelines**:
+- Show a common, realistic use case
+- Include key required variables
+- Use meaningful example values (not just "value")
+- Keep it concise but complete
+- Use proper YAML formatting
+
+**Example**:
 ```markdown
 ## Example Playbook
 After installing the Ansible Collection you can include this role in your own custom playbooks.
 
-\`\`\`yaml
+```yaml
 - hosts: localhost
   vars:
     mas_instance_id: inst1
-    mas_channel: 8.11.x
+    mas_catalog_source: ibm-operator-catalog
+    mas_channel: 9.0.x
+    mas_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
   roles:
     - ibm.mas_devops.suite_install
-\`\`\`
+```
 ```
 
-#### Run Role Playbook
+### Run Role Playbook Section
+
+**Heading**: `## Run Role Playbook` (level 2)
+
+**Standard Introduction**:
+"After installing the Ansible Collection you can easily run the role standalone using the `run_role` playbook provided."
+
+**Format**: Bash code block showing environment variable setup and command
+
+**Content Guidelines**:
+- Show how to set required environment variables
+- Include the ROLE_NAME command
+- Use realistic example values
+- Match variables from Example Playbook section
+- Keep it simple and copy-pasteable
+
+**Example**:
 ```markdown
 ## Run Role Playbook
 After installing the Ansible Collection you can easily run the role standalone using the `run_role` playbook provided.
 
-\`\`\`bash
+```bash
 export MAS_INSTANCE_ID=inst1
-export MAS_CHANNEL=8.11.x
+export MAS_CATALOG_SOURCE=ibm-operator-catalog
+export MAS_CHANNEL=9.0.x
+export MAS_ENTITLEMENT_KEY=your_key_here
 ROLE_NAME=suite_install ansible-playbook ibm.mas_devops.run_role
-\`\`\`
+```
 ```
 
-### Reference Example
+### License Section
 
-See the enhanced `suite_install` README for a complete reference:
-- `ibm/mas_devops/roles/suite_install/README.md`
+**Heading**: `## License` (level 2)
+
+**Content**: `EPL-2.0`
+
+**Position**: Always the last section
+
+**Example**:
+```markdown
+## License
+EPL-2.0
+```
+
+### Formatting Standards
+
+#### Headings
+
+**Hierarchy**:
+- `#` (Level 1): Title only
+- `##` (Level 2): Main sections
+- `###` (Level 3): Variable categories
+- `####` (Level 4): Individual variables
+
+**Rules**:
+- No skipping levels (don't go from `##` to `####`)
+- No decorative separators under headings
+- Use sentence case for headings (not Title Case)
+- Be consistent with heading text
+
+#### Code Blocks
+
+**Always specify language**:
+```markdown
+✅ CORRECT:
+```yaml
+- hosts: localhost
+```
+
+```bash
+export VAR=value
+```
+
+❌ INCORRECT:
+```
+- hosts: localhost
+```
+```
+
+**Supported languages**:
+- `yaml` - For Ansible playbooks and YAML files
+- `bash` - For shell commands
+- `json` - For JSON configuration
+- `python` - For Python code
+
+#### Links
+
+**Internal links** (to other roles):
+```markdown
+See the [`mongodb`](mongodb.md) role for details.
+```
+
+**External links**:
+```markdown
+Install the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
+```
+
+**Rules**:
+- Use descriptive link text (not "click here")
+- Verify all links are valid
+- Use relative paths for internal links
+- Use full URLs for external links
+
+#### Lists
+
+**Bulleted lists**:
+```markdown
+- First item
+- Second item
+- Third item
+```
+
+**Nested lists**:
+```markdown
+- Parent item
+  - Child item
+  - Another child item
+- Another parent item
+```
+
+**Rules**:
+- Use `-` for bullets (not `*` or `+`)
+- Maintain consistent indentation (2 spaces)
+- Don't mix list styles
+
+#### Inline Code
+
+Use backticks for:
+- Variable names: `mas_instance_id`
+- File names: `README.md`
+- Commands: `oc apply`
+- Values: `true`, `false`, `None`
+- Environment variables: `MAS_INSTANCE_ID`
+
+**Example**:
+```markdown
+Set `mas_instance_id` to your instance ID. The default value is `None`.
+```
+
+### Quality Checklist for README Documentation
+
+Before submitting your README, verify:
+
+#### Structure
+- [ ] Title uses single `#` with role name
+- [ ] Description immediately follows title
+- [ ] All sections use correct heading levels
+- [ ] Sections appear in standard order
+- [ ] License section is last
+
+#### Content
+- [ ] Description is clear and complete
+- [ ] Prerequisites listed (if applicable)
+- [ ] All variables documented
+- [ ] Each variable has Required/Optional status
+- [ ] Each variable has Environment Variable name
+- [ ] Each variable has Default Value
+- [ ] Each variable has all 8 sections (Purpose, When to use, Valid values, Impact, Related variables, Notes)
+- [ ] Example Playbook is realistic and complete
+- [ ] Run Role Playbook matches Example Playbook
+
+#### Formatting
+- [ ] All code blocks have language tags
+- [ ] All links are valid
+- [ ] Inline code uses backticks
+- [ ] Lists use consistent formatting
+- [ ] No decorative separators
+
+#### Validation
+- [ ] Run validation script passes: `python build/scripts/validate_readme.py ibm/mas_devops/roles/your_role`
+- [ ] No spelling errors
+- [ ] No broken links
+- [ ] Examples are tested and work
+
+### Maintenance Guidelines
+
+#### When to Update README
+
+Update the README when:
+- Adding new variables
+- Changing variable behavior or defaults
+- Adding new features or capabilities
+- Deprecating variables or features
+- Fixing errors or clarifying documentation
+- Changing prerequisites
+
+#### Version Control
+
+- Include README updates in the same PR as code changes
+- Reference README changes in commit messages
+- Review README changes as part of code review
+
+#### Testing
+
+Before committing:
+1. Run validation script: `python build/scripts/validate_readme.py ibm/mas_devops/roles/your_role`
+2. Test example playbook
+3. Verify all links work
+4. Check formatting in rendered view
+
+### Tools and Resources
+
+#### Validation Script
+```bash
+python build/scripts/validate_readme.py ibm/mas_devops/roles/your_role
+```
+
+#### Template Files
+- `build/scripts/templates/README_TEMPLATE.md` - Base template
+- `build/scripts/templates/README_EXAMPLES.md` - Concrete examples
+
+#### Reference Documentation
+- Enhanced role examples: `suite_install`, `mongodb`, `ocp_provision`
+- [Markdown Guide](https://www.markdownguide.org/)
+- [Ansible Best Practices](https://docs.ansible.com/ansible/latest/user_guide/playbooks_best_practices.html)
+
+#### Getting Help
+- Review `build/scripts/templates/README_EXAMPLES.md` for concrete examples
+- Check existing well-formatted READMEs (e.g., `ibm_catalogs`, `aws_route53`)
+- Ask questions in team channels
+- Request review from documentation team
+
+### Variable Enhancement Project Status
+
+As of February 2026, all 86 roles in the collection have been enhanced with comprehensive variable documentation following the standards outlined above:
+- **100% role coverage** (86/86 roles)
+- **806 variables enhanced** with 8-section format
+- **Consistent quality** across all documentation
+- See `build/scripts/README_VARIABLE_ENHANCEMENT_COMPLETION.md` for full project summary
 
 ## Style Guide
 Failure to adhere to the style guide will result in a PR being rejected!

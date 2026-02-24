@@ -395,7 +395,6 @@ Comma-separated list of key=value labels to apply to Kafka resources.
 **Note**: This variable applies to Strimzi and Red Hat AMQ Streams providers. Labels help with resource organization and are especially useful in multi-tenant environments.
 
 IBM Cloud Evenstreams Role Variables
--------------------------------------
 
 ### ibmcloud_apikey
 Defines IBM Cloud API Key. This API Key needs to have access to manage (provision/deprovision) IBM Cloud Event Streams.
