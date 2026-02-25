@@ -724,7 +724,11 @@
     
       <cds-select-item value="#role-variables-general">Role Variables - General</cds-select-item>
     
+      <cds-select-item value="#role-variables-resource-requests">Role Variables - Resource Requests</cds-select-item>
+    
       <cds-select-item value="#role-variables-db2ucluster-database-configuration-settings">Role Variables - DB2UCluster Database Configuration Settings</cds-select-item>
+    
+      <cds-select-item value="#role-variables-mas-configuration">Role Variables - MAS Configuration</cds-select-item>
     
       <cds-select-item value="#role-variables-backup-and-restore">Role Variables - Backup and Restore</cds-select-item>
     
@@ -743,18 +747,53 @@
           <div class="rst-content">
             
             <h1 id="db2">db2<a class="headerlink" href="#db2" title="Permanent link">¤</a></h1>
-<p>This role creates or upgrades a Db2 instance using the Db2u Operator. When installing db2, the db2u operator will now be installed into the same namespace as the db2 instance (<code>db2ucluster</code>). If you already have db2 operator and db2 instances running in separate namespaces, this role will take care of migrating (by deleting &amp; reinstalling) the db2 operators from <code>ibm-common-services</code> to the namespace defined by <code>db2_namespace</code> property (in case of a new role execution for a db2 install or db2 upgrade). A private root CA certificate is created and is used to secure the TLS connections to the database. A Db2 Warehouse cluster will be created along with a public TLS encrypted route to allow external access to the cluster (access is via the ssl-server nodeport port on the <em>-db2u-engn-svc service). Internal access is via the </em>-db2u-engn-svc service and port 50001. Both the external route and the internal service use the same server certificate.</p>
+<p>This role creates or upgrades a Db2 instance using the Db2u Operator. When installing db2, the db2u operator will now be installed into the same namespace as the db2 instance. </p>
+<p><strong>IMPORTANT:</strong> The Db2uCluster resource is deprecated (replaced by Db2uInstance). This Ansible collection will retain support for Db2uCluster until it's eventual EOL.</p>
+<p>If you already have db2 operator and db2 instances running in separate namespaces, this role will migrate the db2 <strong>operators</strong> (not the instances) from <code>ibm-common-services</code> to the namespace defined by <code>db2_namespace</code> property (in case of a new role execution for a db2 install or db2 upgrade). A private root CA certificate is created and is used to secure the TLS connections to the database. A Db2 Warehouse cluster will be created along with a public TLS encrypted route to allow external access to the cluster (access is via the ssl-server nodeport port on the <em>-db2u-engn-svc service). Internal access is via the </em>-db2u-engn-svc service and port 50001. Both the external route and the internal service use the same server certificate.</p>
 <p>The private root CA certificate and the server certificate are available from the <code>db2u-ca</code> and <code>db2u-certificate</code> secrets in the db2 namespace.  The default user is <code>db2inst1</code> and the password is available in the <code>instancepassword</code> secret in the same namespace.  You can examine the deployed resources in the db2 namespace. This example assumes the default namespace <code>db2u</code>:</p>
-<pre><code class="language-bash">oc -n db2u get db2ucluster
+<pre><code class="language-bash">oc -n db2u get db2uinstance
 
 NAME        STATE   MAINTENANCESTATE   AGE
 db2u-db01   Ready   None               29m
 </code></pre>
 <p>It typically takes 20-30 minutes from the db2ucluster being created till it is ready. If the db2ucluster is not ready after that period then check that all the PersistentVolumeClaims in the db2 namespace are ready and that the pods in the namespace are not stuck in init state. If the <code>c-&lt;db2_instance_name&gt;-db2u-0</code> pod is running then you can exec into the pod and check the <code>/var/log/db2u.log</code> for any issue.</p>
 <p>If the <code>mas_instance_id</code> and <code>mas_config_dir</code> are provided then the role will generate the JdbcCfg yaml that can be used to configure MAS to connect to this database. It does not apply the yaml to the cluster but does provide you with the yaml files to apply if needed.</p>
-<p>When upgrading db2, specify the existing namespace where the <code>db2uCluster</code> instances exist. All the instances under that namespace will be upgraded to the db2 version specified. The version of db2 <strong>must</strong> match the channel of db2 being used for the upgrade.</p>
+<p>When upgrading db2, specify the existing namespace where the <code>Db2uInstance</code> instances exist. All the instances under that namespace will be upgraded to the db2 version specified. The version of db2 <strong>must</strong> match the channel of db2 being used for the upgrade.</p>
 <h2 id="role-variables-general">Role Variables - General<a class="headerlink" href="#role-variables-general" title="Permanent link">¤</a></h2>
 <h3 id="installation-variables">Installation Variables<a class="headerlink" href="#installation-variables" title="Permanent link">¤</a></h3>
+<h4 id="db2u_kind">db2u_kind<a class="headerlink" href="#db2u_kind" title="Permanent link">¤</a></h4>
+<p>Specifies which Db2 deployment type to use.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>DB2U_KIND</code></li>
+<li>Default: <code>db2ucluster</code></li>
+</ul>
+<p><strong>Purpose</strong>: Controls whether to deploy Db2uCluster (deprecated) or Db2uInstance (current). This variable enables explicit control over deployment type while maintaining backward compatibility with existing deployments.</p>
+<p><strong>When to use</strong>:
+- Use <code>db2ucluster</code> for maintaining existing deprecated deployments
+- Use <code>db2uinstance</code> (recommended) for all new deployments
+- <strong>IMPORTANT</strong>: Cannot change deployment type for existing instances - strict validation enforces this</p>
+<p><strong>Valid values</strong>: <code>db2ucluster</code>, <code>db2uinstance</code></p>
+<p><strong>Impact</strong>:
+- <code>db2ucluster</code>: Deploys deprecated Db2uCluster CR (for existing deployments only)
+- <code>db2uinstance</code>: Deploys current Db2uInstance CR (recommended for new deployments)
+- Strict validation ensures DB2U_KIND matches existing deployment type to prevent accidental changes
+- Attempting to change deployment type for an existing instance will fail with a clear error message</p>
+<p><strong>Related variables</strong>: Works with all db2 configuration variables. The deployment type affects which Kubernetes custom resource is created but uses the same underlying configuration variables.</p>
+<p><strong>Note</strong>: <strong>Db2uCluster is deprecated</strong>. New deployments should use <code>db2uinstance</code>. Existing Db2uCluster deployments will continue to work but cannot be automatically converted. The default value of <code>db2ucluster</code> ensures backward compatibility for existing automation and scripts.</p>
+<p><strong>Example usage</strong>:</p>
+<pre><code class="language-bash"># New deployment with Db2uInstance (recommended)
+export DB2U_KIND=db2uinstance
+export DB2_INSTANCE_NAME=my-new-db
+
+# Existing Db2uCluster deployment (backward compatible)
+export DB2U_KIND=db2ucluster
+export DB2_INSTANCE_NAME=my-existing-cluster
+
+# Default behavior (backward compatible)
+# If DB2U_KIND is not set, defaults to db2ucluster
+export DB2_INSTANCE_NAME=my-db
+</code></pre>
 <h4 id="common_services_namespace">common_services_namespace<a class="headerlink" href="#common_services_namespace" title="Permanent link">¤</a></h4>
 <p>OpenShift namespace where IBM Common Services is installed.</p>
 <ul>
@@ -1272,6 +1311,91 @@ db2u-db01   Ready   None               29m
 <li>Default: <code>ReadWriteOnce</code></li>
 </ul>
 <h3 id="resource-request-variables">Resource Request Variables<a class="headerlink" href="#resource-request-variables" title="Permanent link">¤</a></h3>
+<h3 id="db2_audit_logs_storage_class">db2_audit_logs_storage_class<a class="headerlink" href="#db2_audit_logs_storage_class" title="Permanent link">¤</a></h3>
+<p>Storage class used for audit logs. This must support ReadWriteMany(RWX) access mode.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>DB2_AUDIT_LOGS_STORAGE_CLASS</code></li>
+<li>Default: Defaults to <code>ibmc-block-gold</code> if the storage class is available in the cluster. Set to <code>None</code> will drop the tempts storage on Db2uInstace CR.</li>
+</ul>
+<h3 id="db2_audit_logs_storage_size">db2_audit_logs_storage_size<a class="headerlink" href="#db2_audit_logs_storage_size" title="Permanent link">¤</a></h3>
+<p>Size of audit logs persistent volume.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>DB2_AUDIT_LOGS_STORAGE_SIZE</code></li>
+<li>Default: <code>10Gi</code></li>
+</ul>
+<h3 id="db2_audit_logs_storage_accessmode">db2_audit_logs_storage_accessmode<a class="headerlink" href="#db2_audit_logs_storage_accessmode" title="Permanent link">¤</a></h3>
+<p>The access mode for the storage. This must support ReadWriteOnce(RWO) access mode.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>DB2_AUDIT_LOGS_STORAGE_ACCESSMODE</code></li>
+<li>Default: <code>ReadWriteOnce</code></li>
+</ul>
+<h3 id="db2_archivelogs_storage_class">db2_archivelogs_storage_class<a class="headerlink" href="#db2_archivelogs_storage_class" title="Permanent link">¤</a></h3>
+<p>Storage class used for archive logs. This must support ReadWriteMany(RWX) access mode.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>DB2_ARCHIVELOGS_STORAGE_CLASS</code></li>
+<li>Default: Defaults to <code>ibmc-block-gold</code> if the storage class is available in the cluster. Set to <code>None</code> will drop the tempts storage on Db2uInstace CR.</li>
+</ul>
+<h3 id="db2_archivelogs_storage_size">db2_archivelogs_storage_size<a class="headerlink" href="#db2_archivelogs_storage_size" title="Permanent link">¤</a></h3>
+<p>Size of audit logs persistent volume.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>DB2_ARCHIVELOGS_STORAGE_SIZE</code></li>
+<li>Default: <code>10Gi</code></li>
+</ul>
+<h3 id="db2_archivelogs_storage_accessmode">db2_archivelogs_storage_accessmode<a class="headerlink" href="#db2_archivelogs_storage_accessmode" title="Permanent link">¤</a></h3>
+<p>The access mode for the storage. This must support ReadWriteOnce(RWO) access mode.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>DB2_ARCHIVELOGS_STORAGE_ACCESSMODE</code></li>
+<li>Default: <code>ReadWriteOnce</code></li>
+</ul>
+<h3 id="db2_audit_logs_storage_class_1">db2_audit_logs_storage_class<a class="headerlink" href="#db2_audit_logs_storage_class_1" title="Permanent link">¤</a></h3>
+<p>Storage class used for audit logs. This must support ReadWriteMany(RWX) access mode.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>DB2_AUDIT_LOGS_STORAGE_CLASS</code></li>
+<li>Default: Defaults to <code>ibmc-block-gold</code> if the storage class is available in the cluster. Set to <code>None</code> will drop the tempts storage on Db2uInstace CR.</li>
+</ul>
+<h3 id="db2_audit_logs_storage_size_1">db2_audit_logs_storage_size<a class="headerlink" href="#db2_audit_logs_storage_size_1" title="Permanent link">¤</a></h3>
+<p>Size of audit logs persistent volume.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>DB2_AUDIT_LOGS_STORAGE_SIZE</code></li>
+<li>Default: <code>10Gi</code></li>
+</ul>
+<h3 id="db2_audit_logs_storage_accessmode_1">db2_audit_logs_storage_accessmode<a class="headerlink" href="#db2_audit_logs_storage_accessmode_1" title="Permanent link">¤</a></h3>
+<p>The access mode for the storage. This must support ReadWriteOnce(RWO) access mode.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>DB2_AUDIT_LOGS_STORAGE_ACCESSMODE</code></li>
+<li>Default: <code>ReadWriteOnce</code></li>
+</ul>
+<h3 id="db2_archivelogs_storage_class_1">db2_archivelogs_storage_class<a class="headerlink" href="#db2_archivelogs_storage_class_1" title="Permanent link">¤</a></h3>
+<p>Storage class used for archive logs. This must support ReadWriteMany(RWX) access mode.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>DB2_ARCHIVELOGS_STORAGE_CLASS</code></li>
+<li>Default: Defaults to <code>ibmc-block-gold</code> if the storage class is available in the cluster. Set to <code>None</code> will drop the tempts storage on Db2uInstace CR.</li>
+</ul>
+<h3 id="db2_archivelogs_storage_size_1">db2_archivelogs_storage_size<a class="headerlink" href="#db2_archivelogs_storage_size_1" title="Permanent link">¤</a></h3>
+<p>Size of audit logs persistent volume.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>DB2_ARCHIVELOGS_STORAGE_SIZE</code></li>
+<li>Default: <code>10Gi</code></li>
+</ul>
+<h3 id="db2_archivelogs_storage_accessmode_1">db2_archivelogs_storage_accessmode<a class="headerlink" href="#db2_archivelogs_storage_accessmode_1" title="Permanent link">¤</a></h3>
+<p>The access mode for the storage. This must support ReadWriteOnce(RWO) access mode.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>DB2_ARCHIVELOGS_STORAGE_ACCESSMODE</code></li>
+<li>Default: <code>ReadWriteOnce</code></li>
+</ul>
+<h2 id="role-variables-resource-requests">Role Variables - Resource Requests<a class="headerlink" href="#role-variables-resource-requests" title="Permanent link">¤</a></h2>
 <p>These variables allow you to customize the resources available to the Db2 pod in your cluster.  In most circumstances you will want to set these properties because it's impossible for us to provide a default value that will be appropriate for all users.  We have set defaults that are suitable for deploying Db2 onto a dedicated worker node with 4cpu and 16gb memory.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
@@ -1396,8 +1520,14 @@ db2u-db01   Ready   None               29m
 <li>Environment Variable: <code>DB2_NUM_PODS</code></li>
 <li>Default: 1</li>
 </ul>
-<h3 id="mas-configuration-variables">MAS Configuration Variables<a class="headerlink" href="#mas-configuration-variables" title="Permanent link">¤</a></h3>
-<h4 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h4>
+<h3 id="db2_addons_audit_config">db2_addons_audit_config<a class="headerlink" href="#db2_addons_audit_config" title="Permanent link">¤</a></h3>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>'DB2_ADDONS_AUDIT_CONFIG</code></li>
+<li>Default: ""</li>
+</ul>
+<h2 id="role-variables-mas-configuration">Role Variables - MAS Configuration<a class="headerlink" href="#role-variables-mas-configuration" title="Permanent link">¤</a></h2>
+<h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
 <p>Providing this and <code>mas_config_dir</code> will instruct the role to generate a JdbcCfg template that can be used to configure MAS to connect to this database.</p>
 <ul>
 <li>Optional</li>
@@ -1605,6 +1735,93 @@ ansible-playbook ibm.mas_devops.run_role
                         </a>
                       </li>
                       <li class="md-toc__item">
+                        <a href="#db2_audit_logs_storage_class" class="md-toc__link" data-md-level="2">
+                          db2_audit_logs_storage_class
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2_audit_logs_storage_size" class="md-toc__link" data-md-level="2">
+                          db2_audit_logs_storage_size
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2_audit_logs_storage_accessmode" class="md-toc__link" data-md-level="2">
+                          db2_audit_logs_storage_accessmode
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2_archivelogs_storage_class" class="md-toc__link" data-md-level="2">
+                          db2_archivelogs_storage_class
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2_archivelogs_storage_size" class="md-toc__link" data-md-level="2">
+                          db2_archivelogs_storage_size
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2_archivelogs_storage_accessmode" class="md-toc__link" data-md-level="2">
+                          db2_archivelogs_storage_accessmode
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2_audit_logs_storage_class_1" class="md-toc__link" data-md-level="2">
+                          db2_audit_logs_storage_class
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2_audit_logs_storage_size_1" class="md-toc__link" data-md-level="2">
+                          db2_audit_logs_storage_size
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2_audit_logs_storage_accessmode_1" class="md-toc__link" data-md-level="2">
+                          db2_audit_logs_storage_accessmode
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2_archivelogs_storage_class_1" class="md-toc__link" data-md-level="2">
+                          db2_archivelogs_storage_class
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2_archivelogs_storage_size_1" class="md-toc__link" data-md-level="2">
+                          db2_archivelogs_storage_size
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2_archivelogs_storage_accessmode_1" class="md-toc__link" data-md-level="2">
+                          db2_archivelogs_storage_accessmode
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#role-variables-resource-requests" class="md-toc__link" data-md-level="1">
+                  Role Variables - Resource Requests
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#db2_cpu_requests" class="md-toc__link" data-md-level="2">
+                          db2_cpu_requests
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2_cpu_limits" class="md-toc__link" data-md-level="2">
+                          db2_cpu_limits
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2_memory_requests" class="md-toc__link" data-md-level="2">
+                          db2_memory_requests
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2_memory_limits" class="md-toc__link" data-md-level="2">
+                          db2_memory_limits
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
                         <a href="#node-label-affinity-variables" class="md-toc__link" data-md-level="2">
                           Node Label Affinity Variables
                         </a>
@@ -1642,8 +1859,20 @@ ansible-playbook ibm.mas_devops.run_role
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#mas-configuration-variables" class="md-toc__link" data-md-level="2">
-                          MAS Configuration Variables
+                        <a href="#db2_addons_audit_config" class="md-toc__link" data-md-level="2">
+                          db2_addons_audit_config
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#role-variables-mas-configuration" class="md-toc__link" data-md-level="1">
+                  Role Variables - MAS Configuration
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#mas_instance_id" class="md-toc__link" data-md-level="2">
+                          mas_instance_id
                         </a>
                       </li>
                   </ul>

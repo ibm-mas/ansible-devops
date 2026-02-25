@@ -722,11 +722,17 @@
     <cds-select id="breadcrumbs-toc" inline placeholder="..." oninput="changeAnchor(this.value)">
     
     
-      <cds-select-item value="#what-this-role-does">What This Role Does</cds-select-item>
+      <cds-select-item value="#supported-db2-custom-resources">Supported Db2 Custom Resources</cds-select-item>
     
       <cds-select-item value="#role-variables">Role Variables</cds-select-item>
     
       <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
+    
+      <cds-select-item value="#cr-type-detection">CR Type Detection</cds-select-item>
+    
+      <cds-select-item value="#example-playbooks">Example Playbooks</cds-select-item>
+    
+      <cds-select-item value="#troubleshooting">Troubleshooting</cds-select-item>
     
       <cds-select-item value="#license">License</cds-select-item>
     
@@ -739,19 +745,15 @@
           <div class="rst-content">
             
             <h1 id="suite_db2_setup_for_manage">suite_db2_setup_for_manage<a class="headerlink" href="#suite_db2_setup_for_manage" title="Permanent link">¤</a></h1>
-<p>This role performs initial Db2 database setup required for Maximo Manage application. It configures database parameters, creates tablespaces, and applies performance optimizations that the Manage operator cannot yet handle automatically.</p>
-<div class="admonition note">
-<p class="admonition-title">Temporary Role</p>
-<p>This role exists as a workaround until the Manage operator can perform these setup tasks automatically. It supports both CP4D version 3.5 and 4.0.</p>
-</div>
-<h2 id="what-this-role-does">What This Role Does<a class="headerlink" href="#what-this-role-does" title="Permanent link">¤</a></h2>
+<p>This role performs initial setup on Db2 instances for use with the Maximo Manage application. It supports both CP4D version 3.5 and 4.0, and <strong>now supports both Db2uCluster (deprecated) and Db2uInstance (current) custom resources</strong>.</p>
+<p>The role will copy a bash script (setupdb.sh) into the Db2 pod and execute it inside the container, performing configuration changes to the database and configuring tablespaces for Maximo Manage.</p>
+<h2 id="supported-db2-custom-resources">Supported Db2 Custom Resources<a class="headerlink" href="#supported-db2-custom-resources" title="Permanent link">¤</a></h2>
 <ul>
-<li>Copies setup script (<code>setupdb.sh</code>) into Db2 pod</li>
-<li>Executes database configuration changes inside container</li>
-<li>Creates and configures tablespaces for Manage</li>
-<li>Applies enhanced Db2 performance parameters</li>
-<li>Optionally restarts Db2 instance to apply configuration</li>
+<li><strong>Db2uCluster</strong> (deprecated, maintained for backward compatibility)</li>
+<li><strong>Db2uInstance</strong> (current, recommended for new deployments)</li>
 </ul>
+<p>The role automatically detects which CR type is deployed and applies the appropriate configuration. No changes to your playbooks are required.
+This role performs initial Db2 database setup required for Maximo Manage application. It configures database parameters, creates tablespaces, and applies performance optimizations that the Manage operator cannot yet handle automatically.</p>
 <div class="admonition warning">
 <p class="admonition-title">Downtime Risk</p>
 <p>Setting <code>enforce_db2_config=true</code> will restart the Db2 instance, causing downtime. Schedule during maintenance windows or use with newly created instances.</p>
@@ -891,6 +893,7 @@ Start with 5GB and monitor usage. Tablespaces can be expanded later if needed.</
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>DB2_CONFIG_VERSION</code></li>
 <li>Default: <code>1.0.0</code></li>
+<li>Supported versions: <code>1.0.0</code></li>
 </ul>
 <p><strong>Purpose</strong>: Specifies the version of enhanced Db2 performance parameters to apply during setup.</p>
 <p><strong>When to use</strong>:
@@ -906,8 +909,12 @@ Start with 5GB and monitor usage. Tablespaces can be expanded later if needed.</
 <p>Force Db2 configuration with restart.</p>
 <ul>
 <li><strong>Optional</strong></li>
-<li>Environment Variable: <code>ENFORCE_DB2_CONFIG</code></li>
-<li>Default: <code>true</code></li>
+<li>
+<p>Environment Variable: <code>ENFORCE_DB2_CONFIG</code></p>
+</li>
+<li>
+<p>Default: <code>true</code></p>
+</li>
 </ul>
 <p><strong>Purpose</strong>: Controls whether enhanced Db2 parameters are applied with a database restart. Restart is required for parameters to take effect but causes downtime.</p>
 <p><strong>When to use</strong>:
@@ -922,18 +929,53 @@ Start with 5GB and monitor usage. Tablespaces can be expanded later if needed.</
 - <code>db2_config_version</code>: Version of parameters to apply</p>
 <p><strong>Note</strong>: <strong>CRITICAL</strong> - Setting to <code>true</code> will restart the Db2 instance, causing downtime for all applications using the database. Schedule during maintenance windows. For production systems, coordinate with stakeholders. For new instances, this is safe as no applications are using the database yet.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
+<h2 id="cr-type-detection">CR Type Detection<a class="headerlink" href="#cr-type-detection" title="Permanent link">¤</a></h2>
+<p>The role automatically:
+1. Queries for both Db2uCluster and Db2uInstance resources
+2. Validates that exactly one CR type exists
+3. Applies configuration appropriate for the detected CR type
+4. Fails with clear error messages if:
+   - No CR is found
+   - Both CR types exist (invalid state)
+   - CR is not in Ready state</p>
+<h2 id="example-playbooks">Example Playbooks<a class="headerlink" href="#example-playbooks" title="Permanent link">¤</a></h2>
+<h3 id="example-1-with-db2ucluster-legacy">Example 1: With Db2uCluster (Legacy)<a class="headerlink" href="#example-1-with-db2ucluster-legacy" title="Permanent link">¤</a></h3>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
-    db2_instancename: mydb2
-
+    db2_instance_name: mydb2-cluster
     db2_namespace: db2u
     db2_config_version: "1.0.0"
-
-    # It will cause downtime if set to true, please be careful.
     enforce_db2_config: true
   roles:
     - ibm.mas_devops.suite_db2_setup_for_manage
+</code></pre>
+<h3 id="example-2-with-db2uinstance-current">Example 2: With Db2uInstance (Current)<a class="headerlink" href="#example-2-with-db2uinstance-current" title="Permanent link">¤</a></h3>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    db2_instance_name: mydb2-instance
+    db2_namespace: db2u
+    db2_config_version: "1.0.0"
+    enforce_db2_config: true
+  roles:
+    - ibm.mas_devops.suite_db2_setup_for_manage
+</code></pre>
+<p><strong>Note</strong>: The playbook syntax is identical for both CR types. The role handles the differences automatically.</p>
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">¤</a></h2>
+<h3 id="error-both-db2ucluster-and-db2uinstance-resources-exist">Error: "Both Db2uCluster and Db2uInstance resources exist"<a class="headerlink" href="#error-both-db2ucluster-and-db2uinstance-resources-exist" title="Permanent link">¤</a></h3>
+<p>This indicates an invalid state. Ensure only one CR type exists:</p>
+<pre><code class="language-bash">oc get db2ucluster -n &lt;namespace&gt;
+oc get db2uinstance -n &lt;namespace&gt;
+</code></pre>
+<p>Delete the unwanted CR (Db2uInstance is recommended for new deployments).</p>
+<h3 id="error-no-db2-instance-found">Error: "No Db2 instance found"<a class="headerlink" href="#error-no-db2-instance-found" title="Permanent link">¤</a></h3>
+<p>Verify the instance name and namespace:</p>
+<pre><code class="language-bash">oc get db2ucluster,db2uinstance -n &lt;namespace&gt;
+</code></pre>
+<h3 id="configuration-not-applied">Configuration Not Applied<a class="headerlink" href="#configuration-not-applied" title="Permanent link">¤</a></h3>
+<p>Check the ConfigMap to see if configuration was already applied:</p>
+<pre><code class="language-bash">oc get configmap &lt;instance-name&gt;-enforce-config -n &lt;namespace&gt; -o yaml
 </code></pre>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">¤</a></h2>
 <p>EPL-2.0</p>
@@ -979,8 +1021,8 @@ Start with 5GB and monitor usage. Tablespaces can be expanded later if needed.</
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
               <li class="md-toc__item">
-                <a href="#what-this-role-does" class="md-toc__link" data-md-level="1">
-                  What This Role Does
+                <a href="#supported-db2-custom-resources" class="md-toc__link" data-md-level="1">
+                  Supported Db2 Custom Resources
                 </a>
               </li>
               <li class="md-toc__item">
@@ -1039,6 +1081,50 @@ Start with 5GB and monitor usage. Tablespaces can be expanded later if needed.</
                 <a href="#example-playbook" class="md-toc__link" data-md-level="1">
                   Example Playbook
                 </a>
+              </li>
+              <li class="md-toc__item">
+                <a href="#cr-type-detection" class="md-toc__link" data-md-level="1">
+                  CR Type Detection
+                </a>
+              </li>
+              <li class="md-toc__item">
+                <a href="#example-playbooks" class="md-toc__link" data-md-level="1">
+                  Example Playbooks
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#example-1-with-db2ucluster-legacy" class="md-toc__link" data-md-level="2">
+                          Example 1: With Db2uCluster (Legacy)
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#example-2-with-db2uinstance-current" class="md-toc__link" data-md-level="2">
+                          Example 2: With Db2uInstance (Current)
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#troubleshooting" class="md-toc__link" data-md-level="1">
+                  Troubleshooting
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#error-both-db2ucluster-and-db2uinstance-resources-exist" class="md-toc__link" data-md-level="2">
+                          Error: "Both Db2uCluster and Db2uInstance resources exist"
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#error-no-db2-instance-found" class="md-toc__link" data-md-level="2">
+                          Error: "No Db2 instance found"
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#configuration-not-applied" class="md-toc__link" data-md-level="2">
+                          Configuration Not Applied
+                        </a>
+                      </li>
+                  </ul>
               </li>
               <li class="md-toc__item">
                 <a href="#license" class="md-toc__link" data-md-level="1">
