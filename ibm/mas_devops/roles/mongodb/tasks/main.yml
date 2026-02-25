@@ -1,78 +1,13 @@
 ---
-# ibm/mas_devops/roles/mongodb/tasks/main.yml
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if mongodb_provider is not provided"
+  assert:
+    that: mongodb_provider is defined and mongodb_provider != ""
+    fail_msg: "mongodb_provider property is required"
 
-- name: "DEBUG: MongoDB role main.yml is executing"
-  debug:
-    msg:
-      - "=== MONGODB ROLE MAIN.YML STARTED ==="
-      - "mongodb_provider: {{ mongodb_provider | default('NOT SET') }}"
-      - "mongodb_action: {{ mongodb_action | default('NOT SET') }}"
-
-# MongoDB Atlas Provider - Provision Action
-# Creates a new MongoDB Atlas cluster with database users and network configuration
-- name: "Provision MongoDB Atlas cluster"
-  include_tasks: "{{ role_path }}/tasks/providers/atlas/provision.yml"
+# 2. Run the install / uninstall for specified provider
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/providers/{{ mongodb_provider }}/{{ mongodb_action }}.yml"
   when:
-    - mongodb_provider == "atlas"
-    - mongodb_action == "provision"
-
-# # MongoDB Atlas Provider - Install Action
-# # Connects to existing Atlas cluster and configures MAS integration
-# - name: "Install/Configure MongoDB Atlas for MAS"
-#   include_tasks: providers/atlas/install.yml
-#   when:
-#     - mongodb_provider == "atlas"
-#     - mongodb_action == "install"
-
-# # MongoDB Atlas Provider - Backup Action
-# - name: "Backup MongoDB Atlas cluster"
-#   include_tasks: providers/atlas/backup.yml
-#   when:
-#     - mongodb_provider == "atlas"
-#     - mongodb_action == "backup"
-
-# # MongoDB Atlas Provider - Restore Action
-# - name: "Restore MongoDB Atlas cluster"
-#   include_tasks: providers/atlas/restore.yml
-#   when:
-#     - mongodb_provider == "atlas"
-#     - mongodb_action == "restore"
-
-# MongoDB Atlas Provider - Configure VPC Peering Action
-# Configures VPC peering between AWS VPC and MongoDB Atlas
-- name: "Debug: Check mongodb variables"
-  debug:
-    msg:
-      - "mongodb_provider: {{ mongodb_provider }}"
-      - "mongodb_action: {{ mongodb_action }}"
-      - "Condition check: {{ (mongodb_provider == 'atlas') and (mongodb_action == 'configure_vpc_peering') }}"
-
-- name: "Configure MongoDB Atlas VPC Peering"
-  include_tasks: "{{ role_path }}/tasks/providers/atlas/configure_vpc_peering.yml"
-  when:
-    - mongodb_provider == "atlas"
-    - mongodb_action == "configure_vpc_peering"
-
-# MongoDB Atlas Provider - Deconfigure VPC Peering Action
-# Removes VPC peering routes from AWS route tables
-- name: "Deconfigure MongoDB Atlas VPC Peering"
-  include_tasks: "{{ role_path }}/tasks/providers/atlas/deconfigure_vpc_peering.yml"
-  when:
-    - mongodb_provider == "atlas"
-    - mongodb_action == "deconfigure_vpc_peering"
-
-# MongoDB Atlas Provider - Deprovision Action
-# Deletes the Atlas cluster and cleans up all associated resources
-- name: "Deprovision MongoDB Atlas cluster"
-  include_tasks: "{{ role_path }}/tasks/providers/atlas/deprovision.yml"
-  when:
-    - mongodb_provider == "atlas"
-    - mongodb_action == "deprovision"
-
-# MongoDB Atlas Provider - Uninstall Action
-# Alias for deprovision - deletes the Atlas cluster and cleans up all associated resources
-- name: "Uninstall MongoDB Atlas cluster"
-  include_tasks: "{{ role_path }}/tasks/providers/atlas/deprovision.yml"
-  when:
-    - mongodb_provider == "atlas"
-    - mongodb_action == "uninstall"
+    - mongodb_action != "none"
