@@ -31,6 +31,13 @@ Key features:
 
 ### Required Variables
 
+#### mas_instance_id
+Instance ID of the MAS instance. This is used to identify the backup directories.
+
+- **Required**
+- Environment Variable: `MAS_INSTANCE_ID`
+- Default Value: None
+
 #### mas_restore_dir
 Directory where the backup archive will be downloaded and extracted. This is the parent directory where all component backup directories will be restored.
 
@@ -188,7 +195,7 @@ Whether to download Manage app archive (`-app-manage.tar.gz`) from S3 or Artifac
 **Important:** When set to `false`, the role will automatically skip downloading manage-app archive from S3 or Artifactory. This prevents unnecessary downloads when manage component restore is not needed.
 
 - **Optional**
-- Environment Variable: `INCLUDE_MANAGE_DB_ARCHIVE`
+- Environment Variable: `INCLUDE_MANAGE_APP_ARCHIVE`
 - Default Value: `true`
 
 #### include_manage_db_archive

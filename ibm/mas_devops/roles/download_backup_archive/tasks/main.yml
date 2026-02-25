@@ -59,7 +59,7 @@
 - name: "Filter out manage app archive when include_manage_app_archive is false"
   ansible.builtin.set_fact:
     backup_archives_to_download: "{{ backup_archives_to_download | reject('search', '-app-manage\\.tar\\.gz$') | list }}"
-  when: not (include_manage_db_archive | bool)
+  when: not (include_manage_app_archive | bool)
 
 # Filter out manage archives if include_manage_db_archive is false
 - name: "Filter out manage archives when include_manage_db_archive is false"
@@ -108,6 +108,13 @@
 - name: "Create temporary directory for download"
   ansible.builtin.file:
     path: "{{ backup_temp_dir }}"
+    state: directory
+    mode: '0755'
+
+# Download from S3, boto3 needs this base directory for bucket base dir
+- name: "Create temporary base directory"
+  ansible.builtin.file:
+    path: "{{ backup_temp_dir }}/mas-{{ mas_instance_id }}-backups"
     state: directory
     mode: '0755'
 
