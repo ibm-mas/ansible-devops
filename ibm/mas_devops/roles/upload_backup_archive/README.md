@@ -159,19 +159,19 @@ Artifactory API token for authentication.
 - Environment Variable: `ARTIFACTORY_TOKEN`
 - Default Value: None
 
-#### artifactory_url
-Base URL of the Artifactory server (e.g., `https://artifactory.example.com/artifactory`).
-
-- **Required for Artifactory upload**
-- Environment Variable: `ARTIFACTORY_URL`
-- Default Value: None
-
 #### artifactory_repository
 Name of the Artifactory repository where the archive will be uploaded.
 
 - **Required for Artifactory upload**
 - Environment Variable: `ARTIFACTORY_REPOSITORY`
 - Default Value: None
+
+#### artifactory_url
+Base URL of the Artifactory server (e.g., `https://artifactory.example.com/artifactory`).
+
+- **Optional**
+- Environment Variable: `ARTIFACTORY_URL`
+- Default Value: `https://na.artifactory.swg-devops.com/artifactory`
 
 ### General Configuration
 
