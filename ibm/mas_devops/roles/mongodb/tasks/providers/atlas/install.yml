@@ -222,7 +222,125 @@
 - name: "Create database users"
   include_tasks: "providers/atlas/create_database_users.yml"
 
-# 8. Configure VPC peering (if enabled)
+# 8. Enable backup compliance policy (if enabled)
+# -----------------------------------------------------------------------------
+- name: "Enable backup compliance policy"
+  when:
+    - atlas_backup_compliance_enabled | default(false) | bool
+  block:
+    - name: "Check if backup compliance policy is already enabled"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/backupCompliancePolicy"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: [200, 404]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_compliance_check
+      retries: 3
+      delay: 5
+      failed_when: false
+
+    - name: "Determine if policy needs to be enabled"
+      set_fact:
+        atlas_compliance_needs_enable: "{{ atlas_compliance_check.status == 404 or (atlas_compliance_check.status == 200 and (atlas_compliance_check.json == {} or atlas_compliance_check.json.state is not defined)) }}"
+
+    - name: "Prepare backup compliance policy body"
+      when: atlas_compliance_needs_enable | bool
+      set_fact:
+        atlas_compliance_body:
+          projectId: "{{ atlas_project_id }}"
+          authorizedEmail: "{{ atlas_compliance_authorized_email | default('admin@example.com') }}"
+          authorizedUserFirstName: "{{ atlas_compliance_authorized_first_name | default('Admin') }}"
+          authorizedUserLastName: "{{ atlas_compliance_authorized_last_name | default('User') }}"
+          copyProtectionEnabled: "{{ atlas_compliance_copy_protection | default(false) | bool }}"
+          encryptionAtRestEnabled: "{{ atlas_compliance_encryption_at_rest | default(false) | bool }}"
+          pitEnabled: "{{ atlas_compliance_pit_enabled | default(false) | bool }}"
+          restoreWindowDays: "{{ atlas_compliance_restore_window_days | default(7) | int }}"
+          onDemandPolicyItem:
+            frequencyInterval: "{{ atlas_compliance_ondemand_frequency_interval | default(0) | int }}"
+            retentionUnit: "{{ atlas_compliance_ondemand_retention_unit | default('days') }}"
+            retentionValue: "{{ atlas_compliance_ondemand_retention_value | default(7) | int }}"
+          scheduledPolicyItems:
+            - frequencyInterval: "{{ atlas_compliance_scheduled_frequency_interval | default(1) | int }}"
+              frequencyType: "{{ atlas_compliance_scheduled_frequency_type | default('daily') }}"
+              retentionUnit: "{{ atlas_compliance_scheduled_retention_unit | default('days') }}"
+              retentionValue: "{{ atlas_compliance_scheduled_retention_value | default(7) | int }}"
+
+    - name: "Debug - Show compliance policy body"
+      when: atlas_compliance_needs_enable | bool
+      debug:
+        msg: "Compliance policy body: {{ atlas_compliance_body | to_json }}"
+
+    - name: "Enable backup compliance policy with configuration"
+      when: atlas_compliance_needs_enable | bool
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/backupCompliancePolicy"
+        method: PUT
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        body: "{{ atlas_compliance_body | to_json }}"
+        body_format: json
+        status_code: [200, 201, 500]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_compliance_enable
+      ignore_errors: yes
+
+    - name: "Debug - Show compliance enable response"
+      when: atlas_compliance_needs_enable | bool
+      debug:
+        var: atlas_compliance_enable
+
+    - name: "Fail if compliance policy enable failed (non-500 error)"
+      when:
+        - atlas_compliance_needs_enable | bool
+        - atlas_compliance_enable.status is defined
+        - atlas_compliance_enable.status not in [200, 201, 500]
+      fail:
+        msg: "Failed to enable backup compliance policy: {{ atlas_compliance_enable.json | default(atlas_compliance_enable.msg) }}"
+
+    - name: "Verify backup compliance policy was enabled"
+      when: atlas_compliance_needs_enable | bool
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/backupCompliancePolicy"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: [200, 404]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_compliance_verify
+      ignore_errors: yes
+
+    - name: "Backup compliance policy status"
+      debug:
+        msg:
+          - "=========================================="
+          - "Backup Compliance Policy Status"
+          - "=========================================="
+          - "API Response Status: {{ atlas_compliance_enable.status | default('N/A') if atlas_compliance_needs_enable else 'Not Attempted' }}"
+          - "Enable Attempted: {{ 'Yes' if atlas_compliance_needs_enable else 'No (Already Enabled)' }}"
+          - "Enable Result: {{ 'HTTP 500 - Feature may not be available' if (atlas_compliance_needs_enable and atlas_compliance_enable.status == 500) else ('Success' if (atlas_compliance_needs_enable and atlas_compliance_enable.status in [200, 201]) else 'N/A') }}"
+          - "Verification Status: {{ atlas_compliance_verify.status | default('Not Verified') if atlas_compliance_needs_enable else 'N/A' }}"
+          - "Actually Enabled: {{ 'Yes' if (atlas_compliance_verify.status is defined and atlas_compliance_verify.status == 200) else ('No - Feature may not be supported' if (atlas_compliance_verify.status is defined and atlas_compliance_verify.status == 404) else 'Unknown') }}"
+          - "---"
+          - "Configuration Requested:"
+          - "  Authorized Email: {{ atlas_compliance_authorized_email | default('admin@example.com') }}"
+          - "  Restore Window: {{ atlas_compliance_restore_window_days | default(7) }} days"
+          - "  Copy Protection: {{ atlas_compliance_copy_protection | default(false) }}"
+          - "  Encryption at Rest: {{ atlas_compliance_encryption_at_rest | default(false) }}"
+          - "  Point-in-Time: {{ atlas_compliance_pit_enabled | default(false) }}"
+          - "  Project ID: {{ atlas_project_id }}"
+          - "---"
+          - "Note: HTTP 500 errors may indicate:"
+          - "  - Backup compliance not available for this cluster tier"
+          - "  - Feature requires specific Atlas organization settings"
+          - "  - Feature not available in this region"
+          - "=========================================="
+
+# 9. Configure VPC peering (if enabled)
 # -----------------------------------------------------------------------------
 - name: "Debug VPC peering configuration variables"
   debug:
@@ -439,3 +557,4 @@
       - "Connection String (SRV) ..... {{ atlas_standard_srv }}"
       - "Database User ............... {{ atlas_db_username }}"
       - "Cluster State ............... {{ atlas_cluster_status.json.stateName }}"
+
