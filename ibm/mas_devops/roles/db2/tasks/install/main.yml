@@ -81,6 +81,8 @@
       - "Backup ................................. {{ db2_backup_storage_class }} - {{ db2_backup_storage_size }} @ {{ db2_backup_storage_accessmode }}"
       - "Logs ................................... {{ db2_logs_storage_class }} - {{ db2_logs_storage_size }} @ {{ db2_logs_storage_accessmode }}"
       - "Temp ................................... {{ db2_temp_storage_class }} - {{ db2_temp_storage_size }} @ {{ db2_temp_storage_accessmode }}"
+      - "Archive Logs ............................{{ db2_archivelogs_storage_class }} - {{ db2_archivelogs_storage_size }} @ {{ db2_archivelogs_storage_accessmode }}"
+      - "Audit Logs ..............................{{ db2_audit_logs_storage_class }} - {{ db2_audit_logs_storage_size }} @ {{ db2_audit_logs_storage_accessmode }}"
 
 # Lookup db2 operator group
 - name: "Check if operator group is present in {{ db2_namespace }} namespace already"
@@ -344,48 +346,80 @@
       - "Db2 Channel ............................ {{ db2_channel }}"
       - "Db2 Version ............................ {{ db2_version }}"
 
-# 12. Lookup db2 instance to see if it exists already
+# 12. Display deprecation notice for Db2uCluster
 # -----------------------------------------------------------------------------
-- name: "See if db2u instance already exists"
+- name: "Notice of deprecation of Db2uCluster"
+  when: db2u_kind == "db2ucluster"
+  ansible.builtin.debug:
+    msg:
+      - "Deprecation Notice: The Db2uCluster resource is deprecated (replaced by Db2uInstance)."
+      - "This Ansible collection will retain support for Db2uCluster until it's eventual EOL."
+
+# 13. Detect existing Db2uCluster deployment
+# -----------------------------------------------------------------------------
+- name: "Detect existing Db2uCluster CR"
   kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ db2_instance_name | lower }}"
-    namespace: "{{db2_namespace}}"
+    namespace: "{{ db2_namespace }}"
     kind: Db2uCluster
   register: initial_db2_cluster_lookup
 
-# 13. Create a Db2 instance
+# 14. Strict validation: Ensure DB2U_KIND matches existing deployment
 # -----------------------------------------------------------------------------
-- name: "Create db2 instance"
-  kubernetes.core.k8s:
-    apply: yes
-    template: "templates/db2ucluster.yml.j2"
+- name: "Set detected deployment type"
+  set_fact:
+    detected_db2u_kind: "{{ 'db2ucluster' if (initial_db2_cluster_lookup.resources is defined and initial_db2_cluster_lookup.resources | length == 1) else 'db2uinstance' }}"
 
+- name: "Debug deployment type information"
+  ansible.builtin.debug:
+    msg:
+      - "Requested DB2U_KIND .................... {{ db2u_kind }}"
+      - "Detected deployment type ............... {{ detected_db2u_kind }}"
+      - "Existing Db2uCluster found ............. {{ (initial_db2_cluster_lookup.resources is defined and initial_db2_cluster_lookup.resources | length == 1) | string }}"
+
+- name: "Validate DB2U_KIND matches existing deployment (strict mode)"
+  when:
+    - initial_db2_cluster_lookup.resources is defined
+    - initial_db2_cluster_lookup.resources | length == 1
+  assert:
+    that:
+      - db2u_kind == detected_db2u_kind
+    fail_msg: |
+      DB2U_KIND MISMATCH DETECTED!
+
+      Requested DB2U_KIND: {{ db2u_kind }}
+      Existing deployment: {{ detected_db2u_kind }}
+      Instance name:       {{ db2_instance_name }}
+      Namespace:           {{ db2_namespace }}
+
+      ERROR: Cannot change deployment type for existing Db2 instance.
+
+      RESOLUTION:
+      - To manage existing Db2uCluster: Set DB2U_KIND=db2ucluster
+      - To deploy new Db2uInstance: Use a different instance name
+
+# 15. Deploy Db2uCluster (for existing or explicitly requested deployments)
+# -----------------------------------------------------------------------------
+- name: "Deploy Db2uCluster"
+  include_tasks: tasks/db2ucluster.yml
+  when: db2u_kind == "db2ucluster"
+
+# 16. Deploy Db2uInstance (recommended for new deployments)
+# -----------------------------------------------------------------------------
+- name: "Deploy Db2uInstance"
+  include_tasks: tasks/db2uinstance.yml
+  when: db2u_kind == "db2uinstance"
+
+# 17. Set db2 instance timezone
+# -----------------------------------------------------------------------------
 - name: "Set db2 instance timezone"
   include_tasks: "tasks/install/setup_timezone.yml"
   when:
     - db2_timezone is defined
     - db2_timezone != ""
 
-# 14. Wait for the cluster to be ready
-# -----------------------------------------------------------------------------
-- name: "Wait for db2u instance to be ready (5m delay)"
-  kubernetes.core.k8s_info:
-    api_version: db2u.databases.ibm.com/v1
-    name: "{{ db2_instance_name | lower }}"
-    namespace: "{{db2_namespace}}"
-    kind: Db2uCluster
-  register: db2_cluster_lookup
-  until:
-    - db2_cluster_lookup.resources is defined
-    - db2_cluster_lookup.resources | length == 1
-    - db2_cluster_lookup.resources[0].status is defined
-    - db2_cluster_lookup.resources[0].status.state is defined
-    - db2_cluster_lookup.resources[0].status.state == "Ready"
-  retries: 24 # Approximately 2 hours before we give up
-  delay: 300 # 5 minutes
-
-# 15. Configure a public route for Db2
+# 18. Configure a public route for Db2
 # -----------------------------------------------------------------------------
 - name: Lookup db2u Engn Service
   kubernetes.core.k8s_info:
@@ -451,7 +485,7 @@
     state: absent
 
 
-## 16. create an LDAP user if db2_ldap_username specified
+## 19. create an LDAP user if db2_ldap_username specified
 # -----------------------------------------------------------------------------
 - name: Create LDAP user if username and password is provided
   include_tasks: tasks/install/create_ldap_user.yml
@@ -467,7 +501,7 @@
       - "{{db2_ldap_username}}"
       - "{{db2_rotate_password}}"
 
-# 17. Rotate db2 ldap password
+# 20. Rotate db2 ldap password
 # -----------------------------------------------------------------------------
 - name: Rotate Db2 LDAP password if db2_rotate_password is True and username is provided
   include_tasks: tasks/install/rotate_ldap_user_password.yml
@@ -476,26 +510,7 @@
     - db2_ldap_username != ""
     - db2_rotate_password == true
 
-# 18. Wait for the statefulset to be ready
-# -----------------------------------------------------------------------------
-- name: "Wait for Db2 Stateful set to be ready"
-  kubernetes.core.k8s_info:
-    api_version: apps/v1
-    kind: StatefulSet
-    name: "c-{{ db2_instance_name | lower }}-db2u"
-    namespace: "{{ db2_namespace }}"
-  register: db2_sts
-  until:
-    - db2_sts.resources is defined
-    - db2_sts.resources | length > 0
-    - db2_sts.resources[0].status is defined
-    - db2_sts.resources[0].status.replicas is defined
-    - db2_sts.resources[0].status.readyReplicas is defined
-    - db2_sts.resources[0].status.readyReplicas == db2_sts.resources[0].status.replicas
-  retries: 20 # approx 10 minutes before we give up
-  delay: 30 # seconds
-
-# 19. Generate a JdbcCfg for MAS configuration
+# 21. Generate a JdbcCfg for MAS configuration
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/install/suite_jdbccfg.yml
   when:
