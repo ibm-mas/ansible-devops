@@ -144,9 +144,9 @@
       loop_control:
         loop_var: pv_item
 
-    # Create dummy pod to mount PVCs
+    # Create helper pod to mount PVCs
     # ---------------------------------------------------------------------
-    - name: "Create dummy pod for PVC data restoration"
+    - name: "Create PV restore helper pod for PVC data restoration"
       kubernetes.core.k8s:
         state: present
         definition:
@@ -162,7 +162,7 @@
             restartPolicy: Never
             containers:
               - name: restore-container
-                image: registry.redhat.io/ubi8/ubi-minimal:latest
+                image: registry.redhat.io/ubi8/ubi:latest
                 command: ["/bin/sh", "-c", "sleep infinity"]
                 volumeMounts: "{{ volume_mounts }}"
             volumes: "{{ volumes }}"
@@ -181,7 +181,7 @@
           {{ vols }}
       register: dummy_pod_created
 
-    - name: "Wait for dummy pod to be running"
+    - name: "Wait for helper pod to be running"
       kubernetes.core.k8s_info:
         api_version: v1
         kind: Pod
@@ -208,7 +208,7 @@
         msg:
           - "Restore pod: {{ restore_pod_name }}"
           - "Container: {{ restore_pod_container }}"
-          - "Using dummy pod: {{ using_dummy_pod }}"
+          - "Using helper pod: {{ using_dummy_pod }}"
 
     - name: "Restore each persistent volume"
       include_tasks: "{{ role_path }}/tasks/manage/restore-single-pv.yml"
@@ -217,7 +217,7 @@
         loop_var: pv_item
         index_var: pv_index
 
-    # Shutdown dummy pod if created
+    # Shutdown helper pod if created
     # -------------------------------------------------------------------------
     - name: "Shutdown dummy pod"
       when: using_dummy_pod | default(false)
@@ -232,9 +232,9 @@
             wait: yes
             wait_timeout: 300
 
-        - name: "Dummy pod deleted successfully"
+        - name: "Helper pod deleted successfully"
           debug:
-            msg: "Dummy restore pod {{ restore_pod_name }} has been deleted"
+            msg: "Helper restore pod {{ restore_pod_name }} has been deleted"
 
     - name: "Display PV restore completion"
       debug:
