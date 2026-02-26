@@ -432,7 +432,36 @@
     kind: Db2uCluster
   register: initial_db2_cluster_lookup
 
-# 13. Create a Db2 instance
+# 13. Read LDAP searcher password from secret if LDAP is configured (helm operator only)
+# -----------------------------------------------------------------------------
+- name: "Read LDAP searcher password from secret"
+  when:
+    - db2_use_helm_operator | default(false) | bool
+    - db2_ldap_configmap is defined
+    - db2_ldap_configmap != ""
+    - db2_ldap_searcher_password_secret is defined
+    - db2_ldap_searcher_password_secret != ""
+  block:
+    - name: "Lookup LDAP searcher password secret"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        name: "{{ db2_ldap_searcher_password_secret }}"
+        namespace: "{{ db2_namespace }}"
+      register: _ldap_searcher_secret
+      failed_when:
+        - _ldap_searcher_secret.resources is not defined or (_ldap_searcher_secret.resources | length == 0)
+
+    - name: "Extract LDAP searcher password from secret"
+      set_fact:
+        db2_ldap_searcher_password: "{{ _ldap_searcher_secret.resources[0].data[db2_ldap_searcher_password_key] | b64decode }}"
+      when:
+        - _ldap_searcher_secret.resources is defined
+        - _ldap_searcher_secret.resources | length > 0
+        - _ldap_searcher_secret.resources[0].data is defined
+        - _ldap_searcher_secret.resources[0].data[db2_ldap_searcher_password_key] is defined
+
+# 14. Create a Db2 instance
 # -----------------------------------------------------------------------------
 - name: "Create db2 instance (Db2uInstance)"
   when: db2_use_helm_operator | default(false) | bool
