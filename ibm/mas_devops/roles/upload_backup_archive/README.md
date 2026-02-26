@@ -175,13 +175,6 @@ Base URL of the Artifactory server (e.g., `https://artifactory.example.com/artif
 
 ### General Configuration
 
-#### backup_archive_name
-Name of the tar.gz archive file that will be created and uploaded.
-
-- **Optional**
-- Environment Variable: None
-- Default Value: `mas-backup-{{ backup_version }}.tar.gz`
-
 #### backup_temp_dir
 Temporary directory where the archive will be created before upload. The directory is created if it doesn't exist and cleaned up after upload.
 

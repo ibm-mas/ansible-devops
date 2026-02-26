@@ -395,7 +395,8 @@ After successful execution, the role will extract the backup archive to the rest
 ├── backup-20260117-191500-certmanager/
 ├── backup-20260117-191500-sls/
 ├── backup-20260117-191500-mongoce/
-├── backup-20260117-191500-db2u/
+├── backup-20260117-191500-app-<appid>/
+├── backup-20260117-191500-db2u-<appid>/
 └── backup-20260117-191500-suite/
 ```
 
