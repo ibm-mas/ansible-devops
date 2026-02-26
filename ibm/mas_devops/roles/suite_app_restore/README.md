@@ -79,6 +79,14 @@ Delay in seconds between status checks when waiting for ManageWorkspace to becom
 - Environment Variable: `MAS_APP_RESTORE_WAIT_DELAY`
 - Default: `360`
 
+### helper_pod_image
+Name of the image to use by the PVC-restore-helper pod. This pod will be deployed on the app's namespace to mount PVC volumes and extract the pvc backup to the mounted path.
+Image must have `tar` installed for `oc cp` to work.
+
+- Optional
+- Environment Variable: `HELPER_POD_IMAGE`
+- Default: `registry.redhat.io/ubi9/ubi:latest`
+
 ### override_storageclass
 Enable or disable storage class override during restore. When enabled, the restore process will use custom storage classes instead of the storage classes from the backup.
 
