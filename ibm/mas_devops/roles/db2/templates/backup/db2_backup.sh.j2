@@ -124,7 +124,8 @@ function startDB()
 DATABASE={{ db2_dbname }}
 BACKUP_TYPE={{ backup_type }}
 VENDOR={{ backup_vendor }}
-###  for S3, BACKUP_PATH=DB2REMOTE://{{ backup_s3_alias }}/{{ backup_s3_bucket }}/backups-db2/{{ db2_backup_version }}
+APP_ID={{ mas_application_id }}
+###  for S3, BACKUP_PATH=DB2REMOTE://{{ backup_s3_alias }}/{{ backup_s3_bucket }}/backups-db2-{{ mas_application_id }}/{{ db2_backup_version }}
 ###  for disk, BACKUP_PATH=/mnt/backup/{{ db2_backup_version }}/data
 BACKUP_PATH={{ full_backup_path }}
 DB2_BACKUP_VERSION={{ db2_backup_version }}
@@ -284,6 +285,7 @@ YAML_FILE=/tmp/db2-backup-info.yaml
 cat <<EOT >> ${YAML_FILE}
 source_db2_backup_version: {{ db2_backup_version }}
 database: ${DATABASE}
+app_id: ${APP_ID}
 backup_type: ${BACKUP_TYPE}
 backup_vendor: ${VENDOR}
 vendor_backup_path: ${BACKUP_PATH}
@@ -308,7 +310,7 @@ if [ ${VENDOR} = 'disk' ] ; then
 	cp ${YAML_FILE} ${BACKUP_PATH}/db2-backup-info.yaml
 	echo ""
 	echo "INFO: Creating tar archive of backup files..."
-	tar -czf ${DISK_BACKUP_BASE}/db2-${DATABASE}-backup-${DB2_BACKUP_VERSION}.tar.gz -C ${BACKUP_PATH} .
+	tar -czf ${DISK_BACKUP_BASE}/db2-${APP_ID}-${DATABASE}-backup-${DB2_BACKUP_VERSION}.tar.gz -C ${BACKUP_PATH} .
 	echo "INFO: Tar archive created successfully"
 	echo ""
 	echo "Disk Usage:"

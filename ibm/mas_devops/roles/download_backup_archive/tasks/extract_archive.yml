@@ -1,27 +1,42 @@
 ---
-# Extract downloaded backup archive
-- name: "Verify archive exists before extraction"
+# Extract downloaded backup archives
+- name: "Verify archives exist before extraction"
   ansible.builtin.stat:
-    path: "{{ backup_temp_dir }}/{{ backup_archive_name }}"
-  register: archive_stat
+    path: "{{ backup_temp_dir }}/mas-{{ mas_instance_id }}-backups/{{ item }}"
+  register: archives_stat
+  loop: "{{ backup_archives_to_download }}"
 
-- name: "Fail if archive does not exist"
+- name: "Check for missing archives"
+  ansible.builtin.set_fact:
+    missing_archives_for_extraction: "{{ archives_stat.results | selectattr('stat.exists', 'equalto', false) | map(attribute='item') | list }}"
+
+- name: "Fail if any archive does not exist"
   ansible.builtin.fail:
-    msg: "Archive {{ backup_temp_dir }}/{{ backup_archive_name }} does not exist"
-  when: not archive_stat.stat.exists
+    msg: "{{ missing_archives_for_extraction | length }} archive(s) do not exist: {{ missing_archives_for_extraction | join(', ') }}"
+  when: missing_archives_for_extraction | length > 0
 
 - name: "Display extraction information"
   ansible.builtin.debug:
     msg:
-      - "Extracting archive: {{ backup_archive_name }}"
-      - "Archive size: {{ (archive_stat.stat.size / 1024 / 1024) | round(2) }} MB"
+      - "Extracting {{ backup_archives_to_download | length }} archive(s)"
+      - "Total size: {{ (archives_stat.results | map(attribute='stat.size') | sum / 1024 / 1024) | round(2) }} MB"
       - "Extract to: {{ mas_restore_dir }}"
 
-- name: "Extract tar.gz archive to restore directory"
+- name: "Extract tar.gz archives to restore directory"
   ansible.builtin.command:
-    cmd: "tar -xzf {{ backup_temp_dir }}/{{ backup_archive_name }} -C {{ mas_restore_dir }}"
-  register: tar_extract_result
-  changed_when: tar_extract_result.rc == 0
+    cmd: "tar -xzf {{ backup_temp_dir }}/mas-{{ mas_instance_id }}-backups/{{ item }} -C {{ mas_restore_dir }}"
+  register: tar_extract_results
+  changed_when: tar_extract_results.rc == 0
+  loop: "{{ backup_archives_to_download }}"
+
+- name: "Check for extraction failures"
+  ansible.builtin.set_fact:
+    failed_extractions: "{{ tar_extract_results.results | selectattr('rc', 'ne', 0) | map(attribute='item') | list }}"
+
+- name: "Fail if any extraction failed"
+  ansible.builtin.fail:
+    msg: "Failed to extract {{ failed_extractions | length }} archive(s): {{ failed_extractions | join(', ') }}"
+  when: failed_extractions | length > 0
 
 - name: "List extracted directories"
   ansible.builtin.find:
@@ -33,7 +48,7 @@
 - name: "Display extraction result"
   ansible.builtin.debug:
     msg:
-      - "Successfully extracted {{ backup_archive_name }}"
+      - "Successfully extracted {{ backup_archives_to_download | length }} archive(s)"
       - "Extracted {{ extracted_dirs.files | length }} backup directories to {{ mas_restore_dir }}"
       - "Directories: {{ extracted_dirs.files | map(attribute='path') | map('basename') | list }}"
 

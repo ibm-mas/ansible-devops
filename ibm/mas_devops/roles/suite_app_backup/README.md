@@ -126,18 +126,22 @@ The role creates a backup directory with the following structure:
 
 ```
 <mas_backup_dir>/
-└── backup-<version>-manage-<workspace_id>/
-    ├── namespace/
-    │   ├── ManageApp-<instance_id>.yaml
-    │   ├── ManageWorkspace-<instance_id>-<workspace_id>.yaml
-    │   ├── Secret-<workspace_id>-manage-encryptionsecret.yaml
-    │   ├── Secret-<workspace_id>-manage-encryptionsecret-operator.yaml
-    │   ├── Subscription-ibm-mas-manage.yaml
+└── backup-<version>-app-manage/
+    ├── resources/
+    │   ├── projects
+    │   │   └── mas-<instance_id>-manage.yaml
+    |   ├── secrets
+    │   │   └── <secret1_name>.yaml
+    │   │   └── <secret2_name>.yaml
+    |   ├── configmaps
+    │   │   └── <configmap1_name>.yaml
+    │   │   └── <configmap2_name>.yaml
+    |   ├── subscriptions
+    │   │   └── <subscription_name>.yaml
     │   └── ... (other resources)
     └── data/
         ├── <pvc-name-1>.tar.gz
         ├── <pvc-name-2>.tar.gz
-        └── ... (one archive per PVC)
 ```
 
 

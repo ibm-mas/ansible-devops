@@ -7,12 +7,13 @@
     action: "restore_instance"
     db2_backup_version: "{{ db2_backup_version }}"
     mas_backup_dir: "{{ mas_backup_dir }}"
+    mas_application_id: "{{ mas_application_id }}"
 
 # Set backup path facts
 - name: "Set fact: backup dir paths"
   set_fact:
-    db2_backup_path: "{{ mas_backup_dir }}/backup-{{ db2_backup_version }}-db2u"
-    db2_resources_path: "{{ mas_backup_dir }}/backup-{{ db2_backup_version }}-db2u/resources"
+    db2_backup_path: "{{ mas_backup_dir }}/backup-{{ db2_backup_version }}-db2u-{{ mas_application_id }}"
+    db2_resources_path: "{{ mas_backup_dir }}/backup-{{ db2_backup_version }}-db2u-{{ mas_application_id }}/resources"
 
 - name: "Check Db2u resource path exist"
   stat:
@@ -79,20 +80,28 @@
 
 # 2. Restore Secrets & configmaps
 # -----------------------------------------------------------------------------
-- name: Restore Secrets and configmaps
+- name: Restore Secrets
   ibm.mas_devops.restore_resource:
     backup_path: "{{ db2_backup_path }}"
     resource_kinds:
       - Secret
-      - ConfigMap
     replace_resource: false
     skip_files: #skip applying these files as its from core namespace, will be taken care from suite restore
       Secret:
         - jdbc-{{ db2_instance_name }}-credentials.yaml
-  register: secrets_configmaps_result
+  register: secrets_result
   when:
     - namespace_result.success
 
+- name: Restore ConfigMaps
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ db2_backup_path }}"
+    resource_kinds:
+      - ConfigMap
+    replace_resource: false
+  register: configmaps_result
+  when:
+    - namespace_result.success
 
 # 3. Restore Operatorgroups
 # -----------------------------------------------------------------------------
@@ -105,7 +114,8 @@
   register: operatorgroups_result
   when:
     - namespace_result.success
-    - secrets_configmaps_result is defined and secrets_configmaps_result.success
+    - secrets_result is defined and secrets_result.success
+    - configmaps_result is defined and configmaps_result.success
 
 # 4. Restore Subscription
 # -----------------------------------------------------------------------------
@@ -259,7 +269,8 @@
     total_created: >-
       {{
         (namespace_result.created_count | default(0)) +
-        (secrets_configmaps_result.created_count | default(0)) +
+        (secrets_result.created_count | default(0)) +
+        (configmaps_result.created_count | default(0)) +
         (operatorgroups_result.created_count | default(0)) +
         (subscriptions_result.created_count | default(0)) +
         (certmanager_result.created_count | default(0)) +
@@ -269,7 +280,8 @@
     total_updated: >-
       {{
         (namespace_result.updated_count | default(0)) +
-        (secrets_configmaps_result.updated_count | default(0)) +
+        (secrets_result.updated_count | default(0)) +
+        (configmaps_result.updated_count | default(0)) +
         (operatorgroups_result.updated_count | default(0)) +
         (subscriptions_result.updated_count | default(0)) +
         (certmanager_result.updated_count | default(0)) +
@@ -279,7 +291,8 @@
     total_skipped: >-
       {{
         (namespace_result.skipped_count | default(0)) +
-        (secrets_configmaps_result.skipped_count | default(0)) +
+        (secrets_result.skipped_count | default(0)) +
+        (configmaps_result.skipped_count | default(0)) +
         (operatorgroups_result.skipped_count | default(0)) +
         (subscriptions_result.skipped_count | default(0)) +
         (certmanager_result.skipped_count | default(0)) +
@@ -289,7 +302,8 @@
     total_failed: >-
       {{
         (namespace_result.failed_count | default(0)) +
-        (secrets_configmaps_result.failed_count | default(0)) +
+        (secrets_result.failed_count | default(0)) +
+        (configmaps_result.failed_count | default(0)) +
         (operatorgroups_result.failed_count | default(0)) +
         (subscriptions_result.failed_count | default(0)) +
         (certmanager_result.failed_count | default(0)) +
@@ -315,7 +329,8 @@
     all_failed_resources: >-
       {{
         (namespace_result.failed_resources | default([])) +
-        (secrets_configmaps_result.failed_resources | default([])) +
+        (secrets_result.failed_resources | default([])) +
+        (configmaps_result.failed_resources | default([])) +
         (operatorgroups_result.failed_resources | default([])) +
         (subscriptions_result.failed_resources | default([])) +
         (certmanager_result.failed_resources | default([])) +
