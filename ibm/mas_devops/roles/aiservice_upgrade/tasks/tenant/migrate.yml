@@ -1,4 +1,3 @@
-
 - name: "Create IBM Entitlement Key in namespace {{ tenant_cr.metadata.name }}"
   ibm.mas_devops.update_ibm_entitlement:
     namespace: "{{ tenant_cr.metadata.name }}"
@@ -21,7 +20,7 @@
     api_version: v1
     kind: Secret
     name: "{{ tenant_cr.metadata.name }}----sls-secret"
-    namespace:  "{{ aiservice_namespace }}"
+    namespace: "{{ aiservice_namespace }}"
   register: sls_secret
 
 # TODO copy other tenant secrets when it is safe to do so, that is, when
@@ -69,7 +68,7 @@
   register: tenant_cr_info
   until:
     - tenant_cr_info.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
-  
+
 - name: "Delete AIServiceTenant CR from namespace {{ aiservice_namespace }}"
   kubernetes.core.k8s:
     api_version: aiservice.ibm.com/v1
