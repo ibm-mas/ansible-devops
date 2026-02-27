@@ -15,20 +15,21 @@
         that:
           - kafka_manifest is defined
           - kafka_manifest.resources is defined
+          - kafka_manifest.resources != None
           - kafka_manifest.resources | length == 1
         fail_msg: "PackageManifest not found: {{ kafka_operator_name }}"
 
     - name: Set kafka-operator update channel to latest default channel if not provided
       set_fact:
         kafka_default_channel: "{{ kafka_manifest.resources[0].status.defaultChannel }}"
-  when: kafka_default_channel is not defined or kafka_default_channel == ""
+  when: kafka_default_channel is not defined or kafka_default_channel == None or kafka_default_channel == ""
 
 # Fail if kafka_default_channel and/or version not discovered
 # -----------------------------------------------------------------------------
 - name: "Verify kafka_default_channel set"
   assert:
     that:
-      - kafka_default_channel is defined and kafka_default_channel != ""
+      - kafka_default_channel is defined and kafka_default_channel != None and kafka_default_channel != ""
     fail_msg: "Unable to determine kafka_default_channel from catalog"
 
 - name: Debug Kafka Universal Operator Install
