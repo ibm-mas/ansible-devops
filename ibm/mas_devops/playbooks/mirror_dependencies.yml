@@ -2,6 +2,9 @@
 - hosts: localhost
   any_errors_fatal: true
 
+  vars_files:
+    - "{{ playbook_dir }}/../common_vars/cp4d_supported_versions.yml"
+
   vars:
     catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('@@MAS_LATEST_CATALOG@@', True) }}"
     mirror_mode: "{{ lookup('env', 'MIRROR_MODE') | default ('direct', True) }}"
@@ -35,8 +38,7 @@
     # -------------------------------------------------------------------------
     cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') }}"
     mirror_cp4d: "{{ lookup('env', 'MIRROR_CP4D') | default ('False', True) | bool }}"
-    cpd_52_or_higher: "{{ (cpd_product_version is defined and cpd_product_version is version('5.2.0','>=')) | bool }}"
-    cpd_51: "{{ (cpd_product_version is defined and cpd_product_version is version('5.1.3','==')) | bool }}"
+
     # 7. Watson Studio Local
     # -------------------------------------------------------------------------
     mirror_wsl: "{{ lookup('env', 'MIRROR_WSL') | default ('False', True) | bool }}"
@@ -77,7 +79,7 @@
 
     # If the CPD_PRODUCT_VERSION environment variable wasn't set, then use the default from the catalog metadata
     - name: "Set default cpd_product_version (if necessary)"
-      when: cpd_product_version == ""
+      when: cpd_product_version is not defined or cpd_product_version == ""
       set_fact:
         cpd_product_version: "{{ mas_catalog_metadata.cpd_product_version_default }}"
 
@@ -405,7 +407,28 @@
         manifest_name: ibm-ccs
         manifest_version: "{{ mas_catalog_metadata.ccs_build }}"
 
-    # 6.4 CP4D Platform - PostgreSQL dependency (only for CPD 5.2+)
+    # 6.4 CP4D 5.2.0 CCS dependency for hotfix
+    # -------------------------------------------------------------------------
+    - role: ibm.mas_devops.mirror_extras_prepare
+      when:
+        - mas_catalog_metadata.ccs_extras_version is defined
+        - mirror_mode != "from-filesystem"
+        - cpd_520
+        - mirror_wsl or mirror_wml
+      vars:
+        extras_name: ccs
+        extras_version: "{{ mas_catalog_metadata.ccs_extras_version }}"
+
+    - role: ibm.mas_devops.mirror_images
+      when:
+        - mas_catalog_metadata.ccs_extras_version is defined
+        - cpd_520
+        - mirror_wsl or mirror_wml
+      vars:
+        manifest_name: extras_ccs
+        manifest_version: "{{ mas_catalog_metadata.ccs_extras_version }}"
+
+    # 6.5 CP4D Platform - PostgreSQL dependency (only for CPD 5.2+)
     # -------------------------------------------------------------------------
     - role: ibm.mas_devops.mirror_case_prepare
       when:
@@ -469,7 +492,6 @@
       when:
         - mirror_wsl
         - mirror_mode != "from-filesystem"
-        - cpd_51
       vars:
         case_name: ibm-elasticsearch-operator
         case_version: "{{ mas_catalog_metadata.elasticsearch_version }}"
@@ -479,7 +501,6 @@
     - role: ibm.mas_devops.mirror_images
       when:
         - mirror_wsl
-        - cpd_51
       vars:
         manifest_name: ibm-elasticsearch-operator
         manifest_version: "{{ mas_catalog_metadata.elasticsearch_version }}"
