@@ -440,6 +440,8 @@ def is_channel_upgrade_path_valid(current: str, target: str, valid_paths: dict) 
     :return: True if the upgrade path is supported, False otherwise.
   """
   valid = False
+  if not target:
+    print('Error: no target upgrade channel provided')
   if current not in valid_paths.keys():
       print(f'Current channel {current} is not supported for upgrade')
   elif target:
