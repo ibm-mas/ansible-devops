@@ -439,23 +439,14 @@ def is_channel_upgrade_path_valid(current: str, target: str, valid_paths: dict) 
     :valid_paths: A dictionary of supported upgrade paths. See ibm/mas_devops/common_vars/compatibility_matrix.yml.
     :return: True if the upgrade path is supported, False otherwise.
   """
-<<<<<<< HEAD
   valid = False
   if current not in valid_paths.keys():
       print(f'Current channel {current} is not supported for upgrade')
-  else:
-=======
-  valid = True
-  if current not in valid_paths.keys():
-      print(f'Current channel {current} is not supported for upgrade')
-      valid = False
   elif target:
->>>>>>> 57f3be5143e612c2402efa4eaecd2ebe2ecfe9ad
       allowed_targets = valid_paths[current]
       if isinstance(allowed_targets, str):
           if target != allowed_targets:
               print(f'Upgrading from channel {current} to {target} is not supported')
-<<<<<<< HEAD
           else:
               valid = True
       elif isinstance(allowed_targets, list):
@@ -511,16 +502,6 @@ def is_operator_upgraded_by_version(cr_reconciled_version: str, opcon_version: s
   elif opcon_version.startswith(prefix) and sub_installed_version.startswith(prefix) and (opcon_version == sub_installed_version):
       upgraded = True
   return upgraded
-=======
-              valid = False
-      elif isinstance(allowed_targets, list):
-          if target not in allowed_targets:
-              print(f'Upgrading from channel {current} to {target} is not supported')
-              valid = False
-      else:
-          print(f'Error: channel upgrade compatibility matrix is incorrectly defined')
-          valid = False
-  return valid
 
 def get_default_upgrade_channel(current: str, valid_paths: dict) -> str:
   """
@@ -538,7 +519,7 @@ def get_default_upgrade_channel(current: str, valid_paths: dict) -> str:
   else:
       print(f'Error: channel upgrade compatibility matrix is incorrectly defined')
   return default
->>>>>>> 57f3be5143e612c2402efa4eaecd2ebe2ecfe9ad
+
 
 class FilterModule(object):
   def filters(self):
@@ -563,10 +544,7 @@ class FilterModule(object):
       'get_db2_instance_name': get_db2_instance_name,
       'get_ecr_repositories': get_ecr_repositories,
       'is_channel_upgrade_path_valid': is_channel_upgrade_path_valid,
-<<<<<<< HEAD
       'remove_dict_keys': remove_dict_keys,
       'is_operator_upgraded_by_version': is_operator_upgraded_by_version,
-=======
-      'get_default_upgrade_channel': get_default_upgrade_channel
->>>>>>> 57f3be5143e612c2402efa4eaecd2ebe2ecfe9ad
+      'get_default_upgrade_channel': get_default_upgrade_channel,
     }
