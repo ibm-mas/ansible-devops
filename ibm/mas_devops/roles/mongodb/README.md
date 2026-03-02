@@ -1903,7 +1903,7 @@ Cloud provider where the Atlas cluster will be deployed.
 
 **When to use**: Always required for Atlas deployments.
 
-**Valid values**: `AWS`, `GCP`, `AZURE`
+**Valid values**: `AWS`
 
 **Impact**: Determines available regions, instance sizes, and pricing.
 
