@@ -28,6 +28,28 @@
     db2_temp_storage_class: "{{ lookup('env', 'DB2_TEMP_STORAGE_CLASS') }}"
 
   pre_tasks:
+    - name: Important Notice
+      debug:
+        msg: |
+          *********************************************************************
+          ************************* IMPORTANT NOTICE **************************
+          *********************************************************************
+          *                                                                   *
+          *  These playbooks are samples to demonstrate how to use the roles  *
+          *  in this collection.                                              *
+          *                                                                   *
+          *  They are NOT INTENDED FOR PRODUCTION USE as-is, they are a       *
+          *  starting point for power users to aid in the development of      *
+          *  their own Ansible playbooks using the roles in this collection   *
+          *                                                                   *
+          *  The recommended way to install MAS is to use the MAS CLI, which  *
+          *  uses this Ansible Collection to deliver a complete managed       *
+          *  lifecycle for your MAS instance.                                 *
+          *                                                                   *
+          *  https://ibm-mas.github.io/cli/                                   *
+          *                                                                   *
+          *********************************************************************
+
     - name: "Fail if DB2_ACTION is not set to backup|restore"
       assert:
         that: db2_action in ["backup", "backup_database", "restore_database", "restore"]
@@ -42,6 +64,18 @@
       assert:
         that: backup_type in ["online", "offline"]
         fail_msg: "DB2_BACKUP_TYPE is required and must be set to 'online' or 'offline'"
+    
+    - name: "Fail if mas_instance_id is not set to"
+      ansible.builtin.assert:
+        that:
+          - mas_instance_id is defined
+        fail_msg: "mas_instance_id is required and must be set"
+    
+    - name: "Fail if mas_application_id is not set to"
+      ansible.builtin.assert:
+        that:
+          - mas_application_id is defined
+        fail_msg: "mas_application_id is required and must be set"
 
     - name: "Fail if S3 variables are not set when backup_vendor is s3"
       ibm.mas_devops.verify_backup_restore_vars:
