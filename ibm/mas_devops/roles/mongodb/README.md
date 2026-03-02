@@ -1897,7 +1897,7 @@ Cloud provider where the Atlas cluster will be deployed.
 
 - **Required** when `mongodb_provider=atlas`
 - Environment Variable: `ATLAS_CLUSTER_PROVIDER`
-- Default Value: None
+- Default Value: `AWS`
 
 **Purpose**: Specifies which cloud infrastructure provider hosts the Atlas cluster.
 
@@ -1906,6 +1906,8 @@ Cloud provider where the Atlas cluster will be deployed.
 **Valid values**: `AWS`, `GCP`, `AZURE`
 
 **Impact**: Determines available regions, instance sizes, and pricing.
+
+**Note**: VPC peering is only supported when using `AWS` as the cloud provider.
 
 **Related variables**: Must be compatible with `atlas_cluster_region`.
 
@@ -2129,13 +2131,13 @@ AWS region for storing connection information secret.
 #### atlas_vpc_id
 AWS VPC ID for VPC peering with Atlas.
 
-- **Optional** when `mongodb_provider=atlas` and configuring VPC peering
+- **Optional** when `mongodb_provider=atlas` and `atlas_cluster_provider=AWS` and configuring VPC peering
 - Environment Variable: `ATLAS_VPC_ID`
 - Default Value: None
 
 **Purpose**: AWS VPC ID for establishing VPC peering connection with Atlas cluster.
 
-**When to use**: Required when configuring VPC peering for private connectivity.
+**When to use**: Required when configuring VPC peering for private connectivity. VPC peering is only supported for AWS deployments.
 
 **Valid values**: Valid AWS VPC ID (e.g., `vpc-0123456789abcdef0`)
 
@@ -2146,13 +2148,13 @@ AWS VPC ID for VPC peering with Atlas.
 #### atlas_aws_region
 AWS region for VPC peering configuration.
 
-- **Optional** when `mongodb_provider=atlas` and configuring VPC peering
+- **Optional** when `mongodb_provider=atlas` and `atlas_cluster_provider=AWS` and configuring VPC peering
 - Environment Variable: `ATLAS_AWS_REGION`
 - Default Value: None
 
 **Purpose**: AWS region where VPC peering will be configured.
 
-**When to use**: Required when configuring VPC peering.
+**When to use**: Required when configuring VPC peering. VPC peering is only supported for AWS deployments.
 
 **Valid values**: Atlas region format (e.g., `US_EAST_1`, `EU_WEST_1`)
 
@@ -2165,13 +2167,13 @@ AWS region for VPC peering configuration.
 #### atlas_aws_route_table_ids
 AWS route table IDs for VPC peering routes.
 
-- **Optional** when `mongodb_provider=atlas` and configuring VPC peering
+- **Optional** when `mongodb_provider=atlas` and `atlas_cluster_provider=AWS` and configuring VPC peering
 - Environment Variable: `ATLAS_AWS_ROUTE_TABLE_IDS`
 - Default Value: None
 
 **Purpose**: List of AWS route table IDs where Atlas CIDR routes will be added.
 
-**When to use**: Provide when manually specifying route tables for VPC peering.
+**When to use**: Provide when manually specifying route tables for VPC peering. VPC peering is only supported for AWS deployments.
 
 **Valid values**: List of route table IDs or comma-separated string
 
@@ -2182,13 +2184,13 @@ AWS route table IDs for VPC peering routes.
 #### atlas_aws_subnet_ids
 AWS subnet IDs for auto-discovering route tables.
 
-- **Optional** when `mongodb_provider=atlas` and configuring VPC peering
+- **Optional** when `mongodb_provider=atlas` and `atlas_cluster_provider=AWS` and configuring VPC peering
 - Environment Variable: `ATLAS_AWS_SUBNET_IDS`
 - Default Value: None
 
 **Purpose**: List of AWS subnet IDs used to automatically discover associated route tables.
 
-**When to use**: Provide when you want automatic route table discovery instead of manual specification.
+**When to use**: Provide when you want automatic route table discovery instead of manual specification. VPC peering is only supported for AWS deployments.
 
 **Valid values**: List of subnet IDs or comma-separated string
 
@@ -2197,19 +2199,19 @@ AWS subnet IDs for auto-discovering route tables.
 **Related variables**: Alternative to `atlas_aws_route_table_ids` (manual specification).
 
 #### atlas_provider_name
-Provider name for Atlas operations.
+Provider name for Atlas VPC peering operations.
 
-- **Optional** when `mongodb_provider=atlas`
+- **Optional** when `mongodb_provider=atlas` and `atlas_cluster_provider=AWS` and configuring VPC peering
 - Environment Variable: `ATLAS_PROVIDER_NAME`
 - Default Value: `AWS`
 
-**Purpose**: Specifies cloud provider name for Atlas API operations.
+**Purpose**: Specifies cloud provider name for Atlas VPC peering API operations.
 
-**When to use**: Usually matches `atlas_cluster_provider`. Override only if needed for specific operations.
+**When to use**: Only applicable for AWS deployments. VPC peering is only supported for AWS.
 
-**Valid values**: `AWS`, `GCP`, `AZURE`
+**Valid values**: `AWS`
 
-**Impact**: Used in Atlas API calls for provider-specific operations.
+**Impact**: Used in Atlas API calls for VPC peering operations.
 
 
 

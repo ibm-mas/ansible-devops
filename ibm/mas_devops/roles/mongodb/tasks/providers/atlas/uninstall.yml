@@ -105,7 +105,73 @@
       - atlas_cluster_name is defined and atlas_cluster_name != ""
     fail_msg: "Atlas cluster name is required"
 
-# 3. Display decommission configuration
+# 3. Add current IP to Atlas API Access List
+# -----------------------------------------------------------------------------
+- name: "Get current public IP address"
+  uri:
+    url: "https://api.ipify.org?format=json"
+    method: GET
+    return_content: yes
+    timeout: 10
+  register: atlas_current_ip_result
+  failed_when: false
+  changed_when: false
+
+- name: "Set current IP fact"
+  set_fact:
+    atlas_current_ip: "{{ atlas_current_ip_result.json.ip | default('') }}"
+  when: atlas_current_ip_result.status is defined and atlas_current_ip_result.status == 200
+
+- name: "Add current IP to Atlas API Access List"
+  when:
+    - atlas_current_ip is defined
+    - atlas_current_ip != ""
+  block:
+    - name: "Check if current IP is already in Atlas API Access List"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/accessList/{{ atlas_current_ip }}"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: [200, 404]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_ip_check
+      failed_when: false
+
+    - name: "Add current IP to Atlas API Access List"
+      when: atlas_ip_check.status is defined and atlas_ip_check.status == 404
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/accessList"
+        method: POST
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        body:
+          - ipAddress: "{{ atlas_current_ip }}"
+            comment: "Added by Ansible MAS DevOps - {{ ansible_date_time.iso8601 | default('auto') }}"
+        body_format: json
+        status_code: [200, 201]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_ip_add
+      retries: 3
+      delay: 5
+
+    - name: "Atlas API Access List status"
+      debug:
+        msg:
+          - "Current IP: {{ atlas_current_ip }}"
+          - "Access List Status: {{ 'Already whitelisted' if atlas_ip_check.status == 200 else 'Added successfully' }}"
+
+  rescue:
+    - name: "Warning: Could not add IP to Atlas API Access List"
+      debug:
+        msg:
+          - "WARNING: Failed to automatically add IP {{ atlas_current_ip | default('unknown') }} to Atlas API Access List"
+          - "If subsequent API calls fail with 403 IP_ADDRESS_NOT_ON_ACCESS_LIST, manually add this IP:"
+          - "  Atlas Console -> Project -> Security -> Network Access -> Add IP Address"
+
+# 4. Display decommission configuration
 # -----------------------------------------------------------------------------
 - name: "MongoDB Atlas Decommission Configuration"
   debug:
