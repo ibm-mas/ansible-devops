@@ -181,7 +181,7 @@ class ActionModule(ActionBase):
     tasks:
       - name: "Restore and replace specific MAS Suite resources"
         ibm.mas_devops.restore_resource:
-          backup_path: "/backup/backup-250115-120000-suite"
+          backup_path: "/backup/backup-20250115-120000-suite"
           resource_kinds:
             - Secret
             - ConfigMap
@@ -189,12 +189,12 @@ class ActionModule(ActionBase):
       
       - name: "Restore all resources (skip existing)"
         ibm.mas_devops.restore_resource:
-          backup_path: "/backup/backup-250115-120000-suite"
+          backup_path: "/backup/backup-20250115-120000-suite"
           replace_resource: false
       
       - name: "Restore resources with overrides, filter_values and skip_files"
         ibm.mas_devops.restore_resource:
-          backup_path: "/backup/backup-250115-120000-suite"
+          backup_path: "/backup/backup-20250115-120000-suite"
           resource_kinds:
             - Suite
             - Secret
@@ -242,7 +242,7 @@ class ActionModule(ActionBase):
         if not os.path.exists(resources_path):
             raise AnsibleError(f"Error: resources directory not found in backup: {resources_path}")
         
-        display.v(f"Starting restore of MAS Suite resources from '{backup_path}'")
+        display.v(f"Starting restore of MAS resources from '{backup_path}'")
         display.v(f"Replace existing resources: {'enabled' if replace_resource else 'disabled'}")
         if override_values:
             override_kinds = ', '.join(override_values.keys())
@@ -403,7 +403,7 @@ class ActionModule(ActionBase):
         has_failures = total_failed > 0
         
         return dict(
-            message=f"Restored {total_created + total_updated} MAS Suite resources ({total_created} created, {total_updated} updated, {total_skipped} skipped)" + (f" with {total_failed} failures" if has_failures else ""),
+            message=f"Restored {total_created + total_updated} MAS resources ({total_created} created, {total_updated} updated, {total_skipped} skipped)" + (f" with {total_failed} failures" if has_failures else ""),
             failed=has_failures,
             changed=(total_created + total_updated) > 0,
             success=not has_failures,

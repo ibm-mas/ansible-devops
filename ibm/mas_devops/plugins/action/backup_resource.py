@@ -54,7 +54,7 @@ class ActionModule(ActionBase):
         if backup_path is None or backup_path == "":
             raise AnsibleError(f"Error: backup_path argument was not provided")
         
-        display.v(f"Starting backup of MAS Suite resources to '{backup_path}'")
+        display.v(f"Starting backup of MAS resources to '{backup_path}'")
 
         total_backed_up = 0
         total_failed = 0
@@ -155,7 +155,7 @@ class ActionModule(ActionBase):
         has_failures = total_failed > 0
         
         return dict(
-            message=f"Backed up {total_backed_up} MAS Suite resources" + (f" with {total_failed} failures" if has_failures else ""),
+            message=f"Backed up {total_backed_up} MAS resources" + (f" with {total_failed} failures" if has_failures else ""),
             failed=has_failures,
             changed=False,
             success=not has_failures,
