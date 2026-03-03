@@ -121,7 +121,7 @@ Specifies which operation to perform on the MongoDB instance.
 - Use `create-mongo-service-credentials` to generate service credentials (ibm only)
 
 **Valid values** (provider-specific):
-- **community**: `install`, `uninstall`, `backup`, `restore`, `restore_database`
+- **community**: `install`, `uninstall`, `backup`, `backup_database`, `restore`, `restore_database`
 - **aws**: `install`, `uninstall`, `docdb_secret_rotate`, `destroy-data`
 - **ibm**: `install`, `uninstall`, `backup`, `restore`, `create-mongo-service-credentials`
 
