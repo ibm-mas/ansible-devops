@@ -156,7 +156,7 @@
       - atlas_vpc_id is defined and atlas_vpc_id != ""
       - atlas_aws_region is defined and atlas_aws_region != ""
       - atlas_aws_route_table_ids_working is defined and atlas_aws_route_table_ids_working | length > 0
-      - atlas_provider_name is defined and atlas_provider_name != ""
+      - atlas_cluster_provider is defined and atlas_cluster_provider != ""
     fail_msg: "Required configuration is missing. Either provide atlas_aws_route_table_ids or atlas_aws_subnet_ids to discover route tables."
 
 # 3. Display initial configuration
@@ -168,7 +168,7 @@
       - "MongoDB Atlas Route Table Removal"
       - "=========================================="
       - "Atlas Project ID ............ {{ atlas_project_id }}"
-      - "Provider Name ............... {{ atlas_provider_name }}"
+      - "Provider Name ............... {{ atlas_cluster_provider }}"
       - "Atlas Region (API format) ... {{ atlas_aws_region }}"
       - "AWS Region (CLI format) ..... {{ aws_cli_region }}"
       - "VPC ID ...................... {{ atlas_vpc_id }}"
@@ -201,16 +201,16 @@
 
 # 5. Find the container for the specified region and provider
 # -----------------------------------------------------------------------------
-- name: "Find container for region {{ atlas_aws_region }} and provider {{ atlas_provider_name }}"
+- name: "Find container for region {{ atlas_aws_region }} and provider {{ atlas_cluster_provider }}"
   set_fact:
-    atlas_container: "{{ atlas_containers_response.json.results | selectattr('regionName', 'equalto', atlas_aws_region) | selectattr('providerName', 'equalto', atlas_provider_name) | first }}"
+    atlas_container: "{{ atlas_containers_response.json.results | selectattr('regionName', 'equalto', atlas_aws_region) | selectattr('providerName', 'equalto', atlas_cluster_provider) | first }}"
   when:
     - atlas_containers_response.status == 200
-    - atlas_containers_response.json.results | selectattr('regionName', 'equalto', atlas_aws_region) | selectattr('providerName', 'equalto', atlas_provider_name) | list | length > 0
+    - atlas_containers_response.json.results | selectattr('regionName', 'equalto', atlas_aws_region) | selectattr('providerName', 'equalto', atlas_cluster_provider) | list | length > 0
 
 - name: "No container found for region"
   debug:
-    msg: "No Atlas network container found for region {{ atlas_aws_region }} and provider {{ atlas_provider_name }}. Skipping route removal."
+    msg: "No Atlas network container found for region {{ atlas_aws_region }} and provider {{ atlas_cluster_provider }}. Skipping route removal."
   when: atlas_container is not defined
 
 - name: "Display container information"
@@ -294,5 +294,5 @@
       - "Routes Removed .............. {{ atlas_aws_route_table_ids_working | length }} route tables"
       - "Subnets Processed ........... {{ atlas_aws_subnet_ids_working | length if atlas_aws_subnet_ids_working is defined else 0 }} subnets"
       - "AWS Region .................. {{ atlas_aws_region }}"
-      - "Provider Name ............... {{ atlas_provider_name }}"
+      - "Provider Name ............... {{ atlas_cluster_provider }}"
       - "=========================================="

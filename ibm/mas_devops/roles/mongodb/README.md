@@ -2198,21 +2198,6 @@ AWS subnet IDs for auto-discovering route tables.
 
 **Related variables**: Alternative to `atlas_aws_route_table_ids` (manual specification).
 
-#### atlas_provider_name
-Provider name for Atlas VPC peering operations.
-
-- **Optional** when `mongodb_provider=atlas` and `atlas_cluster_provider=AWS` and configuring VPC peering
-- Environment Variable: `ATLAS_PROVIDER_NAME`
-- Default Value: `AWS`
-
-**Purpose**: Specifies cloud provider name for Atlas VPC peering API operations.
-
-**When to use**: Only applicable for AWS deployments. VPC peering is only supported for AWS.
-
-**Valid values**: `AWS`
-
-**Impact**: Used in Atlas API calls for VPC peering operations.
-
 
 
 ## Example Playbook
