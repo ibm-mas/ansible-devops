@@ -1,0 +1,102 @@
+---
+# Check required variables for AWS DocumentDB backup
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id is required"
+
+- name: "Fail if docdb_cluster_name is not provided"
+  assert:
+    that: docdb_cluster_name is defined and docdb_cluster_name != ""
+    fail_msg: "docdb_cluster_name is required"
+
+- name: "Fail if aws_region is not provided"
+  assert:
+    that: aws_region is defined and aws_region != ""
+    fail_msg: "aws_region is required"
+
+- name: "Fail if docdb_backup_s3_bucket is not provided"
+  assert:
+    that: docdb_backup_s3_bucket is defined and docdb_backup_s3_bucket != ""
+    fail_msg: "docdb_backup_s3_bucket is required - specify the S3 bucket name to store backups"
+
+- name: "Fail if docdb_master_username is not provided"
+  assert:
+    that: docdb_master_username is defined and docdb_master_username != ""
+    fail_msg: "docdb_master_username is required"
+
+- name: "Fail if docdb_master_password is not provided"
+  assert:
+    that: docdb_master_password is defined and docdb_master_password != ""
+    fail_msg: "docdb_master_password is required"
+
+# Get DocumentDB cluster information
+# -------------------------------------------------------------------------
+- name: "Get DocumentDB cluster information"
+  include_tasks: "{{ role_path }}/tasks/providers/aws/backup-restore/get-docdb-info.yml"
+
+# Set common backup job variables
+# -----------------------------------------------------------------------------
+- name: "Set fact: common backup job variables"
+  set_fact:
+    masbr_job_component:
+      name: "mongodb"
+      instance: "{{ mas_instance_id }}"
+      app: "{{ mas_app_id | default('') }}"
+      namespace: "{{ mongodb_namespace }}"
+      provider: "{{ mongodb_provider }}"
+      version: "{{ mongodb_version }}"
+    masbr_job_data_list:
+      - seq: "1"
+        type: "database"
+
+# Before run tasks
+# -------------------------------------------------------------------------
+- name: "Before run tasks"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/before_run_tasks.yml"
+  vars:
+    _ignore_masbr_backup_data: true
+    _job_type: "backup"
+    _component_before_task_path: "{{ role_path }}/tasks/providers/aws/backup-restore/before-backup-restore.yml"
+
+- name: "Perform DocumentDB backup"
+  block:
+    # Update backup job status: New
+    # -------------------------------------------------------------------------
+    - name: "Update backup job status: New"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "1"
+            phase: "New"
+
+    # Run backup tasks for each data type
+    # -------------------------------------------------------------------------
+    - name: "Run backup tasks for each data type"
+      include_tasks: "tasks/providers/aws/backup-restore/backup-{{ job_data_item.type }}.yml"
+      vars:
+        masbr_job_data_seq: "{{ job_data_item.seq }}"
+        masbr_job_data_type: "{{ job_data_item.type }}"
+      loop: "{{ masbr_job_data_list }}"
+      loop_control:
+        loop_var: job_data_item
+
+  rescue:
+    # Update backup status: Failed
+    # -------------------------------------------------------------------------
+    - name: "Update database backup status: Failed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_status:
+          phase: "Failed"
+
+  always:
+    # After run tasks
+    # -------------------------------------------------------------------------
+    - name: "After run tasks"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/after_run_tasks.yml"
+      vars:
+        _component_after_task_path: "{{ role_path }}/tasks/providers/aws/backup-restore/after-backup-restore.yml"
+
+# Made with Bob

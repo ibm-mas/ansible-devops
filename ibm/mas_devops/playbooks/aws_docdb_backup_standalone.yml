@@ -1,0 +1,72 @@
+---
+# Standalone AWS DocumentDB backup without OpenShift cluster dependency
+# This playbook performs a direct backup of AWS DocumentDB to S3
+# without requiring OpenShift cluster connectivity or MAS backup/restore framework
+
+- hosts: localhost
+  connection: local
+  gather_facts: true
+  
+  vars:
+    # Required variables (pass via -e or environment)
+    docdb_cluster_name: "{{ lookup('env', 'DOCDB_CLUSTER_NAME') }}"
+    aws_region: "{{ lookup('env', 'AWS_REGION') | default('us-east-1', True) }}"
+    docdb_master_username: "{{ lookup('env', 'DOCDB_MASTER_USERNAME') }}"
+    docdb_master_password: "{{ lookup('env', 'DOCDB_MASTER_PASSWORD') }}"
+    docdb_backup_s3_bucket: "{{ lookup('env', 'DOCDB_BACKUP_S3_BUCKET') }}"
+    
+    # S3 prefix with timestamp
+    backup_timestamp: "{{ ansible_date_time.iso8601_basic_short }}"
+    docdb_backup_s3_prefix: "{{ lookup('env', 'DOCDB_BACKUP_S3_PREFIX') | default('docdb-backups', True) }}/{{ docdb_cluster_name }}/{{ backup_timestamp }}"
+    
+    # Optional variables
+    backup_job_name: "{{ lookup('env', 'BACKUP_JOB_NAME') | default('docdb-backup-' + ansible_date_time.epoch, True) }}"
+    local_backup_dir: "{{ lookup('env', 'LOCAL_BACKUP_DIR') | default('/tmp/docdb-backups', True) }}"
+    
+  tasks:
+    # Get DocumentDB cluster information
+    # -------------------------------------------------------------------------
+    - name: "Get DocumentDB cluster information"
+      include_tasks: "{{ playbook_dir }}/../roles/mongodb/tasks/providers/aws/backup-restore/get-docdb-info.yml"
+    
+    # Set backup job variables
+    # -------------------------------------------------------------------------
+    - name: "Set backup job variables"
+      set_fact:
+        masbr_job_name: "{{ backup_job_name }}"
+        masbr_local_temp_folder: "{{ local_backup_dir }}"
+        masbr_job_data_type: "database"
+        masbr_job_data_seq: "1"
+        mas_instance_id: "standalone"
+        mas_app_id: ""
+    
+    # Before backup tasks (without OpenShift checks)
+    # -------------------------------------------------------------------------
+    - name: "Before backup tasks"
+      include_tasks: "{{ playbook_dir }}/../roles/mongodb/tasks/providers/aws/backup-restore/before-backup-restore.yml"
+    
+    # Backup database
+    # -------------------------------------------------------------------------
+    - name: "Backup database"
+      include_tasks: "{{ playbook_dir }}/../roles/mongodb/tasks/providers/aws/backup-restore/backup-database.yml"
+    
+    # After backup tasks
+    # -------------------------------------------------------------------------
+    - name: "After backup tasks"
+      include_tasks: "{{ playbook_dir }}/../roles/mongodb/tasks/providers/aws/backup-restore/after-backup-restore.yml"
+    
+    # Backup completed
+    # -------------------------------------------------------------------------
+    - name: "Backup completed successfully"
+      debug:
+        msg:
+          - "=========================================="
+          - "AWS DocumentDB Backup Completed"
+          - "=========================================="
+          - "Cluster: {{ docdb_cluster_name }}"
+          - "Job Name: {{ backup_job_name }}"
+          - "Timestamp: {{ backup_timestamp }}"
+          - "S3 Location: s3://{{ docdb_backup_s3_bucket }}/{{ docdb_backup_s3_prefix }}/database/"
+          - "=========================================="
+
+# Made with Bob

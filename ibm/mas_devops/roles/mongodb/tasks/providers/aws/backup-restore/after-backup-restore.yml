@@ -1,0 +1,29 @@
+---
+# Clean up local temporary backup files
+# -----------------------------------------------------------------------------
+- name: "Delete local backup working directory"
+  when: docdb_local_backup_dir is defined and docdb_local_backup_dir | length > 0
+  file:
+    path: "{{ docdb_local_backup_dir }}"
+    state: absent
+  changed_when: true
+  ignore_errors: true
+
+- name: "Delete temporary DocumentDB CA certificate"
+  when:
+    - docdb_ca_file is defined
+    - docdb_ca_file | length > 0
+    - docdb_ca_file.startswith('/tmp/')
+  file:
+    path: "{{ docdb_ca_file }}"
+    state: absent
+  changed_when: true
+  ignore_errors: true
+
+- name: "Debug: cleanup completed"
+  debug:
+    msg:
+      - "Cleaned up local backup directory .......... {{ docdb_local_backup_dir | default('N/A') }}"
+      - "Cleaned up CA certificate .................. {{ docdb_ca_file | default('N/A') }}"
+
+# Made with Bob

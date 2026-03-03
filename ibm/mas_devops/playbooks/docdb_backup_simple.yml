@@ -1,0 +1,262 @@
+---
+# Simple AWS DocumentDB backup to S3
+# No MAS framework, no OpenShift dependency - just backup and upload
+
+- hosts: localhost
+  connection: local
+  gather_facts: true
+  
+  vars:
+    # Required variables
+    docdb_cluster_name: "{{ lookup('env', 'DOCDB_CLUSTER_NAME') }}"
+    docdb_master_username: "{{ lookup('env', 'DOCDB_MASTER_USERNAME') }}"
+    docdb_master_password: "{{ lookup('env', 'DOCDB_MASTER_PASSWORD') }}"
+    aws_region: "{{ lookup('env', 'AWS_REGION') | default('us-east-1', True) }}"
+    s3_bucket: "{{ lookup('env', 'S3_BUCKET') }}"
+    
+    # Optional variables
+    s3_prefix: "{{ lookup('env', 'S3_PREFIX') | default('docdb-backups', True) }}"
+    local_backup_dir: "{{ lookup('env', 'LOCAL_BACKUP_DIR') | default('/tmp/docdb-backup', True) }}"
+    backup_timestamp: "{{ ansible_date_time.iso8601_basic_short }}"
+    ca_cert_file: "/tmp/rds-ca-bundle.pem"
+    
+  tasks:
+    # Validate AWS authentication
+    # -------------------------------------------------------------------------
+    - name: "Verify AWS authentication"
+      command: aws sts get-caller-identity --region '{{ aws_region }}'
+      register: _aws_auth
+      failed_when: false
+      changed_when: false
+
+    - name: "Fail if AWS authentication failed"
+      fail:
+        msg: |
+          AWS authentication failed. 
+          {{ _aws_auth.stderr | default('') }}
+          If using AWS SSO, run: aws sso login
+      when: _aws_auth.rc != 0
+
+    # Get DocumentDB cluster info
+    # -------------------------------------------------------------------------
+    - name: "Get DocumentDB cluster endpoint"
+      command: >
+        aws docdb describe-db-clusters
+        --db-cluster-identifier '{{ docdb_cluster_name }}'
+        --region '{{ aws_region }}'
+        --query 'DBClusters[0].[Endpoint,Port]'
+        --output text
+      register: _docdb_info
+      changed_when: false
+
+    - name: "Set DocumentDB connection details"
+      set_fact:
+        docdb_endpoint: "{{ _docdb_info.stdout.split()[0] }}"
+        docdb_port: "{{ _docdb_info.stdout.split()[1] }}"
+        docdb_host: "{{ _docdb_info.stdout.split()[0] }}:{{ _docdb_info.stdout.split()[1] }}"
+
+    # Download CA certificate
+    # -------------------------------------------------------------------------
+    - name: "Download AWS RDS CA bundle"
+      get_url:
+        url: https://s3.amazonaws.com/rds-downloads/rds-combined-ca-bundle.pem
+        dest: "{{ ca_cert_file }}"
+        mode: '0644'
+
+    # Test network connectivity
+    # -------------------------------------------------------------------------
+    - name: "Test network connectivity to DocumentDB endpoint"
+      shell: |
+        nc -zv {{ docdb_endpoint }} {{ docdb_port }} 2>&1 || \
+        timeout 5 bash -c "cat < /dev/null > /dev/tcp/{{ docdb_endpoint }}/{{ docdb_port }}" 2>&1
+      register: _connectivity_test
+      failed_when: false
+      changed_when: false
+
+    - name: "Show connectivity test result"
+      debug:
+        msg: |
+          Testing connection to {{ docdb_endpoint }}:{{ docdb_port }}
+          Result: {{ _connectivity_test.stdout }}
+          Return code: {{ _connectivity_test.rc }}
+
+    - name: "Fail if DocumentDB endpoint is not reachable"
+      fail:
+        msg: |
+          Cannot reach DocumentDB endpoint {{ docdb_endpoint }}:{{ docdb_port }}
+          
+          Possible causes:
+          1. Security group does not allow connections from your IP
+          2. DocumentDB is in a private subnet without VPN/bastion access
+          3. Network connectivity issue
+          
+          To fix:
+          - Ensure you're connected to the VPN if DocumentDB is in a private subnet
+          - Check security group rules allow your IP on port {{ docdb_port }}
+          - Verify the cluster endpoint is correct
+      when: _connectivity_test.rc != 0
+
+    - name: "Test DocumentDB authentication"
+      shell: >
+        mongosh --tls
+        --host '{{ docdb_host }}'
+        --tlsCAFile '{{ ca_cert_file }}'
+        --username '{{ docdb_master_username }}'
+        --password '{{ docdb_master_password }}'
+        --eval 'db.adminCommand({ ping: 1 })'
+        --quiet
+      register: _auth_test
+      failed_when: false
+      changed_when: false
+      timeout: 10
+
+    - name: "Fail if DocumentDB authentication failed"
+      fail:
+        msg: |
+          DocumentDB authentication failed.
+          Error: {{ _auth_test.stderr }}
+          
+          Please verify:
+          - Username: {{ docdb_master_username }}
+          - Password is correct
+          - User has necessary permissions
+      when: _auth_test.rc != 0
+
+    # Create backup directory
+    # -------------------------------------------------------------------------
+    - name: "Create local backup directory"
+      file:
+        path: "{{ local_backup_dir }}/{{ backup_timestamp }}"
+        state: directory
+        mode: '0755'
+
+    # Get list of databases
+    # -------------------------------------------------------------------------
+    - name: "Get list of databases"
+      shell: >
+        mongosh --tls
+        --host '{{ docdb_host }}'
+        --tlsCAFile '{{ ca_cert_file }}'
+        --username '{{ docdb_master_username }}'
+        --password '{{ docdb_master_password }}'
+        --quiet
+        --eval "JSON.stringify(db.adminCommand({ listDatabases: 1, nameOnly: true }))"
+      register: _db_list
+      changed_when: false
+      failed_when: false
+
+    - name: "Show error if database list failed"
+      debug:
+        msg: |
+          Failed to get database list.
+          Return code: {{ _db_list.rc }}
+          Error: {{ _db_list.stderr }}
+      when: _db_list.rc != 0
+
+    - name: "Fail if cannot connect to DocumentDB"
+      fail:
+        msg: "Cannot connect to DocumentDB cluster. Check credentials and network connectivity."
+      when: _db_list.rc != 0
+
+    - name: "Parse database list"
+      set_fact:
+        databases: "{{ (_db_list.stdout | from_json).databases | map(attribute='name') | list }}"
+
+    - name: "Show databases to backup"
+      debug:
+        msg: "Backing up {{ databases | length }} databases: {{ databases | join(', ') }}"
+
+    # Backup each database
+    # -------------------------------------------------------------------------
+    - name: "Run mongodump for each database"
+      shell: >
+        mongodump
+        --host='{{ docdb_host }}'
+        --ssl
+        --sslCAFile='{{ ca_cert_file }}'
+        --username='{{ docdb_master_username }}'
+        --password='{{ docdb_master_password }}'
+        --authenticationDatabase=admin
+        --db='{{ item }}'
+        --out='{{ local_backup_dir }}/{{ backup_timestamp }}/dump'
+      loop: "{{ databases }}"
+      no_log: true
+      changed_when: true
+
+    # Create tar archive
+    # -------------------------------------------------------------------------
+    - name: "Create backup archive"
+      shell: >
+        tar -czf '{{ local_backup_dir }}/{{ backup_timestamp }}/backup.tar.gz'
+        -C '{{ local_backup_dir }}/{{ backup_timestamp }}/dump' .
+      changed_when: true
+
+    - name: "Get backup size"
+      stat:
+        path: "{{ local_backup_dir }}/{{ backup_timestamp }}/backup.tar.gz"
+      register: _backup_stat
+
+    - name: "Show backup size"
+      debug:
+        msg: "Backup size: {{ (_backup_stat.stat.size / 1024 / 1024) | round(2) }} MB"
+
+    # Upload to S3
+    # -------------------------------------------------------------------------
+    - name: "Upload backup to S3"
+      shell: >
+        aws s3 cp
+        '{{ local_backup_dir }}/{{ backup_timestamp }}/backup.tar.gz'
+        's3://{{ s3_bucket }}/{{ s3_prefix }}/{{ docdb_cluster_name }}/{{ backup_timestamp }}/backup.tar.gz'
+        --region '{{ aws_region }}'
+      register: _s3_upload
+      changed_when: true
+
+    - name: "Create backup metadata"
+      copy:
+        dest: "{{ local_backup_dir }}/{{ backup_timestamp }}/metadata.json"
+        content: |
+          {
+            "cluster": "{{ docdb_cluster_name }}",
+            "timestamp": "{{ backup_timestamp }}",
+            "databases": {{ databases | to_json }},
+            "size_bytes": {{ _backup_stat.stat.size }},
+            "region": "{{ aws_region }}"
+          }
+        mode: '0644'
+
+    - name: "Upload metadata to S3"
+      shell: >
+        aws s3 cp
+        '{{ local_backup_dir }}/{{ backup_timestamp }}/metadata.json'
+        's3://{{ s3_bucket }}/{{ s3_prefix }}/{{ docdb_cluster_name }}/{{ backup_timestamp }}/metadata.json'
+        --region '{{ aws_region }}'
+      changed_when: true
+
+    # Cleanup
+    # -------------------------------------------------------------------------
+    - name: "Clean up local backup files"
+      file:
+        path: "{{ local_backup_dir }}/{{ backup_timestamp }}"
+        state: absent
+
+    - name: "Clean up CA certificate"
+      file:
+        path: "{{ ca_cert_file }}"
+        state: absent
+
+    # Summary
+    # -------------------------------------------------------------------------
+    - name: "Backup completed"
+      debug:
+        msg:
+          - "=========================================="
+          - "DocumentDB Backup Completed"
+          - "=========================================="
+          - "Cluster: {{ docdb_cluster_name }}"
+          - "Timestamp: {{ backup_timestamp }}"
+          - "Databases: {{ databases | length }}"
+          - "Size: {{ (_backup_stat.stat.size / 1024 / 1024) | round(2) }} MB"
+          - "S3 Location: s3://{{ s3_bucket }}/{{ s3_prefix }}/{{ docdb_cluster_name }}/{{ backup_timestamp }}/"
+          - "=========================================="
+
+# Made with Bob
