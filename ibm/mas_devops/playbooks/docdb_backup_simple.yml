@@ -250,49 +250,75 @@
       debug:
         msg: "Backing up {{ databases | length }} databases: {{ databases | join(', ') }}"
 
-    # Backup each database
+    # Backup entire DocumentDB cluster (all databases in one dump)
     # -------------------------------------------------------------------------
-    - name: "Run mongodump for each database"
-      shell: >
-        mongodump
-        --host='{{ docdb_host }}'
-        --ssl
-        --sslCAFile='{{ ca_cert_file }}'
-        --username='{{ docdb_master_username }}'
-        --password='{{ docdb_master_password }}'
-        --authenticationDatabase=admin
-        --db='{{ item }}'
-        --out='{{ local_backup_dir }}/{{ backup_timestamp }}/dump'
-      loop: "{{ databases }}"
+    - name: "Run mongodump for entire DocumentDB cluster"
+      shell: |
+        mongodump \
+          --host='{{ docdb_host }}' \
+          --ssl \
+          --sslCAFile='{{ ca_cert_file }}' \
+          --username='{{ docdb_master_username }}' \
+          --password='{{ docdb_master_password }}' \
+          --authenticationDatabase=admin \
+          --out='{{ local_backup_dir }}/{{ backup_timestamp }}/dump'
       no_log: false
       changed_when: true
       register: _mongodump_result
-      failed_when: false
 
-    - name: "Show all mongodump results"
+    - name: "Show mongodump output"
       debug:
         msg: |
-          Database: {{ item.item }}
-          Return code: {{ item.rc }}
-          Stdout: {{ item.stdout | default('') }}
-          Stderr: {{ item.stderr | default('') }}
-      loop: "{{ _mongodump_result.results }}"
-
-    - name: "Show mongodump errors if any"
-      debug:
-        msg: |
-          ==========================================
-          ERROR in database: {{ item.item }}
-          Return code: {{ item.rc }}
-          Error output: {{ item.stderr | default('') }}
-          ==========================================
-      loop: "{{ _mongodump_result.results }}"
-      when: item.rc != 0
+          Mongodump completed
+          Return code: {{ _mongodump_result.rc }}
+          Output: {{ _mongodump_result.stdout }}
 
     - name: "Fail if mongodump failed"
       fail:
-        msg: "Mongodump failed for one or more databases. Check errors above."
-      when: _mongodump_result.results | selectattr('rc', 'ne', 0) | list | length > 0
+        msg: |
+          Mongodump failed!
+          Error: {{ _mongodump_result.stderr }}
+      when: _mongodump_result.rc != 0
+
+    # Extract indexes for all databases
+    # -------------------------------------------------------------------------
+    - name: "Extract indexes for all databases and collections"
+      shell: |
+        mongosh '{{ docdb_host }}' \
+          --tls \
+          --tlsCAFile '{{ ca_cert_file }}' \
+          --username '{{ docdb_master_username }}' \
+          --password '{{ docdb_master_password }}' \
+          --quiet \
+          --eval "
+            var allIndexes = {};
+            db.adminCommand({ listDatabases: 1 }).databases.forEach(function(dbInfo) {
+              var dbName = dbInfo.name;
+              if (dbName !== 'admin' && dbName !== 'local') {
+                var currentDb = db.getSiblingDB(dbName);
+                allIndexes[dbName] = {};
+                currentDb.getCollectionNames().forEach(function(collectionName) {
+                  allIndexes[dbName][collectionName] = currentDb.getCollection(collectionName).getIndexes();
+                });
+              }
+            });
+            print(JSON.stringify(allIndexes, null, 2));
+          " > '{{ local_backup_dir }}/{{ backup_timestamp }}/all-indexes.json'
+      changed_when: true
+      register: _index_extract
+
+    - name: "Show index extraction result"
+      debug:
+        msg: "Index extraction completed. File: {{ local_backup_dir }}/{{ backup_timestamp }}/all-indexes.json"
+
+    - name: "Get index file size"
+      stat:
+        path: "{{ local_backup_dir }}/{{ backup_timestamp }}/all-indexes.json"
+      register: _index_stat
+
+    - name: "Show index file info"
+      debug:
+        msg: "Index file size: {{ (_index_stat.stat.size / 1024) | round(2) }} KB"
 
     # Create tar archive
     # -------------------------------------------------------------------------
@@ -313,13 +339,22 @@
 
     # Upload to S3
     # -------------------------------------------------------------------------
-    - name: "Upload backup to S3"
+    - name: "Upload backup archive to S3"
       shell: >
         aws s3 cp
         '{{ local_backup_dir }}/{{ backup_timestamp }}/backup.tar.gz'
         's3://{{ s3_bucket }}/{{ s3_prefix }}/{{ docdb_cluster_name }}/{{ backup_timestamp }}/backup.tar.gz'
         --region '{{ aws_region }}'
-      register: _s3_upload
+      register: _s3_upload_backup
+      changed_when: true
+
+    - name: "Upload index file to S3"
+      shell: >
+        aws s3 cp
+        '{{ local_backup_dir }}/{{ backup_timestamp }}/all-indexes.json'
+        's3://{{ s3_bucket }}/{{ s3_prefix }}/{{ docdb_cluster_name }}/{{ backup_timestamp }}/all-indexes.json'
+        --region '{{ aws_region }}'
+      register: _s3_upload_indexes
       changed_when: true
 
     - name: "Create backup metadata"
@@ -330,8 +365,14 @@
             "cluster": "{{ docdb_cluster_name }}",
             "timestamp": "{{ backup_timestamp }}",
             "databases": {{ databases | to_json }},
-            "size_bytes": {{ _backup_stat.stat.size }},
-            "region": "{{ aws_region }}"
+            "backup_size_bytes": {{ _backup_stat.stat.size }},
+            "index_size_bytes": {{ _index_stat.stat.size }},
+            "region": "{{ aws_region }}",
+            "files": {
+              "backup_archive": "backup.tar.gz",
+              "indexes": "all-indexes.json",
+              "metadata": "metadata.json"
+            }
           }
         mode: '0644'
 
@@ -361,8 +402,13 @@
           - "Cluster: {{ docdb_cluster_name }}"
           - "Timestamp: {{ backup_timestamp }}"
           - "Databases: {{ databases | length }}"
-          - "Size: {{ (_backup_stat.stat.size / 1024 / 1024) | round(2) }} MB"
+          - "Backup Size: {{ (_backup_stat.stat.size / 1024 / 1024) | round(2) }} MB"
+          - "Index Size: {{ (_index_stat.stat.size / 1024) | round(2) }} KB"
           - "S3 Location: s3://{{ s3_bucket }}/{{ s3_prefix }}/{{ docdb_cluster_name }}/{{ backup_timestamp }}/"
+          - "Files:"
+          - "  - backup.tar.gz (mongodump of all databases)"
+          - "  - all-indexes.json (indexes for all collections)"
+          - "  - metadata.json (backup metadata)"
           - "=========================================="
 
 # Made with Bob
