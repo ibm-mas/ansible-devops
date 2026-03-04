@@ -1,0 +1,33 @@
+---
+# Validate major version upgrade approval
+# -----------------------------------------------------------------------------
+# Determine if the upgrade constitutes a major version change by comparing
+# the leading version token (e.g. v11 vs v12, or s11 vs s12) extracted from
+# the channel names.  Channel names follow the convention used by the
+# db2u-operator package manifest, e.g. v11.5.8.0-cn3 or v12.0.0-cn1.
+
+- name: Validate upgrade
+  when: db2_channel != old_db2_channel
+  block:
+    - name: "Set old and new Db2 major version from channel names"
+      set_fact:
+        old_db2_major_version: "{{ old_db2_channel | regex_replace('^v(\\d{2})(\\d+).*', '\\1') }}"
+        new_db2_major_version: "{{ db2_channel | regex_replace('^v(\\d{2})(\\d+).*', '\\1') }}"
+
+    # Only allow Db2 upgrades, prevent downgrades from happening
+    - name: Assert no Db2 downgrade operations
+      assert:
+        that: "old_db2_major_version is version(new_db2_major_version, '<=')"
+        fail_msg: "Db2 downgrade is not allowed! Current Db2 version: {{ old_db2_major_version }}, target Db2 version {{ new_db2_major_version }}"
+
+
+    - name: "Assert that the Db2 v12 upgrade has been triggered"
+      when:
+        - old_db2_major_version is version('12', '<')
+        - new_db2_major_version == '12'
+      assert:
+        that:
+          - db2_v12_upgrade is defined 
+          - db2_v12_upgrade == true
+        fail_msg: "Your current Db2 version is {{ old_db2_major_version }}, in order to upgrade to version {{ new_db2_major_version }}, you must set 'db2_v12_upgrade': true"
+        success_msg: "Db2 upgrade approved from {{ old_db2_channel }} to {{ db2_channel }}"
