@@ -1,29 +1,22 @@
-- name: "Backup/Restore MongoDB for MAS"
-  hosts: localhost
+---
+- hosts: localhost
   any_errors_fatal: true
-
   vars:
     # Define the target for backup/restore
     mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
-    mas_app_id: "{{ lookup('env', 'MAS_APP_ID') }}"
-    mongodb_provider: "{{ lookup('env', 'MONGODB_PROVIDER') | default('community', true) }}"
+    mongodb_action: "{{ lookup('env', 'MONGODB_ACTION') | default('backup', true) }}" # backup or backup_database or restore_database or install
+    mas_backup_dir: "{{ lookup('env', 'MAS_BACKUP_DIR') }}" # eg: /tmp/mas_backups
+    mongodb_backup_version: "{{ lookup('env', 'MONGODB_BACKUP_VERSION') }}" # Required for restore or restore_database action
+    mongodb_instance_name: "{{ lookup('env', 'MONGODB_INSTANCE_NAME') | default('mas-mongo-ce', true) }}"
     mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', true) }}"
-
-    # Define what action to perform
-    masbr_action: "{{ lookup('env', 'MASBR_ACTION') }}"
-
-    # Define what to backup/restore
-    masbr_job_component:
-      name: "mongodb"
-      instance: "{{ mas_instance_id }}"
-      namespace: "{{ mongodb_namespace }}"
-
-    # Configure path to backup_restore tasks
-    role_path: "{{ [playbook_dir, '../common_tasks/backup_restore'] | path_join }}"
+    mongodb_provider: "community" # only community is supported currently
+    mas_app_id: "{{ lookup('env', 'MAS_APP_ID') }}" # Optional
+    # mongo restore configuration
+    override_storageclass: "{{ lookup('env', 'OVERRIDE_STORAGECLASS') | default('false', true) | bool }}" # Set to true to override
+    # when OVERRIDE_MONGODB_STORAGECLASS to true, MONGODB_STORAGECLASS_NAME_RWO will be used
+    mongodb_storageclass_rwo: "{{ lookup('env', 'MONGODB_STORAGECLASS_NAME_RWO') | default('', true) }}"
 
   pre_tasks:
-    # Display the notice that this is still a work in progress
-    # -------------------------------------------------------------------------
     - name: Important Notice
       debug:
         msg: |
@@ -31,44 +24,26 @@
           ************************* IMPORTANT NOTICE **************************
           *********************************************************************
           *                                                                   *
-          *  The backup and restore playbooks in this collection are still    *
-          *  work in progress, they are not suitable for production use at    *
-          *  this time.                                                       *
+          *  These playbooks are samples to demonstrate how to use the roles  *
+          *  in this collection.                                              *
           *                                                                   *
-          *  You may track development progress using the Backup & Restore    *
-          *  label in the GitHub repository:                                  *
+          *  They are NOT INTENDED FOR PRODUCTION USE as-is, they are a       *
+          *  starting point for power users to aid in the development of      *
+          *  their own Ansible playbooks using the roles in this collection   *
           *                                                                   *
-          *  https://ibm.biz/BdGnfb                                           *
+          *  The recommended way to install MAS is to use the MAS CLI, which  *
+          *  uses this Ansible Collection to deliver a complete managed       *
+          *  lifecycle for your MAS instance.                                 *
           *                                                                   *
-          *  Production-ready backup and restore options are detailed in the  *
-          *  Backup and restore topic in the product documentation:           *
-          *                                                                   *
-          *  https://ibm.biz/BdGnf3                                           *
+          *  https://ibm-mas.github.io/cli/                                   *
           *                                                                   *
           *********************************************************************
-
-    # Check for required environment variables
-    # -------------------------------------------------------------------------
-    - name: "Fail if mas_instance_id is not provided"
+    - name: "Fail if mongodb_action is not set to backup|backup_database|restore|restore_database"
       assert:
-        that: mas_instance_id is defined and mas_instance_id != ""
-        fail_msg: "mas_instance_id is required"
+        that: mongodb_action in ["backup", "backup_database", "restore_database", "restore"]
+        fail_msg: "mongodb_action is required and must be set to 'backup' or 'backup_database' or 'restore' or 'restore_database'"
 
-    - name: "Fail if masbr_action is not set to backup|restore"
-      assert:
-        that: masbr_action in ["backup", "restore"]
-        fail_msg: "masbr_action is required and must be set to 'backup' or 'restore'"
-
-    # Common checks before run tasks
-    # -------------------------------------------------------------------------
-    - name: "Before run tasks"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/before_run_tasks.yml"
+  roles:
+    - role: ibm.mas_devops.mongodb
       vars:
-        _job_type: "{{ masbr_action }}"
-
-  tasks:
-    - name: "MongoDB: {{ masbr_action }}"
-      include_role:
-        name: ibm.mas_devops.mongodb
-      vars:
-        mongodb_action: "{{ masbr_action }}"
+        mongodb_storage_class: "{{ mongodb_storageclass_rwo }}"

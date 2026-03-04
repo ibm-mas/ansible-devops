@@ -1,6 +1,7 @@
 ---
 # db2 action
 # ---------------------------------------------------------------------------
+# Supported actions: install, uninstall, backup, backup_database, restore, restore_database
 db2_action: "{{ lookup('env', 'DB2_ACTION') | default('install', true) }}"
 
 # Configure Db2 instance
@@ -123,7 +124,7 @@ mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
 mas_config_scope: "{{ lookup('env', 'MAS_CONFIG_SCOPE') | default('system', true) }}" # Supported values are "system", "ws", "app", or "wsapp"
 mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') }}" # Necessary for ws and wsapp scopes
-mas_application_id: "{{ lookup('env', 'MAS_APP_ID') }}" # Necessary for app and wsapp scopes
+mas_application_id: "{{ lookup('env', 'MAS_APP_ID') }}" # Necessary for app and wsapp scopes and backup and restore tasks
 
 # Entitlement
 # -----------------------------------------------------------------------------
@@ -135,6 +136,29 @@ ibm_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
 # Custom Labels
 # -----------------------------------------------------------------------------
 custom_labels: "{{ lookup('env', 'CUSTOM_LABELS') | default(None, true) | string | ibm.mas_devops.string2dict() }}"
+
+# Backup and Restore variables
+# -----------------------------------------------------------------------------
+mas_backup_dir: "{{ lookup('env', 'MAS_BACKUP_DIR') }}"
+db2_backup_version: "{{ lookup('env', 'DB2_BACKUP_VERSION') }}"
+
+# Set flag to true, to use cluster's default storage classes
+override_storageclass: "{{ lookup('env', 'OVERRIDE_STORAGECLASS') | default(false, true) }}"
+custom_storage_class_rwo: "{{ lookup('env', 'CUSTOM_STORAGE_CLASS_RWO') | default('', true) }}"
+custom_storage_class_rwx: "{{ lookup('env', 'CUSTOM_STORAGE_CLASS_RWX') | default('', true) }}"
+
+backup_vendor: "{{ lookup('env', 'BACKUP_VENDOR') | default('disk', true) | lower }}" # Supported values are s3 and disk
+backup_s3_alias: "{{ lookup('env', 'BACKUP_S3_ALIAS') | default('S3DB2COS', true) }}"
+backup_s3_endpoint: "{{ lookup('env', 'BACKUP_S3_ENDPOINT') }}"
+backup_s3_bucket: "{{ lookup('env', 'BACKUP_S3_BUCKET') }}"
+backup_s3_access_key: "{{ lookup('env', 'BACKUP_S3_ACCESS_KEY') }}"
+backup_s3_secret_key: "{{ lookup('env', 'BACKUP_S3_SECRET_KEY') }}"
+backup_type: "{{ lookup('env', 'DB2_BACKUP_TYPE') | default('online', true) }}" # Supported values are online, offline
+
+_db2_storages: "NO_OVERRIDE"
+_db2_instance_password: "NO_OVERRIDE"
+_db2_ldapblueadmin_password: "NO_OVERRIDE"
+_db2_ldappassword: "NO_OVERRIDE"
 
 # Addons
 # -----------------------------------------------------------------------------

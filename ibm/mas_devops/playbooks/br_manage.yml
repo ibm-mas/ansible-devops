@@ -1,29 +1,37 @@
-- name: "Backup/Restore Maximo Manage"
+---
+- name: "MAS Manage Application Backup and Restore"
   hosts: localhost
   any_errors_fatal: true
-
   vars:
     # Define the target for backup/restore
     mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
     mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') }}"
-    db2_instance_id: "{{ lookup('env', 'DB2_INSTANCE_NAME') }}"
-    db2_namespace: "{{ lookup('env', 'DB2_NAMESPACE') | default('db2u', true) }}"
+    mas_app_id: "manage"
 
-    # Define what action to perform
-    masbr_action: "{{ lookup('env', 'MASBR_ACTION') }}"
+    # Set the action for this playbook of either backup or restore
+    mas_app_action: "{{ lookup('env', 'MAS_APP_ACTION') | default('backup', true) }}"
 
-    # Define what to backup/restore
-    masbr_job_component:
-      name: "manage"
-      instance: "{{ mas_instance_id }}"
-      namespace: "mas-{{ mas_instance_id }}-manage"
+    # The top level location to save (on backup) or retrieve (on restore) the archive files
+    mas_backup_dir: "{{ lookup('env', 'MAS_BACKUP_DIR') }}" # eg: /tmp/mas_backups
 
-    # Configure path to backup_restore tasks
-    role_path: "{{ [playbook_dir, '../common_tasks/backup_restore'] | path_join }}"
+    # Backup version to use during backup action
+    # Note: The default timestamp will be set in pre_tasks
+    mas_app_backup_version: "{{ lookup('env', 'MAS_APP_BACKUP_VERSION') }}"
+
+    # Required for restore action, the backup version to use on restore
+    mas_app_backup_version_to_restore: "{{ lookup('env', 'MAS_APP_BACKUP_VERSION_TO_RESTORE') }}"
+
+    # Computed variable: use mas_app_backup_version for backup action, mas_app_backup_version_to_restore for restore action
+    mas_app_action_version: "{{ mas_app_backup_version if mas_app_action == 'backup' else mas_app_backup_version_to_restore }}"
+
+    # Storage Class Override Options for restore
+    # Set OVERRIDE_STORAGECLASS to true to override the storage class names from backup
+    override_storageclass: "{{ lookup('env', 'OVERRIDE_STORAGECLASS') | default('false', true) | bool }}"
+    # When OVERRIDE_STORAGECLASS is true, use the below storage classes
+    mas_app_custom_storage_class_rwo: "{{ lookup('env', 'MAS_APP_CUSTOM_STORAGE_CLASS_RWO') | default('', true) }}"
+    mas_app_custom_storage_class_rwx: "{{ lookup('env', 'MAS_APP_CUSTOM_STORAGE_CLASS_RWX') | default('', true) }}"
 
   pre_tasks:
-    # Display the notice that this is still a work in progress
-    # -------------------------------------------------------------------------
     - name: Important Notice
       debug:
         msg: |
@@ -31,67 +39,74 @@
           ************************* IMPORTANT NOTICE **************************
           *********************************************************************
           *                                                                   *
-          *  The backup and restore playbooks in this collection are still    *
-          *  work in progress, they are not suitable for production use at    *
-          *  this time.                                                       *
+          *  These playbooks are samples to demonstrate how to use the roles  *
+          *  in this collection.                                              *
           *                                                                   *
-          *  You may track development progress using the Backup & Restore    *
-          *  label in the GitHub repository:                                  *
+          *  They are NOT INTENDED FOR PRODUCTION USE as-is, they are a       *
+          *  starting point for power users to aid in the development of      *
+          *  their own Ansible playbooks using the roles in this collection   *
           *                                                                   *
-          *  https://ibm.biz/BdGnfb                                           *
+          *  The recommended way to install MAS is to use the MAS CLI, which  *
+          *  uses this Ansible Collection to deliver a complete managed       *
+          *  lifecycle for your MAS instance.                                 *
           *                                                                   *
-          *  Production-ready backup and restore options are detailed in the  *
-          *  Backup and restore topic in the product documentation:           *
-          *                                                                   *
-          *  https://ibm.biz/BdGnf3                                           *
+          *  https://ibm-mas.github.io/cli/                                   *
           *                                                                   *
           *********************************************************************
 
-    # Check for required environment variables
-    # -------------------------------------------------------------------------
-    - name: "Fail if mas_instance_id is not provided"
-      assert:
-        that: mas_instance_id is defined and mas_instance_id != ""
-        fail_msg: "mas_instance_id is required"
+    - name: "Set mas_app_backup_version with timestamp if not provided"
+      ansible.builtin.set_fact:
+        mas_app_backup_version: "{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
+      when: mas_app_backup_version is not defined or mas_app_backup_version == ''
 
-    - name: "Fail if mas_workspace_id is not provided"
-      assert:
-        that: mas_workspace_id is defined and mas_workspace_id != ""
-        fail_msg: "mas_workspace_id is required"
+    - name: "Fail if mas_instance_id is not set"
+      ansible.builtin.assert:
+        that:
+          - mas_instance_id is defined
+          - mas_instance_id != ''
+        fail_msg: "mas_instance_id is required and must be set"
 
-    - name: "Fail if masbr_action is not set to backup|restore"
-      assert:
-        that: masbr_action in ["backup", "restore"]
-        fail_msg: "masbr_action is required and must be set to 'backup' or 'restore'"
+    - name: "Fail if mas_workspace_id is not set"
+      ansible.builtin.assert:
+        that:
+          - mas_workspace_id is defined
+          - mas_workspace_id != ''
+        fail_msg: "mas_workspace_id is required and must be set"
 
-    # Common checks before run tasks
-    # -------------------------------------------------------------------------
-    - name: "Before run tasks"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/before_run_tasks.yml"
-      vars:
-        _job_type: "{{ masbr_action }}"
+    - name: "Fail if mas_backup_dir is not set"
+      ansible.builtin.assert:
+        that:
+          - mas_backup_dir is defined
+          - mas_backup_dir != ''
+        fail_msg: "mas_backup_dir is required and must be set"
 
-  tasks:
-    - name: "MongoDB: {{ masbr_action }}"
-      include_role:
-        name: ibm.mas_devops.mongodb
-      vars:
-        mongodb_action: "{{ masbr_action }}"
-        mas_app_id: "manage"
+    - name: "Fail if mas_app_action is not set to backup|restore"
+      ansible.builtin.assert:
+        that:
+          - mas_app_action is defined
+          - mas_app_action in ["backup", "restore"]
+        fail_msg: "mas_app_action is required and must be set to 'backup' or 'restore'"
 
-    - name: "Db2: {{ masbr_action }}"
-      include_role:
-        name: ibm.mas_devops.db2
-      vars:
-        db2_action: "{{ masbr_action }}"
-      when: db2_instance_id is defined and db2_instance_id != ""
+    - name: "Fail if mas_app_backup_version_to_restore is not set on restore"
+      ansible.builtin.assert:
+        that:
+          - mas_app_backup_version_to_restore is defined
+          - mas_app_backup_version_to_restore != ''
+        fail_msg: "mas_app_backup_version_to_restore is required when running 'restore'"
+      when: mas_app_action == "restore"
 
-    - name: "MAS Core namespace: {{ masbr_action }}"
-      include_role:
-        name: ibm.mas_devops.suite_backup_restore
-
-    - name: "Manage namespace: {{ masbr_action }}"
-      include_role:
-        name: ibm.mas_devops.suite_app_backup_restore
+  roles:
+    - role: ibm.mas_devops.suite_app_backup
+      when: mas_app_action == "backup"
       vars:
         mas_app_id: "manage"
+        mas_app_backup_version: "{{ mas_app_action_version }}"
+
+    - role: ibm.mas_devops.suite_app_restore
+      when: mas_app_action == "restore"
+      vars:
+        mas_app_id: "manage"
+        mas_app_backup_version: "{{ mas_app_action_version }}"
+        override_storageclass: "{{ override_storageclass }}"
+        mas_app_custom_storage_class_rwo: "{{ mas_app_custom_storage_class_rwo }}"
+        mas_app_custom_storage_class_rwx: "{{ mas_app_custom_storage_class_rwx }}"

@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+
+from ansible.plugins.action import ActionBase
+from ansible.errors import AnsibleError
+
+
+class ActionModule(ActionBase):
+
+    REQUIRED = {
+        "catalog": {
+            "backup": ["mas_backup_dir"],
+            "restore": ["mas_backup_dir", "ibm_catalogs_backup_version"]
+        },
+        "certmanager": {
+            "backup": ["mas_backup_dir"],
+            "restore": ["mas_backup_dir", "certmanager_backup_version"]
+        },
+        "db2": {
+            "backup":  ["db2_instance_name", "db2_namespace", "mas_backup_dir", "mas_instance_id", "mas_application_id"],
+            "restore_instance": ["mas_backup_dir", "db2_backup_version", "mas_application_id"],
+            "restore_database": ["mas_backup_dir", "db2_backup_version", "db2_instance_name", "backup_vendor", "mas_application_id"],
+            "s3_setup": ["backup_vendor", "backup_s3_alias", "backup_s3_endpoint", "backup_s3_bucket", "backup_s3_access_key", "backup_s3_secret_key"]
+        },
+        "grafana": {
+            "backup": ["mas_backup_dir"]
+        },
+        "mongodb": {
+            "backup":  ["mongodb_instance_name", "mas_backup_dir", "mas_instance_id"], # mongodb_instance_name has a default value
+            "restore": ["mas_backup_dir", "mongodb_backup_version"]
+        },
+        "sls": {
+            "backup": ["mas_backup_dir", "sls_namespace", "sls_instance_name"],
+            "restore": ["mas_backup_dir", "sls_backup_version"]
+        },
+        "suite": {
+            "backup": ["mas_instance_id", "mas_backup_dir"],
+            "restore": ["mas_instance_id", "mas_backup_dir", "suite_backup_version"]
+        },
+        "manage": {
+            "backup": ["mas_instance_id", "mas_workspace_id", "mas_backup_dir"],
+            "restore": ["mas_instance_id", "mas_backup_dir", "mas_app_backup_version"]
+        }
+    }
+
+    def run(self, tmp=None, task_vars=None):
+        super(ActionModule, self).run(tmp, task_vars)
+
+        component = self._task.args.get('component', None)
+        action = self._task.args.get('action', None)
+
+        if component not in self.REQUIRED:
+            raise AnsibleError(f"Unknown component '{component}'. Allowed: {list(self.REQUIRED)}")
+
+        if action not in self.REQUIRED[component]:
+            raise AnsibleError(f"Unknown action '{action}' for component '{component}'. Allowed: {list(self.REQUIRED[component])}")
+        
+        missing_args = []
+        for req_arg in self.REQUIRED[component][action]:
+            r_arg = self._task.args.get(req_arg, None)
+            if r_arg is None or r_arg == '':
+                missing_args.append(req_arg)
+        
+        if len(missing_args) > 0:
+            raise AnsibleError(f"Missing required arguments for component '{component}' action '{action}': {missing_args}")
+        else:
+            return dict(
+                changed=False,
+                failed=False,
+                msg=f"All required arguments for component '{component}' action '{action}' are provided."
+                )
+
+        

@@ -1,28 +1,33 @@
-- name: "Backup/Restore Db2 for MAS"
-  hosts: localhost
+---
+- hosts: localhost
   any_errors_fatal: true
-
   vars:
     # Define the target for backup/restore
     mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+    mas_application_id: "{{ lookup('env', 'MAS_APP_ID') }}"
+    mas_backup_dir: "{{ lookup('env', 'MAS_BACKUP_DIR') }}" # eg: /tmp/mas_backups
+    db2_instance_name: "{{ lookup('env', 'DB2_INSTANCE_NAME') }}"
     db2_namespace: "{{ lookup('env', 'DB2_NAMESPACE') | default('db2u', true) }}"
-    db2_instance_id: "{{ lookup('env', 'DB2_INSTANCE_NAME') }}"
-
-    # Define what action to perform
-    masbr_action: "{{ lookup('env', 'MASBR_ACTION') }}"
-
-    # Define what to backup/restore
-    masbr_job_component:
-      name: "db2"
-      instance: "{{ db2_instance_id }}"
-      namespace: "{{ db2_namespace }}"
-
-    # Configure path to backup_restore tasks
-    role_path: "{{ [playbook_dir, '../common_tasks/backup_restore'] | path_join }}"
+    db2_action: "{{ lookup('env', 'DB2_ACTION') }}" # backup or backup_database or restore or restore_database
+    db2_backup_version: "{{ lookup('env', 'DB2_BACKUP_VERSION') }}" # Required for restore action
+    backup_type: "{{ lookup('env', 'DB2_BACKUP_TYPE') | default('online', true) }}" # Supported values are online, offline and required for backup
+    backup_vendor: "{{ lookup('env', 'BACKUP_VENDOR') | default('disk', true) | lower }}"
+    backup_s3_alias: "{{ lookup('env', 'BACKUP_S3_ALIAS') | default('S3DB2COS', true) }}" # Required for backup_vendor=s3
+    backup_s3_endpoint: "{{ lookup('env', 'BACKUP_S3_ENDPOINT') }}" # Required for backup_vendor=s3
+    backup_s3_bucket: "{{ lookup('env', 'BACKUP_S3_BUCKET') }}" # Required for backup_vendor=s3
+    backup_s3_access_key: "{{ lookup('env', 'BACKUP_S3_ACCESS_KEY') }}" # Required for backup_vendor=s3
+    backup_s3_secret_key: "{{ lookup('env', 'BACKUP_S3_SECRET_KEY') }}" # Required for backup_vendor=s3
+    # Set OVERRIDE_STORAGECLASS to true to override the storage class names in backup
+    override_storageclass: "{{ lookup('env', 'OVERRIDE_STORAGECLASS') | default(false, true) }}"
+    # Set OVERRIDE_STORAGECLASS to true and use the below storage classes.
+    # when OVERRIDE_STORAGECLASS is true and below classes are not set, then the cluster's default storage classes will be used.
+    db2_meta_storage_class: "{{ lookup('env', 'DB2_META_STORAGE_CLASS') }}"
+    db2_data_storage_class: "{{ lookup('env', 'DB2_DATA_STORAGE_CLASS') }}"
+    db2_backup_storage_class: "{{ lookup('env', 'DB2_BACKUP_STORAGE_CLASS') }}"
+    db2_logs_storage_class: "{{ lookup('env', 'DB2_LOGS_STORAGE_CLASS') }}"
+    db2_temp_storage_class: "{{ lookup('env', 'DB2_TEMP_STORAGE_CLASS') }}"
 
   pre_tasks:
-    # Display the notice that this is still a work in progress
-    # -------------------------------------------------------------------------
     - name: Important Notice
       debug:
         msg: |
@@ -30,51 +35,59 @@
           ************************* IMPORTANT NOTICE **************************
           *********************************************************************
           *                                                                   *
-          *  The backup and restore playbooks in this collection are still    *
-          *  work in progress, they are not suitable for production use at    *
-          *  this time.                                                       *
+          *  These playbooks are samples to demonstrate how to use the roles  *
+          *  in this collection.                                              *
           *                                                                   *
-          *  You may track development progress using the Backup & Restore    *
-          *  label in the GitHub repository:                                  *
+          *  They are NOT INTENDED FOR PRODUCTION USE as-is, they are a       *
+          *  starting point for power users to aid in the development of      *
+          *  their own Ansible playbooks using the roles in this collection   *
           *                                                                   *
-          *  https://ibm.biz/BdGnfb                                           *
+          *  The recommended way to install MAS is to use the MAS CLI, which  *
+          *  uses this Ansible Collection to deliver a complete managed       *
+          *  lifecycle for your MAS instance.                                 *
           *                                                                   *
-          *  Production-ready backup and restore options are detailed in the  *
-          *  Backup and restore topic in the product documentation:           *
-          *                                                                   *
-          *  https://ibm.biz/BdGnf3                                           *
+          *  https://ibm-mas.github.io/cli/                                   *
           *                                                                   *
           *********************************************************************
 
-    # Check for required environment variables
-    # -------------------------------------------------------------------------
-    - name: "Fail if mas_instance_id is not provided"
+    - name: "Fail if DB2_ACTION is not set to backup|restore"
       assert:
-        that: mas_instance_id is defined and mas_instance_id != ""
-        fail_msg: "MAS_INSTANCE_ID is required"
+        that: db2_action in ["backup", "backup_database", "restore_database", "restore"]
+        fail_msg: "DB2_ACTION is required and must be set to 'backup' or 'backup_database' or 'restore_database' or 'restore'"
 
-    - name: "Fail if db2_instance_id is not provided"
+    - name: "Fail if BACKUP_VENDOR is not set to s3|disk"
       assert:
-        that: db2_instance_id is defined and db2_instance_id != ""
-        fail_msg: "DB2_INSTANCE_NAME is required"
+        that: backup_vendor in ["s3", "disk"]
+        fail_msg: "BACKUP_VENDOR is required and must be set to 's3' or 'disk'"
 
-    - name: "Fail if masbr_action is not set to backup|restore"
+    - name: "Fail if DB2_BACKUP_TYPE is not set to online|offline"
       assert:
-        that: masbr_action in ["backup", "restore"]
-        fail_msg: "MASBR_ACTION is required and must be set to 'backup' or 'restore'"
+        that: backup_type in ["online", "offline"]
+        fail_msg: "DB2_BACKUP_TYPE is required and must be set to 'online' or 'offline'"
 
-    # Common checks before run tasks
-    # -------------------------------------------------------------------------
-    - name: "Before run tasks"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/before_run_tasks.yml"
-      vars:
-        _job_type: "{{ masbr_action }}"
+    - name: "Fail if mas_instance_id is not set to"
+      ansible.builtin.assert:
+        that:
+          - mas_instance_id is defined
+        fail_msg: "mas_instance_id is required and must be set"
 
-  tasks:
-    # Run backup/restore tasks locally
-    # -------------------------------------------------------------------------
-    - name: "Db2 {{ masbr_action }}"
-      include_role:
-        name: ibm.mas_devops.db2
-      vars:
-        db2_action: "{{ masbr_action }}"
+    - name: "Fail if mas_application_id is not set to"
+      ansible.builtin.assert:
+        that:
+          - mas_application_id is defined
+        fail_msg: "mas_application_id is required and must be set"
+
+    - name: "Fail if S3 variables are not set when backup_vendor is s3"
+      ibm.mas_devops.verify_backup_restore_vars:
+        backup_vendor: "{{ backup_vendor }}"
+        backup_s3_alias: "{{ backup_s3_alias }}"
+        backup_s3_endpoint: "{{ backup_s3_endpoint }}"
+        backup_s3_bucket: "{{ backup_s3_bucket }}"
+        backup_s3_access_key: "{{ backup_s3_access_key }}"
+        backup_s3_secret_key: "{{ backup_s3_secret_key }}"
+        action: "s3_setup"
+        component: "db2"
+      when: backup_vendor == "s3"
+
+  roles:
+    - role: ibm.mas_devops.db2
