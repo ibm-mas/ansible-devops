@@ -730,6 +730,8 @@
     
       <cds-select-item value="#role-variables-aws-documentdb">Role Variables - AWS DocumentDB</cds-select-item>
     
+      <cds-select-item value="#role-variables-mongodb-atlas">Role Variables - MongoDB Atlas</cds-select-item>
+    
       <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
     
       <cds-select-item value="#run-role-playbook">Run Role Playbook</cds-select-item>
@@ -747,10 +749,13 @@
           <div class="rst-content">
             
             <h1 id="mongodb">mongodb<a class="headerlink" href="#mongodb" title="Permanent link">¤</a></h1>
-<p>This role currently supports provisioning of mongodb in three different providers:
+<p>This role currently supports provisioning of mongodb in four different providers:
  - community
  - aws (documentdb)
- - ibm</p>
+ - ibm
+ - atlas (MongoDB Atlas)
+<strong>Important Notice</strong>
+Support for the <strong>atlas (MongoDB Atlas)</strong> provider is currently in <strong>Proof of Concept (PoC)</strong> stage. It is intended for <strong>testing and development purposes only</strong> and <strong>is not recommended for production deployments</strong> at this time.</p>
 <p>If the selected provider is <code>community</code> then the <a href="https://github.com/mongodb/mongodb-kubernetes-operator">MongoDB Community Kubernetes Operator</a> will be configured and deployed into the specified namespace. By default a three member MongoDB replica set will be created.  The cluster will bind six PVCs, these provide persistence for the data and system logs across the three nodes.  Currently there is no support built-in for customizing the cluster beyond this configuration.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
@@ -2102,6 +2107,297 @@ Also, you need to have AWS user credentials configured via <code>aws configure</
 <li>Environment Variable: <code>CERTIFICATES</code></li>
 <li>Default Value: None</li>
 </ul>
+<h2 id="role-variables-mongodb-atlas">Role Variables - MongoDB Atlas<a class="headerlink" href="#role-variables-mongodb-atlas" title="Permanent link">¤</a></h2>
+<h4 id="atlas_project_id">atlas_project_id<a class="headerlink" href="#atlas_project_id" title="Permanent link">¤</a></h4>
+<p>MongoDB Atlas project ID where the cluster will be created.</p>
+<ul>
+<li><strong>Required</strong> when <code>mongodb_provider=atlas</code></li>
+<li>Environment Variable: <code>ATLAS_PROJECT_ID</code></li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: Identifies the Atlas project (organization) that will contain the MongoDB cluster. All Atlas resources are organized under projects.</p>
+<p><strong>When to use</strong>: Always required for Atlas deployments. Obtain from Atlas console under Project Settings.</p>
+<p><strong>Valid values</strong>: 24-character hexadecimal string (e.g., <code>507f1f77bcf86cd799439011</code>)</p>
+<p><strong>Impact</strong>: Determines billing, access control, and resource organization for the cluster.</p>
+<h4 id="atlas_public_key">atlas_public_key<a class="headerlink" href="#atlas_public_key" title="Permanent link">¤</a></h4>
+<p>MongoDB Atlas API public key for authentication.</p>
+<ul>
+<li><strong>Required</strong> when <code>mongodb_provider=atlas</code> (unless using <code>atlas_aws_secret_name</code>)</li>
+<li>Environment Variable: <code>ATLAS_PUBLIC_KEY</code></li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: Public component of Atlas API key pair used for programmatic access to Atlas API.</p>
+<p><strong>When to use</strong>: Required for all Atlas operations unless credentials are stored in AWS Secrets Manager.</p>
+<p><strong>Valid values</strong>: Atlas API public key string</p>
+<p><strong>Impact</strong>: Used with <code>atlas_private_key</code> for Atlas API authentication.</p>
+<p><strong>Related variables</strong>: Must be used with <code>atlas_private_key</code>. Alternative: use <code>atlas_aws_secret_name</code> to retrieve from AWS Secrets Manager.</p>
+<p><strong>Note</strong>: Store securely. Never commit to version control. Consider using AWS Secrets Manager for production.</p>
+<h4 id="atlas_private_key">atlas_private_key<a class="headerlink" href="#atlas_private_key" title="Permanent link">¤</a></h4>
+<p>MongoDB Atlas API private key for authentication.</p>
+<ul>
+<li><strong>Required</strong> when <code>mongodb_provider=atlas</code> (unless using <code>atlas_aws_secret_name</code>)</li>
+<li>Environment Variable: <code>ATLAS_PRIVATE_KEY</code></li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: Private component of Atlas API key pair used for programmatic access to Atlas API.</p>
+<p><strong>When to use</strong>: Required for all Atlas operations unless credentials are stored in AWS Secrets Manager.</p>
+<p><strong>Valid values</strong>: Atlas API private key string</p>
+<p><strong>Impact</strong>: Used with <code>atlas_public_key</code> for Atlas API authentication.</p>
+<p><strong>Related variables</strong>: Must be used with <code>atlas_public_key</code>. Alternative: use <code>atlas_aws_secret_name</code> to retrieve from AWS Secrets Manager.</p>
+<p><strong>Note</strong>: Store securely. Never commit to version control. Consider using AWS Secrets Manager for production.</p>
+<h4 id="atlas_aws_secret_name">atlas_aws_secret_name<a class="headerlink" href="#atlas_aws_secret_name" title="Permanent link">¤</a></h4>
+<p>AWS Secrets Manager secret name containing Atlas API credentials.</p>
+<ul>
+<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code></li>
+<li>Environment Variable: <code>ATLAS_AWS_SECRET_NAME</code></li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: Retrieves Atlas API credentials from AWS Secrets Manager instead of using environment variables. Recommended for production deployments.</p>
+<p><strong>When to use</strong>: Use instead of <code>atlas_public_key</code>/<code>atlas_private_key</code> for better security. Secret must contain JSON with <code>public_key</code> and <code>private_key</code> fields.</p>
+<p><strong>Valid values</strong>: AWS Secrets Manager secret name or ARN</p>
+<p><strong>Impact</strong>: When set, Atlas API credentials are retrieved from AWS Secrets Manager. Requires AWS CLI configured and appropriate IAM permissions.</p>
+<p><strong>Related variables</strong>: Requires <code>atlas_aws_secret_region</code>. Alternative to <code>atlas_public_key</code>/<code>atlas_private_key</code>.</p>
+<p><strong>Note</strong>: Secret format: <code>{"public_key": "xxx", "private_key": "yyy"}</code></p>
+<h4 id="atlas_aws_secret_region">atlas_aws_secret_region<a class="headerlink" href="#atlas_aws_secret_region" title="Permanent link">¤</a></h4>
+<p>AWS region where the Secrets Manager secret is stored.</p>
+<ul>
+<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code> and <code>atlas_aws_secret_name</code> is set</li>
+<li>Environment Variable: <code>ATLAS_AWS_SECRET_REGION</code></li>
+<li>Default Value: <code>us-east-1</code></li>
+</ul>
+<p><strong>Purpose</strong>: Specifies which AWS region to query for the Atlas API credentials secret.</p>
+<p><strong>When to use</strong>: Set when using <code>atlas_aws_secret_name</code> and secret is not in us-east-1.</p>
+<p><strong>Valid values</strong>: Valid AWS region name (e.g., <code>us-east-1</code>, <code>eu-west-1</code>)</p>
+<p><strong>Impact</strong>: Determines which AWS region is queried for the secret.</p>
+<p><strong>Related variables</strong>: Only used when <code>atlas_aws_secret_name</code> is set.</p>
+<h4 id="atlas_cluster_name">atlas_cluster_name<a class="headerlink" href="#atlas_cluster_name" title="Permanent link">¤</a></h4>
+<p>Name of the MongoDB Atlas cluster to create or manage.</p>
+<ul>
+<li><strong>Required</strong> when <code>mongodb_provider=atlas</code></li>
+<li>Environment Variable: <code>ATLAS_CLUSTER_NAME</code></li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: Identifies the Atlas cluster within the project. Used for all cluster operations.</p>
+<p><strong>When to use</strong>: Always required for Atlas deployments.</p>
+<p><strong>Valid values</strong>: Alphanumeric string, 1-64 characters, can include hyphens</p>
+<p><strong>Impact</strong>: Cluster name appears in Atlas console and connection strings.</p>
+<p><strong>Note</strong>: Cannot be changed after cluster creation.</p>
+<h4 id="atlas_cluster_provider">atlas_cluster_provider<a class="headerlink" href="#atlas_cluster_provider" title="Permanent link">¤</a></h4>
+<p>Cloud provider where the Atlas cluster will be deployed.</p>
+<ul>
+<li><strong>Required</strong> when <code>mongodb_provider=atlas</code></li>
+<li>Environment Variable: <code>ATLAS_CLUSTER_PROVIDER</code></li>
+<li>Default Value: <code>AWS</code></li>
+</ul>
+<p><strong>Purpose</strong>: Specifies which cloud infrastructure provider hosts the Atlas cluster.</p>
+<p><strong>When to use</strong>: Always required for Atlas deployments.</p>
+<p><strong>Valid values</strong>: <code>AWS</code></p>
+<p><strong>Impact</strong>: Determines available regions, instance sizes, and pricing.</p>
+<p><strong>Note</strong>: VPC peering is only supported when using <code>AWS</code> as the cloud provider.</p>
+<p><strong>Related variables</strong>: Must be compatible with <code>atlas_cluster_region</code>.</p>
+<h4 id="atlas_cluster_region">atlas_cluster_region<a class="headerlink" href="#atlas_cluster_region" title="Permanent link">¤</a></h4>
+<p>Cloud provider region where the Atlas cluster will be deployed.</p>
+<ul>
+<li><strong>Required</strong> when <code>mongodb_provider=atlas</code></li>
+<li>Environment Variable: <code>ATLAS_CLUSTER_REGION</code></li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the geographic region for cluster deployment, affecting latency and data residency.</p>
+<p><strong>When to use</strong>: Always required for Atlas deployments. Choose region closest to your application.</p>
+<p><strong>Valid values</strong>: Atlas region codes (e.g., <code>US_EAST_1</code>, <code>EU_WEST_1</code>, <code>AP_SOUTHEAST_1</code>)</p>
+<p><strong>Impact</strong>: Affects latency, data residency compliance, and availability zones.</p>
+<p><strong>Related variables</strong>: Must be valid for the selected <code>atlas_cluster_provider</code>.</p>
+<p><strong>Note</strong>: Use Atlas region format (underscores), not AWS format (hyphens).</p>
+<h4 id="atlas_cluster_size">atlas_cluster_size<a class="headerlink" href="#atlas_cluster_size" title="Permanent link">¤</a></h4>
+<p>Atlas cluster tier/instance size.</p>
+<ul>
+<li><strong>Required</strong> when <code>mongodb_provider=atlas</code></li>
+<li>Environment Variable: <code>ATLAS_CLUSTER_SIZE</code></li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: Determines cluster compute and memory resources, affecting performance and cost.</p>
+<p><strong>When to use</strong>: Always required for Atlas deployments. Choose based on workload requirements.</p>
+<p><strong>Valid values</strong>: <code>M10</code>, <code>M20</code>, <code>M30</code>, <code>M40</code>, <code>M50</code>, <code>M60</code>, <code>M80</code>, <code>M140</code>, <code>M200</code>, <code>M300</code>, <code>M400</code>, <code>M700</code></p>
+<p><strong>Impact</strong>: Affects cluster performance, storage capacity, and hourly cost. M10 is minimum for production.</p>
+<p><strong>Note</strong>: M0/M2/M5 free/shared tiers not supported. Cannot be decreased, only increased.</p>
+<h4 id="atlas_mongodb_version">atlas_mongodb_version<a class="headerlink" href="#atlas_mongodb_version" title="Permanent link">¤</a></h4>
+<p>MongoDB version to deploy in Atlas cluster.</p>
+<ul>
+<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code></li>
+<li>Environment Variable: <code>ATLAS_MONGODB_VERSION</code></li>
+<li>Default Value: <code>6.0</code></li>
+</ul>
+<p><strong>Purpose</strong>: Specifies MongoDB version for the cluster.</p>
+<p><strong>When to use</strong>: Override default when specific version is required.</p>
+<p><strong>Valid values</strong>: <code>6.0</code>, <code>7.0</code>, <code>8.0</code> (check Atlas for currently supported versions)</p>
+<p><strong>Impact</strong>: Determines available MongoDB features and compatibility.</p>
+<p><strong>Note</strong>: Version upgrades are supported but downgrades are not.</p>
+<h4 id="atlas_backup_enabled">atlas_backup_enabled<a class="headerlink" href="#atlas_backup_enabled" title="Permanent link">¤</a></h4>
+<p>Enable automated backups for the Atlas cluster.</p>
+<ul>
+<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code></li>
+<li>Environment Variable: <code>ATLAS_BACKUP_ENABLED</code></li>
+<li>Default Value: <code>true</code></li>
+</ul>
+<p><strong>Purpose</strong>: Controls whether Atlas creates automated backups of the cluster.</p>
+<p><strong>When to use</strong>: Leave enabled (default) for production. Disable only for temporary/test clusters.</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: When enabled, Atlas creates continuous backups with point-in-time recovery. Affects cluster cost.</p>
+<p><strong>Note</strong>: Highly recommended for production deployments.</p>
+<h4 id="atlas_database_users">atlas_database_users<a class="headerlink" href="#atlas_database_users" title="Permanent link">¤</a></h4>
+<p>Multi-user database configuration for Atlas cluster.</p>
+<ul>
+<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code> (alternative to <code>atlas_db_username</code>/<code>atlas_db_password</code>)</li>
+<li>Environment Variable: Not supported (use playbook vars)</li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: Defines multiple database users with different roles and permissions. Recommended approach for production.</p>
+<p><strong>When to use</strong>: Use for production deployments requiring multiple users with different access levels.</p>
+<p><strong>Valid values</strong>: Dictionary of user configurations with username, auth_database_name, and roles</p>
+<p><strong>Impact</strong>: Creates multiple database users with auto-generated passwords stored in Atlas.</p>
+<p><strong>Related variables</strong>: Alternative to legacy <code>atlas_db_username</code>/<code>atlas_db_password</code>.</p>
+<p><strong>Example</strong>:</p>
+<pre><code class="language-yaml">atlas_database_users:
+  user1:
+    username: "app_user"
+    auth_database_name: "admin"
+    roles:
+      - database_name: "admin"
+        role_name: "readWriteAnyDatabase"
+</code></pre>
+<h4 id="atlas_db_username">atlas_db_username<a class="headerlink" href="#atlas_db_username" title="Permanent link">¤</a></h4>
+<p>Legacy single database user username.</p>
+<ul>
+<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code> (alternative to <code>atlas_database_users</code>)</li>
+<li>Environment Variable: <code>ATLAS_DB_USERNAME</code></li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: Creates a single database user for Atlas cluster. Legacy approach.</p>
+<p><strong>When to use</strong>: Use for simple deployments with single user. Consider <code>atlas_database_users</code> for production.</p>
+<p><strong>Valid values</strong>: Valid MongoDB username string</p>
+<p><strong>Impact</strong>: Creates one database user with specified credentials.</p>
+<p><strong>Related variables</strong>: Must be used with <code>atlas_db_password</code>. Alternative: use <code>atlas_database_users</code>.</p>
+<h4 id="atlas_db_password">atlas_db_password<a class="headerlink" href="#atlas_db_password" title="Permanent link">¤</a></h4>
+<p>Legacy single database user password.</p>
+<ul>
+<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code> (alternative to <code>atlas_database_users</code>)</li>
+<li>Environment Variable: <code>ATLAS_DB_PASSWORD</code></li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: Password for the single database user. Legacy approach.</p>
+<p><strong>When to use</strong>: Use with <code>atlas_db_username</code> for simple deployments.</p>
+<p><strong>Valid values</strong>: Strong password string</p>
+<p><strong>Impact</strong>: Sets password for the database user.</p>
+<p><strong>Related variables</strong>: Must be used with <code>atlas_db_username</code>. Alternative: use <code>atlas_database_users</code>.</p>
+<p><strong>Note</strong>: Store securely. Never commit to version control.</p>
+<h4 id="atlas_store_credentials_in_secret">atlas_store_credentials_in_secret<a class="headerlink" href="#atlas_store_credentials_in_secret" title="Permanent link">¤</a></h4>
+<p>Store Atlas connection information in AWS Secrets Manager.</p>
+<ul>
+<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code></li>
+<li>Environment Variable: <code>ATLAS_STORE_CREDENTIALS_IN_SECRET</code></li>
+<li>Default Value: <code>false</code></li>
+</ul>
+<p><strong>Purpose</strong>: Automatically stores Atlas connection details (hosts, port, username, password, CA cert) in AWS Secrets Manager after provisioning.</p>
+<p><strong>When to use</strong>: Enable for production deployments to centralize credential management.</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: Creates/updates AWS Secrets Manager secret with connection information.</p>
+<p><strong>Related variables</strong>: Requires <code>atlas_credentials_secret_name</code> or <code>atlas_credentials_secret_prefix</code>/<code>atlas_mongodb_secret_name</code>.</p>
+<h4 id="atlas_credentials_secret_name">atlas_credentials_secret_name<a class="headerlink" href="#atlas_credentials_secret_name" title="Permanent link">¤</a></h4>
+<p>Full AWS Secrets Manager secret name for storing connection information.</p>
+<ul>
+<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code> and <code>atlas_store_credentials_in_secret=true</code></li>
+<li>Environment Variable: <code>ATLAS_CREDENTIALS_SECRET_NAME</code></li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies exact secret name for storing Atlas connection information.</p>
+<p><strong>When to use</strong>: Use when you want full control over secret naming.</p>
+<p><strong>Valid values</strong>: Valid AWS Secrets Manager secret name</p>
+<p><strong>Impact</strong>: Connection information stored at this exact secret name.</p>
+<p><strong>Related variables</strong>: Alternative to using <code>atlas_credentials_secret_prefix</code>/<code>atlas_mongodb_secret_name</code>.</p>
+<h4 id="atlas_credentials_secret_prefix">atlas_credentials_secret_prefix<a class="headerlink" href="#atlas_credentials_secret_prefix" title="Permanent link">¤</a></h4>
+<p>Prefix for building AWS Secrets Manager secret name.</p>
+<ul>
+<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code> and <code>atlas_store_credentials_in_secret=true</code></li>
+<li>Environment Variable: <code>ATLAS_CREDENTIALS_SECRET_PREFIX</code></li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: Prefix for constructing secret name in format: <code>{prefix}/{name}/mongo</code></p>
+<p><strong>When to use</strong>: Use with <code>atlas_mongodb_secret_name</code> for consistent naming pattern.</p>
+<p><strong>Valid values</strong>: Valid secret name prefix (e.g., <code>/aws-dev</code>, <code>/prod</code>)</p>
+<p><strong>Impact</strong>: Combined with <code>atlas_mongodb_secret_name</code> to create full secret path.</p>
+<p><strong>Related variables</strong>: Used with <code>atlas_mongodb_secret_name</code>. Alternative to <code>atlas_credentials_secret_name</code>.</p>
+<h4 id="atlas_mongodb_secret_name">atlas_mongodb_secret_name<a class="headerlink" href="#atlas_mongodb_secret_name" title="Permanent link">¤</a></h4>
+<p>Name component for building AWS Secrets Manager secret name.</p>
+<ul>
+<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code> and <code>atlas_store_credentials_in_secret=true</code></li>
+<li>Environment Variable: <code>ATLAS_MONGODB_SECRET_NAME</code></li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: Name component for constructing secret name in format: <code>{prefix}/{name}/mongo</code></p>
+<p><strong>When to use</strong>: Use with <code>atlas_credentials_secret_prefix</code> for consistent naming pattern.</p>
+<p><strong>Valid values</strong>: Valid secret name component</p>
+<p><strong>Impact</strong>: Combined with <code>atlas_credentials_secret_prefix</code> to create full secret path.</p>
+<p><strong>Related variables</strong>: Used with <code>atlas_credentials_secret_prefix</code>. Alternative to <code>atlas_credentials_secret_name</code>.</p>
+<h4 id="atlas_credentials_secret_region">atlas_credentials_secret_region<a class="headerlink" href="#atlas_credentials_secret_region" title="Permanent link">¤</a></h4>
+<p>AWS region for storing connection information secret.</p>
+<ul>
+<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code> and <code>atlas_store_credentials_in_secret=true</code></li>
+<li>Environment Variable: <code>ATLAS_CREDENTIALS_SECRET_REGION</code></li>
+<li>Default Value: <code>us-east-1</code></li>
+</ul>
+<p><strong>Purpose</strong>: Specifies AWS region where connection information secret will be stored.</p>
+<p><strong>When to use</strong>: Set when storing secret in region other than us-east-1.</p>
+<p><strong>Valid values</strong>: Valid AWS region name</p>
+<p><strong>Impact</strong>: Determines which AWS region stores the connection secret.</p>
+<h4 id="atlas_vpc_id">atlas_vpc_id<a class="headerlink" href="#atlas_vpc_id" title="Permanent link">¤</a></h4>
+<p>AWS VPC ID for VPC peering with Atlas.</p>
+<ul>
+<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code> and <code>atlas_cluster_provider=AWS</code> and configuring VPC peering</li>
+<li>Environment Variable: <code>ATLAS_VPC_ID</code></li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: AWS VPC ID for establishing VPC peering connection with Atlas cluster.</p>
+<p><strong>When to use</strong>: Required when configuring VPC peering for private connectivity. VPC peering is only supported for AWS deployments.</p>
+<p><strong>Valid values</strong>: Valid AWS VPC ID (e.g., <code>vpc-0123456789abcdef0</code>)</p>
+<p><strong>Impact</strong>: Enables private network connectivity between AWS VPC and Atlas cluster.</p>
+<p><strong>Related variables</strong>: Used with <code>atlas_aws_region</code>, <code>atlas_aws_route_table_ids</code> or <code>atlas_aws_subnet_ids</code>.</p>
+<h4 id="atlas_aws_region">atlas_aws_region<a class="headerlink" href="#atlas_aws_region" title="Permanent link">¤</a></h4>
+<p>AWS region for VPC peering configuration.</p>
+<ul>
+<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code> and <code>atlas_cluster_provider=AWS</code> and configuring VPC peering</li>
+<li>Environment Variable: <code>ATLAS_AWS_REGION</code></li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: AWS region where VPC peering will be configured.</p>
+<p><strong>When to use</strong>: Required when configuring VPC peering. VPC peering is only supported for AWS deployments.</p>
+<p><strong>Valid values</strong>: Atlas region format (e.g., <code>US_EAST_1</code>, <code>EU_WEST_1</code>)</p>
+<p><strong>Impact</strong>: Must match the region of the AWS VPC.</p>
+<p><strong>Related variables</strong>: Used with <code>atlas_vpc_id</code> for VPC peering.</p>
+<p><strong>Note</strong>: Use Atlas region format (underscores), not AWS format (hyphens).</p>
+<h4 id="atlas_aws_route_table_ids">atlas_aws_route_table_ids<a class="headerlink" href="#atlas_aws_route_table_ids" title="Permanent link">¤</a></h4>
+<p>AWS route table IDs for VPC peering routes.</p>
+<ul>
+<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code> and <code>atlas_cluster_provider=AWS</code> and configuring VPC peering</li>
+<li>Environment Variable: <code>ATLAS_AWS_ROUTE_TABLE_IDS</code></li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: List of AWS route table IDs where Atlas CIDR routes will be added.</p>
+<p><strong>When to use</strong>: Provide when manually specifying route tables for VPC peering. VPC peering is only supported for AWS deployments.</p>
+<p><strong>Valid values</strong>: List of route table IDs or comma-separated string</p>
+<p><strong>Impact</strong>: Routes to Atlas CIDR block added to these route tables.</p>
+<p><strong>Related variables</strong>: Alternative to <code>atlas_aws_subnet_ids</code> (which auto-discovers route tables).</p>
+<h4 id="atlas_aws_subnet_ids">atlas_aws_subnet_ids<a class="headerlink" href="#atlas_aws_subnet_ids" title="Permanent link">¤</a></h4>
+<p>AWS subnet IDs for auto-discovering route tables.</p>
+<ul>
+<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code> and <code>atlas_cluster_provider=AWS</code> and configuring VPC peering</li>
+<li>Environment Variable: <code>ATLAS_AWS_SUBNET_IDS</code></li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: List of AWS subnet IDs used to automatically discover associated route tables.</p>
+<p><strong>When to use</strong>: Provide when you want automatic route table discovery instead of manual specification. VPC peering is only supported for AWS deployments.</p>
+<p><strong>Valid values</strong>: List of subnet IDs or comma-separated string</p>
+<p><strong>Impact</strong>: Route tables associated with these subnets are automatically discovered and configured.</p>
+<p><strong>Related variables</strong>: Alternative to <code>atlas_aws_route_table_ids</code> (manual specification).</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <h3 id="install-ce-operator">Install (CE Operator)<a class="headerlink" href="#install-ce-operator" title="Permanent link">¤</a></h3>
 <pre><code class="language-yaml">- hosts: localhost
@@ -2591,6 +2887,128 @@ ansible-playbook ibm.mas_devops.run_role
                       <li class="md-toc__item">
                         <a href="#certificates" class="md-toc__link" data-md-level="2">
                           certificates
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#role-variables-mongodb-atlas" class="md-toc__link" data-md-level="1">
+                  Role Variables - MongoDB Atlas
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#atlas_project_id" class="md-toc__link" data-md-level="2">
+                          atlas_project_id
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_public_key" class="md-toc__link" data-md-level="2">
+                          atlas_public_key
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_private_key" class="md-toc__link" data-md-level="2">
+                          atlas_private_key
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_aws_secret_name" class="md-toc__link" data-md-level="2">
+                          atlas_aws_secret_name
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_aws_secret_region" class="md-toc__link" data-md-level="2">
+                          atlas_aws_secret_region
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_cluster_name" class="md-toc__link" data-md-level="2">
+                          atlas_cluster_name
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_cluster_provider" class="md-toc__link" data-md-level="2">
+                          atlas_cluster_provider
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_cluster_region" class="md-toc__link" data-md-level="2">
+                          atlas_cluster_region
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_cluster_size" class="md-toc__link" data-md-level="2">
+                          atlas_cluster_size
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_mongodb_version" class="md-toc__link" data-md-level="2">
+                          atlas_mongodb_version
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_backup_enabled" class="md-toc__link" data-md-level="2">
+                          atlas_backup_enabled
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_database_users" class="md-toc__link" data-md-level="2">
+                          atlas_database_users
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_db_username" class="md-toc__link" data-md-level="2">
+                          atlas_db_username
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_db_password" class="md-toc__link" data-md-level="2">
+                          atlas_db_password
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_store_credentials_in_secret" class="md-toc__link" data-md-level="2">
+                          atlas_store_credentials_in_secret
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_credentials_secret_name" class="md-toc__link" data-md-level="2">
+                          atlas_credentials_secret_name
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_credentials_secret_prefix" class="md-toc__link" data-md-level="2">
+                          atlas_credentials_secret_prefix
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_mongodb_secret_name" class="md-toc__link" data-md-level="2">
+                          atlas_mongodb_secret_name
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_credentials_secret_region" class="md-toc__link" data-md-level="2">
+                          atlas_credentials_secret_region
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_vpc_id" class="md-toc__link" data-md-level="2">
+                          atlas_vpc_id
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_aws_region" class="md-toc__link" data-md-level="2">
+                          atlas_aws_region
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_aws_route_table_ids" class="md-toc__link" data-md-level="2">
+                          atlas_aws_route_table_ids
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas_aws_subnet_ids" class="md-toc__link" data-md-level="2">
+                          atlas_aws_subnet_ids
                         </a>
                       </li>
                   </ul>
