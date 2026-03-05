@@ -36,7 +36,7 @@
 
 - name: Download and Restore
   block:
-    # 3. Create temporary directory for restore files
+    # 2. Create temporary directory for restore files
     # -----------------------------------------------------------------------------
     - name: Create temporary directory for restore
       file:
@@ -44,8 +44,8 @@
         state: directory
         mode: '0755'
 
-    # # 4. Download backup files from S3
-    # # -----------------------------------------------------------------------------
+    # 3. Download backup files from S3
+    # -----------------------------------------------------------------------------
     - name: Download backup archive from S3
       amazon.aws.s3_object:
         bucket: "{{ atlas_s3_bucket_name }}"
@@ -68,12 +68,15 @@
           - "Backup archive downloaded successfully"
           - "Index file downloaded successfully"
 
-    # # 7. Build mongorestore connection string
-    # # -----------------------------------------------------------------------------
+    # 4. Build mongorestore connection string
+    # -----------------------------------------------------------------------------
     - name: Build MongoDB connection URI
       set_fact:
         mongodb_uri: "mongodb+srv://{{ atlas_mongodb_username }}:{{ atlas_mongodb_password }}@{{ atlas_mongodb_host }}/"
+      no_log: true
 
+    # 5. Extract and Restore mongodb databases
+    # -----------------------------------------------------------------------------
     - name: "Extract the tar.gz file"
       changed_when: true
       shell: >
@@ -91,21 +94,10 @@
           {{ mongorestore_options }} \
           --drop --dir={{ restore_temp_dir }}/{{ atlas_backup_file_name }}/ --verbose
       register: mongorestore_result
-      # no_log: true
+      no_log: true
 
-    # # 8. Restore MongoDB data using mongorestore
-    # # -----------------------------------------------------------------------------
-    # - name: Restore MongoDB data from backup
-    #   shell: |
-    #     mongorestore \
-    #       --uri="{{ mongodb_uri }}" \
-    #       --archive={{ restore_temp_dir }}/{{ atlas_backup_file_name }} \
-    #       {{ mongorestore_options }}
-    #   register: mongorestore_result
-    #   no_log: true
-
-    # # 9. Restore indexes from index backup file
-    # # -----------------------------------------------------------------------------
+    # 6. Restore indexes from index backup file
+    # -----------------------------------------------------------------------------
     - name: Check if index backup file is a valid JSON
       command: >
         python3 -m json.tool {{ restore_temp_dir }}/{{ atlas_index_backup_file_name }}
@@ -123,16 +115,6 @@
         - name: Parse index backup JSON
           set_fact:
             index_data: "{{ index_backup_content.content | b64decode | from_json }}"
-
-        # - name: Restore indexes using mongo shell
-        #   shell: |
-        #     mongosh "{{ mongodb_uri }}" \
-        #       --eval 'db = db.getSiblingDB("{{ item.database }}"); {{ item.command }}'
-        #   loop: "{{ index_data | default([]) }}"
-        #   when: index_data is defined and index_data | length > 0
-        #   register: index_restore_result
-          # no_log: true
-          # {{ '--tls --tlsCAFile=' + mongodb_ssl_ca_file if mongodb_ssl_enabled and mongodb_ssl_ca_file != '' else '' }} \
 
         - name: Build list of database and collection combinations
           ansible.builtin.set_fact:
@@ -165,26 +147,6 @@
           loop: "{{ db_collection_list | from_yaml }}"
           register: index_creation_result
           changed_when: "'Created index' in index_creation_result.stdout"
-
-        # - name: Display index restore summary
-        #   debug:
-        #     msg: "Indexes restored successfully for {{ index_data | default([]) | length }} collections"
-
-    # # 10. Verify restore completion
-    # # -----------------------------------------------------------------------------
-    # - name: Verify MongoDB connection after restore #niv ssl ca file is not required for mongodb atlas
-    #   shell: |
-    #     mongosh "{{ mongodb_uri }}" \
-    #       {{ '--tls --tlsCAFile=' + mongodb_ssl_ca_file if mongodb_ssl_enabled and mongodb_ssl_ca_file != '' else '' }} \
-    #       --eval 'db.adminCommand({ ping: 1 })'
-    #   register: connection_test
-    #   no_log: true
-
-    # - name: Assert MongoDB connection is successful
-    #   assert:
-    #     that:
-    #       - connection_test.rc == 0
-    #     fail_msg: "Failed to connect to MongoDB after restore"
 
     - name: Display restore completion message
       debug:
@@ -235,8 +197,8 @@
 
   always:
 
-    # # 11. Cleanup temporary files
-    # # -----------------------------------------------------------------------------
+    # 7. Cleanup temporary files
+    # -----------------------------------------------------------------------------
     - name: Clean up temporary restore directory
       when: cleanup_temp_files | default(true) | bool
       file:
