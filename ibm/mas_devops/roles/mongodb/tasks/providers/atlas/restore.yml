@@ -1,0 +1,244 @@
+---
+# MongoDB Restore from AWS S3
+# =============================================================================
+# This playbook restores MongoDB data from S3 backup to MongoDB Atlas
+# It downloads backup archive and index files from S3 and uses mongorestore command
+
+# 1. Validate required variables
+# -----------------------------------------------------------------------------
+- name: Fail if required S3 variables are not provided
+  assert:
+    that:
+      - atlas_s3_bucket_name is defined and atlas_s3_bucket_name != ''
+      - atlas_s3_backup_prefix is defined and atlas_s3_backup_prefix != ''
+      - atlas_backup_file_name is defined and atlas_backup_file_name != ''
+      - atlas_index_backup_file_name is defined and atlas_index_backup_file_name != ''
+    fail_msg: "Missing one or more required S3 properties: atlas_s3_bucket_name, atlas_s3_backup_prefix, atlas_backup_file_name, atlas_index_backup_file_name"
+
+- name: Fail if required MongoDB Atlas/DocumentDB connection details are not provided
+  assert:
+    that:
+      - atlas_mongodb_host is defined and atlas_mongodb_host != ''
+      - atlas_mongodb_username is defined and atlas_mongodb_username != ''
+      - atlas_mongodb_password is defined and atlas_mongodb_password != ''
+    fail_msg: "Missing one or more required MongoDB connection properties: atlas_mongodb_host, atlas_mongodb_username, atlas_mongodb_password"
+
+- name: "Debug restore properties"
+  debug:
+    msg:
+      - "S3 Bucket Name ......................... {{ atlas_s3_bucket_name }}"
+      - "Backup File Name ....................... {{ atlas_backup_file_name }}.tar.gz"
+      - "S3 Prefix .............................. {{ atlas_s3_backup_prefix }}"
+      - "Index Backup File Name ................. {{ atlas_index_backup_file_name }}"
+      - "MongoDB Host ........................... {{ atlas_mongodb_host }}"
+      - "MongoDB Username ....................... {{ atlas_mongodb_username }}"
+      - "Restore Temp Directory ................. {{ restore_temp_dir }}"
+
+- name: Download and Restore
+  block:
+    # 3. Create temporary directory for restore files
+    # -----------------------------------------------------------------------------
+    - name: Create temporary directory for restore
+      file:
+        path: "{{ restore_temp_dir }}"
+        state: directory
+        mode: '0755'
+
+    # # 4. Download backup files from S3
+    # # -----------------------------------------------------------------------------
+    - name: Download backup archive from S3
+      amazon.aws.s3_object:
+        bucket: "{{ atlas_s3_bucket_name }}"
+        object: "{{ atlas_s3_backup_prefix }}/{{ atlas_backup_file_name }}.tar.gz"
+        dest: "{{ restore_temp_dir }}/{{ atlas_backup_file_name }}.tar.gz"
+        mode: get
+      register: download_backup_result
+
+    - name: Download index backup file from S3
+      amazon.aws.s3_object:
+        bucket: "{{ atlas_s3_bucket_name }}"
+        object: "{{ atlas_s3_backup_prefix }}/{{ atlas_index_backup_file_name }}"
+        dest: "{{ restore_temp_dir }}/{{ atlas_index_backup_file_name }}"
+        mode: get
+      register: download_index_result
+
+    - name: Debug download results
+      debug:
+        msg:
+          - "Backup archive downloaded successfully"
+          - "Index file downloaded successfully"
+
+    # # 7. Build mongorestore connection string
+    # # -----------------------------------------------------------------------------
+    - name: Build MongoDB connection URI
+      set_fact:
+        mongodb_uri: "mongodb+srv://{{ atlas_mongodb_username }}:{{ atlas_mongodb_password }}@{{ atlas_mongodb_host }}/"
+
+    - name: "Extract the tar.gz file"
+      changed_when: true
+      shell: >
+        mkdir -p {{ restore_temp_dir }}/{{ atlas_backup_file_name }} &&
+        tar -xzf {{ restore_temp_dir }}/{{ atlas_backup_file_name }}.tar.gz
+        -C {{ restore_temp_dir }}/{{ atlas_backup_file_name }}
+      register: _extract_output
+
+    - name: "Restore mongodb databases"
+      changed_when: true
+      shell: |
+        mongorestore \
+          --uri="{{ mongodb_uri }}" \
+          --authenticationDatabase=admin \
+          {{ mongorestore_options }} \
+          --drop --dir={{ restore_temp_dir }}/{{ atlas_backup_file_name }}/ --verbose
+      register: mongorestore_result
+      # no_log: true
+
+    # # 8. Restore MongoDB data using mongorestore
+    # # -----------------------------------------------------------------------------
+    # - name: Restore MongoDB data from backup
+    #   shell: |
+    #     mongorestore \
+    #       --uri="{{ mongodb_uri }}" \
+    #       --archive={{ restore_temp_dir }}/{{ atlas_backup_file_name }} \
+    #       {{ mongorestore_options }}
+    #   register: mongorestore_result
+    #   no_log: true
+
+    # # 9. Restore indexes from index backup file
+    # # -----------------------------------------------------------------------------
+    - name: Check if index backup file is a valid JSON
+      command: >
+        python3 -m json.tool {{ restore_temp_dir }}/{{ atlas_index_backup_file_name }}
+      register: json_validation
+      failed_when: false
+
+    - name: Restore indexes if index file is valid
+      when: json_validation.rc == 0
+      block:
+        - name: Read index backup file
+          slurp:
+            src: "{{ restore_temp_dir }}/{{ atlas_index_backup_file_name }}"
+          register: index_backup_content
+
+        - name: Parse index backup JSON
+          set_fact:
+            index_data: "{{ index_backup_content.content | b64decode | from_json }}"
+
+        # - name: Restore indexes using mongo shell
+        #   shell: |
+        #     mongosh "{{ mongodb_uri }}" \
+        #       --eval 'db = db.getSiblingDB("{{ item.database }}"); {{ item.command }}'
+        #   loop: "{{ index_data | default([]) }}"
+        #   when: index_data is defined and index_data | length > 0
+        #   register: index_restore_result
+          # no_log: true
+          # {{ '--tls --tlsCAFile=' + mongodb_ssl_ca_file if mongodb_ssl_enabled and mongodb_ssl_ca_file != '' else '' }} \
+
+        - name: Build list of database and collection combinations
+          ansible.builtin.set_fact:
+            db_collection_list: |
+              {% set result = [] %}
+              {% for db in index_data.keys() %}
+                {% for coll in index_data[db].keys() %}
+                  {% set _ = result.append({'db': db, 'collection': coll}) %}
+                {% endfor %}
+              {% endfor %}
+              {{ result }}
+
+        - name: Restore indexes using mongo shell
+          shell: |
+            mongosh "{{ mongodb_uri }}" \
+              --eval 'db = db.getSiblingDB("{{ item.db }}");
+              {% for index in index_data[item.db][item.collection] %}
+                {% if index.name != "_id_" %}
+                  db.{{ item.collection }}.createIndex(
+                    {{ index.key | to_json }},
+                    { 
+                      name: "{{ index.name }}"
+                      {% if index.unique is defined and index.unique %}, unique: true{% endif %}
+                    }
+                  );
+                  print("Created index {{ index.name }} on {{ item.db }}.{{ item.collection }}");
+                {% endif %}
+              {% endfor %}
+              '
+          loop: "{{ db_collection_list | from_yaml }}"
+          register: index_creation_result
+          changed_when: "'Created index' in index_creation_result.stdout"
+
+        # - name: Display index restore summary
+        #   debug:
+        #     msg: "Indexes restored successfully for {{ index_data | default([]) | length }} collections"
+
+    # # 10. Verify restore completion
+    # # -----------------------------------------------------------------------------
+    # - name: Verify MongoDB connection after restore #niv ssl ca file is not required for mongodb atlas
+    #   shell: |
+    #     mongosh "{{ mongodb_uri }}" \
+    #       {{ '--tls --tlsCAFile=' + mongodb_ssl_ca_file if mongodb_ssl_enabled and mongodb_ssl_ca_file != '' else '' }} \
+    #       --eval 'db.adminCommand({ ping: 1 })'
+    #   register: connection_test
+    #   no_log: true
+
+    # - name: Assert MongoDB connection is successful
+    #   assert:
+    #     that:
+    #       - connection_test.rc == 0
+    #     fail_msg: "Failed to connect to MongoDB after restore"
+
+    - name: Display restore completion message
+      debug:
+        msg:
+          - "=========================================="
+          - "MongoDB Restore Completed Successfully"
+          - "=========================================="
+          - "Backup restored from: s3://{{ atlas_s3_bucket_name }}/{{ atlas_backup_file_name }}"
+          - "Indexes restored from: s3://{{ atlas_s3_bucket_name }}/{{ atlas_index_backup_file_name }}"
+          - "Target MongoDB: {{ atlas_mongodb_host }}"
+          - "=========================================="
+
+  rescue:
+
+    - name: Display mongorestore Logs
+      ansible.builtin.debug:
+        msg:
+          - "=========================================="
+          - "Mongo Restore Stdout logs"
+          - "=========================================="
+          - "{{ mongorestore_result.stdout_lines }}"
+          - "------------------------------------------"
+          - "=========================================="
+          - "Mongo Restore Stderr logs"
+          - "=========================================="
+          - "{{ mongorestore_result.stderr_lines }}"
+          - "------------------------------------------"
+          - "Mongo "
+      when: mongorestore_result.stderr_lines is defined and mongorestore_result.stderr_lines | length != 0
+
+    - name: Display index restore logs
+      ansible.builtin.debug:
+        msg:
+          - "=========================================="
+          - "Index Restore Stdout logs"
+          - "{{ index_creation_result.results | map(attribute='stdout_lines') | select('defined') | list | flatten | map('trim') | join(' ') }}"
+          - "------------------------------------------"
+          - "=========================================="
+          - "Index Restore Stderr logs"
+          - "=========================================="
+          - "{{ index_creation_result.results | map(attribute='stderr_lines') | select('defined') | list | flatten | map('trim') | join(' ') }}"
+          - "------------------------------------------"
+      when: index_creation_result is defined
+
+    - name: Restore failed
+      ansible.builtin.fail:
+        msg: "Restore failed. Please view the logs for more details"
+
+  always:
+
+    # # 11. Cleanup temporary files
+    # # -----------------------------------------------------------------------------
+    - name: Clean up temporary restore directory
+      when: cleanup_temp_files | default(true) | bool
+      file:
+        path: "{{ restore_temp_dir }}"
+        state: absent
