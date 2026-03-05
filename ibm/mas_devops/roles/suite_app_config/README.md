@@ -846,6 +846,14 @@ Sets the size of deployment.
 - Environment Variable: `MAS_FACILITIES_SIZE`
 - Default: `small` Available options are `small`, `medium` and `large`
 
+#### mas_ws_facilities_appOMUpgradeMode
+Warning! Application upgrades can overwrite your custom changes. Do not select Automatic if you have customized your application. Sets the Application upgrades. 
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_APP_OM_UPGRADE_MODE`
+- Default: `manual` Available options are `manual`, `load-only`, `automatic`
+
+
 #### mas_ws_facilities_pull_policy
 Sets the `imagePullPolicy` strategy for all deployments. The default is set to `IfNotPresent` to reduce the pulling operations in the cluster.
 
