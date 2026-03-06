@@ -60,9 +60,33 @@
     kind: ClusterServiceVersion
     state: absent
 
-- name: "Pause for 30 seconds before reinstalling the subscription..."
+- name: "Wait for old CSV to be fully deleted (up to 5 minutes)"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: "{{ old_kafka_csv }}"
+    namespace: "{{ kafka_namespace }}"
+  register: csv_check
+  until: csv_check.resources | length == 0
+  retries: 30
+  delay: 10
+  failed_when: false
+
+- name: "Wait for operator pods to terminate (up to 5 minutes)"
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ kafka_namespace }}"
+    label_selectors:
+      - "name={{ kafka_operator_name }}"
+  register: pod_check
+  until: pod_check.resources | length == 0
+  retries: 30
+  delay: 10
+  failed_when: false
+
+- name: "Pause for 60 seconds to allow OLM to stabilize before reinstalling..."
   pause:
-    seconds: 30
+    seconds: 60
 
 # Rerun install to reapply csv, subscription, and update any configs
 # This handles upgrading the version of Kafka as well after we upgrade the
