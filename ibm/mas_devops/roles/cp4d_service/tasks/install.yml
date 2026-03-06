@@ -131,6 +131,41 @@
     catalog_source: "{{ cpd_service_info[cpd_service_name].catalog_source }}"
   register: subscription
 
+# Install dependency subscriptions for services requiring CCS
+# (Watson Studio, Watson Machine Learning, Cognos Analytics)
+- name: "Create CCS Subscription"
+  when: cpd_service_name is in cpd_services_requiring_ccs
+  ibm.mas_devops.apply_subscription:
+    namespace: "{{ cpd_operators_namespace }}"
+    package_name: "ibm-cpd-ccs"
+    package_channel: "{{ cpd_components_meta.ccs.sub_channel }}"
+    catalog_source: "ibm-operator-catalog"
+
+- name: "Create DataRefinery Subscription"
+  when: cpd_service_name is in cpd_services_requiring_ccs
+  ibm.mas_devops.apply_subscription:
+    namespace: "{{ cpd_operators_namespace }}"
+    package_name: "ibm-cpd-datarefinery"
+    package_channel: "{{ cpd_components_meta.datarefinery.sub_channel }}"
+    catalog_source: "ibm-operator-catalog"
+
+- name: "Create WS Runtimes Subscription"
+  when: cpd_service_name is in cpd_services_requiring_ccs
+  ibm.mas_devops.apply_subscription:
+    namespace: "{{ cpd_operators_namespace }}"
+    package_name: "ibm-cpd-ws-runtimes"
+    package_channel: "{{ cpd_components_meta.ws_runtimes.sub_channel }}"
+    catalog_source: "ibm-operator-catalog"
+
+# Install Elasticsearch subscription for specific services
+- name: "Create Elasticsearch Subscription"
+  when: cpd_service_name is in ['wsl','wml','ca']
+  ibm.mas_devops.apply_subscription:
+    namespace: "{{ cpd_operators_namespace }}"
+    package_name: "ibm-elasticsearch-operator"
+    package_channel: "{{ cpd_components_meta.opencontent_elasticsearch.sub_channel }}"
+    catalog_source: "ibm-operator-catalog"
+
 
 # 6. Wait until the Service CRD is available
 # -----------------------------------------------------------------------------
