@@ -58,13 +58,14 @@
       no_log: true
       set_fact:
         db2_releases_content: "{{ db2_release_info.resources[0].data.json | from_json }}"
+        db2_release_version_name: "^s{{ new_db2_major_version }}"
 
-    - name: Filter out s12* versions and pick latest s11*
+    - name: Filter major version {{ new_db2_major_version }}
       set_fact:
         db2_version: >-
           {{
             (db2_releases_content.databases.db2u.keys()
-            | select('match', '^s11')
+            | select('match', db2_release_version_name)
             | sort)
             | last
           }}
