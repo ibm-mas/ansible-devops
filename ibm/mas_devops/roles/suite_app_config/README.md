@@ -849,7 +849,7 @@ Sets the size of deployment.
 #### mas_ws_facilities_appOMUpgradeMode
 **Note**: 
 - **WARNING** Application upgrades can overwrite your custom changes. Do not select Automatic if you have customized your application. 
-- Currently supported `Maximo Real Estate and Facilities` release versions are: 9.2.x
+- Currently supported `Maximo Real Estate and Facilities` release versions are: `9.2.x`
 
 Sets the Application Object Migration Mode.
 
