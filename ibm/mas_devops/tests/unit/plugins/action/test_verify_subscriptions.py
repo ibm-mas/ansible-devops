@@ -66,8 +66,9 @@ class TestVerifySubscriptions:
         assert result['message'] == "All Subscriptions are at the latest known operator version"
         assert len(result['atLatest']) == 2
         assert len(result['notAtLatest']) == 0
-        assert 'openshift-operators/ibm-mas-operator = AtLatestKnown' in result['atLatest']
-        assert 'openshift-operators/ibm-sls-operator = AtLatestKnown' in result['atLatest']
+        # Check that the subscriptions are in atLatest with approval information
+        assert any('openshift-operators/ibm-mas-operator = AtLatestKnown' in item for item in result['atLatest'])
+        assert any('openshift-operators/ibm-sls-operator = AtLatestKnown' in item for item in result['atLatest'])
 
     def test_subscriptions_at_latest_after_retry(self, action_module, mock_display):
         """Test when Subscriptions reach latest after retry."""
