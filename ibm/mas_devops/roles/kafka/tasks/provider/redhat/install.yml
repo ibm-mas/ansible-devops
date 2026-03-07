@@ -3,5 +3,58 @@
 # -------------------------------------------------------------------
 - include_tasks: tasks/provider/redhat/check-kafka-exists.yml
 
+# Check if Kafka cluster already exists in the target namespace
+# -------------------------------------------------------------------
+- name: "Check if Kafka cluster already exists"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+  register: existing_kafka_cluster
+
+- name: "Check if Kafka subscription already exists"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "{{ kafka_operator_name }}"
+    namespace: "{{ kafka_namespace }}"
+  register: existing_kafka_subscription
+
+- name: "Kafka cluster already exists - upgrade action required"
+  when:
+    - existing_kafka_cluster.resources is defined
+    - existing_kafka_cluster.resources | length > 0
+  block:
+    - name: "Display existing cluster information"
+      debug:
+        msg:
+          - "=========================================="
+          - "Kafka cluster already exists!"
+          - "=========================================="
+          - "Cluster Name: {{ kafka_cluster_name }}"
+          - "Namespace: {{ kafka_namespace }}"
+          - "Provider: {{ kafka_provider }}"
+          - ""
+          - "To upgrade this cluster, set:"
+          - "  KAFKA_ACTION=upgrade"
+          - ""
+          - "Or in your playbook:"
+          - "  kafka_action: upgrade"
+          - "=========================================="
+
+    - name: "Fail - Kafka cluster already exists"
+      fail:
+        msg: |
+          Kafka cluster '{{ kafka_cluster_name }}' already exists in namespace '{{ kafka_namespace }}'.
+          
+          To upgrade the existing cluster, please run with:
+            KAFKA_ACTION=upgrade
+          
+          Or set in your playbook:
+            kafka_action: upgrade
+
 # Run the install if there's no previous cluster scope kafka installed
 - include_tasks: tasks/provider/redhat/install-kafka.yml
+  when:
+    - existing_kafka_cluster.resources is not defined or existing_kafka_cluster.resources | length == 0

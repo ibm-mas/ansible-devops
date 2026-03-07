@@ -11,12 +11,60 @@
 - name: "Fail if Kafka CR is not found"
   fail:
     msg: "Kafka instance '{{ kafka_cluster_name }}' not found"
-  when: kafka_cluster_cr | length == 0
+  when: kafka_cluster_cr.resources | length == 0
 
-- name: "Verify that the Kafka instance is in ZooKeeper mode"
+- name: "Check Kafka cluster metadata state"
+  set_fact:
+    kafka_metadata_state: "{{ kafka_cluster_cr.resources[0].status.kafkaMetadataState | default('Unknown', true) }}"
+  when: kafka_cluster_cr.resources | length > 0
+
+- name: "Debug Kafka metadata state"
+  debug:
+    msg: "Kafka cluster metadata state: {{ kafka_metadata_state }}"
+
+- name: "Set migration needed flag"
+  set_fact:
+    migration_needed: true
+  when:
+    - kafka_cluster_cr.resources | length > 0
+    - kafka_metadata_state is defined
+    - kafka_metadata_state == "ZooKeeper"
+
+- name: "Perform ZooKeeper to KRaft migration"
   include_tasks: tasks/provider/redhat/migrate.yml
   when:
-    - kafka_cluster_cr.resources[0].status.kafkaMetadataState == "ZooKeeper"
+    - migration_needed is defined
+    - migration_needed | bool
+
+- name: "Migration complete - operator upgrade skipped"
+  debug:
+    msg:
+      - "=========================================="
+      - "ZooKeeper to KRaft migration completed!"
+      - "=========================================="
+      - ""
+      - "IMPORTANT: Operator upgrade was skipped because"
+      - "the migration just completed. The current operator"
+      - "version supports both ZooKeeper and KRaft modes."
+      - ""
+      - "To upgrade the operator to the latest version,"
+      - "run the upgrade again:"
+      - "  KAFKA_ACTION=upgrade"
+      - ""
+      - "The next run will detect the cluster is already"
+      - "in KRaft mode and proceed with operator upgrade."
+      - "=========================================="
+  when:
+    - migration_needed is defined
+    - migration_needed | bool
+
+- name: "Skip operator upgrade after migration"
+  meta: end_play
+  when:
+    - migration_needed is defined
+    - migration_needed | bool
 
 # To upgrade Strimzi, we'll reuse AMQ Streams upgrade code as essentially both use the same resources
+# Only run if migration was not needed
 - include_tasks: tasks/provider/redhat/upgrade.yml
+  when: migration_needed is not defined or not migration_needed | bool
