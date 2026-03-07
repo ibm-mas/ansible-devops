@@ -21,7 +21,15 @@
     namespace: "{{ kafka_namespace }}"
   register: existing_kafka_subscription
 
-- name: "Kafka cluster already exists - upgrade action required"
+- name: "Check existing cluster mode"
+  set_fact:
+    existing_cluster_mode: "{{ existing_kafka_cluster.resources[0].status.kafkaMetadataState | default('Unknown') }}"
+  when:
+    - existing_kafka_cluster.resources is defined
+    - existing_kafka_cluster.resources | length > 0
+    - existing_kafka_cluster.resources[0].status is defined
+
+- name: "Kafka cluster already exists - check if upgrade needed"
   when:
     - existing_kafka_cluster.resources is defined
     - existing_kafka_cluster.resources | length > 0
@@ -35,24 +43,36 @@
           - "Cluster Name: {{ kafka_cluster_name }}"
           - "Namespace: {{ kafka_namespace }}"
           - "Provider: {{ kafka_provider }}"
+          - "Mode: {{ existing_cluster_mode | default('Unknown') }}"
           - ""
-          - "To upgrade this cluster, set:"
-          - "  KAFKA_ACTION=upgrade"
-          - ""
-          - "Or in your playbook:"
-          - "  kafka_action: upgrade"
+          - "{% if existing_cluster_mode == 'ZooKeeper' %}Action: Install will FAIL - ZooKeeper cluster detected{% else %}Action: Install will update existing KRaft cluster{% endif %}"
           - "=========================================="
 
-    - name: "Fail - Kafka cluster already exists"
+    - name: "Fail - Cannot install on existing ZooKeeper cluster"
       fail:
         msg: |
-          Kafka cluster '{{ kafka_cluster_name }}' already exists in namespace '{{ kafka_namespace }}'.
+          Kafka cluster '{{ kafka_cluster_name }}' already exists in ZooKeeper mode.
 
-          To upgrade the existing cluster, please run with:
+          The install action uses KRaft-only templates which are incompatible
+          with existing ZooKeeper clusters.
+
+          To migrate this cluster from ZooKeeper to KRaft, please run with:
             KAFKA_ACTION=upgrade
 
           Or set in your playbook:
             kafka_action: upgrade
+      when:
+        - existing_cluster_mode is defined
+        - existing_cluster_mode == "ZooKeeper"
+
+    - name: "Info - Updating existing KRaft cluster"
+      debug:
+        msg:
+          - "ℹ️  Existing KRaft cluster will be updated with current configuration"
+          - "This is an idempotent operation - safe to run multiple times"
+      when:
+        - existing_cluster_mode is defined
+        - existing_cluster_mode != "ZooKeeper"
 
 # Run the install if there's no previous cluster scope kafka installed
 - include_tasks: tasks/provider/redhat/install-kafka.yml
