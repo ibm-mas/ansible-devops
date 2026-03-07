@@ -1,0 +1,361 @@
+---
+# Update database backup status: InProgress
+# -----------------------------------------------------------------------------
+- name: "Update database backup status: InProgress"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+  vars:
+    _job_data_list:
+      - seq: "{{ masbr_job_data_seq }}"
+        phase: "InProgress"
+
+- name: "Backup AWS DocumentDB databases"
+  block:
+    # Set backup folder paths
+    # -------------------------------------------------------------------------
+    - name: "Set fact: backup folder paths"
+      set_fact:
+        docdb_backup_data_dir: "{{ docdb_local_backup_dir }}/{{ masbr_job_data_type }}"
+        docdb_backup_dump_dir: "{{ docdb_local_backup_dir }}/{{ masbr_job_data_type }}/mongodump"
+        docdb_backup_index_dir: "{{ docdb_local_backup_dir }}/{{ masbr_job_data_type }}/indexes"
+        docdb_backup_log_file: "{{ docdb_local_backup_dir }}/{{ masbr_job_data_type }}/{{ masbr_job_name }}-backup.log"
+
+    - name: "Create backup subdirectories"
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ docdb_backup_dump_dir }}"
+        - "{{ docdb_backup_index_dir }}"
+      changed_when: true
+
+    # Set database name filter
+    # -------------------------------------------------------------------------
+    - name: "Set fact: default database name filter (all MAS databases)"
+      when: mas_app_id is not defined or mas_app_id | length == 0
+      set_fact:
+        # Backup all databases belonging to the specified MAS instance
+        docdb_db_filter: "^(mas|iot)(_|-){{ mas_instance_id }}(_|-)"
+
+    - name: "Set fact: database name filter for {{ mas_app_id }}"
+      when: mas_app_id is defined and mas_app_id | length > 0
+      block:
+        - name: "Set fact: database name filters for each MAS app"
+          set_fact:
+            docdb_db_all_filters:
+              iot: "iot_{{ mas_instance_id }}_"
+              visualinspection: "mas-{{ mas_instance_id }}-(visualinspection|edgeman)"
+              optimizer: "mas_{{ mas_instance_id }}_optimizer"
+
+        - name: "Set fact: always backup core databases"
+          set_fact:
+            docdb_db_app_filters:
+              ["mas_{{ mas_instance_id }}_(core|catalog|adoptionusage)"]
+
+        - name: "Set fact: append database name filter for {{ mas_app_id }}"
+          set_fact:
+            docdb_db_app_filters: >
+              {{ docdb_db_app_filters + [docdb_db_all_filters[mas_app_id] | default('')] }}
+
+        - name: "Set fact: combined database name filter for {{ mas_app_id }}"
+          when: docdb_db_app_filters is defined and docdb_db_app_filters | length > 0
+          set_fact:
+            docdb_db_filter: "{{ docdb_db_app_filters | select() | join('|') }}"
+
+    - name: "Debug: database name filter"
+      debug:
+        msg: "Database filter ............................ {{ docdb_db_filter }}"
+
+    # Get list of databases to back up
+    # -------------------------------------------------------------------------
+    - name: "Get list of databases matching filter"
+      shell: >
+        mongosh --tls
+        --host '{{ docdb_primary_host }}'
+        --tlsCAFile '{{ docdb_ca_file }}'
+        --username '{{ docdb_master_username }}'
+        --password '{{ docdb_master_password }}'
+        --quiet
+        --eval "JSON.stringify(db.adminCommand({ listDatabases: 1, nameOnly: true, filter: { name: /{{ docdb_db_filter }}/ } }))"
+        2>> {{ docdb_backup_log_file }}
+      register: _docdb_db_list_output
+      no_log: true
+      changed_when: false
+
+    - name: "Set fact: list of databases to back up"
+      set_fact:
+        docdb_db_names: "{{ _docdb_db_list_output.stdout | from_json | json_query('databases') }}"
+
+    - name: "Debug: databases to back up"
+      debug:
+        msg: "Databases to back up ....................... {{ docdb_db_names | map(attribute='name') | list }}"
+
+    - name: "Fail if no databases found matching filter"
+      assert:
+        that: docdb_db_names | length > 0
+        fail_msg: "No databases found matching filter '{{ docdb_db_filter }}' in DocumentDB cluster '{{ docdb_cluster_name }}'"
+
+    # Run mongodump for each database
+    # -------------------------------------------------------------------------
+    - name: "Run mongodump for database {{ item.name }}"
+      shell: >
+        mongodump
+        --host='{{ docdb_primary_host }}'
+        --ssl
+        --sslCAFile='{{ docdb_ca_file }}'
+        --username='{{ docdb_master_username }}'
+        --password='{{ docdb_master_password }}'
+        --authenticationDatabase=admin
+        --db='{{ item.name }}'
+        --out='{{ docdb_backup_dump_dir }}'
+        2>&1 | tee -a {{ docdb_backup_log_file }}
+      loop: "{{ docdb_db_names }}"
+      register: _mongodump_output
+      no_log: true
+      changed_when: true
+
+    - name: "Debug: mongodump output summary"
+      debug:
+        msg: "{{ _mongodump_output | json_query('results[*].stdout_lines[-1]') }}"
+
+    # Extract indexes as JSON for each database
+    # -------------------------------------------------------------------------
+    - name: "Extract indexes for database {{ item.name }}"
+      shell: >
+        mongosh --tls
+        --host '{{ docdb_primary_host }}'
+        --tlsCAFile '{{ docdb_ca_file }}'
+        --username '{{ docdb_master_username }}'
+        --password '{{ docdb_master_password }}'
+        --quiet
+        --eval "
+          var result = {};
+          var db = db.getSiblingDB('{{ item.name }}');
+          db.getCollectionNames().forEach(function(col) {
+            result[col] = db.getCollection(col).getIndexes();
+          });
+          print(JSON.stringify(result, null, 2));
+        "
+        2>> {{ docdb_backup_log_file }}
+        > '{{ docdb_backup_index_dir }}/{{ item.name }}-indexes.json'
+      loop: "{{ docdb_db_names }}"
+      register: _index_extract_output
+      no_log: true
+      changed_when: true
+
+    - name: "Debug: index extraction completed"
+      debug:
+        msg: "Extracted indexes for databases ............ {{ docdb_db_names | map(attribute='name') | list }}"
+
+    # Verify index files were created
+    # -------------------------------------------------------------------------
+    - name: "Verify index files were created"
+      stat:
+        path: "{{ docdb_backup_index_dir }}/{{ item.name }}-indexes.json"
+      loop: "{{ docdb_db_names }}"
+      register: _index_files_stat
+
+    - name: "Debug: index file sizes"
+      debug:
+        msg: "Index file {{ item.stat.path | basename }} size: {{ item.stat.size }} bytes"
+      loop: "{{ _index_files_stat.results }}"
+      when: item.stat.exists
+
+    # Create a combined index manifest file
+    # -------------------------------------------------------------------------
+    - name: "Create combined index manifest"
+      shell: >
+        echo '{' > '{{ docdb_backup_index_dir }}/all-indexes-manifest.json';
+        first=true;
+        for f in {{ docdb_backup_index_dir }}/*-indexes.json; do
+          dbname=$(basename "$f" -indexes.json);
+          if [ "$first" = true ]; then
+            first=false;
+          else
+            echo ',' >> '{{ docdb_backup_index_dir }}/all-indexes-manifest.json';
+          fi;
+          echo "\"$dbname\":" >> '{{ docdb_backup_index_dir }}/all-indexes-manifest.json';
+          cat "$f" >> '{{ docdb_backup_index_dir }}/all-indexes-manifest.json';
+        done;
+        echo '}' >> '{{ docdb_backup_index_dir }}/all-indexes-manifest.json'
+      changed_when: true
+
+    # Create tar.gz archives
+    # -------------------------------------------------------------------------
+    - name: "Create tar.gz archive of mongodump data"
+      shell: >
+        tar -czf '{{ docdb_backup_data_dir }}/{{ masbr_job_name }}-dump.tar.gz'
+        -C '{{ docdb_backup_dump_dir }}' .
+        2>&1 | tee -a {{ docdb_backup_log_file }}
+      register: _tar_dump_output
+      changed_when: true
+
+    - name: "Create tar.gz archive of index files"
+      shell: >
+        tar -czf '{{ docdb_backup_data_dir }}/{{ masbr_job_name }}-indexes.tar.gz'
+        -C '{{ docdb_backup_index_dir }}' .
+        2>&1 | tee -a {{ docdb_backup_log_file }}
+      register: _tar_index_output
+      changed_when: true
+
+    - name: "Get sizes of backup archives"
+      shell: >
+        du -sh
+        '{{ docdb_backup_data_dir }}/{{ masbr_job_name }}-dump.tar.gz'
+        '{{ docdb_backup_data_dir }}/{{ masbr_job_name }}-indexes.tar.gz'
+      register: _du_archives_output
+      changed_when: false
+
+    - name: "Debug: backup archive sizes"
+      debug:
+        msg: "{{ _du_archives_output.stdout_lines }}"
+
+    # Upload backup archives to S3
+    # -------------------------------------------------------------------------
+    - name: "Set fact: S3 destination prefix for this backup job"
+      set_fact:
+        docdb_s3_job_prefix: "{{ docdb_backup_s3_prefix | default('docdb-backups') }}/{{ docdb_cluster_name }}/{{ masbr_job_name }}/{{ masbr_job_data_type }}"
+
+    - name: "Upload mongodump archive to S3"
+      shell: >
+        aws s3 cp
+        '{{ docdb_backup_data_dir }}/{{ masbr_job_name }}-dump.tar.gz'
+        's3://{{ docdb_backup_s3_bucket }}/{{ docdb_s3_job_prefix }}/{{ masbr_job_name }}-dump.tar.gz'
+        --region '{{ aws_region }}'
+        2>&1 | tee -a {{ docdb_backup_log_file }}
+      register: _s3_upload_dump_output
+      changed_when: true
+
+    - name: "Debug: S3 upload dump result"
+      debug:
+        msg: "{{ _s3_upload_dump_output.stdout_lines }}"
+
+    - name: "Upload index archive to S3"
+      shell: >
+        aws s3 cp
+        '{{ docdb_backup_data_dir }}/{{ masbr_job_name }}-indexes.tar.gz'
+        's3://{{ docdb_backup_s3_bucket }}/{{ docdb_s3_job_prefix }}/{{ masbr_job_name }}-indexes.tar.gz'
+        --region '{{ aws_region }}'
+        2>&1 | tee -a {{ docdb_backup_log_file }}
+      register: _s3_upload_index_output
+      changed_when: true
+
+    - name: "Debug: S3 upload index result"
+      debug:
+        msg: "{{ _s3_upload_index_output.stdout_lines }}"
+
+    # Upload individual per-database index JSON files to S3 (uncompressed for easy access)
+    # -------------------------------------------------------------------------
+    - name: "Upload per-database index JSON file to S3"
+      shell: >
+        aws s3 cp
+        '{{ docdb_backup_index_dir }}/{{ item.name }}-indexes.json'
+        's3://{{ docdb_backup_s3_bucket }}/{{ docdb_s3_job_prefix }}/indexes/{{ item.name }}-indexes.json'
+        --region '{{ aws_region }}'
+        2>&1 | tee -a {{ docdb_backup_log_file }}
+      loop: "{{ docdb_db_names }}"
+      register: _s3_upload_index_json_output
+      changed_when: true
+
+    - name: "Upload combined index manifest JSON to S3"
+      shell: >
+        aws s3 cp
+        '{{ docdb_backup_index_dir }}/all-indexes-manifest.json'
+        's3://{{ docdb_backup_s3_bucket }}/{{ docdb_s3_job_prefix }}/indexes/all-indexes-manifest.json'
+        --region '{{ aws_region }}'
+        2>&1 | tee -a {{ docdb_backup_log_file }}
+      register: _s3_upload_manifest_output
+      changed_when: true
+
+    # Write backup metadata to S3
+    # -------------------------------------------------------------------------
+    - name: "Get current timestamp"
+      shell: date -u +"%Y-%m-%dT%H:%M:%SZ"
+      register: _backup_timestamp_output
+      changed_when: false
+
+    - name: "Create backup metadata file"
+      copy:
+        dest: "{{ docdb_backup_data_dir }}/backup-metadata.json"
+        content: |
+          {
+            "backup_job_name": "{{ masbr_job_name }}",
+            "backup_timestamp": "{{ _backup_timestamp_output.stdout }}",
+            "docdb_cluster_name": "{{ docdb_cluster_name }}",
+            "docdb_engine_version": "{{ mongodb_version }}",
+            "aws_region": "{{ aws_region }}",
+            "mas_instance_id": "{{ mas_instance_id }}",
+            "mas_app_id": "{{ mas_app_id | default('') }}",
+            "databases_backed_up": {{ docdb_db_names | map(attribute='name') | list | to_json }},
+            "s3_bucket": "{{ docdb_backup_s3_bucket }}",
+            "s3_prefix": "{{ docdb_s3_job_prefix }}",
+            "files": {
+              "dump_archive": "{{ masbr_job_name }}-dump.tar.gz",
+              "index_archive": "{{ masbr_job_name }}-indexes.tar.gz",
+              "index_manifest": "indexes/all-indexes-manifest.json"
+            }
+          }
+        mode: "0644"
+      changed_when: true
+
+    - name: "Upload backup metadata to S3"
+      shell: >
+        aws s3 cp
+        '{{ docdb_backup_data_dir }}/backup-metadata.json'
+        's3://{{ docdb_backup_s3_bucket }}/{{ docdb_s3_job_prefix }}/backup-metadata.json'
+        --region '{{ aws_region }}'
+        2>&1 | tee -a {{ docdb_backup_log_file }}
+      register: _s3_upload_metadata_output
+      changed_when: true
+
+    - name: "Debug: S3 backup location summary"
+      debug:
+        msg:
+          - "Backup job name ............................ {{ masbr_job_name }}"
+          - "S3 bucket .................................. {{ docdb_backup_s3_bucket }}"
+          - "S3 prefix .................................. {{ docdb_s3_job_prefix }}"
+          - "Dump archive ............................... s3://{{ docdb_backup_s3_bucket }}/{{ docdb_s3_job_prefix }}/{{ masbr_job_name }}-dump.tar.gz"
+          - "Index archive .............................. s3://{{ docdb_backup_s3_bucket }}/{{ docdb_s3_job_prefix }}/{{ masbr_job_name }}-indexes.tar.gz"
+          - "Index manifest ............................. s3://{{ docdb_backup_s3_bucket }}/{{ docdb_s3_job_prefix }}/indexes/all-indexes-manifest.json"
+          - "Backup metadata ............................ s3://{{ docdb_backup_s3_bucket }}/{{ docdb_s3_job_prefix }}/backup-metadata.json"
+
+    # Update database backup status: Completed
+    # -------------------------------------------------------------------------
+    - name: "Update database backup status: Completed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "{{ masbr_job_data_seq }}"
+            phase: "Completed"
+
+  rescue:
+    # Update database backup status: Failed
+    # -------------------------------------------------------------------------
+    - name: "Update database backup status: Failed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "{{ masbr_job_data_seq }}"
+            phase: "Failed"
+
+  always:
+    # Upload backup log to S3
+    # -------------------------------------------------------------------------
+    - name: "Upload backup log to S3"
+      when:
+        - docdb_backup_log_file is defined
+        - docdb_backup_s3_bucket is defined
+        - docdb_s3_job_prefix is defined
+      shell: >
+        aws s3 cp
+        '{{ docdb_backup_log_file }}'
+        's3://{{ docdb_backup_s3_bucket }}/{{ docdb_s3_job_prefix }}/log/{{ masbr_job_name }}-backup.log'
+        --region '{{ aws_region }}'
+      register: _s3_upload_log_output
+      changed_when: true
+      ignore_errors: true
+
+    - name: "Debug: backup log uploaded to S3"
+      when: _s3_upload_log_output is defined and _s3_upload_log_output.rc is defined and _s3_upload_log_output.rc == 0
+      debug:
+        msg: "Backup log uploaded to ..................... s3://{{ docdb_backup_s3_bucket }}/{{ docdb_s3_job_prefix }}/log/{{ masbr_job_name }}-backup.log"

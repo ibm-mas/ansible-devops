@@ -1,0 +1,72 @@
+---
+# Get AWS DocumentDB cluster version and status
+# -----------------------------------------------------------------------------
+- name: "Fail if docdb_cluster_name is not provided"
+  assert:
+    that: docdb_cluster_name is defined and docdb_cluster_name != ""
+    fail_msg: "docdb_cluster_name is required"
+
+- name: "Fail if aws_region is not provided"
+  assert:
+    that: aws_region is defined and aws_region != ""
+    fail_msg: "aws_region is required"
+
+# Verify AWS authentication is valid before making any AWS API calls
+# -----------------------------------------------------------------------------
+- name: "Verify AWS authentication (check for expired SSO token)"
+  command: aws sts get-caller-identity --region '{{ aws_region }}'
+  register: _aws_auth_check
+  failed_when: false
+  changed_when: false
+
+- name: "Fail if AWS authentication is invalid or SSO token has expired"
+  assert:
+    that: _aws_auth_check.rc == 0
+    fail_msg: >-
+      AWS authentication failed (rc={{ _aws_auth_check.rc }}).
+      {{ _aws_auth_check.stderr | default('') }}
+      If you are using AWS SSO, your session token may have expired.
+      Please re-authenticate by running: aws sso login --profile <your-profile>
+      Then retry the playbook.
+
+- name: "Get DocumentDB cluster information"
+  command: >
+    aws docdb describe-db-clusters
+    --db-cluster-identifier '{{ docdb_cluster_name }}'
+    --region '{{ aws_region }}'
+  register: _docdb_cluster_info_output
+  failed_when: >
+    _docdb_cluster_info_output.rc not in [0] and
+    ('DBClusterNotFoundFault' not in _docdb_cluster_info_output.stderr)
+
+- name: "Fail if DocumentDB cluster does not exist"
+  assert:
+    that:
+      - _docdb_cluster_info_output.rc == 0
+      - _docdb_cluster_info_output.stdout | length > 0
+    fail_msg: "DocumentDB cluster '{{ docdb_cluster_name }}' does not exist!"
+
+- name: "Set fact: DocumentDB cluster info"
+  set_fact:
+    _docdb_cluster_data: "{{ _docdb_cluster_info_output.stdout | from_json | json_query('DBClusters[0]') }}"
+
+- name: "Set fact: DocumentDB version and endpoint"
+  set_fact:
+    mongodb_version: "{{ _docdb_cluster_data.EngineVersion }}"
+    docdb_cluster_endpoint: "{{ _docdb_cluster_data.Endpoint }}"
+    docdb_cluster_port: "{{ _docdb_cluster_data.Port }}"
+    docdb_cluster_status: "{{ _docdb_cluster_data.Status }}"
+
+- name: "Fail if DocumentDB cluster is not available"
+  assert:
+    that: docdb_cluster_status == "available"
+    fail_msg: "DocumentDB cluster '{{ docdb_cluster_name }}' is not available (status: {{ docdb_cluster_status }})!"
+
+- name: "Debug: DocumentDB cluster information"
+  debug:
+    msg:
+      - "DocumentDB Cluster Name .................... {{ docdb_cluster_name }}"
+      - "DocumentDB Engine Version .................. {{ mongodb_version }}"
+      - "DocumentDB Cluster Endpoint ................ {{ docdb_cluster_endpoint }}"
+      - "DocumentDB Cluster Port .................... {{ docdb_cluster_port }}"
+      - "DocumentDB Cluster Status .................. {{ docdb_cluster_status }}"

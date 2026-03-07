@@ -1,0 +1,154 @@
+---
+# Set AWS DocumentDB backup variables
+# -----------------------------------------------------------------------------
+- name: "Fail if docdb_cluster_name is not provided"
+  assert:
+    that: docdb_cluster_name is defined and docdb_cluster_name != ""
+    fail_msg: "docdb_cluster_name is required"
+
+- name: "Fail if aws_region is not provided"
+  assert:
+    that: aws_region is defined and aws_region != ""
+    fail_msg: "aws_region is required"
+
+- name: "Fail if docdb_backup_s3_bucket is not provided"
+  assert:
+    that: docdb_backup_s3_bucket is defined and docdb_backup_s3_bucket != ""
+    fail_msg: "docdb_backup_s3_bucket is required - specify the S3 bucket name to store backups"
+
+- name: "Fail if docdb_master_username is not provided"
+  assert:
+    that: docdb_master_username is defined and docdb_master_username != ""
+    fail_msg: "docdb_master_username is required"
+
+- name: "Fail if docdb_master_password is not provided"
+  assert:
+    that: docdb_master_password is defined and docdb_master_password != ""
+    fail_msg: "docdb_master_password is required"
+
+# Verify required tools are available
+# -----------------------------------------------------------------------------
+- name: "Test if mongosh is installed"
+  shell: mongosh --version
+  register: _mongosh_version_output
+  ignore_errors: true
+  changed_when: false
+
+- name: "Fail if mongosh is not installed"
+  assert:
+    that: _mongosh_version_output.rc == 0
+    fail_msg: "mongosh must be installed (https://www.mongodb.com/docs/mongodb-shell/install/)"
+
+- name: "Test if mongodump is installed"
+  shell: mongodump --version
+  register: _mongodump_version_output
+  ignore_errors: true
+  changed_when: false
+
+- name: "Fail if mongodump is not installed"
+  assert:
+    that: _mongodump_version_output.rc == 0
+    fail_msg: "mongodump must be installed (https://www.mongodb.com/docs/database-tools/mongodump/)"
+
+- name: "Test if aws CLI is installed"
+  shell: aws --version
+  register: _aws_cli_version_output
+  ignore_errors: true
+  changed_when: false
+
+- name: "Fail if aws CLI is not installed"
+  assert:
+    that: _aws_cli_version_output.rc == 0
+    fail_msg: "aws CLI must be installed (https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)"
+
+# Set local backup working directory
+# -----------------------------------------------------------------------------
+- name: "Set fact: local backup working directory"
+  set_fact:
+    docdb_local_backup_dir: "{{ masbr_local_temp_folder }}/docdb-backup/{{ masbr_job_name }}"
+
+- name: "Create local backup working directory"
+  file:
+    path: "{{ docdb_local_backup_dir }}/{{ masbr_job_data_type | default('database') }}"
+    state: directory
+    mode: "0755"
+  changed_when: true
+
+# Download AWS DocumentDB CA certificate
+# -----------------------------------------------------------------------------
+- name: "Set fact: DocumentDB CA certificate path"
+  set_fact:
+    docdb_ca_file: "/tmp/rds-ca-{{ aws_region }}.pem"
+
+- name: "Check if region-specific CA certificate already exists"
+  stat:
+    path: "{{ docdb_ca_file }}"
+  register: _docdb_ca_stat
+
+- name: "Copy region-specific DocumentDB CA certificate from role files"
+  copy:
+    src: "providers/aws/ca/root-ca-rsa2048-{{ aws_region }}.pem"
+    dest: "{{ docdb_ca_file }}"
+    mode: "0644"
+  when: not _docdb_ca_stat.stat.exists
+  register: _docdb_ca_copy_result
+  ignore_errors: true
+
+- name: "Download combined AWS RDS CA bundle if region-specific cert not available"
+  when: not _docdb_ca_stat.stat.exists and _docdb_ca_copy_result is failed
+  shell: >
+    wget -q https://s3.amazonaws.com/rds-downloads/rds-combined-ca-bundle.pem
+    -O {{ docdb_ca_file }}
+  register: _docdb_ca_download_output
+  changed_when: true
+
+- name: "Fail if DocumentDB CA certificate is not available"
+  stat:
+    path: "{{ docdb_ca_file }}"
+  register: _docdb_ca_final_stat
+
+- name: "Assert DocumentDB CA certificate exists"
+  assert:
+    that: _docdb_ca_final_stat.stat.exists
+    fail_msg: "DocumentDB CA certificate not found at {{ docdb_ca_file }}"
+
+# Verify connectivity to DocumentDB cluster
+# -----------------------------------------------------------------------------
+- name: "Set fact: DocumentDB connection string (primary endpoint)"
+  set_fact:
+    docdb_primary_host: "{{ docdb_cluster_endpoint }}:{{ docdb_cluster_port }}"
+
+- name: "Test connectivity to DocumentDB cluster"
+  shell: >
+    mongosh --tls
+    --host '{{ docdb_primary_host }}'
+    --tlsCAFile '{{ docdb_ca_file }}'
+    --username '{{ docdb_master_username }}'
+    --password '{{ docdb_master_password }}'
+    --eval 'db.adminCommand({ ping: 1 })'
+    --quiet
+  register: _docdb_connect_test
+  no_log: true
+  retries: 3
+  delay: 10
+  until: _docdb_connect_test.rc == 0
+  changed_when: false
+
+- name: "Fail if cannot connect to DocumentDB cluster"
+  assert:
+    that: _docdb_connect_test.rc == 0
+    fail_msg: "Cannot connect to DocumentDB cluster '{{ docdb_cluster_name }}' at {{ docdb_primary_host }}"
+
+# Output connection information
+# -----------------------------------------------------------------------------
+- name: "Debug: DocumentDB backup connection information"
+  debug:
+    msg:
+      - "DocumentDB Cluster Name .................... {{ docdb_cluster_name }}"
+      - "DocumentDB Primary Host .................... {{ docdb_primary_host }}"
+      - "DocumentDB CA Certificate .................. {{ docdb_ca_file }}"
+      - "DocumentDB Master Username ................. {{ docdb_master_username }}"
+      - "AWS Region ................................. {{ aws_region }}"
+      - "S3 Backup Bucket ........................... {{ docdb_backup_s3_bucket }}"
+      - "S3 Backup Prefix ........................... {{ docdb_backup_s3_prefix | default('docdb-backups') }}"
+      - "Local Backup Directory ..................... {{ docdb_local_backup_dir }}"
