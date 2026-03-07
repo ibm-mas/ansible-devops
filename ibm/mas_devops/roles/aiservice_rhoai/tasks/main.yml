@@ -1,5 +1,9 @@
 ---
-# 1. Validate odh model deployment type
+# 0. Detect and migrate from ODH if needed
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/migrate-from-odh.yml
+
+# 1. Validate rhoai model deployment type
 # -----------------------------------------------------------------------------
 - name: Validate rhoai model deployment type
   ansible.builtin.assert:
@@ -16,7 +20,16 @@
   when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
 
 - include_tasks: tasks/authorino-operator.yml
+
+- name: "Debug - Installing RHOAI operator"
+  debug:
+    msg: "Installing RHOAI operator in namespace {{ rhoai_namespace }}"
+
 - include_tasks: tasks/rhoai-operator.yml
+
+- name: "Debug - RHOAI subscription created"
+  debug:
+    msg: "RHOAI subscription created, waiting for operator deployment"
 
 - name: "Wait for rhoai-operator to be ready (60s delay)"
   kubernetes.core.k8s_info:
@@ -37,10 +50,18 @@
 
 # 3. Create DSCInitialization instance
 # -----------------------------------------------------------------------------
+- name: "Debug - RHOAI operator ready"
+  debug:
+    msg: "RHOAI operator deployment is ready, creating DSCInitialization"
+
 - name: 'Create DSCInitialization instance'
   kubernetes.core.k8s:
     apply: yes
     template: "templates/rhoai/default-dsci.yml.j2"
+
+- name: "Debug - DSCInitialization created"
+  debug:
+    msg: "DSCInitialization created, waiting for Ready status"
 
 - name: 'Wait for the DSCInitialization instance to be ready'
   kubernetes.core.k8s_info:
@@ -59,10 +80,18 @@
 
 # 4. Create Data Science Cluster
 # -----------------------------------------------------------------------------
+- name: "Debug - DSCInitialization ready"
+  debug:
+    msg: "DSCInitialization is Ready, creating DataScienceCluster"
+
 - name: 'Create Data Science Cluster'
   kubernetes.core.k8s:
     apply: yes
     template: 'templates/rhoai/data-science-cluster.yml.j2'
+
+- name: "Debug - DataScienceCluster created"
+  debug:
+    msg: "DataScienceCluster created, waiting for Ready status"
 
 - name: 'Wait for the DSC to be ready'
   kubernetes.core.k8s_info:
@@ -89,7 +118,17 @@
 # where requests from the Kubernetes API to the odh-model-controller-webhook were being blocked.
 # This was causing errors while creating a inference service.
 
+- name: "Debug - DataScienceCluster ready"
+  debug:
+    msg: "DataScienceCluster is Ready, installing network policy"
+
 - name: 'Install network policy: allow rhoai model controller'
   kubernetes.core.k8s:
     apply: yes
     template: 'templates/rhoai/allow-rhoai-model-controller-netpol.yml.j2'
+
+# 7. Display completion message
+# -----------------------------------------------------------------------------
+- name: "RHOAI installation complete"
+  debug:
+    msg: "RHOAI installation complete (migration from ODH: {{ odh_migration_performed | default(false) }})"

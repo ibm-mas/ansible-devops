@@ -1,0 +1,151 @@
+---
+# ODH to RHOAI Migration Logic
+# This task file handles automatic migration from ODH to RHOAI
+# It detects if ODH is installed and performs the migration if needed
+
+# 1. Detect current platform
+# -----------------------------------------------------------------------------
+- name: "migrate : Get operator subscriptions"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: openshift-operators
+  register: operator_subscriptions
+
+- name: "migrate : Check platform status"
+  set_fact:
+    odh_installed: "{{ operator_subscriptions.resources | selectattr('metadata.name', 'equalto', 'opendatahub-operator') | list | length > 0 }}"
+    rhoai_installed: "{{ operator_subscriptions.resources | selectattr('metadata.name', 'equalto', 'rhods-operator') | list | length > 0 }}"
+
+- name: "migrate : Display platform detection"
+  debug:
+    msg:
+      - "Platform Detection:"
+      - "  ODH installed: {{ odh_installed }}"
+      - "  RHOAI installed: {{ rhoai_installed }}"
+
+# 2. Skip migration if RHOAI already installed
+# -----------------------------------------------------------------------------
+- name: "migrate : Skip migration - RHOAI already installed"
+  debug:
+    msg: "RHOAI is already installed. Skipping migration."
+  when: rhoai_installed and not odh_installed
+
+# 3. Perform migration if ODH is installed
+# -----------------------------------------------------------------------------
+- name: "migrate : Perform ODH to RHOAI migration"
+  block:
+    - name: "migrate : Display migration notice"
+      debug:
+        msg: "ODH detected - migrating to RHOAI (expected time: 5-10 minutes, deployed models will be preserved)"
+
+    # Get ODH CSV name
+    - name: "migrate : Get ODH CSV"
+      kubernetes.core.k8s_info:
+        api_version: operators.coreos.com/v1alpha1
+        kind: ClusterServiceVersion
+        namespace: openshift-operators
+      register: csv_list
+
+    - name: "migrate : Extract ODH CSV name"
+      set_fact:
+        odh_csv_name: "{{ csv_list.resources | selectattr('metadata.name', 'match', '^opendatahub-operator\\..*') | map(attribute='metadata.name') | first }}"
+      when: csv_list.resources | selectattr('metadata.name', 'match', '^opendatahub-operator\\..*') | list | length > 0
+
+    - name: "migrate : Debug - ODH CSV name"
+      debug:
+        msg: "ODH CSV to remove: {{ odh_csv_name | default('Not found') }}"
+    
+    - name: "migrate : Debug - CSV list count"
+      debug:
+        msg: "Found {{ csv_list.resources | length }} CSVs in openshift-operators namespace"
+
+    # Scale down DataScienceCluster
+    - name: "migrate : Scale down DataScienceCluster"
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: datasciencecluster.opendatahub.io/v1
+          kind: DataScienceCluster
+          metadata:
+            name: default-dsc
+          spec:
+            components:
+              kserve:
+                managementState: Removed
+      ignore_errors: true
+
+    - name: "migrate : Debug - DataScienceCluster scaled down"
+      debug:
+        msg: "DataScienceCluster kserve component set to Removed"
+    
+    - name: "migrate : Wait for pods to terminate (60s)"
+      pause:
+        seconds: 60
+
+    # Delete ODH operator
+    - name: "migrate : Delete ODH subscription"
+      kubernetes.core.k8s:
+        api_version: operators.coreos.com/v1alpha1
+        kind: Subscription
+        name: opendatahub-operator
+        namespace: openshift-operators
+        state: absent
+      when: odh_csv_name is defined
+
+    - name: "migrate : Delete ODH CSV"
+      kubernetes.core.k8s:
+        api_version: operators.coreos.com/v1alpha1
+        kind: ClusterServiceVersion
+        name: "{{ odh_csv_name }}"
+        namespace: openshift-operators
+        state: absent
+      when: odh_csv_name is defined
+
+    - name: "migrate : Debug - ODH operator deleted"
+      debug:
+        msg: "ODH subscription and CSV deleted from openshift-operators"
+    
+    - name: "migrate : Wait for ODH cleanup (60s)"
+      pause:
+        seconds: 60
+
+    # Delete DSCInitialization and DataScienceCluster
+    # CRITICAL: These must be deleted because the ODH operator has cached
+    # the opendatahub namespace and won't discover new namespaces.
+    # RHOAI will recreate them automatically.
+    - name: "migrate : Delete DataScienceCluster"
+      kubernetes.core.k8s:
+        api_version: datasciencecluster.opendatahub.io/v1
+        kind: DataScienceCluster
+        name: default-dsc
+        state: absent
+      ignore_errors: true
+
+    - name: "migrate : Delete DSCInitialization"
+      kubernetes.core.k8s:
+        api_version: dscinitialization.opendatahub.io/v1
+        kind: DSCInitialization
+        name: default-dsci
+        state: absent
+      ignore_errors: true
+
+    - name: "migrate : Debug - DSC resources deleted"
+      debug:
+        msg: "DSCInitialization and DataScienceCluster deleted"
+    
+    - name: "migrate : Wait for cleanup (30s)"
+      pause:
+        seconds: 30
+
+    - name: "migrate : ODH cleanup complete"
+      debug:
+        msg: "ODH operator removed, installing RHOAI operator"
+
+  when: odh_installed and not rhoai_installed
+
+# 4. Set migration flag for logging
+# -----------------------------------------------------------------------------
+- name: "migrate : Set migration performed flag"
+  set_fact:
+    odh_migration_performed: "{{ odh_installed and not rhoai_installed }}"
