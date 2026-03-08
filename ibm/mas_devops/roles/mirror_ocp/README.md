@@ -168,11 +168,7 @@ Path to Red Hat pull secret file.
 
 ## Role Variables - OpenShift Version
 ### ocp_release
-<<<<<<< update-260226
 The Red Hat release you are mirroring content for, e.g. `4.20`.
-=======
-OpenShift release version to mirror.
->>>>>>> master
 
 - **Required**
 - Environment Variable: `OCP_RELEASE`
@@ -197,11 +193,7 @@ OpenShift release version to mirror.
 **Note**: Use the major.minor version format (e.g., `4.19`), not full version (e.g., `4.19.10`). Use `ocp_min_version` and `ocp_max_version` to control patch version range.
 
 ### ocp_min_version
-<<<<<<< update-260226
 The minimum version of the Red Hat release to mirror platform content for, e.g. `4.20.8`.
-=======
-Minimum OpenShift patch version to mirror.
->>>>>>> master
 
 - **Optional**
 - Environment Variable: `OCP_MIN_VERSION`
@@ -226,11 +218,7 @@ Minimum OpenShift patch version to mirror.
 **Note**: Only affects platform image mirroring, not operators. Use to limit mirror size when you know the specific OpenShift versions you need.
 
 ### ocp_max_version
-<<<<<<< update-260226
 The maximimum version of the Red Hat release to mirror platform content for, e.g. `4.20.8`.
-=======
-Maximum OpenShift patch version to mirror.
->>>>>>> master
 
 - **Optional**
 - Environment Variable: `OCP_MAX_VERSION`
