@@ -846,7 +846,7 @@ Sets the size of deployment.
 - Environment Variable: `MAS_FACILITIES_SIZE`
 - Default: `small` Available options are `small`, `medium` and `large`
 
-#### mas_ws_facilities_appOMUpgradeMode
+#### mas_ws_facilities_app_om_upgrade_mode
 **Note**: 
 - **WARNING** Application upgrades can overwrite your custom changes. Do not select Automatic if you have customized your application. 
 - Currently supported `Maximo Real Estate and Facilities` release versions are: `9.2.x`
