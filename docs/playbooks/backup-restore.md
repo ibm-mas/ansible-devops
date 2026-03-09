@@ -57,7 +57,7 @@ The playbook executes the following operations:
 ### Common Variables (Backup and Restore)
 - `MAS_INSTANCE_ID` - The instance ID of the MAS installation
 - `MAS_BACKUP_DIR` - Directory where backup files will be stored/retrieved (e.g., `/tmp/mas_backups`)
-- `MONGODB_ACTION` - Set to `backup`, `backup_database`, `restore`, or `restore_database`
+- `MONGODB_ACTION` - Set to `backup`, `backup-database`, `restore`, or `restore-database`
 - `MONGODB_INSTANCE_NAME` - MongoDB instance name (default: `mas-mongo-ce`)
 - `MONGODB_NAMESPACE` - Namespace where MongoDB is installed (default: `mongoce`)
 
@@ -112,7 +112,7 @@ Create a backup of a specific database only:
 ```bash
 export MAS_INSTANCE_ID=inst1
 export MAS_BACKUP_DIR=/backup/mas
-export MONGODB_ACTION=backup_database
+export MONGODB_ACTION=backup-database
 export MONGODB_INSTANCE_NAME=mas-mongo-ce
 export MAS_APP_ID=manage
 
@@ -160,7 +160,7 @@ Restore a specific database only:
 ```bash
 export MAS_INSTANCE_ID=inst1
 export MAS_BACKUP_DIR=/backup/mas
-export MONGODB_ACTION=restore_database
+export MONGODB_ACTION=restore-database
 export MONGODB_BACKUP_VERSION=20260122-131500
 export MONGODB_INSTANCE_NAME=mas-mongo-ce
 export MAS_APP_ID=manage
@@ -173,11 +173,11 @@ ansible-playbook ibm.mas_devops.br_mongodb
 
 ### Backup Actions
 - **backup**: Full backup of MongoDB instance (Kubernetes resources + all database data)
-- **backup_database**: Backup specific database data only (requires `MAS_APP_ID`)
+- **backup-database**: Backup specific database data only (requires `MAS_APP_ID`)
 
 ### Restore Actions
 - **restore**: Full restore of MongoDB instance (Kubernetes resources + all database data)
-- **restore_database**: Restore specific database data only (requires `MAS_APP_ID`)
+- **restore-database**: Restore specific database data only (requires `MAS_APP_ID`)
 
 ### Prerequisites for Restore
 - Target cluster must have MongoDB Community Operator installed
@@ -489,9 +489,9 @@ This playbook performs backup and restore operations for IBM Db2 Universal Opera
 
 **Important**: The playbook supports multiple backup actions:
 - `backup` - Full Db2 instance backup
-- `backup_database` - Individual database backup
+- `backup-database` - Individual database backup
 - `restore` - Full Db2 instance restore
-- `restore_database` - Individual database restore
+- `restore-database` - Individual database restore
 
 ## Required Environment Variables
 
@@ -499,7 +499,7 @@ This playbook performs backup and restore operations for IBM Db2 Universal Opera
 - `MAS_INSTANCE_ID` - The instance ID of the MAS installation
 - `MAS_BACKUP_DIR` - Directory where backup files will be stored/retrieved (e.g., `/tmp/mas_backups`)
 - `DB2_INSTANCE_NAME` - Name of the Db2 instance
-- `DB2_ACTION` - Set to `backup`, `backup_database`, `restore`, or `restore_database`
+- `DB2_ACTION` - Set to `backup`, `backup-database`, `restore`, or `restore-database`
 
 ### Backup-Specific Variables
 - `DB2_BACKUP_TYPE` - Set to `online` or `offline` (default: `online`)
