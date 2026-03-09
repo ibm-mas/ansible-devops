@@ -18,7 +18,7 @@ If the selected provider is `community` then the [MongoDB Community Kubernetes O
 
 ## Prerequisites
 To run this role with providers as `ibm` or `aws` you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
-Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role when provider is either `ibm` or `aws`.
+Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role when provider is either `ibm` or `aws` or `atlas`.
 
 To run the `docdb_secret_rotate` MONGODB_ACTION when the provider is `aws` you must have already installed the [Mongo Shell](https://www.mongodb.com/docs/mongodb-shell/install/).
 
@@ -85,22 +85,26 @@ Selects which MongoDB deployment option to use for MAS database requirements.
 - Use `community` for self-managed deployments on OpenShift with full control
 - Use `ibm` for managed IBM Cloud Databases for MongoDB service
 - Use `aws` for managed AWS DocumentDB service (MongoDB-compatible)
+- Use `atlas` for managed MongoDB Atlas service (fully managed cloud database)
 - Consider operational expertise, cloud platform, and management preferences
 
 **Valid values**:
 - `community` - MongoDB Community Edition Operator (self-managed on OpenShift)
 - `ibm` - IBM Cloud Databases for MongoDB (managed service)
 - `aws` - AWS DocumentDB (managed service, MongoDB-compatible)
+- `atlas` - MongoDB Atlas
 
 **Impact**:
 - `community`: Requires cluster storage, manual backup management, and operational overhead
 - `ibm`: Requires IBM Cloud account, API key, and incurs IBM Cloud service charges
 - `aws`: Requires AWS account, VPC configuration, and incurs AWS service charges
+- `atlas`: Requires AWS account, AWS IAM permissions, and incurs AWS service charges
 
 **Related variables**:
 - When `community`: Requires `mongodb_storage_class` and related storage/resource variables
 - When `ibm`: Requires `ibmcloud_apikey`, `ibm_mongo_region`, `ibm_mongo_resourcegroup`
 - When `aws`: Requires `aws_access_key_id`, `aws_secret_access_key`, `vpc_id`, `docdb_*` variables
+- When `atlas`: Requires `aws_access_key_id`, `aws_secret_access_key`, `atlas_aws_secret_name`
 - Affects which `mongodb_action` values are supported
 
 **Note**: Provider cannot be changed after initial deployment. Migration between providers requires backup and restore procedures.
@@ -118,7 +122,7 @@ Specifies which operation to perform on the MongoDB instance.
 - Use `install` for initial deployment or updates
 - Use `uninstall` to remove MongoDB instance (use with caution)
 - Use `backup` to create MongoDB backups (community/ibm only)
-- Use `restore` to restore from backup (community/ibm only)
+- Use `restore` to restore from backup (community/ibm/atlas only)
 - Use `docdb_secret_rotate` to rotate DocumentDB credentials (aws only)
 - Use `destroy-data` to delete all data from MongoDB (aws only)
 - Use `create-mongo-service-credentials` to generate service credentials (ibm only)
@@ -127,6 +131,7 @@ Specifies which operation to perform on the MongoDB instance.
 - **community**: `install`, `uninstall`, `backup`, `restore`
 - **aws**: `install`, `uninstall`, `docdb_secret_rotate`, `destroy-data`
 - **ibm**: `install`, `uninstall`, `backup`, `restore`, `create-mongo-service-credentials`
+- **atlas**: `install`, `uninstall`, `restore`
 
 **Impact**: The action determines what the role will do. Destructive actions like `uninstall` and `destroy-data` will permanently delete data. Backup/restore actions require additional variables to be set.
 
@@ -2200,6 +2205,135 @@ AWS subnet IDs for auto-discovering route tables.
 
 **Related variables**: Alternative to `atlas_aws_route_table_ids` (manual specification).
 
+#### atlas_s3_bucket_name
+AWS S3 bucket name containing MongoDB backup files for restore.
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
+- Environment Variable: `ATLAS_S3_BUCKET_NAME`
+- Default Value: None
+
+**Purpose**: Specifies the S3 bucket where MongoDB backup files are stored.
+
+**When to use**: Required when restoring MongoDB data from S3 backup to Atlas cluster.
+
+**Valid values**: Valid AWS S3 bucket name
+
+**Impact**: The role will download backup files from this S3 bucket during restore operation.
+
+**Related variables**: Used with `atlas_s3_backup_prefix`, `atlas_backup_file_name`, and `atlas_index_backup_file_name`.
+
+#### atlas_s3_backup_prefix
+S3 prefix (folder path) where backup files are located.
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
+- Environment Variable: `ATLAS_S3_BACKUP_PREFIX`
+- Default Value: None
+
+**Purpose**: Specifies the S3 prefix/folder path containing the backup files.
+
+**When to use**: Required when restoring MongoDB data from S3 backup to Atlas cluster.
+
+**Valid values**: Valid S3 prefix path (e.g., `backups/mongodb/prod`)
+
+**Impact**: Combined with bucket name to locate backup files in S3.
+
+**Related variables**: Used with `atlas_s3_bucket_name` to construct full S3 path.
+
+#### atlas_backup_file_name
+Name of the MongoDB backup archive file (without .tar.gz extension).
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
+- Environment Variable: `ATLAS_BACKUP_FILE_NAME`
+- Default Value: None
+
+**Purpose**: Specifies the backup archive filename containing MongoDB data dumps.
+
+**When to use**: Required when restoring MongoDB data from S3 backup to Atlas cluster.
+
+**Valid values**: Backup filename without extension (e.g., `mongodb-backup-20240621`)
+
+**Impact**: The role will download `{filename}.tar.gz` from S3 and extract it for restore.
+
+**Related variables**: Used with `atlas_s3_bucket_name` and `atlas_s3_backup_prefix`.
+
+**Note**: The actual file in S3 should have `.tar.gz` extension, but provide the name without it.
+
+#### atlas_index_backup_file_name
+Name of the MongoDB index backup JSON file.
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
+- Environment Variable: `ATLAS_INDEX_BACKUP_FILE_NAME`
+- Default Value: None
+
+**Purpose**: Specifies the JSON file containing MongoDB index definitions to restore.
+
+**When to use**: Required when restoring MongoDB data from S3 backup to Atlas cluster.
+
+**Valid values**: JSON filename (e.g., `mongodb-indexes-20240621.json`)
+
+**Impact**: The role will download this file from S3 and recreate indexes after data restore.
+
+**Related variables**: Used with `atlas_s3_bucket_name` and `atlas_s3_backup_prefix`.
+
+**Note**: File must be valid JSON containing index definitions for each database and collection.
+
+#### atlas_mongodb_host
+MongoDB Atlas cluster hostname for restore connection.
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
+- Environment Variable: `ATLAS_MONGODB_HOST`
+- Default Value: None
+
+**Purpose**: Specifies the Atlas cluster hostname to connect for restore operation.
+
+**When to use**: Required when restoring MongoDB data to Atlas cluster.
+
+**Valid values**: Atlas cluster hostname (e.g., `cluster0.abc123.mongodb.net`)
+
+**Impact**: Used to build MongoDB connection URI for mongorestore command.
+
+**Related variables**: Used with `atlas_mongodb_username` and `atlas_mongodb_password`.
+
+**Note**: Use the SRV hostname format without `mongodb+srv://` prefix.
+
+#### atlas_mongodb_username
+MongoDB database username for restore connection.
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
+- Environment Variable: `ATLAS_MONGODB_USERNAME`
+- Default Value: None
+
+**Purpose**: Database username with write permissions for restore operation.
+
+**When to use**: Required when restoring MongoDB data to Atlas cluster.
+
+**Valid values**: Valid MongoDB username with appropriate permissions
+
+**Impact**: Used for authentication during mongorestore operation.
+
+**Related variables**: Used with `atlas_mongodb_host` and `atlas_mongodb_password`.
+
+**Note**: User must have readWriteAnyDatabase or equivalent permissions.
+
+#### atlas_mongodb_password
+MongoDB database password for restore connection.
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
+- Environment Variable: `ATLAS_MONGODB_PASSWORD`
+- Default Value: None
+
+**Purpose**: Database password for authentication during restore.
+
+**When to use**: Required when restoring MongoDB data to Atlas cluster.
+
+**Valid values**: Valid password for the specified username
+
+**Impact**: Used for authentication during mongorestore operation.
+
+**Related variables**: Used with `atlas_mongodb_host` and `atlas_mongodb_username`.
+
+**Note**: Store securely. Never commit to version control.
+
 
 
 ## Example Playbook
@@ -2299,6 +2433,24 @@ AWS subnet IDs for auto-discovering route tables.
     aws_access_key_id: aws-key
     aws_secret_access_key: aws-access-key
 
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
+### Restore (MongoDB Atlas)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_provider: atlas
+    mongodb_action: restore
+    atlas_s3_bucket_name: my-backup-bucket
+    atlas_s3_backup_prefix: mongodb-backups/prod
+    atlas_backup_file_name: mongodb-backup-20240621
+    atlas_index_backup_file_name: mongodb-indexes-20240621.json
+    atlas_mongodb_host: cluster0.abc123.mongodb.net
+    atlas_mongodb_username: admin
+    atlas_mongodb_password: "{{ lookup('env', 'ATLAS_DB_PASSWORD') }}"
   roles:
     - ibm.mas_devops.mongodb
 ```
