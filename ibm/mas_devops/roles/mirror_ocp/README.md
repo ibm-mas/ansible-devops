@@ -142,6 +142,30 @@ Enable mirroring of selected Red Hat operator catalog content.
 
 **Note**: Only selected operators used by MAS are mirrored, not entire catalogs. See the catalog list at the top of this README for included operators.
 
+### mirror_additional_aiservice_operators
+Enable mirroring of selected additional operators used by AI service.
+
+- **Optional**
+- Environment Variable: `MIRROR_ADDITIONAL_AISERVICE_OPERATORS`
+- Default: `false`
+
+**Purpose**: Controls whether to mirror selected additional operators that are required for AI Service
+
+**When to use**:
+- Set to `true` to mirror the additional operators
+- Leave as `false` (default) to skip additional operator mirroring
+- Enable when preparing for MAS deployment in air-gapped environments including AI Service
+
+**Valid values**: `true`, `false`
+
+**Impact**:
+- `true`: Mirrors selected additional operators from certified, community, and redhat-operator-index catalogs
+- `false`: Skips operator catalog mirroring
+
+**Note**: Only the following selected images are mirrored:
+- istio
+- opendatahub
+
 ### redhat_pullsecret
 Path to Red Hat pull secret file.
 
