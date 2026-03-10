@@ -1,9 +1,12 @@
 # mongodb
 
-This role currently supports provisioning of mongodb in three different providers:
+This role currently supports provisioning of mongodb in four different providers:
  - community
  - aws (documentdb)
  - ibm
+ - atlas (MongoDB Atlas)
+**Important Notice**
+Support for the **atlas (MongoDB Atlas)** provider is currently in **Proof of Concept (PoC)** stage. It is intended for **testing and development purposes only** and **is not recommended for production deployments** at this time.
 
 If the selected provider is `community` then the [MongoDB Community Kubernetes Operator](https://github.com/mongodb/mongodb-kubernetes-operator) will be configured and deployed into the specified namespace. By default a three member MongoDB replica set will be created.  The cluster will bind six PVCs, these provide persistence for the data and system logs across the three nodes.  Currently there is no support built-in for customizing the cluster beyond this configuration.
 
@@ -15,7 +18,7 @@ If the selected provider is `community` then the [MongoDB Community Kubernetes O
 
 ## Prerequisites
 To run this role with providers as `ibm` or `aws` you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
-Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role when provider is either `ibm` or `aws`.
+Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role when provider is either `ibm` or `aws` or `atlas`.
 
 To run the `docdb_secret_rotate` MONGODB_ACTION when the provider is `aws` you must have already installed the [Mongo Shell](https://www.mongodb.com/docs/mongodb-shell/install/).
 
@@ -82,22 +85,26 @@ Selects which MongoDB deployment option to use for MAS database requirements.
 - Use `community` for self-managed deployments on OpenShift with full control
 - Use `ibm` for managed IBM Cloud Databases for MongoDB service
 - Use `aws` for managed AWS DocumentDB service (MongoDB-compatible)
+- Use `atlas` for managed MongoDB Atlas service (fully managed cloud database)
 - Consider operational expertise, cloud platform, and management preferences
 
 **Valid values**:
 - `community` - MongoDB Community Edition Operator (self-managed on OpenShift)
 - `ibm` - IBM Cloud Databases for MongoDB (managed service)
 - `aws` - AWS DocumentDB (managed service, MongoDB-compatible)
+- `atlas` - MongoDB Atlas
 
 **Impact**:
 - `community`: Requires cluster storage, manual backup management, and operational overhead
 - `ibm`: Requires IBM Cloud account, API key, and incurs IBM Cloud service charges
 - `aws`: Requires AWS account, VPC configuration, and incurs AWS service charges
+- `atlas`: Requires AWS account, AWS IAM permissions, and incurs AWS service charges
 
 **Related variables**:
 - When `community`: Requires `mongodb_storage_class` and related storage/resource variables
 - When `ibm`: Requires `ibmcloud_apikey`, `ibm_mongo_region`, `ibm_mongo_resourcegroup`
 - When `aws`: Requires `aws_access_key_id`, `aws_secret_access_key`, `vpc_id`, `docdb_*` variables
+- When `atlas`: Requires `aws_access_key_id`, `aws_secret_access_key`, `atlas_aws_secret_name`
 - Affects which `mongodb_action` values are supported
 
 **Note**: Provider cannot be changed after initial deployment. Migration between providers requires backup and restore procedures.
@@ -115,7 +122,7 @@ Specifies which operation to perform on the MongoDB instance.
 - Use `install` for initial deployment or updates
 - Use `uninstall` to remove MongoDB instance (use with caution)
 - Use `backup` to create MongoDB backups (community/ibm only)
-- Use `restore` to restore from backup (community/ibm only)
+- Use `restore` to restore from backup (community/ibm/atlas only)
 - Use `docdb_secret_rotate` to rotate DocumentDB credentials (aws only)
 - Use `destroy-data` to delete all data from MongoDB (aws only)
 - Use `create-mongo-service-credentials` to generate service credentials (ibm only)
@@ -124,6 +131,7 @@ Specifies which operation to perform on the MongoDB instance.
 - **community**: `install`, `uninstall`, `backup`, `backup_database`, `restore`, `restore_database`
 - **aws**: `install`, `uninstall`, `docdb_secret_rotate`, `destroy-data`
 - **ibm**: `install`, `uninstall`, `backup`, `restore`, `create-mongo-service-credentials`
+- **atlas**: `install`, `uninstall`, `restore`
 
 **Impact**: The action determines what the role will do. Destructive actions like `uninstall` and `destroy-data` will permanently delete data. Backup/restore actions require additional variables to be set.
 
@@ -1947,8 +1955,590 @@ Mongo Certificates, please refer to the below example playbook section for detai
 - Environment Variable: `CERTIFICATES`
 - Default Value: None
 
-Example Playbooks
--------------------------------------------------------------------------------
+
+## Role Variables - MongoDB Atlas
+
+#### atlas_project_id
+MongoDB Atlas project ID where the cluster will be created.
+
+- **Required** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_PROJECT_ID`
+- Default Value: None
+
+**Purpose**: Identifies the Atlas project (organization) that will contain the MongoDB cluster. All Atlas resources are organized under projects.
+
+**When to use**: Always required for Atlas deployments. Obtain from Atlas console under Project Settings.
+
+**Valid values**: 24-character hexadecimal string (e.g., `507f1f77bcf86cd799439011`)
+
+**Impact**: Determines billing, access control, and resource organization for the cluster.
+
+#### atlas_public_key
+MongoDB Atlas API public key for authentication.
+
+- **Required** when `mongodb_provider=atlas` (unless using `atlas_aws_secret_name`)
+- Environment Variable: `ATLAS_PUBLIC_KEY`
+- Default Value: None
+
+**Purpose**: Public component of Atlas API key pair used for programmatic access to Atlas API.
+
+**When to use**: Required for all Atlas operations unless credentials are stored in AWS Secrets Manager.
+
+**Valid values**: Atlas API public key string
+
+**Impact**: Used with `atlas_private_key` for Atlas API authentication.
+
+**Related variables**: Must be used with `atlas_private_key`. Alternative: use `atlas_aws_secret_name` to retrieve from AWS Secrets Manager.
+
+**Note**: Store securely. Never commit to version control. Consider using AWS Secrets Manager for production.
+
+#### atlas_private_key
+MongoDB Atlas API private key for authentication.
+
+- **Required** when `mongodb_provider=atlas` (unless using `atlas_aws_secret_name`)
+- Environment Variable: `ATLAS_PRIVATE_KEY`
+- Default Value: None
+
+**Purpose**: Private component of Atlas API key pair used for programmatic access to Atlas API.
+
+**When to use**: Required for all Atlas operations unless credentials are stored in AWS Secrets Manager.
+
+**Valid values**: Atlas API private key string
+
+**Impact**: Used with `atlas_public_key` for Atlas API authentication.
+
+**Related variables**: Must be used with `atlas_public_key`. Alternative: use `atlas_aws_secret_name` to retrieve from AWS Secrets Manager.
+
+**Note**: Store securely. Never commit to version control. Consider using AWS Secrets Manager for production.
+
+#### atlas_aws_secret_name
+AWS Secrets Manager secret name containing Atlas API credentials.
+
+- **Optional** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_AWS_SECRET_NAME`
+- Default Value: None
+
+**Purpose**: Retrieves Atlas API credentials from AWS Secrets Manager instead of using environment variables. Recommended for production deployments.
+
+**When to use**: Use instead of `atlas_public_key`/`atlas_private_key` for better security. Secret must contain JSON with `public_key` and `private_key` fields.
+
+**Valid values**: AWS Secrets Manager secret name or ARN
+
+**Impact**: When set, Atlas API credentials are retrieved from AWS Secrets Manager. Requires AWS CLI configured and appropriate IAM permissions.
+
+**Related variables**: Requires `atlas_aws_secret_region`. Alternative to `atlas_public_key`/`atlas_private_key`.
+
+**Note**: Secret format: `{"public_key": "xxx", "private_key": "yyy"}`
+
+#### atlas_aws_secret_region
+AWS region where the Secrets Manager secret is stored.
+
+- **Optional** when `mongodb_provider=atlas` and `atlas_aws_secret_name` is set
+- Environment Variable: `ATLAS_AWS_SECRET_REGION`
+- Default Value: `us-east-1`
+
+**Purpose**: Specifies which AWS region to query for the Atlas API credentials secret.
+
+**When to use**: Set when using `atlas_aws_secret_name` and secret is not in us-east-1.
+
+**Valid values**: Valid AWS region name (e.g., `us-east-1`, `eu-west-1`)
+
+**Impact**: Determines which AWS region is queried for the secret.
+
+**Related variables**: Only used when `atlas_aws_secret_name` is set.
+
+#### atlas_cluster_name
+Name of the MongoDB Atlas cluster to create or manage.
+
+- **Required** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_CLUSTER_NAME`
+- Default Value: None
+
+**Purpose**: Identifies the Atlas cluster within the project. Used for all cluster operations.
+
+**When to use**: Always required for Atlas deployments.
+
+**Valid values**: Alphanumeric string, 1-64 characters, can include hyphens
+
+**Impact**: Cluster name appears in Atlas console and connection strings.
+
+**Note**: Cannot be changed after cluster creation.
+
+#### atlas_cluster_provider
+Cloud provider where the Atlas cluster will be deployed.
+
+- **Required** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_CLUSTER_PROVIDER`
+- Default Value: `AWS`
+
+**Purpose**: Specifies which cloud infrastructure provider hosts the Atlas cluster.
+
+**When to use**: Always required for Atlas deployments.
+
+**Valid values**: `AWS`
+
+**Impact**: Determines available regions, instance sizes, and pricing.
+
+**Note**: VPC peering is only supported when using `AWS` as the cloud provider.
+
+**Related variables**: Must be compatible with `atlas_cluster_region`.
+
+#### atlas_cluster_region
+Cloud provider region where the Atlas cluster will be deployed.
+
+- **Required** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_CLUSTER_REGION`
+- Default Value: None
+
+**Purpose**: Specifies the geographic region for cluster deployment, affecting latency and data residency.
+
+**When to use**: Always required for Atlas deployments. Choose region closest to your application.
+
+**Valid values**: Atlas region codes (e.g., `US_EAST_1`, `EU_WEST_1`, `AP_SOUTHEAST_1`)
+
+**Impact**: Affects latency, data residency compliance, and availability zones.
+
+**Related variables**: Must be valid for the selected `atlas_cluster_provider`.
+
+**Note**: Use Atlas region format (underscores), not AWS format (hyphens).
+
+#### atlas_cluster_size
+Atlas cluster tier/instance size.
+
+- **Required** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_CLUSTER_SIZE`
+- Default Value: None
+
+**Purpose**: Determines cluster compute and memory resources, affecting performance and cost.
+
+**When to use**: Always required for Atlas deployments. Choose based on workload requirements.
+
+**Valid values**: `M10`, `M20`, `M30`, `M40`, `M50`, `M60`, `M80`, `M140`, `M200`, `M300`, `M400`, `M700`
+
+**Impact**: Affects cluster performance, storage capacity, and hourly cost. M10 is minimum for production.
+
+**Note**: M0/M2/M5 free/shared tiers not supported. Cannot be decreased, only increased.
+
+#### atlas_mongodb_version
+MongoDB version to deploy in Atlas cluster.
+
+- **Optional** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_MONGODB_VERSION`
+- Default Value: `6.0`
+
+**Purpose**: Specifies MongoDB version for the cluster.
+
+**When to use**: Override default when specific version is required.
+
+**Valid values**: `6.0`, `7.0`, `8.0` (check Atlas for currently supported versions)
+
+**Impact**: Determines available MongoDB features and compatibility.
+
+**Note**: Version upgrades are supported but downgrades are not.
+
+#### atlas_backup_enabled
+Enable automated backups for the Atlas cluster.
+
+- **Optional** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_BACKUP_ENABLED`
+- Default Value: `true`
+
+**Purpose**: Controls whether Atlas creates automated backups of the cluster.
+
+**When to use**: Leave enabled (default) for production. Disable only for temporary/test clusters.
+
+**Valid values**: `true`, `false`
+
+**Impact**: When enabled, Atlas creates continuous backups with point-in-time recovery. Affects cluster cost.
+
+**Note**: Highly recommended for production deployments.
+
+#### atlas_database_users
+Multi-user database configuration for Atlas cluster.
+
+- **Optional** when `mongodb_provider=atlas` (alternative to `atlas_db_username`/`atlas_db_password`)
+- Environment Variable: Not supported (use playbook vars)
+- Default Value: None
+
+**Purpose**: Defines multiple database users with different roles and permissions. Recommended approach for production.
+
+**When to use**: Use for production deployments requiring multiple users with different access levels.
+
+**Valid values**: Dictionary of user configurations with username, auth_database_name, and roles
+
+**Impact**: Creates multiple database users with auto-generated passwords stored in Atlas.
+
+**Related variables**: Alternative to legacy `atlas_db_username`/`atlas_db_password`.
+
+**Example**:
+```yaml
+atlas_database_users:
+  user1:
+    username: "app_user"
+    auth_database_name: "admin"
+    roles:
+      - database_name: "admin"
+        role_name: "readWriteAnyDatabase"
+```
+
+#### atlas_db_username
+Legacy single database user username.
+
+- **Optional** when `mongodb_provider=atlas` (alternative to `atlas_database_users`)
+- Environment Variable: `ATLAS_DB_USERNAME`
+- Default Value: None
+
+**Purpose**: Creates a single database user for Atlas cluster. Legacy approach.
+
+**When to use**: Use for simple deployments with single user. Consider `atlas_database_users` for production.
+
+**Valid values**: Valid MongoDB username string
+
+**Impact**: Creates one database user with specified credentials.
+
+**Related variables**: Must be used with `atlas_db_password`. Alternative: use `atlas_database_users`.
+
+#### atlas_db_password
+Legacy single database user password.
+
+- **Optional** when `mongodb_provider=atlas` (alternative to `atlas_database_users`)
+- Environment Variable: `ATLAS_DB_PASSWORD`
+- Default Value: None
+
+**Purpose**: Password for the single database user. Legacy approach.
+
+**When to use**: Use with `atlas_db_username` for simple deployments.
+
+**Valid values**: Strong password string
+
+**Impact**: Sets password for the database user.
+
+**Related variables**: Must be used with `atlas_db_username`. Alternative: use `atlas_database_users`.
+
+**Note**: Store securely. Never commit to version control.
+
+#### atlas_store_credentials_in_secret
+Store Atlas connection information in AWS Secrets Manager.
+
+- **Optional** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_STORE_CREDENTIALS_IN_SECRET`
+- Default Value: `false`
+
+**Purpose**: Automatically stores Atlas connection details (hosts, port, username, password, CA cert) in AWS Secrets Manager after provisioning.
+
+**When to use**: Enable for production deployments to centralize credential management.
+
+**Valid values**: `true`, `false`
+
+**Impact**: Creates/updates AWS Secrets Manager secret with connection information.
+
+**Related variables**: Requires `atlas_credentials_secret_name` or `atlas_credentials_secret_prefix`/`atlas_mongodb_secret_name`.
+
+#### atlas_credentials_secret_name
+Full AWS Secrets Manager secret name for storing connection information.
+
+- **Optional** when `mongodb_provider=atlas` and `atlas_store_credentials_in_secret=true`
+- Environment Variable: `ATLAS_CREDENTIALS_SECRET_NAME`
+- Default Value: None
+
+**Purpose**: Specifies exact secret name for storing Atlas connection information.
+
+**When to use**: Use when you want full control over secret naming.
+
+**Valid values**: Valid AWS Secrets Manager secret name
+
+**Impact**: Connection information stored at this exact secret name.
+
+**Related variables**: Alternative to using `atlas_credentials_secret_prefix`/`atlas_mongodb_secret_name`.
+
+#### atlas_credentials_secret_prefix
+Prefix for building AWS Secrets Manager secret name.
+
+- **Optional** when `mongodb_provider=atlas` and `atlas_store_credentials_in_secret=true`
+- Environment Variable: `ATLAS_CREDENTIALS_SECRET_PREFIX`
+- Default Value: None
+
+**Purpose**: Prefix for constructing secret name in format: `{prefix}/{name}/mongo`
+
+**When to use**: Use with `atlas_mongodb_secret_name` for consistent naming pattern.
+
+**Valid values**: Valid secret name prefix (e.g., `/aws-dev`, `/prod`)
+
+**Impact**: Combined with `atlas_mongodb_secret_name` to create full secret path.
+
+**Related variables**: Used with `atlas_mongodb_secret_name`. Alternative to `atlas_credentials_secret_name`.
+
+#### atlas_mongodb_secret_name
+Name component for building AWS Secrets Manager secret name.
+
+- **Optional** when `mongodb_provider=atlas` and `atlas_store_credentials_in_secret=true`
+- Environment Variable: `ATLAS_MONGODB_SECRET_NAME`
+- Default Value: None
+
+**Purpose**: Name component for constructing secret name in format: `{prefix}/{name}/mongo`
+
+**When to use**: Use with `atlas_credentials_secret_prefix` for consistent naming pattern.
+
+**Valid values**: Valid secret name component
+
+**Impact**: Combined with `atlas_credentials_secret_prefix` to create full secret path.
+
+**Related variables**: Used with `atlas_credentials_secret_prefix`. Alternative to `atlas_credentials_secret_name`.
+
+#### atlas_credentials_secret_region
+AWS region for storing connection information secret.
+
+- **Optional** when `mongodb_provider=atlas` and `atlas_store_credentials_in_secret=true`
+- Environment Variable: `ATLAS_CREDENTIALS_SECRET_REGION`
+- Default Value: `us-east-1`
+
+**Purpose**: Specifies AWS region where connection information secret will be stored.
+
+**When to use**: Set when storing secret in region other than us-east-1.
+
+**Valid values**: Valid AWS region name
+
+**Impact**: Determines which AWS region stores the connection secret.
+
+#### atlas_vpc_id
+AWS VPC ID for VPC peering with Atlas.
+
+- **Optional** when `mongodb_provider=atlas` and `atlas_cluster_provider=AWS` and configuring VPC peering
+- Environment Variable: `ATLAS_VPC_ID`
+- Default Value: None
+
+**Purpose**: AWS VPC ID for establishing VPC peering connection with Atlas cluster.
+
+**When to use**: Required when configuring VPC peering for private connectivity. VPC peering is only supported for AWS deployments.
+
+**Valid values**: Valid AWS VPC ID (e.g., `vpc-0123456789abcdef0`)
+
+**Impact**: Enables private network connectivity between AWS VPC and Atlas cluster.
+
+**Related variables**: Used with `atlas_aws_region`, `atlas_aws_route_table_ids` or `atlas_aws_subnet_ids`.
+
+#### atlas_aws_region
+AWS region for VPC peering configuration.
+
+- **Optional** when `mongodb_provider=atlas` and `atlas_cluster_provider=AWS` and configuring VPC peering
+- Environment Variable: `ATLAS_AWS_REGION`
+- Default Value: None
+
+**Purpose**: AWS region where VPC peering will be configured.
+
+**When to use**: Required when configuring VPC peering. VPC peering is only supported for AWS deployments.
+
+**Valid values**: Atlas region format (e.g., `US_EAST_1`, `EU_WEST_1`)
+
+**Impact**: Must match the region of the AWS VPC.
+
+**Related variables**: Used with `atlas_vpc_id` for VPC peering.
+
+**Note**: Use Atlas region format (underscores), not AWS format (hyphens).
+
+#### atlas_aws_route_table_ids
+AWS route table IDs for VPC peering routes.
+
+- **Optional** when `mongodb_provider=atlas` and `atlas_cluster_provider=AWS` and configuring VPC peering
+- Environment Variable: `ATLAS_AWS_ROUTE_TABLE_IDS`
+- Default Value: None
+
+**Purpose**: List of AWS route table IDs where Atlas CIDR routes will be added.
+
+**When to use**: Provide when manually specifying route tables for VPC peering. VPC peering is only supported for AWS deployments.
+
+**Valid values**: List of route table IDs or comma-separated string
+
+**Impact**: Routes to Atlas CIDR block added to these route tables.
+
+**Related variables**: Alternative to `atlas_aws_subnet_ids` (which auto-discovers route tables).
+
+#### atlas_aws_subnet_ids
+AWS subnet IDs for auto-discovering route tables.
+
+- **Optional** when `mongodb_provider=atlas` and `atlas_cluster_provider=AWS` and configuring VPC peering
+- Environment Variable: `ATLAS_AWS_SUBNET_IDS`
+- Default Value: None
+
+**Purpose**: List of AWS subnet IDs used to automatically discover associated route tables.
+
+**When to use**: Provide when you want automatic route table discovery instead of manual specification. VPC peering is only supported for AWS deployments.
+
+**Valid values**: List of subnet IDs or comma-separated string
+
+**Impact**: Route tables associated with these subnets are automatically discovered and configured.
+
+**Related variables**: Alternative to `atlas_aws_route_table_ids` (manual specification).
+
+#### atlas_s3_bucket_name
+AWS S3 bucket name containing MongoDB backup files for restore.
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
+- Environment Variable: `ATLAS_S3_BUCKET_NAME`
+- Default Value: None
+
+**Purpose**: Specifies the S3 bucket where MongoDB backup files are stored.
+
+**When to use**: Required when restoring MongoDB data from S3 backup to Atlas cluster.
+
+**Valid values**: Valid AWS S3 bucket name
+
+**Impact**: The role will download backup files from this S3 bucket during restore operation.
+
+**Related variables**: Used with `atlas_s3_backup_prefix`, `atlas_backup_file_name`, and `atlas_index_backup_file_name`.
+
+#### atlas_s3_backup_prefix
+S3 prefix (folder path) where backup files are located.
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
+- Environment Variable: `ATLAS_S3_BACKUP_PREFIX`
+- Default Value: None
+
+**Purpose**: Specifies the S3 prefix/folder path containing the backup files.
+
+**When to use**: Required when restoring MongoDB data from S3 backup to Atlas cluster.
+
+**Valid values**: Valid S3 prefix path (e.g., `backups/mongodb/prod`)
+
+**Impact**: Combined with bucket name to locate backup files in S3.
+
+**Related variables**: Used with `atlas_s3_bucket_name` to construct full S3 path.
+
+#### atlas_backup_file_name
+Name of the MongoDB backup archive file (without .tar.gz extension).
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
+- Environment Variable: `ATLAS_BACKUP_FILE_NAME`
+- Default Value: None
+
+**Purpose**: Specifies the backup archive filename containing MongoDB data dumps.
+
+**When to use**: Required when restoring MongoDB data from S3 backup to Atlas cluster.
+
+**Valid values**: Backup filename without extension (e.g., `mongodb-backup-20240621`)
+
+**Impact**: The role will download `{filename}.tar.gz` from S3 and extract it for restore.
+
+**Related variables**: Used with `atlas_s3_bucket_name` and `atlas_s3_backup_prefix`.
+
+**Note**: The actual file in S3 should have `.tar.gz` extension, but provide the name without it.
+
+#### atlas_index_backup_file_name
+Name of the MongoDB index backup JSON file.
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
+- Environment Variable: `ATLAS_INDEX_BACKUP_FILE_NAME`
+- Default Value: None
+
+**Purpose**: Specifies the JSON file containing MongoDB index definitions to restore.
+
+**When to use**: Required when restoring MongoDB data from S3 backup to Atlas cluster.
+
+**Valid values**: JSON filename (e.g., `mongodb-indexes-20240621.json`)
+
+**Impact**: The role will download this file from S3 and recreate indexes after data restore.
+
+**Related variables**: Used with `atlas_s3_bucket_name` and `atlas_s3_backup_prefix`.
+
+**Note**: File must be valid JSON containing index definitions for each database and collection.
+
+#### atlas_mongodb_host
+MongoDB Atlas cluster hostname for restore connection.
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
+- Environment Variable: `ATLAS_MONGODB_HOST`
+- Default Value: None
+
+**Purpose**: Specifies the Atlas cluster hostname to connect for restore operation.
+
+**When to use**: Required when restoring MongoDB data to Atlas cluster.
+
+**Valid values**: Atlas cluster hostname (e.g., `cluster0.abc123.mongodb.net`)
+
+**Impact**: Used to build MongoDB connection URI for mongorestore command.
+
+**Related variables**: Used with `atlas_mongodb_username` and `atlas_mongodb_password`.
+
+**Note**: Use the SRV hostname format without `mongodb+srv://` prefix.
+
+#### atlas_mongodb_username
+MongoDB database username for restore connection.
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
+- Environment Variable: `ATLAS_MONGODB_USERNAME`
+- Default Value: None
+
+**Purpose**: Database username with write permissions for restore operation.
+
+**When to use**: Required when restoring MongoDB data to Atlas cluster.
+
+**Valid values**: Valid MongoDB username with appropriate permissions
+
+**Impact**: Used for authentication during mongorestore operation.
+
+**Related variables**: Used with `atlas_mongodb_host` and `atlas_mongodb_password`.
+
+**Note**: User must have readWriteAnyDatabase or equivalent permissions.
+
+#### atlas_mongodb_password
+MongoDB database password for restore connection.
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
+- Environment Variable: `ATLAS_MONGODB_PASSWORD`
+- Default Value: None
+
+**Purpose**: Database password for authentication during restore.
+
+**When to use**: Required when restoring MongoDB data to Atlas cluster.
+
+**Valid values**: Valid password for the specified username
+
+**Impact**: Used for authentication during mongorestore operation.
+
+**Related variables**: Used with `atlas_mongodb_host` and `atlas_mongodb_username`.
+
+**Note**: Store securely. Never commit to version control.
+
+
+
+## Example Playbook
+
+### Install (CE Operator)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_storage_class: ibmc-block-gold
+    mas_instance_id: masinst1
+    mas_config_dir: ~/masconfig
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
+### Backup (CE Operator)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_action: backup
+    mas_instance_id: masinst1
+    masbr_storage_local_folder: /tmp/masbr
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
+### Restore (CE Operator)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_action: restore
+    mas_instance_id: masinst1
+    masbr_restore_from_version: 20240621021316
+    masbr_storage_local_folder: /tmp/masbr
+  roles:
+    - ibm.mas_devops.mongodb
+```
 
 ### Install (IBM Cloud)
 ```yaml
@@ -2008,6 +2598,24 @@ Example Playbooks
     aws_access_key_id: aws-key
     aws_secret_access_key: aws-access-key
 
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
+### Restore (MongoDB Atlas)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_provider: atlas
+    mongodb_action: restore
+    atlas_s3_bucket_name: my-backup-bucket
+    atlas_s3_backup_prefix: mongodb-backups/prod
+    atlas_backup_file_name: mongodb-backup-20240621
+    atlas_index_backup_file_name: mongodb-indexes-20240621.json
+    atlas_mongodb_host: cluster0.abc123.mongodb.net
+    atlas_mongodb_username: admin
+    atlas_mongodb_password: "{{ lookup('env', 'ATLAS_DB_PASSWORD') }}"
   roles:
     - ibm.mas_devops.mongodb
 ```
