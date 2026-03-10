@@ -1,0 +1,194 @@
+---
+# 1. Lookup storage class availabiity
+# -----------------------------------------------------------------------------
+- name: "configure-kafkaimageprocessor : Load default storage class information"
+  include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
+
+
+# 2. Set Defaults
+# -----------------------------------------------------------------------------
+- name: Storage class if not set by user (ReadWriteMany)
+  when: kafkaimageprocessor_storage_class is not defined or kafkaimageprocessor_storage_class == ""
+  set_fact:
+    kafkaimageprocessor_storage_class: "{{ defaultStorageClasses.rwx }}"
+
+- name: Assert that a storage class has been defined
+  assert:
+    that: kafkaimageprocessor_storage_class is defined and kafkaimageprocessor_storage_class != ""
+    fail_msg: "kafkaimageprocessor_storage_class must be defined"
+
+- name: "Fail if kafkaimageprocessor_pvcname is not provided"
+  assert:
+    that: kafkaimageprocessor_pvcname is defined and kafkaimageprocessor_pvcname != ""
+    fail_msg: "kafkaimageprocessor_pvcname property is required"
+
+- name: "Fail if kafkaimageprocessor_storage_mountpath is not provided"
+  assert:
+    that: kafkaimageprocessor_storage_mountpath is defined and kafkaimageprocessor_storage_mountpath != ""
+    fail_msg: "kafkaimageprocessor_storage_mountpath property is required"
+
+- name: "Fail if kafkaimageprocessor_storage_size is not provided"
+  assert:
+    that: kafkaimageprocessor_storage_size is defined and kafkaimageprocessor_storage_size != ""
+    fail_msg: "kafkaimageprocessor_storage_size property is required"
+
+- name: "Fail if kafkaimageprocessor_storage_mode is not provided"
+  assert:
+    that: kafkaimageprocessor_storage_mode is defined and kafkaimageprocessor_storage_mode != ""
+    fail_msg: "kafkaimageprocessor_storage_mode property is required"
+
+- name: "Get MAS instance domain"
+  kubernetes.core.k8s_info:
+    api_version: "core.mas.ibm.com/v1"
+    kind: "Suite"
+    name: "{{ mas_instance_id }}"
+    namespace: "mas-{{mas_instance_id}}-core"
+  register: suite_cr_result
+  retries: 3
+  delay: 0
+  until:
+    - suite_cr_result.resources[0].spec.domain is defined
+    - suite_cr_result.resources[0].spec.domain | length > 0
+
+- name: Set MAS domain
+  set_fact:
+    mas_domain: "{{ suite_cr_result.resources[0].spec.domain }}"
+  when: mas_domain is not defined or mas_domain == ""
+
+- name: "Run Manage kafka image processor post-configuration: Debug"
+  debug:
+    msg:
+      - "Kafka Image Processor PVC name ......... {{ kafkaimageprocessor_pvcname }}"
+      - "Kafka Image Processor storage class .... {{ kafkaimageprocessor_storage_class }}"
+      - "Kafka Image Processor storage size ..... {{ kafkaimageprocessor_storage_size }}"
+      - "Kafka Image Processor storage mode ..... {{ kafkaimageprocessor_storage_mode }}"
+      - "Kafka Image Processor storage mountpath  {{ kafkaimageprocessor_storage_mountpath }}"
+      - "Instance ID ............................ {{ mas_instance_id }}"
+      - "Workspace ID ........................... {{ mas_workspace_id }}"
+      - "Manage namespace ....................... {{ manage_namespace }}"
+      - "MAS domain ............................. {{ mas_domain }}"
+      - "MAS workspace CR name .................. {{ mas_ws_cr_name }}"
+
+- name: Retrieve Manage workspace CR
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ mas_ws_cr_name }}"
+    namespace: "{{ manage_namespace }}"
+    kind: ManageWorkspace
+  register: manageWorkspace
+
+- name: Retrieve Manage workspace CR
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ mas_ws_cr_name }}"
+    namespace: "{{ manage_namespace }}"
+    kind: ManageWorkspace
+  register: workspaceCR
+
+- name: Retrieve Kafka Image Processor CR if available
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: Kafkaimageprocessor
+  register: kafkaimageprocessorCR
+
+- name: Retrieve current kafka image processor status
+  set_fact:
+    deploykafkaimageprocessor: "{{ manageWorkspace.resources[0].status.components.civil is defined and manageWorkspace.resources[0].status.components.civil.deploykafkaimageprocessor }}"
+    kafkaimageprocessorcrReady: "{{ kafkaimageprocessorCR is defined and kafkaimageprocessorCR.resources | length > 0 }}"
+
+- name: Debug
+  debug:
+    msg: "Kafka Image Processor CR ready: {{ kafkaimageprocessorcrReady }}, deploykafkaimageprocessor: {{ deploykafkaimageprocessor }}"
+
+- name: Check if kafka image processor PVC has already been created
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: PersistentVolumeClaim
+    name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-{{ kafkaimageprocessor_pvcname }}"
+    namespace: "{{ manage_namespace }}"
+  register: kafkaimageprocessorPvc
+
+- name: Create kafka image processor PVC
+  when:
+    - kafkaimageprocessorPvc.resources | length == 0
+  kubernetes.core.k8s:
+    state: present
+    template: templates/kafkaimageprocessor-pvc.yml.j2
+
+- name: Check if PV has been defined in workspace
+  set_fact:
+    kafkaimageprocessorpvAdded: "{{ manageWorkspace.resources | length > 0 and manageWorkspace.resources[0].spec.settings.deployment.persistentVolumes is defined and manageWorkspace.resources[0].spec.settings.deployment.persistentVolumes|selectattr('mountPath', 'contains', kafkaimageprocessor_storage_mountpath)|length > 0 }}"
+
+- name: Get current PV count
+  set_fact:
+    pvcount: "{{ manageWorkspace.resources[0].spec.settings.deployment.persistentVolumes|length }}"
+
+- name: Patch Manage Workspace CR with persistent volume definition
+  when: not kafkaimageprocessorpvAdded
+  kubernetes.core.k8s_json_patch:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ mas_ws_cr_name }}"
+    namespace: "{{ manage_namespace }}"
+    kind: ManageWorkspace
+    patch:
+      - op: add
+        path: "/spec/settings/deployment/persistentVolumes/{{ pvcount }}"
+        value:
+          accessModes:
+            - "{{ kafkaimageprocessor_storage_mode }}"
+          mountPath: "/{{ kafkaimageprocessor_storage_mountpath }}"
+          pvcName: "{{ kafkaimageprocessor_pvcname }}"
+          size: "{{ kafkaimageprocessor_storage_size }}"
+          storageClassName: "{{ kafkaimageprocessor_storage_class }}"
+  register: patchWorkspace
+  retries: 10
+  delay: 10
+  until:
+    - patchWorkspace.result is defined
+    - patchWorkspace.result | length > 0
+
+- name: Patch Manage Workspace CR with kafka image processor pvc name
+  when:
+    - not deploykafkaimageprocessor
+    - not kafkaimageprocessorcrReady
+  kubernetes.core.k8s:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ mas_ws_cr_name }}"
+    namespace: "{{ manage_namespace }}"
+    kind: ManageWorkspace
+    definition:
+      spec:
+        components:
+          civil:
+            kafkaimageprocessorpvcname: "{{ kafkaimageprocessor_pvcname }}"
+  register: manageWorkspaceUpdate
+  retries: 10
+  delay: 10
+  until:
+    - manageWorkspaceUpdate.result is defined
+    - manageWorkspaceUpdate.result | length > 0
+
+- name: Wait 90 mins for kafka image processor deployment to complete
+  ignore_errors: true
+  kubernetes.core.k8s_info:
+    api_version: v1
+    label_selectors: mas.ibm.com/appType=serverBundle
+    namespace: "{{ manage_namespace }}"
+    kind: Pod
+  register: managePodCheck
+  retries: 90
+  delay: 90
+  until:
+    - managePodCheck.resources | length > 0
+    - managePodCheck.resources[0].spec.containers | length > 0
+    - managePodCheck.resources[0].spec.containers[0].volumeMounts | selectattr('mountPath', 'contains', kafkaimageprocessor_storage_mountpath) | length > 0
+
+- name: Get kafka image processor status
+  set_fact:
+    kafkaimageprocessorDeployed: "{{ managePodCheck.resources | length > 0 and managePodCheck.resources[0].spec.containers | length > 0 and managePodCheck.resources[0].spec.containers[0].volumeMounts | selectattr('mountPath', 'contains', kafkaimageprocessor_storage_mountpath) | length > 0 }}"
+
+- name: Debug
+  debug:
+    msg: "Kafka Image Processor deployed successfully: {{ kafkaimageprocessorDeployed }}"
+
+# Made with Bob
