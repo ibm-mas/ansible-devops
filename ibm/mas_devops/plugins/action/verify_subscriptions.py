@@ -34,15 +34,21 @@ class ActionModule(ActionBase):
           notAtLatest = []
 
           for subscription in subs.items:
-            if hasattr(subscription, "status") and hasattr(subscription.status, "state"):
-              display.v(f"* {subscription.metadata.namespace}/{subscription.metadata.name} = {subscription.status.state}")
-              if subscription.status.state != "AtLatestKnown":
-                allSubscriptionsAtLatestThisLoop = False
-                notAtLatest.append(f"{subscription.metadata.namespace}/{subscription.metadata.name} = {subscription.status.state}")
-              else:
-                atLatest.append(f"{subscription.metadata.namespace}/{subscription.metadata.name} = {subscription.status.state}")
-            else:
+            state = subscription.status.state
+            installPlanApproval = getattr(subscription.spec, 'installPlanApproval', 'Automatic')
+            display.v(f"* {subscription.metadata.namespace}/{subscription.metadata.name} = {state} (approval: {installPlanApproval})")
+            
+            # Accept both "AtLatestKnown" and "UpgradePending" with Manual approval as valid states
+            # UpgradePending with Manual approval means the operator is installed at the desired version
+            # but newer versions are available that require manual approval
+            isValidState = (state == "AtLatestKnown" or
+                           (state == "UpgradePending" and installPlanApproval == "Manual"))
+            
+            if not isValidState:
               allSubscriptionsAtLatestThisLoop = False
+              notAtLatest.append(f"{subscription.metadata.namespace}/{subscription.metadata.name} = {state} (approval: {installPlanApproval})")
+            else:
+              atLatest.append(f"{subscription.metadata.namespace}/{subscription.metadata.name} = {state} (approval: {installPlanApproval})")
 
           if allSubscriptionsAtLatestThisLoop:
             allSubscriptionsAtLatest = True
