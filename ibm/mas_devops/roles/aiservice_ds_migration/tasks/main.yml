@@ -18,7 +18,6 @@
       - "=============================================="
       - "AI Service Instance ID .... {{ aiservice_instance_id }}"
       - "AI Service Namespace ...... {{ aiservice_ns }}"
-      - "Skip Migration ............ {{ skip_migration }}"
 
 # 1. Detect current platform
 # -----------------------------------------------------------------------------
@@ -45,14 +44,14 @@
 # -----------------------------------------------------------------------------
 - name: "Migration : Set migration needed flag"
   set_fact:
-    migration_needed: "{{ odh_installed and not rhoai_installed and not skip_migration }}"
+    migration_needed: "{{ odh_installed and not rhoai_installed }}"
 
 - name: "Migration : Display migration decision"
   debug:
     msg:
       - "Migration Decision:"
       - "  Migration needed: {{ migration_needed }}"
-      - "  Reason: {% if skip_migration %}Migration skipped by user{% elif rhoai_installed %}RHOAI already installed{% elif not odh_installed %}ODH not installed{% elif migration_needed %}ODH detected, migrating to RHOAI{% else %}Unknown{% endif %}"
+      - "  Reason: {% if rhoai_installed %}RHOAI already installed{% elif not odh_installed %}ODH not installed{% elif migration_needed %}ODH detected, migrating to RHOAI{% else %}Unknown{% endif %}"
 
 # 3. Skip if migration not needed
 # -----------------------------------------------------------------------------
@@ -63,13 +62,8 @@
 
 - name: "Migration : Skip - ODH not installed"
   debug:
-    msg: "ODH is not installed. Skipping migration."
+    msg: "ODH is not installed. No migration needed."
   when: not odh_installed
-
-- name: "Migration : Skip - Migration disabled by user"
-  debug:
-    msg: "Migration skipped by user (skip_migration=true)."
-  when: skip_migration
 
 # 4. Perform migration if needed
 # -----------------------------------------------------------------------------
@@ -79,39 +73,15 @@
       debug:
         msg:
           - "=============================================="
-          - "ODH to RHOAI Migration Required"
+          - "ODH to RHOAI Migration Starting"
           - "=============================================="
-          - "Open Data Hub (ODH) has been detected and must"
-          - "be migrated to Red Hat OpenShift AI (RHOAI)."
+          - "Open Data Hub (ODH) detected - migrating to"
+          - "Red Hat OpenShift AI (RHOAI) automatically."
           - ""
           - "Migration Details:"
           - "  - Expected time: 5-10 minutes"
           - "  - Deployed models will be preserved"
-          - "  - Model downtime: 8-16 minutes"
-          - ""
-          - "This migration is MANDATORY to continue"
-          - "receiving updates."
           - "=============================================="
-
-    - name: "Migration : Confirm migration"
-      pause:
-        prompt: |
-
-          Do you want to proceed with the ODH to RHOAI migration? (yes/no)
-
-          Note: This is required to continue using AI Service with updated catalogs.
-      register: migration_confirmation
-      when:
-        - not skip_migration
-        - not no_confirm
-
-    - name: "Migration : Check user confirmation"
-      fail:
-        msg: "Migration cancelled by user. Update cannot proceed without migrating to RHOAI."
-      when:
-        - not skip_migration
-        - not no_confirm
-        - migration_confirmation.user_input | lower not in ['yes', 'y']
 
     # Get ODH CSV name
     - name: "Migration : Get ODH CSV"
@@ -231,7 +201,7 @@
 
 - name: "RHOAI Installation : Check if RHOAI installation needed"
   set_fact:
-    rhoai_installation_needed: "{{ migration_needed or (not rhoai_installed and not skip_migration) }}"
+    rhoai_installation_needed: "{{ migration_needed or not rhoai_installed }}"
 
 - name: "RHOAI Installation : Display installation decision"
   debug:

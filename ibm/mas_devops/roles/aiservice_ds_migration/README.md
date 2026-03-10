@@ -24,9 +24,8 @@ The `aiservice_ds_migration` role is **fully self-contained** and performs the c
 
 - **Complete Migration**: Removes ODH AND installs RHOAI in one role execution
 - **Automatic Detection**: Detects if ODH is installed and migration is needed
-- **User Confirmation**: Prompts for confirmation before migration (can be disabled)
 - **Safe Migration**: Preserves model metadata and configurations
-- **Configurable**: Supports skip and force options
+- **Single Purpose**: Dedicated migration role
 
 ## Role Variables
 
@@ -40,38 +39,23 @@ The `aiservice_ds_migration` role is **fully self-contained** and performs the c
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `skip_migration` | Skip migration even if ODH detected | `false` |
-| `no_confirm` | Skip user confirmation prompt (non-interactive mode) | `false` |
 | `aiservice_ns` | AI Service namespace | `"aiservice-{{ aiservice_instance_id }}"` |
 
 ## Usage
 
-### Standalone Migration - Complete Solution
+### Standalone Migration - Fully Automated
 
-This is the **recommended approach** for manual migration. The role does everything:
+This is the **recommended approach** for migration. The role does everything automatically:
 
 ```bash
 # Set required variable
 export AISERVICE_INSTANCE_ID=masdev
 
-# Run the role - it will:
+# Run the role - it will automatically:
 # 1. Detect ODH
-# 2. Ask for confirmation
-# 3. Remove ODH
-# 4. Install RHOAI
-# 5. Complete!
-ansible-playbook ibm.mas_devops.run_role \
-  -e role_name=aiservice_ds_migration
-```
-
-### Non-Interactive Mode
-
-For automation/CI/CD pipelines:
-
-```bash
-export AISERVICE_INSTANCE_ID=masdev
-export NO_CONFIRM=true
-
+# 2. Remove ODH
+# 3. Install RHOAI
+# 4. Complete!
 ansible-playbook ibm.mas_devops.run_role \
   -e role_name=aiservice_ds_migration
 ```
@@ -83,7 +67,6 @@ ansible-playbook ibm.mas_devops.run_role \
 - hosts: localhost
   vars:
     aiservice_instance_id: "masdev"
-    no_confirm: true  # Optional: skip confirmation
   roles:
     - ibm.mas_devops.aiservice_ds_migration
 ```
@@ -129,18 +112,6 @@ The role performs the following steps:
 - hosts: localhost
   vars:
     aiservice_instance_id: "masdev"
-  roles:
-    - ibm.mas_devops.aiservice_ds_migration
-```
-
-### Example 2: Skip Migration
-
-```yaml
----
-- hosts: localhost
-  vars:
-    aiservice_instance_id: "masdev"
-    skip_migration: true
   roles:
     - ibm.mas_devops.aiservice_ds_migration
 ```
