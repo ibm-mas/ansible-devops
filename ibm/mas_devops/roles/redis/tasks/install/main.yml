@@ -2,6 +2,28 @@
 # Redis Installation Tasks
 # =============================================================================
 
+- name: "Display Redis deployment configuration"
+  debug:
+    msg:
+      - "Redis Deployment Configuration:"
+      - "  Action .................... {{ redis_action }}"
+      - "  Instance ID ............... {{ mas_instance_id }}"
+      - "  Namespace ................. {{ redis_namespace }}"
+      - "  Instance Name ............. {{ redis_instance_name }}"
+      - "  Service FQDN .............. {{ redis_service_fqdn }}"
+      - "  Redis Image ............... {{ redis_image }}"
+      - "  HAProxy Image ............. {{ haproxy_image }}"
+      - "  Storage Class ............. {{ redis_storage_class }}"
+      - "  Replicas .................. {{ redis_replicas }}"
+      - "  TLS Enabled ............... {{ redis_tls_enabled }}"
+      - "  Sentinel Enabled .......... {{ redis_sentinel_enabled }}"
+
+- name: "Generate Redis password if not provided"
+  set_fact:
+    redis_password: "{{ lookup('password', '/tmp/redis-password-{{ mas_instance_id }}.txt chars=ascii_letters,digits length=16') }}"
+  when: redis_password == ""
+  no_log: true
+
 - name: "Create Redis namespace"
   include_tasks: create-namespace.yml
 
@@ -55,3 +77,16 @@
       - "  Namespace: {{ redis_namespace }}"
       - "  Redis Pods: {{ redis_pods.resources | length }}/{{ redis_replicas }}"
       - "  HAProxy Pods: {{ haproxy_pods.resources | length if redis_haproxy_enabled else 'N/A' }}"
+
+- name: "Include config generation tasks"
+  include_tasks: ../generate-config/main.yml
+
+- name: "Display final deployment summary"
+  debug:
+    msg:
+      - "Redis deployment completed successfully!"
+      - "  Master Service: {{ redis_master_service }}"
+      - "  Service FQDN: {{ redis_service_fqdn }}"
+      - "  HAProxy Service: {{ redis_haproxy_service }}"
+      - "  Credentials Secret: {{ redis_credentials_secret_name }}"
+      - "  RedisCfg Output: {{ rediscfg_output_file }}"
