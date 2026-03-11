@@ -17,8 +17,8 @@ class ActionModule(ActionBase):
         },
         "db2": {
             "backup":  ["db2_instance_name", "db2_namespace", "mas_backup_dir", "mas_instance_id", "mas_application_id"],
-            "restore_instance": ["mas_backup_dir", "db2_backup_version", "mas_application_id"],
-            "restore_database": ["mas_backup_dir", "db2_backup_version", "db2_instance_name", "backup_vendor", "mas_application_id"],
+            "restore-instance": ["mas_backup_dir", "db2_backup_version", "mas_application_id"],
+            "restore-database": ["mas_backup_dir", "db2_backup_version", "db2_instance_name", "backup_vendor", "mas_application_id"],
             "s3_setup": ["backup_vendor", "backup_s3_alias", "backup_s3_endpoint", "backup_s3_bucket", "backup_s3_access_key", "backup_s3_secret_key"]
         },
         "grafana": {

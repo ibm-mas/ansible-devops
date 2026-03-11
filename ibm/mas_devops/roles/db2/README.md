@@ -103,21 +103,21 @@ Specifies which operation to perform on the Db2 database.
 - Use `upgrade` to upgrade all Db2 instances in the namespace to a new version
 - Use `backup` to create a backup of Db2 instance and/or database
 - Use `restore` to restore a backup of db2 instance and database
-- Use `restore_database` to restore only the database to an existing Db2 instance
+- Use `restore-database` to restore only the database to an existing Db2 instance
 
-**Valid values**: `install`, `upgrade`, `backup`, `restore`, `restore_database`
+**Valid values**: `install`, `upgrade`, `backup`, `restore`, `restore-database`
 
 **Impact**:
 - `install`: Creates new Db2 operator and instance. When `db2_backup_version` is provided, installs from backup (instance + database)
 - `upgrade`: Upgrades ALL instances in `db2_namespace` to `db2_version` (affects all instances in namespace)
 - `backup`: Creates backup of Db2 instance resources and/or database data
 - `restore`: Creates new Db2 operator and instance from the backup of Db2 instance resources and restores database data to the created instance
-- `restore_database`: Restores database to an existing running Db2 instance (does not restore instance resources)
+- `restore-database`: Restores database to an existing running Db2 instance (does not restore instance resources)
 
 **Related variables**:
 - `db2_version`: Required for upgrade action to specify target version
 - `db2_namespace`: All instances in this namespace are affected by upgrade
-- `db2_backup_version`: Required for restore/restore_database action; optional for backup, defaults to YYYYMMDD-HHMMSS
+- `db2_backup_version`: Required for restore/restore-database action; optional for backup, defaults to YYYYMMDD-HHMMSS
 - `override_storageclass`: In Restore, controls whether storage classes are overridden
 
 **Note**: **WARNING** - When using `upgrade`, ALL Db2 instances in the specified namespace will be upgraded. Plan accordingly and ensure `db2_version` matches the operator channel.
@@ -1028,7 +1028,7 @@ Local directory path where backups will be stored or restored from.
 ### db2_backup_version
 The backup version timestamp identifier for backup and restore operations.
 
-- **Required** for `restore` and `restore_database` actions
+- **Required** for `restore` and `restore-database` actions
 - **Auto-generated** for backup operations
 - Environment Variable: `DB2_BACKUP_VERSION`
 - Default: Auto-generated in format `YYYYMMDD-HHMMSS`
@@ -1049,7 +1049,7 @@ The backup version timestamp identifier for backup and restore operations.
 
 **Related variables**:
 - `mas_backup_dir`: Parent directory containing versioned backups
-- `db2_action`: Required when action is `restore_database` or `restore`(instance & database)
+- `db2_action`: Required when action is `restore-database` or `restore`(instance & database)
 
 **Example**: `20251212-021316`
 
@@ -1275,7 +1275,7 @@ Example Usage - Backup and Restore
   vars:
     mas_instance_id: masinst1
     mas_backup_dir: /tmp/masbr
-    db2_action: backup_database
+    db2_action: backup-database
     db2_instance_name: db2u-manage
     db2_namespace: db2u
     backup_type: online
@@ -1291,7 +1291,7 @@ Example Usage - Backup and Restore
   vars:
     mas_instance_id: masinst1
     mas_backup_dir: /tmp/masbr
-    db2_action: backup_database
+    db2_action: backup-database
     db2_instance_name: db2u-manage
     backup_type: online
     backup_vendor: s3
@@ -1323,7 +1323,7 @@ Example Usage - Backup and Restore
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    db2_action: restore_database
+    db2_action: restore-database
     mas_instance_id: masinst1
     db2_backup_version: 20251212-021316
     mas_backup_dir: /tmp/masbr
@@ -1339,7 +1339,7 @@ Example Usage - Backup and Restore
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    db2_action: restore_database
+    db2_action: restore-database
     mas_instance_id: masinst1
     db2_backup_version: 20251212-021316
     mas_backup_dir: /tmp/masbr
