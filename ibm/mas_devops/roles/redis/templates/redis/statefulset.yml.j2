@@ -1,0 +1,202 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ redis_instance_name }}-redis
+  namespace: {{ redis_namespace }}
+  labels:
+    app: redis
+    instance: {{ redis_instance_name }}
+spec:
+  serviceName: {{ redis_replica_service }}
+  replicas: {{ redis_replicas }}
+  selector:
+    matchLabels:
+      app: redis
+      instance: {{ redis_instance_name }}
+  template:
+    metadata:
+      labels:
+        app: redis
+        instance: {{ redis_instance_name }}
+    spec:
+      serviceAccountName: {{ redis_service_account }}
+      securityContext:
+        fsGroup: 1000
+        runAsUser: 1000
+        runAsNonRoot: true
+      initContainers:
+        - name: init-redis
+          image: {{ redis_image }}
+          imagePullPolicy: {{ image_pull_policy }}
+          command:
+            - sh
+            - -c
+            - |
+              set -ex
+              # Copy default configs
+              cp /readonly-config/redis.conf /data/redis.conf
+              cp /readonly-config/sentinel.conf /data/sentinel.conf
+              
+              # Set Redis replica configuration
+              if [ "$(hostname)" != "{{ redis_instance_name }}-redis-0" ]; then
+                echo "replicaof {{ redis_instance_name }}-redis-0.{{ redis_replica_service }}.{{ redis_namespace }}.svc.{{ cluster_domain }} {{ redis_port }}" >> /data/redis.conf
+              fi
+          volumeMounts:
+            - name: redis-config
+              mountPath: /readonly-config
+            - name: data
+              mountPath: /data
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+      containers:
+        - name: redis
+          image: {{ redis_image }}
+          imagePullPolicy: {{ image_pull_policy }}
+          command:
+            - redis-server
+            - /data/redis.conf
+          ports:
+            - name: redis
+              containerPort: {{ redis_port }}
+              protocol: TCP
+{% if redis_tls_enabled %}
+            - name: redis-tls
+              containerPort: {{ redis_tls_port }}
+              protocol: TCP
+{% endif %}
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ redis_credentials_secret }}
+                  key: password
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -a $REDIS_PASSWORD ping
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -a $REDIS_PASSWORD ping
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: {{ redis_cpu_request }}
+              memory: {{ redis_memory_request }}
+            limits:
+              cpu: {{ redis_cpu_limit }}
+              memory: {{ redis_memory_limit }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+{% if redis_tls_enabled %}
+            - name: redis-certs
+              mountPath: /certs
+              readOnly: true
+{% endif %}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+{% if redis_sentinel_enabled %}
+        - name: sentinel
+          image: {{ redis_image }}
+          imagePullPolicy: {{ image_pull_policy }}
+          command:
+            - redis-sentinel
+            - /data/sentinel.conf
+          ports:
+            - name: sentinel
+              containerPort: {{ redis_sentinel_port }}
+              protocol: TCP
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ redis_credentials_secret }}
+                  key: password
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -p {{ redis_sentinel_port }} ping
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -p {{ redis_sentinel_port }} ping
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+{% endif %}
+      volumes:
+        - name: redis-config
+          configMap:
+            name: {{ redis_instance_name }}-redis-config
+{% if redis_tls_enabled %}
+        - name: redis-certs
+          secret:
+            secretName: {{ redis_instance_name }}-tls-secret
+{% endif %}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          app: redis
+          instance: {{ redis_instance_name }}
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ redis_storage_size }}
+{% if redis_storage_class is defined and redis_storage_class != "" %}
+        storageClassName: {{ redis_storage_class }}
+{% endif %}

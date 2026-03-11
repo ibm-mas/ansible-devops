@@ -1,0 +1,78 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ redis_instance_name }}-haproxy-config
+  namespace: {{ redis_namespace }}
+  labels:
+    app: haproxy
+    instance: {{ redis_instance_name }}
+data:
+  haproxy.cfg: |
+    global
+        log stdout format raw local0
+        maxconn 4096
+        user haproxy
+        group haproxy
+        daemon
+        stats socket /var/run/haproxy.sock mode 660 level admin
+        stats timeout 30s
+
+    defaults
+        log     global
+        mode    tcp
+        option  tcplog
+        option  dontlognull
+        timeout connect 5000ms
+        timeout client  50000ms
+        timeout server  50000ms
+        timeout check   5000ms
+        retries 3
+
+    # Stats page
+    frontend stats
+        bind *:8404
+        mode http
+        stats enable
+        stats uri /stats
+        stats refresh 10s
+        stats admin if TRUE
+        http-request use-service prometheus-exporter if { path /metrics }
+        monitor-uri /health
+        acl ready nbsrv(redis_backend) ge 1
+        monitor fail if !ready
+
+    # Redis frontend
+    frontend redis_frontend
+        bind *:{{ redis_port }}
+        default_backend redis_backend
+
+    # Redis backend with Sentinel-based master detection
+    backend redis_backend
+        balance roundrobin
+        option tcp-check
+        tcp-check connect
+        tcp-check send AUTH\ {{ '${REDIS_PASSWORD}' }}\r\n
+        tcp-check expect string +OK
+        tcp-check send PING\r\n
+        tcp-check expect string +PONG
+        tcp-check send info\ replication\r\n
+        tcp-check expect string role:master
+        tcp-check send QUIT\r\n
+        tcp-check expect string +OK
+{% for i in range(redis_replicas) %}
+        server redis-{{ i }} {{ redis_instance_name }}-redis-{{ i }}.{{ redis_replica_service }}.{{ redis_namespace }}.svc.{{ cluster_domain }}:{{ redis_port }} check inter 2s fall 3 rise 2
+{% endfor %}
+
+    # Sentinel frontend (for monitoring)
+    frontend sentinel_frontend
+        bind *:{{ redis_sentinel_port }}
+        default_backend sentinel_backend
+
+    # Sentinel backend
+    backend sentinel_backend
+        balance roundrobin
+        option tcp-check
+{% for i in range(redis_replicas) %}
+        server sentinel-{{ i }} {{ redis_instance_name }}-redis-{{ i }}.{{ redis_replica_service }}.{{ redis_namespace }}.svc.{{ cluster_domain }}:{{ redis_sentinel_port }} check inter 2s
+{% endfor %}

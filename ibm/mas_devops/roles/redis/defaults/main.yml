@@ -1,0 +1,117 @@
+---
+# Redis Role - Default Variables
+# =============================================================================
+
+# MAS Instance Configuration
+# -----------------------------------------------------------------------------
+mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') | default('/tmp/masconfig', true) }}"
+
+# Redis Namespace Configuration
+# -----------------------------------------------------------------------------
+redis_namespace: "{{ lookup('env', 'REDIS_NAMESPACE') | default('redis', true) }}"
+redis_instance_name: "{{ mas_instance_id }}-redis"
+
+# Dynamic Host Configuration (NO HARDCODING!)
+# -----------------------------------------------------------------------------
+# These values are dynamically generated based on the cluster deployment
+redis_master_service: "{{ redis_instance_name }}-master-svc"
+redis_replica_service: "{{ redis_instance_name }}-replica-svc"
+redis_sentinel_service: "{{ redis_instance_name }}-sentinel-svc"
+redis_haproxy_service: "{{ redis_instance_name }}-haproxy-svc"
+
+# Dynamic FQDN - changes per cluster
+cluster_domain: "{{ lookup('env', 'CLUSTER_DOMAIN') | default('cluster.local', true) }}"
+redis_service_fqdn: "{{ redis_master_service }}.{{ redis_namespace }}.svc.{{ cluster_domain }}"
+redis_haproxy_fqdn: "{{ redis_haproxy_service }}.{{ redis_namespace }}.svc.{{ cluster_domain }}"
+
+# Redis Images (Latest - Version 2.1.40)
+# -----------------------------------------------------------------------------
+# Using cp.icr.io registry with digest for immutability
+redis_image: "cp.icr.io/cp/assist/ema-redis:2.1.40@sha256:a07d618d43dc0d0fe7d476a227e5b27dde6e390bdbdf76ee3056f990367a6633"
+haproxy_image: "cp.icr.io/cp/assist/ema-haproxy:2.1.40@sha256:48670439441724a5fadc1a3ccc8f206feae19fbf6977cb78e00d3d1c5674852c"
+common_util_image: "cp.icr.io/cp/assist/ema-common-util:2.1.40@sha256:0ac3e42d08233080df0ad335d700ba4edcbd798f2617babe9401e487eadbfd67"
+
+# Redis HA Configuration
+# -----------------------------------------------------------------------------
+redis_replicas: 3
+redis_sentinel_enabled: true
+redis_sentinel_quorum: 2
+redis_haproxy_enabled: true
+redis_haproxy_replicas: 1
+
+# Redis Port Configuration
+# -----------------------------------------------------------------------------
+redis_port: 6379
+redis_tls_port: 6380
+redis_sentinel_port: 26379
+redis_sentinel_tls_port: 26380
+redis_haproxy_port: 6379
+redis_haproxy_stats_port: 8404
+
+# TLS Configuration
+# -----------------------------------------------------------------------------
+redis_tls_enabled: true
+redis_tls_cert_issuer: "{{ redis_namespace }}-ca-issuer"
+redis_tls_cert_duration: "8760h"  # 1 year
+redis_tls_cert_renew_before: "720h"  # 30 days
+
+# Storage Configuration
+# -----------------------------------------------------------------------------
+redis_storage_class: "{{ lookup('env', 'REDIS_STORAGE_CLASS') | default('', true) }}"
+redis_storage_size: "10Gi"
+redis_storage_capacity_data: "30Gi"
+redis_storage_capacity_logs: "10Gi"
+
+# Resource Limits
+# -----------------------------------------------------------------------------
+# Redis Server Resources
+redis_cpu_limits: "1000m"
+redis_cpu_requests: "500m"
+redis_mem_limits: "2Gi"
+redis_mem_requests: "1Gi"
+
+# Sentinel Resources
+redis_sentinel_cpu_limits: "500m"
+redis_sentinel_cpu_requests: "100m"
+redis_sentinel_mem_limits: "512Mi"
+redis_sentinel_mem_requests: "256Mi"
+
+# HAProxy Resources
+haproxy_cpu_limits: "500m"
+haproxy_cpu_requests: "100m"
+haproxy_mem_limits: "512Mi"
+haproxy_mem_requests: "256Mi"
+
+# Redis Configuration
+# -----------------------------------------------------------------------------
+redis_database: 0
+redis_maxmemory_policy: "allkeys-lru"
+redis_maxmemory: "1gb"
+redis_save_enabled: true
+redis_appendonly: true
+
+# Sentinel Configuration
+# -----------------------------------------------------------------------------
+redis_sentinel_down_after: 5000  # milliseconds
+redis_sentinel_failover_timeout: 10000  # milliseconds
+redis_sentinel_parallel_syncs: 1
+
+# Credentials
+# -----------------------------------------------------------------------------
+# Password will be generated if not provided
+redis_password: "{{ lookup('env', 'REDIS_PASSWORD') | default('', true) }}"
+redis_credentials_secret_name: "{{ redis_instance_name }}-credentials"
+
+# Labels
+# -----------------------------------------------------------------------------
+redis_labels:
+  app: "{{ redis_instance_name }}"
+  mas.ibm.com/instanceId: "{{ mas_instance_id }}"
+  mas.ibm.com/component: "redis"
+
+# RedisCfg Output Configuration
+# -----------------------------------------------------------------------------
+rediscfg_name: "{{ mas_instance_id }}-redis-system"
+rediscfg_namespace: "mas-{{ mas_instance_id }}-core"
+rediscfg_output_file: "{{ mas_config_dir }}/rediscfg-{{ mas_instance_id }}.yml"

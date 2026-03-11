@@ -1,0 +1,76 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ redis_instance_name }}-haproxy
+  namespace: {{ redis_namespace }}
+  labels:
+    app: haproxy
+    instance: {{ redis_instance_name }}
+spec:
+  replicas: {{ haproxy_replicas }}
+  selector:
+    matchLabels:
+      app: haproxy
+      instance: {{ redis_instance_name }}
+  template:
+    metadata:
+      labels:
+        app: haproxy
+        instance: {{ redis_instance_name }}
+    spec:
+      serviceAccountName: {{ redis_service_account }}
+      securityContext:
+        fsGroup: 1000
+        runAsUser: 1000
+        runAsNonRoot: true
+      containers:
+        - name: haproxy
+          image: {{ haproxy_image }}
+          imagePullPolicy: {{ image_pull_policy }}
+          ports:
+            - name: redis
+              containerPort: {{ redis_port }}
+              protocol: TCP
+            - name: stats
+              containerPort: 8404
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8404
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8404
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: {{ haproxy_cpu_request }}
+              memory: {{ haproxy_memory_request }}
+            limits:
+              cpu: {{ haproxy_cpu_limit }}
+              memory: {{ haproxy_memory_limit }}
+          volumeMounts:
+            - name: haproxy-config
+              mountPath: /usr/local/etc/haproxy
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+      volumes:
+        - name: haproxy-config
+          configMap:
+            name: {{ redis_instance_name }}-haproxy-config

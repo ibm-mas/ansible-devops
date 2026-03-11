@@ -1,0 +1,46 @@
+---
+# Redis Deployment - Main Tasks
+# =============================================================================
+
+- name: "Validate required variables"
+  assert:
+    that:
+      - mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "Required variable not set: mas_instance_id must be defined"
+
+- name: "Display Redis deployment configuration"
+  debug:
+    msg:
+      - "Redis Deployment Configuration:"
+      - "  Instance ID ............... {{ mas_instance_id }}"
+      - "  Namespace ................. {{ redis_namespace }}"
+      - "  Instance Name ............. {{ redis_instance_name }}"
+      - "  Service FQDN .............. {{ redis_service_fqdn }}"
+      - "  Redis Image ............... {{ redis_image }}"
+      - "  HAProxy Image ............. {{ haproxy_image }}"
+      - "  Storage Class ............. {{ redis_storage_class }}"
+      - "  Replicas .................. {{ redis_replicas }}"
+      - "  TLS Enabled ............... {{ redis_tls_enabled }}"
+      - "  Sentinel Enabled .......... {{ redis_sentinel_enabled }}"
+
+- name: "Generate Redis password if not provided"
+  set_fact:
+    redis_password: "{{ lookup('password', '/tmp/redis-password-{{ mas_instance_id }}.txt chars=ascii_letters,digits length=16') }}"
+  when: redis_password == ""
+  no_log: true
+
+- name: "Include installation tasks"
+  include_tasks: install/main.yml
+
+- name: "Include config generation tasks"
+  include_tasks: generate-config/main.yml
+
+- name: "Display deployment summary"
+  debug:
+    msg:
+      - "Redis deployment completed successfully!"
+      - "  Master Service: {{ redis_master_service }}"
+      - "  Service FQDN: {{ redis_service_fqdn }}"
+      - "  HAProxy Service: {{ redis_haproxy_service }}"
+      - "  Credentials Secret: {{ redis_credentials_secret_name }}"
+      - "  RedisCfg Output: {{ rediscfg_output_file }}"

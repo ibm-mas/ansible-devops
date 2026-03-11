@@ -1,0 +1,57 @@
+---
+# Redis Installation Tasks
+# =============================================================================
+
+- name: "Create Redis namespace"
+  include_tasks: create-namespace.yml
+
+- name: "Create Redis credentials secret"
+  include_tasks: create-secrets.yml
+
+- name: "Create TLS certificates"
+  include_tasks: create-certificates.yml
+  when: redis_tls_enabled
+
+- name: "Deploy Redis StatefulSet with Sentinel"
+  include_tasks: deploy-redis.yml
+
+- name: "Deploy HAProxy load balancer"
+  include_tasks: deploy-haproxy.yml
+  when: redis_haproxy_enabled
+
+- name: "Wait for Redis pods to be ready"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ redis_namespace }}"
+    label_selectors:
+      - "app={{ redis_instance_name }}"
+  register: redis_pods
+  until:
+    - redis_pods.resources | length == redis_replicas
+    - redis_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length == redis_replicas
+  retries: 30
+  delay: 10
+
+- name: "Wait for HAProxy to be ready"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ redis_namespace }}"
+    label_selectors:
+      - "app={{ redis_instance_name }}-haproxy"
+  register: haproxy_pods
+  until:
+    - haproxy_pods.resources | length > 0
+    - haproxy_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length > 0
+  retries: 20
+  delay: 10
+  when: redis_haproxy_enabled
+
+- name: "Display Redis deployment status"
+  debug:
+    msg:
+      - "Redis deployment completed:"
+      - "  Namespace: {{ redis_namespace }}"
+      - "  Redis Pods: {{ redis_pods.resources | length }}/{{ redis_replicas }}"
+      - "  HAProxy Pods: {{ haproxy_pods.resources | length if redis_haproxy_enabled else 'N/A' }}"
