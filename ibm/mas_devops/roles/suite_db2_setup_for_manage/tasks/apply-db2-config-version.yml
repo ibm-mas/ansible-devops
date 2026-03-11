@@ -3,23 +3,8 @@
 
 # Step 1: Detect which CR type exists
 - name: "Detect Db2 CR type (Db2uCluster or Db2uInstance)"
-  block:
-    - name: Set the retry count
-      set_fact:
-        retry_count: "{{ 0 if retry_count is undefined else retry_count|int + 1 }}"
-
-    - name: Verify if the Db2 CR exists
-      assert:
-        that:
-          - db2_cr_exists | bool == true
-  rescue:
-    - fail:
-        msg: Ended after {{ db2_cr_detection_retries }}
-      when: retry_count|int == db2_cr_detection_retries
-
-    - include_tasks: "{{ role_path }}/../../common_tasks/detect_db2_cr_type.yml"
-      register: _detect_result
-
+  include_tasks: "{{ role_path }}/../../common_tasks/detect_db2_cr_type.yml"
+  register: _detect_result
 
 # Step 2: Validate detection results
 - name: "Validate CR detection and state"
