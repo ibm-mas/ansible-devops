@@ -21,17 +21,26 @@
 
 # 1. Detect current platform
 # -----------------------------------------------------------------------------
-- name: "Migration : Get operator subscriptions"
+- name: "Migration : Get ODH subscription"
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
     kind: Subscription
+    name: opendatahub-operator
     namespace: openshift-operators
-  register: operator_subscriptions
+  register: odh_subscription
+
+- name: "Migration : Get RHOAI subscription"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: rhods-operator
+    namespace: redhat-ods-operator
+  register: rhoai_subscription
 
 - name: "Migration : Check platform status"
   set_fact:
-    odh_installed: "{{ operator_subscriptions.resources | selectattr('metadata.name', 'equalto', 'opendatahub-operator') | list | length > 0 }}"
-    rhoai_installed: "{{ operator_subscriptions.resources | selectattr('metadata.name', 'equalto', 'rhods-operator') | list | length > 0 }}"
+    odh_installed: "{{ odh_subscription.resources | length > 0 }}"
+    rhoai_installed: "{{ rhoai_subscription.resources | length > 0 }}"
 
 - name: "Migration : Display platform detection"
   debug:
