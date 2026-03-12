@@ -12,10 +12,7 @@ data:
     global
         log stdout format raw local0
         maxconn 4096
-        user haproxy
-        group haproxy
-        daemon
-        stats socket /var/run/haproxy.sock mode 660 level admin
+        stats socket /tmp/haproxy.sock mode 660 level admin
         stats timeout 30s
 
     defaults
@@ -29,6 +26,14 @@ data:
         timeout check   5000ms
         retries 3
 
+    # Health check endpoint for K8s probes
+    frontend health_check
+        bind *:9094
+        mode http
+        monitor-uri /_haproxy_health
+        acl ready nbsrv(redis_backend) ge 1
+        monitor fail if !ready
+
     # Stats page
     frontend stats
         bind *:8404
@@ -37,7 +42,6 @@ data:
         stats uri /stats
         stats refresh 10s
         stats admin if TRUE
-        http-request use-service prometheus-exporter if { path /metrics }
         monitor-uri /health
         acl ready nbsrv(redis_backend) ge 1
         monitor fail if !ready
@@ -52,7 +56,7 @@ data:
         balance roundrobin
         option tcp-check
         tcp-check connect
-        tcp-check send AUTH\ {{ '${REDIS_PASSWORD}' }}\r\n
+        tcp-check send AUTH\ {{ redis_password }}\r\n
         tcp-check expect string +OK
         tcp-check send PING\r\n
         tcp-check expect string +PONG
@@ -61,7 +65,7 @@ data:
         tcp-check send QUIT\r\n
         tcp-check expect string +OK
 {% for i in range(redis_replicas) %}
-        server redis-{{ i }} {{ redis_instance_name }}-redis-{{ i }}.{{ redis_replica_service }}.{{ redis_namespace }}.svc.{{ cluster_domain }}:{{ redis_port }} check inter 2s fall 3 rise 2
+        server redis-{{ i }} {{ redis_instance_name }}-redis-{{ i }}.{{ redis_replica_service }}.{{ redis_namespace }}.svc.{{ cluster_domain }}:{{ redis_port }} check inter 2s fall 3 rise 2 init-addr last,libc,none
 {% endfor %}
 
     # Sentinel frontend (for monitoring)
@@ -74,5 +78,5 @@ data:
         balance roundrobin
         option tcp-check
 {% for i in range(redis_replicas) %}
-        server sentinel-{{ i }} {{ redis_instance_name }}-redis-{{ i }}.{{ redis_replica_service }}.{{ redis_namespace }}.svc.{{ cluster_domain }}:{{ redis_sentinel_port }} check inter 2s
+        server sentinel-{{ i }} {{ redis_instance_name }}-redis-{{ i }}.{{ redis_replica_service }}.{{ redis_namespace }}.svc.{{ cluster_domain }}:{{ redis_sentinel_port }} check inter 2s init-addr last,libc,none
 {% endfor %}

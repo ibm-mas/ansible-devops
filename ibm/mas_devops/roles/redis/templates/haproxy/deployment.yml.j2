@@ -8,7 +8,7 @@ metadata:
     app: haproxy
     instance: {{ redis_instance_name }}
 spec:
-  replicas: {{ haproxy_replicas }}
+  replicas: {{ redis_haproxy_replicas }}
   selector:
     matchLabels:
       app: haproxy
@@ -21,43 +21,56 @@ spec:
     spec:
       serviceAccountName: {{ redis_service_account }}
       securityContext:
-        fsGroup: 1000
-        runAsUser: 1000
         runAsNonRoot: true
       containers:
         - name: haproxy
           image: {{ haproxy_image }}
           imagePullPolicy: {{ image_pull_policy }}
+          command:
+            - haproxy
+            - -f
+            - /usr/local/etc/haproxy/haproxy.cfg
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ redis_instance_name }}-credentials
+                  key: password
           ports:
             - name: redis
               containerPort: {{ redis_port }}
               protocol: TCP
             - name: stats
-              containerPort: 8404
+              containerPort: {{ redis_haproxy_stats_port }}
               protocol: TCP
+{% if redis_sentinel_enabled %}
+            - name: sentinel
+              containerPort: {{ redis_sentinel_port }}
+              protocol: TCP
+{% endif %}
           livenessProbe:
             httpGet:
-              path: /health
-              port: 8404
+              path: /_haproxy_health
+              port: 9094
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
           readinessProbe:
             httpGet:
-              path: /ready
-              port: 8404
+              path: /_haproxy_health
+              port: 9094
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 3
           resources:
             requests:
-              cpu: {{ haproxy_cpu_request }}
-              memory: {{ haproxy_memory_request }}
+              cpu: {{ haproxy_cpu_requests }}
+              memory: {{ haproxy_mem_requests }}
             limits:
-              cpu: {{ haproxy_cpu_limit }}
-              memory: {{ haproxy_memory_limit }}
+              cpu: {{ haproxy_cpu_limits }}
+              memory: {{ haproxy_mem_limits }}
           volumeMounts:
             - name: haproxy-config
               mountPath: /usr/local/etc/haproxy
