@@ -17,10 +17,13 @@
     state: present
     template: redis/service-replica.yml.j2
 
-- name: "Create Redis Sentinel Service"
+- name: "Create Redis Announce Services (one per pod)"
   kubernetes.core.k8s:
     state: present
-    template: redis/service-sentinel.yml.j2
+    template: redis/service-announce.yml.j2
+  loop: "{{ range(0, redis_replicas | int) | list }}"
+  loop_control:
+    loop_var: item
 
 - name: "Create Redis StatefulSet"
   kubernetes.core.k8s:
@@ -34,3 +37,4 @@
       - "  Name: {{ redis_instance_name }}"
       - "  Replicas: {{ redis_replicas }}"
       - "  Image: {{ redis_image }}"
+      - "  Announce services created: {{ redis_replicas }}"
