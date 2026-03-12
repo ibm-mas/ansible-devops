@@ -5,7 +5,7 @@
 - hosts: localhost
   connection: local
   gather_facts: true
-  
+
   vars:
     # Required variables
     docdb_cluster_name: "{{ lookup('env', 'DOCDB_CLUSTER_NAME') }}"
@@ -13,7 +13,7 @@
     docdb_master_password: "{{ lookup('env', 'DOCDB_MASTER_PASSWORD') }}"
     aws_region: "{{ lookup('env', 'AWS_REGION') | default('us-east-1', True) }}"
     s3_bucket: "{{ lookup('env', 'S3_BUCKET') }}"
-    
+
     # Optional variables
     s3_prefix: "{{ lookup('env', 'S3_PREFIX') | default('docdb-backups', True) }}"
     local_backup_dir: "{{ lookup('env', 'LOCAL_BACKUP_DIR') | default('/tmp/docdb-backup', True) }}"
@@ -21,7 +21,7 @@
     ca_cert_file_custom: "{{ lookup('env', 'CA_CERT_FILE') | default('', True) }}"
     ca_cert_file_region: "{{ playbook_dir }}/../roles/mongodb/files/providers/aws/ca/root-ca-rsa2048-{{ aws_region }}.pem"
     docdb_port: "{{ lookup('env', 'DOCDB_PORT') | default('27017', True) }}"
-    
+
   tasks:
     # Check required tools
     # -------------------------------------------------------------------------
@@ -47,7 +47,7 @@
       fail:
         msg: |
           Required MongoDB tools are not installed.
-          
+
           Missing tools:
           {% if _mongosh_check.rc != 0 %}
           - mongosh (MongoDB Shell)
@@ -55,12 +55,12 @@
           {% if _mongodump_check.rc != 0 %}
           - mongodump (MongoDB Database Tools)
           {% endif %}
-          
+
           To install on macOS:
             brew tap mongodb/brew
             brew install mongodb-community-shell
             brew install mongodb-database-tools
-          
+
           To install on Linux:
             # Follow instructions at https://www.mongodb.com/docs/database-tools/installation/
       when: _mongosh_check.rc != 0 or _mongodump_check.rc != 0
@@ -76,7 +76,7 @@
     - name: "Fail if AWS authentication failed"
       fail:
         msg: |
-          AWS authentication failed. 
+          AWS authentication failed.
           {{ _aws_auth.stderr | default('') }}
           If using AWS SSO, run: aws sso login
       when: _aws_auth.rc != 0
@@ -129,7 +129,7 @@
       fail:
         msg: |
           CA certificate not found: {{ ca_cert_file }}
-          
+
           Options:
           1. Provide custom certificate: -e "ca_cert_file=/path/to/global-bundle.pem"
           2. Use region-specific certificate (available for these regions):
@@ -138,7 +138,7 @@
              - ap-northeast-1, ap-northeast-2, ap-south-1, ap-south-2
              - ap-southeast-1, ap-southeast-2, ap-east-1
              - ca-central-1, sa-east-1
-          
+
           Download global bundle:
           wget https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
       when: >
@@ -166,12 +166,12 @@
       fail:
         msg: |
           Cannot reach DocumentDB endpoint {{ docdb_endpoint }}:{{ docdb_port }}
-          
+
           Possible causes:
           1. Security group does not allow connections from your IP
           2. DocumentDB is in a private subnet without VPN/bastion access
           3. Network connectivity issue
-          
+
           To fix:
           - Ensure you're connected to the VPN if DocumentDB is in a private subnet
           - Check security group rules allow your IP on port {{ docdb_port }}
@@ -199,7 +199,7 @@
         msg: |
           DocumentDB authentication failed.
           Error: {{ _auth_test.stderr }}
-          
+
           Please verify:
           - Username: {{ docdb_master_username }}
           - Password is correct
