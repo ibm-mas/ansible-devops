@@ -1,0 +1,90 @@
+---
+# 1. Get the list of all KafkaCluster instances
+# -----------------------------------------------------------------------------
+
+- name: "Get kafka instance list"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+  register: kafka_cluster_list
+
+# 2. Debug Properties
+# -----------------------------------------------------------------------------
+- name: "Debug list of kafka instances"
+  debug:
+    msg:
+      - "Kafka Cluster Names ...................... {{ kafka_cluster_list.resources | map(attribute='metadata.name') }}"
+      - "Kafka Cluster Namespace .................. {{ kafka_namespace }}"
+      - "Kafka Cluster Versions ................... {{ kafka_cluster_list.resources | map(attribute='spec.kafka.version') }}"
+  when: kafka_cluster_list.resources is defined
+
+- name: "Get and set variables to store the lists"
+  set_fact:
+    kafkaCluster_names: "{{ kafka_cluster_list.resources | map(attribute='metadata.name') }}"
+    kafkaCluster_versions: "{{ kafka_cluster_list.resources | map(attribute='spec.kafka.version') }}"
+  when: kafka_cluster_list.resources is defined
+
+# 3. Determine if upgrade is needed and perform it
+# -----------------------------------------------------------------------------
+
+- name: "Check if Kafka instance is at version {{ kafka_version }}"
+  when:
+    - kafka_cluster_list.resources is defined
+    - item.1 != kafka_version
+  debug:
+    msg: "Upgrade required for Kafka {{ item.0 }} in namespace {{ kafka_namespace }}. Kafka version {{ item.1 }} to {{ kafka_version }}"
+  loop: "{{ kafkaCluster_names | zip(kafkaCluster_versions) | list }}"
+
+- name: "Update kafka instance version when required"
+  when:
+    - kafka_cluster_list.resources is defined
+    - item.1 != kafka_version
+  kubernetes.core.k8s_json_patch:
+    api_version: kafka.strimzi.io/v1beta2
+    name: "{{ item.0 }}"
+    namespace: "{{ kafka_namespace }}"
+    kind: Kafka
+    patch:
+      - op: replace
+        path: /spec/kafka/version
+        value: "{{ kafka_version }}"
+      - op: replace
+        path: /spec/kafka/config/log.message.format.version
+        value: "{{ kafka_version }}"
+  loop: "{{ kafkaCluster_names | zip(kafkaCluster_versions) | list }}"
+
+- name: "Pause for 45 seconds before checking status..."
+  pause:
+    seconds: 45
+
+- name: "Wait for kafka instance to be ready (60s delay)"
+  when:
+    - kafka_cluster_list.resources is defined
+    - kafka_provider == "strimzi"
+    - item.1 != kafka_version
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    name: "{{ item.0 }}"
+    namespace: "{{ kafka_namespace }}"
+    kind: Kafka
+  register: kafka_lookup
+  until:
+    - kafka_lookup.resources is defined
+    - kafka_lookup.resources | length > 0
+    - kafka_lookup.resources[0].status is defined
+    - kafka_lookup.resources[0].status.kafkaVersion is defined
+    - kafka_lookup.resources[0].status.kafkaVersion == kafka_version
+    - kafka_lookup.resources[0].status.conditions is defined
+    - kafka_lookup.resources[0].status.conditions | length > 0
+    - kafka_lookup.resources[0].status.conditions[0].type == "Ready"
+    - kafka_lookup.resources[0].status.conditions[0].status == "True"
+  retries: 30 # Approximately 30 minutes before we give up
+  delay: 60 # seconds
+  loop: "{{ kafkaCluster_names | zip(kafkaCluster_versions) | list }}"
+
+- name: "Wait for kafka podsets to be ready"
+  when:
+    - kafka_cluster_list.resources is defined
+    - kafka_provider == "redhat"
+  include_tasks: tasks/provider/redhat/check-kafka-instances-upgrade.yml
