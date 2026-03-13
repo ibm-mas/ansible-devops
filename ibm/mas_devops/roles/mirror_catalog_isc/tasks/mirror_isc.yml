@@ -15,12 +15,11 @@
     mode: '755'
     headers:
       Authorization: "Bearer {{ artifactory_token }}"
-    status_code: [200, 304]
   register: download_result_artifactory
   ignore_errors: true
   #no_log: true
 
-# 1B. Download ISC file from Artifactory
+# 1B. Download ISC file from GITHUB
 - name: "{{ image_name }} : Download ISC file from GitHub"
   when: is_github | bool
   get_url:
@@ -28,20 +27,23 @@
     dest: "{{ ansible_env.HOME }}/.ibm-mas/{{ image_name }}.yaml"
     mode: '0755'
     headers:
-      Authorization: "token {{ github_token }}"
+      Authorization: "token {{ github_token_isc }}"
       Accept: "application/vnd.github.v3.raw"
     validate_certs: yes
-    status_code: [200, 304]
   register: download_result_github
   ignore_errors: true
   no_log: true
 
+- name: Debug download result
+  debug:
+    msg: "{{ download_result_github }}"
+
 # 1C. Check if download failed with 404
 - name: "{{ image_name }} : Check if download failed with 404"
   set_fact:
-    download_failed_404: "{{
-      (is_artifactory | bool and download_result_artifactory.failed | default(false) and download_result_artifactory.status_code | default(0) == 404) or
-      (is_github | bool and download_result_github.failed | default(false) and download_result_github.status_code | default(0) == 404)
+    download_failed_404: "{{ 
+      (is_artifactory | bool and download_result_artifactory.failed | default(false) and ('404' in download_result_artifactory.msg | default('') or 'Not Found' in download_result_artifactory.msg | default(''))) or
+      (is_github | bool and download_result_github.failed | default(false) and ('404' in download_result_github.response | default('') or 'Not Found' in download_result_github.response | default('')))
       }}"
 
 - name: "{{ image_name }} : Log 404 error and skip"
