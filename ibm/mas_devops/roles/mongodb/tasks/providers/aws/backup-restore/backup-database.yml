@@ -1,13 +1,4 @@
 ---
-# Update database backup status: InProgress
-# -----------------------------------------------------------------------------
-- name: "Update database backup status: InProgress"
-  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
-  vars:
-    _job_data_list:
-      - seq: "{{ masbr_job_data_seq }}"
-        phase: "InProgress"
-
 - name: "Backup AWS DocumentDB databases"
   block:
     # Set backup folder paths
@@ -319,24 +310,10 @@
           - "Index manifest ............................. s3://{{ docdb_backup_s3_bucket }}/{{ docdb_s3_job_prefix }}/indexes/all-indexes-manifest.json"
           - "Backup metadata ............................ s3://{{ docdb_backup_s3_bucket }}/{{ docdb_s3_job_prefix }}/backup-metadata.json"
 
-    # Update database backup status: Completed
-    # -------------------------------------------------------------------------
-    - name: "Update database backup status: Completed"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
-      vars:
-        _job_data_list:
-          - seq: "{{ masbr_job_data_seq }}"
-            phase: "Completed"
-
   rescue:
-    # Update database backup status: Failed
-    # -------------------------------------------------------------------------
-    - name: "Update database backup status: Failed"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
-      vars:
-        _job_data_list:
-          - seq: "{{ masbr_job_data_seq }}"
-            phase: "Failed"
+    - name: "Debug: Backup failed"
+      debug:
+        msg: "Database backup failed. Check logs for details."
 
   always:
     # Upload backup log to S3

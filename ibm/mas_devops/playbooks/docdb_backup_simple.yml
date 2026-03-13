@@ -69,6 +69,8 @@
     # -------------------------------------------------------------------------
     - name: "Verify AWS authentication"
       command: aws sts get-caller-identity --region '{{ aws_region }}'
+      environment:
+        AWS_PROFILE: "{{ lookup('env', 'AWS_PROFILE') }}"
       register: _aws_auth
       failed_when: false
       changed_when: false
@@ -90,6 +92,8 @@
         --region '{{ aws_region }}'
         --query 'DBClusters[0].[Endpoint,Port]'
         --output text
+      environment:
+        AWS_PROFILE: "{{ lookup('env', 'AWS_PROFILE') }}"
       register: _docdb_info
       changed_when: false
       when: docdb_port == '27017'
@@ -345,6 +349,8 @@
         '{{ local_backup_dir }}/{{ backup_timestamp }}/backup.tar.gz'
         's3://{{ s3_bucket }}/{{ s3_prefix }}/{{ docdb_cluster_name }}/{{ backup_timestamp }}/backup.tar.gz'
         --region '{{ aws_region }}'
+      environment:
+        AWS_PROFILE: "{{ lookup('env', 'AWS_PROFILE') }}"
       register: _s3_upload_backup
       changed_when: true
 
@@ -354,6 +360,8 @@
         '{{ local_backup_dir }}/{{ backup_timestamp }}/all-indexes.json'
         's3://{{ s3_bucket }}/{{ s3_prefix }}/{{ docdb_cluster_name }}/{{ backup_timestamp }}/all-indexes.json'
         --region '{{ aws_region }}'
+      environment:
+        AWS_PROFILE: "{{ lookup('env', 'AWS_PROFILE') }}"
       register: _s3_upload_indexes
       changed_when: true
 
@@ -382,6 +390,8 @@
         '{{ local_backup_dir }}/{{ backup_timestamp }}/metadata.json'
         's3://{{ s3_bucket }}/{{ s3_prefix }}/{{ docdb_cluster_name }}/{{ backup_timestamp }}/metadata.json'
         --region '{{ aws_region }}'
+      environment:
+        AWS_PROFILE: "{{ lookup('env', 'AWS_PROFILE') }}"
       changed_when: true
 
     # Cleanup
