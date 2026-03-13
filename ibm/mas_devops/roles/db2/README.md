@@ -421,16 +421,16 @@ Username for Db2 LDAP authentication.
 #### db2_ldap_password
 Password for the Db2 LDAP user.
 
-- **Optional**
+- **Required** (when `db2_ldap_username` is set for initial user creation)
 - Environment Variable: `DB2_LDAP_PASSWORD`
 - Default: None
 
 **Purpose**: Sets the password for the LDAP user specified in `db2_ldap_username`. This password is configured in Db2's local LDAP registry and used for database authentication.
 
 **When to use**:
-- Required when `db2_ldap_username` is set
+- **Always required** when `db2_ldap_username` is set for initial user creation
 - Set to a strong password meeting security requirements
-- Can be omitted if using `db2_rotate_password` for auto-generation
+- Required because `db2_rotate_password` defaults to `false` for new user creation
 
 **Valid values**: Strong password string meeting security requirements
 
@@ -438,36 +438,56 @@ Password for the Db2 LDAP user.
 
 **Related variables**:
 - `db2_ldap_username`: Must be set together with this password
-- `db2_rotate_password`: Alternative to manually setting password
+- `db2_rotate_password`: Defaults to `false`; can be set to `true` in subsequent runs to rotate this password
 
-**Note**: Keep this password secure and do not commit to source control. If using `db2_rotate_password=true`, this password will be auto-generated and you don't need to provide it.
+**Important**: You must provide `db2_ldap_password` together with `db2_ldap_username` for initial user creation. The `db2_rotate_password` feature only works with existing users and cannot create new users.
+
+**Note**: Keep this password secure and do not commit to source control.
 
 #### db2_rotate_password
-Enables automatic password generation and rotation for Db2 LDAP user.
+Rotates the password for an **existing** Db2 LDAP user.
 
 - **Optional**
 - Environment Variable: `DB2_LDAP_ROTATE_PASSWORD`
 - Default: `False`
 
-**Purpose**: Automates password management by generating a new random password for the Db2 LDAP user and updating both Db2 and MAS configurations. This improves security by enabling regular password rotation.
+**Purpose**: Rotates the password for an existing Db2 LDAP user by generating a new random password and updating both Db2 and MAS configurations. This improves security by enabling regular password rotation.
+
+**IMPORTANT**: This feature is **only for existing users**. The user must already exist in Db2's LDAP registry before using this feature. It will fail if the user does not exist.
 
 **When to use**:
-- Set to `True` for automated password management
+- Set to `True` to rotate an existing user's password to an auto-generated value
 - Set to `True` for regular password rotation as a security practice
-- Leave as `False` when manually managing passwords
-- Useful for automated deployments where manual password management is impractical
+- Set to `False` for initial user creation with a known password
 
 **Valid values**: `True`, `False`
 
+**Typical Workflow**:
+1. **First deployment** - Create user with known password:
+   ```yaml
+   db2_ldap_username: "tridata"
+   db2_ldap_password: "InitialPassword123"
+   db2_rotate_password: false
+
+2. **Subsequent deployments** - Rotate to auto-generated password:
+   ```yaml
+    db2_ldap_username: "tridata"
+    db2_rotate_password: true
+
+  Note: db2_ldap_password is not needed for rotation as the password is auto-generated.
+
 **Impact**: 
-- When `True`: Role generates a strong random password, configures it in Db2, and updates MAS JdbcCfg
-- When `False`: You must provide `db2_ldap_password` manually
+- Generates a strong random password
+- Updates password in Db2's LDAP registry
+- Updates MAS JdbcCfg with new password
+- Fails with error if user does not exist
 
 **Related variables**:
-- `db2_ldap_username`: User whose password will be rotated
-- `db2_ldap_password`: Not needed when rotation is enabled
+- `db2_ldap_username`: Existing user whose password will be rotated
+- `db2_ldap_password`: Not used during rotation (password is auto-generated)
+- `mas_instance_id`: Required to update MAS JDBC configuration
 
-**Note**: When enabled, the role handles all password management automatically. The generated password is stored securely in Kubernetes secrets and MAS configuration.
+**Note**: When enabled, the auto-generated password is stored securely in Kubernetes secrets and MAS configuration.
 
 ### Storage Variables
 We recommend reviewing the Db2 documentation about the certified storage options for Db2 on Red Hat OpenShift. Please ensure your storage class meets the specified deployment requirements for Db2. [https://www.ibm.com/docs/en/db2/11.5?topic=storage-certified-options](https://www.ibm.com/docs/en/db2/11.5?topic=storage-certified-options)
