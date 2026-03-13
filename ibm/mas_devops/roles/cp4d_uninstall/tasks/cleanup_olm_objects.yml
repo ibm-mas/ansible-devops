@@ -1,0 +1,69 @@
+---
+# List all CP4D operator Subscriptions
+- name: List Subscriptions
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1
+    kind: Subscription
+    namespace: "{{ cp4d_namespaces[1] }}"
+  register: subs_info
+  failed_when: false
+  changed_when: false
+
+# Delete CP4D operator Subscriptions to stop operator reconciliation
+- name: Delete Subscriptions
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1
+    kind: Subscription
+    namespace: "{{ cp4d_namespaces[1] }}"
+    name: "{{ item.metadata.name }}"
+    state: absent
+  loop: "{{ subs_info.resources | default([]) }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  failed_when: false
+
+# List all ClusterServiceVersions created by CP4D operators
+- name: List ClusterServiceVersions
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ cp4d_namespaces[1] }}"
+  register: csv_info
+  failed_when: false
+  changed_when: false
+
+# Delete ClusterServiceVersions to fully uninstall operators
+- name: Delete ClusterServiceVersions
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ cp4d_namespaces[1] }}"
+    name: "{{ item.metadata.name }}"
+    state: absent
+  loop: "{{ csv_info.resources | default([]) }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  failed_when: false
+
+# List all InstallPlans associated with CP4D operators
+- name: List InstallPlans
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: InstallPlan
+    namespace: "{{ cp4d_namespaces[1] }}"
+  register: ip_info
+  failed_when: false
+  changed_when: false
+
+# Delete InstallPlans to prevent pending or retrying installs
+- name: Delete InstallPlans
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: InstallPlan
+    namespace: "{{ cp4d_namespaces[1] }}"
+    name: "{{ item.metadata.name }}"
+    state: absent
+  loop: "{{ ip_info.resources | default([]) }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  failed_when: false

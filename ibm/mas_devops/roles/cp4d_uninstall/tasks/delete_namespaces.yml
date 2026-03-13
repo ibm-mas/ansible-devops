@@ -1,0 +1,56 @@
+---
+# Remove finalizers from CP4D namespaces to unblock deletion
+- name: Patch namespace finalizers to empty
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: "{{ ns }}"
+    definition:
+      metadata:
+        finalizers: []
+    state: present
+    merge_type: merge
+  loop: "{{ cp4d_namespaces }}"
+  loop_control:
+    loop_var: ns
+    label: "{{ ns }}"
+  failed_when: false
+  changed_when: false
+
+# Delete CP4D namespaces after finalizers are cleared
+- name: Delete CP4D namespaces
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: "{{ ns }}"
+    state: absent
+    wait: true
+    wait_timeout: 120
+  loop: "{{ cp4d_namespaces }}"
+  loop_control:
+    loop_var: ns
+    label: "{{ ns }}"
+  failed_when: false
+  changed_when: false
+
+# Fetch current namespaces to verify deletion result
+- name: Re-check remaining CP4D namespaces
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+  register: all_namespaces
+  failed_when: false
+  changed_when: false
+
+# Identify any CP4D namespaces that still exist after delete attempt
+- name: Set remaining CP4D namespaces (if any)
+  set_fact:
+    remaining_namespaces: >-
+      {{
+        (all_namespaces.resources | default([])
+          | map(attribute='metadata.name')
+          | list)
+        | intersect(cp4d_namespaces)
+      }}
+  failed_when: false
+  changed_when: false
