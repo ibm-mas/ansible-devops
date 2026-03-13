@@ -13,8 +13,8 @@ data:
     bind 0.0.0.0
     port {{ redis_port }}
     protected-mode yes
-    requirepass ${REDIS_PASSWORD}
-    masterauth ${REDIS_PASSWORD}
+    requirepass replace-default-auth
+    masterauth replace-default-auth
     
     # Persistence
     save 900 1
@@ -90,13 +90,13 @@ data:
     # Sentinel Configuration
     bind 0.0.0.0
     port {{ redis_sentinel_port }}
-    sentinel monitor {{ redis_instance_name }} {{ redis_instance_name }}-redis-0.{{ redis_replica_service }}.{{ redis_namespace }}.svc.{{ cluster_domain }} {{ redis_port }} 2
-    sentinel auth-pass {{ redis_instance_name }} ${REDIS_PASSWORD}
-    sentinel down-after-milliseconds {{ redis_instance_name }} 5000
-    sentinel parallel-syncs {{ redis_instance_name }} 1
-    sentinel failover-timeout {{ redis_instance_name }} 10000
+    sentinel auth-pass mymaster replace-default-auth
+    sentinel down-after-milliseconds mymaster {{ redis_sentinel_down_after }}
+    sentinel parallel-syncs mymaster {{ redis_sentinel_parallel_syncs }}
+    sentinel failover-timeout mymaster {{ redis_sentinel_failover_timeout }}
     sentinel deny-scripts-reconfig yes
     
     # Logging
     logfile ""
     loglevel notice
+    

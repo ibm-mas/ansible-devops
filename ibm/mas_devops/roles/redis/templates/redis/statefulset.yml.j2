@@ -22,29 +22,33 @@ spec:
     spec:
       serviceAccountName: {{ redis_service_account }}
       securityContext:
-        fsGroup: 1000
-        runAsUser: 1000
         runAsNonRoot: true
       initContainers:
         - name: init-redis
           image: {{ redis_image }}
           imagePullPolicy: {{ image_pull_policy }}
           command:
-            - sh
-            - -c
-            - |
-              set -ex
-              # Copy default configs
-              cp /readonly-config/redis.conf /data/redis.conf
-              cp /readonly-config/sentinel.conf /data/sentinel.conf
-              
-              # Set Redis replica configuration
-              if [ "$(hostname)" != "{{ redis_instance_name }}-redis-0" ]; then
-                echo "replicaof {{ redis_instance_name }}-redis-0.{{ redis_replica_service }}.{{ redis_namespace }}.svc.{{ cluster_domain }} {{ redis_port }}" >> /data/redis.conf
-              fi
+            - bash
+            - /init-scripts/init.sh
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ redis_credentials_secret }}
+                  key: password
+            - name: SENTINEL_ID_0
+              value: "{{ redis_sentinel_id_0 }}"
+            - name: SENTINEL_ID_1
+              value: "{{ redis_sentinel_id_1 }}"
+            - name: SENTINEL_ID_2
+              value: "{{ redis_sentinel_id_2 }}"
           volumeMounts:
+            - name: init-config
+              mountPath: /init-scripts
+              readOnly: true
             - name: redis-config
               mountPath: /readonly-config
+              readOnly: true
             - name: data
               mountPath: /data
           securityContext:
@@ -82,31 +86,34 @@ spec:
               command:
                 - sh
                 - -c
-                - redis-cli -a $REDIS_PASSWORD ping
+                - /probes/readiness.sh {{ redis_port }}
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
-            failureThreshold: 3
+            failureThreshold: 5
           readinessProbe:
             exec:
               command:
                 - sh
                 - -c
-                - redis-cli -a $REDIS_PASSWORD ping
-            initialDelaySeconds: 5
+                - /probes/readiness.sh {{ redis_port }}
+            initialDelaySeconds: 15
             periodSeconds: 5
             timeoutSeconds: 3
-            failureThreshold: 3
+            failureThreshold: 5
           resources:
             requests:
-              cpu: {{ redis_cpu_request }}
-              memory: {{ redis_memory_request }}
+              cpu: {{ redis_cpu_requests }}
+              memory: {{ redis_mem_requests }}
             limits:
-              cpu: {{ redis_cpu_limit }}
-              memory: {{ redis_memory_limit }}
+              cpu: {{ redis_cpu_limits }}
+              memory: {{ redis_mem_limits }}
           volumeMounts:
             - name: data
               mountPath: /data
+            - name: probes
+              mountPath: /probes
+              readOnly: true
 {% if redis_tls_enabled %}
             - name: redis-certs
               mountPath: /certs
@@ -125,8 +132,9 @@ spec:
           image: {{ redis_image }}
           imagePullPolicy: {{ image_pull_policy }}
           command:
-            - redis-sentinel
+            - redis-server
             - /data/sentinel.conf
+            - --sentinel
           ports:
             - name: sentinel
               containerPort: {{ redis_sentinel_port }}
@@ -142,21 +150,21 @@ spec:
               command:
                 - sh
                 - -c
-                - redis-cli -p {{ redis_sentinel_port }} ping
+                - /probes/readiness.sh {{ redis_sentinel_port }}
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
-            failureThreshold: 3
+            failureThreshold: 5
           readinessProbe:
             exec:
               command:
                 - sh
                 - -c
-                - redis-cli -p {{ redis_sentinel_port }} ping
-            initialDelaySeconds: 5
+                - /probes/readiness.sh {{ redis_sentinel_port }}
+            initialDelaySeconds: 15
             periodSeconds: 5
             timeoutSeconds: 3
-            failureThreshold: 3
+            failureThreshold: 5
           resources:
             requests:
               cpu: 100m
@@ -167,6 +175,9 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+            - name: probes
+              mountPath: /probes
+              readOnly: true
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -177,13 +188,21 @@ spec:
               type: RuntimeDefault
 {% endif %}
       volumes:
+        - name: init-config
+          configMap:
+            name: {{ redis_instance_name }}-redis-init
+            defaultMode: 0755
         - name: redis-config
           configMap:
             name: {{ redis_instance_name }}-redis-config
+        - name: probes
+          configMap:
+            name: {{ redis_instance_name }}-redis-probes
+            defaultMode: 0755
 {% if redis_tls_enabled %}
         - name: redis-certs
           secret:
-            secretName: {{ redis_instance_name }}-tls-secret
+            secretName: {{ redis_instance_name }}-tls
 {% endif %}
   volumeClaimTemplates:
     - metadata:
