@@ -159,7 +159,7 @@ Storage volume size for Grafana user data.
 - hosts: localhost
   vars:
     grafana_instance_storage_class: "ibmc-file-gold-gid"
-    grafana_instance_storage_class: "15Gi"
+    grafana_instance_storage_size: "15Gi"
   roles:
     - ibm.mas_devops.grafana
 ```

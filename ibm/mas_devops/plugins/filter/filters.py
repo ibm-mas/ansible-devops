@@ -1,6 +1,6 @@
 import yaml
 import re
-
+import datetime
 
 def private_vlan(vlans):
   """
@@ -474,6 +474,65 @@ def get_default_upgrade_channel(current: str, valid_paths: dict) -> str:
       print(f'Error: channel upgrade compatibility matrix is incorrectly defined')
   return default
 
+def set_storage_classes_names(storage_list: list, storage_class_name_rwo: str, storage_class_name_rwx: str):
+  """
+  Iterate through the storage_list list and set the storage_class_name for each storage item based on the access mode.
+  Expects data to be
+  storage:
+  - name: meta
+    spec:
+      accessModes:
+      - ReadWriteMany
+      resources:
+        requests:
+          storage: 20Gi
+      storageClassName: nfs-client
+    type: create
+  - name: backup
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 20Gi
+      storageClassName: nfs-client
+    type: create
+  """
+
+  for storage_item in storage_list:
+    if 'spec' in storage_item and 'accessModes' in storage_item['spec'] and 'storageClassName' in storage_item['spec']: 
+      if storage_item['spec']['accessModes'][0] == 'ReadWriteMany':
+        storage_item['spec']['storageClassName'] = storage_class_name_rwx
+      else:
+        storage_item['spec']['storageClassName'] = storage_class_name_rwo
+  return storage_list
+
+def override_manage_persistent_volumes(volumes_list: list, storage_class_name_rwo: str, storage_class_name_rwx: str):
+  """
+  Iterate through the volumes_list list and set the storage_class_name for each storage item based on the access mode.
+  Expects data to be
+  storage:
+  - pvcName: manage-imagestitching
+    accessModes:
+      - ReadWriteMany
+    size: 20Gi
+    storageClassName: nfs-client
+  - pvcName: manage-2
+    accessModes:
+      - ReadWriteMany
+    size: 20Gi
+    storageClassName: nfs-client
+  """
+
+  for volume_item in volumes_list:
+    if 'accessModes' in volume_item and 'storageClassName' in volume_item:
+      if volume_item['accessModes'][0] == 'ReadWriteMany':
+        volume_item['storageClassName'] = storage_class_name_rwx
+      else:
+        volume_item['storageClassName'] = storage_class_name_rwo
+  return volumes_list
+
+
 class FilterModule(object):
   def filters(self):
     return {
@@ -497,5 +556,7 @@ class FilterModule(object):
       'get_db2_instance_name': get_db2_instance_name,
       'get_ecr_repositories': get_ecr_repositories,
       'is_channel_upgrade_path_valid': is_channel_upgrade_path_valid,
-      'get_default_upgrade_channel': get_default_upgrade_channel
+      'get_default_upgrade_channel': get_default_upgrade_channel,
+      'set_storage_classes_names': set_storage_classes_names,
+      'override_manage_persistent_volumes': override_manage_persistent_volumes
     }

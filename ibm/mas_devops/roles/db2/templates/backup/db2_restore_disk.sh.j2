@@ -1,0 +1,332 @@
+#!/bin/bash
+
+DATABASE={{ db2_dbname }}
+BACKUP_TYPE={{ backup_type }}
+DB2_BACKUP_VERSION={{ db2_backup_version }}
+DB2_BACKUP_TIMESTAMP={{ db2_backup_timestamp }}
+
+# Finding the db2 Instance owner
+INSTOWNER=`/usr/local/bin/db2greg -dump | grep -ae "I," | grep -v "/das," | awk -F ',' '{print $4}' `
+
+instance=`whoami`
+BACKUP_BASE=/mnt/backup
+# Find the home directory
+instance_home=`/usr/local/bin/db2greg -dump | grep -ae "I," | grep -v "/das," | grep "${instance}" | awk -F ',' '{print $5}'| cut -d/ -f 1,2,3,4,5`
+
+if [ ! -f "$instance_home/sqllib/db2profile" ]
+then
+	echo "ERROR: $instance_home/sqllib/db2profile not found"
+	EXIT_STATUS=1
+else
+	. $instance_home/sqllib/db2profile
+fi
+
+### Verify the backup files
+
+### Check if keystore files are present
+
+POD_BACKUP_PATH="{{ pod_full_backup_path }}"
+
+if [[ ! -f "${POD_BACKUP_PATH}/keystore.p12" ]]; then
+    echo "ERROR: Db2 keystore.p12 file is missing in the backup location: ${POD_BACKUP_PATH}"
+    exit 1
+fi
+
+if [[ ! -f "${POD_BACKUP_PATH}/keystore.sth" ]]; then
+    echo "ERROR: Db2 keystore.sth file is missing in the backup location: ${POD_BACKUP_PATH}"
+    exit 1
+fi
+
+### Check if backup files are present
+ls ${POD_BACKUP_PATH}/${DATABASE}*.DBPART000.* 2>/dev/null
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "ERROR: Db2 backup files are not found in the backup location: ${POD_BACKUP_PATH}"
+    exit 1
+fi
+
+# from the backup check command, check if the logs are included in the backup files.
+BACKUP_FILES=${POD_BACKUP_PATH}/${DATABASE}*.DBPART000.*
+backup_contain_logs=true
+for FILE in $BACKUP_FILES; do
+    echo "INFO: Verifying downloaded backup $FILE"
+    bkpchk_cmd=$(db2ckbkp -h ${FILE})
+    if [ $rc -ne 0 ]; then
+        echo "ERROR: Failed to verify backup file ${FILE}. Return code: $rc"
+        exit 1
+    else
+        echo "INFO: Successfully verified: $(basename "$FILE")"
+        echo "INFO: Check if the backup contains logs"
+        logs_value=$(echo "$bkpchk_cmd" | grep 'Includes Logs' | awk -F '-- ' '{print $2}' | awk '{print $1}')
+        # 0 when the backup doesn't contain logs
+        if [ ${logs_value} = '0' ]; then
+            echo "INFO: Backup doesn't contain logs"
+            backup_contain_logs=false
+        fi
+    fi
+done
+echo "INFO: Db2 backup files verified successfully."
+
+echo "INFO: Checking if LOGARCHMETH1 is ON."
+logarchmeth1_enabled=true
+logarchmeth1_cmd=$(db2 get db cfg for ${DATABASE} | grep LOGARCHMETH1 | awk -F'= ' '{print $2}')
+if [ ${logarchmeth1_cmd} = 'OFF' ]; then
+    echo "INFO: LOGARCHMETH1 is OFF."
+	logarchmeth1_enabled=false
+else
+    echo "INFO: LOGARCHMETH1 is ON."
+fi
+
+echo "INFO: Db2 keystore files verified successfully."
+
+# Extract Db2 keystore master key
+# https://www.ibm.com/docs/en/db2/11.5?topic=edr-restoring-encrypted-backup-image-different-system-local-keystore
+
+MASTER_KEY_LABEL=`gsk8capicmd_64 -cert -list all -db ${POD_BACKUP_PATH}/keystore.p12 -stashed 2>&1 | grep -i $INSTOWNER_$DATABASE | awk '/^#/ { print $2 }'`
+if [ -z "$MASTER_KEY_LABEL" ]; then
+    echo "ERROR: MASTER_KEY_LABEL is empty. Cannot proceed with secret key extraction."
+    exit 1
+else
+    ### Check if MASTER_KEY_LABEL exists in the source keystore
+    SOURCE_KEYSTORE_LOC=$(db2 get dbm cfg | grep KEYSTORE_LOCATION | awk -F'= ' '{print $2}')
+    SOURCE_LABELS=$(gsk8capicmd_64 -cert -list all -db ${SOURCE_KEYSTORE_LOC} -stashed 2>&1 | awk '/^#/ { print $2 }')
+    if ! echo "$SOURCE_LABELS" | grep -q "^${MASTER_KEY_LABEL}$"; then
+        echo "INFO: MASTER_KEY_LABEL '${MASTER_KEY_LABEL}' not found in source keystore."
+        gsk8capicmd_64 -secretkey -extract -db ${POD_BACKUP_PATH}/keystore.p12 -stashed -label ${MASTER_KEY_LABEL} -format ascii -target ${POD_BACKUP_PATH}/master_key_label.kdb
+	    echo "INFO: MASTER_KEY_LABEL is not empty - Secret key extraction Completed."
+        ## Add Master key to target keystore
+        result=$(gsk8capicmd_64 -secretkey -add -db ${SOURCE_KEYSTORE_LOC} -stashed -label ${MASTER_KEY_LABEL} -file ${POD_BACKUP_PATH}/master_key_label.kdb 2>&1)
+        rc=$?
+        if [ $rc -ne 0 ]; then
+            echo "ERROR: Error adding master key to target keystore. Return code: $rc"
+            exit 1
+        fi
+
+        if echo "$result" | grep -q "CTGSK3005W"; then
+            echo "ERROR: CTGSK3005W warning detected. Exiting"
+            echo "$result"
+            exit 1
+        fi
+    else
+        echo "INFO: MASTER_KEY_LABEL '${MASTER_KEY_LABEL}' already exists in target keystore. Skipping addition."
+    fi
+fi
+
+echo "INFO: Db2 keystore master key restored successfully."
+
+# Deactivate Db2 in preparation for restore
+# https://www.ibm.com/docs/en/db2/11.5?topic=r-restoring-db2-from-online-backup-using-commands
+
+dbRestoreSuccess=true
+dbRollbackSuccess=true
+
+echo ""
+echo "========================================================================"
+echo "  PREPARING DATABASE FOR RESTORE"
+echo "========================================================================"
+echo ""
+
+echo "STEP 1: Temporarily disable the built-in HA"
+if [ -f /etc/wolverine/config.json ]; then
+    wvcli system disable -m "Disable HA before Db2 maintenance"
+else
+    echo "INFO: Wolverine HA not enabled"
+fi
+
+echo ""
+echo "STEP 2: Connect to the database"
+connect_status=$(db2 -v connect to ${DATABASE})
+rc=$?
+if [ $rc -ne 0 ]; then
+    if echo "$connect_status" | grep -q "SQL1032N"; then
+        echo "INFO: Database ${DATABASE} is not currently active. Proceeding with restore."
+    elif echo "$connect_status" | grep -q "SQL1013N"; then
+        echo "INFO: Database ${DATABASE} does not exist. Proceeding with restore."
+    elif echo "$connect_status" | grep -q "SQL30081N"; then
+        echo "ERROR: Network error while connecting to database ${DATABASE}"
+        exit 1
+    elif echo "$connect_status" | grep -q "SQL1119N"; then
+        echo "ERROR: $connect_status"
+        exit 1
+    else
+        echo "INFO: $connect_status. Proceeding with restore."
+    fi
+fi
+
+echo ""
+echo "STEP 3: Disconnect all the applications that are connected to Db2"
+db2 -v force application all
+
+echo ""
+echo "INFO: Waiting for connections to close, sleep for 30 seconds"
+sleep 30
+
+echo ""
+echo "STEP 4: Terminate the database"
+db2 -v terminate
+
+echo ""
+echo "STEP 5: Stop the database"
+db2stop force
+
+echo ""
+echo "STEP 6: Ensure that all Db2 interprocess communications are cleaned for the instance"
+ipclean -a
+
+echo ""
+echo "STEP 7: Turn off all communications to the database by setting the value of the DB2COMM variable to null"
+db2set -null DB2COMM
+
+echo ""
+echo "STEP 8: Restart the database in restricted access mode"
+db2start admin mode restricted access
+
+echo ""
+echo "INFO: Waiting for db to start"
+sleep 60
+
+echo ""
+echo "========================================================================"
+echo "  EXECUTING DATABASE RESTORE"
+echo "========================================================================"
+echo ""
+
+echo "STEP 9: Restore Db2 from a full backup"
+if [[ "$backup_contain_logs" == "true" && "logarchmeth1_enabled" == "true" ]]; then
+    restore_cmd=$(db2 -v restore db ${DATABASE} from ${POD_BACKUP_PATH} taken at ${DB2_BACKUP_TIMESTAMP} into ${DATABASE} logtarget ${POD_BACKUP_PATH} replace existing without prompting)
+else
+    echo "INFO: Restoring database ${DATABASE} from backup timestamp ${DB2_BACKUP_TIMESTAMP} WITHOUT logs..."
+    restore_cmd=$(db2 -v restore db ${DATABASE} from ${POD_BACKUP_PATH} taken at ${DB2_BACKUP_TIMESTAMP} into ${DATABASE} replace existing without prompting)
+fi
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "$restore_cmd"
+    if echo "$restore_cmd" | grep -q "Restore is successful"; then
+        echo "INFO: Database ${DATABASE} restored successfully from backup."
+    else
+        echo "ERROR: Error restoring database ${DATABASE} from backup. Return code: $rc"
+        dbRestoreSuccess=false
+    fi
+fi
+
+echo ""
+echo "STEP 10: Check Db2 rollforward status"
+if [[ "$backup_contain_logs" == "true" && "logarchmeth1_enabled" == "true" ]]; then
+    db2 -v rollforward db ${DATABASE} query status
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        echo "ERROR: Error querying rollforward status for database ${DATABASE}. Return code: $rc"
+    fi
+else
+    echo "INFO: Skipping rollforward status check as either backup does not contain logs or logarchmeth1 is OFF."
+fi
+
+echo ""
+echo "STEP 11: Run Db2 rollforward command"
+if [[ "$backup_contain_logs" == "true" && "logarchmeth1_enabled" == "true" ]]; then
+    db2 -v rollforward db ${DATABASE} to end of backup and complete overflow log path "(${POD_BACKUP_PATH})" noretrieve
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        echo "ERROR: Error during rollforward for database ${DATABASE}. Return code: $rc"
+        dbRollbackSuccess=false
+    fi
+else
+    echo "INFO: Skipping rollforward as either backup does not contain logs or logarchmeth1 is OFF."
+fi
+
+echo ""
+echo "========================================================================"
+echo "  RESTARTING DATABASE FOR NORMAL OPERATION"
+echo "========================================================================"
+echo ""
+
+echo "STEP 12: Stop the database"
+db2stop force
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "ERROR: Error stopping database ${DATABASE}. Return code: $rc"
+fi
+
+echo ""
+echo "STEP 13: Ensure that all Db2 interprocess communications are cleaned for the instance"
+ipclean -a
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "ERROR: Error cleaning Db2 interprocess communications. Return code: $rc"
+fi
+
+echo ""
+echo "STEP 14: Reinitialize the Db2 communication manager to accept database connections"
+db2set DB2COMM=TCPIP,SSL
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "ERROR: Error reinitializing Db2 communication manager. Return code: $rc"
+fi
+
+echo ""
+echo "STEP 15: Restart the database for normal operation"
+db2start
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "ERROR: Error starting database ${DATABASE}. Return code: $rc"
+fi
+
+echo ""
+echo "INFO: waiting for db to start, sleep 60 seconds"
+sleep 60
+
+echo ""
+echo "STEP 16: Activate the database"
+db2 activate db ${DATABASE}
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "ERROR: Error activating database ${DATABASE}. Return code: $rc"
+fi
+
+echo ""
+echo "STEP 17: Re-enable the Wolverine high availability monitoring process"
+sudo wvcli system enable -m "Enable HA after Db2 maintenance"
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "ERROR: Error enabling HA. Return code: $rc"
+fi
+
+echo ""
+echo "STEP 18: Connect to the database"
+db2 -v connect to ${DATABASE}
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "ERROR: Error connecting to database ${DATABASE}. Return code: $rc"
+fi
+
+# Cleanup the backup files from local path
+echo "INFO: Cleaning up local backup files at: ${POD_BACKUP_PATH}"
+rm -rf ${POD_BACKUP_PATH}
+
+echo ""
+echo "========================================================================"
+echo "  RESTORE COMPLETION STATUS"
+echo "========================================================================"
+
+if [ "$dbRestoreSuccess" = false ]; then
+    echo "  Status: FAILED-RestoreFailed"
+    echo "  Reason: Database restore encountered errors"
+    echo "========================================================================"
+    exit 1
+fi
+
+if [ "$dbRollbackSuccess" = false ]; then
+    echo "  Status: FAILED-RestoreFailed"
+    echo "  Reason: Database rollforward encountered errors"
+    echo "========================================================================"
+    exit 1
+fi
+
+echo "  Database        : ${DATABASE}"
+echo "  Backup Timestamp: ${DB2_BACKUP_TIMESTAMP}"
+echo "  POD Path        : ${POD_BACKUP_PATH}"
+echo "  Status          : SUCCESS-RestoreSuccess"
+echo "========================================================================"
+echo ""
+exit 0
+
