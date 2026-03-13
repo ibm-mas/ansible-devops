@@ -211,8 +211,14 @@
 
     
       
-  <cds-side-nav-menu-item href="../../playbooks/backup-restore/">
-    Backup &amp; Restore
+  <cds-side-nav-menu-item href="../../playbooks/backup_restore.md">
+    Backup and Restore
+  </cds-side-nav-menu-item>
+
+    
+      
+  <cds-side-nav-menu-item href="../../playbooks/legacy_backup_restore.md">
+    Legacy Backup and Restore
   </cds-side-nav-menu-item>
 
     
@@ -535,12 +541,6 @@
 
     
       
-  <cds-side-nav-menu-item href="../suite_app_backup_restore/">
-    suite_app_backup_restore
-  </cds-side-nav-menu-item>
-
-    
-      
   <cds-side-nav-menu-item href="../suite_certs/">
     suite_certs
   </cds-side-nav-menu-item>
@@ -654,12 +654,6 @@
   </cds-side-nav-menu-item>
 
     
-      
-  <cds-side-nav-menu-item href="../suite_backup_restore/">
-    suite_backup_restore
-  </cds-side-nav-menu-item>
-
-    
   </cds-side-nav-menu>
 
                 
@@ -736,6 +730,10 @@
     
       <cds-select-item value="#role-variables-bootstrap-partly-deprecated-in-sls-370">Role Variables - Bootstrap [Partly deprecated in SLS 3.7.0]</cds-select-item>
     
+      <cds-select-item value="#role-variables-backup-and-restore-variables">Role Variables - Backup and Restore Variables</cds-select-item>
+    
+      <cds-select-item value="#backup-and-restore-operations">Backup and Restore Operations</cds-select-item>
+    
       <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
     
       <cds-select-item value="#run-role-playbook">Run Role Playbook</cds-select-item>
@@ -762,17 +760,24 @@
 <li>Environment Variable: <code>SLS_ACTION</code></li>
 <li>Default: <code>install</code></li>
 </ul>
-<p><strong>Purpose</strong>: Controls what action the role executes against the SLS instance. This allows the same role to handle installation, configuration generation, and removal of SLS.</p>
+<p><strong>Purpose</strong>: Controls what action the role executes against the SLS instance. This allows the same role to handle installation, configuration generation, backup, restore, and removal of SLS.</p>
 <p><strong>When to use</strong>:
 - Use <code>install</code> for initial SLS deployment or updates
 - Use <code>gencfg</code> to generate SLS configuration for MAS without installing SLS (when using existing SLS)
+- Use <code>backup</code> to create a backup of SLS instance and its configuration
+- Use <code>restore</code> to restore SLS instance from a backup
 - Use <code>uninstall</code> to remove SLS instance (use with caution)</p>
-<p><strong>Valid values</strong>: <code>install</code>, <code>gencfg</code>, <code>uninstall</code></p>
-<p><strong>Impact</strong>: 
+<p><strong>Valid values</strong>: <code>install</code>, <code>gencfg</code>, <code>backup</code>, <code>restore</code>, <code>uninstall</code></p>
+<p><strong>Impact</strong>:
 - <code>install</code>: Deploys or updates SLS operator and instance
 - <code>gencfg</code>: Only generates SLSCfg resource for MAS integration
+- <code>backup</code>: Creates a backup of all SLS resources, secrets, and registration data
+- <code>restore</code>: Restores SLS from a previously created backup
 - <code>uninstall</code>: Removes SLS instance and operator (destructive operation)</p>
-<p><strong>Related variables</strong>: When using <code>gencfg</code>, requires <code>sls_url</code> to be set to point to existing SLS instance.</p>
+<p><strong>Related variables</strong>:
+- When using <code>gencfg</code>, requires <code>sls_url</code> to be set to point to existing SLS instance
+- When using <code>backup</code>, requires <code>mas_backup_dir</code> and optionally <code>sls_backup_version</code>
+- When using <code>restore</code>, requires <code>mas_backup_dir</code> and <code>sls_backup_version</code></p>
 <p><strong>Note</strong>: Always backup license data before using <code>uninstall</code>. The <code>gencfg</code> action is useful when SLS is shared across multiple MAS instances.</p>
 <h2 id="role-variables-installation">Role Variables - Installation<a class="headerlink" href="#role-variables-installation" title="Permanent link">¤</a></h2>
 <p>If <code>sls_url</code> is set then the role will skip the installation of an SLS instance and simply generate the SLSCfg resource for the SLS instance defined.</p>
@@ -1280,6 +1285,216 @@
 <li>Environment Variable: <code>MAS_POD_TEMPLATES_DIR</code></li>
 <li>Default: None</li>
 </ul>
+<h2 id="role-variables-backup-and-restore-variables">Role Variables - Backup and Restore Variables<a class="headerlink" href="#role-variables-backup-and-restore-variables" title="Permanent link">¤</a></h2>
+<h4 id="mas_backup_dir">mas_backup_dir<a class="headerlink" href="#mas_backup_dir" title="Permanent link">¤</a></h4>
+<p>Directory path where SLS backup files will be stored.</p>
+<ul>
+<li><strong>Required</strong> for backup and restore operations</li>
+<li>Environment Variable: <code>MAS_BACKUP_DIR</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the local filesystem directory where backup archives will be created (for backup) or read from (for restore). This directory serves as the central location for all SLS backup data.</p>
+<p><strong>When to use</strong>:
+- Required when <code>sls_action</code> is set to <code>backup</code> or <code>restore</code>
+- Should be a persistent location with sufficient storage space
+- Ensure the directory is accessible and has appropriate permissions</p>
+<p><strong>Valid values</strong>: Any valid local filesystem path (e.g., <code>/backup/mas</code>, <code>/home/user/sls-backups</code>)</p>
+<p><strong>Impact</strong>: All backup files and metadata will be stored in subdirectories under this path. The backup creates a timestamped directory structure: <code>{mas_backup_dir}/backup-{version}-sls/</code></p>
+<p><strong>Related variables</strong>: Works with <code>sls_backup_version</code> to create unique backup directories.</p>
+<p><strong>Note</strong>: Ensure this directory has sufficient space for backup data and is regularly backed up to external storage for disaster recovery.</p>
+<h4 id="sls_backup_version">sls_backup_version<a class="headerlink" href="#sls_backup_version" title="Permanent link">¤</a></h4>
+<p>Version identifier for the backup, used to create unique backup directories.</p>
+<ul>
+<li><strong>Optional</strong> for backup (auto-generated if not provided)</li>
+<li><strong>Required</strong> for restore</li>
+<li>Environment Variable: <code>SLS_BACKUP_VERSION</code></li>
+<li>Default: Auto-generated timestamp in format <code>YYYYMMDD-HHMMSS</code></li>
+</ul>
+<p><strong>Purpose</strong>: Provides a unique identifier for each backup, allowing multiple backups to coexist and enabling point-in-time restore operations.</p>
+<p><strong>When to use</strong>:
+- For backup: Leave unset to auto-generate a timestamp-based version, or provide a custom identifier
+- For restore: Must specify the exact version identifier of the backup to restore</p>
+<p><strong>Valid values</strong>: Any string suitable for directory names (alphanumeric, hyphens, underscores). Auto-generated format: <code>YYYYMMDD-HHMMSS</code> (e.g., <code>20260122-131500</code>)</p>
+<p><strong>Impact</strong>:
+- For backup: Creates directory <code>{mas_backup_dir}/backup-{version}-sls/</code>
+- For restore: Looks for backup in <code>{mas_backup_dir}/backup-{version}-sls/</code></p>
+<p><strong>Related variables</strong>: Works with <code>mas_backup_dir</code> to determine backup location.</p>
+<p><strong>Note</strong>: When restoring, you must know the exact backup version identifier. List the contents of <code>mas_backup_dir</code> to see available backups.</p>
+<h2 id="backup-and-restore-operations">Backup and Restore Operations<a class="headerlink" href="#backup-and-restore-operations" title="Permanent link">¤</a></h2>
+<p>The SLS role supports backup and restore operations to protect your license service configuration and data. This is essential for disaster recovery, migration, and upgrade scenarios.</p>
+<h3 id="what-gets-backed-up">What Gets Backed Up<a class="headerlink" href="#what-gets-backed-up" title="Permanent link">¤</a></h3>
+<p>The SLS backup operation captures all critical resources needed to restore a complete SLS instance:</p>
+<p><strong>Kubernetes Resources:</strong>
+- <strong>Project/Namespace</strong>: The SLS namespace configuration
+- <strong>Secrets</strong>:
+  - IBM entitlement credentials (<code>ibm-entitlement</code>)
+  - MongoDB connection credentials (<code>ibm-sls-mongo-credentials</code>)
+  - Bootstrap configuration (<code>{instance-name}-bootstrap</code>)
+  - License entitlement data (<code>ibm-sls-{instance-name}-entitlement</code>)
+  - All referenced secrets (auto-discovered)
+- <strong>ConfigMaps</strong>: Suite registration configuration
+- <strong>Operator Resources</strong>:
+  - Subscription (<code>ibm-sls</code>)
+  - OperatorGroup
+- <strong>SLS Custom Resources</strong>:
+  - LicenseService CR (the main SLS instance)
+- <strong>Certificate Manager Resources</strong>:
+  - Issuers (self-signed and CA issuers)
+  - Certificates (CA certificate)</p>
+<p><strong>Registration Data:</strong>
+- License ID
+- Registration key
+- Suite registration information</p>
+<h3 id="backup-process">Backup Process<a class="headerlink" href="#backup-process" title="Permanent link">¤</a></h3>
+<p>The backup operation performs the following steps:</p>
+<ol>
+<li><strong>Validation</strong>: Verifies required variables (<code>mas_backup_dir</code>, <code>sls_namespace</code>, <code>sls_instance_name</code>)</li>
+<li><strong>Version Generation</strong>: Creates or uses provided backup version identifier</li>
+<li><strong>Resource Discovery</strong>: Identifies all SLS resources and auto-discovers referenced secrets</li>
+<li><strong>Backup Execution</strong>: Exports all resources to YAML files in the backup directory</li>
+<li><strong>Registration Capture</strong>: Saves SLS registration details for restore</li>
+<li><strong>Verification</strong>: Reports backup statistics and any failures</li>
+</ol>
+<p><strong>Backup Directory Structure:</strong></p>
+<pre><code>{mas_backup_dir}/
+└── backup-{version}-sls/
+    ├── resources/
+    │   ├── projects/
+    │   ├── secrets/
+    │   ├── configmaps/
+    │   ├── subscriptions/
+    │   ├── operatorgroups/
+    │   ├── licenseservices/
+    │   ├── issuers/
+    │   └── certificates/
+    └── sls-registration.yaml
+</code></pre>
+<h3 id="restore-process">Restore Process<a class="headerlink" href="#restore-process" title="Permanent link">¤</a></h3>
+<p>The restore operation performs the following steps:</p>
+<ol>
+<li><strong>Validation</strong>: Verifies required variables and backup existence</li>
+<li><strong>Backup Verification</strong>: Checks for valid backup structure and required files</li>
+<li><strong>Certificate Manager Check</strong>: Ensures cert-manager is installed in the cluster</li>
+<li><strong>Sequential Restoration</strong>:</li>
+<li>Projects/Namespaces</li>
+<li>Secrets and ConfigMaps</li>
+<li>OperatorGroups</li>
+<li>Subscriptions (triggers operator installation)</li>
+<li>Certificate Manager resources</li>
+<li>Bootstrap secret (recreated from registration data)</li>
+<li>LicenseService CR (with optional domain override)</li>
+<li><strong>Verification</strong>: Waits for SLS to become ready and reports restore statistics</li>
+</ol>
+<p><strong>Important Restore Considerations:</strong>
+- The target cluster must have Certificate Manager installed
+- MongoDB must be available and accessible (not restored by this role)
+- The restore can optionally override the <code>sls_domain</code> if deploying to a different cluster
+- All secrets and credentials are restored exactly as backed up</p>
+<h3 id="backup-example">Backup Example<a class="headerlink" href="#backup-example" title="Permanent link">¤</a></h3>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    sls_action: backup
+    mas_backup_dir: /backup/mas
+    sls_namespace: ibm-sls
+    sls_instance_name: sls
+    # Optional: specify custom backup version
+    # sls_backup_version: "pre-upgrade-backup"
+
+  roles:
+    - ibm.mas_devops.sls
+</code></pre>
+<p><strong>Using environment variables:</strong></p>
+<pre><code class="language-bash">export SLS_ACTION=backup
+export MAS_BACKUP_DIR=/backup/mas
+export SLS_NAMESPACE=ibm-sls
+export SLS_INSTANCE_NAME=sls
+# Optional: export SLS_BACKUP_VERSION=pre-upgrade-backup
+
+ansible-playbook ibm.mas_devops.run_role
+</code></pre>
+<h3 id="restore-example">Restore Example<a class="headerlink" href="#restore-example" title="Permanent link">¤</a></h3>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    sls_action: restore
+    mas_backup_dir: /backup/mas
+    sls_backup_version: "20260122-131500"
+    # Optional: override domain for different cluster
+    # sls_domain: sls.newcluster.example.com
+
+  roles:
+    - ibm.mas_devops.sls
+</code></pre>
+<p><strong>Using environment variables:</strong></p>
+<pre><code class="language-bash">export SLS_ACTION=restore
+export MAS_BACKUP_DIR=/backup/mas
+export SLS_BACKUP_VERSION=20260122-131500
+# Optional: export SLS_DOMAIN=sls.newcluster.example.com
+
+ansible-playbook ibm.mas_devops.run_role
+</code></pre>
+<h3 id="best-practices">Best Practices<a class="headerlink" href="#best-practices" title="Permanent link">¤</a></h3>
+<ol>
+<li><strong>Regular Backups</strong>: Schedule regular backups before:</li>
+<li>SLS upgrades</li>
+<li>License entitlement changes</li>
+<li>Cluster maintenance</li>
+<li>
+<p>MAS upgrades</p>
+</li>
+<li>
+<p><strong>Backup Storage</strong>:</p>
+</li>
+<li>Store backups in a location separate from the cluster</li>
+<li>Implement backup retention policies</li>
+<li>
+<p>Test restore procedures regularly</p>
+</li>
+<li>
+<p><strong>MongoDB Backup</strong>:</p>
+</li>
+<li>SLS backup does NOT include MongoDB data</li>
+<li>Ensure MongoDB is backed up separately using the <code>mongodb</code> role backup functionality</li>
+<li>
+<p>Coordinate SLS and MongoDB backups for consistency</p>
+</li>
+<li>
+<p><strong>Pre-Restore Checklist</strong>:</p>
+</li>
+<li>Verify Certificate Manager is installed</li>
+<li>Ensure MongoDB is available and accessible</li>
+<li>Confirm backup version exists and is complete</li>
+<li>
+<p>Review and adjust <code>sls_domain</code> if restoring to different cluster</p>
+</li>
+<li>
+<p><strong>Disaster Recovery</strong>:</p>
+</li>
+<li>Document backup locations and procedures</li>
+<li>Test restore process in non-production environment</li>
+<li>Keep backup version identifiers in a safe location</li>
+<li>
+<p>Maintain MongoDB connection details separately</p>
+</li>
+<li>
+<p><strong>Migration Scenarios</strong>:</p>
+</li>
+<li>When migrating to a new cluster, restore MongoDB first</li>
+<li>Update <code>sls_domain</code> if cluster ingress domain changed</li>
+<li>Verify network connectivity between restored SLS and MAS instances</li>
+</ol>
+<h3 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">¤</a></h3>
+<p><strong>Backup Issues:</strong>
+- <strong>"Required variables not provided"</strong>: Ensure <code>mas_backup_dir</code>, <code>sls_namespace</code>, and <code>sls_instance_name</code> are set
+- <strong>"Resource not found"</strong>: Some resources may not exist in your deployment (this is normal)
+- <strong>Permission errors</strong>: Ensure write access to <code>mas_backup_dir</code></p>
+<p><strong>Restore Issues:</strong>
+- <strong>"Backup archive not found"</strong>: Verify <code>sls_backup_version</code> matches an existing backup directory
+- <strong>"Certificate Manager not found"</strong>: Install cert-manager before restoring SLS
+- <strong>"LicenseService not ready"</strong>: Check operator logs and ensure MongoDB is accessible
+- <strong>Domain mismatch</strong>: Use <code>sls_domain</code> variable to override domain for new cluster</p>
+<p>For more information on backup and restore, refer to the <a href="https://www.ibm.com/docs/en/masv-and-l/cd?topic=service-backing-up-restoring">IBM Documentation on Backing up and Restoring SLS</a>.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <h3 id="install-and-generate-a-configuration-up-to-sls-360">Install and generate a configuration [up to SLS 3.6.0]<a class="headerlink" href="#install-and-generate-a-configuration-up-to-sls-360" title="Permanent link">¤</a></h3>
 <pre><code class="language-yaml">- hosts: localhost
@@ -1549,6 +1764,65 @@ ansible-playbook ibm.mas_devops.run_role
                       <li class="md-toc__item">
                         <a href="#slscfg-variables" class="md-toc__link" data-md-level="2">
                           SLSCfg Variables
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#role-variables-backup-and-restore-variables" class="md-toc__link" data-md-level="1">
+                  Role Variables - Backup and Restore Variables
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#mas_backup_dir" class="md-toc__link" data-md-level="2">
+                          mas_backup_dir
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#sls_backup_version" class="md-toc__link" data-md-level="2">
+                          sls_backup_version
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#backup-and-restore-operations" class="md-toc__link" data-md-level="1">
+                  Backup and Restore Operations
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#what-gets-backed-up" class="md-toc__link" data-md-level="2">
+                          What Gets Backed Up
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#backup-process" class="md-toc__link" data-md-level="2">
+                          Backup Process
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#restore-process" class="md-toc__link" data-md-level="2">
+                          Restore Process
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#backup-example" class="md-toc__link" data-md-level="2">
+                          Backup Example
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#restore-example" class="md-toc__link" data-md-level="2">
+                          Restore Example
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#best-practices" class="md-toc__link" data-md-level="2">
+                          Best Practices
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#troubleshooting" class="md-toc__link" data-md-level="2">
+                          Troubleshooting
                         </a>
                       </li>
                   </ul>

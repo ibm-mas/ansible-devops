@@ -211,8 +211,14 @@
 
     
       
-  <cds-side-nav-menu-item href="../../playbooks/backup-restore/">
-    Backup &amp; Restore
+  <cds-side-nav-menu-item href="../../playbooks/backup_restore.md">
+    Backup and Restore
+  </cds-side-nav-menu-item>
+
+    
+      
+  <cds-side-nav-menu-item href="../../playbooks/legacy_backup_restore.md">
+    Legacy Backup and Restore
   </cds-side-nav-menu-item>
 
     
@@ -535,12 +541,6 @@
 
     
       
-  <cds-side-nav-menu-item href="../suite_app_backup_restore/">
-    suite_app_backup_restore
-  </cds-side-nav-menu-item>
-
-    
-      
   <cds-side-nav-menu-item href="../suite_certs/">
     suite_certs
   </cds-side-nav-menu-item>
@@ -654,12 +654,6 @@
   </cds-side-nav-menu-item>
 
     
-      
-  <cds-side-nav-menu-item href="../suite_backup_restore/">
-    suite_backup_restore
-  </cds-side-nav-menu-item>
-
-    
   </cds-side-nav-menu>
 
                 
@@ -731,6 +725,12 @@
       <cds-select-item value="#prerequisites">Prerequisites</cds-select-item>
     
       <cds-select-item value="#role-variables-general">Role Variables - General</cds-select-item>
+    
+      <cds-select-item value="#role-variables-backup-and-restore-ce-operator">Role Variables - Backup and Restore (CE Operator)</cds-select-item>
+    
+      <cds-select-item value="#backup-and-restore-operations">Backup and Restore Operations</cds-select-item>
+    
+      <cds-select-item value="#example-playbooks">Example Playbooks</cds-select-item>
     
       <cds-select-item value="#role-variables-ibm-cloud">Role Variables - IBM Cloud</cds-select-item>
     
@@ -856,7 +856,7 @@ Also, you need to have AWS user credentials configured via <code>aws configure</
 - Use <code>destroy-data</code> to delete all data from MongoDB (aws only)
 - Use <code>create-mongo-service-credentials</code> to generate service credentials (ibm only)</p>
 <p><strong>Valid values</strong> (provider-specific):
-- <strong>community</strong>: <code>install</code>, <code>uninstall</code>, <code>backup</code>, <code>restore</code>
+- <strong>community</strong>: <code>install</code>, <code>uninstall</code>, <code>backup</code>, <code>backup-database</code>, <code>restore</code>, <code>restore-database</code>
 - <strong>aws</strong>: <code>install</code>, <code>uninstall</code>, <code>docdb_secret_rotate</code>, <code>destroy-data</code>
 - <strong>ibm</strong>: <code>install</code>, <code>uninstall</code>, <code>backup</code>, <code>restore</code>, <code>create-mongo-service-credentials</code>
 - <strong>atlas</strong>: <code>install</code>, <code>uninstall</code>, <code>restore</code></p>
@@ -1193,148 +1193,341 @@ Also, you need to have AWS user credentials configured via <code>aws configure</
 <li>Environment Variable: <code>MONGODB_V8_UPGRADE</code></li>
 <li>Default Value: <code>false</code></li>
 </ul>
-<p><strong>Purpose</strong>: Acts as a safety confirmation to prevent accidental MongoDB major version upgrades from version 7 to 8.</p>
-<p><strong>When to use</strong>:
-- Set to <code>true</code> only when intentionally upgrading from MongoDB 7 to version 8
-- Must be explicitly set to perform the upgrade
-- Leave as <code>false</code> for all other operations</p>
-<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
-<p><strong>Impact</strong>: When <code>true</code> and <code>mongodb_version</code> is set to an 8.x version, triggers MongoDB upgrade from 7.x to 8.x. This is a one-way operation that cannot be reversed without restoring from backup.</p>
-<p><strong>Related variables</strong>:
-- <code>mongodb_version</code>: Must be set to an 8.x version for upgrade to proceed
-- Other upgrade flags: <code>mongodb_v5_upgrade</code>, <code>mongodb_v6_upgrade</code>, <code>mongodb_v7_upgrade</code></p>
-<p><strong>Note</strong>: <strong>Always backup before upgrading</strong>. Test upgrades in non-production environments first. Review MongoDB 8.0 release notes for breaking changes.</p>
-<h4 id="masbr_confirm_cluster">masbr_confirm_cluster<a class="headerlink" href="#masbr_confirm_cluster" title="Permanent link">¤</a></h4>
-<p>Enables cluster confirmation prompt before executing backup or restore operations.</p>
+<h2 id="role-variables-backup-and-restore-ce-operator">Role Variables - Backup and Restore (CE Operator)<a class="headerlink" href="#role-variables-backup-and-restore-ce-operator" title="Permanent link">¤</a></h2>
+<h3 id="mongodb_action_1">mongodb_action<a class="headerlink" href="#mongodb_action_1" title="Permanent link">¤</a></h3>
+<p>For backup and restore operations, set <code>mongodb_action</code> to one of the following:
+- <code>backup</code>: Create a backup of MongoDB databases and instance resources
+- <code>backup-database</code>: Create a backup of MongoDB databases only
+- <code>restore</code>: Restore both MongoDB instance resources and databases from a backup (full restore)
+- <code>restore-database</code>: Restore only MongoDB databases from a backup to an existing instance (database-only restore)</p>
 <ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>MASBR_CONFIRM_CLUSTER</code></li>
-<li>Default: <code>false</code></li>
+<li>Environment Variable: <code>MONGODB_ACTION</code></li>
+<li>Default Value: <code>install</code></li>
 </ul>
-<p><strong>Purpose</strong>: Provides a safety check to confirm you're connected to the correct cluster before performing backup or restore operations, preventing accidental operations on wrong clusters.</p>
-<p><strong>When to use</strong>:
-- Set to <code>true</code> in environments with multiple clusters to prevent mistakes
-- Set to <code>true</code> for production environments as an additional safety measure
-- Leave as <code>false</code> for automated pipelines where confirmation isn't possible</p>
-<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
-<p><strong>Impact</strong>: When <code>true</code>, the role will prompt for confirmation of the cluster before proceeding with backup/restore. This adds a manual step but prevents costly mistakes.</p>
-<p><strong>Related variables</strong>: Used with <code>mongodb_action</code> when set to <code>backup</code> or <code>restore</code>.</p>
-<h4 id="masbr_copy_timeout_sec">masbr_copy_timeout_sec<a class="headerlink" href="#masbr_copy_timeout_sec" title="Permanent link">¤</a></h4>
-<p>Timeout in seconds for backup/restore file transfer operations.</p>
+<p><strong>Action Details:</strong>
+- <strong>backup</strong>: Creates a complete backup including database data and Kubernetes resources (secrets, certificates, CRs)
+- <strong>backup-database</strong>: Creates a complete backup including database data only
+- <strong>restore</strong>: Performs a full restore by recreating the MongoDB instance from backup resources and then restoring database data
+- <strong>restore-database</strong>: Restores only the database data to an already running MongoDB instance without touching instance resources</p>
+<h3 id="mas_backup_dir">mas_backup_dir<a class="headerlink" href="#mas_backup_dir" title="Permanent link">¤</a></h3>
+<p><strong>Required for backup/restore operations</strong>. Local directory path where backup files will be stored or read from.</p>
 <ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>MASBR_COPY_TIMEOUT_SEC</code></li>
-<li>Default: <code>43200</code> (12 hours)</li>
+<li>Environment Variable: <code>MAS_BACKUP_DIR</code></li>
+<li>Default Value: None</li>
+<li>Example: <code>/tmp/masbr</code></li>
 </ul>
-<p><strong>Purpose</strong>: Sets the maximum time allowed for copying backup files to/from storage. Prevents operations from hanging indefinitely on slow networks or large datasets.</p>
-<p><strong>When to use</strong>:
-- Increase for very large databases or slow network connections
-- Decrease for smaller databases to fail faster on issues
-- Use default (12 hours) for most deployments</p>
-<p><strong>Valid values</strong>: Positive integer representing seconds (e.g., <code>3600</code> = 1 hour, <code>43200</code> = 12 hours, <code>86400</code> = 24 hours)</p>
-<p><strong>Impact</strong>: Operations exceeding this timeout will fail. Setting too low causes failures on legitimate long-running transfers. Setting too high delays detection of stuck operations.</p>
-<p><strong>Related variables</strong>: Used with <code>mongodb_action</code> when set to <code>backup</code> or <code>restore</code>.</p>
-<p><strong>Note</strong>: Consider database size and network speed when setting timeout. Monitor actual transfer times to optimize this value.</p>
-<h4 id="masbr_job_timezone">masbr_job_timezone<a class="headerlink" href="#masbr_job_timezone" title="Permanent link">¤</a></h4>
-<p>Time zone for scheduled backup job execution.</p>
+<h3 id="mongodb_backup_version">mongodb_backup_version<a class="headerlink" href="#mongodb_backup_version" title="Permanent link">¤</a></h3>
+<p><strong>Required for restore operations</strong>. The backup version timestamp to restore from. This is automatically generated during backup in the format <code>YYYYMMDD-HHMMSS</code>.</p>
 <ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>MASBR_JOB_TIMEZONE</code></li>
-<li>Default: None (uses UTC)</li>
+<li>Environment Variable: <code>MONGODB_BACKUP_VERSION</code></li>
+<li>Default Value: YYYYMMDD-HHMMSS</li>
+<li>Example: <code>20251212-021316</code></li>
 </ul>
-<p><strong>Purpose</strong>: Specifies the time zone for scheduled backup CronJobs, ensuring backups run at the intended local time rather than UTC.</p>
-<p><strong>When to use</strong>:
-- Set when scheduling backups to run at specific local times
-- Use for compliance with backup windows in specific time zones
-- Leave unset to use UTC (recommended for global deployments)</p>
-<p><strong>Valid values</strong>: Any valid <a href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones">tz database time zone</a> (e.g., <code>America/New_York</code>, <code>Europe/London</code>, <code>Asia/Tokyo</code>)</p>
-<p><strong>Impact</strong>: Affects when scheduled backups execute. Incorrect time zone can cause backups to run during business hours or miss backup windows.</p>
-<p><strong>Related variables</strong>:
-- <code>masbr_backup_schedule</code>: Defines the cron schedule
-- Only applies when <code>masbr_backup_schedule</code> is set</p>
-<p><strong>Note</strong>: When not set, CronJobs use UTC time zone. Consider daylight saving time changes when scheduling backups.</p>
-<h4 id="masbr_storage_local_folder">masbr_storage_local_folder<a class="headerlink" href="#masbr_storage_local_folder" title="Permanent link">¤</a></h4>
-<p>Local filesystem path where backup files will be stored or retrieved from.</p>
+<h3 id="mongodb_instance_name">mongodb_instance_name<a class="headerlink" href="#mongodb_instance_name" title="Permanent link">¤</a></h3>
+<p>The name of the MongoDB instance to backup.</p>
 <ul>
-<li><strong>Required</strong> when <code>mongodb_action</code> is <code>backup</code> or <code>restore</code></li>
-<li>Environment Variable: <code>MASBR_STORAGE_LOCAL_FOLDER</code></li>
-<li>Default: None</li>
+<li>Environment Variable: <code>MONGODB_INSTANCE_NAME</code></li>
+<li>Default Value: <code>mas-mongo-ce</code></li>
 </ul>
-<p><strong>Purpose</strong>: Specifies the directory for storing MongoDB backup files. This location must have sufficient space and appropriate permissions for backup operations.</p>
-<p><strong>When to use</strong>:
-- Always required for backup and restore operations
-- Use a path with adequate storage space for full database backups
-- Consider using network-attached storage for backup retention
-- Ensure path is accessible and has proper permissions</p>
-<p><strong>Valid values</strong>: Any valid local filesystem path (e.g., <code>/backup/mongodb</code>, <code>/mnt/nfs/backups</code>, <code>/tmp/masbr</code>)</p>
-<p><strong>Impact</strong>: Backup files are written to this location. Insufficient space causes backup failures. Path must be accessible during restore operations.</p>
-<p><strong>Related variables</strong>:
-- <code>masbr_backup_type</code>: Determines if full or incremental backups are stored here
-- <code>masbr_restore_from_version</code>: Specifies which backup version to restore from this location</p>
-<p><strong>Note</strong>: Ensure adequate disk space (at least 2x database size for full backups). Implement backup retention policies to manage storage usage.</p>
-<h4 id="masbr_backup_type">masbr_backup_type<a class="headerlink" href="#masbr_backup_type" title="Permanent link">¤</a></h4>
-<p>Type of backup to create: full or incremental.</p>
+<h3 id="override_storageclass">override_storageclass<a class="headerlink" href="#override_storageclass" title="Permanent link">¤</a></h3>
+<p>Controls whether to override storage class for the MongoDB instance during restore.
+Set to <code>true</code> to override the storage class with <code>MONGODB_STORAGE_CLASS</code> value or cluster's default storageclass.</p>
 <ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>MASBR_BACKUP_TYPE</code></li>
-<li>Default: <code>full</code></li>
+<li>Environment Variable: <code>OVERRIDE_STORAGECLASS</code></li>
+<li>Default Value: <code>false</code></li>
 </ul>
-<p><strong>Purpose</strong>: Determines whether to create a complete database backup or an incremental backup containing only changes since the last full backup. Incremental backups save time and storage.</p>
-<p><strong>When to use</strong>:
-- Use <code>full</code> for initial backups or periodic complete backups
-- Use <code>incr</code> for frequent backups between full backups to save time and space
-- Implement a strategy like weekly full + daily incremental backups</p>
-<p><strong>Valid values</strong>: <code>full</code>, <code>incr</code></p>
-<p><strong>Impact</strong>:
-- <code>full</code>: Creates complete backup, takes longer, uses more storage
-- <code>incr</code>: Creates incremental backup, faster, uses less storage, requires base full backup</p>
-<p><strong>Related variables</strong>:
-- <code>masbr_backup_from_version</code>: Required when <code>incr</code> is used to specify base full backup
-- <code>mongodb_action</code>: Must be set to <code>backup</code></p>
-<p><strong>Note</strong>: Incremental backups require a full backup as base. Restore operations may need to apply multiple incremental backups sequentially.</p>
-<h4 id="masbr_backup_from_version">masbr_backup_from_version<a class="headerlink" href="#masbr_backup_from_version" title="Permanent link">¤</a></h4>
-<p>Timestamp of the full backup to use as base for incremental backup.</p>
+<h3 id="mas_app_id">mas_app_id<a class="headerlink" href="#mas_app_id" title="Permanent link">¤</a></h3>
+<p>Optional. Specific MAS application ID for targeted backup/restore operations.</p>
 <ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>MASBR_BACKUP_FROM_VERSION</code></li>
-<li>Default: None (automatically uses latest full backup)</li>
+<li>Environment Variable: <code>MAS_APP_ID</code></li>
+<li>Default Value: None</li>
 </ul>
-<p><strong>Purpose</strong>: Specifies which full backup serves as the base for an incremental backup. This links the incremental backup to a specific full backup version.</p>
-<p><strong>When to use</strong>:
-- Set when creating incremental backups and you want to specify a particular full backup
-- Leave unset to automatically use the most recent full backup
-- Only valid when <code>masbr_backup_type=incr</code></p>
-<p><strong>Valid values</strong>: Timestamp in format <code>YYYYMMDDHHMMSS</code> (e.g., <code>20240621021316</code>)</p>
-<p><strong>Impact</strong>: Incremental backup will contain only changes since the specified full backup. Incorrect version can cause backup chain issues.</p>
-<p><strong>Related variables</strong>:
-- <code>masbr_backup_type</code>: Must be set to <code>incr</code>
-- <code>masbr_storage_local_folder</code>: Location where full backup exists</p>
-<p><strong>Note</strong>: If not specified, role automatically finds the latest full backup. Ensure the specified full backup exists in the storage location.</p>
-<h4 id="masbr_backup_schedule">masbr_backup_schedule<a class="headerlink" href="#masbr_backup_schedule" title="Permanent link">¤</a></h4>
-<p>Cron expression for scheduling automated backups.</p>
+<h2 id="backup-and-restore-operations">Backup and Restore Operations<a class="headerlink" href="#backup-and-restore-operations" title="Permanent link">¤</a></h2>
+<p>This section provides comprehensive information about MongoDB backup and restore operations for the Community Edition (CE) operator.</p>
+<h3 id="action-comparison">Action Comparison<a class="headerlink" href="#action-comparison" title="Permanent link">¤</a></h3>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>Purpose</th>
+<th>Instance Resources</th>
+<th>Database Data</th>
+<th>Prerequisites</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backup</code></td>
+<td>Create backup</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Running MongoDB instance</td>
+<td>Regular backups, disaster recovery preparation</td>
+</tr>
+<tr>
+<td><code>backup-database</code></td>
+<td>Database-only backup</td>
+<td>No</td>
+<td>Yes</td>
+<td>Running MongoDB instance</td>
+<td>Regular backups, disaster recovery preparation</td>
+</tr>
+<tr>
+<td><code>restore</code></td>
+<td>Full restore</td>
+<td>Yes (recreates instance)</td>
+<td>Yes</td>
+<td>Backup with instance resources</td>
+<td>Disaster recovery, cluster migration, complete restoration</td>
+</tr>
+<tr>
+<td><code>restore-database</code></td>
+<td>Database-only restore</td>
+<td>No (preserves existing)</td>
+<td>Yes</td>
+<td>Running MongoDB instance with matching version</td>
+<td>Data recovery, selective restore, testing</td>
+</tr>
+</tbody>
+</table>
+<h3 id="backup-process">Backup Process<a class="headerlink" href="#backup-process" title="Permanent link">¤</a></h3>
+<p>The MongoDB backup operation creates a backup of your MongoDB instance and databases associated with your MAS instance:</p>
+<ol>
+<li><strong>Database Backup</strong>: Uses <code>mongodump</code> to export databases with filter <code>"^(mas|iot|sls|ibm-sls)(_|-)({{ mas_instance_id }}|sls)(_|-)(?!.*monitor$)"</code> to match databases like <code>mas-&lt;instance-id&gt;-&lt;app-id&gt;</code> or <code>iot-&lt;instance-id&gt;-&lt;app-id&gt;</code> or <code>ibm-sls_sls_licensing</code> or <code>sls-&lt;instance-id&gt;_sls_licensing</code>.</li>
+<li><strong>Instance Resources</strong> : Backs up Kubernetes resources including:</li>
+<li>CustomResourceDefinition (CRD)</li>
+<li>MongoDBCommunity Custom Resource (CR)</li>
+<li>Secrets (TLS certificates, credentials)</li>
+<li>Certificate resources</li>
+<li>Issuer resources</li>
+<li>Mongodb operator deployment</li>
+<li>service monitoring</li>
+<li>grafana dashboards</li>
+</ol>
+<p><strong>Backup Directory Structure:</strong></p>
+<pre><code>/tmp/masbr/
+└── backup-&lt;YYYYMMDD-HHMMSS&gt;-mongoce/
+    ├── data/
+    │   ├── mongodump-&lt;YYYYMMDD-HHMMSS&gt;.tar.gz
+    │   └── mongodb-info.yaml
+    └── resources/
+        ├── mongodbcommunitys/
+        ├── secrets/
+        ├── certificates/
+        └── issuers/
+        └── {kind}s/
+</code></pre>
+<h3 id="restore-process">Restore Process<a class="headerlink" href="#restore-process" title="Permanent link">¤</a></h3>
+<p>The MongoDB role supports two types of restore operations:</p>
+<h4 id="1-full-restore-restore-action">1. Full Restore (<code>restore</code> action)<a class="headerlink" href="#1-full-restore-restore-action" title="Permanent link">¤</a></h4>
+<p>Performs a complete restoration of both the MongoDB instance and its databases:</p>
+<p><strong>Steps:</strong>
+1. Validates backup files and required variables
+2. Restores the namespace (Project)
+3. Restores Secrets and ConfigMaps
+4. Restores CustomResourceDefinitions (CRDs)
+5. Restores RBAC resources (ServiceAccount, Role, RoleBinding)
+6. Configures anyuid permissions for MongoDB service accounts
+7. Restores the MongoDB Operator Deployment
+8. Waits for MongoDB operator to be ready
+9. Restores Certificate Manager resources (Issuer, Certificate)
+10. Restores the MongoDBCommunity Custom Resource (Overrides storageclass if flag is set)
+11. Waits for MongoDB StatefulSets to be ready
+12. Restores ServiceMonitor and GrafanaDashboard resources
+13. Restores database data using <code>mongorestore</code></p>
+<p><strong>When to use:</strong>
+- Disaster recovery scenarios
+- Migrating MongoDB to a new cluster
+- Recreating a deleted MongoDB instance
+- Setting up a new environment from backup</p>
+<p><strong>Requirements:</strong>
+- <code>mas_instance_id</code>: MAS instance identifier
+- <code>mas_backup_dir</code>: Directory containing the backup
+- <code>mongodb_backup_version</code>: Timestamp of the backup to restore
+- <code>override_storageclass</code>: Set to <code>true</code> to override storage class during instance restore</p>
+<h4 id="2-database-only-restore-restore-database-action">2. Database-Only Restore (<code>restore-database</code> action)<a class="headerlink" href="#2-database-only-restore-restore-database-action" title="Permanent link">¤</a></h4>
+<p>Restores only the database data to an existing MongoDB instance:</p>
+<p><strong>Steps:</strong>
+1. Validates backup files and required variables
+2. Verifies existing MongoDB installation is running
+3. Checks MongoDB version compatibility
+4. Restores database data using <code>mongorestore</code></p>
+<p><strong>When to use:</strong>
+- Restoring data to an existing MongoDB instance
+- Recovering from data corruption without recreating the instance
+- Selective database restoration
+- Testing data restoration without affecting instance configuration</p>
+<p><strong>Requirements:</strong>
+- <code>mas_instance_id</code>: MAS instance identifier
+- <code>mas_backup_dir</code>: Directory containing the backup
+- <code>mongodb_backup_version</code>: Timestamp of the backup to restore
+- <code>mongodb_namespace</code>: Namespace where MongoDB is running
+- <code>mongodb_instance_name</code>: Name of the existing MongoDB instance
+- MongoDB instance must already be running and accessible</p>
+<h3 id="important-considerations">Important Considerations<a class="headerlink" href="#important-considerations" title="Permanent link">¤</a></h3>
+<p><strong>Version Compatibility:</strong>
+- Target MongoDB version must match the backup version exactly
+- Version upgrades should be performed separately, not during restore
+- The restore process validates version compatibility before proceeding
+- For <code>restore-database</code> action, the existing MongoDB instance must be running the same version as the backup</p>
+<p><strong>Storage Requirements:</strong>
+- Ensure sufficient storage in the backup directory
+- Plan for at least 2x the database size for backup storage
+- Backup directory structure: <code>/tmp/masbr/backup-&lt;YYYYMMDD-HHMMSS&gt;-mongoce/</code>
+- Monitor disk space during backup operations</p>
+<p><strong>Security:</strong>
+- Backup files contain sensitive data and credentials
+- Secure backup directory with appropriate permissions (chmod 700 recommended)
+- Consider encrypting backups for long-term storage
+- Backup includes TLS certificates and admin credentials
+- Restrict access to backup files to authorized personnel only</p>
+<p><strong>Performance:</strong>
+- Backup operations may impact MongoDB performance
+- Schedule backups during low-usage periods
+- Monitor resource utilization during backup/restore
+- Large databases may take significant time to backup/restore
+- Network bandwidth may affect backup/restore speed</p>
+<p><strong>Restore Action Differences:</strong>
+- <strong><code>restore</code> action</strong>: Recreates the entire MongoDB instance from scratch, including all Kubernetes resources and restores database
+- <strong><code>restore-database</code> action</strong>: Only restores database data to an existing instance, preserving current configuration</p>
+<h3 id="backup-and-restore-best-practices">Backup and Restore Best Practices<a class="headerlink" href="#backup-and-restore-best-practices" title="Permanent link">¤</a></h3>
+<ol>
+<li><strong>Regular Backups</strong>: Schedule automated backups at regular intervals</li>
+<li><strong>Test Restores</strong>: Periodically test restore procedures in non-production environments</li>
+<li><strong>Monitor Operations</strong>: Implement monitoring and alerting for backup failures</li>
+<li><strong>Backup Validation</strong>: Verify backup integrity after completion</li>
+<li><strong>Retention Policy</strong>: Implement and document backup retention policies</li>
+<li><strong>Disaster Recovery</strong>: Include MongoDB backup/restore in your DR plan</li>
+</ol>
+<h3 id="backup-and-restore-issues">Backup and Restore Issues<a class="headerlink" href="#backup-and-restore-issues" title="Permanent link">¤</a></h3>
+<p><strong>Backup Failures:</strong></p>
 <ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>MASBR_BACKUP_SCHEDULE</code></li>
-<li>Default: None (creates on-demand backup)</li>
+<li><strong>Permission Errors</strong>: Verify backup role and user creation succeeded. Check MongoDB pod logs with <code>oc logs -n mongoce &lt;pod-name&gt; -c mongod</code></li>
+<li><strong>Disk Space Issues</strong>: Ensure sufficient space in backup directory. Clean up old backups if needed like <code>/tmp/&lt;mongodb_backup_version&gt;</code>. Check with <code>df -h</code>. </li>
+<li><strong>Pod Access Issues</strong>: Verify pod is running and accessible. Check network connectivity to the cluster</li>
 </ul>
-<p><strong>Purpose</strong>: Defines when automated backups should run using standard cron syntax. Enables regular, unattended backup operations.</p>
-<p><strong>When to use</strong>:
-- Set to schedule regular automated backups (e.g., daily, weekly)
-- Leave unset for manual, on-demand backups
-- Consider backup windows and system load when scheduling</p>
-<p><strong>Valid values</strong>: Standard <a href="https://en.wikipedia.org/wiki/Cron">cron expression</a> (e.g., <code>0 2 * * *</code> for daily at 2 AM, <code>0 2 * * 0</code> for weekly on Sunday at 2 AM)</p>
-<p><strong>Impact</strong>: When set, creates a Kubernetes CronJob that automatically runs backups on schedule. Without this, backups only run when role is manually executed.</p>
-<p><strong>Related variables</strong>:
-- <code>masbr_job_timezone</code>: Specifies time zone for schedule
-- <code>masbr_backup_type</code>: Determines if scheduled backups are full or incremental</p>
-<p><strong>Note</strong>: Test cron expressions before deploying. Consider backup duration when scheduling to avoid overlapping backup jobs.</p>
-<h4 id="masbr_restore_from_version">masbr_restore_from_version<a class="headerlink" href="#masbr_restore_from_version" title="Permanent link">¤</a></h4>
-<p>Timestamp of the backup version to restore.</p>
+<p><strong>Restore Failures:</strong></p>
 <ul>
-<li><strong>Required</strong> when <code>mongodb_action=restore</code></li>
-<li>Environment Variable: <code>MASBR_RESTORE_FROM_VERSION</code></li>
-<li>Default: None</li>
+<li><strong>Version Mismatch</strong>: Ensure target MongoDB version matches backup version. Deploy correct version before restoring</li>
+<li><strong>Authentication Errors</strong>: Verify admin credentials are correct. Check MongoDB health status</li>
+<li><strong>Missing Backup Files</strong>: Verify backup directory path and version. Ensure backup completed successfully</li>
+<li><strong>Data Inconsistency</strong>: Verify backup integrity. Check restore logs for errors. Consider re-running restore</li>
 </ul>
+<p><strong>General Issues:</strong></p>
+<ul>
+<li><strong>Pods Not Starting After Restore</strong>: Check pod events with <code>oc describe pod -n mongoce &lt;pod-name&gt;</code>. Verify PVCs are bound. Check resource limits and node capacity</li>
+<li><strong>Connection Issues</strong>: Verify network policies and service configurations. Check certificate validity</li>
+</ul>
+<h2 id="example-playbooks">Example Playbooks<a class="headerlink" href="#example-playbooks" title="Permanent link">¤</a></h2>
+<h3 id="install-ce-operator">Install (CE Operator)<a class="headerlink" href="#install-ce-operator" title="Permanent link">¤</a></h3>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_storage_class: ibmc-block-gold
+    mas_instance_id: masinst1
+    mas_config_dir: ~/masconfig
+  roles:
+    - ibm.mas_devops.mongodb
+</code></pre>
+<h3 id="backup-ce-operator">Backup (CE Operator)<a class="headerlink" href="#backup-ce-operator" title="Permanent link">¤</a></h3>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_backup_dir: /tmp/masbr
+    mongodb_action: backup
+  roles:
+    - ibm.mas_devops.mongodb
+</code></pre>
+<h3 id="backup-with-instance-resources-ce-operator">Backup with Instance Resources (CE Operator)<a class="headerlink" href="#backup-with-instance-resources-ce-operator" title="Permanent link">¤</a></h3>
+<p>Create a complete backup including both database data and instance resources (secrets, certificates, issuers).</p>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_backup_dir: /tmp/masbr
+    mongodb_action: backup
+  roles:
+    - ibm.mas_devops.mongodb
+</code></pre>
+<h3 id="backup-database-ce-operator">Backup Database (CE Operator)<a class="headerlink" href="#backup-database-ce-operator" title="Permanent link">¤</a></h3>
+<p>Create a backup of database data.</p>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_backup_dir: /tmp/masbr
+    mongodb_action: backup-database
+  roles:
+    - ibm.mas_devops.mongodb
+</code></pre>
+<h3 id="restore-database-ce-operator">Restore Database (CE Operator)<a class="headerlink" href="#restore-database-ce-operator" title="Permanent link">¤</a></h3>
+<p>Restore MongoDB databases from a backup to an existing MongoDB instance without recreating the instance resources.</p>
+<p><strong>Use Case</strong>: This action is ideal when you need to restore database data to an already running MongoDB instance, such as recovering from data corruption or restoring specific databases.</p>
+<p><strong>Prerequisites</strong>:
+- MongoDB instance must already be installed and running
+- MongoDB version must match the backup version
+- Backup files must be available in the specified backup directory</p>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_action: restore-database
+    mas_instance_id: masinst1
+    mongodb_backup_version: 20251212-021316
+    mas_backup_dir: /tmp/masbr
+    mongodb_namespace: mongoce
+    mongodb_instance_name: mas-mongo-ce
+  roles:
+    - ibm.mas_devops.mongodb
+</code></pre>
+<p><strong>What this does</strong>:
+1. Validates that the backup exists at the specified location
+2. Verifies the MongoDB instance is running in the specified namespace
+3. Checks version compatibility between backup and running instance
+4. Restores database data using <code>mongorestore</code> command
+5. Preserves all existing instance configuration and resources</p>
+<p><strong>Note</strong>: This action does NOT restore instance resources (secrets, certificates, CRs). Use the <code>restore</code> action for full instance restoration.</p>
+<h3 id="full-restore-ce-operator">Full Restore (CE Operator)<a class="headerlink" href="#full-restore-ce-operator" title="Permanent link">¤</a></h3>
+<p>Perform a complete restoration of MongoDB instance including all Kubernetes resources and database data from a backup.</p>
+<p><strong>Use Case</strong>: This action is ideal for disaster recovery scenarios where you need to recreate the entire MongoDB instance from scratch, including all configuration, secrets, certificates, and data.</p>
+<p><strong>Prerequisites</strong>:
+- Backup files must be available in the specified backup directory
+- Backup must include instance resources (secrets, certificates, CRs)
+- Target cluster must have cert-manager installed
+- Sufficient storage and resources available</p>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_action: restore
+    mas_instance_id: masinst1
+    mongodb_backup_version: 20251212-021316
+    mas_backup_dir: /tmp/masbr
+  roles:
+    - ibm.mas_devops.mongodb
+</code></pre>
+<p><strong>What this does</strong>:
+1. Validates backup files and required variables
+2. Restores namespace, secrets, and ConfigMaps
+3. Restores CRDs and RBAC resources
+4. Restores MongoDB Operator deployment
+5. Restores Certificate Manager resources
+6. Restores MongoDBCommunity Custom Resource
+7. Waits for MongoDB instance to be fully operational
+8. Restores database data using <code>mongorestore</code></p>
+<p><strong>Note</strong>: This is a complete restoration that recreates the MongoDB instance from scratch. Use <code>restore-database</code> action if you only need to restore data to an existing instance.</p>
+<h3 id="install-from-backup-ce-operator">Install from Backup (CE Operator)<a class="headerlink" href="#install-from-backup-ce-operator" title="Permanent link">¤</a></h3>
+<p>Deploy a new MongoDB instance using configuration from a backup and restore data from a backup. This is useful for disaster recovery or migrating MongoDB to a new cluster.</p>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_action: install
+    mas_instance_id: masinst1
+    mongodb_backup_version: 20251212-021316
+    mas_backup_dir: /tmp/masbr
+  roles:
+    - ibm.mas_devops.mongodb
+</code></pre>
 <p><strong>Purpose</strong>: Specifies which backup version to restore from. This allows point-in-time recovery to a specific backup.</p>
 <p><strong>When to use</strong>:
 - Always required when performing restore operations
@@ -2499,7 +2692,7 @@ Also, you need to have AWS user credentials configured via <code>aws configure</
 <p><strong>Related variables</strong>: Used with <code>atlas_mongodb_host</code> and <code>atlas_mongodb_username</code>.</p>
 <p><strong>Note</strong>: Store securely. Never commit to version control.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
-<h3 id="install-ce-operator">Install (CE Operator)<a class="headerlink" href="#install-ce-operator" title="Permanent link">¤</a></h3>
+<h3 id="install-ce-operator_1">Install (CE Operator)<a class="headerlink" href="#install-ce-operator_1" title="Permanent link">¤</a></h3>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
@@ -2509,7 +2702,7 @@ Also, you need to have AWS user credentials configured via <code>aws configure</
   roles:
     - ibm.mas_devops.mongodb
 </code></pre>
-<h3 id="backup-ce-operator">Backup (CE Operator)<a class="headerlink" href="#backup-ce-operator" title="Permanent link">¤</a></h3>
+<h3 id="backup-ce-operator_1">Backup (CE Operator)<a class="headerlink" href="#backup-ce-operator_1" title="Permanent link">¤</a></h3>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
@@ -2784,6 +2977,122 @@ ansible-playbook ibm.mas_devops.run_role
                       <li class="md-toc__item">
                         <a href="#ce-operator-variables" class="md-toc__link" data-md-level="2">
                           CE Operator Variables
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#role-variables-backup-and-restore-ce-operator" class="md-toc__link" data-md-level="1">
+                  Role Variables - Backup and Restore (CE Operator)
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#mongodb_action_1" class="md-toc__link" data-md-level="2">
+                          mongodb_action
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#mas_backup_dir" class="md-toc__link" data-md-level="2">
+                          mas_backup_dir
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#mongodb_backup_version" class="md-toc__link" data-md-level="2">
+                          mongodb_backup_version
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#mongodb_instance_name" class="md-toc__link" data-md-level="2">
+                          mongodb_instance_name
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#override_storageclass" class="md-toc__link" data-md-level="2">
+                          override_storageclass
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#mas_app_id" class="md-toc__link" data-md-level="2">
+                          mas_app_id
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#backup-and-restore-operations" class="md-toc__link" data-md-level="1">
+                  Backup and Restore Operations
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#action-comparison" class="md-toc__link" data-md-level="2">
+                          Action Comparison
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#backup-process" class="md-toc__link" data-md-level="2">
+                          Backup Process
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#restore-process" class="md-toc__link" data-md-level="2">
+                          Restore Process
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#important-considerations" class="md-toc__link" data-md-level="2">
+                          Important Considerations
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#backup-and-restore-best-practices" class="md-toc__link" data-md-level="2">
+                          Backup and Restore Best Practices
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#backup-and-restore-issues" class="md-toc__link" data-md-level="2">
+                          Backup and Restore Issues
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#example-playbooks" class="md-toc__link" data-md-level="1">
+                  Example Playbooks
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#install-ce-operator" class="md-toc__link" data-md-level="2">
+                          Install (CE Operator)
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#backup-ce-operator" class="md-toc__link" data-md-level="2">
+                          Backup (CE Operator)
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#backup-with-instance-resources-ce-operator" class="md-toc__link" data-md-level="2">
+                          Backup with Instance Resources (CE Operator)
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#backup-database-ce-operator" class="md-toc__link" data-md-level="2">
+                          Backup Database (CE Operator)
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#restore-database-ce-operator" class="md-toc__link" data-md-level="2">
+                          Restore Database (CE Operator)
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#full-restore-ce-operator" class="md-toc__link" data-md-level="2">
+                          Full Restore (CE Operator)
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#install-from-backup-ce-operator" class="md-toc__link" data-md-level="2">
+                          Install from Backup (CE Operator)
                         </a>
                       </li>
                   </ul>
@@ -3170,12 +3479,12 @@ ansible-playbook ibm.mas_devops.run_role
                 </a>
                   <ul class="md-toc__list">
                       <li class="md-toc__item">
-                        <a href="#install-ce-operator" class="md-toc__link" data-md-level="2">
+                        <a href="#install-ce-operator_1" class="md-toc__link" data-md-level="2">
                           Install (CE Operator)
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#backup-ce-operator" class="md-toc__link" data-md-level="2">
+                        <a href="#backup-ce-operator_1" class="md-toc__link" data-md-level="2">
                           Backup (CE Operator)
                         </a>
                       </li>

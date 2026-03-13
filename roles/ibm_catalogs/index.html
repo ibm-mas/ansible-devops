@@ -211,8 +211,14 @@
 
     
       
-  <cds-side-nav-menu-item href="../../playbooks/backup-restore/">
-    Backup &amp; Restore
+  <cds-side-nav-menu-item href="../../playbooks/backup_restore.md">
+    Backup and Restore
+  </cds-side-nav-menu-item>
+
+    
+      
+  <cds-side-nav-menu-item href="../../playbooks/legacy_backup_restore.md">
+    Legacy Backup and Restore
   </cds-side-nav-menu-item>
 
     
@@ -535,12 +541,6 @@
 
     
       
-  <cds-side-nav-menu-item href="../suite_app_backup_restore/">
-    suite_app_backup_restore
-  </cds-side-nav-menu-item>
-
-    
-      
   <cds-side-nav-menu-item href="../suite_certs/">
     suite_certs
   </cds-side-nav-menu-item>
@@ -654,12 +654,6 @@
   </cds-side-nav-menu-item>
 
     
-      
-  <cds-side-nav-menu-item href="../suite_backup_restore/">
-    suite_backup_restore
-  </cds-side-nav-menu-item>
-
-    
   </cds-side-nav-menu>
 
                 
@@ -729,6 +723,8 @@
     
     
       <cds-select-item value="#role-variables">Role Variables</cds-select-item>
+    
+      <cds-select-item value="#backup-and-restore-operations">Backup and Restore Operations</cds-select-item>
     
       <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
     
@@ -805,6 +801,128 @@
 - <code>artifactory_username</code>: Required together with this token
 - Both must be set to enable development catalog access</p>
 <p><strong>Note</strong>: <strong>IBM EMPLOYEES ONLY</strong> - This is for pre-release testing only. Never use development catalogs in production. Keep this token secure and do not commit to source control. Generate tokens from IBM Artifactory.</p>
+<h3 id="backup-and-restore-variables">Backup and Restore Variables<a class="headerlink" href="#backup-and-restore-variables" title="Permanent link">¤</a></h3>
+<h4 id="mas_backup_dir">mas_backup_dir<a class="headerlink" href="#mas_backup_dir" title="Permanent link">¤</a></h4>
+<p>Directory path where IBM Operator Catalog backup files will be stored.</p>
+<ul>
+<li><strong>Required</strong> for backup and restore operations</li>
+<li>Environment Variable: <code>MAS_BACKUP_DIR</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the local filesystem directory where backup archives will be created (for backup) or read from (for restore). This directory serves as the central location for all IBM Operator Catalog backup data.</p>
+<p><strong>When to use</strong>:
+- Required when <code>ibm_catalogs_action</code> is set to <code>backup</code> or <code>restore</code>
+- Should be a persistent location with sufficient storage space
+- Ensure the directory is accessible and has appropriate permissions</p>
+<p><strong>Valid values</strong>: Any valid local filesystem path (e.g., <code>/backup/mas</code>, <code>/home/user/catalog-backups</code>)</p>
+<p><strong>Impact</strong>: All backup files and metadata will be stored in subdirectories under this path. The backup creates a timestamped directory structure: <code>{mas_backup_dir}/backup-{version}-catalog/</code></p>
+<p><strong>Related variables</strong>: Works with <code>ibm_catalogs_backup_version</code> to create unique backup directories.</p>
+<p><strong>Note</strong>: Ensure this directory has sufficient space for backup data and is regularly backed up to external storage for disaster recovery.</p>
+<h4 id="ibm_catalogs_backup_version">ibm_catalogs_backup_version<a class="headerlink" href="#ibm_catalogs_backup_version" title="Permanent link">¤</a></h4>
+<p>Version identifier for the backup, used to create unique backup directories.</p>
+<ul>
+<li><strong>Optional</strong> for backup (auto-generated if not provided)</li>
+<li><strong>Required</strong> for restore</li>
+<li>Environment Variable: <code>IBM_CATALOGS_BACKUP_VERSION</code></li>
+<li>Default: Auto-generated timestamp in format <code>YYYYMMDD-HHMMSS</code></li>
+</ul>
+<p><strong>Purpose</strong>: Provides a unique identifier for each backup, allowing multiple backups to coexist and enabling point-in-time restore operations.</p>
+<p><strong>When to use</strong>:
+- For backup: Leave unset to auto-generate a timestamp-based version, or provide a custom identifier
+- For restore: Must specify the exact version identifier of the backup to restore</p>
+<p><strong>Valid values</strong>: Any string suitable for directory names (alphanumeric, hyphens, underscores). Auto-generated format: <code>YYYYMMDD-HHMMSS</code> (e.g., <code>20260122-131500</code>)</p>
+<p><strong>Impact</strong>:
+- For backup: Creates directory <code>{mas_backup_dir}/backup-{version}-catalog/</code>
+- For restore: Looks for backup in <code>{mas_backup_dir}/backup-{version}-catalog/</code></p>
+<p><strong>Related variables</strong>: Works with <code>mas_backup_dir</code> to determine backup location.</p>
+<p><strong>Note</strong>: When restoring, you must know the exact backup version identifier. List the contents of <code>mas_backup_dir</code> to see available backups.</p>
+<h2 id="backup-and-restore-operations">Backup and Restore Operations<a class="headerlink" href="#backup-and-restore-operations" title="Permanent link">¤</a></h2>
+<p>This section provides comprehensive information about IBM Operator Catalog backup and restore operations.</p>
+<h3 id="action-comparison">Action Comparison<a class="headerlink" href="#action-comparison" title="Permanent link">¤</a></h3>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>Purpose</th>
+<th>Instance Resources</th>
+<th>Prerequisites</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backup</code></td>
+<td>Create backup</td>
+<td>Yes (catalog and related resources)</td>
+<td>Running IBM Operator Catalog</td>
+<td>Regular backups, disaster recovery preparation</td>
+</tr>
+<tr>
+<td><code>restore</code></td>
+<td>Full restore</td>
+<td>Yes (recreates catalog and related resources)</td>
+<td>Backup archive</td>
+<td>Disaster recovery, cluster migration, complete restoration</td>
+</tr>
+</tbody>
+</table>
+<h3 id="backup-process">Backup Process<a class="headerlink" href="#backup-process" title="Permanent link">¤</a></h3>
+<p>The IBM Operator Catalog backup operation creates a backup of your catalog installation resources:</p>
+<ol>
+<li><strong>Catalog Resources</strong>: Backs up Kubernetes resources including:</li>
+<li>CatalogSource (<code>ibm-operator-catalog</code>)</li>
+<li>Secrets (for development catalogs: <code>wiotp-docker-local</code>)</li>
+<li>ServiceAccounts (<code>ibm-operator-catalog</code>, <code>default</code>)</li>
+<li><strong>Auto-discovered Secrets</strong>: Any secrets referenced by the backed-up resources are automatically discovered and included</li>
+</ol>
+<p><strong>Note</strong>: The backup includes development catalog credentials if they were configured during installation.</p>
+<p><strong>Backup Directory Structure:</strong></p>
+<pre><code>{mas_backup_dir}/
+└── backup-{version}-catalog/
+    └── resources/
+        ├── catalogsources/
+        ├── secrets/
+        └── serviceaccounts/
+</code></pre>
+<h3 id="restore-process">Restore Process<a class="headerlink" href="#restore-process" title="Permanent link">¤</a></h3>
+<p>The IBM Operator Catalog restore operation performs a complete restoration of the catalog:</p>
+<p><strong>Steps:</strong>
+1. Validates backup files and required variables
+2. Restores Secrets (or creates new <code>wiotp-docker-local</code> secret if <code>artifactory_username</code> and <code>artifactory_token</code> are provided)
+3. Restores ServiceAccounts
+4. Restores CatalogSource
+5. Waits for CatalogSource to be ready (up to 30 minutes)</p>
+<p><strong>When to use:</strong>
+- Disaster recovery scenarios
+- Migrating IBM Operator Catalog to a new cluster
+- Recreating a deleted catalog
+- Setting up a new environment from backup</p>
+<h3 id="important-considerations">Important Considerations<a class="headerlink" href="#important-considerations" title="Permanent link">¤</a></h3>
+<p><strong>Version Compatibility:</strong>
+- Target catalog version should match the backup version
+- The restore process validates version compatibility before proceeding</p>
+<p><strong>Storage Requirements:</strong>
+- Ensure sufficient storage in the backup directory
+- Backup directory structure: <code>{mas_backup_dir}/backup-{version}-catalog/</code>
+- Monitor disk space during backup operations</p>
+<p><strong>Security:</strong>
+- Backup files contain catalog configuration and credentials (for development catalogs)
+- Secure backup directory with appropriate permissions (chmod 700 recommended)
+- Consider encrypting backups for long-term storage
+- Restrict access to backup files to authorized personnel only</p>
+<p><strong>Development Catalog Credentials:</strong>
+- If restoring with new <code>artifactory_username</code> and <code>artifactory_token</code>, the restore will create a new secret instead of using the backed-up one
+- This allows updating credentials during restore if needed</p>
+<h3 id="backup-and-restore-best-practices">Backup and Restore Best Practices<a class="headerlink" href="#backup-and-restore-best-practices" title="Permanent link">¤</a></h3>
+<ol>
+<li><strong>Regular Backups</strong>: Schedule automated backups at regular intervals, especially before upgrades</li>
+<li><strong>Test Restores</strong>: Periodically test restore procedures in non-production environments</li>
+<li><strong>Monitor Operations</strong>: Implement monitoring and alerting for backup failures</li>
+<li><strong>Backup Validation</strong>: Verify backup integrity after completion</li>
+<li><strong>Retention Policy</strong>: Implement and document backup retention policies</li>
+<li><strong>Disaster Recovery</strong>: Include IBM Operator Catalog backup/restore in your DR plan</li>
+<li><strong>Coordinate with Operators</strong>: Coordinate catalog backups with operator backups that depend on it</li>
+</ol>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <p>After installing the Ansible Collection you can include this role in your own custom playbooks.</p>
 <pre><code class="language-yaml">- hosts: localhost
@@ -871,6 +989,43 @@
                       <li class="md-toc__item">
                         <a href="#development-variables" class="md-toc__link" data-md-level="2">
                           Development Variables
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#backup-and-restore-variables" class="md-toc__link" data-md-level="2">
+                          Backup and Restore Variables
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#backup-and-restore-operations" class="md-toc__link" data-md-level="1">
+                  Backup and Restore Operations
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#action-comparison" class="md-toc__link" data-md-level="2">
+                          Action Comparison
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#backup-process" class="md-toc__link" data-md-level="2">
+                          Backup Process
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#restore-process" class="md-toc__link" data-md-level="2">
+                          Restore Process
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#important-considerations" class="md-toc__link" data-md-level="2">
+                          Important Considerations
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#backup-and-restore-best-practices" class="md-toc__link" data-md-level="2">
+                          Backup and Restore Best Practices
                         </a>
                       </li>
                   </ul>

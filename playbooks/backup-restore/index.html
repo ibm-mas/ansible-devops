@@ -2,7 +2,7 @@
     <meta charset="utf-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>Backup &amp; Restore - MAS DevOps Ansible Collection</title>
+    <title>Backup and Restore - MAS DevOps Ansible Collection</title>
 
     <!-- Pure CSS (https://pure-css.github.io/) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/purecss@3.0.0/build/pure-min.css" integrity="sha384-X38yfunGUhNzHpBaEBsWLO+A0HDYOQi8ufWDkZ0k9e0eXz/tH3II7uKZ9msv++Ls" crossorigin="anonymous">
@@ -134,7 +134,7 @@
 
                 
                   
-  <cds-side-nav-menu title="Playbooks" active="" expanded="">
+  <cds-side-nav-menu title="Playbooks">
     
       
   <cds-side-nav-menu-item href="../ocp/">
@@ -215,8 +215,14 @@
 
     
       
-  <cds-side-nav-menu-item href="./" active="" expanded="">
-    Backup &amp; Restore
+  <cds-side-nav-menu-item href="../backup_restore.md">
+    Backup and Restore
+  </cds-side-nav-menu-item>
+
+    
+      
+  <cds-side-nav-menu-item href="../legacy_backup_restore.md">
+    Legacy Backup and Restore
   </cds-side-nav-menu-item>
 
     
@@ -539,12 +545,6 @@
 
     
       
-  <cds-side-nav-menu-item href="../../roles/suite_app_backup_restore/">
-    suite_app_backup_restore
-  </cds-side-nav-menu-item>
-
-    
-      
   <cds-side-nav-menu-item href="../../roles/suite_certs/">
     suite_certs
   </cds-side-nav-menu-item>
@@ -658,12 +658,6 @@
   </cds-side-nav-menu-item>
 
     
-      
-  <cds-side-nav-menu-item href="../../roles/suite_backup_restore/">
-    suite_backup_restore
-  </cds-side-nav-menu-item>
-
-    
   </cds-side-nav-menu>
 
                 
@@ -723,7 +717,6 @@
   <cds-breadcrumb-item>
     <cds-breadcrumb-link href="../..">Home</cds-breadcrumb-link>
   </cds-breadcrumb-item>
-      <cds-breadcrumb-item>Playbooks</cds-breadcrumb-item>
   <cds-breadcrumb-item>
     <cds-breadcrumb-link href="#backup-and-restore">Backup and Restore</cds-breadcrumb-link>
   </cds-breadcrumb-item>
@@ -734,32 +727,6 @@
     
       <cds-select-item value="#overview">Overview</cds-select-item>
     
-      <cds-select-item value="#configuration-storage">Configuration - Storage</cds-select-item>
-    
-      <cds-select-item value="#configuration-backup">Configuration - Backup</cds-select-item>
-    
-      <cds-select-item value="#configuration-restore">Configuration - Restore</cds-select-item>
-    
-      <cds-select-item value="#backuprestore-for-mongodb">Backup/Restore for MongoDB</cds-select-item>
-    
-      <cds-select-item value="#backuprestore-for-db2">Backup/Restore for Db2</cds-select-item>
-    
-      <cds-select-item value="#backuprestore-for-mas-core">Backup/Restore for MAS Core</cds-select-item>
-    
-      <cds-select-item value="#backuprestore-for-manage">Backup/Restore for Manage</cds-select-item>
-    
-      <cds-select-item value="#backuprestore-for-iot">Backup/Restore for IoT</cds-select-item>
-    
-      <cds-select-item value="#backuprestore-for-monitor">Backup/Restore for Monitor</cds-select-item>
-    
-      <cds-select-item value="#backuprestore-for-health">Backup/Restore for Health</cds-select-item>
-    
-      <cds-select-item value="#backuprestore-for-optimizer">Backup/Restore for Optimizer</cds-select-item>
-    
-      <cds-select-item value="#backuprestore-for-visual-inspection">Backup/Restore for Visual Inspection</cds-select-item>
-    
-      <cds-select-item value="#reference">Reference</cds-select-item>
-    
     </cds-select>
   </cds-breadcrumb-item>
 </cds-breadcrumb>
@@ -769,775 +736,506 @@
           <div class="rst-content">
             
             <h1 id="backup-and-restore">Backup and Restore<a class="headerlink" href="#backup-and-restore" title="Permanent link">¤</a></h1>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>These playbooks are samples to demonstrate how to use the roles in this collection.</p>
+<p>They are <strong>not intended for production use</strong> as-is, they are a starting point for power users to aid in the development of their own Ansible playbooks using the roles in this collection.</p>
+<p>The recommended way to perform backup and restore operations for MAS is to use the <a href="https://ibm-mas.github.io/cli/">MAS CLI</a>, which uses this Ansible Collection to deliver a complete managed lifecycle for your MAS instance.</p>
+</div>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">¤</a></h2>
-<p>MAS Devops Collection includes playbooks for backing up and restoring of the following MAS components and their dependencies:</p>
+<p>MAS Devops Collection includes playbooks/guidance for backing up and restoring MAS components and their dependencies. The backup and restore operations are designed to protect your MAS installation and enable disaster recovery, cluster migration, and testing scenarios.</p>
+<p><strong>Supported Components:</strong>
+- <a href="#mongodb-community-backup-and-restore">MongoDB Community</a>
+- <a href="#mas-core-backup-and-restore">MAS Core</a>
+- <a href="#db2-backup-and-restore">Db2 Backup and Restore</a>
+- <a href="#manage-application-backup-and-restore">Manage Application</a></p>
+<p><strong>Roles Supporting Backup/Restore:</strong>
+- <a href="../../roles/cert_manager/"><code>ibm.mas_devops.cert_manager</code></a>
+- <a href="../../roles/db2/"><code>ibm.mas_devops.db2</code></a>
+- <a href="../../roles/ibm_catalogs/"><code>ibm.mas_devops.ibm_catalogs</code></a>
+- <a href="../../roles/mongodb/"><code>ibm.mas_devops.mongodb</code></a>
+- <a href="../../roles/sls/"><code>ibm.mas_devops.sls</code></a>
+- <a href="../roles/suite_backup.md"><code>ibm.mas_devops.suite_backup</code></a>
+- <a href="../roles/suite_restore.md"><code>ibm.mas_devops.suite_restore</code></a>
+- <a href="../roles/suite_app_backup.md"><code>ibm.mas_devops.suite_app_backup</code></a>
+- <a href="../roles/suite_app_restore.md"><code>ibm.mas_devops.suite_app_restore</code></a></p>
+<h1 id="mongodb-community-backup-and-restore">MongoDB Community Backup and Restore<a class="headerlink" href="#mongodb-community-backup-and-restore" title="Permanent link">¤</a></h1>
+<h2 id="overview_1">Overview<a class="headerlink" href="#overview_1" title="Permanent link">¤</a></h2>
+<p>This playbook performs backup and restore operations for MongoDB Community Edition instances. It supports backing up both the MongoDB instance configuration and database data.</p>
+<p><strong>Important</strong>: 
+- Supports MongoDB Community Edition only
+- Can backup/restore entire instance or individual databases
+- Backup includes both Kubernetes resources and database data</p>
+<h2 id="playbook-content">Playbook Content<a class="headerlink" href="#playbook-content" title="Permanent link">¤</a></h2>
+<p>The playbook executes the following operations:</p>
+<h3 id="backup-operation">Backup Operation<a class="headerlink" href="#backup-operation" title="Permanent link">¤</a></h3>
+<ol>
+<li><a href="../../roles/mongodb/">Backup MongoDB Instance Resources</a> - Kubernetes resources (Deployment, Custom resources, ConfigMaps, Secrets)</li>
+<li><a href="../../roles/mongodb/">Backup MongoDB Database Data</a> - Database data using mongodump</li>
+</ol>
+<h3 id="restore-operation">Restore Operation<a class="headerlink" href="#restore-operation" title="Permanent link">¤</a></h3>
+<ol>
+<li><a href="../../roles/mongodb/">Restore MongoDB Instance Resources</a> - Recreate Kubernetes resources</li>
+<li><a href="../../roles/mongodb/">Restore MongoDB Database Data</a> - Restore database data using mongorestore</li>
+</ol>
+<h2 id="required-environment-variables">Required Environment Variables<a class="headerlink" href="#required-environment-variables" title="Permanent link">¤</a></h2>
+<h3 id="common-variables-backup-and-restore">Common Variables (Backup and Restore)<a class="headerlink" href="#common-variables-backup-and-restore" title="Permanent link">¤</a></h3>
 <ul>
-<li><a href="#backuprestore-for-mongodb">MongoDB</a></li>
-<li><a href="#backuprestore-for-db2">Db2</a></li>
-<li><a href="#backuprestore-for-mas-core">MAS Core</a></li>
-<li><a href="#backuprestore-for-manage">Manage</a></li>
-<li><a href="#backuprestore-for-iot">IoT</a></li>
-<li><a href="#backuprestore-for-monitor">Monitor</a></li>
-<li><a href="#backuprestore-for-health">Health</a></li>
-<li><a href="#backuprestore-for-optimizer">Optimizer</a></li>
-<li><a href="#backuprestore-for-visual-inspection">Visual Inspection</a></li>
+<li><code>MAS_INSTANCE_ID</code> - The instance ID of the MAS installation</li>
+<li><code>MAS_BACKUP_DIR</code> - Directory where backup files will be stored/retrieved (e.g., <code>/tmp/mas_backups</code>)</li>
+<li><code>MONGODB_ACTION</code> - Set to <code>backup</code>, <code>backup-database</code>, <code>restore</code>, or <code>restore-database</code></li>
+<li><code>MONGODB_INSTANCE_NAME</code> - MongoDB instance name (default: <code>mas-mongo-ce</code>)</li>
+<li><code>MONGODB_NAMESPACE</code> - Namespace where MongoDB is installed (default: <code>mongoce</code>)</li>
 </ul>
-<p>Creation of both <strong>full</strong> and <strong>incremental</strong> backups are supported.  The backup and restore Ansible roles can also be used individually, allowing you to build your own customized backup and restore playbook covering exactly what you need. For example, you can only <a href="../../roles/suite_app_backup_restore/">backup/restore Manage attachments</a>.</p>
-<div class="admonition important">
-<p class="admonition-title">Important</p>
-<p>The backup and restore playbooks in this collection are still work in progress, they are not suitable for production use at this time.  You may track development progress using the <a href="https://github.com/ibm-mas/ansible-devops/issues?q=label%3A%22Backup+%26+Restore%22+">Backup &amp; Restore</a> label in the Github repository.</p>
-<p>Production-ready backup and restore options are detailed in the <a href="https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=administering-backing-up-restoring-maximo-application-suite">Backup and restore</a> topic in the product documentation.</p>
+<h3 id="backup-specific-variables">Backup-Specific Variables<a class="headerlink" href="#backup-specific-variables" title="Permanent link">¤</a></h3>
+<ul>
+<li><code>MONGODB_BACKUP_VERSION</code> - (Optional) Custom version identifier for the backup. If not provided, defaults to timestamp format <code>YYYYMMDD-HHMMSS</code></li>
+</ul>
+<h3 id="restore-specific-variables">Restore-Specific Variables<a class="headerlink" href="#restore-specific-variables" title="Permanent link">¤</a></h3>
+<ul>
+<li><code>MONGODB_BACKUP_VERSION</code> - (Required) The backup version identifier to restore</li>
+</ul>
+<h2 id="optional-environment-variables">Optional Environment Variables<a class="headerlink" href="#optional-environment-variables" title="Permanent link">¤</a></h2>
+<h3 id="storage-class-override-restore">Storage Class Override (Restore)<a class="headerlink" href="#storage-class-override-restore" title="Permanent link">¤</a></h3>
+<ul>
+<li><code>OVERRIDE_STORAGECLASS</code> - Set to <code>true</code> to override storage class names from backup (default: <code>false</code>)</li>
+<li><code>MONGODB_STORAGECLASS_NAME_RWO</code> - Custom RWO storage class for MongoDB</li>
+</ul>
+<h3 id="application-specific">Application-Specific<a class="headerlink" href="#application-specific" title="Permanent link">¤</a></h3>
+<ul>
+<li><code>MAS_APP_ID</code> - (Optional) MAS application ID if backing up application-specific database</li>
+</ul>
+<h2 id="usage-examples">Usage Examples<a class="headerlink" href="#usage-examples" title="Permanent link">¤</a></h2>
+<h3 id="backup-mongodb-instance">Backup MongoDB Instance<a class="headerlink" href="#backup-mongodb-instance" title="Permanent link">¤</a></h3>
+<p>Create a complete backup of MongoDB instance and all databases:</p>
+<pre><code class="language-bash">export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export MONGODB_ACTION=backup
+export MONGODB_INSTANCE_NAME=mas-mongo-ce
+export MONGODB_NAMESPACE=mongoce
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_mongodb
+</code></pre>
+<h3 id="backup-with-custom-version">Backup with Custom Version<a class="headerlink" href="#backup-with-custom-version" title="Permanent link">¤</a></h3>
+<p>Create a backup with a custom version identifier:</p>
+<pre><code class="language-bash">export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export MONGODB_ACTION=backup
+export MONGODB_BACKUP_VERSION=pre-upgrade-mongo
+export MONGODB_INSTANCE_NAME=mas-mongo-ce
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_mongodb
+</code></pre>
+<h3 id="backup-individual-database">Backup Individual Database<a class="headerlink" href="#backup-individual-database" title="Permanent link">¤</a></h3>
+<p>Create a backup of a specific database only:</p>
+<pre><code class="language-bash">export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export MONGODB_ACTION=backup-database
+export MONGODB_INSTANCE_NAME=mas-mongo-ce
+export MAS_APP_ID=manage
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_mongodb
+</code></pre>
+<h3 id="restore-mongodb-instance">Restore MongoDB Instance<a class="headerlink" href="#restore-mongodb-instance" title="Permanent link">¤</a></h3>
+<p>Restore MongoDB instance from a backup:</p>
+<pre><code class="language-bash">export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export MONGODB_ACTION=restore
+export MONGODB_BACKUP_VERSION=20260122-131500
+export MONGODB_INSTANCE_NAME=mas-mongo-ce
+export MONGODB_NAMESPACE=mongoce
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_mongodb
+</code></pre>
+<h3 id="restore-with-storage-class-override">Restore with Storage Class Override<a class="headerlink" href="#restore-with-storage-class-override" title="Permanent link">¤</a></h3>
+<p>Restore MongoDB to a different cluster with different storage class:</p>
+<pre><code class="language-bash">export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export MONGODB_ACTION=restore
+export MONGODB_BACKUP_VERSION=20260122-131500
+export MONGODB_INSTANCE_NAME=mas-mongo-ce
+export MONGODB_NAMESPACE=mongoce
+
+# Override storage class
+export OVERRIDE_STORAGECLASS=true
+export MONGODB_STORAGECLASS_NAME_RWO=ocs-storagecluster-ceph-rbd
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_mongodb
+</code></pre>
+<h3 id="restore-individual-database">Restore Individual Database<a class="headerlink" href="#restore-individual-database" title="Permanent link">¤</a></h3>
+<p>Restore a specific database only:</p>
+<pre><code class="language-bash">export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export MONGODB_ACTION=restore-database
+export MONGODB_BACKUP_VERSION=20260122-131500
+export MONGODB_INSTANCE_NAME=mas-mongo-ce
+export MAS_APP_ID=manage
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_mongodb
+</code></pre>
+<h2 id="important-considerations">Important Considerations<a class="headerlink" href="#important-considerations" title="Permanent link">¤</a></h2>
+<h3 id="backup-actions">Backup Actions<a class="headerlink" href="#backup-actions" title="Permanent link">¤</a></h3>
+<ul>
+<li><strong>backup</strong>: Full backup of MongoDB instance (Kubernetes resources + all database data)</li>
+<li><strong>backup-database</strong>: Backup specific database data only (requires <code>MAS_APP_ID</code>)</li>
+</ul>
+<h3 id="restore-actions">Restore Actions<a class="headerlink" href="#restore-actions" title="Permanent link">¤</a></h3>
+<ul>
+<li><strong>restore</strong>: Full restore of MongoDB instance (Kubernetes resources + all database data)</li>
+<li><strong>restore-database</strong>: Restore specific database data only (requires <code>MAS_APP_ID</code>)</li>
+</ul>
+<h3 id="prerequisites-for-restore">Prerequisites for Restore<a class="headerlink" href="#prerequisites-for-restore" title="Permanent link">¤</a></h3>
+<ul>
+<li>Target cluster must have MongoDB Community Operator installed</li>
+<li>Sufficient storage capacity for database restoration</li>
+<li>Same or compatible MongoDB version as the backup</li>
+<li>Target cluster must use the same MAS instance ID as the backup</li>
+</ul>
+<h3 id="backup-best-practices">Backup Best Practices<a class="headerlink" href="#backup-best-practices" title="Permanent link">¤</a></h3>
+<ol>
+<li><strong>Regular Schedule</strong>: Perform backups regularly, especially before:</li>
+<li>MongoDB upgrades</li>
+<li>MAS upgrades</li>
+<li>Configuration changes</li>
+<li><strong>Full vs Database Backups</strong>: </li>
+<li>Use full backups for complete disaster recovery</li>
+<li>Use database backups for application-specific data protection</li>
+<li><strong>Test Restores</strong>: Periodically test restore procedures in non-production environments</li>
+<li><strong>Secure Storage</strong>: Store backups in a secure location separate from the cluster</li>
+</ol>
+<h3 id="restore-best-practices">Restore Best Practices<a class="headerlink" href="#restore-best-practices" title="Permanent link">¤</a></h3>
+<ol>
+<li><strong>Pre-Restore Validation</strong>:</li>
+<li>Verify backup archive exists and is complete</li>
+<li>Confirm target cluster has sufficient resources</li>
+<li>Verify MongoDB instance name matches the backup</li>
+<li><strong>Post-Restore Verification</strong>:</li>
+<li>Verify MongoDB pods are running</li>
+<li>Test database connectivity</li>
+<li>Verify data integrity</li>
+<li>Check application connectivity to MongoDB</li>
+</ol>
+<h3 id="storage-requirements">Storage Requirements<a class="headerlink" href="#storage-requirements" title="Permanent link">¤</a></h3>
+<ul>
+<li>Plan for sufficient storage for MongoDB backups</li>
+<li>Database backups can be large depending on data size</li>
+<li>Backup directory structure: <code>{mas_backup_dir}/backup-{version}-mongoce/</code></li>
+</ul>
+<h3 id="security-considerations">Security Considerations<a class="headerlink" href="#security-considerations" title="Permanent link">¤</a></h3>
+<ul>
+<li>Backup files contain sensitive data including database contents and credentials</li>
+<li>Secure backup directory with appropriate permissions (chmod 700 recommended)</li>
+<li>Consider encrypting backups for long-term storage</li>
+<li>Restrict access to backup files to authorized personnel only</li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If you do not want to set up all the dependencies on your local system, you can run the playbook inside our docker image: <code>docker run -ti --pull always quay.io/ibmmas/cli</code></p>
 </div>
-<h2 id="configuration-storage">Configuration - Storage<a class="headerlink" href="#configuration-storage" title="Permanent link">¤</a></h2>
-<p>You can save the backup files to a folder on your local file system by setting the following environment variables:</p>
-<table>
-<thead>
-<tr>
-<th>Envrionment variable</th>
-<th>Required (Default Value)</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>MASBR_STORAGE_LOCAL_FOLDER</td>
-<td><strong>Yes</strong></td>
-<td>The local path to save the backup files</td>
-</tr>
-<tr>
-<td>MASBR_LOCAL_TEMP_FOLDER</td>
-<td>No (<code>/tmp/masbr</code>)</td>
-<td>Local folder for saving the temporary backup/restore data, the data in this folder will be deleted after the backup/restore job completed.</td>
-</tr>
-</tbody>
-</table>
-<h2 id="configuration-backup">Configuration - Backup<a class="headerlink" href="#configuration-backup" title="Permanent link">¤</a></h2>
-<table>
-<thead>
-<tr>
-<th>Envrionment variable</th>
-<th>Required (Default Value)</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>MASBR_ACTION</td>
-<td><strong>Yes</strong></td>
-<td>Whether to run the playbook to perform a <code>backup</code> or a <code>restore</code></td>
-</tr>
-<tr>
-<td>MASBR_BACKUP_TYPE</td>
-<td>No (<code>full</code>)</td>
-<td>Set <code>full</code> or <code>incr</code> to indicate the playbook to create a <strong>full</strong> backup or <strong>incremental</strong> backup.</td>
-</tr>
-<tr>
-<td>MASBR_BACKUP_FROM_VERSION</td>
-<td>No</td>
-<td>Set the full backup version to use in the incremental backup, this will be in the format of a <code>YYYMMDDHHMMSS</code> timestamp (e.g. <code>20240621021316</code>).</td>
-</tr>
-</tbody>
-</table>
-<p>The playbooks are switched to backup mode by setting <code>MASBR_ACTION</code> to <code>backup</code>.</p>
-<h3 id="full-backups">Full Backups<a class="headerlink" href="#full-backups" title="Permanent link">¤</a></h3>
-<p>If you set environment variable <code>MASBR_BACKUP_TYPE=full</code> or do not specify a value for this variable, the playbook will take a full backup.</p>
-<h3 id="incremental-backups">Incremental Backups<a class="headerlink" href="#incremental-backups" title="Permanent link">¤</a></h3>
-<p>You can set environment variable <code>MASBR_BACKUP_TYPE=incr</code> to indicate the playbook to take an incremental backup.</p>
-<div class="admonition important">
-<p class="admonition-title">Important</p>
-<p>Only supports creating incremental backup for MonogDB, Db2 and persistent volume data. The playbook will always create a full backup for other type of data regardless of whether this variable be set to <code>incr</code>.</p>
+<h2 id="additional-resources">Additional Resources<a class="headerlink" href="#additional-resources" title="Permanent link">¤</a></h2>
+<p>For detailed information about MongoDB backup and restore operations, refer to the role documentation:
+- <a href="../../roles/mongodb/">MongoDB Backup/Restore</a></p>
+<h1 id="db2-backup-and-restore">Db2 Backup and Restore<a class="headerlink" href="#db2-backup-and-restore" title="Permanent link">¤</a></h1>
+<h2 id="overview_2">Overview<a class="headerlink" href="#overview_2" title="Permanent link">¤</a></h2>
+<p>This playbook performs backup and restore operations for IBM Db2 Universal Operator instances. It supports both online and offline backups, and can store backups either on disk or in S3-compatible object storage(database backups only).</p>
+<p><strong>Important</strong>: The playbook supports multiple backup actions:
+- <code>backup</code> - Full Db2 instance backup
+- <code>backup-database</code> - Individual database backup
+- <code>restore</code> - Full Db2 instance restore
+- <code>restore-database</code> - Individual database restore</p>
+<h2 id="required-environment-variables_1">Required Environment Variables<a class="headerlink" href="#required-environment-variables_1" title="Permanent link">¤</a></h2>
+<h3 id="common-variables-backup-and-restore_1">Common Variables (Backup and Restore)<a class="headerlink" href="#common-variables-backup-and-restore_1" title="Permanent link">¤</a></h3>
+<ul>
+<li><code>MAS_INSTANCE_ID</code> - The instance ID of the MAS installation</li>
+<li><code>MAS_BACKUP_DIR</code> - Directory where backup files will be stored/retrieved (e.g., <code>/tmp/mas_backups</code>)</li>
+<li><code>DB2_INSTANCE_NAME</code> - Name of the Db2 instance</li>
+<li><code>DB2_ACTION</code> - Set to <code>backup</code>, <code>backup-database</code>, <code>restore</code>, or <code>restore-database</code></li>
+</ul>
+<h3 id="backup-specific-variables_1">Backup-Specific Variables<a class="headerlink" href="#backup-specific-variables_1" title="Permanent link">¤</a></h3>
+<ul>
+<li><code>DB2_BACKUP_TYPE</code> - Set to <code>online</code> or <code>offline</code> (default: <code>online</code>)</li>
+<li><code>BACKUP_VENDOR</code> - Set to <code>disk</code> or <code>s3</code> (default: <code>disk</code>)</li>
+</ul>
+<h3 id="restore-specific-variables_1">Restore-Specific Variables<a class="headerlink" href="#restore-specific-variables_1" title="Permanent link">¤</a></h3>
+<ul>
+<li><code>DB2_BACKUP_VERSION</code> - (Required) The backup version identifier to restore</li>
+</ul>
+<h3 id="s3-storage-variables-when-backup_vendors3">S3 Storage Variables (when BACKUP_VENDOR=s3)<a class="headerlink" href="#s3-storage-variables-when-backup_vendors3" title="Permanent link">¤</a></h3>
+<ul>
+<li><code>BACKUP_S3_ALIAS</code> - S3 alias name (default: <code>S3DB2COS</code>)</li>
+<li><code>BACKUP_S3_ENDPOINT</code> - S3 endpoint URL</li>
+<li><code>BACKUP_S3_BUCKET</code> - S3 bucket name</li>
+<li><code>BACKUP_S3_ACCESS_KEY</code> - S3 access key</li>
+<li><code>BACKUP_S3_SECRET_KEY</code> - S3 secret key</li>
+</ul>
+<h2 id="optional-environment-variables_1">Optional Environment Variables<a class="headerlink" href="#optional-environment-variables_1" title="Permanent link">¤</a></h2>
+<h3 id="db2-configuration">Db2 Configuration<a class="headerlink" href="#db2-configuration" title="Permanent link">¤</a></h3>
+<ul>
+<li><code>DB2_NAMESPACE</code> - Namespace where Db2 is installed (default: <code>db2u</code>)</li>
+</ul>
+<h3 id="storage-class-override-restore_1">Storage Class Override (Restore)<a class="headerlink" href="#storage-class-override-restore_1" title="Permanent link">¤</a></h3>
+<ul>
+<li><code>OVERRIDE_STORAGECLASS</code> - Set to <code>true</code> to override storage class names from backup (default: <code>false</code>)</li>
+<li><code>CUSTOM_STORAGE_CLASS_RWO</code> - Storage class for Read-write-only</li>
+<li><code>CUSTOM_STORAGE_CLASS_RWX</code> - Storage class for Read-write-many</li>
+</ul>
+<h2 id="usage-examples_1">Usage Examples<a class="headerlink" href="#usage-examples_1" title="Permanent link">¤</a></h2>
+<h3 id="backup-db2-to-disk-online">Backup Db2 to Disk (Online)<a class="headerlink" href="#backup-db2-to-disk-online" title="Permanent link">¤</a></h3>
+<p>Create an online backup of Db2 instance to local disk:</p>
+<pre><code class="language-bash">export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export DB2_INSTANCE_NAME=db2w-shared
+export DB2_ACTION=backup
+export DB2_BACKUP_TYPE=online
+export BACKUP_VENDOR=disk
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_db2
+</code></pre>
+<h3 id="backup-db2-to-s3">Backup Db2 to S3<a class="headerlink" href="#backup-db2-to-s3" title="Permanent link">¤</a></h3>
+<p>Create a backup of Db2 instance to S3 storage:</p>
+<pre><code class="language-bash">export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export DB2_INSTANCE_NAME=db2w-shared
+export DB2_ACTION=backup
+export DB2_BACKUP_TYPE=online
+export BACKUP_VENDOR=s3
+export BACKUP_S3_ENDPOINT=https://s3.us-east.cloud-object-storage.appdomain.cloud
+export BACKUP_S3_BUCKET=mas-db2-backups
+export BACKUP_S3_ACCESS_KEY=your-access-key
+export BACKUP_S3_SECRET_KEY=your-secret-key
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_db2
+</code></pre>
+<h3 id="restore-db2-from-backup">Restore Db2 from Backup<a class="headerlink" href="#restore-db2-from-backup" title="Permanent link">¤</a></h3>
+<p>Restore Db2 instance from a previous backup:</p>
+<pre><code class="language-bash">export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export DB2_INSTANCE_NAME=db2w-shared
+export DB2_ACTION=restore
+export DB2_BACKUP_VERSION=20260122-131500
+export BACKUP_VENDOR=disk
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_db2
+</code></pre>
+<h3 id="restore-with-storage-class-override_1">Restore with Storage Class Override<a class="headerlink" href="#restore-with-storage-class-override_1" title="Permanent link">¤</a></h3>
+<p>Restore Db2 to a different cluster with different storage classes:</p>
+<pre><code class="language-bash">export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export DB2_INSTANCE_NAME=db2w-shared
+export DB2_ACTION=restore
+export DB2_BACKUP_VERSION=20260122-131500
+export BACKUP_VENDOR=disk
+
+# Override storage classes
+export OVERRIDE_STORAGECLASS=true
+export DB2_META_STORAGE_CLASS=ocs-storagecluster-ceph-rbd
+export DB2_DATA_STORAGE_CLASS=ocs-storagecluster-ceph-rbd
+export DB2_BACKUP_STORAGE_CLASS=ocs-storagecluster-ceph-rbd
+export DB2_LOGS_STORAGE_CLASS=ocs-storagecluster-ceph-rbd
+export DB2_TEMP_STORAGE_CLASS=ocs-storagecluster-ceph-rbd
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_db2
+</code></pre>
+<h2 id="important-considerations_1">Important Considerations<a class="headerlink" href="#important-considerations_1" title="Permanent link">¤</a></h2>
+<h3 id="backup-types">Backup Types<a class="headerlink" href="#backup-types" title="Permanent link">¤</a></h3>
+<ul>
+<li><strong>Online Backup</strong>: Database remains available during backup (recommended for production)</li>
+<li><strong>Offline Backup</strong>: Database is taken offline during backup (faster but causes downtime)</li>
+</ul>
+<h3 id="storage-vendor-options">Storage Vendor Options<a class="headerlink" href="#storage-vendor-options" title="Permanent link">¤</a></h3>
+<ul>
+<li><strong>Disk</strong>: Stores backups on local filesystem or mounted storage</li>
+<li><strong>S3</strong>: Stores backups in S3-compatible object storage (recommended for production)</li>
+</ul>
+<h3 id="prerequisites-for-restore_1">Prerequisites for Restore<a class="headerlink" href="#prerequisites-for-restore_1" title="Permanent link">¤</a></h3>
+<ul>
+<li>Target cluster must have Db2 Universal Operator installed</li>
+<li>Sufficient storage capacity for database restoration</li>
+<li>Same or compatible Db2 version as the backup</li>
+</ul>
+<h1 id="mas-core-backup-and-restore">MAS Core Backup and Restore<a class="headerlink" href="#mas-core-backup-and-restore" title="Permanent link">¤</a></h1>
+<h2 id="overview_3">Overview<a class="headerlink" href="#overview_3" title="Permanent link">¤</a></h2>
+<p>This guide shows backup and restore operations for IBM Maximo Application Suite Core and its dependencies. This guidance can be used to build your own playbooks to run against any OCP cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.</p>
+<p><strong>Important</strong>: Backup can only be restored to an instance with the same MAS instance ID.</p>
+<h2 id="guidance-content">Guidance Content<a class="headerlink" href="#guidance-content" title="Permanent link">¤</a></h2>
+<p>Sequence of roles:</p>
+<h3 id="backup-operation_1">Backup Operation<a class="headerlink" href="#backup-operation_1" title="Permanent link">¤</a></h3>
+<ol>
+<li><a href="../../roles/ibm_catalogs/">Backup IBM Operator Catalogs</a> (~1 minute)</li>
+<li><a href="../../roles/cert_manager/">Backup Certificate Manager</a> (~1 minute)</li>
+<li><a href="../../roles/mongodb/">Backup MongoDB Community Edition</a> (~5-30 minutes depending on database size)</li>
+<li><a href="../../roles/sls/">Backup Suite License Service</a> (~2 minutes, optional)</li>
+<li><a href="../roles/suite_backup.md">Backup MAS Core</a> (~5 minutes)</li>
+</ol>
+<h3 id="restore-operation_1">Restore Operation<a class="headerlink" href="#restore-operation_1" title="Permanent link">¤</a></h3>
+<ol>
+<li><a href="../../roles/ibm_catalogs/">Restore IBM Operator Catalogs</a> (~2 minutes)</li>
+<li><a href="../../roles/cert_manager/">Restore Certificate Manager</a> (~5 minutes)</li>
+<li><a href="../../roles/grafana/">Install Grafana</a> (~10 minutes, optional)</li>
+<li><a href="../../roles/mongodb/">Restore MongoDB Community Edition</a> (~10-60 minutes depending on database size)</li>
+<li><a href="../../roles/sls/">Restore Suite License Service</a> (~10 minutes, optional)</li>
+<li><a href="../../roles/dro/">Install Data Reporter Operator</a> (~10 minutes, optional)</li>
+<li><a href="../roles/suite_restore.md">Restore MAS Core</a> (~30 minutes)</li>
+</ol>
+<p>All timings are estimates. See the individual role documentation for more information and full details of all configuration options.</p>
+<h2 id="important-considerations_2">Important Considerations<a class="headerlink" href="#important-considerations_2" title="Permanent link">¤</a></h2>
+<h3 id="prerequisites-for-restore_2">Prerequisites for Restore<a class="headerlink" href="#prerequisites-for-restore_2" title="Permanent link">¤</a></h3>
+<ul>
+<li>Target cluster must have sufficient resources (CPU, memory, storage)</li>
+<li>Certificate Manager must be installed (handled by playbook)</li>
+<li>Target cluster must use the same MAS instance ID as the backup</li>
+<li>Backup files must be accessible from the restore environment</li>
+</ul>
+<h3 id="backup-best-practices_1">Backup Best Practices<a class="headerlink" href="#backup-best-practices_1" title="Permanent link">¤</a></h3>
+<ol>
+<li><strong>Regular Schedule</strong>: Perform backups regularly, especially before:</li>
+<li>MAS upgrades</li>
+<li>Configuration changes</li>
+<li>Application installations</li>
+<li>Cluster maintenance</li>
+<li><strong>Test Restores</strong>: Periodically test restore procedures in non-production environments</li>
+<li><strong>Secure Storage</strong>: Store backups in a secure location separate from the cluster</li>
+<li><strong>Retention Policy</strong>: Implement and document backup retention policies</li>
+<li><strong>Verify Integrity</strong>: Verify backup integrity after completion</li>
+</ol>
+<h3 id="restore-best-practices_1">Restore Best Practices<a class="headerlink" href="#restore-best-practices_1" title="Permanent link">¤</a></h3>
+<ol>
+<li><strong>Pre-Restore Validation</strong>:</li>
+<li>Verify backup archive exists and is complete</li>
+<li>Confirm target cluster has sufficient resources</li>
+<li>Verify MAS instance ID matches the backup</li>
+<li><strong>Dependency Coordination</strong>:</li>
+<li>Ensure all external services (SLS, DRO, databases) are accessible</li>
+<li>Verify network connectivity to external services</li>
+<li><strong>Post-Restore Verification</strong>:</li>
+<li>Verify Suite status is Ready</li>
+<li>Verify all Workspaces are Ready</li>
+<li>Test application connectivity</li>
+<li>Test user authentication</li>
+</ol>
+<h3 id="storage-requirements_1">Storage Requirements<a class="headerlink" href="#storage-requirements_1" title="Permanent link">¤</a></h3>
+<ul>
+<li>Ensure sufficient storage in the backup directory</li>
+<li>Plan for at least 2x the database size for MongoDB backups</li>
+<li>Monitor disk space during backup operations</li>
+<li>Backup directory structure: <code>{mas_backup_dir}/backup-{version}-{component}/</code></li>
+</ul>
+<h3 id="security-considerations_1">Security Considerations<a class="headerlink" href="#security-considerations_1" title="Permanent link">¤</a></h3>
+<ul>
+<li>Backup files contain sensitive data including credentials and certificates</li>
+<li>Secure backup directory with appropriate permissions (chmod 700 recommended)</li>
+<li>Consider encrypting backups for long-term storage</li>
+<li>Restrict access to backup files to authorized personnel only</li>
+<li>Ensure secure transfer of backup files to restore environment</li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If you do not want to set up all the dependencies on your local system, you can run the playbook inside our docker image: <code>docker run -ti --pull always quay.io/ibmmas/cli</code></p>
 </div>
-<p>The environment variable <code>MASBR_BACKUP_FROM_VERSION</code> is only valid if <code>MASBR_BACKUP_TYPE=incr</code>. It indicates which backup version that the incremental backup to based on. If you do not set a value for this variable, the playbook will try to find the latest Completed Full backup from the specified storage location, and then take an incremental backup based on it.</p>
-<div class="admonition important">
-<p class="admonition-title">Important</p>
-<p>The backup files you specified by <code>MASBR_BACKUP_FROM_VERSION</code> must be a Full backup. And the component name and data types in the specified Full backup file must be same as the current incremental backup job.</p>
+<h2 id="additional-resources_1">Additional Resources<a class="headerlink" href="#additional-resources_1" title="Permanent link">¤</a></h2>
+<p>For detailed information about individual backup and restore operations, refer to the role documentation:
+- <a href="../../roles/ibm_catalogs/">IBM Operator Catalogs Backup/Restore</a>
+- <a href="../../roles/cert_manager/">Certificate Manager Backup/Restore</a>
+- <a href="../../roles/mongodb/">MongoDB Backup/Restore</a>
+- <a href="../../roles/sls/">SLS Backup/Restore</a>
+- <a href="../roles/suite_backup.md">MAS Core Backup</a>
+- <a href="../roles/suite_restore.md">MAS Core Restore</a>
+- <a href="../../roles/db2/">Db2 Backup/Restore</a></p>
+<h1 id="manage-application-backup-and-restore">Manage Application Backup and Restore<a class="headerlink" href="#manage-application-backup-and-restore" title="Permanent link">¤</a></h1>
+<h2 id="overview_4">Overview<a class="headerlink" href="#overview_4" title="Permanent link">¤</a></h2>
+<p>This guide shows backup and restore operations for IBM Maximo Manage application.</p>
+<p><strong>Important</strong>:
+- Backup can only be restored to an instance with the same MAS instance ID
+- You <strong>MUST</strong> run the <a href="#db2-backup-and-restore">DB2 backup and restore playbook</a> as a prerequisite step before running Manage backup or restore operations</p>
+<h2 id="content">Content<a class="headerlink" href="#content" title="Permanent link">¤</a></h2>
+<p>Executes the following operations:</p>
+<h3 id="backup-operation_2">Backup Operation<a class="headerlink" href="#backup-operation_2" title="Permanent link">¤</a></h3>
+<ol>
+<li><strong><a href="../../roles/db2/">Backup Db2 Database</a> - PREREQUISITE STEP</strong> (run <code>br_db2.yml</code> playbook separately first)</li>
+<li><a href="../roles/suite_app_backup.md">Backup Manage Application</a></li>
+</ol>
+<h3 id="restore-operation_2">Restore Operation<a class="headerlink" href="#restore-operation_2" title="Permanent link">¤</a></h3>
+<ol>
+<li><strong><a href="../../roles/db2/">Restore Db2 Database</a> - PREREQUISITE STEP</strong> (run <code>br_db2.yml</code> playbook separately first)</li>
+<li><a href="../roles/suite_app_restore.md">Restore Manage Application</a></li>
+</ol>
+<h2 id="important-considerations_3">Important Considerations<a class="headerlink" href="#important-considerations_3" title="Permanent link">¤</a></h2>
+<h3 id="prerequisites-for-restore_3">Prerequisites for Restore<a class="headerlink" href="#prerequisites-for-restore_3" title="Permanent link">¤</a></h3>
+<ul>
+<li>Target cluster must have MAS Core installed and configured</li>
+<li>Target cluster must have Db2 Universal Operator installed</li>
+<li>Workspace must exist with the same workspace ID</li>
+<li>Sufficient resources (CPU, memory, storage) for both Db2 and Manage</li>
+<li>Target cluster must use the same MAS instance ID as the backup</li>
+</ul>
+<h3 id="backup-best-practices_2">Backup Best Practices<a class="headerlink" href="#backup-best-practices_2" title="Permanent link">¤</a></h3>
+<ol>
+<li><strong>Two-Step Process</strong>: Always backup DB2 first, then Manage application</li>
+<li>Run <code>br_db2.yml</code> playbook before running Manage application backup</li>
+<li>DB2 backup is NOT automatically included in Manage backup</li>
+<li><strong>Version Alignment</strong>: Use consistent version identifiers for both DB2 and Manage backups for easier tracking</li>
+<li><strong>Regular Schedule</strong>: Perform backups regularly, especially before:</li>
+<li>Manage upgrades or updates</li>
+<li>Configuration changes</li>
+<li>Data migrations</li>
+<li><strong>Test Restores</strong>: Periodically test restore procedures in non-production environments</li>
+<li><strong>Secure Storage</strong>: Store backups in a secure location, preferably using S3 storage</li>
+</ol>
+<h3 id="restore-best-practices_2">Restore Best Practices<a class="headerlink" href="#restore-best-practices_2" title="Permanent link">¤</a></h3>
+<ol>
+<li><strong>Pre-Restore Validation</strong>:</li>
+<li>Verify both DB2 and Manage backup archives exist</li>
+<li>Confirm target cluster has sufficient resources</li>
+<li>Verify MAS instance ID and workspace ID match the backup</li>
+<li><strong>Restore Order</strong>: <strong>CRITICAL</strong> - Always restore DB2 first, then Manage application</li>
+<li>Run <code>br_db2.yml</code> playbook before running Manage application restore</li>
+<li>DB2 restore is NOT automatically included in Manage restore</li>
+<li><strong>Post-Restore Verification</strong>:</li>
+<li>Verify DB2 instance is running and accessible</li>
+<li>Verify Manage workspace status is Ready</li>
+<li>Test Manage application functionality</li>
+<li>Verify data integrity</li>
+</ol>
+<h3 id="storage-requirements_2">Storage Requirements<a class="headerlink" href="#storage-requirements_2" title="Permanent link">¤</a></h3>
+<ul>
+<li>Plan for sufficient storage for both Db2 and Manage backups</li>
+<li>Db2 backups can be large depending on database size</li>
+<li>Manage application configuration is relatively small</li>
+<li>Consider using S3 storage for production backups</li>
+</ul>
+<h3 id="security-considerations_2">Security Considerations<a class="headerlink" href="#security-considerations_2" title="Permanent link">¤</a></h3>
+<ul>
+<li>Backup files contain sensitive data including database contents and credentials</li>
+<li>Secure backup directory with appropriate permissions</li>
+<li>Consider encrypting backups for long-term storage</li>
+<li>Restrict access to backup files to authorized personnel only</li>
+<li>Ensure secure transfer of backup files to restore environment</li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If you do not want to set up all the dependencies on your local system, you can run the playbook inside our docker image: <code>docker run -ti --pull always quay.io/ibmmas/cli</code></p>
 </div>
-<h2 id="configuration-restore">Configuration - Restore<a class="headerlink" href="#configuration-restore" title="Permanent link">¤</a></h2>
-<table>
-<thead>
-<tr>
-<th>Envrionment variable</th>
-<th>Required (Default Value)</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>MASBR_ACTION</td>
-<td><strong>Yes</strong></td>
-<td>Whether to run the playbook to perform a <code>backup</code> or a <code>restore</code></td>
-</tr>
-<tr>
-<td>MASBR_RESTORE_FROM_VERSION</td>
-<td><strong>Yes</strong></td>
-<td>Set the backup version to use in the restore, this will be in the format of a <code>YYYMMDDHHMMSS</code> timestamp (e.g. <code>20240621021316</code>)</td>
-</tr>
-<tr>
-<td>MASBR_RESTORE_OVERWRITE</td>
-<td><strong>Yes</strong></td>
-<td>Set whether the restore should <strong>overwrite</strong> any existing data or if we should stop and <strong>FAIL</strong> if there is data detected in the directory. <strong>WARNING:</strong> This will overwrite all data when restoring!</td>
-</tr>
-</tbody>
-</table>
-<p>The playbooks are switched to restore mode by setting <code>MASBR_ACTION</code> to <code>restore</code>. You <strong>must</strong> specify the <code>MASBR_RESTORE_FROM_VERSION</code> environment variable to indicate which version of the backup files to use.</p>
-<p>In the case of restoring from an incremental backup, the corresponding full backup will be restored first before continuing to restore the incremental backup.</p>
-<h2 id="backuprestore-for-mongodb">Backup/Restore for MongoDB<a class="headerlink" href="#backuprestore-for-mongodb" title="Permanent link">¤</a></h2>
-<p>This playbook <code>ibm.mas_devops.br_mongodb</code> will invoke the role <a href="../../roles/mongodb/">mongodb</a> to backup/restore the MongoDB databases.</p>
-<p>This playbook supports backing up and restoring databases for an in-cluster MongoDB CE instance. If you are using other MongoDB venders, such as IBM Cloud Databases for MongoDB, Amazon DocumentDB or MongoDB Altas Database, please refer to the corresponding vender's documentation for more information about their provided backup/restore service.</p>
-<h3 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">¤</a></h3>
-<ul>
-<li><code>MONGODB_NAMESPACE</code>: By default the backup and restore processes will use a namespace of <code>mongoce</code>, if you have customized the install of MongoDb CE you must set this environment variable to the appropriate namespace you wish to backup from/restore to.</li>
-<li><code>MAS_INSTANCE_ID</code>: <strong>Required</strong>. This playbook supports backup/restore MongoDB databases that belong to a specific MAS instance, call the playbook multiple times with different values for <code>MAS_INSTANCE_ID</code> if you wish to back up multiple MAS instances that use the same MongoDB CE instance.</li>
-<li><code>MAS_APP_ID</code>: <strong>Optional</strong>. By default, this playbook will backup all databases belonging to the specified MAS instance. You can backup the databases only belong to a specific MAS application by setting this environment variable to a supported MAS application id <code>core</code>, <code>manage</code>, <code>iot</code>, <code>monitor</code>, <code>health</code>, <code>optimizer</code> or <code>visualinspection</code>.</li>
-</ul>
-<h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">¤</a></h3>
-<pre><code class="language-bash"># Full backup all MongoDB data for the dev1 instance
-export MASBR_ACTION=backup
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-ansible-playbook ibm.mas_devops.br_mongodb
-
-# Incremental backup all MongoDB data for the dev1 instance
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-ansible-playbook ibm.mas_devops.br_mongodb
-
-# Restore all MongoDB data for the dev1 instance
-export MASBR_ACTION=restore
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev
-ansible-playbook ibm.mas_devops.br_mongodb
-
-# Backup just the IoT MongoDB data for the dev2 instance
-export MASBR_ACTION=backup
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev2
-export MAS_APP_ID=iot
-ansible-playbook ibm.mas_devops.br_mongodb
-</code></pre>
-<h2 id="backuprestore-for-db2">Backup/Restore for Db2<a class="headerlink" href="#backuprestore-for-db2" title="Permanent link">¤</a></h2>
-<p>This playbook <code>ibm.mas_devops.br_db2</code> will invoke the role <a href="../../roles/db2/">db2</a> to backup/restore a single Db2 instance.</p>
-<h3 id="environment-variables_1">Environment Variables<a class="headerlink" href="#environment-variables_1" title="Permanent link">¤</a></h3>
-<ul>
-<li><code>DB2_INSTANCE_NAME</code>: <strong>Required</strong> This playbook only supports backing up specific Db2 instance at a time. If you want to backup all Db2 instances in the Db2 cluster, you need to run this playbook multiple times with different value of this environment variable.</li>
-<li><code>MAS_INSTANCE_ID</code>: <strong>Required</strong> Set the instance ID for the MAS install.</li>
-<li><code>MASBR_ACTION</code>: <strong>Required</strong> Set the action to be performed, <code>backup</code> or <code>restore</code>.</li>
-<li><code>MASBR_STORAGE_LOCAL_FOLDER</code>: <strong>Required</strong> Set the local path to the directory to be used for backup and restore.</li>
-<li><code>DB2_NAMESPACE</code>: <strong>Optional</strong> Set the DB2 namespace, defaults to <code>db2u</code></li>
-</ul>
-<h3 id="examples_1">Examples<a class="headerlink" href="#examples_1" title="Permanent link">¤</a></h3>
-<pre><code class="language-bash"># Full backup for the db2w-shared Db2 instance
-export MAS_INSTANCE_ID=dev
-export MASBR_ACTION=backup
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export DB2_INSTANCE_NAME=db2w-shared
-ansible-playbook ibm.mas_devops.br_db2
-
-# Incremental backup for the db2w-shared Db2 instance
-export MAS_INSTANCE_ID=dev
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export DB2_INSTANCE_NAME=db2w-shared
-ansible-playbook ibm.mas_devops.br_db2
-
-# Restore for the db2w-shared Db2 instance
-export MAS_INSTANCE_ID=dev
-export MASBR_ACTION=restore
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MASBR_RESTORE_FROM_VERSION=20240630132439
-export DB2_INSTANCE_NAME=db2w-shared
-ansible-playbook ibm.mas_devops.br_db2
-</code></pre>
-<h2 id="backuprestore-for-mas-core">Backup/Restore for MAS Core<a class="headerlink" href="#backuprestore-for-mas-core" title="Permanent link">¤</a></h2>
-<p>This playbook <code>ibm.mas_devops.br_core</code> will backup the following components that MAS Core depends on in order:</p>
-<table>
-<thead>
-<tr>
-<th>Component</th>
-<th>Ansible Role</th>
-<th>Data included</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>mongodb</td>
-<td><a href="../../roles/mongodb/">mongodb</a></td>
-<td>MongoDB databases used by MAS Core</td>
-</tr>
-<tr>
-<td>core</td>
-<td><a href="../../roles/suite_backup_restore/">suite_backup_restore</a></td>
-<td>MAS Core namespace resources</td>
-</tr>
-</tbody>
-</table>
-<h3 id="environment-variables_2">Environment Variables<a class="headerlink" href="#environment-variables_2" title="Permanent link">¤</a></h3>
-<ul>
-<li><code>MAS_INSTANCE_ID</code> <strong>Required</strong>. The MAS instance ID to perform a backup for.</li>
-</ul>
-<h3 id="examples_2">Examples<a class="headerlink" href="#examples_2" title="Permanent link">¤</a></h3>
-<pre><code class="language-bash"># Full backup all core data for the dev1 instance
-export MASBR_ACTION=backup
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-ansible-playbook ibm.mas_devops.br_core
-
-# Incremental backup all core data for the dev1 instance
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-ansible-playbook ibm.mas_devops.br_core
-
-# Restore all core data for the dev1 instance
-export MASBR_ACTION=restore
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev
-ansible-playbook ibm.mas_devops.br_core
-</code></pre>
-<h2 id="backuprestore-for-manage">Backup/Restore for Manage<a class="headerlink" href="#backuprestore-for-manage" title="Permanent link">¤</a></h2>
-<p>This playbook <code>ibm.mas_devops.br_manage</code> will backup the following components that Manage depends on in order:</p>
-<table>
-<thead>
-<tr>
-<th>Component</th>
-<th>Role</th>
-<th>Data included</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>mongodb</td>
-<td><a href="../../roles/mongodb/">mongodb</a></td>
-<td>MongoDB databases used by MAS Core</td>
-</tr>
-<tr>
-<td>db2</td>
-<td><a href="../../roles/db2/">db2</a></td>
-<td>Db2 instance used by Manage</td>
-</tr>
-<tr>
-<td>core</td>
-<td><a href="../../roles/suite_backup_restore/">suite_backup_restore</a></td>
-<td>MAS Core namespace resources</td>
-</tr>
-<tr>
-<td>manage</td>
-<td><a href="../../roles/suite_app_backup_restore/">suite_app_backup_restore</a></td>
-<td>Manage namespace resources <br>Persistent volume data, such as attachments</td>
-</tr>
-</tbody>
-</table>
-<h3 id="environment-variables_3">Environment Variables<a class="headerlink" href="#environment-variables_3" title="Permanent link">¤</a></h3>
-<ul>
-<li><code>MAS_INSTANCE_ID</code> <strong>Required</strong>. This playbook only supports backing up components belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.</li>
-<li><code>MAS_WORKSPACE_ID</code> <strong>Required</strong>. This playbook only supports backing up components belong to a specific MAS workspace at a time. If you have multiple MAS workspaces in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.</li>
-<li><code>DB2_INSTANCE_NAME</code> <strong>Optional</strong>. When defined, this playbook will backup the Db2 instance used by Manage. DB2 role is skipped when environment variable is not defined..</li>
-<li><code>DB2_NAMESPACE</code>: <strong>Optional</strong> Set the DB2 namespace, defaults to <code>db2u</code></li>
-</ul>
-<h3 id="examples_3">Examples<a class="headerlink" href="#examples_3" title="Permanent link">¤</a></h3>
-<pre><code class="language-bash"># Full backup all manage data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=backup
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage # set this to execute db2 backup role
-ansible-playbook ibm.mas_devops.br_manage
-
-# Incremental backup all manage data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage # set this to execute db2 backup role
-ansible-playbook ibm.mas_devops.br_manage
-
-# Restore all manage data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=restore
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage # set this to execute db2 backup role
-ansible-playbook ibm.mas_devops.br_manage
-</code></pre>
-<h2 id="backuprestore-for-iot">Backup/Restore for IoT<a class="headerlink" href="#backuprestore-for-iot" title="Permanent link">¤</a></h2>
-<p>This playbook <code>ibm.mas_devops.br_iot</code> will backup the following components that IoT depends on in order:</p>
-<table>
-<thead>
-<tr>
-<th>Component</th>
-<th>Ansible Role</th>
-<th>Data included</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>mongodb</td>
-<td><a href="../../roles/mongodb/">mongodb</a></td>
-<td>MongoDB databases used by MAS Core and IoT</td>
-</tr>
-<tr>
-<td>db2</td>
-<td><a href="../../roles/db2/">db2</a></td>
-<td>Db2 instance used by IoT</td>
-</tr>
-<tr>
-<td>core</td>
-<td><a href="../../roles/suite_backup_restore/">suite_backup_restore</a></td>
-<td>MAS Core namespace resources</td>
-</tr>
-<tr>
-<td>iot</td>
-<td><a href="../../roles/suite_app_backup_restore/">suite_app_backup_restore</a></td>
-<td>IoT namespace resources</td>
-</tr>
-</tbody>
-</table>
-<h3 id="environment-variables_4">Environment Variables<a class="headerlink" href="#environment-variables_4" title="Permanent link">¤</a></h3>
-<ul>
-<li><code>MAS_INSTANCE_ID</code> <strong>Required</strong>. This playbook only supports backing up components belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.</li>
-<li><code>MAS_WORKSPACE_ID</code> <strong>Required</strong>. This playbook only supports backing up components belong to a specific MAS workspace at a time. If you have multiple MAS workspaces in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.</li>
-<li><code>DB2_INSTANCE_NAME</code> <strong>Required</strong>. This playbook will backup the the Db2 instance used by IoT, you need to set the correct Db2 instance name for this environment variable.</li>
-<li><code>DB2_NAMESPACE</code>: <strong>Optional</strong> Set the DB2 namespace, defaults to <code>db2u</code></li>
-</ul>
-<h3 id="examples_4">Examples<a class="headerlink" href="#examples_4" title="Permanent link">¤</a></h3>
-<pre><code class="language-bash"># Full backup all iot data for the dev1 instance
-export MASBR_ACTION=backup
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=db2w-shared
-ansible-playbook ibm.mas_devops.br_iot
-
-# Incremental backup all iot data for the dev1 instance
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=db2w-shared
-ansible-playbook ibm.mas_devops.br_iot
-
-# Restore all iot data for the dev1 instance
-export MASBR_ACTION=restore
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=db2w-shared
-ansible-playbook ibm.mas_devops.br_iot
-
-</code></pre>
-<h2 id="backuprestore-for-monitor">Backup/Restore for Monitor<a class="headerlink" href="#backuprestore-for-monitor" title="Permanent link">¤</a></h2>
-<p>This playbook <code>ibm.mas_devops.br_monitor</code> will backup the following components that Monitor depends on in order:</p>
-<table>
-<thead>
-<tr>
-<th>Component</th>
-<th>Ansible Role</th>
-<th>Data included</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>mongodb</td>
-<td><a href="../../roles/mongodb/">mongodb</a></td>
-<td>MongoDB databases used by MAS Core, IoT and Monitor</td>
-</tr>
-<tr>
-<td>db2</td>
-<td><a href="../../roles/db2/">db2</a></td>
-<td>Db2 instance used by IoT and Monitor</td>
-</tr>
-<tr>
-<td>core</td>
-<td><a href="../../roles/suite_backup_restore/">suite_backup_restore</a></td>
-<td>MAS Core namespace resources</td>
-</tr>
-<tr>
-<td>iot</td>
-<td><a href="../../roles/suite_app_backup_restore/">suite_app_backup_restore</a></td>
-<td>IoT namespace resources</td>
-</tr>
-<tr>
-<td>monitor</td>
-<td><a href="../../roles/suite_app_backup_restore/">suite_app_backup_restore</a></td>
-<td>Monitor namespace resources</td>
-</tr>
-</tbody>
-</table>
-<h3 id="environment-variables_5">Environment Variables<a class="headerlink" href="#environment-variables_5" title="Permanent link">¤</a></h3>
-<ul>
-<li><code>MAS_INSTANCE_ID</code> <strong>Required</strong>. This playbook only supports backing up components belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.</li>
-<li><code>MAS_WORKSPACE_ID</code> <strong>Required</strong>. This playbook only supports backing up components belong to a specific MAS workspace at a time. If you have multiple MAS workspaces in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.</li>
-<li><code>DB2_INSTANCE_NAME</code> <strong>Required</strong>. This playbook will backup the the Db2 instance used by IoT and Monitor, you need to set the correct Db2 instance name for this environment variable.</li>
-<li><code>DB2_NAMESPACE</code>: <strong>Optional</strong> Set the DB2 namespace, defaults to <code>db2u</code></li>
-</ul>
-<h3 id="examples_5">Examples<a class="headerlink" href="#examples_5" title="Permanent link">¤</a></h3>
-<pre><code class="language-bash"># Full backup all monitor data for the dev1 instance
-export MASBR_ACTION=backup
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=db2w-shared
-ansible-playbook ibm.mas_devops.br_monitor
-
-# Incremental backup all monitor data for the dev1 instance
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=db2w-shared
-ansible-playbook ibm.mas_devops.br_monitor
-
-# Restore all monitor data for the dev1 instance
-export MASBR_ACTION=restore
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=db2w-shared
-ansible-playbook ibm.mas_devops.br_monitor
-</code></pre>
-<h2 id="backuprestore-for-health">Backup/Restore for Health<a class="headerlink" href="#backuprestore-for-health" title="Permanent link">¤</a></h2>
-<p>This playbook <code>ibm.mas_devops.br_health</code> will backup the following components that Health depends on in order:</p>
-<table>
-<thead>
-<tr>
-<th>Component</th>
-<th>Ansible Role</th>
-<th>Data included</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>mongodb</td>
-<td><a href="../../roles/mongodb/">mongodb</a></td>
-<td>MongoDB databases used by MAS Core</td>
-</tr>
-<tr>
-<td>db2</td>
-<td><a href="../../roles/db2/">db2</a></td>
-<td>Db2 instance used by Manage and Health</td>
-</tr>
-<tr>
-<td>core</td>
-<td><a href="../../roles/suite_backup_restore/">suite_backup_restore</a></td>
-<td>MAS Core namespace resources</td>
-</tr>
-<tr>
-<td>manage</td>
-<td><a href="../../roles/suite_app_backup_restore/">suite_app_backup_restore</a></td>
-<td>Manage namespace resources <br>Persistent volume data, such as attachments</td>
-</tr>
-<tr>
-<td>health</td>
-<td><a href="../../roles/suite_backup_restore/">suite_backup_restore</a></td>
-<td>Health namespace resources <br>Watson Studio project assets</td>
-</tr>
-</tbody>
-</table>
-<h3 id="environment-variables_6">Environment Variables<a class="headerlink" href="#environment-variables_6" title="Permanent link">¤</a></h3>
-<ul>
-<li><code>MAS_INSTANCE_ID</code> <strong>Required</strong>. This playbook only supports backing up components belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.</li>
-<li><code>MAS_WORKSPACE_ID</code> <strong>Required</strong>. This playbook only supports backing up components belong to a specific MAS workspace at a time. If you have multiple MAS workspaces in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.</li>
-<li><code>DB2_INSTANCE_NAME</code> <strong>Required</strong>. This playbook will backup the the Db2 instance used by Manage and Health, you need to set the correct Db2 instance name for this environment variable.</li>
-</ul>
-<h3 id="examples_6">Examples<a class="headerlink" href="#examples_6" title="Permanent link">¤</a></h3>
-<pre><code class="language-bash"># Full backup all health data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=backup
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
-ansible-playbook ibm.mas_devops.br_health
-
-# Incremental backup all health data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
-ansible-playbook ibm.mas_devops.br_health
-
-# Restore all health data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=restore
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
-ansible-playbook ibm.mas_devops.br_health
-</code></pre>
-<h2 id="backuprestore-for-optimizer">Backup/Restore for Optimizer<a class="headerlink" href="#backuprestore-for-optimizer" title="Permanent link">¤</a></h2>
-<p>This playbook <code>ibm.mas_devops.br_optimizer</code> will backup the following components that Optimizer depends on in order:</p>
-<table>
-<thead>
-<tr>
-<th>Component</th>
-<th>Ansible Role</th>
-<th>Data included</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>mongodb</td>
-<td><a href="../../roles/mongodb/">mongodb</a></td>
-<td>MongoDB databases used by MAS Core and Optimizer</td>
-</tr>
-<tr>
-<td>db2</td>
-<td><a href="../../roles/db2/">db2</a></td>
-<td>Db2 instance used by Manage</td>
-</tr>
-<tr>
-<td>core</td>
-<td><a href="../../roles/suite_backup_restore/">suite_backup_restore</a></td>
-<td>MAS Core namespace resources</td>
-</tr>
-<tr>
-<td>manage</td>
-<td><a href="../../roles/suite_app_backup_restore/">suite_app_backup_restore</a></td>
-<td>Manage namespace resources <br>Persistent volume data, such as attachments</td>
-</tr>
-<tr>
-<td>optimizer</td>
-<td><a href="../../roles/suite_backup_restore/">suite_backup_restore</a></td>
-<td>Optimizer namespace resources</td>
-</tr>
-</tbody>
-</table>
-<h3 id="environment-variables_7">Environment Variables<a class="headerlink" href="#environment-variables_7" title="Permanent link">¤</a></h3>
-<ul>
-<li><code>MAS_INSTANCE_ID</code> <strong>Required</strong>. This playbook only supports backing up components belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.</li>
-<li><code>MAS_WORKSPACE_ID</code> <strong>Required</strong>. This playbook only supports backing up components belong to a specific MAS workspace at a time. If you have multiple MAS workspaces in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.</li>
-<li><code>DB2_INSTANCE_NAME</code> <strong>Required</strong>. This playbook will backup the the Db2 instance used by Manage, you need to set the correct Db2 instance name for this environment variable.</li>
-<li><code>DB2_NAMESPACE</code>: <strong>Optional</strong> Set the DB2 namespace, defaults to <code>db2u</code></li>
-</ul>
-<h3 id="examples_7">Examples<a class="headerlink" href="#examples_7" title="Permanent link">¤</a></h3>
-<pre><code class="language-bash"># Full backup all optimizer data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=backup
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
-ansible-playbook ibm.mas_devops.br_optimizer
-
-# Incremental backup all optimizer data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
-ansible-playbook ibm.mas_devops.br_optimizer
-
-# Restore all optimizer data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=restore
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
-ansible-playbook ibm.mas_devops.br_optimizer
-</code></pre>
-<h2 id="backuprestore-for-visual-inspection">Backup/Restore for Visual Inspection<a class="headerlink" href="#backuprestore-for-visual-inspection" title="Permanent link">¤</a></h2>
-<p>This playbook <code>ibm.mas_devops.br_visualinspection</code> will backup the following components that Visual Inspection depends on in order:</p>
-<table>
-<thead>
-<tr>
-<th>Component</th>
-<th>Ansible Role</th>
-<th>Data included</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>mongodb</td>
-<td><a href="../../roles/mongodb/">mongodb</a></td>
-<td>MongoDB databases used by MAS Core and Visual Inspection</td>
-</tr>
-<tr>
-<td>core</td>
-<td><a href="../../roles/suite_backup_restore/">suite_backup_restore</a></td>
-<td>MAS Core namespace resources</td>
-</tr>
-<tr>
-<td>visualinspection</td>
-<td><a href="../../roles/suite_app_backup_restore/">suite_app_backup_restore</a></td>
-<td>Visual Inspection namespace resources <br>Persistent volume data, such as images and models</td>
-</tr>
-</tbody>
-</table>
-<h3 id="environment-variables_8">Environment Variables<a class="headerlink" href="#environment-variables_8" title="Permanent link">¤</a></h3>
-<ul>
-<li><code>MAS_INSTANCE_ID</code> <strong>Required</strong>. This playbook only supports backing up components belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.</li>
-<li><code>MAS_WORKSPACE_ID</code> <strong>Required</strong>. This playbook only supports backing up components belong to a specific MAS workspace at a time. If you have multiple MAS workspaces in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.</li>
-</ul>
-<h3 id="examples_8">Examples<a class="headerlink" href="#examples_8" title="Permanent link">¤</a></h3>
-<pre><code class="language-bash"># Full backup all visual inspection data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=backup
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-ansible-playbook ibm.mas_devops.br_visualinspection
-
-# Incremental backup all visual inspection data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-ansible-playbook ibm.mas_devops.br_visualinspection
-
-# Restore all visual inspection data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=restore
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-ansible-playbook ibm.mas_devops.br_visualinspection
-</code></pre>
-<h2 id="reference">Reference<a class="headerlink" href="#reference" title="Permanent link">¤</a></h2>
-<h3 id="directory-structure">Directory Structure<a class="headerlink" href="#directory-structure" title="Permanent link">¤</a></h3>
-<p>No matter what kind of storage systems you choose, the folder structure created in the storage system is same.</p>
-<p>Below is the sample folder structure for saving backup jobs:</p>
-<pre><code>&lt;root_folder&gt;/backups/mongodb-main-full-20240621122530
-├── backup.yml
-├── database
-│   ├── mongodb-main-full-20240621122530.tar.gz
-│   └── query.json
-└── log
-    ├── mongodb-main-full-20240621122530-backup-log.tar.gz
-    └── mongodb-main-full-20240621122530-ansible-log.tar.gz
-
-&lt;root_folder&gt;/backups/core-main-full-20240621122530
-├── backup.yml
-├── log
-│   ├── core-main-full-20240621122530-ansible-log.tar.gz
-│   └── core-main-full-20240621122530-namespace-log.tar.gz
-└── namespace
-    └── core-main-full-20240621122530-namespace.tar.gz
-</code></pre>
-<ul>
-<li><code>&lt;root_folder&gt;</code>: the root folder is specified by <code>MASBR_STORAGE_LOCAL_FOLDER</code> or <code>MASBR_STORAGE_CLOUD_BUCKET</code></li>
-<li>The backup playbooks will create a seperated backup job folder under the <code>backups</code> folder for each component. The backup job folder is named by following this format: <code>{BACKUP COMPONENT}-{INSTANCE ID}-{BACKUP TYPE}-{BACKUP VERSION}</code>.</li>
-<li>When using playbook to backup multiple components at once, all backup job folders will be assigned to the same backup version. In above example, the same backup version <code>20240621122530</code> for backing up <code>mongodb</code> and <code>core</code> components.</li>
-<li><code>backup.yml</code>: keep the backup job information</li>
-<li><code>database</code>: data type for database. This folder save the backup files of MongoDB database, Db2 database.</li>
-<li><code>namespace</code>: data type for namespace resources. This folder save the exported namespace resources.</li>
-<li><code>pv</code>: data type for persistent volume. This folder save the persistent volume data, e.g. the Manage attachments, VI images and models.</li>
-<li><code>log</code>: this folder save all job running log files</li>
-</ul>
-<p>In addition to the backup jobs, we also save restore jobs in the specified storage location. For example:</p>
-<pre><code>&lt;root_folder&gt;/restores/mongodb-main-incr-20240622040201-20240622075501
-├── log
-│   ├── mongodb-main-incr-20240622040201-20240622075501-ansible-log.tar.gz
-│   └── mongodb-main-incr-20240622040201-20240622075501-restore-log.tar.gz
-└── restore.yml
-
-&lt;root_folder&gt;/restores/core-main-incr-20240622040201-20240622075501
-├── log
-│   ├── core-main-incr-20240622040201-20240622075501-ansible-log.tar.gz
-│   └── core-main-incr-20240622040201-20240622075501-namespace-log.tar.gz
-└── restore.yml
-</code></pre>
-<p>The restore playbooks will create a seperated restore job folder under the <code>restores</code> folder for each component. The restore job folder is named by following this format: <code>{BACKUP JOB NAME}-{RESTORE VERSION}</code>.</p>
-<ul>
-<li><code>restore.yml</code>: keep the restore job information</li>
-<li><code>log</code>: this folder save all job running log files</li>
-</ul>
-<h3 id="data-model">Data Model<a class="headerlink" href="#data-model" title="Permanent link">¤</a></h3>
-<h4 id="backupyml">backup.yml<a class="headerlink" href="#backupyml" title="Permanent link">¤</a></h4>
-<pre><code class="language-yaml">kind: Backup
-name: "core-main-incr-20240622040201"
-version: "20240622040201"
-type: "incr"
-from: "core-main-full-20240621122530"
-source:
-  domain: "source-cluster.mydomain.com"
-  suite: "8.11.11"
-  instance: "main"
-  workspace: ""
-component:
-  name: "core"
-  instance: "main"
-  namespace: "mas-main-core"
-data:
-  - seq: "1"
-    type: "namespace"
-    phase: "Completed"
-status:
-  phase: "Completed"
-  startTimestamp: "2024-06-22T04:05:22"
-  completionTimestamp: "2024-06-22T04:06:04"
-  sentNotifications:
-    - type: "Slack"
-      channel: "#ansible-slack-dev"
-      timestamp: "2024-06-22T04:05:34"
-      phase: "InProgress"
-    - type: "Slack"
-      channel: "#ansible-slack-dev"
-      timestamp: "2024-06-22T04:06:10"
-      phase: "Completed"
-</code></pre>
-<h4 id="restoreyml">restore.yml<a class="headerlink" href="#restoreyml" title="Permanent link">¤</a></h4>
-<pre><code class="language-yaml">kind: Restore
-name: "core-main-incr-20240622040201-20240622075501"
-version: "20240622075501"
-from: "core-main-incr-20240622040201"
-target:
-  domain: "target-cluster.mydomain.com"
-component:
-  name: "core"
-  instance: "main"
-  namespace: "mas-main-core"
-data:
-  - seq: 1
-    type: "namespace"
-    phase: "Completed"
-status:
-  phase: "Completed"
-  startTimestamp: "2024-06-22T08:04:19"
-  completionTimestamp: "2024-06-22T08:04:33"
-</code></pre>
+<h2 id="additional-resources_2">Additional Resources<a class="headerlink" href="#additional-resources_2" title="Permanent link">¤</a></h2>
+<p>For detailed information about individual backup and restore operations, refer to the role documentation:
+- <a href="../../roles/db2/">Db2 Backup/Restore</a>
+- <a href="../roles/suite_app_backup.md">Manage Application Backup</a>
+- <a href="../roles/suite_app_restore.md">Manage Application Restore</a></p>
             
           </div>
 
           <!-- Navigation footer (prev/next) -->
 <nav class="md-footer-nav" aria-label="Footer navigation">
   <div class="md-footer-nav__inner">
-    <a href="../mas-upgrade/" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
-      <div class="md-footer-nav__direction">
-        <svg class="md-footer-nav__icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path>
-        </svg>
-        <span>Previous</span>
-      </div>
-      <div class="md-footer-nav__title">
-        <span class="md-footer-nav__title-text">Upgrade</span>
-      </div>
-    </a>
-    <a href="../../roles/ocp_cluster_monitoring/" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
-      <div class="md-footer-nav__direction">
-        <span>Next</span>
-        <svg class="md-footer-nav__icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"></path>
-        </svg>
-      </div>
-      <div class="md-footer-nav__title">
-        <span class="md-footer-nav__title-text">ocp_cluster_monitoring</span>
-      </div>
-    </a>
   </div>
 </nav>
         </article>
@@ -1552,203 +1250,402 @@ status:
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
               <li class="md-toc__item">
-                <a href="#overview" class="md-toc__link" data-md-level="1">
-                  Overview
-                </a>
-              </li>
-              <li class="md-toc__item">
-                <a href="#configuration-storage" class="md-toc__link" data-md-level="1">
-                  Configuration - Storage
-                </a>
-              </li>
-              <li class="md-toc__item">
-                <a href="#configuration-backup" class="md-toc__link" data-md-level="1">
-                  Configuration - Backup
+                <a href="#backup-and-restore" class="md-toc__link" data-md-level="1">
+                  Backup and Restore
                 </a>
                   <ul class="md-toc__list">
                       <li class="md-toc__item">
-                        <a href="#full-backups" class="md-toc__link" data-md-level="2">
-                          Full Backups
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#incremental-backups" class="md-toc__link" data-md-level="2">
-                          Incremental Backups
+                        <a href="#overview" class="md-toc__link" data-md-level="2">
+                          Overview
                         </a>
                       </li>
                   </ul>
               </li>
               <li class="md-toc__item">
-                <a href="#configuration-restore" class="md-toc__link" data-md-level="1">
-                  Configuration - Restore
-                </a>
-              </li>
-              <li class="md-toc__item">
-                <a href="#backuprestore-for-mongodb" class="md-toc__link" data-md-level="1">
-                  Backup/Restore for MongoDB
+                <a href="#mongodb-community-backup-and-restore" class="md-toc__link" data-md-level="1">
+                  MongoDB Community Backup and Restore
                 </a>
                   <ul class="md-toc__list">
                       <li class="md-toc__item">
-                        <a href="#environment-variables" class="md-toc__link" data-md-level="2">
-                          Environment Variables
+                        <a href="#overview_1" class="md-toc__link" data-md-level="2">
+                          Overview
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#examples" class="md-toc__link" data-md-level="2">
-                          Examples
+                        <a href="#playbook-content" class="md-toc__link" data-md-level="2">
+                          Playbook Content
+                        </a>
+                          <ul class="md-toc__list">
+                              <li class="md-toc__item">
+                                <a href="#backup-operation" class="md-toc__link" data-md-level="3">
+                                  Backup Operation
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#restore-operation" class="md-toc__link" data-md-level="3">
+                                  Restore Operation
+                                </a>
+                              </li>
+                          </ul>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#required-environment-variables" class="md-toc__link" data-md-level="2">
+                          Required Environment Variables
+                        </a>
+                          <ul class="md-toc__list">
+                              <li class="md-toc__item">
+                                <a href="#common-variables-backup-and-restore" class="md-toc__link" data-md-level="3">
+                                  Common Variables (Backup and Restore)
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#backup-specific-variables" class="md-toc__link" data-md-level="3">
+                                  Backup-Specific Variables
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#restore-specific-variables" class="md-toc__link" data-md-level="3">
+                                  Restore-Specific Variables
+                                </a>
+                              </li>
+                          </ul>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#optional-environment-variables" class="md-toc__link" data-md-level="2">
+                          Optional Environment Variables
+                        </a>
+                          <ul class="md-toc__list">
+                              <li class="md-toc__item">
+                                <a href="#storage-class-override-restore" class="md-toc__link" data-md-level="3">
+                                  Storage Class Override (Restore)
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#application-specific" class="md-toc__link" data-md-level="3">
+                                  Application-Specific
+                                </a>
+                              </li>
+                          </ul>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#usage-examples" class="md-toc__link" data-md-level="2">
+                          Usage Examples
+                        </a>
+                          <ul class="md-toc__list">
+                              <li class="md-toc__item">
+                                <a href="#backup-mongodb-instance" class="md-toc__link" data-md-level="3">
+                                  Backup MongoDB Instance
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#backup-with-custom-version" class="md-toc__link" data-md-level="3">
+                                  Backup with Custom Version
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#backup-individual-database" class="md-toc__link" data-md-level="3">
+                                  Backup Individual Database
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#restore-mongodb-instance" class="md-toc__link" data-md-level="3">
+                                  Restore MongoDB Instance
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#restore-with-storage-class-override" class="md-toc__link" data-md-level="3">
+                                  Restore with Storage Class Override
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#restore-individual-database" class="md-toc__link" data-md-level="3">
+                                  Restore Individual Database
+                                </a>
+                              </li>
+                          </ul>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#important-considerations" class="md-toc__link" data-md-level="2">
+                          Important Considerations
+                        </a>
+                          <ul class="md-toc__list">
+                              <li class="md-toc__item">
+                                <a href="#backup-actions" class="md-toc__link" data-md-level="3">
+                                  Backup Actions
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#restore-actions" class="md-toc__link" data-md-level="3">
+                                  Restore Actions
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#prerequisites-for-restore" class="md-toc__link" data-md-level="3">
+                                  Prerequisites for Restore
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#backup-best-practices" class="md-toc__link" data-md-level="3">
+                                  Backup Best Practices
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#restore-best-practices" class="md-toc__link" data-md-level="3">
+                                  Restore Best Practices
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#storage-requirements" class="md-toc__link" data-md-level="3">
+                                  Storage Requirements
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#security-considerations" class="md-toc__link" data-md-level="3">
+                                  Security Considerations
+                                </a>
+                              </li>
+                          </ul>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#additional-resources" class="md-toc__link" data-md-level="2">
+                          Additional Resources
                         </a>
                       </li>
                   </ul>
               </li>
               <li class="md-toc__item">
-                <a href="#backuprestore-for-db2" class="md-toc__link" data-md-level="1">
-                  Backup/Restore for Db2
+                <a href="#db2-backup-and-restore" class="md-toc__link" data-md-level="1">
+                  Db2 Backup and Restore
                 </a>
                   <ul class="md-toc__list">
                       <li class="md-toc__item">
-                        <a href="#environment-variables_1" class="md-toc__link" data-md-level="2">
-                          Environment Variables
+                        <a href="#overview_2" class="md-toc__link" data-md-level="2">
+                          Overview
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#examples_1" class="md-toc__link" data-md-level="2">
-                          Examples
+                        <a href="#required-environment-variables_1" class="md-toc__link" data-md-level="2">
+                          Required Environment Variables
+                        </a>
+                          <ul class="md-toc__list">
+                              <li class="md-toc__item">
+                                <a href="#common-variables-backup-and-restore_1" class="md-toc__link" data-md-level="3">
+                                  Common Variables (Backup and Restore)
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#backup-specific-variables_1" class="md-toc__link" data-md-level="3">
+                                  Backup-Specific Variables
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#restore-specific-variables_1" class="md-toc__link" data-md-level="3">
+                                  Restore-Specific Variables
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#s3-storage-variables-when-backup_vendors3" class="md-toc__link" data-md-level="3">
+                                  S3 Storage Variables (when BACKUP_VENDOR=s3)
+                                </a>
+                              </li>
+                          </ul>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#optional-environment-variables_1" class="md-toc__link" data-md-level="2">
+                          Optional Environment Variables
+                        </a>
+                          <ul class="md-toc__list">
+                              <li class="md-toc__item">
+                                <a href="#db2-configuration" class="md-toc__link" data-md-level="3">
+                                  Db2 Configuration
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#storage-class-override-restore_1" class="md-toc__link" data-md-level="3">
+                                  Storage Class Override (Restore)
+                                </a>
+                              </li>
+                          </ul>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#usage-examples_1" class="md-toc__link" data-md-level="2">
+                          Usage Examples
+                        </a>
+                          <ul class="md-toc__list">
+                              <li class="md-toc__item">
+                                <a href="#backup-db2-to-disk-online" class="md-toc__link" data-md-level="3">
+                                  Backup Db2 to Disk (Online)
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#backup-db2-to-s3" class="md-toc__link" data-md-level="3">
+                                  Backup Db2 to S3
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#restore-db2-from-backup" class="md-toc__link" data-md-level="3">
+                                  Restore Db2 from Backup
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#restore-with-storage-class-override_1" class="md-toc__link" data-md-level="3">
+                                  Restore with Storage Class Override
+                                </a>
+                              </li>
+                          </ul>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#important-considerations_1" class="md-toc__link" data-md-level="2">
+                          Important Considerations
+                        </a>
+                          <ul class="md-toc__list">
+                              <li class="md-toc__item">
+                                <a href="#backup-types" class="md-toc__link" data-md-level="3">
+                                  Backup Types
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#storage-vendor-options" class="md-toc__link" data-md-level="3">
+                                  Storage Vendor Options
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#prerequisites-for-restore_1" class="md-toc__link" data-md-level="3">
+                                  Prerequisites for Restore
+                                </a>
+                              </li>
+                          </ul>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#mas-core-backup-and-restore" class="md-toc__link" data-md-level="1">
+                  MAS Core Backup and Restore
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#overview_3" class="md-toc__link" data-md-level="2">
+                          Overview
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#guidance-content" class="md-toc__link" data-md-level="2">
+                          Guidance Content
+                        </a>
+                          <ul class="md-toc__list">
+                              <li class="md-toc__item">
+                                <a href="#backup-operation_1" class="md-toc__link" data-md-level="3">
+                                  Backup Operation
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#restore-operation_1" class="md-toc__link" data-md-level="3">
+                                  Restore Operation
+                                </a>
+                              </li>
+                          </ul>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#important-considerations_2" class="md-toc__link" data-md-level="2">
+                          Important Considerations
+                        </a>
+                          <ul class="md-toc__list">
+                              <li class="md-toc__item">
+                                <a href="#prerequisites-for-restore_2" class="md-toc__link" data-md-level="3">
+                                  Prerequisites for Restore
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#backup-best-practices_1" class="md-toc__link" data-md-level="3">
+                                  Backup Best Practices
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#restore-best-practices_1" class="md-toc__link" data-md-level="3">
+                                  Restore Best Practices
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#storage-requirements_1" class="md-toc__link" data-md-level="3">
+                                  Storage Requirements
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#security-considerations_1" class="md-toc__link" data-md-level="3">
+                                  Security Considerations
+                                </a>
+                              </li>
+                          </ul>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#additional-resources_1" class="md-toc__link" data-md-level="2">
+                          Additional Resources
                         </a>
                       </li>
                   </ul>
               </li>
               <li class="md-toc__item">
-                <a href="#backuprestore-for-mas-core" class="md-toc__link" data-md-level="1">
-                  Backup/Restore for MAS Core
+                <a href="#manage-application-backup-and-restore" class="md-toc__link" data-md-level="1">
+                  Manage Application Backup and Restore
                 </a>
                   <ul class="md-toc__list">
                       <li class="md-toc__item">
-                        <a href="#environment-variables_2" class="md-toc__link" data-md-level="2">
-                          Environment Variables
+                        <a href="#overview_4" class="md-toc__link" data-md-level="2">
+                          Overview
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#examples_2" class="md-toc__link" data-md-level="2">
-                          Examples
+                        <a href="#content" class="md-toc__link" data-md-level="2">
+                          Content
                         </a>
-                      </li>
-                  </ul>
-              </li>
-              <li class="md-toc__item">
-                <a href="#backuprestore-for-manage" class="md-toc__link" data-md-level="1">
-                  Backup/Restore for Manage
-                </a>
-                  <ul class="md-toc__list">
-                      <li class="md-toc__item">
-                        <a href="#environment-variables_3" class="md-toc__link" data-md-level="2">
-                          Environment Variables
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#examples_3" class="md-toc__link" data-md-level="2">
-                          Examples
-                        </a>
-                      </li>
-                  </ul>
-              </li>
-              <li class="md-toc__item">
-                <a href="#backuprestore-for-iot" class="md-toc__link" data-md-level="1">
-                  Backup/Restore for IoT
-                </a>
-                  <ul class="md-toc__list">
-                      <li class="md-toc__item">
-                        <a href="#environment-variables_4" class="md-toc__link" data-md-level="2">
-                          Environment Variables
-                        </a>
+                          <ul class="md-toc__list">
+                              <li class="md-toc__item">
+                                <a href="#backup-operation_2" class="md-toc__link" data-md-level="3">
+                                  Backup Operation
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#restore-operation_2" class="md-toc__link" data-md-level="3">
+                                  Restore Operation
+                                </a>
+                              </li>
+                          </ul>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#examples_4" class="md-toc__link" data-md-level="2">
-                          Examples
+                        <a href="#important-considerations_3" class="md-toc__link" data-md-level="2">
+                          Important Considerations
                         </a>
-                      </li>
-                  </ul>
-              </li>
-              <li class="md-toc__item">
-                <a href="#backuprestore-for-monitor" class="md-toc__link" data-md-level="1">
-                  Backup/Restore for Monitor
-                </a>
-                  <ul class="md-toc__list">
-                      <li class="md-toc__item">
-                        <a href="#environment-variables_5" class="md-toc__link" data-md-level="2">
-                          Environment Variables
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#examples_5" class="md-toc__link" data-md-level="2">
-                          Examples
-                        </a>
-                      </li>
-                  </ul>
-              </li>
-              <li class="md-toc__item">
-                <a href="#backuprestore-for-health" class="md-toc__link" data-md-level="1">
-                  Backup/Restore for Health
-                </a>
-                  <ul class="md-toc__list">
-                      <li class="md-toc__item">
-                        <a href="#environment-variables_6" class="md-toc__link" data-md-level="2">
-                          Environment Variables
-                        </a>
+                          <ul class="md-toc__list">
+                              <li class="md-toc__item">
+                                <a href="#prerequisites-for-restore_3" class="md-toc__link" data-md-level="3">
+                                  Prerequisites for Restore
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#backup-best-practices_2" class="md-toc__link" data-md-level="3">
+                                  Backup Best Practices
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#restore-best-practices_2" class="md-toc__link" data-md-level="3">
+                                  Restore Best Practices
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#storage-requirements_2" class="md-toc__link" data-md-level="3">
+                                  Storage Requirements
+                                </a>
+                              </li>
+                              <li class="md-toc__item">
+                                <a href="#security-considerations_2" class="md-toc__link" data-md-level="3">
+                                  Security Considerations
+                                </a>
+                              </li>
+                          </ul>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#examples_6" class="md-toc__link" data-md-level="2">
-                          Examples
-                        </a>
-                      </li>
-                  </ul>
-              </li>
-              <li class="md-toc__item">
-                <a href="#backuprestore-for-optimizer" class="md-toc__link" data-md-level="1">
-                  Backup/Restore for Optimizer
-                </a>
-                  <ul class="md-toc__list">
-                      <li class="md-toc__item">
-                        <a href="#environment-variables_7" class="md-toc__link" data-md-level="2">
-                          Environment Variables
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#examples_7" class="md-toc__link" data-md-level="2">
-                          Examples
-                        </a>
-                      </li>
-                  </ul>
-              </li>
-              <li class="md-toc__item">
-                <a href="#backuprestore-for-visual-inspection" class="md-toc__link" data-md-level="1">
-                  Backup/Restore for Visual Inspection
-                </a>
-                  <ul class="md-toc__list">
-                      <li class="md-toc__item">
-                        <a href="#environment-variables_8" class="md-toc__link" data-md-level="2">
-                          Environment Variables
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#examples_8" class="md-toc__link" data-md-level="2">
-                          Examples
-                        </a>
-                      </li>
-                  </ul>
-              </li>
-              <li class="md-toc__item">
-                <a href="#reference" class="md-toc__link" data-md-level="1">
-                  Reference
-                </a>
-                  <ul class="md-toc__list">
-                      <li class="md-toc__item">
-                        <a href="#directory-structure" class="md-toc__link" data-md-level="2">
-                          Directory Structure
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#data-model" class="md-toc__link" data-md-level="2">
-                          Data Model
+                        <a href="#additional-resources_2" class="md-toc__link" data-md-level="2">
+                          Additional Resources
                         </a>
                       </li>
                   </ul>
