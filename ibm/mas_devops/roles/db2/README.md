@@ -998,6 +998,40 @@ This is only used when both `mas_config_dir` and `mas_instance_id` are set, and 
 Role Variables - Backup and Restore
 -------------------------------------------------------------------------------
 
+### mas_instance_id
+MAS instance identifier for the backup/restore operation.
+
+- **Required** for backup and restore operations
+- Environment Variable: `MAS_INSTANCE_ID`
+- Default: None
+
+**Purpose**: Identifies the MAS instance associated with the Db2 backup. Used for organizing backups and ensuring restore operations target the correct instance.
+
+**When to use**:
+- Always required when performing backup or restore operations
+- Must match the MAS instance ID that uses this Db2 instance
+
+**Valid values**: Valid MAS instance ID (e.g., `inst1`, `masinst1`)
+
+**Example**: `masinst1`
+
+### mas_application_id
+MAS application identifier for the backup/restore operation.
+
+- **Required** for backup and restore operations
+- Environment Variable: `MAS_APP_ID`
+- Default: None
+
+**Purpose**: Identifies the MAS application (e.g., manage, iot) that uses this Db2 database. Used for organizing backups and database-specific operations.
+
+**When to use**:
+- Always required when performing backup or restore operations
+- Must match the MAS application that uses this Db2 database
+
+**Valid values**: Valid MAS application ID (e.g., `manage`, `iot`, `monitor`)
+
+**Example**: `manage`
+
 ### mas_backup_dir
 Local directory path where backups will be stored or restored from.
 
@@ -1016,7 +1050,7 @@ Local directory path where backups will be stored or restored from.
 
 **Impact**:
 - Backup files and metadata are stored in subdirectories under this path
-- Directory structure: `<mas_backup_dir>/backup-<version>-db2u/`
+- Directory structure: `<mas_backup_dir>/backup-<version>-db2u-<app>/`
 - Insufficient space will cause backup failures
 
 **Related variables**:
@@ -1043,7 +1077,7 @@ The backup version timestamp identifier for backup and restore operations.
 **Valid values**: Timestamp string in format `YYYYMMDD-HHMMSS` (e.g., `20251212-021316` for December 12, 2025 at 02:13:16)
 
 **Impact**:
-- Determines the backup directory name: `backup-<version>-db2u`
+- Determines the backup directory name: `backup-<version>-db2u-<app>`
 - Used to locate backup files during restore operations
 - Recorded in backup metadata file for verification
 
@@ -1071,15 +1105,50 @@ Only used in Db2 instance restore.
 **Valid values**: `true`, `false`
 
 **Impact**:
-- When `true`: Uses `DB2_META_STORAGE_CLASS`, `DB2_DATA_STORAGE_CLASS`, `DB2_BACKUP_STORAGE_CLASS`, `DB2_LOGS_STORAGE_CLASS`, `DB2_TEMP_STORAGE_CLASS` if set, otherwise uses cluster default storage classes
+- When `true`: Uses `CUSTOM_STORAGE_CLASS_RWO` and `CUSTOM_STORAGE_CLASS_RWX` if set, otherwise uses cluster default storage classes
 - When `false`: Uses storage classes from backup metadata (original instance configuration)
 
 **Related variables**:
-- `db2_meta_storage_class`: Override for metadata storage
-- `db2_data_storage_class`: Override for data storage
-- `db2_backup_storage_class`: Override for backup storage
-- `db2_logs_storage_class`: Override for logs storage
-- `db2_temp_storage_class`: Override for temp storage
+- `custom_storage_class_rwo`: Override for ReadWriteOnce storage (applies to data, logs, temp, archivelogs, audit_logs)
+- `custom_storage_class_rwx`: Override for ReadWriteMany storage (applies to meta, backup)
+
+### custom_storage_class_rwo
+Custom ReadWriteOnce storage class for Db2 restore operations.
+
+- **Optional**
+- Environment Variable: `CUSTOM_STORAGE_CLASS_RWO`
+- Default: None
+
+**Purpose**: Provides a single storage class override for all ReadWriteOnce (RWO) PVCs during restore. This simplifies storage class configuration when all RWO volumes can use the same storage class.
+
+**When to use**:
+- Set when `override_storageclass` is `true` and you want to use the same storage class for all RWO volumes
+- Applies to: data, logs, temp, archivelogs, and audit_logs storage
+
+**Valid values**: Valid storage class name available in the target cluster
+
+**Impact**: When set, overrides the storage class for all RWO PVCs unless specific DB2 storage class variables are also set (which take precedence)
+
+**Example**: `ocs-storagecluster-ceph-rbd`
+
+### custom_storage_class_rwx
+Custom ReadWriteMany storage class for Db2 restore operations.
+
+- **Optional**
+- Environment Variable: `CUSTOM_STORAGE_CLASS_RWX`
+- Default: None
+
+**Purpose**: Provides a single storage class override for all ReadWriteMany (RWX) PVCs during restore. This simplifies storage class configuration when all RWX volumes can use the same storage class.
+
+**When to use**:
+- Set when `override_storageclass` is `true` and you want to use the same storage class for all RWX volumes
+- Applies to: meta and backup storage
+
+**Valid values**: Valid storage class name available in the target cluster
+
+**Impact**: When set, overrides the storage class for all RWX PVCs unless specific DB2 storage class variables are also set (which take precedence)
+
+**Example**: `ocs-storagecluster-cephfs`
 
 ### backup_type
 Type of backup operation to perform on the Db2 database.
@@ -1274,6 +1343,7 @@ Example Usage - Backup and Restore
   any_errors_fatal: true
   vars:
     mas_instance_id: masinst1
+    mas_application_id: manage
     mas_backup_dir: /tmp/masbr
     db2_action: backup-database
     db2_instance_name: db2u-manage
@@ -1290,6 +1360,7 @@ Example Usage - Backup and Restore
   any_errors_fatal: true
   vars:
     mas_instance_id: masinst1
+    mas_application_id: manage
     mas_backup_dir: /tmp/masbr
     db2_action: backup-database
     db2_instance_name: db2u-manage
@@ -1309,6 +1380,7 @@ Example Usage - Backup and Restore
   any_errors_fatal: true
   vars:
     mas_instance_id: masinst1
+    mas_application_id: manage
     mas_backup_dir: /tmp/masbr
     db2_action: backup
     db2_instance_name: db2u-manage
@@ -1325,6 +1397,7 @@ Example Usage - Backup and Restore
   vars:
     db2_action: restore-database
     mas_instance_id: masinst1
+    mas_application_id: manage
     db2_backup_version: 20251212-021316
     mas_backup_dir: /tmp/masbr
     db2_instance_name: db2u-manage
@@ -1341,6 +1414,7 @@ Example Usage - Backup and Restore
   vars:
     db2_action: restore-database
     mas_instance_id: masinst1
+    mas_application_id: manage
     db2_backup_version: 20251212-021316
     mas_backup_dir: /tmp/masbr
     db2_instance_name: db2u-manage
@@ -1360,6 +1434,7 @@ Example Usage - Backup and Restore
   vars:
     db2_action: restore
     mas_instance_id: masinst1
+    mas_application_id: manage
     db2_backup_version: 20251212-021316
     mas_backup_dir: /tmp/masbr
     backup_vendor: disk
@@ -1367,26 +1442,20 @@ Example Usage - Backup and Restore
     - ibm.mas_devops.db2
 ```
 
-### Restore Db2 from Backup (Instance + Database) w/ storage class override
-# This will override the storage class for all Db2 PVCs
-# If you want to override specific PVCs, use the following variables:
-# db2_meta_storage_class, db2_data_storage_class, db2_backup_storage_class, db2_logs_storage_class, db2_temp_storage_class
-# or cluster's default storage class will be used to override.
+### Restore Db2 from Backup (Instance + Database) w/ storage class override using custom storage classes
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
   vars:
     db2_action: restore
     mas_instance_id: masinst1
+    mas_application_id: manage
     db2_backup_version: 20251212-021316
     mas_backup_dir: /tmp/masbr
     backup_vendor: disk
     override_storageclass: true
-    db2_meta_storage_class: nfs-client # optional 
-    db2_data_storage_class: nfs-client # optional
-    db2_backup_storage_class: nfs-client # optional
-    db2_logs_storage_class: nfs-client # optional
-    db2_temp_storage_class: nfs-client # optional
+    custom_storage_class_rwo: ocs-storagecluster-ceph-rbd  # For data, logs, temp, archivelogs, audit_logs
+    custom_storage_class_rwx: ocs-storagecluster-cephfs    # For meta, backup
   roles:
     - ibm.mas_devops.db2
 ```
@@ -1398,6 +1467,7 @@ Example Usage - Backup and Restore
   vars:
     db2_action: restore
     mas_instance_id: masinst1
+    mas_application_id: manage
     db2_backup_version: 20251212-021316
     mas_backup_dir: /tmp/masbr
     backup_vendor: s3
@@ -1412,9 +1482,9 @@ Example Usage - Backup and Restore
 ### Backup Directory Structure (Disk)
 ```
 /tmp/masbr/
-└── backup-<YYYYMMDD-HHMMSS>-db2u/
+└── backup-<YYYYMMDD-HHMMSS>-db2u-<app_id>/
     ├── data/
-    │   ├── db2-BLUDB-backup-<YYYYMMDD-HHMMSS>.tar.gz
+    │   ├── db2-<app_id>-BLUDB-backup-<YYYYMMDD-HHMMSS>.tar.gz
     │   └── db2-backup-info.yaml
     └── resources/
         ├── db2uclusters/
