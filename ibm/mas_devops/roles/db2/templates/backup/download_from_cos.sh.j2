@@ -1,0 +1,21 @@
+#!/bin/bash
+
+###  COS_SOURCE_PATH=DB2REMOTE://backup_s3_alias/backup_s3_bucket/backups-db2/db2_backup_version
+COS_SOURCE_PATH={{ cos_source_path }}
+DB2_BACKUP_VERSION={{ db2_backup_version }}
+TARGET_PATH=/mnt/backup/backups-db2/$DB2_BACKUP_VERSION
+
+instance=`whoami`
+
+# Find the home directory
+instance_home=`/usr/local/bin/db2greg -dump | grep -ae "I," | grep -v "/das," | grep "${instance}" | awk -F ',' '{print $5}'| cut -d/ -f 1,2,3,4,5`
+DOWNLOAD_LOG=$instance_home/bin/download_LOG.out
+
+db2RemStgManager ALIAS GET source=${COS_SOURCE_PATH}/${ibm_cos_path} target=$download_path/$file_name_to_be_downloaded 2>&1 | tee -a ${DOWNLOAD_LOG}
+
+rc=$?
+if [ $rc -ne 0 ]; then
+    echo "FAILED_DOWNLOAD_BACKUP db2RemStgManager ALIAS GET source=${COS_SOURCE_PATH}/${ibm_cos_path} target=$download_path/$file_name_to_be_downloaded rc=$rc" >> ${DOWNLOAD_BACK_LOG}
+    echo "status=fail" >> ${DOWNLOAD_BACK_LOG}
+    exit 1
+fi
