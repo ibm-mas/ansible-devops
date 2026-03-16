@@ -25,8 +25,80 @@
       - "Registry Prefix (Red Hat) ................. {{ registry_prefix_redhat }}"
       - "Registry (Red Hat) ........................ {{ registry_private_url_with_path_redhat }}"
 
-
 # 2. Configure CA trust
 # -----------------------------------------------------------------------------
 - name: Set up trust for the registry
   include_tasks: "tasks/rosa_hcp/trust.yml"
+
+# 3. Update default image pull secret
+# -----------------------------------------------------------------------------
+- name: Update default image pull secret
+  when:
+    - registry_username is defined and registry_username != ""
+    - registry_password is defined and registry_password != ""
+  include_tasks: "tasks/update-pull-secret.yml"
+
+- name: Update default image pull secret (dev)
+  when:
+    - fvt_image_registry is defined and fvt_image_registry != ""
+    - artifactory_username is defined and artifactory_username != ""
+    - artifactory_token is defined and artifactory_token != ""
+  include_tasks: "tasks/update-pull-secret-dev.yml"
+
+# 4. IBM Maximo Operator Catalog
+# -----------------------------------------------------------------------------
+- name: Create ImageDigestMirrorSet
+  vars:
+    template_file: "ibm-catalog.yml.j2"
+  include_tasks:
+    file: tasks/rosa_hcp/create-image-mirror.yml
+  register: idms_result
+
+# 5. Red Hat Operator Catalogs
+# -----------------------------------------------------------------------------
+- name: Setup Red Hat Operator Catalogs
+  when: setup_redhat_catalogs
+  block:
+    - name: "Look up cluster version"
+      kubernetes.core.k8s_info:
+        api_version: config.openshift.io/v1
+        name: "version"
+        kind: ClusterVersion
+      register: version_info
+
+    - name: "Assert that we can obtain cluster version information"
+      assert:
+        that: version_info.resources[0] is defined
+        fail_msg: "Unable to determine OCP version information"
+
+    - name: "Set OCP release"
+      set_fact:
+        ocp_version: "{{ version_info.resources[0].status.desired.version }}"
+        ocp_release: "{{ version_info.resources[0].status.desired.version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
+
+    - name: "Debug OCP release"
+      debug:
+        msg:
+          - "OCP Version ............................ {{ ocp_version }}"
+          - "OCP Release ............................ {{ ocp_release }}"
+
+    - name: "Create Catalog Sources and ImageDigestMirrorSet"
+      vars:
+        template_file: "redhat-catalogs.yml.j2"
+      include_tasks:
+        file: tasks/rosa_hcp/create-image-mirror.yml
+
+# 6. Red Hat Release Catalog
+# -----------------------------------------------------------------------------
+- name: "Create ImageDigestMirrorSet for OCP release"
+  when: setup_redhat_release
+  vars:
+    template_file: "redhat-release.yml.j2"
+  include_tasks:
+    file: tasks/rosa_hcp/create-image-mirror.yml
+
+# 7. Wait until the nodes have applied the updates
+# -----------------------------------------------------------------------------
+# - name: Wait for Machine Configs to update
+#   when: idms_result.changed
+#   include_tasks: "{{ role_path }}/../../common_tasks/wait-machine-config-update.yml"

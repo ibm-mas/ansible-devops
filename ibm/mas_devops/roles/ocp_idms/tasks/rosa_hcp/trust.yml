@@ -4,18 +4,18 @@
 # -----------------------------------------------------------------------------
 - name: Read the private registry CA cert
   set_fact:
-    registry_private_ca_crt: "{{ lookup('file', registry_private_ca_file) }}"
+    registry_private_ca_crt: "{{ lookup('file', registry_private_ca_file) replace('\n', '\\n') }}"
   no_log: true
 
 # 2. Create the additional_trusted_ca.json
 # A JSON file containing the registry hostname as the key, and the PEM-encoded
 # certificate as the value, for each additional registry CA to trust.
 # -----------------------------------------------------------------------------
-- name: Create additional_trusted_ca.json
-  kubernetes.core.k8s:
-    apply: yes
-    template: 'templates/additional_trusted_ca.json.j2'
-  no_log: true
+- name: Create additional_trusted_ca.json from a template
+  ansible.builtin.template:
+    src: templates/additional_trusted_ca.json.j2
+    dest: /tmp/additional_trusted_ca.json
+    mode: preserve
 
 # 3. Update or edit the image registry for the cluster
 # Patches the cluster config to use this configmap in spec.additionalTrustedCA
@@ -23,7 +23,7 @@
 - name: Patch cluster config with additional_trusted_ca.json
   ansible.builtin.shell:  |
     rosa edit cluster \
-    --registry-config-additional-trusted-ca templates/additional_trusted_ca.json \
+    --registry-config-additional-trusted-ca /tmp/additional_trusted_ca.json \
     -c {{ rosa_hcp_cluster_name }}
   ignore_errors: true
   register: rosaEditClusterResult
