@@ -1,0 +1,360 @@
+---
+# MongoDB Atlas Provider - Deprovision Task
+# This task decommissions MongoDB Atlas cluster and cleans up associated resources
+
+# 1. Retrieve Atlas API credentials from AWS Secrets Manager (if configured)
+# -----------------------------------------------------------------------------
+- name: "Retrieve Atlas credentials from AWS Secrets Manager"
+  when:
+    - atlas_aws_secret_name is defined
+    - atlas_aws_secret_name != ""
+    - atlas_aws_secret_region is defined
+  block:
+    - name: "Check if AWS CLI is available"
+      command: which aws
+      register: aws_cli_check
+      failed_when: false
+      changed_when: false
+
+    - name: "Fail if AWS CLI is not installed"
+      fail:
+        msg: |
+          AWS CLI is not installed or not in PATH.
+          Please install AWS CLI: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+      when: aws_cli_check.rc != 0
+
+    - name: "Verify AWS credentials are configured"
+      command: aws sts get-caller-identity
+      register: aws_identity_check
+      failed_when: false
+      changed_when: false
+      no_log: true
+
+    - name: "Fail if AWS credentials are not configured"
+      fail:
+        msg: |
+          AWS credentials are not configured or invalid.
+          Please configure AWS CLI: aws configure
+          Or set environment variables: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+      when: aws_identity_check.rc != 0
+
+    - name: "Get Atlas API credentials from AWS Secrets Manager"
+      shell: |
+        aws secretsmanager get-secret-value \
+          --secret-id "{{ atlas_aws_secret_name }}" \
+          --region "{{ atlas_aws_secret_region }}" \
+          --query SecretString \
+          --output text
+      register: atlas_secret_output
+      failed_when: atlas_secret_output.rc != 0
+      no_log: true
+
+    - name: "Parse Atlas credentials from secret"
+      set_fact:
+        atlas_credentials: "{{ atlas_secret_output.stdout | from_json }}"
+      no_log: true
+
+    - name: "Set Atlas API credentials from AWS Secrets Manager"
+      set_fact:
+        atlas_public_key: "{{ atlas_credentials.public_key }}"
+        atlas_private_key: "{{ atlas_credentials.private_key }}"
+      no_log: true
+
+  rescue:
+    - name: "Display AWS Secrets Manager error details"
+      debug:
+        msg:
+          - "=========================================="
+          - "Failed to retrieve Atlas credentials from AWS Secrets Manager"
+          - "=========================================="
+          - "Secret Name: {{ atlas_aws_secret_name }}"
+          - "Region: {{ atlas_aws_secret_region }}"
+          - "=========================================="
+          - "Common issues:"
+          - "1. AWS CLI not configured (run: aws configure)"
+          - "2. Secret doesn't exist in the specified region"
+          - "3. Insufficient IAM permissions (need secretsmanager:GetSecretValue)"
+          - "4. Secret name is incorrect (case-sensitive)"
+          - "=========================================="
+          - "To troubleshoot, run:"
+          - "  aws secretsmanager describe-secret --secret-id {{ atlas_aws_secret_name }} --region {{ atlas_aws_secret_region }}"
+          - "=========================================="
+
+    - name: "Fail with helpful error message"
+      fail:
+        msg: "Failed to retrieve Atlas API credentials from AWS Secrets Manager. See debug output above for troubleshooting steps."
+
+# 2. Validate required variables
+# -----------------------------------------------------------------------------
+- name: "Fail if Atlas API credentials are not provided"
+  assert:
+    that:
+      - atlas_public_key is defined and atlas_public_key != ""
+      - atlas_private_key is defined and atlas_private_key != ""
+    fail_msg: "Atlas API credentials (atlas_public_key and atlas_private_key) are required. Provide them directly or via AWS Secrets Manager."
+
+- name: "Fail if Atlas project information is not provided"
+  assert:
+    that:
+      - atlas_project_id is defined and atlas_project_id != ""
+    fail_msg: "Atlas project ID is required"
+
+- name: "Fail if Atlas cluster name is not provided"
+  assert:
+    that:
+      - atlas_cluster_name is defined and atlas_cluster_name != ""
+    fail_msg: "Atlas cluster name is required"
+
+# 3. Add current IP to Atlas API Access List
+# -----------------------------------------------------------------------------
+- name: "Get current public IP address"
+  uri:
+    url: "https://api.ipify.org?format=json"
+    method: GET
+    return_content: yes
+    timeout: 10
+  register: atlas_current_ip_result
+  failed_when: false
+  changed_when: false
+
+- name: "Set current IP fact"
+  set_fact:
+    atlas_current_ip: "{{ atlas_current_ip_result.json.ip | default('') }}"
+  when: atlas_current_ip_result.status is defined and atlas_current_ip_result.status == 200
+
+- name: "Add current IP to Atlas API Access List"
+  when:
+    - atlas_current_ip is defined
+    - atlas_current_ip != ""
+  block:
+    - name: "Check if current IP is already in Atlas API Access List"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/accessList/{{ atlas_current_ip }}"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: [200, 404]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_ip_check
+      failed_when: false
+
+    - name: "Add current IP to Atlas API Access List"
+      when: atlas_ip_check.status is defined and atlas_ip_check.status == 404
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/accessList"
+        method: POST
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        body:
+          - ipAddress: "{{ atlas_current_ip }}"
+            comment: "Added by Ansible MAS DevOps - {{ ansible_date_time.iso8601 | default('auto') }}"
+        body_format: json
+        status_code: [200, 201]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_ip_add
+      retries: 3
+      delay: 5
+
+    - name: "Atlas API Access List status"
+      debug:
+        msg:
+          - "Current IP: {{ atlas_current_ip }}"
+          - "Access List Status: {{ 'Already whitelisted' if atlas_ip_check.status == 200 else 'Added successfully' }}"
+
+  rescue:
+    - name: "Warning: Could not add IP to Atlas API Access List"
+      debug:
+        msg:
+          - "WARNING: Failed to automatically add IP {{ atlas_current_ip | default('unknown') }} to Atlas API Access List"
+          - "If subsequent API calls fail with 403 IP_ADDRESS_NOT_ON_ACCESS_LIST, manually add this IP:"
+          - "  Atlas Console -> Project -> Security -> Network Access -> Add IP Address"
+
+# 4. Display decommission configuration
+# -----------------------------------------------------------------------------
+- name: "MongoDB Atlas Decommission Configuration"
+  debug:
+    msg:
+      - "=========================================="
+      - "MongoDB Atlas Cluster Decommission"
+      - "=========================================="
+      - "Atlas Project ID ............ {{ atlas_project_id }}"
+      - "Cluster Name ................ {{ atlas_cluster_name }}"
+      - "Database Username ........... {{ atlas_db_username | default('N/A') }}"
+      - "Remove Database Users ....... {{ atlas_remove_db_users | default(true) }}"
+      - "=========================================="
+
+# 4. Check if cluster exists
+# -----------------------------------------------------------------------------
+- name: "Check if Atlas cluster exists"
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    status_code: [200, 404]
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_cluster_check
+  retries: 3
+  delay: 5
+
+- name: "Set cluster exists fact"
+  set_fact:
+    atlas_cluster_exists: "{{ atlas_cluster_check.status == 200 }}"
+
+- name: "Cluster not found"
+  when: not atlas_cluster_exists
+  debug:
+    msg: "Cluster '{{ atlas_cluster_name }}' does not exist or has already been deleted"
+
+# 5. Deconfigure VPC peering (if enabled)
+# -----------------------------------------------------------------------------
+- name: "Deconfigure VPC peering"
+  when:
+    - atlas_cluster_exists
+    - atlas_deconfigure_vpc_peering | default(false) | bool
+    - atlas_vpc_id is defined
+    - atlas_vpc_id != ""
+    - atlas_aws_region is defined
+    - atlas_aws_route_table_ids is defined
+    - atlas_cluster_provider is defined
+  include_tasks: "{{ role_path }}/tasks/providers/atlas/deconfigure_vpc_peering.yml"
+
+# 6. Remove database users (if configured)
+# -----------------------------------------------------------------------------
+- name: "Remove database users"
+  when:
+    - atlas_cluster_exists
+    - atlas_remove_db_users | default(true) | bool
+  block:
+    - name: "Get all database users"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: [200]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_db_users_list
+      failed_when: false
+
+    - name: "Remove each database user"
+      when: atlas_db_users_list.status == 200 and atlas_db_users_list.json.results | length > 0
+      shell: |
+        curl --request DELETE \
+          --digest \
+          --user "{{ atlas_public_key }}:{{ atlas_private_key }}" \
+          --write-out "\n%{http_code}" \
+          --silent \
+          "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers/{{ item.databaseName }}/{{ item.username }}"
+      loop: "{{ atlas_db_users_list.json.results }}"
+      register: atlas_user_delete_result
+      failed_when: false
+      no_log: true
+
+    - name: "Database users cleanup completed"
+      debug:
+        msg: "Removed {{ atlas_db_users_list.json.results | length }} database users"
+      when: atlas_db_users_list.status == 200
+
+# 7. Delete the Atlas cluster
+# -----------------------------------------------------------------------------
+- name: "Delete MongoDB Atlas cluster"
+  when: atlas_cluster_exists
+  block:
+    - name: "Initiate cluster deletion"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}"
+        method: DELETE
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: [202, 204]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_cluster_delete
+
+    - name: "Cluster deletion initiated"
+      debug:
+        msg:
+          - "Cluster deletion initiated successfully"
+          - "Cluster will be deleted in the background"
+          - "This may take several minutes to complete"
+
+    - name: "Wait for cluster deletion to complete"
+      when: atlas_wait_for_deletion | default(true) | bool
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: [404]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_cluster_deletion_check
+      retries: 40
+      delay: 30
+      until: atlas_cluster_deletion_check.status == 404
+      failed_when: false
+
+    - name: "Cluster deletion status"
+      debug:
+        msg: "{{ 'Cluster deleted successfully' if atlas_cluster_deletion_check.status == 404 else 'Cluster deletion in progress (check Atlas console for status)' }}"
+      when: atlas_wait_for_deletion | default(true) | bool
+
+# 8. Clean up AWS Secrets Manager (if applicable)
+# -----------------------------------------------------------------------------
+- name: "Clean up AWS Secrets Manager secret"
+  when:
+    - atlas_delete_secret | default(false) | bool
+    - atlas_credentials_secret_name_final is defined
+    - atlas_credentials_secret_name_final != ""
+    - atlas_credentials_secret_region is defined
+  block:
+    - name: "Check if secret exists"
+      shell: |
+        aws secretsmanager describe-secret \
+          --secret-id "{{ atlas_credentials_secret_name_final }}" \
+          --region "{{ atlas_credentials_secret_region }}" \
+          --output json
+      register: atlas_secret_exists_check
+      failed_when: false
+      changed_when: false
+
+    - name: "Delete AWS Secrets Manager secret"
+      when: atlas_secret_exists_check.rc == 0
+      shell: |
+        aws secretsmanager delete-secret \
+          --secret-id "{{ atlas_credentials_secret_name_final }}" \
+          --region "{{ atlas_credentials_secret_region }}" \
+          {{ '--force-delete-without-recovery' if (atlas_force_delete_secret | default(false)) else '--recovery-window-in-days 7' }} \
+          --output json
+      register: atlas_secret_delete
+
+    - name: "Secret deletion status"
+      when: atlas_secret_exists_check.rc == 0
+      debug:
+        msg:
+          - "Secret '{{ atlas_credentials_secret_name_final }}' deleted"
+          - "Deletion type: {{ 'Immediate (force)' if (atlas_force_delete_secret | default(false)) else 'Scheduled (7 day recovery window)' }}"
+
+    - name: "Secret not found"
+      when: atlas_secret_exists_check.rc != 0
+      debug:
+        msg: "Secret '{{ atlas_credentials_secret_name_final }}' does not exist or has already been deleted"
+
+# 9. Display decommission results
+# -----------------------------------------------------------------------------
+- name: "MongoDB Atlas cluster decommissioned successfully"
+  debug:
+    msg:
+      - "=========================================="
+      - "MongoDB Atlas Decommission Complete!"
+      - "=========================================="
+      - "Cluster Name ................ {{ atlas_cluster_name }}"
+      - "Project ID .................. {{ atlas_project_id }}"
+      - "Database Users Removed ...... {{ atlas_remove_db_users | default(true) }}"
+      - "Cluster Deleted ............. {{ atlas_cluster_exists }}"
+      - "=========================================="

@@ -63,9 +63,10 @@
     # -------------------------------------------------------------------------
     mirror_odf: "{{ lookup('env', 'MIRROR_ODF') | default ('False', True) | bool }}"
 
-    # 13. Minio and opendatahub (for AI Service)
+    # 13. Minio, opendatahub, openshiftai (for AI Service)
     mirror_minio: "{{ lookup('env', 'MIRROR_MINIO') | default ('False', True) | bool }}"
     mirror_opendatahub: "{{ lookup('env', 'MIRROR_OPENDATAHUB') | default ('False', True) | bool }}"
+    mirror_openshiftai: "{{ lookup('env', 'MIRROR_OPENSHIFTAI') | default ('False', True) | bool }}"
 
   pre_tasks:
     - name: "Load Catalog Metadata"
@@ -642,7 +643,7 @@
         extras_name: odf
         extras_version: 4.15
 
-    # 13. Minio and opendatahub - needed by AI Service
+    # 13. Minio, opendatahub, openshiftai - needed by AI Service
     # -------------------------------------------------------------------------
     - role: ibm.mas_devops.mirror_extras_prepare
       when:
@@ -671,3 +672,17 @@
       vars:
         manifest_name: extras_opendatahub
         manifest_version: "2.32"
+
+    - role: ibm.mas_devops.mirror_extras_prepare
+      when:
+        - mirror_openshiftai
+        - mirror_mode != "from-filesystem"
+      vars:
+        extras_name: "openshiftai"
+        extras_version: "2.25"
+
+    - role: ibm.mas_devops.mirror_images
+      when: mirror_openshiftai
+      vars:
+        manifest_name: extras_openshiftai
+        manifest_version: "2.25"
