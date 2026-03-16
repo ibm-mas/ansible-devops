@@ -22,12 +22,20 @@
 # -----------------------------------------------------------------------------
 - name: Patch cluster config with additional_trusted_ca.json
   ansible.builtin.shell:  |
+    rosa login && \
+    yes | \
     rosa edit cluster \
     --registry-config-additional-trusted-ca /tmp/additional_trusted_ca.json \
     -c {{ rosa_hcp_cluster_name }}
-  ignore_errors: true
-  register: rosaEditClusterResult
 
-- name: Debug rosaEditClusterResult
-  ansible.builtin.debug:
-    var: rosaEditClusterResult
+# Not sure how to get the exact name of the additionalTrustedCA
+- name: "Check if additional_trusted_ca was added to 'cluster' Image"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Image
+    name: cluster
+  until:
+    - cluster_idms.resources[0].spec.additionalTrustedCA.name is defined
+    - cluster_idms.resources[0].spec.additionalTrustedCA.name != ""
+  retries: 30
+  delay: 10

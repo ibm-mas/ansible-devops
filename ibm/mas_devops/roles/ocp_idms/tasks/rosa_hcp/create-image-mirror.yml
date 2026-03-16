@@ -1,32 +1,19 @@
 ---
-
-# 1. Create the IDMS template
-# -----------------------------------------------------------------------------
-- name: "Create {{product_family}}/{{ template_file }} from template"
-  ansible.builtin.template:
-    src: "templates/{{ template_file }}"
-    dest: "/tmp/{{ template_file[:-3] }}" # Remove '.j2' from template file extension
-    mode: preserve
-
-# slurp encodes src file in base64 hence we need to decode it later
-- name: Get content of template file
-  ansible.builtin.slurp:
-    src: "/tmp/{{ template_file[:-3] }}"
-  register: idms_template
-
-- name: Interpret template file content as yaml
-  ansible.builtin.set_fact:
-    idms_template_yaml: '{{ idms_template.content | b64decode | from_yaml }}'
-
-# 2. Create image-mirrors based off IDMS template
-# -----------------------------------------------------------------------------
 - name: "Create image-mirror for {{ item.source }}"
-  when:
-    - idms_template_yaml.spec.imageDigestMirrors is defined
-    - idms_template_yaml.spec.imageDigestMirrors | length > 0
   ansible.builtin.shell: |
     rosa create image-mirror --cluster="{{ rosa_hcp_cluster_name }}" \
     --source="{{ item.source }}" \
     --mirrors="{{ item.mirrors | join(",") }}"
-  ignore_errors: true
-  loop: "{{ idms_template_yaml.spec.imageDigestMirrors }}"
+
+- name: "Check if {{ item.source }} was added to 'cluster' ImageDigestMirrorSet"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ImageDigestMirrorSet
+    name: cluster
+  until:
+    - cluster_idms.resources[0].spec.imageDigestMirrors is defined
+    - cluster_idms.resources[0].spec.imageDigestMirrors | length > 0
+    - cluster_idms.resources[0].spec.imageDigestMirrors | selectattr('source', 'contains', item.source) | first
+  retries: 30
+  delay: 10
+  register: cluster_idms
