@@ -23,6 +23,14 @@
     namespace: "{{ aiservice_namespace }}"
   register: sls_secret
 
+- name: Find tenant API key secret
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ tenant_cr.metadata.name }}----apikey-secret"
+    namespace: "{{ aiservice_namespace }}"
+  register: api_secret
+
 # TODO copy other tenant secrets when it is safe to do so, that is, when
 # API broker and model code is updated.
 
@@ -35,6 +43,8 @@
   vars:
     resource_description: AIServiceTenant CR
     resource: "{{ tenant_cr }}"
+    delete_source: true
+    source_namespace: "{{ aiservice_namespace }}"
     target_namespace: "{{ tenant_cr.metadata.name }}"
 
 - name: "Copy SLS secret to namespace {{ tenant_cr.metadata.name }}"
@@ -42,6 +52,17 @@
   vars:
     resource_description: SLS secret
     resource: "{{ sls_secret }}"
+    delete_source: true
+    source_namespace: "{{ aiservice_namespace }}"
+    target_namespace: "{{ tenant_cr.metadata.name }}"
+
+- name: "Copy API key secret to namespace {{ tenant_cr.metadata.name }}"
+  include_tasks: tenant/copy_resource.yml
+  vars:
+    resource_description: API key secret
+    resource: "{{ api_secret }}"
+    delete_source: true
+    source_namespace: "{{ aiservice_namespace }}"
     target_namespace: "{{ tenant_cr.metadata.name }}"
 
 # Wait until the operator's special reconciliation configmap is available which
