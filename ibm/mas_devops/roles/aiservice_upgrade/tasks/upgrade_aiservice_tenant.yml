@@ -5,7 +5,7 @@
 # to support this change:
 # (1) install the operator to each tenant namespace
 # (2) move the tenant CR from the main namespace into the tenant namespace
-- when: current_aiservice_channel == '9.1.x' or aiservice_force_migration
+- when: (current_aiservice_channel is startswith("9.1.")) or aiservice_force_migration
   block:
     - name: "Delete tenant operator deployment from namespace {{ aiservice_namespace }}"
       kubernetes.core.k8s:
@@ -57,7 +57,7 @@
 
 # For environments not on 9.1.x we can safely assume the new tenant operator exists since
 # upgrade is not supported below this release, therefore the environment is on at least 9.2.x
-- when: current_aiservice_channel != '9.1.x' and not aiservice_force_migration
+- when: (current_aiservice_channel is not startswith("9.1.")) and not aiservice_force_migration
   block:
     - name: Find all subscriptions for ibm-aiservice-tenant
       kubernetes.core.k8s_info:
