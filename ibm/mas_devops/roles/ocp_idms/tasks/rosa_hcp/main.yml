@@ -1,0 +1,32 @@
+---
+# Configure the Cluster to pull images from the mirror
+# - Configure the Image Content Source Policy
+# - wait for nodes to restart
+
+
+# 1. Param check
+# -----------------------------------------------------------------------------
+- name: "Check for required parameters"
+  assert:
+    that:
+      - registry_private_host is defined and registry_private_host != ""
+      - registry_private_ca_file is defined and registry_private_ca_file != ""
+      - rosa_hcp_cluster_name is defined and rosa_hcp_cluster_name != ""
+
+- name: "Settings"
+  debug:
+    msg:
+      - "Cluster Name .............................. {{ rosa_hcp_cluster_name }}"
+      - "Registry Private Host ..................... {{ registry_private_host }}"
+      - "Registry Private Port ..................... {{ registry_private_port | default('<undefined>') }}"
+      - "Registry Private URL ...................... {{ registry_private_url }}"
+      - "Registry Prefix (IBM) ..................... {{ registry_prefix }}"
+      - "Registry (IBM) ............................ {{ registry_private_url_with_path }}"
+      - "Registry Prefix (Red Hat) ................. {{ registry_prefix_redhat }}"
+      - "Registry (Red Hat) ........................ {{ registry_private_url_with_path_redhat }}"
+
+
+# 2. Configure CA trust
+# -----------------------------------------------------------------------------
+- name: Set up trust for the registry
+  include_tasks: "tasks/rosa_hcp/trust.yml"
