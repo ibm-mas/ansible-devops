@@ -1,11 +1,8 @@
 import yaml
 import re
-<<<<<<< HEAD
 import copy
-
-=======
 import datetime
->>>>>>> c7b4032b1182af25dae7699326e97b61fc00ef7f
+
 
 def private_vlan(vlans):
   """
