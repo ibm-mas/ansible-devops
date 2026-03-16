@@ -4,7 +4,7 @@ OneClick Install for MAS Core
 !!! important
     These playbooks are samples to demonstrate how to use the roles in this collection.
 
-    They are **note intended for production use** as-is, they are a starting point for power users to aid in the development of their own Ansible playbooks using the roles in this collection.
+    They are **not intended for production use** as-is, they are a starting point for power users to aid in the development of their own Ansible playbooks using the roles in this collection.
 
     The recommended way to install MAS is to use the [MAS CLI](https://ibm-mas.github.io/cli/), which uses this Ansible Collection to deliver a complete managed lifecycle for your MAS instance.
 

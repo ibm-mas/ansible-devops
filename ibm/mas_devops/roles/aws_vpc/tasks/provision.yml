@@ -38,21 +38,21 @@
     vpc_id: "{{ vpc_info.stdout | from_json | json_query('Vpcs[0].VpcId') }}"
 
 - name: Create a VPC in AWS
-  when: not vpc_id
+  when: vpc_id is not defined or vpc_id | length == 0
   command: >
     aws ec2 create-vpc \
       --cidr-block '{{ vpc_cidr }}' \
       --tag-specification ResourceType=vpc,Tags=[{Key=Name,Value='{{ vpc_name }}'}]
   register: create_vpc_info
 
-- name: Debug ,VPC Creation Info
-  when: not vpc_id
+- name: Debug VPC Creation Info
+  when: vpc_id is not defined or vpc_id | length == 0
   debug:
     msg:
       - "Created VPC Info ..................... {{ create_vpc_info.stdout | from_json }}"
 
 - name: Set Fact VPC Id
-  when: not vpc_id
+  when: vpc_id is not defined or vpc_id | length == 0
   set_fact:
     vpc_id: "{{ create_vpc_info.stdout | from_json | json_query('Vpc.VpcId') }}"
 
