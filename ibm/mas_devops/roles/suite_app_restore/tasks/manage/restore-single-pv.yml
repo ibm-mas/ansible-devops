@@ -1,0 +1,132 @@
+---
+# Restore Single Persistent Volume
+# =============================================================================
+# This task restores a single persistent volume's data from a tar.gz archive
+# to the restore pod.
+
+- name: "Set fact: PV restore details"
+  set_fact:
+    pv_mount_path: "{{ pv_item.mountPath }}"
+    pv_pvc_name: "{{ pv_item.pvcName }}"
+    pv_archive_name: "{{ pv_item.pvcName }}.tar.gz"
+    pv_archive_path: "{{ manage_backup_path }}/data/{{ pv_item.pvcName }}.tar.gz"
+
+- name: "Display PV restore information"
+  debug:
+    msg:
+      - "Restoring PV {{ pv_index + 1 }}/{{ manage_persistent_volumes | length }}"
+      - "PVC Name: {{ pv_pvc_name }}"
+      - "Mount Path: {{ pv_mount_path }}"
+      - "Archive: {{ pv_archive_name }}"
+
+# Verify backup archive exists
+# -----------------------------------------------------------------------------
+- name: "Verify backup archive exists"
+  stat:
+    path: "{{ pv_archive_path }}"
+  register: archive_stat
+
+- name: "Fail if backup archive not found"
+  fail:
+    msg: "Backup archive not found: {{ pv_archive_path }}"
+  when: not archive_stat.stat.exists
+
+- name: "Display archive information"
+  debug:
+    msg:
+      - "Archive size: {{ (archive_stat.stat.size / 1024 / 1024) | round(2) }} MB"
+      - "Archive location: {{ pv_archive_path }}"
+
+# Copy tar.gz archive from local backup to pod
+# -----------------------------------------------------------------------------
+- name: "Copy tar.gz archive to restore pod"
+  shell: |
+    oc cp {{ pv_archive_path }} {{ mas_app_namespace }}/{{ restore_pod_name }}:/tmp/{{ pv_archive_name }} -c {{ restore_pod_container }}
+  register: copy_result
+  failed_when: false
+
+- name: "Check copy result"
+  debug:
+    msg:
+      - "Copy return code: {{ copy_result.rc }}"
+      - "{{ 'Success' if copy_result.rc == 0 else 'Failed' }}"
+
+- name: "Fail if copy failed"
+  fail:
+    msg: "Failed to copy tar archive to pod for {{ pv_pvc_name }}: {{ copy_result.stderr | default('Unknown error') }}"
+  when: copy_result.rc != 0
+
+# Clear existing data in mount path (optional, be careful!)
+# -----------------------------------------------------------------------------
+- name: "Clear existing data in mount path"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ restore_pod_name }}"
+    container: "{{ restore_pod_container }}"
+    command: >
+      sh -c "rm -rf {{ pv_mount_path }}/* {{ pv_mount_path }}/.[!.]* 2>/dev/null || true"
+  register: clear_result
+  failed_when: false
+
+- name: "Display clear result"
+  debug:
+    msg: "Cleared existing data in {{ pv_mount_path }}"
+
+# Extract tar.gz archive in the pod
+# -----------------------------------------------------------------------------
+- name: "Extract tar.gz archive in pod at {{ pv_mount_path }}"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ restore_pod_name }}"
+    container: "{{ restore_pod_container }}"
+    command: >
+      tar -xzf /tmp/{{ pv_archive_name }} -C {{ pv_mount_path }}
+  register: extract_result
+  failed_when: false
+
+- name: "Check extract result"
+  debug:
+    msg:
+      - "Extract return code: {{ extract_result.rc }}"
+      - "{{ 'Success' if extract_result.rc == 0 else 'Failed' }}"
+
+- name: "Fail if extract failed"
+  fail:
+    msg: "Failed to extract tar archive for {{ pv_pvc_name }}: {{ extract_result.stderr | default('Unknown error') }}"
+  when: extract_result.rc != 0
+
+# Clean up tar.gz archive from pod
+# -----------------------------------------------------------------------------
+- name: "Remove tar.gz archive from pod"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ restore_pod_name }}"
+    container: "{{ restore_pod_container }}"
+    command: rm -f /tmp/{{ pv_archive_name }}
+  register: cleanup_result
+  failed_when: false
+
+# Verify restore was successful
+# -----------------------------------------------------------------------------
+- name: "Verify data was restored"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ restore_pod_name }}"
+    container: "{{ restore_pod_container }}"
+    command: >
+      sh -c "ls -la {{ pv_mount_path }} | head -20"
+  register: verify_result
+  failed_when: false
+
+- name: "Display restored data verification"
+  debug:
+    msg:
+      - "Restored data in {{ pv_mount_path }}:"
+      - "{{ verify_result.stdout_lines | default(['No output']) }}"
+  when: verify_result.rc == 0
+
+- name: "PV restore completed"
+  debug:
+    msg:
+      - "Successfully restored PVC: {{ pv_pvc_name }}"
+      - "Mount path: {{ pv_mount_path }}"
