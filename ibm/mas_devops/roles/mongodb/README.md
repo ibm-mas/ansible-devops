@@ -131,7 +131,7 @@ Specifies which operation to perform on the MongoDB instance.
 - **community**: `install`, `uninstall`, `backup`, `backup-database`, `restore`, `restore-database`
 - **aws**: `install`, `uninstall`, `docdb_secret_rotate`, `destroy-data`
 - **ibm**: `install`, `uninstall`, `backup`, `restore`, `create-mongo-service-credentials`
-- **atlas**: `install`, `uninstall`, `restore`
+- **atlas**: `install`, `uninstall`, `restore`, `restore-database`
 
 **Impact**: The action determines what the role will do. Destructive actions like `uninstall` and `destroy-data` will permanently delete data. Backup/restore actions require additional variables to be set.
 
