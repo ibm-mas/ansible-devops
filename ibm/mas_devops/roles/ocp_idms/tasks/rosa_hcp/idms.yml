@@ -9,18 +9,18 @@
     mode: preserve
 
 # slurp encodes src file in base64 hence we need to decode it later
-- name: Get content of template file
+- name: "Get content of template file"
   ansible.builtin.slurp:
     src: "/tmp/{{ template_file[:-3] }}"
   register: idms_template
 
-- name: Interpret template file content as yaml
+- name: "Interpret template file content as yaml"
   ansible.builtin.set_fact:
     idms_template_yaml: "{{ idms_template.content | b64decode | from_yaml }}"
 
 # 2. Create image-mirrors based off IDMS template
 # -----------------------------------------------------------------------------
-- name: "Add {{ item.source }} to ImageDigestMirrorSet"
+- name: "Add mirror to ImageDigestMirrorSet"
   when:
     - idms_template_yaml.spec.imageDigestMirrors is defined
     - idms_template_yaml.spec.imageDigestMirrors | length > 0
@@ -30,7 +30,7 @@
 
 # 3. Delete the IDMS template
 # -----------------------------------------------------------------------------
-- name: Delete the IDMS template
+- name: "Delete the IDMS template"
   ansible.builtin.file:
     path: "/tmp/{{ template_file[:-3] }}"
     state: absent

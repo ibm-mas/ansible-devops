@@ -2,7 +2,7 @@
 
 # 1. Read the CA cert from the file
 # -----------------------------------------------------------------------------
-- name: Read the private registry CA cert
+- name: "Read the private registry CA cert"
   set_fact:
     registry_private_ca_crt: "{{ lookup('file', registry_private_ca_file) | replace('\n', '\\n') }}"
   no_log: true
@@ -11,7 +11,7 @@
 # A JSON file containing the registry hostname as the key, and the PEM-encoded
 # certificate as the value, for each additional registry CA to trust.
 # -----------------------------------------------------------------------------
-- name: Create additional_trusted_ca.json from a template
+- name: "Create additional_trusted_ca.json from a template"
   ansible.builtin.template:
     src: templates/additional_trusted_ca.json.j2
     dest: /tmp/additional_trusted_ca.json
@@ -35,7 +35,7 @@
     - cluster_image_lookup.resources[0].spec.additionalTrustedCA.name is defined
     - cluster_image_lookup.resources[0].spec.additionalTrustedCA.name != ""
   block:
-  - name: "Fetch registry-additional-ca configmap"
+  - name: "Lookup registry-additional-ca configmap"
     kubernetes.core.k8s_info:
       api_version: v1
       kind: ConfigMap
@@ -43,7 +43,7 @@
       name: "{{ cluster_image_lookup.resources[0].spec.additionalTrustedCA.name }}"
     register: registry_additional_ca_cfgmap_lookup
 
-  - name: Update last_additional_trusted_ca_name
+  - name: "Update last_additional_trusted_ca_name"
     when:
       - registry_additional_ca_cfgmap_lookup.resources[0].data[registry_private_host] is defined
       - registry_additional_ca_cfgmap_lookup.resources[0].data[registry_private_host] != ""
@@ -54,7 +54,7 @@
 # 4. Update or edit the image registry for the cluster
 # Patches the cluster config to use this configmap in spec.additionalTrustedCA
 # -----------------------------------------------------------------------------
-- name: Patch cluster config with additional_trusted_ca.json
+- name: "Patch cluster config with additional_trusted_ca.json"
   ansible.builtin.shell: |
     rosa edit cluster \
       --registry-config-additional-trusted-ca /tmp/additional_trusted_ca.json \
@@ -76,7 +76,7 @@
 
 # 5. Cleanup
 # -----------------------------------------------------------------------------
-- name: "Delete unused {{last_additional_trusted_ca_name }} configmap in openshift-config"
+- name: "Delete {{last_additional_trusted_ca_name }} configmap in openshift-config"
   when: last_additional_trusted_ca_name != ""
   kubernetes.core.k8s:
     state: absent
@@ -85,7 +85,7 @@
     namespace: openshift-config
     name: "{{ last_additional_trusted_ca_name }}"
 
-- name: Delete additional_trusted_ca.json
+- name: "Delete local copy of additional_trusted_ca.json"
   ansible.builtin.file:
     path: /tmp/additional_trusted_ca.json
     state: absent
