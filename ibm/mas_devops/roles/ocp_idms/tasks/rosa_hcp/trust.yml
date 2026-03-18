@@ -4,7 +4,7 @@
 # -----------------------------------------------------------------------------
 - name: Read the private registry CA cert
   set_fact:
-    registry_private_ca_crt: "{{ lookup('file', registry_private_ca_file) replace('\n', '\\n') }}"
+    registry_private_ca_crt: "{{ lookup('file', registry_private_ca_file) | replace('\n', '\\n') }}"
   no_log: true
 
 # 2. Create the additional_trusted_ca.json
@@ -17,26 +17,70 @@
     dest: /tmp/additional_trusted_ca.json
     mode: preserve
 
-# 3. Update or edit the image registry for the cluster
+# 3. Check for existing additionalTrustedCA in openshift-config
+# -----------------------------------------------------------------------------
+- name: "Set last_additional_trusted_ca_name"
+  ansible.builtin.set_fact:
+    last_additional_trusted_ca_name: ""
+
+- name: "Lookup 'cluster' Image resource"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Image
+    name: cluster
+  register: cluster_image_lookup
+
+- name: "Set last_additional_trusted_ca_name from cluster_image_lookup"
+  when:
+    - cluster_image_lookup.resources[0].spec.additionalTrustedCA.name is defined
+    - cluster_image_lookup.resources[0].spec.additionalTrustedCA.name != ""
+  block:
+  - name: "Fetch registry-additional-ca configmap"
+    kubernetes.core.k8s_info:
+      api_version: v1
+      kind: ConfigMap
+      namespace: openshift-config
+      name: "{{ cluster_image_lookup.resources[0].spec.additionalTrustedCA.name }}"
+    register: registry_additional_ca_cfgmap_lookup
+
+  - name: Update last_additional_trusted_ca_name
+    when:
+      - registry_additional_ca_cfgmap_lookup.resources[0].data[registry_private_host] is defined
+      - registry_additional_ca_cfgmap_lookup.resources[0].data[registry_private_host] != ""
+      - (registry_additional_ca_cfgmap_lookup.resources[0].data[registry_private_host] | replace('\n', '\\n')) != registry_private_ca_crt
+    ansible.builtin.set_fact:
+      last_additional_trusted_ca_name: "{{ cluster_image_lookup.resources[0].spec.additionalTrustedCA.name }}"
+
+# 4. Update or edit the image registry for the cluster
 # Patches the cluster config to use this configmap in spec.additionalTrustedCA
 # -----------------------------------------------------------------------------
 - name: Patch cluster config with additional_trusted_ca.json
-  ansible.builtin.shell:  |
-    rosa login && \
-    yes | \
+  ansible.builtin.shell: |
     rosa edit cluster \
-    --registry-config-additional-trusted-ca /tmp/additional_trusted_ca.json \
-    -c {{ rosa_hcp_cluster_name }}
+      --registry-config-additional-trusted-ca /tmp/additional_trusted_ca.json \
+      --cluster="{{ rosa_hcp_cluster_name }}" \
+      -y
 
-# Not sure how to get the exact name of the additionalTrustedCA
 - name: "Check if additional_trusted_ca was added to 'cluster' Image"
   kubernetes.core.k8s_info:
-    api_version: v1
+    api_version: config.openshift.io/v1
     kind: Image
     name: cluster
   until:
     - cluster_image_lookup.resources[0].spec.additionalTrustedCA.name is defined
     - cluster_image_lookup.resources[0].spec.additionalTrustedCA.name != ""
+    - cluster_image_lookup.resources[0].spec.additionalTrustedCA.name != last_additional_trusted_ca_name
   retries: 30
   delay: 10
   register: cluster_image_lookup
+
+# 5. Cleanup old additional_trusted_ca configmap
+# -----------------------------------------------------------------------------
+- name: "Delete unused {{last_additional_trusted_ca_name }} configmap in openshift-config"
+  when: last_additional_trusted_ca_name != ""
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: ConfigMap
+    namespace: openshift-config
+    name: "{{ last_additional_trusted_ca_name }}"

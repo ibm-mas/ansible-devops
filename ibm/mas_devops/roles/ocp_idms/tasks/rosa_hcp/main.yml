@@ -10,10 +10,13 @@
   assert:
     that:
       - registry_private_host is defined and registry_private_host != ""
-      - registry_private_host | regex_search('[-._a-zA-Z0-9]+')
       - registry_private_ca_file is defined and registry_private_ca_file != ""
       - rosa_hcp_cluster_name is defined and rosa_hcp_cluster_name != ""
-      - lookup('ansible.builtin.env', 'ROSA_TOKEN') is defined and lookup('ansible.builtin.env', 'ROSA_TOKEN') != ""
+
+- name: "Check if registry_private_host is valid"
+  ansible.builtin.assert:
+    that: registry_private_host is regex('^[-._a-zA-Z0-9]+$')
+    fail_msg: "registry_private_host must consist of alphanumeric characters, -, _ or ."
 
 - name: "Settings"
   debug:
@@ -38,14 +41,20 @@
   when:
     - registry_username is defined and registry_username != ""
     - registry_password is defined and registry_password != ""
-  include_tasks: "tasks/update-pull-secret.yml"
+  vars:
+    registry_authentication: registry_auth
+    registry_host: registry_private_host
+  include_tasks: "tasks/rosa_hcp/update-pull-secret.yml"
 
 - name: Update default image pull secret (dev)
   when:
     - fvt_image_registry is defined and fvt_image_registry != ""
     - artifactory_username is defined and artifactory_username != ""
     - artifactory_token is defined and artifactory_token != ""
-  include_tasks: "tasks/update-pull-secret-dev.yml"
+  vars:
+    registry_authentication: artifactory_auth
+    registry_host: fvt_image_registry
+  include_tasks: "tasks/rosa_hcp/update-pull-secret.yml"
 
 # 4. IBM Maximo Operator Catalog
 # -----------------------------------------------------------------------------
