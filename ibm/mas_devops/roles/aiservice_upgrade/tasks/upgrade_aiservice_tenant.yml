@@ -48,6 +48,18 @@
           - "AI Service namespace ............. {{ aiservice_namespace }}"
           - "Number of tenants to migrate ............. {{ tenant_crs | length }}"
 
+    - name: "Delete tenant operator deployment is deleted from namespace {{ aiservice_namespace }}"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ aiservice_instance_id }}-entitymgr-tenant"
+        namespace: "{{ aiservice_namespace }}"
+      register: deployment_info
+      until: deployment_info.resources | length == 0
+      retries: 60
+      delay: 10
+      failed_when: false
+
     - name: Migrate tenant
       include_tasks: tenant/migrate.yml
       loop: "{{ tenant_crs }}"
