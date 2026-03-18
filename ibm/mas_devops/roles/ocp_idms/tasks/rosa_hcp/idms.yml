@@ -16,7 +16,7 @@
 
 - name: Interpret template file content as yaml
   ansible.builtin.set_fact:
-    idms_template_yaml: '{{ idms_template.content | b64decode | from_yaml }}'
+    idms_template_yaml: "{{ idms_template.content | b64decode | from_yaml }}"
 
 # 2. Create image-mirrors based off IDMS template
 # -----------------------------------------------------------------------------
@@ -27,3 +27,10 @@
   ansible.builtin.include_tasks: "tasks/rosa_hcp/create-image-mirror.yml"
   loop: "{{ idms_template_yaml.spec.imageDigestMirrors }}"
   register: image_mirror_result
+
+# 3. Delete the IDMS template
+# -----------------------------------------------------------------------------
+- name: Delete the IDMS template
+  ansible.builtin.file:
+    path: "/tmp/{{ template_file[:-3] }}"
+    state: absent
