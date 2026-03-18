@@ -1,5 +1,13 @@
 ---
-# 1. Lookup storage class availabiity
+# 1. Fetch Kafka Configuration from KafkaCfg
+# -----------------------------------------------------------------------------
+- name: "configure-kafkaimageprocessor : Fetch Kafka configuration from KafkaCfg"
+  include_tasks: "{{ role_path }}/tasks/fetch-kafka-config.yml"
+  when:
+    - kafka_brokers is not defined or kafka_brokers == ""
+    - kafka_username is not defined or kafka_username == ""
+
+# 2. Lookup storage class availabiity
 # -----------------------------------------------------------------------------
 - name: "configure-kafkaimageprocessor : Load default storage class information"
   include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
@@ -114,6 +122,59 @@
   kubernetes.core.k8s:
     state: present
     template: templates/kafkaimageprocessor-pvc.yml.j2
+
+# Create Kafka ConfigMap and Secret for Civil/KafkaImageProcessor
+# -----------------------------------------------------------------------------
+- name: Check if Kafka configuration is available
+  set_fact:
+    kafka_config_available: "{{ kafka_brokers is defined and kafka_username is defined and kafka_password is defined }}"
+
+- name: Debug Kafka configuration availability
+  debug:
+    msg: "Kafka configuration available: {{ kafka_config_available }}"
+
+- name: Check if Kafka ConfigMap already exists
+  when: kafka_config_available | bool
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: "{{ mas_instance_id }}-kafka-{{ mas_app_id }}"
+    namespace: "{{ manage_namespace }}"
+  register: kafka_configmap_check
+
+- name: Create Kafka ConfigMap for KafkaImageProcessor
+  when:
+    - kafka_config_available | bool
+    - kafka_configmap_check.resources | length == 0
+  kubernetes.core.k8s:
+    state: present
+    template: templates/kafka-configmap.yml.j2
+  register: kafka_configmap_created
+
+- name: Check if Kafka Secret already exists
+  when: kafka_config_available | bool
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ mas_instance_id }}-kafka-{{ mas_app_id }}"
+    namespace: "{{ manage_namespace }}"
+  register: kafka_secret_check
+  no_log: true
+
+- name: Create Kafka Secret for KafkaImageProcessor
+  when:
+    - kafka_config_available | bool
+    - kafka_secret_check.resources | length == 0
+  kubernetes.core.k8s:
+    state: present
+    template: templates/kafka-secret.yml.j2
+  register: kafka_secret_created
+  no_log: true
+
+- name: Debug Kafka resources creation
+  when: kafka_config_available | bool
+  debug:
+    msg: "Kafka ConfigMap/Secret created for KafkaImageProcessor"
 
 - name: Check if PV has been defined in workspace
   set_fact:

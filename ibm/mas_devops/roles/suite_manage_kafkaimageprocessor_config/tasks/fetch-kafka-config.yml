@@ -1,0 +1,58 @@
+---
+# Fetch Kafka Configuration from KafkaCfg CR
+# This task automatically retrieves Kafka connection details from the MAS system-level Kafka configuration
+# =============================================================================
+
+- name: "Lookup KafkaCfg for MAS instance"
+  kubernetes.core.k8s_info:
+    api_version: config.mas.ibm.com/v1
+    kind: KafkaCfg
+    name: "{{ mas_instance_id }}-kafka-system"
+    namespace: "mas-{{ mas_instance_id }}-core"
+  register: kafka_cfg_result
+  failed_when: kafka_cfg_result.resources | length == 0
+
+- name: "Extract KafkaCfg data"
+  set_fact:
+    kafka_cfg: "{{ kafka_cfg_result.resources[0] }}"
+
+- name: "Get Kafka credentials secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ kafka_cfg.spec.config.credentials.secretName }}"
+    namespace: "mas-{{ mas_instance_id }}-core"
+  register: kafka_secret_result
+  no_log: true
+  failed_when: kafka_secret_result.resources | length == 0
+
+- name: "Extract Kafka secret data"
+  set_fact:
+    kafka_secret_data: "{{ kafka_secret_result.resources[0].data }}"
+  no_log: true
+
+- name: "Build Kafka broker list from hosts"
+  set_fact:
+    kafka_brokers: "{{ kafka_cfg.spec.config.hosts | map(attribute='host') | map('regex_replace', '^(.*)$', '\\1:' + (kafka_cfg.spec.config.hosts[0].port | string)) | list }}"
+
+- name: "Extract Kafka certificates"
+  set_fact:
+    kafka_certificates: "{{ kafka_cfg.spec.certificates | map(attribute='crt') | list | to_json }}"
+
+- name: "Set Kafka configuration variables"
+  set_fact:
+    kafka_username: "{{ kafka_secret_data.username | b64decode }}"
+    kafka_password: "{{ kafka_secret_data.password | b64decode }}"
+    kafka_saslmechanism: "{{ kafka_cfg.spec.config.saslMechanism }}"
+  no_log: true
+
+- name: "Debug Kafka configuration (without credentials)"
+  debug:
+    msg:
+      - "Kafka brokers: {{ kafka_brokers }}"
+      - "Kafka SASL mechanism: {{ kafka_saslmechanism }}"
+      - "Kafka certificates count: {{ (kafka_certificates | from_json) | length }}"
+      - "Kafka username: {{ kafka_username }}"
+      - "Credentials fetched from: {{ kafka_cfg.spec.config.credentials.secretName }}"
+
+# Made with Bob

@@ -1,0 +1,21 @@
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: "{{ mas_instance_id }}-kafka-{{ mas_app_id }}"
+  namespace: "{{ manage_namespace }}"
+  labels:
+    mas.ibm.com/instanceId: "{{ mas_instance_id }}"
+    mas.ibm.com/applicationId: "{{ mas_app_id }}"
+    app.kubernetes.io/instance: "{{ mas_instance_id }}"
+    app.kubernetes.io/managed-by: "suite_manage_kafkaimageprocessor_config"
+data:
+  kafka.yaml: |
+    sasl: true
+    saslMechanism: {{ kafka_saslmechanism }}
+    topicPrefix: {{ mas_instance_id }}-{{ mas_app_id }}
+    kafkas:
+    {% for broker in kafka_brokers %}
+    - host: {{ broker.host }}
+      port: {{ broker.port }}
+    {% endfor %}
