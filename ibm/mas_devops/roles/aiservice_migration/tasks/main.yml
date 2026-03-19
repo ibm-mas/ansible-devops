@@ -1,0 +1,65 @@
+---
+
+# Release 9.2.x introduces an architectural change whereby each tenant namespace
+# has a dedicated "ibm-aiservice-tenant" operator. We must migrate the environment
+# to support this change:
+# (1) install the operator to each tenant namespace
+# (2) move resources from the main namespace into the tenant namespace
+- name: "Delete tenant operator deployment from namespace {{ aiservice_namespace }}"
+  kubernetes.core.k8s:
+    api_version: apps/v1
+    kind: Deployment
+    namespace: "{{ aiservice_namespace }}"
+    name: "{{ aiservice_instance_id }}-entitymgr-tenant"
+    state: absent
+
+- name: "Delete tenant operator secret from namespace {{ aiservice_namespace }}"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Secret
+    namespace: "{{ aiservice_namespace }}"
+    name: provision-tenant----apikey-secret
+    state: absent
+
+- name: "Delete tenant operator configmap from namespace {{ aiservice_namespace }}"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: ConfigMap
+    namespace: "{{ aiservice_namespace }}"
+    name: "{{ aiservice_instance_id }}-entitymgr-tenant-reconcile"
+    state: absent
+
+- name: "Find existing AIServiceTenant CRs in namespace {{ aiservice_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: aiservice.ibm.com/v1
+    kind: AIServiceTenant
+    namespace: "{{ aiservice_namespace }}"
+  register: search_result
+
+- name: Set target resources
+  ansible.builtin.set_fact:
+    tenant_crs: "{{ search_result.resources }}"
+
+- name: Migration info
+  ansible.builtin.debug:
+    msg:
+      - "AI Service namespace ............. {{ aiservice_namespace }}"
+      - "Number of tenants to migrate ............. {{ tenant_crs | length }}"
+
+- name: "Confirm tenant operator deployment is deleted from namespace {{ aiservice_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: "{{ aiservice_instance_id }}-entitymgr-tenant"
+    namespace: "{{ aiservice_namespace }}"
+  register: deployment_info
+  until: deployment_info.resources | length == 0
+  retries: 60
+  delay: 10
+  failed_when: false
+
+- name: Migrate tenant
+  include_tasks: tenant/migrate.yml
+  loop: "{{ tenant_crs }}"
+  loop_control:
+    loop_var: tenant_cr
