@@ -1,0 +1,122 @@
+---
+# Retrieve the civil.maximo.apiKey from Maximo system properties
+# and store it in a Kubernetes Secret for the Kafka Image Processor
+
+- name: Set Manage API endpoint to get civil.maximo.apiKey
+  set_fact:
+    manage_endpoint_get_apikey: "https://{{ mas_instance_id }}-{{ mas_workspace_id }}.mas-{{ mas_instance_id }}-manage.svc/maximo/api/service/system?action=wsmethod:getProperty&ccm=1&propName=civil.maximo.apiKey"
+
+- name: Debug API key retrieval endpoint
+  debug:
+    msg:
+      - "Manage endpoint to get API key: {{ manage_endpoint_get_apikey }}"
+
+- name: Retrieve manage certificate secret
+  kubernetes.core.k8s_info:
+    api: v1
+    kind: Secret
+    namespace: "{{ manage_namespace }}"
+    name: "{{ mas_instance_id }}-internal-manage-tls"
+  register: managecerts
+
+- name: Extract cert and key
+  when:
+    - managecerts is defined and managecerts.resources | length > 0
+  set_fact:
+    manage_client_cert: "{{ managecerts.resources[0].data['tls.crt'] | b64decode }}"
+    manage_client_key: "{{ managecerts.resources[0].data['tls.key'] | b64decode }}"
+
+- name: Save key to temp file
+  when:
+    - manage_client_key is defined
+  ansible.builtin.copy:
+    dest: "/tmp/{{ mas_workspace_id }}-kafkaimageprocessor-apikey-tls.key"
+    content: "{{ manage_client_key }}"
+
+- name: Save cert to temp file
+  when:
+    - manage_client_cert is defined
+  ansible.builtin.copy:
+    dest: "/tmp/{{ mas_workspace_id }}-kafkaimageprocessor-apikey-tls.crt"
+    content: "{{ manage_client_cert }}"
+
+- name: Call the Manage API to get civil.maximo.apiKey
+  when:
+    - manage_client_key is defined
+    - manage_client_cert is defined
+  ignore_errors: True
+  uri:
+    method: GET
+    url: "{{ manage_endpoint_get_apikey }}"
+    validate_certs: no
+    client_key: "/tmp/{{ mas_workspace_id }}-kafkaimageprocessor-apikey-tls.key"
+    client_cert: "/tmp/{{ mas_workspace_id }}-kafkaimageprocessor-apikey-tls.crt"
+    force_basic_auth: no
+    return_content: yes
+    status_code:
+      - 200
+      - 404
+      - -1
+    timeout: 10
+  register: get_apikey_result
+
+- name: Set 'maximo_api_key' Fact
+  when:
+    - get_apikey_result is defined
+    - get_apikey_result.json is defined
+    - get_apikey_result.json.return is defined
+  set_fact:
+    maximo_api_key: "{{ get_apikey_result.json.return }}"
+
+- name: Debug retrieved API key (masked)
+  when: maximo_api_key is defined
+  debug:
+    msg:
+      - "API key retrieved successfully: {{ maximo_api_key | regex_replace('^(.{4}).*(.{4})$', '\\1****\\2') }}"
+
+- name: Check if API key secret already exists
+  when: maximo_api_key is defined and maximo_api_key != ''
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-kafka-api-key"
+    namespace: "{{ manage_namespace }}"
+  register: apikey_secret_check
+  no_log: true
+
+- name: Create or update API key secret for Kafka Image Processor
+  when:
+    - maximo_api_key is defined
+    - maximo_api_key != ''
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-kafka-api-key"
+        namespace: "{{ manage_namespace }}"
+        labels:
+          app: kafkaimageprocessor
+          mas.ibm.com/instanceId: "{{ mas_instance_id }}"
+          mas.ibm.com/workspaceId: "{{ mas_workspace_id }}"
+      type: Opaque
+      stringData:
+        apikey: "{{ maximo_api_key }}"
+  register: apikey_secret_created
+  no_log: true
+
+- name: Debug API key secret creation
+  when: apikey_secret_created is defined
+  debug:
+    msg: "API key secret created/updated successfully for Kafka Image Processor"
+
+- name: Clean up temporary certificate files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "/tmp/{{ mas_workspace_id }}-kafkaimageprocessor-apikey-tls.key"
+    - "/tmp/{{ mas_workspace_id }}-kafkaimageprocessor-apikey-tls.crt"
+
+# Made with Bob
