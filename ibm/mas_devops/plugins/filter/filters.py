@@ -442,11 +442,10 @@ def get_ecr_repositories_v2(imageMapFile, target_ecr_host):
     with open(imageMapFile, 'r') as f:
         ecr_repositories=[]
         for imageMap in f:
-            imageMap = imageMap.strip()
-            if target_ecr_host in imageMap:
-                targetImage = imageMap.split(target_ecr_host)[1] #remove the ecr host from the imageMap
-                repopath = targetImage.split('/', 1)[0] #remove the image tag
-                ecr_repositories.append(repopath)
+            targetImage = imageMap.split(target_ecr_host)[1] #remove the ecr host from the imageMap
+            repopath = targetImage.removeprefix('/') #remove /
+            repopath = repopath.rsplit('/',1)[0] #remove the image tag
+            ecr_repositories.append(repopath)
     return ecr_repositories  
 
 def is_channel_upgrade_path_valid(current: str, target: str, valid_paths: dict) -> bool:

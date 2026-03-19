@@ -2,7 +2,7 @@
   debug:
     msg:
       - "ISC Registry ........................... {{ isc_registry }}"
-      - "ISC File Path ......................... {{ isc_file_path }}"
+      - "ISC File Path ......................... {{ isc_public_path }}"
       - "Is Artifactory ........................ {{ is_artifactory }}"
       - "Is GitHub ............................. {{ is_github }}"
 
@@ -10,8 +10,8 @@
 - name: "{{ image_name }} : Download ISC file from Artifactory with token"
   when: is_artifactory | bool
   get_url:
-    url: "{{ isc_file_path }}"
-    dest: "{{ ansible_env.HOME }}/.ibm-mas/{{ image_name }}.yaml"
+    url: "{{ isc_public_path }}"
+    dest: "{{ isc_file }}"
     mode: '755'
     headers:
       Authorization: "Bearer {{ artifactory_token }}"
@@ -23,8 +23,8 @@
 - name: "{{ image_name }} : Download ISC file from GitHub"
   when: is_github | bool
   get_url:
-    url: "{{ isc_file_path }}"
-    dest: "{{ ansible_env.HOME }}/.ibm-mas/{{ image_name }}.yaml"
+    url: "{{ isc_public_path }}"
+    dest: "{{ isc_file }}"
     mode: '0755'
     headers:
       Authorization: "token {{ github_token_isc }}"
@@ -49,7 +49,7 @@
 - name: "{{ image_name }} : Log 404 error and skip"
   when: download_failed_404 | bool
   debug:
-    msg: "ISC file not found (404): {{ isc_file_path }}. Skipping mirror for this architecture."
+    msg: "ISC file not found (404): {{ isc_public_path }}. Skipping mirror for this architecture."
 
 # 1D. Check for other download errors
 - name: "{{ image_name }} : Check for other download errors"
@@ -57,13 +57,13 @@
     - not (download_failed_404 | bool)
     - (is_artifactory | bool and download_result_artifactory.failed | default(false)) or (is_github | bool and download_result_github.failed | default(false))
   fail:
-    msg: "Failed to download ISC file: {{ isc_file_path }}"
+    msg: "Failed to download ISC file: {{ isc_public_path }}"
 
 # 1E. Verify ISC file was downloaded
 - name: "{{ image_name }} : Verify ISC file was downloaded"
   when: not (download_failed_404 | bool)
   stat:
-    path: "{{ ansible_env.HOME }}/.ibm-mas/{{ image_name }}.yaml"
+    path: "{{ isc_file }}"
   register: isc_file_stat
   failed_when: not isc_file_stat.stat.exists
 
@@ -77,8 +77,8 @@
     - name: "{{ image_name }}: Run mirror command"
       shell: |
         oc mirror \
-          -c "{{ ansible_env.HOME }}/.ibm-mas/{{ image_name }}.yaml" \
-          --authfile "{{ ansible_env.HOME }}/containers/auth.json" \
+          -c "{{ isc_file }}" \
+          --authfile "{{ auth_file }}" \
           file://{{ mirror_working_dir }} --v2
       register: ocimagemirror_result
       ignore_errors: true
@@ -86,7 +86,7 @@
     - name: "{{ image_name }} : Debug mirror command"
       debug:
         msg:
-          - "Source: {{ mirror_working_dir }}/manifests/to-filesystem/{{ manifest_name }}_{{ manifest_version }}.txt"
+          - "Source: {{ isc_file }}"
           - "Auth: {{ auth_file }}"
           - "{{ (ocimagemirror_result.rc == 0) | ternary(ocimagemirror_result.stdout_lines, ocimagemirror_result.stderr_lines) }}"
 
@@ -103,13 +103,13 @@
     - registry_is_ecr == true
     - not (download_failed_404 | default(false) | bool)
   block:
-    - name: "{{ manifest_name }} : dry mode mirror command - direct"
+    - name: "{{ image_name }} : dry mode mirror command - direct"
       shell: |
         oc mirror \
-          -c "{{ ansible_env.HOME }}/.ibm-mas/isc-{{ image_name }}-{{ package_version }}-amd64.yaml" \
-          --authfile "{{ ansible_env.HOME }}/containers/auth.json" \
+          -c "{{ isc_file }}" \
+          --authfile "{{ auth_file }}" \
           --workspace file://{{ ansible_env.HOME }}/.ibm-mas \
-          docker://051826726580.dkr.ecr.us-east-1.amazonaws.com/testisc \
+          docker://{{ registry_public_url_with_path }} \
           --dest-tls-verify false \
           --src-tls-verify false \
           --dry-run --v2
@@ -117,11 +117,11 @@
       ignore_errors: true
       when: mirror_mode == "direct"
 
-    - name: "{{ manifest_name }} : Debug dry mode mirror command - direct"
+    - name: "{{ image_name }} : Debug dry mode mirror command - direct"
       debug:
         msg: "{{ (ocimagemirror_dryrun_result.rc == 0) | ternary(ocimagemirror_dryrun_result.stdout_lines, ocimagemirror_dryrun_result.stderr_lines) }}"
 
-    - name: "{{ manifest_name }} : Fail if dry mode mirror is not successful - direct"
+    - name: "{{ image_name }} : Fail if dry mode mirror is not successful - direct"
       assert:
         that: ocimagemirror_dryrun_result.rc == 0
         fail_msg: "mirror command in dry mode failed."
@@ -147,3 +147,59 @@
       ansible.builtin.shell: "aws ecr create-repository --repository-name {{ item }} --region {{ registry_ecr_aws_region }}"
       ignore_errors: true
       loop: "{{ repos_to_add }}"
+
+# 4C. Execute the mirror (from filesystem)
+# -----------------------------------------------------------------------------
+- name: "{{ image_name }} : Mirror Images from local filesystem"
+  when: mirror_mode == "from-filesystem"
+  block:
+    - name: "{{ image_name }} : Run mirror command"
+      shell: |
+        oc mirror \
+            -c "{{ isc_file }}" \
+            --from file://{{ mirror_working_dir }} \
+            --dest-tls-verify=false \
+            --authfile "{{ auth_file }}" \
+            docker://{{ registry_public_url_with_path }}  --v2
+      register: ocimagemirror_result
+      ignore_errors: true
+
+    - name: "{{ image_name }} : Debug mirror command"
+      debug:
+        msg:
+          - "Source:  {{ isc_file }}"
+          - "Auth: {{ auth_file }}"
+          - "{{ (ocimagemirror_result.rc == 0) | ternary(ocimagemirror_result.stdout_lines, ocimagemirror_result.stderr_lines) }}"
+
+    - name: "{{ image_name }} : Fail if mirror is not successful"
+      assert:
+        that: ocimagemirror_result.rc == 0
+        fail_msg: "Image mirroring failed (see debug information above)."
+
+# 4D. Execute the mirror (direct)
+# -----------------------------------------------------------------------------
+- name: "Mirror Images directly"
+  when: mirror_mode == "direct"
+  block:
+    - name: "{{ image_name }} : Run mirror command"
+      shell: |
+        oc mirror \
+          -c "{{ isc_file }}" \
+          --dest-tls-verify=false \
+          --workspace file://{{ ansible_env.HOME }}/.ibm-mas \
+          --authfile "{{ auth_file }}" \
+          docker://{{ registry_public_url_with_path }} --v2
+      register: ocimagemirror_result
+      ignore_errors: true
+
+    - name: "{{ image_name }} : Debug mirror command"
+      debug:
+        msg:
+          - "Source: {{ isc_file }}"
+          - "Auth:{{ auth_file }}"
+          - "{{ (ocimagemirror_result.rc == 0) | ternary(ocimagemirror_result.stdout_lines, ocimagemirror_result.stderr_lines) }}"
+
+    - name: "{{ image_name }} : Fail if mirror is not successful"
+      assert:
+        that: ocimagemirror_result.rc == 0
+        fail_msg: "Image mirroring failed (see debug information above).
