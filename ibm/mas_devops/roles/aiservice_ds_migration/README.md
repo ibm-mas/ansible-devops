@@ -8,7 +8,7 @@ The `aiservice_ds_migration` role is **fully self-contained** and performs the c
 
 ### Phase 1: ODH Removal
 1. Detects if ODH is currently installed
-2. Prompts user for confirmation (unless `no_confirm=true`)
+2. Determines if migration is needed (ODH present AND RHOAI absent)
 3. Scales down the DataScienceCluster kserve component
 4. Removes the ODH operator subscription and CSV
 5. Deletes the DataScienceCluster and DSCInitialization resources
@@ -27,19 +27,6 @@ The `aiservice_ds_migration` role is **fully self-contained** and performs the c
 - **Safe Migration**: Preserves model metadata and configurations
 - **Single Purpose**: Dedicated migration role
 
-## Role Variables
-
-### Required Variables
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `aiservice_instance_id` | AI Service instance identifier (REQUIRED) | `"masdev"` |
-
-### Optional Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `aiservice_ns` | AI Service namespace | `"aiservice-{{ aiservice_instance_id }}"` |
 
 ## Usage
 
