@@ -863,8 +863,6 @@ Also, you need to have AWS user credentials configured via <code>aws configure</
 <p><strong>Impact</strong>: The action determines what the role will do. Destructive actions like <code>uninstall</code> and <code>destroy-data</code> will permanently delete data. Backup/restore actions require additional variables to be set.</p>
 <p><strong>Related variables</strong>:
 - <code>mongodb_provider</code> determines which actions are available
-- Backup actions require <code>masbr_*</code> variables
-- Restore actions require <code>masbr_restore_from_version</code>
 - AWS secret rotation requires <code>docdb_*</code> credential variables</p>
 <p><strong>Note</strong>: Always backup data before performing destructive operations. Some actions are irreversible.</p>
 <h3 id="ce-operator-variables">CE Operator Variables<a class="headerlink" href="#ce-operator-variables" title="Permanent link">¤</a></h3>
@@ -1536,8 +1534,7 @@ Set to <code>true</code> to override the storage class with <code>MONGODB_STORAG
 <p><strong>Valid values</strong>: Timestamp in format <code>YYYYMMDDHHMMSS</code> (e.g., <code>20240621021316</code>)</p>
 <p><strong>Impact</strong>: Restores MongoDB to the state captured in the specified backup. All data after this backup will be lost. This is a destructive operation.</p>
 <p><strong>Related variables</strong>:
-- <code>mongodb_action</code>: Must be set to <code>restore</code>
-- <code>masbr_storage_local_folder</code>: Location where backup exists</p>
+- <code>mongodb_action</code>: Must be set to <code>restore</code></p>
 <p><strong>Note</strong>: <strong>Verify backup version before restoring</strong>. List available backups in storage location first. Restore is destructive and cannot be undone without another backup.</p>
 <h2 id="role-variables-ibm-cloud">Role Variables - IBM Cloud<a class="headerlink" href="#role-variables-ibm-cloud" title="Permanent link">¤</a></h2>
 <h4 id="ibm_mongo_name">ibm_mongo_name<a class="headerlink" href="#ibm_mongo_name" title="Permanent link">¤</a></h4>
@@ -2702,27 +2699,6 @@ Set to <code>true</code> to override the storage class with <code>MONGODB_STORAG
   roles:
     - ibm.mas_devops.mongodb
 </code></pre>
-<h3 id="backup-ce-operator_1">Backup (CE Operator)<a class="headerlink" href="#backup-ce-operator_1" title="Permanent link">¤</a></h3>
-<pre><code class="language-yaml">- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    mongodb_action: backup
-    mas_instance_id: masinst1
-    masbr_storage_local_folder: /tmp/masbr
-  roles:
-    - ibm.mas_devops.mongodb
-</code></pre>
-<h3 id="restore-ce-operator">Restore (CE Operator)<a class="headerlink" href="#restore-ce-operator" title="Permanent link">¤</a></h3>
-<pre><code class="language-yaml">- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    mongodb_action: restore
-    mas_instance_id: masinst1
-    masbr_restore_from_version: 20240621021316
-    masbr_storage_local_folder: /tmp/masbr
-  roles:
-    - ibm.mas_devops.mongodb
-</code></pre>
 <h3 id="install-ibm-cloud">Install (IBM Cloud)<a class="headerlink" href="#install-ibm-cloud" title="Permanent link">¤</a></h3>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
@@ -3481,16 +3457,6 @@ ansible-playbook ibm.mas_devops.run_role
                       <li class="md-toc__item">
                         <a href="#install-ce-operator_1" class="md-toc__link" data-md-level="2">
                           Install (CE Operator)
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#backup-ce-operator_1" class="md-toc__link" data-md-level="2">
-                          Backup (CE Operator)
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#restore-ce-operator" class="md-toc__link" data-md-level="2">
-                          Restore (CE Operator)
                         </a>
                       </li>
                       <li class="md-toc__item">
