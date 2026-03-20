@@ -137,8 +137,6 @@ Specifies which operation to perform on the MongoDB instance.
 
 **Related variables**:
 - `mongodb_provider` determines which actions are available
-- Backup actions require `masbr_*` variables
-- Restore actions require `masbr_restore_from_version`
 - AWS secret rotation requires `docdb_*` credential variables
 
 **Note**: Always backup data before performing destructive operations. Some actions are irreversible.
@@ -925,7 +923,6 @@ Deploy a new MongoDB instance using configuration from a backup and restore data
 
 **Related variables**:
 - `mongodb_action`: Must be set to `restore`
-- `masbr_storage_local_folder`: Location where backup exists
 
 **Note**: **Verify backup version before restoring**. List available backups in storage location first. Restore is destructive and cannot be undone without another backup.
 
@@ -2511,31 +2508,6 @@ MongoDB database password for restore connection.
     mongodb_storage_class: ibmc-block-gold
     mas_instance_id: masinst1
     mas_config_dir: ~/masconfig
-  roles:
-    - ibm.mas_devops.mongodb
-```
-
-### Backup (CE Operator)
-```yaml
-- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    mongodb_action: backup
-    mas_instance_id: masinst1
-    masbr_storage_local_folder: /tmp/masbr
-  roles:
-    - ibm.mas_devops.mongodb
-```
-
-### Restore (CE Operator)
-```yaml
-- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    mongodb_action: restore
-    mas_instance_id: masinst1
-    masbr_restore_from_version: 20240621021316
-    masbr_storage_local_folder: /tmp/masbr
   roles:
     - ibm.mas_devops.mongodb
 ```
