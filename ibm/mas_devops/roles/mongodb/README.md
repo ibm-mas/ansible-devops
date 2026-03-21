@@ -1955,6 +1955,18 @@ Mongo Certificates, please refer to the below example playbook section for detai
 
 ## Role Variables - MongoDB Atlas
 
+### Important Note: Atlas Restore Functionality
+
+**Why Manual Restore Options Are Provided:**
+
+MongoDB Atlas provides a fully managed backup service with automated backups, point-in-time recovery, and easy restore capabilities through the Atlas console and API. **For normal backup and restore operations, you should use the Atlas managed backup service.**
+
+However, this role includes manual restore functionality for **data migration from AWS DocumentDB scenarios only**.
+
+**Recommendation**:
+- **For production backup/restore**: Use Atlas managed backup service (enabled by default with `atlas_backup_enabled: true`)
+- **For data migration**: Use the manual restore options documented below
+
 #### atlas_project_id
 MongoDB Atlas project ID where the cluster will be created.
 
