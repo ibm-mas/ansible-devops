@@ -859,7 +859,7 @@ Also, you need to have AWS user credentials configured via <code>aws configure</
 - <strong>community</strong>: <code>install</code>, <code>uninstall</code>, <code>backup</code>, <code>backup-database</code>, <code>restore</code>, <code>restore-database</code>
 - <strong>aws</strong>: <code>install</code>, <code>uninstall</code>, <code>docdb_secret_rotate</code>, <code>destroy-data</code>
 - <strong>ibm</strong>: <code>install</code>, <code>uninstall</code>, <code>backup</code>, <code>restore</code>, <code>create-mongo-service-credentials</code>
-- <strong>atlas</strong>: <code>install</code>, <code>uninstall</code>, <code>restore</code></p>
+- <strong>atlas</strong>: <code>install</code>, <code>uninstall</code>, <code>restore</code>, <code>restore-database</code></p>
 <p><strong>Impact</strong>: The action determines what the role will do. Destructive actions like <code>uninstall</code> and <code>destroy-data</code> will permanently delete data. Backup/restore actions require additional variables to be set.</p>
 <p><strong>Related variables</strong>:
 - <code>mongodb_provider</code> determines which actions are available
@@ -2317,7 +2317,7 @@ Set to <code>true</code> to override the storage class with <code>MONGODB_STORAG
 <li>Default Value: None</li>
 </ul>
 <p><strong>Purpose</strong>: Identifies the Atlas project (organization) that will contain the MongoDB cluster. All Atlas resources are organized under projects.</p>
-<p><strong>When to use</strong>: Always required for Atlas deployments. Obtain from Atlas console under Project Settings.</p>
+<p><strong>When to use</strong>: Always required for Atlas deployments (except restore-database). Obtain from Atlas console under Project Settings.</p>
 <p><strong>Valid values</strong>: 24-character hexadecimal string (e.g., <code>507f1f77bcf86cd799439011</code>)</p>
 <p><strong>Impact</strong>: Determines billing, access control, and resource organization for the cluster.</p>
 <h4 id="atlas_public_key">atlas_public_key<a class="headerlink" href="#atlas_public_key" title="Permanent link">¤</a></h4>
@@ -2328,7 +2328,7 @@ Set to <code>true</code> to override the storage class with <code>MONGODB_STORAG
 <li>Default Value: None</li>
 </ul>
 <p><strong>Purpose</strong>: Public component of Atlas API key pair used for programmatic access to Atlas API.</p>
-<p><strong>When to use</strong>: Required for all Atlas operations unless credentials are stored in AWS Secrets Manager.</p>
+<p><strong>When to use</strong>: Required for all Atlas operations (except restore-database) unless credentials are stored in AWS Secrets Manager.</p>
 <p><strong>Valid values</strong>: Atlas API public key string</p>
 <p><strong>Impact</strong>: Used with <code>atlas_private_key</code> for Atlas API authentication.</p>
 <p><strong>Related variables</strong>: Must be used with <code>atlas_private_key</code>. Alternative: use <code>atlas_aws_secret_name</code> to retrieve from AWS Secrets Manager.</p>
@@ -2341,7 +2341,7 @@ Set to <code>true</code> to override the storage class with <code>MONGODB_STORAG
 <li>Default Value: None</li>
 </ul>
 <p><strong>Purpose</strong>: Private component of Atlas API key pair used for programmatic access to Atlas API.</p>
-<p><strong>When to use</strong>: Required for all Atlas operations unless credentials are stored in AWS Secrets Manager.</p>
+<p><strong>When to use</strong>: Required for all Atlas operations (except restore-database) unless credentials are stored in AWS Secrets Manager.</p>
 <p><strong>Valid values</strong>: Atlas API private key string</p>
 <p><strong>Impact</strong>: Used with <code>atlas_public_key</code> for Atlas API authentication.</p>
 <p><strong>Related variables</strong>: Must be used with <code>atlas_public_key</code>. Alternative: use <code>atlas_aws_secret_name</code> to retrieve from AWS Secrets Manager.</p>
@@ -2599,60 +2599,17 @@ Set to <code>true</code> to override the storage class with <code>MONGODB_STORAG
 <p><strong>Valid values</strong>: List of subnet IDs or comma-separated string</p>
 <p><strong>Impact</strong>: Route tables associated with these subnets are automatically discovered and configured.</p>
 <p><strong>Related variables</strong>: Alternative to <code>atlas_aws_route_table_ids</code> (manual specification).</p>
-<h4 id="atlas_s3_bucket_name">atlas_s3_bucket_name<a class="headerlink" href="#atlas_s3_bucket_name" title="Permanent link">¤</a></h4>
-<p>AWS S3 bucket name containing MongoDB backup files for restore.</p>
-<ul>
-<li><strong>Required</strong> when <code>mongodb_provider=atlas</code> and <code>mongodb_action=restore</code></li>
-<li>Environment Variable: <code>ATLAS_S3_BUCKET_NAME</code></li>
-<li>Default Value: None</li>
-</ul>
-<p><strong>Purpose</strong>: Specifies the S3 bucket where MongoDB backup files are stored.</p>
-<p><strong>When to use</strong>: Required when restoring MongoDB data from S3 backup to Atlas cluster.</p>
-<p><strong>Valid values</strong>: Valid AWS S3 bucket name</p>
-<p><strong>Impact</strong>: The role will download backup files from this S3 bucket during restore operation.</p>
-<p><strong>Related variables</strong>: Used with <code>atlas_s3_backup_prefix</code>, <code>atlas_backup_file_name</code>, and <code>atlas_index_backup_file_name</code>.</p>
-<h4 id="atlas_s3_backup_prefix">atlas_s3_backup_prefix<a class="headerlink" href="#atlas_s3_backup_prefix" title="Permanent link">¤</a></h4>
-<p>S3 prefix (folder path) where backup files are located.</p>
-<ul>
-<li><strong>Required</strong> when <code>mongodb_provider=atlas</code> and <code>mongodb_action=restore</code></li>
-<li>Environment Variable: <code>ATLAS_S3_BACKUP_PREFIX</code></li>
-<li>Default Value: None</li>
-</ul>
-<p><strong>Purpose</strong>: Specifies the S3 prefix/folder path containing the backup files.</p>
-<p><strong>When to use</strong>: Required when restoring MongoDB data from S3 backup to Atlas cluster.</p>
-<p><strong>Valid values</strong>: Valid S3 prefix path (e.g., <code>backups/mongodb/prod</code>)</p>
-<p><strong>Impact</strong>: Combined with bucket name to locate backup files in S3.</p>
-<p><strong>Related variables</strong>: Used with <code>atlas_s3_bucket_name</code> to construct full S3 path.</p>
-<h4 id="atlas_backup_file_name">atlas_backup_file_name<a class="headerlink" href="#atlas_backup_file_name" title="Permanent link">¤</a></h4>
-<p>Name of the MongoDB backup archive file (without .tar.gz extension).</p>
-<ul>
-<li><strong>Required</strong> when <code>mongodb_provider=atlas</code> and <code>mongodb_action=restore</code></li>
-<li>Environment Variable: <code>ATLAS_BACKUP_FILE_NAME</code></li>
-<li>Default Value: None</li>
-</ul>
-<p><strong>Purpose</strong>: Specifies the backup archive filename containing MongoDB data dumps.</p>
-<p><strong>When to use</strong>: Required when restoring MongoDB data from S3 backup to Atlas cluster.</p>
-<p><strong>Valid values</strong>: Backup filename without extension (e.g., <code>mongodb-backup-20240621</code>)</p>
-<p><strong>Impact</strong>: The role will download <code>{filename}.tar.gz</code> from S3 and extract it for restore.</p>
-<p><strong>Related variables</strong>: Used with <code>atlas_s3_bucket_name</code> and <code>atlas_s3_backup_prefix</code>.</p>
-<p><strong>Note</strong>: The actual file in S3 should have <code>.tar.gz</code> extension, but provide the name without it.</p>
-<h4 id="atlas_index_backup_file_name">atlas_index_backup_file_name<a class="headerlink" href="#atlas_index_backup_file_name" title="Permanent link">¤</a></h4>
-<p>Name of the MongoDB index backup JSON file.</p>
-<ul>
-<li><strong>Required</strong> when <code>mongodb_provider=atlas</code> and <code>mongodb_action=restore</code></li>
-<li>Environment Variable: <code>ATLAS_INDEX_BACKUP_FILE_NAME</code></li>
-<li>Default Value: None</li>
-</ul>
-<p><strong>Purpose</strong>: Specifies the JSON file containing MongoDB index definitions to restore.</p>
-<p><strong>When to use</strong>: Required when restoring MongoDB data from S3 backup to Atlas cluster.</p>
-<p><strong>Valid values</strong>: JSON filename (e.g., <code>mongodb-indexes-20240621.json</code>)</p>
-<p><strong>Impact</strong>: The role will download this file from S3 and recreate indexes after data restore.</p>
-<p><strong>Related variables</strong>: Used with <code>atlas_s3_bucket_name</code> and <code>atlas_s3_backup_prefix</code>.</p>
-<p><strong>Note</strong>: File must be valid JSON containing index definitions for each database and collection.</p>
+<h3 id="important-note-atlas-restore-functionality">Important Note: Atlas Restore Functionality<a class="headerlink" href="#important-note-atlas-restore-functionality" title="Permanent link">¤</a></h3>
+<p><strong>Why Manual Restore Options Are Provided:</strong></p>
+<p>MongoDB Atlas provides a fully managed backup service with automated backups, point-in-time recovery, and easy restore capabilities through the Atlas console and API. <strong>For normal backup and restore operations, you should use the Atlas managed backup service.</strong></p>
+<p>However, this role includes manual restore functionality for <strong>data migration from AWS DocumentDB scenarios only</strong>.</p>
+<p><strong>Recommendation</strong>:
+- <strong>For production backup/restore</strong>: Use Atlas managed backup service (enabled by default with <code>atlas_backup_enabled: true</code>)
+- <strong>For data migration</strong>: Use the manual restore-database options provided here</p>
 <h4 id="atlas_mongodb_host">atlas_mongodb_host<a class="headerlink" href="#atlas_mongodb_host" title="Permanent link">¤</a></h4>
 <p>MongoDB Atlas cluster hostname for restore connection.</p>
 <ul>
-<li><strong>Required</strong> when <code>mongodb_provider=atlas</code> and <code>mongodb_action=restore</code></li>
+<li><strong>Required</strong> when <code>mongodb_provider=atlas</code> and <code>mongodb_action=restore|restore-database</code></li>
 <li>Environment Variable: <code>ATLAS_MONGODB_HOST</code></li>
 <li>Default Value: None</li>
 </ul>
@@ -2665,7 +2622,7 @@ Set to <code>true</code> to override the storage class with <code>MONGODB_STORAG
 <h4 id="atlas_mongodb_username">atlas_mongodb_username<a class="headerlink" href="#atlas_mongodb_username" title="Permanent link">¤</a></h4>
 <p>MongoDB database username for restore connection.</p>
 <ul>
-<li><strong>Required</strong> when <code>mongodb_provider=atlas</code> and <code>mongodb_action=restore</code></li>
+<li><strong>Required</strong> when <code>mongodb_provider=atlas</code> and <code>mongodb_action=restore|restore-database</code></li>
 <li>Environment Variable: <code>ATLAS_MONGODB_USERNAME</code></li>
 <li>Default Value: None</li>
 </ul>
@@ -2678,7 +2635,7 @@ Set to <code>true</code> to override the storage class with <code>MONGODB_STORAG
 <h4 id="atlas_mongodb_password">atlas_mongodb_password<a class="headerlink" href="#atlas_mongodb_password" title="Permanent link">¤</a></h4>
 <p>MongoDB database password for restore connection.</p>
 <ul>
-<li><strong>Required</strong> when <code>mongodb_provider=atlas</code> and <code>mongodb_action=restore</code></li>
+<li><strong>Required</strong> when <code>mongodb_provider=atlas</code> and <code>mongodb_action=restore|restore-database</code></li>
 <li>Environment Variable: <code>ATLAS_MONGODB_PASSWORD</code></li>
 <li>Default Value: None</li>
 </ul>
@@ -2688,6 +2645,32 @@ Set to <code>true</code> to override the storage class with <code>MONGODB_STORAG
 <p><strong>Impact</strong>: Used for authentication during mongorestore operation.</p>
 <p><strong>Related variables</strong>: Used with <code>atlas_mongodb_host</code> and <code>atlas_mongodb_username</code>.</p>
 <p><strong>Note</strong>: Store securely. Never commit to version control.</p>
+<h4 id="atlas_backup_archive_path">atlas_backup_archive_path<a class="headerlink" href="#atlas_backup_archive_path" title="Permanent link">¤</a></h4>
+<p>Local path to the MongoDB backup archive file (.tar.gz).</p>
+<ul>
+<li><strong>Required</strong> when <code>mongodb_provider=atlas</code> and <code>mongodb_action=restore|restore-database</code></li>
+<li>Environment Variable: <code>ATLAS_BACKUP_ARCHIVE_PATH</code></li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the local filesystem path to the backup archive containing MongoDB data dumps.</p>
+<p><strong>When to use</strong>: Required when restoring MongoDB data from local backup files to Atlas cluster (typically for data migration scenarios).</p>
+<p><strong>Valid values</strong>: Valid local filesystem path to a .tar.gz file (e.g., <code>/path/to/mongodb-backup-20240621.tar.gz</code>)</p>
+<p><strong>Impact</strong>: The role will extract this archive and restore the data to the Atlas cluster.</p>
+<p><strong>Related variables</strong>: Used with <code>atlas_index_file_path</code>, <code>atlas_mongodb_host</code>, <code>atlas_mongodb_username</code>, and <code>atlas_mongodb_password</code>.</p>
+<p><strong>Note</strong>: This is for the <code>restore-database</code> action which uses local files, not the <code>restore</code> action which downloads from S3.</p>
+<h4 id="atlas_index_file_path">atlas_index_file_path<a class="headerlink" href="#atlas_index_file_path" title="Permanent link">¤</a></h4>
+<p>Local path to the MongoDB index backup JSON file.</p>
+<ul>
+<li><strong>Required</strong> when <code>mongodb_provider=atlas</code> and <code>mongodb_action=restore|restore-database</code></li>
+<li>Environment Variable: <code>ATLAS_INDEX_FILE_PATH</code></li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the local filesystem path to the JSON file containing MongoDB index definitions.</p>
+<p><strong>When to use</strong>: Required when restoring MongoDB data from local backup files to Atlas cluster (typically for data migration scenarios).</p>
+<p><strong>Valid values</strong>: Valid local filesystem path to a JSON file (e.g., <code>/path/to/mongodb-indexes-20240621.json</code>)</p>
+<p><strong>Impact</strong>: The role will read this file and recreate indexes after data restore.</p>
+<p><strong>Related variables</strong>: Used with <code>atlas_backup_archive_path</code> for the restore-database operation.</p>
+<p><strong>Note</strong>: File must be valid JSON containing index definitions for each database and collection. This is for the <code>restore-database</code> action which uses local files, not the <code>restore</code> action which downloads from S3.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <h3 id="install-ce-operator_1">Install (CE Operator)<a class="headerlink" href="#install-ce-operator_1" title="Permanent link">¤</a></h3>
 <pre><code class="language-yaml">- hosts: localhost
@@ -2760,19 +2743,20 @@ Set to <code>true</code> to override the storage class with <code>MONGODB_STORAG
   any_errors_fatal: true
   vars:
     mongodb_provider: atlas
-    mongodb_action: restore
-    atlas_s3_bucket_name: my-backup-bucket
-    atlas_s3_backup_prefix: mongodb-backups/prod
-    atlas_backup_file_name: mongodb-backup-20240621
-    atlas_index_backup_file_name: mongodb-indexes-20240621.json
+    mongodb_action: restore-database
+    atlas_backup_archive_path: /path/to/mongodb-backup-20240621.tar.gz
+    atlas_index_file_path: /path/to/mongodb-indexes-20240621.json
     atlas_mongodb_host: cluster0.abc123.mongodb.net
     atlas_mongodb_username: admin
     atlas_mongodb_password: "{{ lookup('env', 'ATLAS_DB_PASSWORD') }}"
   roles:
     - ibm.mas_devops.mongodb
 </code></pre>
-<h3 id="aws-documentdb-destroy-data-action">AWS DocumentDb destroy-data action<a class="headerlink" href="#aws-documentdb-destroy-data-action" title="Permanent link">¤</a></h3>
-<pre><code class="language-yaml">- hosts: localhost
+<pre><code>
+### AWS DocumentDb destroy-data action
+
+```yaml
+- hosts: localhost
   any_errors_fatal: true
   vars:
     mas_instance_id: masinst1
@@ -3413,38 +3397,8 @@ ansible-playbook ibm.mas_devops.run_role
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#atlas_s3_bucket_name" class="md-toc__link" data-md-level="2">
-                          atlas_s3_bucket_name
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_s3_backup_prefix" class="md-toc__link" data-md-level="2">
-                          atlas_s3_backup_prefix
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_backup_file_name" class="md-toc__link" data-md-level="2">
-                          atlas_backup_file_name
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_index_backup_file_name" class="md-toc__link" data-md-level="2">
-                          atlas_index_backup_file_name
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_mongodb_host" class="md-toc__link" data-md-level="2">
-                          atlas_mongodb_host
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_mongodb_username" class="md-toc__link" data-md-level="2">
-                          atlas_mongodb_username
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_mongodb_password" class="md-toc__link" data-md-level="2">
-                          atlas_mongodb_password
+                        <a href="#important-note-atlas-restore-functionality" class="md-toc__link" data-md-level="2">
+                          Important Note: Atlas Restore Functionality
                         </a>
                       </li>
                   </ul>
@@ -3477,11 +3431,6 @@ ansible-playbook ibm.mas_devops.run_role
                       <li class="md-toc__item">
                         <a href="#restore-mongodb-atlas" class="md-toc__link" data-md-level="2">
                           Restore (MongoDB Atlas)
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#aws-documentdb-destroy-data-action" class="md-toc__link" data-md-level="2">
-                          AWS DocumentDb destroy-data action
                         </a>
                       </li>
                   </ul>
