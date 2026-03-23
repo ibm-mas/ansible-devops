@@ -1,52 +1,14 @@
 ---
 
-- name: Get the AI Service operator deployment
-  kubernetes.core.k8s_info:
-    api_version: apps/v1
-    kind: Deployment
-    namespace: "{{ aiservice_namespace }}"
-    name: ibm-aiservice-operator
-  register: op_deployment
-
-- name: Check if deployment requires namespace-scoped tenant operator
-  ansible.builtin.set_fact:
-    requires_namespaced_tenant_operator: >-
-      {{ (op_deployment.resources[0].metadata.annotations | default({})).get('aiservice.ibm.com/namespace-scoped-tenant-operator', 'false') == 'true' }}
-
-- name: Display annotation check result
-  ansible.builtin.debug:
-    msg: "Deployment has namespace-scoped tenant operator annotation? ......................... {{ requires_namespaced_tenant_operator }}"
-
-- name: Check if migration is needed
-  ansible.builtin.set_fact:
-    is_migration_needed: >-
-      {{ (current_aiservice_channel is startswith("9.1.")) or
-      ((current_aiservice_channel == "9.2.x-feature") and requires_namespaced_tenant_operator) or
-      aiservice_force_migration }}
-
-- name: Display migration status
-  debug:
-    msg: "Is migration needed? ......................... {{ is_migration_needed }}"
-
-# Release 9.2.x introduces an architectural change whereby each tenant namespace
-# has a dedicated "ibm-aiservice-tenant" operator. We must migrate the environment
-# to support this change:
-# (1) install the operator to each tenant namespace
-# (2) move the tenant CR from the main namespace into the tenant namespace
-- when: is_migration_needed
+# This role will update the value of "is_migration_needed".
+- name: Migrate the tenant operator deployment if necessary
   include_role:
     name: ibm.mas_devops.aiservice_migration
   vars:
-    mas_entitlement_username: "{{ mas_entitlement_username }}"
-    mas_entitlement_key: "{{ mas_entitlement_key }}"
-    artifactory_username: "{{ artifactory_username }}"
-    artifactory_token: "{{ artifactory_token }}"
-    aiservice_channel: "{{ target_aiservice_channel }}"
-    aiservice_instance_id: "{{ aiservice_instance_id }}"
-    aiservice_namespace: "{{ aiservice_namespace }}"
+    catalog_channel: "{{ aiservice_tenant_channel }}"
+    instance_id: "{{ aiservice_instance_id }}"
 
-# For environments not on 9.1.x we can safely assume the new tenant operator exists since
-# upgrade is not supported below this release, therefore the environment is on at least 9.2.x
+# If migration is not needed then proceed with simply upgrading the tenant operator
 - when: not is_migration_needed
   block:
     - name: Find all subscriptions for ibm-aiservice-tenant
@@ -57,12 +19,13 @@
         label_selectors:
           - "aiservice.ibm.com/instanceId = {{ aiservice_instance_id }}"
       register: aiservice_tenant_sub_info
+      no_log: true
 
     - name: Set target resources
       ansible.builtin.set_fact:
         tenant_subscriptions: "{{ aiservice_tenant_sub_info.resources }}"
 
-    - name: Subscription info
+    - name: Display subscription info
       ansible.builtin.debug:
         msg:
           - "Number of tenant subscriptions ............. {{ tenant_subscriptions | length }}"
