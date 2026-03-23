@@ -1979,7 +1979,7 @@ MongoDB Atlas API public key for authentication.
 
 **Purpose**: Public component of Atlas API key pair used for programmatic access to Atlas API.
 
-**When to use**: Required for all Atlas operations (except restore-datavase) unless credentials are stored in AWS Secrets Manager.
+**When to use**: Required for all Atlas operations (except restore-database) unless credentials are stored in AWS Secrets Manager.
 
 **Valid values**: Atlas API public key string
 
@@ -1998,7 +1998,7 @@ MongoDB Atlas API private key for authentication.
 
 **Purpose**: Private component of Atlas API key pair used for programmatic access to Atlas API.
 
-**When to use**: Required for all Atlas operations (except restore-datavase) unless credentials are stored in AWS Secrets Manager.
+**When to use**: Required for all Atlas operations (except restore-database) unless credentials are stored in AWS Secrets Manager.
 
 **Valid values**: Atlas API private key string
 
