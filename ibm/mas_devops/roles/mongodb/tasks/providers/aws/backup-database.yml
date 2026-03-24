@@ -39,7 +39,6 @@
       - "Cluster: {{ docdb_cluster_name }}"
       - "Port: {{ docdb_port }}"
       - "Region: {{ aws_region }}"
-      - "Storage Path: {{ backup_storage_path | default('Not specified') }}"
       - "Backup Directory: {{ docdb_backup_dir }}"
       - "=========================================="
 
@@ -119,36 +118,12 @@
     - "{{ docdb_backup_dir }}/ca"
   ignore_errors: yes
 
-# 8. Copy to storage path (if specified)
+# 8. Check if index file exists
 # -----------------------------------------------------------------------------
-- name: "Create storage directory"
-  file:
-    path: "{{ backup_storage_path }}"
-    state: directory
-    mode: '0755'
-  when: backup_storage_path is defined and backup_storage_path != ''
-
-- name: "Copy backup archive to storage path"
-  copy:
-    src: "{{ docdb_backup_dir }}/mongodb-backup.tar.gz"
-    dest: "{{ backup_storage_path }}/mongodb-backup-{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}.tar.gz"
-    remote_src: yes
-  register: storage_copy_result
-  when: backup_storage_path is defined and backup_storage_path != ''
-
 - name: "Check if index file exists"
   stat:
     path: "{{ docdb_backup_dir }}/collection-indexes.json"
   register: index_file_check
-
-- name: "Copy index file to storage path"
-  copy:
-    src: "{{ docdb_backup_dir }}/collection-indexes.json"
-    dest: "{{ backup_storage_path }}/collection-indexes-{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}.json"
-    remote_src: yes
-  when:
-    - backup_storage_path is defined and backup_storage_path != ''
-    - index_file_check.stat.exists
 
 # 9. Display completion summary
 # -----------------------------------------------------------------------------
@@ -163,17 +138,11 @@
       - "=========================================="
       - "Backup Completed Successfully"
       - "=========================================="
-      - "Local Backup Directory: {{ docdb_backup_dir }}"
-      - "Backup Archive: {{ docdb_backup_dir }}/mongodb-backup.tar.gz"
-      - "Backup Size: {{ (backup_file_stat.stat.size / 1024 / 1024) | round(2) }} MB"
-      - "Index File: {{ 'Created' if index_file_check.stat.exists else 'Not created (optional)' }}"
+      - "Backup Directory: {{ docdb_backup_dir }}"
       - "----------------------------------------"
-      - "Storage Locations:"
-      - "  Local: {{ docdb_backup_dir }}"
-      - "  Storage Path: {{ backup_storage_path if (backup_storage_path is defined and backup_storage_path != '') else 'Not configured' }}"
-      - "----------------------------------------"
-      - "Copy Status:"
-      - "  Storage Copy: {{ 'Success' if (storage_copy_result is defined and storage_copy_result.changed) else 'Skipped' }}"
+      - "Files Created:"
+      - "  1. mongodb-backup.tar.gz ({{ (backup_file_stat.stat.size / 1024 / 1024) | round(2) }} MB)"
+      - "  2. collection-indexes.json {{ '(Created)' if index_file_check.stat.exists else '(Not created)' }}"
       - "=========================================="
-      - "NOTE: Temporary files cleaned up, backup files preserved"
+      - "NOTE: Temporary files cleaned up"
       - "=========================================="
