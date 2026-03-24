@@ -1,0 +1,200 @@
+#!/bin/bash
+{# AWS DocumentDB Backup Script - Optimized Version #}
+{# Note: Not using 'set -e' to allow partial backups #}
+
+{# Variables #}
+MONGODB_USER="{{ mongodb_admin_user }}"
+MONGODB_PASSWORD="{{ mongodb_admin_password }}"
+MONGODB_HOST="{{ mongodb_host }}"
+BACKUP_DIR="{{ docdb_backup_dir }}"
+CA_CERT="{{ docdb_ca_cert_path }}"
+PARALLEL_JOBS="{{ docdb_parallel_jobs | default(4) }}"
+
+{# Performance tracking #}
+START_TIME=$(date +%s)
+
+echo "=========================================="
+echo "AWS DocumentDB Backup - Optimized"
+echo "=========================================="
+echo "Host: $MONGODB_HOST"
+echo "Backup Directory: $BACKUP_DIR"
+echo "Parallel Jobs: $PARALLEL_JOBS"
+echo "Start Time: $(date '+%Y-%m-%d %H:%M:%S')"
+echo "=========================================="
+
+{# Create backup directory #}
+mkdir -p "$BACKUP_DIR/mongodump"
+mkdir -p "$BACKUP_DIR/logs"
+
+{# Test connection #}
+echo "Testing connection..."
+mongosh --quiet \
+    -u "$MONGODB_USER" \
+    -p "$MONGODB_PASSWORD" \
+    --host "$MONGODB_HOST" \
+    --tlsCAFile "$CA_CERT" \
+    --authenticationDatabase admin \
+    --tls \
+    --eval "db.adminCommand('ping')" > /dev/null
+
+if [ $? -ne 0 ]; then
+    echo "ERROR: Connection failed"
+    exit 1
+fi
+echo "✓ Connection successful"
+
+{# Get databases with detailed information #}
+echo ""
+echo "=========================================="
+echo "DATABASE LIST (Before Backup)"
+echo "=========================================="
+databases_info=$(mongosh --quiet \
+    -u "$MONGODB_USER" \
+    -p "$MONGODB_PASSWORD" \
+    --host "$MONGODB_HOST" \
+    --tlsCAFile "$CA_CERT" \
+    --authenticationDatabase admin \
+    --tls \
+    --eval "db.adminCommand('listDatabases').databases.forEach(function(d) { print(d.name + ' | Size: ' + (d.sizeOnDisk/1024/1024).toFixed(2) + ' MB | Collections: ' + db.getSiblingDB(d.name).getCollectionNames().length); })")
+
+echo "$databases_info"
+echo "=========================================="
+echo ""
+
+{# Get database names only for backup #}
+databases=$(mongosh --quiet \
+    -u "$MONGODB_USER" \
+    -p "$MONGODB_PASSWORD" \
+    --host "$MONGODB_HOST" \
+    --tlsCAFile "$CA_CERT" \
+    --authenticationDatabase admin \
+    --tls \
+    --eval "db.adminCommand('listDatabases').databases.map(function(d) { return d.name; }).join(' ')")
+
+{# Function to backup a single database #}
+backup_database() {
+    local db=$1
+    local log_file="$BACKUP_DIR/logs/${db}.log"
+    
+    echo "[$(date '+%H:%M:%S')] Starting backup: $db" | tee -a "$log_file"
+    
+    mongodump \
+        -u "$MONGODB_USER" \
+        -p "$MONGODB_PASSWORD" \
+        --host "$MONGODB_HOST" \
+        --sslCAFile "$CA_CERT" \
+        --authenticationDatabase admin \
+        --ssl \
+        --db="$db" \
+        --out="$BACKUP_DIR/mongodump" \
+        --numParallelCollections=4 \
+        --gzip 2>&1 | tee -a "$log_file"
+    
+    local exit_code=${PIPESTATUS[0]}
+    
+    if [ $exit_code -eq 0 ]; then
+        echo "[$(date '+%H:%M:%S')] ✓ Completed: $db" | tee -a "$log_file"
+        return 0
+    else
+        echo "[$(date '+%H:%M:%S')] ✗ Failed: $db (exit code: $exit_code)" | tee -a "$log_file"
+        return 1
+    fi
+}
+
+export -f backup_database
+export MONGODB_USER MONGODB_PASSWORD MONGODB_HOST CA_CERT BACKUP_DIR
+
+{# Backup databases in parallel (excluding system databases) #}
+echo "Starting parallel backup process..."
+echo ""
+
+failed_dbs=()
+success_count=0
+total_count=0
+
+for db in $databases; do
+    if [[ "$db" == "admin" ]] || [[ "$db" == "local" ]] || [[ "$db" == "config" ]]; then
+        echo "Skipping system database: $db"
+        continue
+    fi
+    ((total_count++))
+done
+
+echo "Total databases to backup: $total_count"
+echo ""
+
+{# Process databases in parallel batches #}
+db_array=()
+for db in $databases; do
+    if [[ "$db" != "admin" ]] && [[ "$db" != "local" ]] && [[ "$db" != "config" ]]; then
+        db_array+=("$db")
+    fi
+done
+
+{# Use GNU parallel if available, otherwise use xargs #}
+if command -v parallel &> /dev/null; then
+    printf '%s\n' "${db_array[@]}" | parallel -j "$PARALLEL_JOBS" backup_database {}
+    parallel_exit=$?
+else
+    printf '%s\n' "${db_array[@]}" | xargs -P "$PARALLEL_JOBS" -I {} bash -c 'backup_database "$@"' _ {}
+    parallel_exit=$?
+fi
+
+{# Count successes and failures #}
+for db in "${db_array[@]}"; do
+    if [ -f "$BACKUP_DIR/mongodump/$db" ] || [ -d "$BACKUP_DIR/mongodump/$db" ]; then
+        ((success_count++))
+    else
+        failed_dbs+=("$db")
+    fi
+done
+
+echo ""
+echo "=========================================="
+echo "Backup Summary"
+echo "=========================================="
+echo "Total databases: $total_count"
+echo "Successful: $success_count"
+echo "Failed: ${{ '{' }}#failed_dbs[@]}"
+if [ ${{ '{' }}#failed_dbs[@]} -gt 0 ]; then
+    echo "Failed databases: ${failed_dbs[*]}"
+fi
+echo "=========================================="
+echo ""
+
+{# Create archive - mongodump already compressed files with --gzip, now compress the tar #}
+echo "Creating final archive..."
+cd "$BACKUP_DIR"
+tar -czf mongodb-backup.tar.gz -C mongodump .
+echo "✓ Archive created: mongodb-backup.tar.gz"
+
+{# Cleanup mongodump directory only - keep scripts for index extraction #}
+echo ""
+echo "Cleaning up mongodump directory..."
+rm -rf "$BACKUP_DIR/mongodump"
+echo "✓ Cleanup complete"
+
+{# Calculate duration #}
+END_TIME=$(date +%s)
+DURATION=$((END_TIME - START_TIME))
+MINUTES=$((DURATION / 60))
+SECONDS=$((DURATION % 60))
+
+echo ""
+echo "=========================================="
+echo "Backup Completed"
+echo "=========================================="
+echo "Location: $BACKUP_DIR"
+echo "Final files:"
+echo "  - mongodb-backup.tar.gz"
+if [ -f "$BACKUP_DIR/collection-indexes.json" ]; then
+    echo "  - collection-indexes.json"
+fi
+echo "Duration: ${MINUTES}m ${SECONDS}s"
+echo "End Time: $(date '+%Y-%m-%d %H:%M:%S')"
+echo "=========================================="
+
+{# Exit with error if any database failed #}
+if [ ${{ '{' }}#failed_dbs[@]} -gt 0 ]; then
+    exit 1
+fi

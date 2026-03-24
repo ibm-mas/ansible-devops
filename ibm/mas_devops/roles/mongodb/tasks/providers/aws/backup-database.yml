@@ -1,321 +1,206 @@
 ---
-# AWS DocumentDB Backup to S3 (Orchestration)
+# AWS DocumentDB Backup
 # =============================================================================
-# This playbook orchestrates AWS DocumentDB backup using shell scripts
-# It copies scripts to target, executes them, and manages the backup workflow
 
 # 1. Validate required variables
 # -----------------------------------------------------------------------------
-- name: "Fail if required DocumentDB variables are not provided"
+- name: "Validate required variables"
   assert:
     that:
       - docdb_cluster_name is defined and docdb_cluster_name != ''
       - docdb_master_username is defined and docdb_master_username != ''
       - docdb_master_password is defined and docdb_master_password != ''
-      - s3_bucket is defined and s3_bucket != ''
       - aws_region is defined and aws_region != ''
-    fail_msg: "Missing one or more required properties: docdb_cluster_name, docdb_master_username, docdb_master_password, s3_bucket, aws_region"
+    fail_msg: "Missing required variables"
 
-- name: "Set default values for optional variables"
+# 2. Set default values
+# -----------------------------------------------------------------------------
+- name: "Set default values"
   set_fact:
     docdb_port: "{{ docdb_port | default('27017') }}"
-    docdb_backup_prefix: "{{ docdb_backup_prefix | default('docdb-backups') }}"
-    docdb_temp_dir: "{{ docdb_temp_dir | default('/tmp/docdb-backup') }}"
+    docdb_backup_dir: "{{ docdb_backup_dir | default('/tmp/docdb-backup-' + lookup('pipe', 'date +%Y%m%d-%H%M%S')) }}"
     docdb_ca_cert_url: "{{ docdb_ca_cert_url | default('https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem') }}"
 
-- name: "Generate backup timestamp"
+- name: "Set connection variables"
   set_fact:
-    docdb_backup_timestamp: "{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
+    mongodb_admin_user: "{{ docdb_master_username }}"
+    mongodb_admin_password: "{{ docdb_master_password }}"
+    mongodb_host: "{{ docdb_cluster_name }}:{{ docdb_port }}"
+    docdb_ca_cert_path: "{{ docdb_backup_dir }}/ca/global-bundle.pem"
 
-- name: "Set backup file names and paths"
-  set_fact:
-    docdb_backup_file: "docdb-backup-{{ docdb_backup_timestamp }}"
-    docdb_index_file: "docdb-indexes-{{ docdb_backup_timestamp }}.json"
-    docdb_log_file: "docdb-backup-{{ docdb_backup_timestamp }}.log"
-    docdb_scripts_dir: "{{ docdb_temp_dir }}/scripts"
-    docdb_backup_dir: "{{ docdb_temp_dir }}/mongodump"
-    docdb_logs_dir: "{{ docdb_temp_dir }}/logs"
-
-- name: "Debug backup properties"
+# 3. Display configuration
+# -----------------------------------------------------------------------------
+- name: "Display backup configuration"
   debug:
     msg:
       - "=========================================="
       - "AWS DocumentDB Backup Configuration"
       - "=========================================="
-      - "DocumentDB Cluster ...................... {{ docdb_cluster_name }}"
-      - "DocumentDB Port ......................... {{ docdb_port }}"
-      - "DocumentDB Username ..................... {{ docdb_master_username }}"
-      - "S3 Bucket ............................... {{ s3_bucket }}"
-      - "S3 Prefix ............................... {{ docdb_backup_prefix }}"
-      - "AWS Region .............................. {{ aws_region }}"
-      - "Backup Timestamp ........................ {{ docdb_backup_timestamp }}"
-      - "Backup File ............................. {{ docdb_backup_file }}.tar.gz"
-      - "Index File .............................. {{ docdb_index_file }}"
-      - "Temporary Directory ..................... {{ docdb_temp_dir }}"
+      - "Cluster: {{ docdb_cluster_name }}"
+      - "Port: {{ docdb_port }}"
+      - "Region: {{ aws_region }}"
+      - "S3 Bucket: {{ s3_bucket | default('Not specified') }}"
+      - "Storage Path: {{ backup_storage_path | default('Not specified') }}"
+      - "Backup Directory: {{ docdb_backup_dir }}"
       - "=========================================="
 
-- name: "Execute DocumentDB Backup"
-  block:
-    # 2. Setup directories and scripts
-    # -------------------------------------------------------------------------
-    - name: "Create temporary directories"
-      file:
-        path: "{{ item }}"
-        state: directory
-        mode: '0755'
-      loop:
-        - "{{ docdb_temp_dir }}"
-        - "{{ docdb_scripts_dir }}"
-        - "{{ docdb_backup_dir }}"
-        - "{{ docdb_logs_dir }}"
+# 4. Setup directories and download CA certificate
+# -----------------------------------------------------------------------------
+- name: "Create backup directories"
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ docdb_backup_dir }}"
+    - "{{ docdb_backup_dir }}/ca"
+    - "{{ docdb_backup_dir }}/scripts"
 
-    - name: "Copy backup scripts to target"
-      copy:
-        src: "{{ item.src }}"
-        dest: "{{ docdb_scripts_dir }}/{{ item.dest }}"
-        mode: '0755'
-      loop:
-        - { src: "providers/aws/docdb-backup.sh", dest: "docdb-backup.sh" }
-        - { src: "providers/aws/docdb-extract-indexes.sh", dest: "docdb-extract-indexes.sh" }
-        - { src: "providers/aws/docdb-upload-s3.sh", dest: "docdb-upload-s3.sh" }
+- name: "Download AWS DocumentDB CA certificate"
+  get_url:
+    url: "{{ docdb_ca_cert_url }}"
+    dest: "{{ docdb_ca_cert_path }}"
+    mode: '0644'
 
-    # 3. Download DocumentDB CA certificate
-    # -------------------------------------------------------------------------
-    - name: "Download AWS DocumentDB CA certificate"
-      get_url:
-        url: "{{ docdb_ca_cert_url }}"
-        dest: "{{ docdb_temp_dir }}/global-bundle.pem"
-        mode: '0644'
-      register: ca_cert_download
+# 5. Generate backup scripts
+# -----------------------------------------------------------------------------
+- name: "Generate backup script"
+  template:
+    src: "aws/docdb-backup.sh.j2"
+    dest: "{{ docdb_backup_dir }}/scripts/backup.sh"
+    mode: '0755'
 
-    - name: "Verify CA certificate downloaded successfully"
-      stat:
-        path: "{{ docdb_temp_dir }}/global-bundle.pem"
-      register: ca_cert_stat
+- name: "Generate index extraction script"
+  template:
+    src: "aws/docdb-extract-indexes.sh.j2"
+    dest: "{{ docdb_backup_dir }}/scripts/extract-indexes.sh"
+    mode: '0755'
 
-    - name: "Fail if CA certificate not found"
-      fail:
-        msg: "Failed to download DocumentDB CA certificate"
-      when: not ca_cert_stat.stat.exists
+# 6. Execute backup
+# -----------------------------------------------------------------------------
+- name: "Execute backup script"
+  shell: "{{ docdb_backup_dir }}/scripts/backup.sh"
+  register: backup_result
+  ignore_errors: yes
 
-    # 4. Execute backup script
-    # -------------------------------------------------------------------------
-    - name: "Execute DocumentDB backup script"
-      shell: |
-        export DOCDB_HOST="{{ docdb_cluster_name }}"
-        export DOCDB_PORT="{{ docdb_port }}"
-        export DOCDB_USERNAME="{{ docdb_master_username }}"
-        export DOCDB_PASSWORD="{{ docdb_master_password }}"
-        export DOCDB_CA_CERT="{{ docdb_temp_dir }}/global-bundle.pem"
-        export BACKUP_DIR="{{ docdb_backup_dir }}"
-        export LOG_FILE="{{ docdb_logs_dir }}/{{ docdb_log_file }}"
-        
-        {{ docdb_scripts_dir }}/docdb-backup.sh
-      register: backup_script_result
-      no_log: true
-      changed_when: true
+- name: "Display backup output"
+  debug:
+    var: backup_result.stdout_lines
 
-    - name: "Display backup script output"
-      debug:
-        msg: "{{ backup_script_result.stdout_lines }}"
+- name: "Check if backup archive was created"
+  stat:
+    path: "{{ docdb_backup_dir }}/mongodb-backup.tar.gz"
+  register: backup_archive_check
 
-    - name: "Check if backup script was successful"
-      fail:
-        msg: "Backup script failed. Check logs for details."
-      when: backup_script_result.rc != 0
+- name: "Fail if no backup archive"
+  fail:
+    msg: "Backup archive was not created. Check output for errors."
+  when: not backup_archive_check.stat.exists
 
-    # 5. Extract collection indexes
-    # -------------------------------------------------------------------------
-    - name: "Execute index extraction script"
-      shell: |
-        export DOCDB_HOST="{{ docdb_cluster_name }}"
-        export DOCDB_PORT="{{ docdb_port }}"
-        export DOCDB_USERNAME="{{ docdb_master_username }}"
-        export DOCDB_PASSWORD="{{ docdb_master_password }}"
-        export DOCDB_CA_CERT="{{ docdb_temp_dir }}/global-bundle.pem"
-        export INDEX_FILE="{{ docdb_temp_dir }}/{{ docdb_index_file }}"
-        export LOG_FILE="{{ docdb_logs_dir }}/{{ docdb_log_file }}"
-        
-        {{ docdb_scripts_dir }}/docdb-extract-indexes.sh
-      register: index_script_result
-      no_log: true
-      changed_when: false
-      failed_when: false
+# 7. Extract indexes (optional - continue even if fails)
+# -----------------------------------------------------------------------------
+- name: "Extract collection indexes"
+  shell: "{{ docdb_backup_dir }}/scripts/extract-indexes.sh"
+  register: index_result
+  ignore_errors: yes
+  when: backup_archive_check.stat.exists
 
-    - name: "Display index extraction output"
-      debug:
-        msg: "{{ index_script_result.stdout_lines }}"
-      when: index_script_result.stdout_lines is defined
+- name: "Display index extraction output"
+  debug:
+    var: index_result.stdout_lines
+  when: index_result is defined
 
-    - name: "Verify index file created"
-      stat:
-        path: "{{ docdb_temp_dir }}/{{ docdb_index_file }}"
-      register: index_file_stat
+- name: "Cleanup temporary files after index extraction"
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ docdb_backup_dir }}/logs"
+    - "{{ docdb_backup_dir }}/scripts"
+    - "{{ docdb_backup_dir }}/ca"
+  ignore_errors: yes
 
-    - name: "Debug: Index file size"
-      debug:
-        msg: "Index file size: {{ index_file_stat.stat.size }} bytes"
-      when: index_file_stat.stat.exists
+# 8. Copy to storage path (if specified)
+# -----------------------------------------------------------------------------
+- name: "Create storage directory"
+  file:
+    path: "{{ backup_storage_path }}"
+    state: directory
+    mode: '0755'
+  when: backup_storage_path is defined and backup_storage_path != ''
 
-    # 6. Compress backup files
-    # -------------------------------------------------------------------------
-    - name: "Create compressed tar.gz archive of backup"
-      shell: |
-        cd {{ docdb_backup_dir }} && \
-        tar -czf {{ docdb_temp_dir }}/{{ docdb_backup_file }}.tar.gz . && \
-        du -h {{ docdb_temp_dir }}/{{ docdb_backup_file }}.tar.gz
-      register: compress_result
-      changed_when: true
+- name: "Copy backup archive to storage path"
+  copy:
+    src: "{{ docdb_backup_dir }}/mongodb-backup.tar.gz"
+    dest: "{{ backup_storage_path }}/mongodb-backup-{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}.tar.gz"
+    remote_src: yes
+  register: storage_copy_result
+  when: backup_storage_path is defined and backup_storage_path != ''
 
-    - name: "Display backup file size"
-      debug:
-        msg: "{{ compress_result.stdout_lines }}"
+- name: "Check if index file exists"
+  stat:
+    path: "{{ docdb_backup_dir }}/collection-indexes.json"
+  register: index_file_check
 
-    # 7. Upload backup to S3
-    # -------------------------------------------------------------------------
-    - name: "Upload compressed backup to S3"
-      shell: |
-        export S3_BUCKET="{{ s3_bucket }}"
-        export S3_PREFIX="{{ docdb_backup_prefix }}"
-        export AWS_REGION="{{ aws_region }}"
-        export SOURCE_FILE="{{ docdb_temp_dir }}/{{ docdb_backup_file }}.tar.gz"
-        export LOG_FILE="{{ docdb_logs_dir }}/{{ docdb_log_file }}"
-        
-        {{ docdb_scripts_dir }}/docdb-upload-s3.sh
-      register: s3_backup_upload
-      changed_when: true
+- name: "Copy index file to storage path"
+  copy:
+    src: "{{ docdb_backup_dir }}/collection-indexes.json"
+    dest: "{{ backup_storage_path }}/collection-indexes-{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}.json"
+    remote_src: yes
+  when:
+    - backup_storage_path is defined and backup_storage_path != ''
+    - index_file_check.stat.exists
 
-    - name: "Display backup upload output"
-      debug:
-        msg: "{{ s3_backup_upload.stdout_lines }}"
+# 9. Upload to S3 (if specified)
+# -----------------------------------------------------------------------------
+- name: "Upload backup archive to S3"
+  amazon.aws.s3_object:
+    bucket: "{{ s3_bucket }}"
+    object: "backups/{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}/mongodb-backup.tar.gz"
+    src: "{{ docdb_backup_dir }}/mongodb-backup.tar.gz"
+    mode: put
+    region: "{{ aws_region }}"
+  register: s3_backup_upload
+  when: s3_bucket is defined and s3_bucket != ''
 
-    # 8. Upload index file to S3
-    # -------------------------------------------------------------------------
-    - name: "Upload index file to S3"
-      shell: |
-        export S3_BUCKET="{{ s3_bucket }}"
-        export S3_PREFIX="{{ docdb_backup_prefix }}"
-        export AWS_REGION="{{ aws_region }}"
-        export SOURCE_FILE="{{ docdb_temp_dir }}/{{ docdb_index_file }}"
-        export LOG_FILE="{{ docdb_logs_dir }}/{{ docdb_log_file }}"
-        
-        {{ docdb_scripts_dir }}/docdb-upload-s3.sh
-      register: s3_index_upload
-      changed_when: true
+- name: "Upload indexes to S3"
+  amazon.aws.s3_object:
+    bucket: "{{ s3_bucket }}"
+    object: "backups/{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}/collection-indexes.json"
+    src: "{{ docdb_backup_dir }}/collection-indexes.json"
+    mode: put
+    region: "{{ aws_region }}"
+  register: s3_index_upload
+  when:
+    - s3_bucket is defined and s3_bucket != ''
+    - index_file_check.stat.exists
 
-    - name: "Display index upload output"
-      debug:
-        msg: "{{ s3_index_upload.stdout_lines }}"
+# 10. Display completion summary
+# -----------------------------------------------------------------------------
+- name: "Get backup file size"
+  stat:
+    path: "{{ docdb_backup_dir }}/mongodb-backup.tar.gz"
+  register: backup_file_stat
 
-    # 9. Upload log file to S3
-    # -------------------------------------------------------------------------
-    - name: "Compress log file"
-      shell: |
-        cd {{ docdb_logs_dir }} && \
-        tar -czf {{ docdb_log_file }}.tar.gz {{ docdb_log_file }}
-      register: compress_log
-      changed_when: true
-
-    - name: "Upload log file to S3"
-      shell: |
-        export S3_BUCKET="{{ s3_bucket }}"
-        export S3_PREFIX="{{ docdb_backup_prefix }}/logs"
-        export AWS_REGION="{{ aws_region }}"
-        export SOURCE_FILE="{{ docdb_logs_dir }}/{{ docdb_log_file }}.tar.gz"
-        export LOG_FILE="{{ docdb_logs_dir }}/{{ docdb_log_file }}"
-        
-        {{ docdb_scripts_dir }}/docdb-upload-s3.sh
-      register: s3_log_upload
-      changed_when: true
-      failed_when: false
-
-    # 10. Display backup completion summary
-    # -------------------------------------------------------------------------
-    - name: "Display backup completion summary"
-      debug:
-        msg:
-          - "=========================================="
-          - "DocumentDB Backup Completed Successfully"
-          - "=========================================="
-          - "Backup File: s3://{{ s3_bucket }}/{{ docdb_backup_prefix }}/{{ docdb_backup_file }}.tar.gz"
-          - "Index File: s3://{{ s3_bucket }}/{{ docdb_backup_prefix }}/{{ docdb_index_file }}"
-          - "Log File: s3://{{ s3_bucket }}/{{ docdb_backup_prefix }}/logs/{{ docdb_log_file }}.tar.gz"
-          - "Timestamp: {{ docdb_backup_timestamp }}"
-          - "=========================================="
-
-  rescue:
-    # Error handling
-    # -------------------------------------------------------------------------
-    - name: "Display error information"
-      debug:
-        msg:
-          - "=========================================="
-          - "DocumentDB Backup Failed"
-          - "=========================================="
-          - "Error occurred during backup process"
-          - "Check logs for details"
-          - "=========================================="
-
-    - name: "Display backup script errors if available"
-      debug:
-        msg:
-          - "Backup script stdout:"
-          - "{{ backup_script_result.stdout_lines | default([]) }}"
-          - "Backup script stderr:"
-          - "{{ backup_script_result.stderr_lines | default([]) }}"
-      when: backup_script_result is defined
-
-    - name: "Display S3 upload errors if available"
-      debug:
-        msg:
-          - "S3 backup upload: {{ s3_backup_upload.stderr | default('N/A') }}"
-          - "S3 index upload: {{ s3_index_upload.stderr | default('N/A') }}"
-      when: s3_backup_upload is defined or s3_index_upload is defined
-
-    - name: "Upload error log to S3 if possible"
-      shell: |
-        if [ -f {{ docdb_logs_dir }}/{{ docdb_log_file }} ]; then
-          cd {{ docdb_logs_dir }} && \
-          tar -czf {{ docdb_log_file }}.tar.gz {{ docdb_log_file }} && \
-          
-          export S3_BUCKET="{{ s3_bucket }}"
-          export S3_PREFIX="{{ docdb_backup_prefix }}/logs"
-          export AWS_REGION="{{ aws_region }}"
-          export SOURCE_FILE="{{ docdb_logs_dir }}/{{ docdb_log_file }}.tar.gz"
-          export LOG_FILE="{{ docdb_logs_dir }}/{{ docdb_log_file }}"
-          
-          {{ docdb_scripts_dir }}/docdb-upload-s3.sh
-        fi
-      failed_when: false
-      changed_when: false
-
-    - name: "Backup failed"
-      fail:
-        msg: "DocumentDB backup failed. Please check the logs for more details."
-
-  always:
-    # Cleanup temporary files
-    # -------------------------------------------------------------------------
-    - name: "Get backup directory size before cleanup"
-      shell: du -sh {{ docdb_temp_dir }}
-      register: dir_size
-      failed_when: false
-      changed_when: false
-
-    - name: "Display temporary directory size"
-      debug:
-        msg: "Temporary directory size: {{ dir_size.stdout }}"
-      when: dir_size.rc == 0
-
-    - name: "Clean up temporary backup directory"
-      file:
-        path: "{{ docdb_temp_dir }}"
-        state: absent
-      when: cleanup_temp_files | default(true) | bool
-
-    - name: "Cleanup completed"
-      debug:
-        msg: "Temporary files cleaned up from {{ docdb_temp_dir }}"
-      when: cleanup_temp_files | default(true) | bool
-
-# Made with Bob
+- name: "Display completion summary"
+  debug:
+    msg:
+      - "=========================================="
+      - "Backup Completed Successfully"
+      - "=========================================="
+      - "Local Backup Directory: {{ docdb_backup_dir }}"
+      - "Backup Archive: {{ docdb_backup_dir }}/mongodb-backup.tar.gz"
+      - "Backup Size: {{ (backup_file_stat.stat.size / 1024 / 1024) | round(2) }} MB"
+      - "Index File: {{ 'Created' if index_file_check.stat.exists else 'Not created (optional)' }}"
+      - "----------------------------------------"
+      - "Storage Locations:"
+      - "  Local: {{ docdb_backup_dir }}"
+      - "  Storage Path: {{ backup_storage_path if (backup_storage_path is defined and backup_storage_path != '') else 'Not configured' }}"
+      - "  S3 Bucket: {{ s3_bucket if (s3_bucket is defined and s3_bucket != '') else 'Not configured' }}"
+      - "----------------------------------------"
+      - "Upload Status:"
+      - "  Storage Copy: {{ 'Success' if (storage_copy_result is defined and storage_copy_result.changed) else 'Skipped' }}"
+      - "  S3 Upload: {{ s3_backup_upload.msg if (s3_backup_upload is defined) else 'Skipped' }}"
+      - "=========================================="
+      - "NOTE: Temporary files cleaned up, backup files preserved"
+      - "=========================================="
