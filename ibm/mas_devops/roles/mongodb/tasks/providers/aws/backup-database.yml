@@ -39,7 +39,6 @@
       - "Cluster: {{ docdb_cluster_name }}"
       - "Port: {{ docdb_port }}"
       - "Region: {{ aws_region }}"
-      - "S3 Bucket: {{ s3_bucket | default('Not specified') }}"
       - "Storage Path: {{ backup_storage_path | default('Not specified') }}"
       - "Backup Directory: {{ docdb_backup_dir }}"
       - "=========================================="
@@ -151,31 +150,7 @@
     - backup_storage_path is defined and backup_storage_path != ''
     - index_file_check.stat.exists
 
-# 9. Upload to S3 (if specified)
-# -----------------------------------------------------------------------------
-- name: "Upload backup archive to S3"
-  amazon.aws.s3_object:
-    bucket: "{{ s3_bucket }}"
-    object: "backups/{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}/mongodb-backup.tar.gz"
-    src: "{{ docdb_backup_dir }}/mongodb-backup.tar.gz"
-    mode: put
-    region: "{{ aws_region }}"
-  register: s3_backup_upload
-  when: s3_bucket is defined and s3_bucket != ''
-
-- name: "Upload indexes to S3"
-  amazon.aws.s3_object:
-    bucket: "{{ s3_bucket }}"
-    object: "backups/{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}/collection-indexes.json"
-    src: "{{ docdb_backup_dir }}/collection-indexes.json"
-    mode: put
-    region: "{{ aws_region }}"
-  register: s3_index_upload
-  when:
-    - s3_bucket is defined and s3_bucket != ''
-    - index_file_check.stat.exists
-
-# 10. Display completion summary
+# 9. Display completion summary
 # -----------------------------------------------------------------------------
 - name: "Get backup file size"
   stat:
@@ -196,11 +171,9 @@
       - "Storage Locations:"
       - "  Local: {{ docdb_backup_dir }}"
       - "  Storage Path: {{ backup_storage_path if (backup_storage_path is defined and backup_storage_path != '') else 'Not configured' }}"
-      - "  S3 Bucket: {{ s3_bucket if (s3_bucket is defined and s3_bucket != '') else 'Not configured' }}"
       - "----------------------------------------"
-      - "Upload Status:"
+      - "Copy Status:"
       - "  Storage Copy: {{ 'Success' if (storage_copy_result is defined and storage_copy_result.changed) else 'Skipped' }}"
-      - "  S3 Upload: {{ s3_backup_upload.msg if (s3_backup_upload is defined) else 'Skipped' }}"
       - "=========================================="
       - "NOTE: Temporary files cleaned up, backup files preserved"
       - "=========================================="
