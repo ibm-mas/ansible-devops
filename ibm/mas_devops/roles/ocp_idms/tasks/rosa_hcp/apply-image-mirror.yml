@@ -1,32 +1,51 @@
 ---
+- name: Debug item
+  ansible.builtin.debug:
+    msg:
+      - "item.source .......... {{ item.source }}"
+      - "item.mirrors ......... {{ item.mirrors }}"
+
 - name: "Set source_exists to false"
   ansible.builtin.set_fact:
     source_exists: false
 
-- name: "Lookup 'cluster' ImageDigestMirrorSet"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: ImageDigestMirrorSet
-    name: cluster
-  register: cluster_idms_lookup
+- name: "List image-mirror in {{ rosa_hcp_cluster_name }}"
+  ansible.builtin.shell: |
+    rosa list image-mirror \
+      --cluster="{{ rosa_hcp_cluster_name }}" \
+  register: list_image_mirror_lookup
 
-- name: Check if source already exists
+- name: Check if image-mirror source already exists
+  vars:
+    search_value: " {{ item.source }} "
   when:
-    - cluster_idms_lookup.resources[0].spec.imageDigestMirrors is defined
-    - cluster_idms_lookup.resources[0].spec.imageDigestMirrors | length > 0
-    - cluster_idms_lookup.resources[0].spec.imageDigestMirrors | selectattr('source', 'contains', item.source) | first
+    - list_image_mirror_lookup.stdout_lines is defined
+    - lookup('ansible.utils.index_of', list_image_mirror_lookup.stdout_lines, 'search', search_value, wantlist=True) | length > 0
   ansible.builtin.set_fact:
     source_exists: true
-    found_mirror: "{{ cluster_idms_lookup.resources[0].spec.imageDigestMirrors | selectattr('source', 'contains', item.source) | first }}"
+    existing_mirror_idx: "{{ lookup('ansible.utils.index_of', list_image_mirror_lookup.stdout_lines, 'search', search_value, wantlist=True)[0] }}"
 
-- name: "Update source for {{ item.source }} in 'cluster' ImageDigestMirrorSet"
+- name: "Set existing_mirror"
+  ansible.builtin.set_fact:
+    existing_mirror: "{{ list_image_mirror_lookup.stdout_lines[existing_mirror_idx] | split(' ') | select() }}"
+
+- name: "Set existing_mirror id and mirrors"
+  ansible.builtin.set_fact:
+    existing_mirror_id: "{{ existing_mirror[0] }}"
+    existing_mirror_mirrors: "{{ existing_mirror[3] }}"
+
+- name: "Convert existing_mirror_mirrors to list"
+  ansible.builtin.set_fact:
+    existing_mirror_mirrors_list: "{{ existing_mirror_mirrors | split(',') }}"
+
+- name: "Edit image-mirror for {{ item.source }}"
   when:
     - source_exists
-    - item.mirrors | symmetric_difference(found_mirror.mirrors) | length > 0
+    - item.mirrors | symmetric_difference(existing_mirror_mirrors_list) | length > 0
   ansible.builtin.shell: |
     rosa edit image-mirror \
       --cluster="{{ rosa_hcp_cluster_name }}" \
-      --source="{{ item.source }}" \
+      --id="{{ existing_mirror_id }}" \
       --mirrors="{{ item.mirrors | join(",") }}"
 
 - name: "Create image-mirror for {{ item.source }}"
@@ -37,7 +56,7 @@
       --source="{{ item.source }}" \
       --mirrors="{{ item.mirrors | join(",") }}"
 
-- name: "Validate {{ item.source }} was added/updated in 'cluster' ImageDigestMirrorSet"
+- name: "Validate {{ item.source }} is in 'cluster' ImageDigestMirrorSet"
   kubernetes.core.k8s_info:
     api_version: v1
     kind: ImageDigestMirrorSet
@@ -45,7 +64,7 @@
   until:
     - cluster_idms_lookup.resources[0].spec.imageDigestMirrors is defined
     - cluster_idms_lookup.resources[0].spec.imageDigestMirrors | length > 0
-    - cluster_idms_lookup.resources[0].spec.imageDigestMirrors | selectattr('source', 'contains', item.source) | first
+    - cluster_idms_lookup.resources[0].spec.imageDigestMirrors | selectattr('source', 'contains', item.source) | length == 1
     - item.mirrors | symmetric_difference((cluster_idms_lookup.resources[0].spec.imageDigestMirrors | selectattr('source', 'contains', item.source) | first).mirrors) | length == 0
   retries: 30
   delay: 10
