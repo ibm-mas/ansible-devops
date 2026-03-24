@@ -1,0 +1,52 @@
+---
+- name: "Set source_exists to false"
+  ansible.builtin.set_fact:
+    source_exists: false
+
+- name: "Lookup 'cluster' ImageDigestMirrorSet"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ImageDigestMirrorSet
+    name: cluster
+  register: cluster_idms_lookup
+
+- name: Check if source already exists
+  when:
+    - cluster_idms_lookup.resources[0].spec.imageDigestMirrors is defined
+    - cluster_idms_lookup.resources[0].spec.imageDigestMirrors | length > 0
+    - cluster_idms_lookup.resources[0].spec.imageDigestMirrors | selectattr('source', 'contains', item.source) | first
+  ansible.builtin.set_fact:
+    source_exists: true
+    found_mirror: "{{ cluster_idms_lookup.resources[0].spec.imageDigestMirrors | selectattr('source', 'contains', item.source) | first }}"
+
+- name: "Update source for {{ item.source }} in 'cluster' ImageDigestMirrorSet"
+  when:
+    - source_exists
+    - item.mirrors | symmetric_difference(found_mirror.mirrors) | length > 0
+  ansible.builtin.shell: |
+    rosa edit image-mirror \
+      --cluster="{{ rosa_hcp_cluster_name }}" \
+      --source="{{ item.source }}" \
+      --mirrors="{{ item.mirrors | join(",") }}"
+
+- name: "Create image-mirror for {{ item.source }}"
+  when: not source_exists
+  ansible.builtin.shell: |
+    rosa create image-mirror \
+      --cluster="{{ rosa_hcp_cluster_name }}" \
+      --source="{{ item.source }}" \
+      --mirrors="{{ item.mirrors | join(",") }}"
+
+- name: "Validate {{ item.source }} was added/updated in 'cluster' ImageDigestMirrorSet"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ImageDigestMirrorSet
+    name: cluster
+  until:
+    - cluster_idms_lookup.resources[0].spec.imageDigestMirrors is defined
+    - cluster_idms_lookup.resources[0].spec.imageDigestMirrors | length > 0
+    - cluster_idms_lookup.resources[0].spec.imageDigestMirrors | selectattr('source', 'contains', item.source) | first
+    - item.mirrors | symmetric_difference((cluster_idms_lookup.resources[0].spec.imageDigestMirrors | selectattr('source', 'contains', item.source) | first).mirrors) | length == 0
+  retries: 30
+  delay: 10
+  register: cluster_idms_lookup

@@ -1,5 +1,18 @@
 ---
-# 1. Setup OCP IDMS
+# 1. Check for common required parameters
+# -----------------------------------------------------------------------------
+- name: "Check for required parameters"
+  assert:
+    that:
+      - registry_private_host is defined and registry_private_host != ""
+      - registry_private_ca_file is defined and registry_private_ca_file != ""
+
+- name: "Check if registry_private_host is valid"
+  ansible.builtin.assert:
+    that: registry_private_host is regex('^[-._a-zA-Z0-9]+$')
+    fail_msg: "registry_private_host must consist of alphanumeric characters, -, _ or ."
+
+# 2. Setup OCP IDMS
 # -----------------------------------------------------------------------------
 - name: Run the specified action
   ansible.builtin.include_tasks: "tasks/{{ ocp_idms_action }}/main.yml"
