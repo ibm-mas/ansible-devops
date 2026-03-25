@@ -180,6 +180,15 @@ Whether to remove the archive file and temporary directory after successful extr
 - Environment Variable: `CLEANUP_ARCHIVE`
 - Default Value: `true`
 
+#### include_mongo_archive
+Whether to download Mongo archive (`-mongoce.tar.gz`) from S3 or Artifactory.
+
+**Important:** When set to `false`, the role will automatically skip downloading Mongo archive from S3 or Artifactory. This prevents unnecessary downloads when Mongo component restore is not needed.
+
+- **Optional**
+- Environment Variable: `INCLUDE_MONGO_ARCHIVE`
+- Default Value: `true`
+
 #### include_sls_archive
 Whether to download SLS archive (`-sls.tar.gz`) from S3 or Artifactory.
 
