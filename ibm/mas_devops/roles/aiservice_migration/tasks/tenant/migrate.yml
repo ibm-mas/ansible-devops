@@ -1,0 +1,101 @@
+- name: "Find IBM entitlement secret in namespace {{ api_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: ibm-entitlement
+    namespace: "{{ api_namespace }}"
+  register: entitlement_secret
+  no_log: true
+
+- name: "Copy IBM entitlement secret to namespace {{ tenant_cr.metadata.name }}"
+  include_tasks: tenant/copy_resource.yml
+  vars:
+    resource_description: IBM entitlement secret
+    resource: "{{ entitlement_secret.resources[0] }}"
+    source_namespace: "{{ api_namespace }}"
+    target_namespace: "{{ tenant_cr.metadata.name }}"
+
+- name: "Create ibm-aiservice-tenant subscription in namespace {{ tenant_cr.metadata.name }}"
+  ibm.mas_devops.apply_subscription:
+    namespace: "{{ tenant_cr.metadata.name }}"
+    package_name: ibm-aiservice-tenant
+    package_channel: "{{ catalog_channel }}"
+    catalog_source: "{{ catalog_source }}"
+  register: subscription
+
+- name: Find SLS secret
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ tenant_cr.metadata.name }}----sls-secret"
+    namespace: "{{ api_namespace }}"
+  register: sls_secret
+  no_log: true
+
+- name: Find tenant API key secret
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ tenant_cr.metadata.name }}----apikey-secret"
+    namespace: "{{ api_namespace }}"
+  register: api_secret
+  no_log: true
+
+# TODO copy other tenant secrets when it is safe to do so, that is, when
+# API broker and model code is updated.
+
+- name: Set target resources
+  ansible.builtin.set_fact:
+    sls_secret: "{{ sls_secret.resources[0] }}"
+    api_secret: "{{ api_secret.resources[0] }}"
+
+- name: "Copy SLS secret to namespace {{ tenant_cr.metadata.name }}"
+  include_tasks: tenant/copy_resource.yml
+  vars:
+    resource_description: SLS secret
+    resource: "{{ sls_secret }}"
+    source_namespace: "{{ api_namespace }}"
+    target_namespace: "{{ tenant_cr.metadata.name }}"
+
+- name: "Copy API key secret to namespace {{ tenant_cr.metadata.name }}"
+  include_tasks: tenant/copy_resource.yml
+  vars:
+    resource_description: API key secret
+    resource: "{{ api_secret }}"
+    source_namespace: "{{ api_namespace }}"
+    target_namespace: "{{ tenant_cr.metadata.name }}"
+
+- name: "Copy AIServiceTenant CR to namespace {{ tenant_cr.metadata.name }}"
+  include_tasks: tenant/copy_resource.yml
+  vars:
+    resource_description: AIServiceTenant CR
+    resource: "{{ tenant_cr }}"
+    source_namespace: "{{ api_namespace }}"
+    target_namespace: "{{ tenant_cr.metadata.name }}"
+
+# Wait until the operator's special reconciliation configmap is available which
+# tells us that the operator is now running
+- name: "Wait until operator reconcilation configmap is available"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: aiservice-reconcile
+    namespace: "{{ tenant_cr.metadata.name }}"
+    kind: ConfigMap
+  register: configmap_result
+  retries: "{{ install_num_retries }}"
+  delay: "{{ install_wait_sec }}"
+  until: configmap_result.resources | length > 0
+  no_log: true
+
+- name: "Confirm AIServiceTenant CR is ready"
+  kubernetes.core.k8s_info:
+    api_version: aiservice.ibm.com/v1
+    name: "{{ tenant_cr.metadata.name }}"
+    namespace: "{{ tenant_cr.metadata.name }}"
+    kind: AIServiceTenant
+  retries: "{{ install_num_retries }}"
+  delay: "{{ install_wait_sec }}"
+  register: tenant_cr_info
+  no_log: true
+  until:
+    - tenant_cr_info.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1

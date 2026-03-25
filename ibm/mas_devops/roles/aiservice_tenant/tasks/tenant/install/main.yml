@@ -1,17 +1,22 @@
 ---
+
+- name: Set target namespace
+  set_fact:
+    target_namespace: "{{ ((aiservice_channel is defined) and aiservice_channel.startswith('9.1.')) | ternary(aiservice_namespace, tenantNamespace) }}"
+
 - name: "Create tenant CR"
   vars:
     annotation_dict: "{{ mas_annotations | string | ibm.mas_devops.getAnnotations() }}"
   kubernetes.core.k8s:
     state: present
-    namespace: "{{ aiservice_namespace }}"
+    namespace: "{{ target_namespace }}"
     template: templates/aiservice/aiservicetenant.yml.j2
 
 - name: "Wait for tenant CR to be ready"
   kubernetes.core.k8s_info:
     api_version: aiservice.ibm.com/v1
     name: "{{ tenantNamespace }}"
-    namespace: "{{ aiservice_namespace }}"
+    namespace: "{{ target_namespace }}"
     kind: AIServiceTenant
   register: aiservicetenant_cr_result
   until:
