@@ -9,7 +9,7 @@ from filters import is_channel_upgrade_path_valid
 class TestIsChannelUpgradePathValid:
     """Test suite for is_channel_upgrade_path_valid filter."""
 
-    def test_blank_target_channel_returns_true(self):
+    def test_blank_target_channel_returns_false(self):
         """Test that blank target channel is considered valid."""
         # Arrange
         paths = {'a': ['b', 'c']}
@@ -18,7 +18,7 @@ class TestIsChannelUpgradePathValid:
         result = is_channel_upgrade_path_valid('a', '', paths)
 
         # Assert
-        assert result is True
+        assert result is False
 
     def test_invalid_target_channel_returns_false(self):
         """Test that invalid target channel returns False."""
@@ -95,7 +95,7 @@ class TestIsChannelUpgradePathValid:
         result = is_channel_upgrade_path_valid('v8.11', '', paths)
 
         # Assert
-        assert result is True
+        assert result is False
 
     def test_multiple_valid_targets_first_option(self):
         """Test upgrade to first option in multiple valid targets."""

@@ -1,0 +1,29 @@
+---
+- name: "Debug information - AI Service tenant"
+  debug:
+    msg:
+      - "Namespace ......................... {{ tenantNamespace }}"
+      - "Channel ........................... {{ aiservice_channel }}"
+      - "MAS Instance Id ................... {{ aiservice_instance_id }}"
+
+- name: "Create IBM Entitlement Key"
+  ibm.mas_devops.update_ibm_entitlement:
+    namespace: "{{ tenantNamespace }}"
+    icr_username: "{{ mas_entitlement_username }}"
+    icr_password: "{{ mas_entitlement_key }}"
+    artifactory_username: "{{ artifactory_username }}"
+    artifactory_password: "{{ artifactory_token }}"
+    namespace_kyverno_label: "audit"
+
+- name: "Create ibm-aiservice-tenant Subscription"
+  ibm.mas_devops.apply_subscription:
+    namespace: "{{ tenantNamespace }}"
+    package_name: ibm-aiservice-tenant
+    package_channel: "{{ aiservice_tenant_channel }}"
+    catalog_source: "{{ mas_catalog_source }}"
+  register: subscription
+
+- name: "Wait until the AIServiceTenant CRD is available"
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: aiservicetenants.aiservice.ibm.com
