@@ -1,0 +1,37 @@
+---
+# Patch STMTHEAP configuration for Db2 v12 upgrade
+# =============================================================================
+# This task ensures STMTHEAP has AUTOMATIC keyword before upgrading to v12.
+# Db2 v12 requires STMTHEAP to include AUTOMATIC (e.g., STMTHEAP=20000 AUTOMATIC)
+# This only runs when upgrading from v11 to v12, not for minor version updates.
+# =============================================================================
+
+- name: "Patch STMTHEAP for Db2 v12 upgrade"
+  when:
+    - old_db2_major_version is version('12', '<')
+    - new_db2_major_version == '12'
+  block:
+    - name: "Get {{ instanceKind }} instances for STMTHEAP patching"
+      kubernetes.core.k8s_info:
+        api_version: db2u.databases.ibm.com/v1
+        kind: "{{ instanceKind }}"
+        namespace: "{{ db2_namespace }}"
+      register: db2_instances_for_patch
+
+    - name: "Debug STMTHEAP patching information"
+      ansible.builtin.debug:
+        msg:
+          - "Patching STMTHEAP for Db2 v12 upgrade"
+          - "Instance Kind ............................ {{ instanceKind }}"
+          - "Number of instances ....................... {{ db2_instances_for_patch.resources | length }}"
+          - "Namespace ................................. {{ db2_namespace }}"
+
+    - name: "Process each {{ instanceKind }} instance for STMTHEAP configuration"
+      when: db2_instances_for_patch.resources | length > 0
+      include_tasks: "tasks/upgrade/patch-stmtheap-instance.yml"
+      loop: "{{ db2_instances_for_patch.resources }}"
+      loop_control:
+        loop_var: db2_instance
+        label: "{{ db2_instance.metadata.name }}"
+
+# Made with Bob

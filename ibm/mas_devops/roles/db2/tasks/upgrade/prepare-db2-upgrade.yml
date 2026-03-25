@@ -89,22 +89,47 @@
 # 4. Validate major upgrade
 - include_tasks: "tasks/upgrade/validate-upgrade.yml"
 
-# Run the DB2 subscription upgrade if there's a new db2 channel to be upgraded
+# 5. Patch STMTHEAP for Db2 v12 upgrade (before subscription upgrade)
+# -----------------------------------------------------------------------------
+# This must run before the subscription upgrade to ensure STMTHEAP has AUTOMATIC
+# keyword when upgrading from v11 to v12
+- name: "Patch STMTHEAP for Db2uCluster instances (v11 to v12 upgrade)"
+  include_tasks: "tasks/upgrade/patch-stmtheap-v12.yml"
+  vars:
+    instanceKind: Db2uCluster
+  when:
+    - db2u_kind == "db2ucluster"
+    - db2_channel != old_db2_channel
+
+- name: "Patch STMTHEAP for Db2uInstance instances (v11 to v12 upgrade)"
+  include_tasks: "tasks/upgrade/patch-stmtheap-v12.yml"
+  vars:
+    instanceKind: Db2uInstance
+  when:
+    - db2u_kind == "db2uinstance"
+    - db2_channel != old_db2_channel
+
+# 6. Run the DB2 subscription upgrade if there's a new db2 channel to be upgraded
+# -----------------------------------------------------------------------------
 # or if DB2 subscription/operator is currently running in different namespaces from the DB2 instances
 # in that case, the task will perform the DB2 subscription migration to the db2_namespace
 - include_tasks: "tasks/upgrade/run-db2-subscription-upgrade.yml"
   when: db2_channel != old_db2_channel or current_db2_operator_namespace != db2_namespace
 
-# 4. Run Db2 instance upgrade based on DB2U_KIND
+# 7. Run Db2 instance upgrade based on DB2U_KIND
 # -----------------------------------------------------------------------------
 - name: "Upgrade Db2uCluster instances"
   include_tasks: "tasks/upgrade/run-db2-instances-upgrade.yml"
   vars:
     instanceKind: Db2uCluster
-  when: db2u_kind == "db2ucluster"
+  when:
+    - db2u_kind == "db2ucluster"
+    - db2_channel != old_db2_channel
 
 - name: "Upgrade Db2uInstance instances"
   include_tasks: "tasks/upgrade/run-db2-instances-upgrade.yml"
   vars:
     instanceKind: Db2uInstance
-  when: db2u_kind == "db2uinstance"
+  when:
+    - db2u_kind == "db2uinstance"
+    - db2_channel != old_db2_channel
