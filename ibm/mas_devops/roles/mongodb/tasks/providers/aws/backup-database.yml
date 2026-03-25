@@ -118,12 +118,17 @@
     - "{{ docdb_backup_dir }}/ca"
   ignore_errors: yes
 
-# 8. Check if index file exists
+# 8. Verify index file was created
 # -----------------------------------------------------------------------------
 - name: "Check if index file exists"
   stat:
     path: "{{ docdb_backup_dir }}/collection-indexes.json"
   register: index_file_check
+
+- name: "Fail if index file was not created"
+  fail:
+    msg: "Index file was not created. Index extraction may have failed."
+  when: not index_file_check.stat.exists
 
 # 9. Display completion summary
 # -----------------------------------------------------------------------------
