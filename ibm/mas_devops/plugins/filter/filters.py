@@ -496,9 +496,10 @@ def is_operator_upgraded_by_version(cr_reconciled_version: str, opcon_version: s
     :sub_installed_version: Version derived from the Subscription's "status.installedCSV" field.
     :return: True if the operator was successfully upgraded (at least by checking various versions)
   """
-  print(f'{cr_reconciled_version} --- {opcon_version} --- {sub_installed_version}')
   upgraded = False
+  cr_reconciled_version = cr_reconciled_version.replace('+', '-')
   opcon_version = opcon_version.replace('+', '-')
+  sub_installed_version = sub_installed_version.replace('+', '-')
   prefix = f'{cr_reconciled_version}-'
   if cr_reconciled_version == opcon_version:
     upgraded = True
