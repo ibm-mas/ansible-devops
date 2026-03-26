@@ -35,9 +35,6 @@ The `aiservice_ds_migration` role is **fully self-contained** and performs the c
 This is the **recommended approach** for migration. The role does everything automatically:
 
 ```bash
-# Set required variable
-export AISERVICE_INSTANCE_ID=masdev
-
 # Run the role - it will automatically:
 # 1. Detect ODH
 # 2. Remove ODH
@@ -52,8 +49,6 @@ ansible-playbook ibm.mas_devops.run_role \
 ```yaml
 ---
 - hosts: localhost
-  vars:
-    aiservice_instance_id: "masdev"
   roles:
     - ibm.mas_devops.aiservice_ds_migration
 ```
@@ -97,8 +92,6 @@ The role performs the following steps:
 ```yaml
 ---
 - hosts: localhost
-  vars:
-    aiservice_instance_id: "masdev"
   roles:
     - ibm.mas_devops.aiservice_ds_migration
 ```
