@@ -1,0 +1,60 @@
+---
+# Download backup archives from S3
+- name: "Display S3 download information"
+  ansible.builtin.debug:
+    msg:
+      - "Downloading from S3 bucket: {{ s3_bucket_name }}"
+      - "Region: {{ s3_region }}"
+      - "Number of archives: {{ backup_archives_to_download | length }}"
+      - "Archives: {{ backup_archives_to_download }}"
+      - "Download to: {{ backup_temp_dir }}"
+
+- name: "Download archives from S3"
+  ibm.mas_devops.download_from_s3:
+    aws_access_key_id: "{{ aws_access_key_id }}"
+    aws_secret_access_key: "{{ aws_secret_access_key }}"
+    bucket_name: "{{ s3_bucket_name }}"
+    object_name: "mas-{{ mas_instance_id }}-backups/{{ item }}"
+    local_dir: "{{ backup_temp_dir }}"
+    region_name: "{{ s3_region }}"
+    endpoint_url: "{{ s3_endpoint_url | default(omit) }}"
+  register: s3_download_results
+  poll: 10
+  loop: "{{ backup_archives_to_download }}"
+
+- name: "Verify downloaded archives exist"
+  ansible.builtin.stat:
+    path: "{{ backup_temp_dir }}/mas-{{ mas_instance_id }}-backups/{{ item }}"
+  register: downloaded_archives_stat
+  loop: "{{ backup_archives_to_download }}"
+
+- name: "Display S3 download results"
+  ansible.builtin.debug:
+    msg: "Successfully downloaded {{ item.item }} from S3 bucket {{ s3_bucket_name }} - Size: {{ (item.stat.size / 1024 / 1024) | round(2) }} MB"
+  when:
+    - item.stat.exists
+  loop: "{{ downloaded_archives_stat.results }}"
+
+- name: "Check for failed downloads"
+  ansible.builtin.set_fact:
+    failed_s3_downloads: "{{ s3_download_results.results | selectattr('success', 'equalto', false) | map(attribute='item') | list }}"
+
+- name: "Check for missing archives"
+  ansible.builtin.set_fact:
+    missing_archives: "{{ downloaded_archives_stat.results | selectattr('stat.exists', 'equalto', false) | map(attribute='item') | list }}"
+
+- name: "Fail if any S3 download failed"
+  ansible.builtin.fail:
+    msg: "Failed to download {{ failed_s3_downloads | length }} archive(s) from S3: {{ failed_s3_downloads | join(', ') }}"
+  when: failed_s3_downloads | length > 0
+
+- name: "Fail if any downloaded archive does not exist"
+  ansible.builtin.fail:
+    msg: "{{ missing_archives | length }} downloaded archive(s) do not exist: {{ missing_archives | join(', ') }}"
+  when: missing_archives | length > 0
+
+- name: "Display download summary"
+  ansible.builtin.debug:
+    msg:
+      - "Successfully downloaded {{ backup_archives_to_download | length }} archive(s) from S3"
+      - "Total size: {{ (downloaded_archives_stat.results | map(attribute='stat.size') | sum / 1024 / 1024) | round(2) }} MB"

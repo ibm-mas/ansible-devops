@@ -1,0 +1,215 @@
+---
+# MongoDB Restore from Backup Files
+# =============================================================================
+# This playbook restores MongoDB data from backup files to MongoDB Atlas
+# It uses backup archive and index files and uses mongorestore command
+
+# 1. Validate required variables
+# -----------------------------------------------------------------------------
+- name: Fail if required local file paths are not provided
+  assert:
+    that:
+      - atlas_backup_archive_path is defined and atlas_backup_archive_path != ''
+      - atlas_index_file_path is defined and atlas_index_file_path != ''
+    fail_msg: "Missing one or more required local file paths: atlas_backup_archive_path, atlas_index_file_path"
+
+- name: Fail if required MongoDB Atlas/DocumentDB connection details are not provided
+  assert:
+    that:
+      - atlas_mongodb_host is defined and atlas_mongodb_host != ''
+      - atlas_mongodb_username is defined and atlas_mongodb_username != ''
+      - atlas_mongodb_password is defined and atlas_mongodb_password != ''
+    fail_msg: "Missing one or more required MongoDB connection properties: atlas_mongodb_host, atlas_mongodb_username, atlas_mongodb_password"
+
+- name: "Debug restore properties"
+  debug:
+    msg:
+      - "Backup Archive Path .................... {{ atlas_backup_archive_path }}"
+      - "Index File Path ........................ {{ atlas_index_file_path }}"
+      - "MongoDB Host ........................... {{ atlas_mongodb_host }}"
+      - "MongoDB Username ....................... {{ atlas_mongodb_username }}"
+      - "Restore Temp Directory ................. {{ restore_temp_dir }}"
+
+- name: Restore from Local Files
+  block:
+    # 2. Verify local backup files exist
+    # -----------------------------------------------------------------------------
+    - name: Verify backup archive exists
+      stat:
+        path: "{{ atlas_backup_archive_path }}"
+      register: backup_archive_stat
+
+    - name: Fail if backup archive does not exist
+      assert:
+        that:
+          - backup_archive_stat.stat.exists
+          - backup_archive_stat.stat.size > 0
+        fail_msg: "Backup archive not found or empty at: {{ atlas_backup_archive_path }}"
+
+    - name: Verify index file exists
+      stat:
+        path: "{{ atlas_index_file_path }}"
+      register: index_file_stat
+
+    - name: Fail if index file does not exist
+      assert:
+        that:
+          - index_file_stat.stat.exists
+          - index_file_stat.stat.size > 0
+        fail_msg: "Index file not found or empty at: {{ atlas_index_file_path }}"
+
+    - name: Debug file information
+      debug:
+        msg:
+          - "Backup archive found - Size: {{ (backup_archive_stat.stat.size / 1024 / 1024) | round(2) }} MB"
+          - "Index file found - Size: {{ (index_file_stat.stat.size / 1024) | round(2) }} KB"
+
+    # 3. Create temporary directory for extraction
+    # -----------------------------------------------------------------------------
+    - name: Create temporary directory for restore
+      file:
+        path: "{{ restore_temp_dir }}"
+        state: directory
+        mode: '0755'
+
+    # 4. Build mongorestore connection string
+    # -----------------------------------------------------------------------------
+    - name: Build MongoDB connection URI
+      set_fact:
+        mongodb_uri: "mongodb+srv://{{ atlas_mongodb_username }}:{{ atlas_mongodb_password }}@{{ atlas_mongodb_host }}/"
+      no_log: true
+
+    # 5. Extract and Restore mongodb databases
+    # -----------------------------------------------------------------------------
+    - name: "Set backup extraction directory"
+      set_fact:
+        backup_extract_dir: "{{ restore_temp_dir }}/backup_extract"
+
+    - name: Create extraction directory
+      file:
+        path: "{{ backup_extract_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Extract backup archive
+      unarchive:
+        src: "{{ atlas_backup_archive_path }}"
+        dest: "{{ backup_extract_dir }}"
+        remote_src: yes
+        extra_opts:
+          - --exclude=._*
+
+    - name: "Generate restore database script from template"
+      template:
+        src: "atlas/backup-restore/database-restore.sh.j2"
+        dest: "{{ restore_temp_dir }}/database-restore.sh"
+        mode: '0755'
+
+    - name: "Execute restore database script"
+      command: "{{ restore_temp_dir }}/database-restore.sh"
+      register: mongorestore_result
+
+    - name: Display mongorestore Logs
+      ansible.builtin.debug:
+        msg:
+          - "=========================================="
+          - "Mongo Restore Stdout logs"
+          - "=========================================="
+          - "{{ mongorestore_result.stdout_lines }}"
+          - "------------------------------------------"
+
+    # 6. Restore indexes from index backup file
+    # -----------------------------------------------------------------------------
+    - name: Check if index backup file is a valid JSON
+      command: >
+        python3 -m json.tool {{ atlas_index_file_path }}
+      register: json_validation
+      failed_when: false
+
+    - name: Restore indexes if index file is valid
+      when: json_validation.rc == 0
+      block:
+        - name: Read index backup file
+          slurp:
+            src: "{{ atlas_index_file_path }}"
+          register: index_backup_content
+
+        - name: Parse index backup JSON
+          set_fact:
+            index_data: "{{ index_backup_content.content | b64decode | from_json }}"
+
+        - name: "Generate restore indexes script from template"
+          template:
+            src: "atlas/backup-restore/indexes-restore.sh.j2"
+            dest: "{{ restore_temp_dir }}/indexes-restore.sh"
+            mode: '0755'
+
+        - name: "Execute restore indexes script"
+          command: "{{ restore_temp_dir }}/indexes-restore.sh"
+          register: index_creation_result
+          changed_when: "'Created index' in index_creation_result.stdout"
+
+        - name: Display index restore logs
+          ansible.builtin.debug:
+            msg:
+              - "=========================================="
+              - "Index Restore Stdout logs"
+              - "{{ index_creation_result.stdout_lines }}"
+              - "------------------------------------------"
+              - "=========================================="
+
+    - name: Display restore completion message
+      debug:
+        msg:
+          - "=========================================="
+          - "MongoDB Restore Completed Successfully"
+          - "=========================================="
+          - "Backup restored from: {{ atlas_backup_archive_path }}"
+          - "Indexes restored from: {{ atlas_index_file_path }}"
+          - "Target MongoDB: {{ atlas_mongodb_host }}"
+          - "=========================================="
+
+  rescue:
+
+    - name: Display mongorestore Logs
+      ansible.builtin.debug:
+        msg:
+          - "=========================================="
+          - "Mongo Restore Stdout logs"
+          - "=========================================="
+          - "{{ mongorestore_result.stdout_lines }}"
+          - "------------------------------------------"
+          - "=========================================="
+          - "Mongo Restore Stderr logs"
+          - "=========================================="
+          - "{{ mongorestore_result.stderr_lines }}"
+          - "------------------------------------------"
+      when: mongorestore_result.stderr_lines is defined and mongorestore_result.stderr_lines | length != 0
+
+    - name: Display index restore logs
+      ansible.builtin.debug:
+        msg:
+          - "=========================================="
+          - "Index Restore Stdout logs"
+          - "{{ index_creation_result.stdout_lines }}"
+          - "------------------------------------------"
+          - "=========================================="
+          - "Index Restore Stderr logs"
+          - "=========================================="
+          - "{{ index_creation_result.stderr_lines }}"
+          - "------------------------------------------"
+      when: index_creation_result is defined and index_creation_result.stderr_lines is defined
+
+    - name: Restore failed
+      ansible.builtin.fail:
+        msg: "Restore failed. Please view the logs for more details"
+
+  always:
+
+    # 7. Cleanup temporary files
+    # -----------------------------------------------------------------------------
+    - name: Clean up temporary restore directory
+      when: cleanup_temp_files | default(true) | bool
+      file:
+        path: "{{ restore_temp_dir }}"
+        state: absent
