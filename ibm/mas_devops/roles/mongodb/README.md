@@ -128,17 +128,15 @@ Specifies which operation to perform on the MongoDB instance.
 - Use `create-mongo-service-credentials` to generate service credentials (ibm only)
 
 **Valid values** (provider-specific):
-- **community**: `install`, `uninstall`, `backup`, `restore`
+- **community**: `install`, `uninstall`, `backup`, `backup-database`, `restore`, `restore-database`
 - **aws**: `install`, `uninstall`, `docdb_secret_rotate`, `destroy-data`
 - **ibm**: `install`, `uninstall`, `backup`, `restore`, `create-mongo-service-credentials`
-- **atlas**: `install`, `uninstall`, `restore`
+- **atlas**: `install`, `uninstall`, `restore`, `restore-database`
 
 **Impact**: The action determines what the role will do. Destructive actions like `uninstall` and `destroy-data` will permanently delete data. Backup/restore actions require additional variables to be set.
 
 **Related variables**:
 - `mongodb_provider` determines which actions are available
-- Backup actions require `masbr_*` variables
-- Restore actions require `masbr_restore_from_version`
 - AWS secret rotation requires `docdb_*` credential variables
 
 **Note**: Always backup data before performing destructive operations. Some actions are irreversible.
@@ -558,194 +556,359 @@ Confirmation flag to upgrade MongoDB from version 7 to version 8.
 - Environment Variable: `MONGODB_V8_UPGRADE`
 - Default Value: `false`
 
-**Purpose**: Acts as a safety confirmation to prevent accidental MongoDB major version upgrades from version 7 to 8.
+Role Variables - Backup and Restore (CE Operator)
+-------------------------------------------------------------------------------
 
-**When to use**:
-- Set to `true` only when intentionally upgrading from MongoDB 7 to version 8
-- Must be explicitly set to perform the upgrade
-- Leave as `false` for all other operations
+### mongodb_action
+For backup and restore operations, set `mongodb_action` to one of the following:
+- `backup`: Create a backup of MongoDB databases and instance resources
+- `backup-database`: Create a backup of MongoDB databases only
+- `restore`: Restore both MongoDB instance resources and databases from a backup (full restore)
+- `restore-database`: Restore only MongoDB databases from a backup to an existing instance (database-only restore)
 
-**Valid values**: `true`, `false`
+- Environment Variable: `MONGODB_ACTION`
+- Default Value: `install`
 
-**Impact**: When `true` and `mongodb_version` is set to an 8.x version, triggers MongoDB upgrade from 7.x to 8.x. This is a one-way operation that cannot be reversed without restoring from backup.
+**Action Details:**
+- **backup**: Creates a complete backup including database data and Kubernetes resources (secrets, certificates, CRs)
+- **backup-database**: Creates a complete backup including database data only
+- **restore**: Performs a full restore by recreating the MongoDB instance from backup resources and then restoring database data
+- **restore-database**: Restores only the database data to an already running MongoDB instance without touching instance resources
 
-**Related variables**:
-- `mongodb_version`: Must be set to an 8.x version for upgrade to proceed
-- Other upgrade flags: `mongodb_v5_upgrade`, `mongodb_v6_upgrade`, `mongodb_v7_upgrade`
+### mas_backup_dir
+**Required for backup/restore operations**. Local directory path where backup files will be stored or read from.
 
-**Note**: **Always backup before upgrading**. Test upgrades in non-production environments first. Review MongoDB 8.0 release notes for breaking changes.
+- Environment Variable: `MAS_BACKUP_DIR`
+- Default Value: None
+- Example: `/tmp/masbr`
 
-#### masbr_confirm_cluster
-Enables cluster confirmation prompt before executing backup or restore operations.
+### mongodb_backup_version
+**Required for restore operations**. The backup version timestamp to restore from. This is automatically generated during backup in the format `YYYYMMDD-HHMMSS`.
 
-- **Optional**
-- Environment Variable: `MASBR_CONFIRM_CLUSTER`
-- Default: `false`
+- Environment Variable: `MONGODB_BACKUP_VERSION`
+- Default Value: YYYYMMDD-HHMMSS
+- Example: `20251212-021316`
 
-**Purpose**: Provides a safety check to confirm you're connected to the correct cluster before performing backup or restore operations, preventing accidental operations on wrong clusters.
+### mongodb_instance_name
+The name of the MongoDB instance to backup.
 
-**When to use**:
-- Set to `true` in environments with multiple clusters to prevent mistakes
-- Set to `true` for production environments as an additional safety measure
-- Leave as `false` for automated pipelines where confirmation isn't possible
+- Environment Variable: `MONGODB_INSTANCE_NAME`
+- Default Value: `mas-mongo-ce`
 
-**Valid values**: `true`, `false`
+### override_storageclass
+Controls whether to override storage class for the MongoDB instance during restore.
+Set to `true` to override the storage class with `MONGODB_STORAGE_CLASS` value or cluster's default storageclass.
 
-**Impact**: When `true`, the role will prompt for confirmation of the cluster before proceeding with backup/restore. This adds a manual step but prevents costly mistakes.
+- Environment Variable: `OVERRIDE_STORAGECLASS`
+- Default Value: `false`
 
-**Related variables**: Used with `mongodb_action` when set to `backup` or `restore`.
+### mas_app_id
+Optional. Specific MAS application ID for targeted backup/restore operations.
 
-#### masbr_copy_timeout_sec
-Timeout in seconds for backup/restore file transfer operations.
+- Environment Variable: `MAS_APP_ID`
+- Default Value: None
 
-- **Optional**
-- Environment Variable: `MASBR_COPY_TIMEOUT_SEC`
-- Default: `43200` (12 hours)
 
-**Purpose**: Sets the maximum time allowed for copying backup files to/from storage. Prevents operations from hanging indefinitely on slow networks or large datasets.
+Backup and Restore Operations
+-------------------------------------------------------------------------------
 
-**When to use**:
-- Increase for very large databases or slow network connections
-- Decrease for smaller databases to fail faster on issues
-- Use default (12 hours) for most deployments
+This section provides comprehensive information about MongoDB backup and restore operations for the Community Edition (CE) operator.
 
-**Valid values**: Positive integer representing seconds (e.g., `3600` = 1 hour, `43200` = 12 hours, `86400` = 24 hours)
+### Action Comparison
 
-**Impact**: Operations exceeding this timeout will fail. Setting too low causes failures on legitimate long-running transfers. Setting too high delays detection of stuck operations.
+| Action | Purpose | Instance Resources | Database Data | Prerequisites | Use Case |
+|--------|---------|-------------------|---------------|---------------|----------|
+| `backup` | Create backup | Yes | Yes | Running MongoDB instance | Regular backups, disaster recovery preparation |
+| `backup-database` | Database-only backup | No | Yes | Running MongoDB instance | Regular backups, disaster recovery preparation |
+| `restore` | Full restore | Yes (recreates instance) | Yes | Backup with instance resources | Disaster recovery, cluster migration, complete restoration |
+| `restore-database` | Database-only restore | No (preserves existing) | Yes | Running MongoDB instance with matching version | Data recovery, selective restore, testing |
 
-**Related variables**: Used with `mongodb_action` when set to `backup` or `restore`.
+### Backup Process
 
-**Note**: Consider database size and network speed when setting timeout. Monitor actual transfer times to optimize this value.
+The MongoDB backup operation creates a backup of your MongoDB instance and databases associated with your MAS instance:
 
-#### masbr_job_timezone
-Time zone for scheduled backup job execution.
+1. **Database Backup**: Uses `mongodump` to export databases with filter `"^(mas|iot|sls|ibm-sls)(_|-)({{ mas_instance_id }}|sls)(_|-)(?!.*monitor$)"` to match databases like `mas-<instance-id>-<app-id>` or `iot-<instance-id>-<app-id>` or `ibm-sls_sls_licensing` or `sls-<instance-id>_sls_licensing`.
+2. **Instance Resources** : Backs up Kubernetes resources including:
+   - CustomResourceDefinition (CRD)
+   - MongoDBCommunity Custom Resource (CR)
+   - Secrets (TLS certificates, credentials)
+   - Certificate resources
+   - Issuer resources
+   - Mongodb operator deployment
+   - service monitoring
+   - grafana dashboards
 
-- **Optional**
-- Environment Variable: `MASBR_JOB_TIMEZONE`
-- Default: None (uses UTC)
+**Backup Directory Structure:**
+```
+/tmp/masbr/
+└── backup-<YYYYMMDD-HHMMSS>-mongoce/
+    ├── data/
+    │   ├── mongodump-<YYYYMMDD-HHMMSS>.tar.gz
+    │   └── mongodb-info.yaml
+    └── resources/
+        ├── mongodbcommunitys/
+        ├── secrets/
+        ├── certificates/
+        └── issuers/
+        └── {kind}s/
+```
 
-**Purpose**: Specifies the time zone for scheduled backup CronJobs, ensuring backups run at the intended local time rather than UTC.
+### Restore Process
 
-**When to use**:
-- Set when scheduling backups to run at specific local times
-- Use for compliance with backup windows in specific time zones
-- Leave unset to use UTC (recommended for global deployments)
+The MongoDB role supports two types of restore operations:
 
-**Valid values**: Any valid [tz database time zone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) (e.g., `America/New_York`, `Europe/London`, `Asia/Tokyo`)
+#### 1. Full Restore (`restore` action)
+Performs a complete restoration of both the MongoDB instance and its databases:
 
-**Impact**: Affects when scheduled backups execute. Incorrect time zone can cause backups to run during business hours or miss backup windows.
+**Steps:**
+1. Validates backup files and required variables
+2. Restores the namespace (Project)
+3. Restores Secrets and ConfigMaps
+4. Restores CustomResourceDefinitions (CRDs)
+5. Restores RBAC resources (ServiceAccount, Role, RoleBinding)
+6. Configures anyuid permissions for MongoDB service accounts
+7. Restores the MongoDB Operator Deployment
+8. Waits for MongoDB operator to be ready
+9. Restores Certificate Manager resources (Issuer, Certificate)
+10. Restores the MongoDBCommunity Custom Resource (Overrides storageclass if flag is set)
+11. Waits for MongoDB StatefulSets to be ready
+12. Restores ServiceMonitor and GrafanaDashboard resources
+13. Restores database data using `mongorestore`
 
-**Related variables**:
-- `masbr_backup_schedule`: Defines the cron schedule
-- Only applies when `masbr_backup_schedule` is set
+**When to use:**
+- Disaster recovery scenarios
+- Migrating MongoDB to a new cluster
+- Recreating a deleted MongoDB instance
+- Setting up a new environment from backup
 
-**Note**: When not set, CronJobs use UTC time zone. Consider daylight saving time changes when scheduling backups.
+**Requirements:**
+- `mas_instance_id`: MAS instance identifier
+- `mas_backup_dir`: Directory containing the backup
+- `mongodb_backup_version`: Timestamp of the backup to restore
+- `override_storageclass`: Set to `true` to override storage class during instance restore
 
-#### masbr_storage_local_folder
-Local filesystem path where backup files will be stored or retrieved from.
+#### 2. Database-Only Restore (`restore-database` action)
+Restores only the database data to an existing MongoDB instance:
 
-- **Required** when `mongodb_action` is `backup` or `restore`
-- Environment Variable: `MASBR_STORAGE_LOCAL_FOLDER`
-- Default: None
+**Steps:**
+1. Validates backup files and required variables
+2. Verifies existing MongoDB installation is running
+3. Checks MongoDB version compatibility
+4. Restores database data using `mongorestore`
 
-**Purpose**: Specifies the directory for storing MongoDB backup files. This location must have sufficient space and appropriate permissions for backup operations.
+**When to use:**
+- Restoring data to an existing MongoDB instance
+- Recovering from data corruption without recreating the instance
+- Selective database restoration
+- Testing data restoration without affecting instance configuration
 
-**When to use**:
-- Always required for backup and restore operations
-- Use a path with adequate storage space for full database backups
-- Consider using network-attached storage for backup retention
-- Ensure path is accessible and has proper permissions
+**Requirements:**
+- `mas_instance_id`: MAS instance identifier
+- `mas_backup_dir`: Directory containing the backup
+- `mongodb_backup_version`: Timestamp of the backup to restore
+- `mongodb_namespace`: Namespace where MongoDB is running
+- `mongodb_instance_name`: Name of the existing MongoDB instance
+- MongoDB instance must already be running and accessible
 
-**Valid values**: Any valid local filesystem path (e.g., `/backup/mongodb`, `/mnt/nfs/backups`, `/tmp/masbr`)
+### Important Considerations
 
-**Impact**: Backup files are written to this location. Insufficient space causes backup failures. Path must be accessible during restore operations.
+**Version Compatibility:**
+- Target MongoDB version must match the backup version exactly
+- Version upgrades should be performed separately, not during restore
+- The restore process validates version compatibility before proceeding
+- For `restore-database` action, the existing MongoDB instance must be running the same version as the backup
 
-**Related variables**:
-- `masbr_backup_type`: Determines if full or incremental backups are stored here
-- `masbr_restore_from_version`: Specifies which backup version to restore from this location
+**Storage Requirements:**
+- Ensure sufficient storage in the backup directory
+- Plan for at least 2x the database size for backup storage
+- Backup directory structure: `/tmp/masbr/backup-<YYYYMMDD-HHMMSS>-mongoce/`
+- Monitor disk space during backup operations
 
-**Note**: Ensure adequate disk space (at least 2x database size for full backups). Implement backup retention policies to manage storage usage.
+**Security:**
+- Backup files contain sensitive data and credentials
+- Secure backup directory with appropriate permissions (chmod 700 recommended)
+- Consider encrypting backups for long-term storage
+- Backup includes TLS certificates and admin credentials
+- Restrict access to backup files to authorized personnel only
 
-#### masbr_backup_type
-Type of backup to create: full or incremental.
+**Performance:**
+- Backup operations may impact MongoDB performance
+- Schedule backups during low-usage periods
+- Monitor resource utilization during backup/restore
+- Large databases may take significant time to backup/restore
+- Network bandwidth may affect backup/restore speed
 
-- **Optional**
-- Environment Variable: `MASBR_BACKUP_TYPE`
-- Default: `full`
+**Restore Action Differences:**
+- **`restore` action**: Recreates the entire MongoDB instance from scratch, including all Kubernetes resources and restores database
+- **`restore-database` action**: Only restores database data to an existing instance, preserving current configuration
 
-**Purpose**: Determines whether to create a complete database backup or an incremental backup containing only changes since the last full backup. Incremental backups save time and storage.
+### Backup and Restore Best Practices
 
-**When to use**:
-- Use `full` for initial backups or periodic complete backups
-- Use `incr` for frequent backups between full backups to save time and space
-- Implement a strategy like weekly full + daily incremental backups
+1. **Regular Backups**: Schedule automated backups at regular intervals
+2. **Test Restores**: Periodically test restore procedures in non-production environments
+3. **Monitor Operations**: Implement monitoring and alerting for backup failures
+4. **Backup Validation**: Verify backup integrity after completion
+5. **Retention Policy**: Implement and document backup retention policies
+6. **Disaster Recovery**: Include MongoDB backup/restore in your DR plan
 
-**Valid values**: `full`, `incr`
+### Backup and Restore Issues
 
-**Impact**:
-- `full`: Creates complete backup, takes longer, uses more storage
-- `incr`: Creates incremental backup, faster, uses less storage, requires base full backup
+**Backup Failures:**
 
-**Related variables**:
-- `masbr_backup_from_version`: Required when `incr` is used to specify base full backup
-- `mongodb_action`: Must be set to `backup`
+- **Permission Errors**: Verify backup role and user creation succeeded. Check MongoDB pod logs with `oc logs -n mongoce <pod-name> -c mongod`
+- **Disk Space Issues**: Ensure sufficient space in backup directory. Clean up old backups if needed like `/tmp/<mongodb_backup_version>`. Check with `df -h`. 
+- **Pod Access Issues**: Verify pod is running and accessible. Check network connectivity to the cluster
 
-**Note**: Incremental backups require a full backup as base. Restore operations may need to apply multiple incremental backups sequentially.
+**Restore Failures:**
 
-#### masbr_backup_from_version
-Timestamp of the full backup to use as base for incremental backup.
+- **Version Mismatch**: Ensure target MongoDB version matches backup version. Deploy correct version before restoring
+- **Authentication Errors**: Verify admin credentials are correct. Check MongoDB health status
+- **Missing Backup Files**: Verify backup directory path and version. Ensure backup completed successfully
+- **Data Inconsistency**: Verify backup integrity. Check restore logs for errors. Consider re-running restore
 
-- **Optional**
-- Environment Variable: `MASBR_BACKUP_FROM_VERSION`
-- Default: None (automatically uses latest full backup)
+**General Issues:**
 
-**Purpose**: Specifies which full backup serves as the base for an incremental backup. This links the incremental backup to a specific full backup version.
+- **Pods Not Starting After Restore**: Check pod events with `oc describe pod -n mongoce <pod-name>`. Verify PVCs are bound. Check resource limits and node capacity
+- **Connection Issues**: Verify network policies and service configurations. Check certificate validity
 
-**When to use**:
-- Set when creating incremental backups and you want to specify a particular full backup
-- Leave unset to automatically use the most recent full backup
-- Only valid when `masbr_backup_type=incr`
+Example Playbooks
+-------------------------------------------------------------------------------
 
-**Valid values**: Timestamp in format `YYYYMMDDHHMMSS` (e.g., `20240621021316`)
+### Install (CE Operator)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_storage_class: ibmc-block-gold
+    mas_instance_id: masinst1
+    mas_config_dir: ~/masconfig
+  roles:
+    - ibm.mas_devops.mongodb
+```
 
-**Impact**: Incremental backup will contain only changes since the specified full backup. Incorrect version can cause backup chain issues.
+### Backup (CE Operator)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_backup_dir: /tmp/masbr
+    mongodb_action: backup
+  roles:
+    - ibm.mas_devops.mongodb
+```
 
-**Related variables**:
-- `masbr_backup_type`: Must be set to `incr`
-- `masbr_storage_local_folder`: Location where full backup exists
+### Backup with Instance Resources (CE Operator)
+Create a complete backup including both database data and instance resources (secrets, certificates, issuers).
 
-**Note**: If not specified, role automatically finds the latest full backup. Ensure the specified full backup exists in the storage location.
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_backup_dir: /tmp/masbr
+    mongodb_action: backup
+  roles:
+    - ibm.mas_devops.mongodb
+```
 
-#### masbr_backup_schedule
-Cron expression for scheduling automated backups.
+### Backup Database (CE Operator)
+Create a backup of database data.
 
-- **Optional**
-- Environment Variable: `MASBR_BACKUP_SCHEDULE`
-- Default: None (creates on-demand backup)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_backup_dir: /tmp/masbr
+    mongodb_action: backup-database
+  roles:
+    - ibm.mas_devops.mongodb
+```
 
-**Purpose**: Defines when automated backups should run using standard cron syntax. Enables regular, unattended backup operations.
+### Restore Database (CE Operator)
+Restore MongoDB databases from a backup to an existing MongoDB instance without recreating the instance resources.
 
-**When to use**:
-- Set to schedule regular automated backups (e.g., daily, weekly)
-- Leave unset for manual, on-demand backups
-- Consider backup windows and system load when scheduling
+**Use Case**: This action is ideal when you need to restore database data to an already running MongoDB instance, such as recovering from data corruption or restoring specific databases.
 
-**Valid values**: Standard [cron expression](https://en.wikipedia.org/wiki/Cron) (e.g., `0 2 * * *` for daily at 2 AM, `0 2 * * 0` for weekly on Sunday at 2 AM)
+**Prerequisites**:
+- MongoDB instance must already be installed and running
+- MongoDB version must match the backup version
+- Backup files must be available in the specified backup directory
 
-**Impact**: When set, creates a Kubernetes CronJob that automatically runs backups on schedule. Without this, backups only run when role is manually executed.
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_action: restore-database
+    mas_instance_id: masinst1
+    mongodb_backup_version: 20251212-021316
+    mas_backup_dir: /tmp/masbr
+    mongodb_namespace: mongoce
+    mongodb_instance_name: mas-mongo-ce
+  roles:
+    - ibm.mas_devops.mongodb
+```
 
-**Related variables**:
-- `masbr_job_timezone`: Specifies time zone for schedule
-- `masbr_backup_type`: Determines if scheduled backups are full or incremental
+**What this does**:
+1. Validates that the backup exists at the specified location
+2. Verifies the MongoDB instance is running in the specified namespace
+3. Checks version compatibility between backup and running instance
+4. Restores database data using `mongorestore` command
+5. Preserves all existing instance configuration and resources
 
-**Note**: Test cron expressions before deploying. Consider backup duration when scheduling to avoid overlapping backup jobs.
+**Note**: This action does NOT restore instance resources (secrets, certificates, CRs). Use the `restore` action for full instance restoration.
 
-#### masbr_restore_from_version
-Timestamp of the backup version to restore.
+### Full Restore (CE Operator)
+Perform a complete restoration of MongoDB instance including all Kubernetes resources and database data from a backup.
 
-- **Required** when `mongodb_action=restore`
-- Environment Variable: `MASBR_RESTORE_FROM_VERSION`
-- Default: None
+**Use Case**: This action is ideal for disaster recovery scenarios where you need to recreate the entire MongoDB instance from scratch, including all configuration, secrets, certificates, and data.
+
+**Prerequisites**:
+- Backup files must be available in the specified backup directory
+- Backup must include instance resources (secrets, certificates, CRs)
+- Target cluster must have cert-manager installed
+- Sufficient storage and resources available
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_action: restore
+    mas_instance_id: masinst1
+    mongodb_backup_version: 20251212-021316
+    mas_backup_dir: /tmp/masbr
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
+**What this does**:
+1. Validates backup files and required variables
+2. Restores namespace, secrets, and ConfigMaps
+3. Restores CRDs and RBAC resources
+4. Restores MongoDB Operator deployment
+5. Restores Certificate Manager resources
+6. Restores MongoDBCommunity Custom Resource
+7. Waits for MongoDB instance to be fully operational
+8. Restores database data using `mongorestore`
+
+**Note**: This is a complete restoration that recreates the MongoDB instance from scratch. Use `restore-database` action if you only need to restore data to an existing instance.
+
+### Install from Backup (CE Operator)
+Deploy a new MongoDB instance using configuration from a backup and restore data from a backup. This is useful for disaster recovery or migrating MongoDB to a new cluster.
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_action: install
+    mas_instance_id: masinst1
+    mongodb_backup_version: 20251212-021316
+    mas_backup_dir: /tmp/masbr
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
 
 **Purpose**: Specifies which backup version to restore from. This allows point-in-time recovery to a specific backup.
 
@@ -760,7 +923,6 @@ Timestamp of the backup version to restore.
 
 **Related variables**:
 - `mongodb_action`: Must be set to `restore`
-- `masbr_storage_local_folder`: Location where backup exists
 
 **Note**: **Verify backup version before restoring**. List available backups in storage location first. Restore is destructive and cannot be undone without another backup.
 
@@ -1802,7 +1964,7 @@ MongoDB Atlas project ID where the cluster will be created.
 
 **Purpose**: Identifies the Atlas project (organization) that will contain the MongoDB cluster. All Atlas resources are organized under projects.
 
-**When to use**: Always required for Atlas deployments. Obtain from Atlas console under Project Settings.
+**When to use**: Always required for Atlas deployments (except restore-database). Obtain from Atlas console under Project Settings.
 
 **Valid values**: 24-character hexadecimal string (e.g., `507f1f77bcf86cd799439011`)
 
@@ -1817,7 +1979,7 @@ MongoDB Atlas API public key for authentication.
 
 **Purpose**: Public component of Atlas API key pair used for programmatic access to Atlas API.
 
-**When to use**: Required for all Atlas operations unless credentials are stored in AWS Secrets Manager.
+**When to use**: Required for all Atlas operations (except restore-database) unless credentials are stored in AWS Secrets Manager.
 
 **Valid values**: Atlas API public key string
 
@@ -1836,7 +1998,7 @@ MongoDB Atlas API private key for authentication.
 
 **Purpose**: Private component of Atlas API key pair used for programmatic access to Atlas API.
 
-**When to use**: Required for all Atlas operations unless credentials are stored in AWS Secrets Manager.
+**When to use**: Required for all Atlas operations (except restore-database) unless credentials are stored in AWS Secrets Manager.
 
 **Valid values**: Atlas API private key string
 
@@ -2205,82 +2367,22 @@ AWS subnet IDs for auto-discovering route tables.
 
 **Related variables**: Alternative to `atlas_aws_route_table_ids` (manual specification).
 
-#### atlas_s3_bucket_name
-AWS S3 bucket name containing MongoDB backup files for restore.
+### Important Note: Atlas Restore Functionality
 
-- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
-- Environment Variable: `ATLAS_S3_BUCKET_NAME`
-- Default Value: None
+**Why Manual Restore Options Are Provided:**
 
-**Purpose**: Specifies the S3 bucket where MongoDB backup files are stored.
+MongoDB Atlas provides a fully managed backup service with automated backups, point-in-time recovery, and easy restore capabilities through the Atlas console and API. **For normal backup and restore operations, you should use the Atlas managed backup service.**
 
-**When to use**: Required when restoring MongoDB data from S3 backup to Atlas cluster.
+However, this role includes manual restore functionality for **data migration from AWS DocumentDB scenarios only**.
 
-**Valid values**: Valid AWS S3 bucket name
-
-**Impact**: The role will download backup files from this S3 bucket during restore operation.
-
-**Related variables**: Used with `atlas_s3_backup_prefix`, `atlas_backup_file_name`, and `atlas_index_backup_file_name`.
-
-#### atlas_s3_backup_prefix
-S3 prefix (folder path) where backup files are located.
-
-- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
-- Environment Variable: `ATLAS_S3_BACKUP_PREFIX`
-- Default Value: None
-
-**Purpose**: Specifies the S3 prefix/folder path containing the backup files.
-
-**When to use**: Required when restoring MongoDB data from S3 backup to Atlas cluster.
-
-**Valid values**: Valid S3 prefix path (e.g., `backups/mongodb/prod`)
-
-**Impact**: Combined with bucket name to locate backup files in S3.
-
-**Related variables**: Used with `atlas_s3_bucket_name` to construct full S3 path.
-
-#### atlas_backup_file_name
-Name of the MongoDB backup archive file (without .tar.gz extension).
-
-- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
-- Environment Variable: `ATLAS_BACKUP_FILE_NAME`
-- Default Value: None
-
-**Purpose**: Specifies the backup archive filename containing MongoDB data dumps.
-
-**When to use**: Required when restoring MongoDB data from S3 backup to Atlas cluster.
-
-**Valid values**: Backup filename without extension (e.g., `mongodb-backup-20240621`)
-
-**Impact**: The role will download `{filename}.tar.gz` from S3 and extract it for restore.
-
-**Related variables**: Used with `atlas_s3_bucket_name` and `atlas_s3_backup_prefix`.
-
-**Note**: The actual file in S3 should have `.tar.gz` extension, but provide the name without it.
-
-#### atlas_index_backup_file_name
-Name of the MongoDB index backup JSON file.
-
-- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
-- Environment Variable: `ATLAS_INDEX_BACKUP_FILE_NAME`
-- Default Value: None
-
-**Purpose**: Specifies the JSON file containing MongoDB index definitions to restore.
-
-**When to use**: Required when restoring MongoDB data from S3 backup to Atlas cluster.
-
-**Valid values**: JSON filename (e.g., `mongodb-indexes-20240621.json`)
-
-**Impact**: The role will download this file from S3 and recreate indexes after data restore.
-
-**Related variables**: Used with `atlas_s3_bucket_name` and `atlas_s3_backup_prefix`.
-
-**Note**: File must be valid JSON containing index definitions for each database and collection.
+**Recommendation**:
+- **For production backup/restore**: Use Atlas managed backup service (enabled by default with `atlas_backup_enabled: true`)
+- **For data migration**: Use the manual restore-database options provided here
 
 #### atlas_mongodb_host
 MongoDB Atlas cluster hostname for restore connection.
 
-- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore|restore-database`
 - Environment Variable: `ATLAS_MONGODB_HOST`
 - Default Value: None
 
@@ -2299,7 +2401,7 @@ MongoDB Atlas cluster hostname for restore connection.
 #### atlas_mongodb_username
 MongoDB database username for restore connection.
 
-- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore|restore-database`
 - Environment Variable: `ATLAS_MONGODB_USERNAME`
 - Default Value: None
 
@@ -2318,7 +2420,7 @@ MongoDB database username for restore connection.
 #### atlas_mongodb_password
 MongoDB database password for restore connection.
 
-- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore|restore-database`
 - Environment Variable: `ATLAS_MONGODB_PASSWORD`
 - Default Value: None
 
@@ -2334,6 +2436,45 @@ MongoDB database password for restore connection.
 
 **Note**: Store securely. Never commit to version control.
 
+#### atlas_backup_archive_path
+Local path to the MongoDB backup archive file (.tar.gz).
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore|restore-database`
+- Environment Variable: `ATLAS_BACKUP_ARCHIVE_PATH`
+- Default Value: None
+
+**Purpose**: Specifies the local filesystem path to the backup archive containing MongoDB data dumps.
+
+**When to use**: Required when restoring MongoDB data from local backup files to Atlas cluster (typically for data migration scenarios).
+
+**Valid values**: Valid local filesystem path to a .tar.gz file (e.g., `/path/to/mongodb-backup-20240621.tar.gz`)
+
+**Impact**: The role will extract this archive and restore the data to the Atlas cluster.
+
+**Related variables**: Used with `atlas_index_file_path`, `atlas_mongodb_host`, `atlas_mongodb_username`, and `atlas_mongodb_password`.
+
+**Note**: This is for the `restore-database` action which uses local files, not the `restore` action which downloads from S3.
+
+#### atlas_index_file_path
+Local path to the MongoDB index backup JSON file.
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore|restore-database`
+- Environment Variable: `ATLAS_INDEX_FILE_PATH`
+- Default Value: None
+
+**Purpose**: Specifies the local filesystem path to the JSON file containing MongoDB index definitions.
+
+**When to use**: Required when restoring MongoDB data from local backup files to Atlas cluster (typically for data migration scenarios).
+
+**Valid values**: Valid local filesystem path to a JSON file (e.g., `/path/to/mongodb-indexes-20240621.json`)
+
+**Impact**: The role will read this file and recreate indexes after data restore.
+
+**Related variables**: Used with `atlas_backup_archive_path` for the restore-database operation.
+
+**Note**: File must be valid JSON containing index definitions for each database and collection. This is for the `restore-database` action which uses local files, not the `restore` action which downloads from S3.
+
+
 
 
 ## Example Playbook
@@ -2346,31 +2487,6 @@ MongoDB database password for restore connection.
     mongodb_storage_class: ibmc-block-gold
     mas_instance_id: masinst1
     mas_config_dir: ~/masconfig
-  roles:
-    - ibm.mas_devops.mongodb
-```
-
-### Backup (CE Operator)
-```yaml
-- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    mongodb_action: backup
-    mas_instance_id: masinst1
-    masbr_storage_local_folder: /tmp/masbr
-  roles:
-    - ibm.mas_devops.mongodb
-```
-
-### Restore (CE Operator)
-```yaml
-- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    mongodb_action: restore
-    mas_instance_id: masinst1
-    masbr_restore_from_version: 20240621021316
-    masbr_storage_local_folder: /tmp/masbr
   roles:
     - ibm.mas_devops.mongodb
 ```
@@ -2443,16 +2559,15 @@ MongoDB database password for restore connection.
   any_errors_fatal: true
   vars:
     mongodb_provider: atlas
-    mongodb_action: restore
-    atlas_s3_bucket_name: my-backup-bucket
-    atlas_s3_backup_prefix: mongodb-backups/prod
-    atlas_backup_file_name: mongodb-backup-20240621
-    atlas_index_backup_file_name: mongodb-indexes-20240621.json
+    mongodb_action: restore-database
+    atlas_backup_archive_path: /path/to/mongodb-backup-20240621.tar.gz
+    atlas_index_file_path: /path/to/mongodb-indexes-20240621.json
     atlas_mongodb_host: cluster0.abc123.mongodb.net
     atlas_mongodb_username: admin
     atlas_mongodb_password: "{{ lookup('env', 'ATLAS_DB_PASSWORD') }}"
   roles:
     - ibm.mas_devops.mongodb
+```
 ```
 
 ### AWS DocumentDb destroy-data action
