@@ -141,6 +141,34 @@
     - aiservice_channel is defined and aiservice_channel != ""
   include_tasks: tasks/check_aiservice_compatibility.yml
 
+# 6.5. ODH to RHOAI Migration (if needed)
+# -----------------------------------------------------------------------------
+- name: "Check if ODH to RHOAI migration is needed"
+  when:
+    - aiservice_channel is defined and aiservice_channel != ""
+  block:
+    - name: "Migration Notice: ODH to RHOAI"
+      debug:
+        msg:
+          - "==============================================================================="
+          - "                    ODH to RHOAI Migration Check                              "
+          - "==============================================================================="
+          - ""
+          - "Checking if Open Data Hub (ODH) needs to be migrated to Red Hat OpenShift AI (RHOAI)..."
+          - ""
+          - "If ODH is detected:"
+          - "  - ODH will be automatically migrated to RHOAI"
+          - "  - AI Service instances will be reconfigured to use RHOAI"
+          - "  - ODH components will be uninstalled after migration"
+          - "  - Expected downtime: ~10-12 minutes for AI Service"
+          - ""
+          - "This migration is mandatory to continue receiving updates."
+          - "==============================================================================="
+
+    - name: "Perform ODH to RHOAI migration if required"
+      include_role:
+        name: ibm.mas_devops.aiservice_ds_migration
+
 # 7. Upgrade
 # -----------------------------------------------------------------------------
 - name: "Execute Channel Upgrade"
