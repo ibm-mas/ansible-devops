@@ -2753,10 +2753,59 @@ Set to <code>true</code> to override the storage class with <code>MONGODB_STORAG
     - ibm.mas_devops.mongodb
 </code></pre>
 <pre><code>
-### AWS DocumentDb destroy-data action
+### Backup (AWS DocumentDB)
+
+This example demonstrates how to backup an AWS DocumentDB cluster. The backup creates two files:
+- `mongodb-backup.tar.gz` - Compressed database backup
+- `collection-indexes.json` - Collection indexes for restore
 
 ```yaml
 - hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_provider: aws
+    mongodb_action: backup-database
+    docdb_cluster_name: massre-mas-cluster-8-mongo.cluster-cvwxreialrtj.us-east-1.docdb.amazonaws.com
+    docdb_master_username: masinst_inst04
+    docdb_master_password: "{{ lookup('env', 'DOCDB_MASTER_PASSWORD') }}"
+    docdb_port: 27017
+    aws_region: us-east-1
+  roles:
+    - ibm.mas_devops.mongodb
+</code></pre>
+<p><strong>Command Line Example:</strong></p>
+<pre><code class="language-bash">ansible-playbook ibm/mas_devops/playbooks/docdb_backup_simple.yml \
+  -e "docdb_cluster_name=massre-mas-cluster-8-mongo.cluster-cvwxreialrtj.us-east-1.docdb.amazonaws.com" \
+  -e "docdb_master_username=masinst_inst04" \
+  -e "docdb_master_password=fn9Uh5wZ4KsZy4OZ0OXx" \
+  -e "aws_region=us-east-1" \
+  -e "mongodb_provider=aws" \
+  -e "mongodb_action=backup-database" \
+  -e "docdb_port=27017"
+</code></pre>
+<p><strong>Backup Output:</strong>
+The backup process creates the following files in <code>/tmp/docdb-backup-&lt;timestamp&gt;/</code>:
+- <code>mongodb-backup.tar.gz</code> - Full database backup (compressed)
+- <code>collection-indexes.json</code> - Collection indexes metadata</p>
+<p><strong>Important Notes:</strong>
+- The backup does NOT upload to S3 automatically 
+- Both files are created locally in the backup directory
+- Temporary files (logs, scripts, CA certificates) are automatically cleaned up after backup
+- The backup uses <code>mongodump</code> with TLS/SSL connection to DocumentDB
+- Collection indexes are extracted separately for easier restore operations</p>
+<p><strong>Required Variables:</strong>
+- <code>docdb_cluster_name</code> - DocumentDB cluster endpoint
+- <code>docdb_master_username</code> - Admin username
+- <code>docdb_master_password</code> - Admin password (use environment variable or vault)
+- <code>aws_region</code> - AWS region where DocumentDB is deployed
+- <code>mongodb_provider</code> - Must be set to <code>aws</code>
+- <code>mongodb_action</code> - Must be set to <code>backup-database</code> or <code>backup</code></p>
+<p><strong>Optional Variables:</strong>
+- <code>docdb_port</code> - DocumentDB port (default: 27017)
+- <code>docdb_backup_dir</code> - Custom backup directory (default: <code>/tmp/docdb-backup-&lt;timestamp&gt;</code>)
+- <code>docdb_ca_cert_url</code> - Custom CA certificate URL (default: AWS global bundle)</p>
+<h3 id="aws-documentdb-destroy-data-action">AWS DocumentDb destroy-data action<a class="headerlink" href="#aws-documentdb-destroy-data-action" title="Permanent link">¤</a></h3>
+<pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
     mas_instance_id: masinst1
@@ -3431,6 +3480,11 @@ ansible-playbook ibm.mas_devops.run_role
                       <li class="md-toc__item">
                         <a href="#restore-mongodb-atlas" class="md-toc__link" data-md-level="2">
                           Restore (MongoDB Atlas)
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#aws-documentdb-destroy-data-action" class="md-toc__link" data-md-level="2">
+                          AWS DocumentDb destroy-data action
                         </a>
                       </li>
                   </ul>
