@@ -108,6 +108,22 @@ Custom domain override for AI Service.
 
 **Note**: This is an advanced configuration option. Most deployments should use `app_domain` or cluster auto-detection. Only set this if AI Service requires a separate domain.
 
+#### enable_ipv6
+Enables SingleStack IPv6 service configuration for AI Service.
+
+- **Optional**
+- Environment Variable: `ENABLE_IPV6`
+- Default: False
+
+**Purpose**: Provide a way to enable IPv6 networking for all the services that are created by AI Service operator.
+
+**When to use**:
+- Set when installing AI Service on an IPv6 enabled environment.
+
+**Valid values**: `true` or `false`
+
+**Impact**: When set to true, all services are created with a SingleStack IPv6 configuration.
+
 ### S3 Storage Configuration Variables
 
 #### aiservice_s3_host
