@@ -1,0 +1,38 @@
+---
+# Post-Upgrade Verification and Configuration Tasks
+# =============================================================================
+# This file performs post-upgrade verification and configuration of DB2COMM
+# settings and port 50001 listener status after DB2 upgrade.
+# =============================================================================
+
+# 1. Get DB2 instance information
+# -----------------------------------------------------------------------------
+- name: "Get {{ instanceKind }} instances list for post-upgrade verification"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    kind: "{{ instanceKind }}"
+    namespace: "{{ db2_namespace }}"
+  register: db2_instance_list_post
+
+- name: "Debug post-upgrade instance information"
+  debug:
+    msg:
+      - "Instance Kind ............................ {{ instanceKind }}"
+      - "Db2u Instance Names ...................... {{ db2_instance_list_post.resources | map(attribute='metadata.name') | list }}"
+      - "Number of Instances ...................... {{ db2_instance_list_post.resources | length }}"
+
+- name: "Skip post-upgrade tasks if no {{ instanceKind }} instances found"
+  when: db2_instance_list_post.resources | length == 0
+  debug:
+    msg: "No {{ instanceKind }} instances found in namespace {{ db2_namespace }}. Skipping post-upgrade tasks."
+
+# 2. Process each DB2 instance
+# -----------------------------------------------------------------------------
+- name: "Post-upgrade verification and configuration for each {{ instanceKind }} instance"
+  when: db2_instance_list_post.resources | length > 0
+  include_tasks: tasks/upgrade/post-upgrade-instance.yml
+  loop: "{{ db2_instance_list_post.resources | map(attribute='metadata.name') | list }}"
+  loop_control:
+    loop_var: db2_instance_id
+
+# Made with Bob
