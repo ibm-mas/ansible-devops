@@ -1,0 +1,84 @@
+---
+# aiservice_rhoai/tasks/install/main.yml
+# =============================================================================
+# RHOAI Installation Orchestrator
+# Handles both fresh installation and migration from ODH
+
+- name: "RHOAI Install : Display installation notice"
+  debug:
+    msg:
+      - "=============================================="
+      - "RHOAI Installation Starting"
+      - "=============================================="
+      - "Installing Red Hat OpenShift AI (RHOAI)"
+      - "Checking for existing ODH installation..."
+      - "=============================================="
+
+# 1. Detect if ODH is installed
+# -----------------------------------------------------------------------------
+- include_tasks: detect-odh.yml
+
+# 2. If ODH detected, uninstall it first (migration)
+# -----------------------------------------------------------------------------
+- name: "RHOAI Install : Uninstall ODH if detected"
+  when: odh_installed | default(false)
+  block:
+    - name: "RHOAI Install : ODH detected - performing migration"
+      debug:
+        msg:
+          - "=============================================="
+          - "ODH Detected - Migration Required"
+          - "=============================================="
+          - "Open Data Hub (ODH) is currently installed"
+          - "ODH will be uninstalled before RHOAI installation"
+          - "This is part of the ODH to RHOAI migration"
+          - ""
+          - "Migration Details:"
+          - "  - ODH operator will be removed"
+          - "  - DSCInitialization and DataScienceCluster will be deleted"
+          - "  - InferenceServices will be preserved"
+          - "  - RHOAI will recreate model serving pods"
+          - "  - Expected downtime: ~10-12 minutes"
+          - "=============================================="
+    
+    - name: "RHOAI Install : Call ODH uninstall"
+      include_role:
+        name: ibm.mas_devops.aiservice_odh
+      vars:
+        odh_action: "uninstall"
+    
+    - name: "RHOAI Install : ODH uninstall complete"
+      debug:
+        msg:
+          - "=============================================="
+          - "ODH Uninstall Complete"
+          - "=============================================="
+          - "Proceeding with RHOAI installation..."
+          - "=============================================="
+
+# 3. Install RHOAI
+# -----------------------------------------------------------------------------
+- name: "RHOAI Install : Starting RHOAI installation"
+  debug:
+    msg:
+      - "=============================================="
+      - "Installing RHOAI Components"
+      - "=============================================="
+      - "{% if odh_installed | default(false) %}Post-migration RHOAI installation{% else %}Fresh RHOAI installation{% endif %}"
+      - "=============================================="
+
+- include_tasks: install-rhoai.yml
+
+# 4. Installation complete
+# -----------------------------------------------------------------------------
+- name: "RHOAI Install : Complete"
+  debug:
+    msg:
+      - "=============================================="
+      - "RHOAI Installation Complete!"
+      - "=============================================="
+      - "{% if odh_installed | default(false) %}Migration from ODH to RHOAI successful{% else %}RHOAI installed successfully{% endif %}"
+      - "RHOAI operator: Installed"
+      - "DataScienceCluster: Ready"
+      - "Model serving: Available"
+      - "=============================================="
