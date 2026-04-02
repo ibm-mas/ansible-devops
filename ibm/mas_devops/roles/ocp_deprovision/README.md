@@ -1,9 +1,7 @@
-ocp_deprovision
-===============================================================================
+# ocp_deprovision
 Deprovision OCP cluster in Fyre, IBM Cloud, & ROSA.
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables - General
 ### cluster_type
 Infrastructure provider type for cluster deprovisioning.
 
@@ -56,8 +54,7 @@ Name of the cluster to deprovision.
 **Note**: **WARNING** - Deprovisioning permanently deletes the cluster and all its resources. Verify the cluster name carefully before proceeding. This operation cannot be undone.
 
 
-Role Variables - ROKS
--------------------------------------------------------------------------------
+## Role Variables - ROKS
 ### ibmcloud_apikey
 IBM Cloud API key for authentication.
 
@@ -82,8 +79,7 @@ IBM Cloud API key for authentication.
 **Note**: The API key must have cluster deletion permissions in the resource group. Deprovisioning permanently deletes the cluster.
 
 
-Role Variables - ROSA
--------------------------------------------------------------------------------
+## Role Variables - ROSA
 ### rosa_token
 Red Hat OpenShift Service on AWS (ROSA) authentication token.
 
@@ -108,8 +104,7 @@ Red Hat OpenShift Service on AWS (ROSA) authentication token.
 **Note**: Tokens expire periodically. Obtain a fresh token before deprovisioning. Deprovisioning permanently deletes the cluster and all AWS resources.
 
 
-Role Variables - FYRE
--------------------------------------------------------------------------------
+## Role Variables - FYRE
 ### fyre_username
 Fyre username for authentication.
 
@@ -182,8 +177,7 @@ Fyre datacenter site location.
 **Note**: Must match the site where the cluster was originally provisioned. SVL is the default and most commonly used site.
 
 
-Role Variables - IPI
--------------------------------------------------------------------------------
+## Role Variables - IPI
 The following variables are only used when `cluster_type = ipi`.
 
 ### ipi_dir
@@ -233,8 +227,7 @@ Cloud platform for IPI cluster deprovisioning.
 
 **Note**: Must match the platform used during cluster provisioning. AWS and GCP are supported.
 
-Role Variables - AWS
--------------------------------------------------------------------------------
+## Role Variables - AWS
 The following variables are only used when `cluster_type = ipi` and `ipi_platform = aws`.
 
 ### aws_access_key_id
@@ -283,8 +276,7 @@ AWS secret access key for authentication.
 
 **Note**: Keep secret keys secure. Ensure credentials have permissions to delete all cluster resources to avoid orphaned resources.
 
-Role Variables - GCP
--------------------------------------------------------------------------------
+## Role Variables - GCP
 The following variables are only used when `cluster_type = ipi` and `ipi_platform = gcp`.
 
 ### gcp_service_account_file
@@ -311,8 +303,7 @@ Path to GCP service account credentials file.
 **Note**: The service account must have permissions to delete all cluster resources (Compute, Networking, IAM, etc.). Can be same service account used for provisioning. Incomplete permissions may leave orphaned resources.
 
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -325,7 +316,6 @@ Example Playbook
     - ibm.mas_devops.ocp_deprovision
 ```
 
-License
--------------------------------------------------------------------------------
+## License
 
 EPL-2.0

@@ -1,5 +1,4 @@
-aws_vpc
-----------
+# aws_vpc
 This role will create VPC with specified CIDR IP
 
 ## Prerequisites

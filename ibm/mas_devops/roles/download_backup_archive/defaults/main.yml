@@ -1,0 +1,47 @@
+---
+# Required variables
+
+# Directory where the backup archive will be downloaded and extracted
+mas_restore_dir: "{{ lookup('env', 'MAS_RESTORE_DIR') }}"
+mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+
+# Backup version to download
+backup_version: "{{ lookup('env', 'BACKUP_VERSION') }}"
+
+# Multiple archives download - list of archive names to download
+# If not provided, will auto-generate based on backup_version and component versions
+backup_archive_names: "{{ lookup('env', 'BACKUP_ARCHIVE_NAMES') }}"
+
+# Specific backup versions for each component (optional - override backup_version)
+# These are used to auto-generate archive names when backup_archive_names is not provided
+ibm_catalogs_backup_version: "{{ lookup('env', 'IBM_CATALOGS_BACKUP_VERSION') | default (backup_version, true) }}"
+certmanager_backup_version: "{{ lookup('env', 'CERTMANAGER_BACKUP_VERSION') | default (backup_version, true) }}"
+mongodb_backup_version: "{{ lookup('env', 'MONGODB_BACKUP_VERSION') | default (backup_version, true) }}"
+sls_backup_version: "{{ lookup('env', 'SLS_BACKUP_VERSION') | default (backup_version, true) }}"
+db2_backup_version: "{{ lookup('env', 'DB2_BACKUP_VERSION') | default (backup_version, true) }}"
+suite_backup_version: "{{ lookup('env', 'SUITE_BACKUP_VERSION') | default (backup_version, true) }}"
+manage_backup_version: "{{ lookup('env', 'MANAGE_BACKUP_VERSION') | default (backup_version, true) }}"
+
+# S3 Configuration (provide these to download from S3)
+aws_access_key_id: "{{ lookup('env', 'S3_ACCESS_KEY_ID') }}"
+aws_secret_access_key: "{{ lookup('env', 'S3_SECRET_ACCESS_KEY') }}"
+s3_bucket_name: "{{ lookup('env', 'S3_BUCKET_NAME') }}"
+s3_region: "{{ lookup('env', 'S3_REGION') | default('us-east-1', true) }}"
+s3_endpoint_url: "{{ lookup('env', 'S3_ENDPOINT_URL') }}"
+
+# Artifactory Configuration (provide these to download from Artifactory)
+artifactory_username: "{{ lookup('env', 'ARTIFACTORY_USERNAME') }}"
+artifactory_token: "{{ lookup('env', 'ARTIFACTORY_TOKEN') }}"
+artifactory_url: "{{ lookup('env', 'ARTIFACTORY_URL') | default('https://na.artifactory.swg-devops.com/artifactory', true) }}"
+artifactory_repository: "{{ lookup('env', 'ARTIFACTORY_REPOSITORY') }}"
+
+# General settings
+backup_temp_dir: "{{ mas_restore_dir }}/mas-{{ mas_instance_id }}-restore-{{ backup_version }}"
+download_timeout: "{{ lookup('env', 'DOWNLOAD_TIMEOUT_SECS') | default(10800, true) }}"  # Download timeout in seconds (3 hour)
+extract_archive: "{{ lookup('env', 'EXTRACT_ARCHIVE') | default(true, true) }}"  # Whether to extract the archive after download
+cleanup_archive: "{{ lookup('env', 'CLEANUP_ARCHIVE') | default(true, true) }}"  # Whether to remove the archive file after extraction
+
+include_sls_archive: "{{ lookup('env', 'INCLUDE_SLS_ARCHIVE') | default(true, true) }}"
+include_mongo_archive: "{{ lookup('env', 'INCLUDE_MONGO_ARCHIVE') | default(true, true) }}"
+include_manage_app_archive: "{{ lookup('env', 'INCLUDE_MANAGE_APP_ARCHIVE') | default(true, true) }}"
+include_manage_db_archive: "{{ lookup('env', 'INCLUDE_MANAGE_DB_ARCHIVE') | default(true, true) }}"

@@ -1,10 +1,8 @@
-mirror_images
-===============================================================================
+# mirror_images
 This role supports mirroring container images to a target mirror registry using the `oc mirror` command. It performs the actual image mirroring operation using manifests prepared by `mirror_case_prepare` or `mirror_extras_prepare` roles.
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 
 ### Registry Configuration
 
@@ -326,8 +324,7 @@ Mirror only a single architecture.
 **Note**: Most OpenShift clusters use amd64 architecture. Only change if you have specific architecture requirements.
 
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -354,7 +351,6 @@ Example Playbook
 ```
 
 
-License
--------
+## License
 
 EPL-2.0

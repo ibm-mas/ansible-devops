@@ -1,0 +1,81 @@
+---
+# Create tar archive of backup directories
+- name: "Set backup directories to archive"
+  ansible.builtin.set_fact:
+    backup_directories:
+      - "backup-{{ ibm_catalogs_backup_version }}-catalog"
+      - "backup-{{ certmanager_backup_version }}-certmanager"
+      - "backup-{{ mongodb_backup_version }}-mongoce"
+      - "backup-{{ sls_backup_version }}-sls"
+      - "backup-{{ suite_backup_version }}-suite"
+      - "backup-{{ manage_backup_version }}-app-manage"
+      - "backup-{{ db2_backup_version }}-db2u-manage"
+
+- name: "Verify backup directory exists"
+  ansible.builtin.stat:
+    path: "{{ mas_backup_dir }}"
+  register: backup_dir_stat
+
+- name: "Fail if backup directory does not exist"
+  ansible.builtin.fail:
+    msg: "Backup directory {{ mas_backup_dir }} does not exist"
+  when: not backup_dir_stat.stat.exists or not backup_dir_stat.stat.isdir
+
+- name: "Check which backup directories exist"
+  ansible.builtin.stat:
+    path: "{{ mas_backup_dir }}/{{ item }}"
+  register: backup_dirs_stat
+  loop: "{{ backup_directories }}"
+
+- name: "Set list of existing backup directories"
+  ansible.builtin.set_fact:
+    existing_backup_dirs: "{{ backup_dirs_stat.results | selectattr('stat.exists', 'equalto', true) | map(attribute='item') | list }}"
+
+- name: "Display existing backup directories"
+  ansible.builtin.debug:
+    msg: "Found {{ existing_backup_dirs | length }} backup directories: {{ existing_backup_dirs }}"
+
+- name: "Fail if no backup directories found"
+  ansible.builtin.fail:
+    msg: "No backup directories found in {{ mas_backup_dir }} for version {{ backup_version }}"
+  when: existing_backup_dirs | length == 0
+
+- name: "Remove temporary dir if it exists to avoid conflicts"
+  ansible.builtin.file:
+    path: "{{ backup_temp_dir }}"
+    state: absent
+
+- name: "Create temporary directory for archives"
+  ansible.builtin.file:
+    path: "{{ backup_temp_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: "Create tar.gz archive for each backup directory"
+  ansible.builtin.command:
+    cmd: "tar -czf {{ backup_temp_dir }}/mas-{{ mas_instance_id }}-{{ item }}.tar.gz -C {{ mas_backup_dir }} {{ item }}"
+  register: tar_results
+  changed_when: tar_results.rc == 0
+  loop: "{{ existing_backup_dirs }}"
+
+- name: "Verify archives were created"
+  ansible.builtin.stat:
+    path: "{{ backup_temp_dir }}/mas-{{ mas_instance_id }}-{{ item }}.tar.gz"
+  register: archive_stats
+  loop: "{{ existing_backup_dirs }}"
+
+- name: "Fail if any archive was not created"
+  ansible.builtin.fail:
+    msg: "Failed to create archive {{ backup_temp_dir }}/mas-{{ mas_instance_id }}-{{ item.item }}.tar.gz"
+  when: not item.stat.exists
+  loop: "{{ archive_stats.results }}"
+
+- name: "Build list of created archives"
+  ansible.builtin.set_fact:
+    backup_archives: "{{ archive_stats.results | map(attribute='stat.path') | list }}"
+
+- name: "Display archive information"
+  ansible.builtin.debug:
+    msg:
+      - "Created {{ backup_archives | length }} archives successfully:"
+      - "{% for item in archive_stats.results %}  - {{ item.stat.path | basename }}: {{ (item.stat.size / 1024 / 1024) | round(2) }} MB{% endfor %}"

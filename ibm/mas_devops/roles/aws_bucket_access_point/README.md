@@ -1,5 +1,4 @@
-aws_bucket_access_point
-===============================================================================
+# aws_bucket_access_point
 
 Create AWS S3 bucket access points with controlled permissions for secure, isolated access to S3 buckets. Access points simplify managing data access at scale by providing dedicated endpoints with specific permissions, enabling fine-grained access control without modifying bucket policies.
 
@@ -11,8 +10,7 @@ This role creates an access point associated with an existing S3 bucket and conf
 - Target S3 bucket must already exist
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 
 ### aws_access_point_name
 Name for the S3 bucket access point.

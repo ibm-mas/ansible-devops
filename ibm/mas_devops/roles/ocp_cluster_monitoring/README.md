@@ -1,5 +1,4 @@
-ocp_cluster_monitoring
-===============================================================================
+# ocp_cluster_monitoring
 
 Configure OpenShift Container Platform cluster monitoring with persistent storage and user-defined project monitoring. This role enables comprehensive monitoring capabilities essential for MAS deployments, including metrics collection, alerting, and user workload monitoring.
 
@@ -11,8 +10,7 @@ Key capabilities:
 The role configures both the platform monitoring stack (for OpenShift infrastructure) and user workload monitoring (for MAS applications) in the `openshift-monitoring` namespace.
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 
 ### cluster_monitoring_action
 Action to perform on the cluster monitoring stack.
@@ -245,8 +243,7 @@ Size of the persistent volume for user workload Prometheus metrics.
 - Can be expanded later if needed
 
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -258,7 +255,6 @@ Example Playbook
 ```
 
 
-License
--------------------------------------------------------------------------------
+## License
 
 EPL-2.0

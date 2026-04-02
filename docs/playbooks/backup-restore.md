@@ -1,599 +1,533 @@
 Backup and Restore
 ===============================================================================
 
+!!! important
+    These playbooks are samples to demonstrate how to use the roles in this collection.
+
+    They are **not intended for production use** as-is, they are a starting point for power users to aid in the development of their own Ansible playbooks using the roles in this collection.
+
+    The recommended way to perform backup and restore operations for MAS is to use the [MAS CLI](https://ibm-mas.github.io/cli/), which uses this Ansible Collection to deliver a complete managed lifecycle for your MAS instance.
+
 Overview
 -------------------------------------------------------------------------------
-MAS Devops Collection includes playbooks for backing up and restoring of the following MAS components and their dependencies:
+MAS Devops Collection includes playbooks/guidance for backing up and restoring MAS components and their dependencies. The backup and restore operations are designed to protect your MAS installation and enable disaster recovery, cluster migration, and testing scenarios.
 
-- [MongoDB](#backuprestore-for-mongodb)
-- [Db2](#backuprestore-for-db2)
-- [MAS Core](#backuprestore-for-mas-core)
-- [Manage](#backuprestore-for-manage)
-- [IoT](#backuprestore-for-iot)
-- [Monitor](#backuprestore-for-monitor)
-- [Health](#backuprestore-for-health)
-- [Optimizer](#backuprestore-for-optimizer)
-- [Visual Inspection](#backuprestore-for-visual-inspection)
+**Supported Components:**
+- [MongoDB Community](#mongodb-community-backup-and-restore)
+- [MAS Core](#mas-core-backup-and-restore)
+- [Db2 Backup and Restore](#db2-backup-and-restore)
+- [Manage Application](#manage-application-backup-and-restore)
 
+**Roles Supporting Backup/Restore:**
+- [`ibm.mas_devops.cert_manager`](../roles/cert_manager.md)
+- [`ibm.mas_devops.db2`](../roles/db2.md)
+- [`ibm.mas_devops.ibm_catalogs`](../roles/ibm_catalogs.md)
+- [`ibm.mas_devops.mongodb`](../roles/mongodb.md)
+- [`ibm.mas_devops.sls`](../roles/sls.md)
+- [`ibm.mas_devops.suite_backup`](../roles/suite_backup.md)
+- [`ibm.mas_devops.suite_restore`](../roles/suite_restore.md)
+- [`ibm.mas_devops.suite_app_backup`](../roles/suite_app_backup.md)
+- [`ibm.mas_devops.suite_app_restore`](../roles/suite_app_restore.md)
 
-Creation of both **full** and **incremental** backups are supported.  The backup and restore Ansible roles can also be used individually, allowing you to build your own customized backup and restore playbook covering exactly what you need. For example, you can only [backup/restore Manage attachments](../roles/suite_app_backup_restore.md).
+MongoDB Community Backup and Restore
+===============================================================================
 
-!!! important
-    The backup and restore playbooks in this collection are still work in progress, they are not suitable for production use at this time.  You may track development progress using the [Backup & Restore](https://github.com/ibm-mas/ansible-devops/issues?q=label%3A%22Backup+%26+Restore%22+) label in the Github repository.
+## Overview
+This playbook performs backup and restore operations for MongoDB Community Edition instances. It supports backing up both the MongoDB instance configuration and database data.
 
-    Production-ready backup and restore options are detailed in the [Backup and restore](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=administering-backing-up-restoring-maximo-application-suite) topic in the product documentation.
+**Important**: 
+- Supports MongoDB Community Edition only
+- Can backup/restore entire instance or individual databases
+- Backup includes both Kubernetes resources and database data
 
-Configuration - Storage
--------------------------------------------------------------------------------
-You can save the backup files to a folder on your local file system by setting the following environment variables:
+## Playbook Content
 
-| Envrionment variable                 | Required (Default Value)   | Description |
-| ------------------------------------ | -------------------------- | ----------- |
-| MASBR_STORAGE_LOCAL_FOLDER           | **Yes**                    | The local path to save the backup files |
-| MASBR_LOCAL_TEMP_FOLDER              | No (`/tmp/masbr`)          | Local folder for saving the temporary backup/restore data, the data in this folder will be deleted after the backup/restore job completed. |
+The playbook executes the following operations:
 
+### Backup Operation
+1. [Backup MongoDB Instance Resources](../roles/mongodb.md) - Kubernetes resources (Deployment, Custom resources, ConfigMaps, Secrets)
+2. [Backup MongoDB Database Data](../roles/mongodb.md) - Database data using mongodump
 
-Configuration - Backup
--------------------------------------------------------------------------------
+### Restore Operation
+1. [Restore MongoDB Instance Resources](../roles/mongodb.md) - Recreate Kubernetes resources
+2. [Restore MongoDB Database Data](../roles/mongodb.md) - Restore database data using mongorestore
 
-| Envrionment variable                 | Required (Default Value) | Description |
-| ------------------------------------ | ------------------------ | ----------- |
-| MASBR_ACTION                         | **Yes**                  | Whether to run the playbook to perform a `backup` or a `restore` |
-| MASBR_BACKUP_TYPE                    | No (`full`)              | Set `full` or `incr` to indicate the playbook to create a **full** backup or **incremental** backup. |
-| MASBR_BACKUP_FROM_VERSION            | No                       | Set the full backup version to use in the incremental backup, this will be in the format of a `YYYMMDDHHMMSS` timestamp (e.g. `20240621021316`). |
+## Required Environment Variables
 
-The playbooks are switched to backup mode by setting `MASBR_ACTION` to `backup`.
+### Common Variables (Backup and Restore)
+- `MAS_INSTANCE_ID` - The instance ID of the MAS installation
+- `MAS_BACKUP_DIR` - Directory where backup files will be stored/retrieved (e.g., `/tmp/mas_backups`)
+- `MONGODB_ACTION` - Set to `backup`, `backup-database`, `restore`, or `restore-database`
+- `MONGODB_INSTANCE_NAME` - MongoDB instance name (default: `mas-mongo-ce`)
+- `MONGODB_NAMESPACE` - Namespace where MongoDB is installed (default: `mongoce`)
 
-### Full Backups
-If you set environment variable `MASBR_BACKUP_TYPE=full` or do not specify a value for this variable, the playbook will take a full backup.
+### Backup-Specific Variables
+- `MONGODB_BACKUP_VERSION` - (Optional) Custom version identifier for the backup. If not provided, defaults to timestamp format `YYYYMMDD-HHMMSS`
 
-### Incremental Backups
-You can set environment variable `MASBR_BACKUP_TYPE=incr` to indicate the playbook to take an incremental backup.
+### Restore-Specific Variables
+- `MONGODB_BACKUP_VERSION` - (Required) The backup version identifier to restore
 
-!!! important
-    Only supports creating incremental backup for MonogDB, Db2 and persistent volume data. The playbook will always create a full backup for other type of data regardless of whether this variable be set to `incr`.
+## Optional Environment Variables
 
-The environment variable `MASBR_BACKUP_FROM_VERSION` is only valid if `MASBR_BACKUP_TYPE=incr`. It indicates which backup version that the incremental backup to based on. If you do not set a value for this variable, the playbook will try to find the latest Completed Full backup from the specified storage location, and then take an incremental backup based on it.
+### Storage Class Override (Restore)
+- `OVERRIDE_STORAGECLASS` - Set to `true` to override storage class names from backup (default: `false`)
+- `MONGODB_STORAGECLASS_NAME_RWO` - Custom RWO storage class for MongoDB
 
-!!! important
-    The backup files you specified by `MASBR_BACKUP_FROM_VERSION` must be a Full backup. And the component name and data types in the specified Full backup file must be same as the current incremental backup job.
+### Application-Specific
+- `MAS_APP_ID` - (Optional) MAS application ID if backing up application-specific database
 
+## Usage Examples
 
-Configuration - Restore
--------------------------------------------------------------------------------
+### Backup MongoDB Instance
+Create a complete backup of MongoDB instance and all databases:
 
-| Envrionment variable                 | Required (Default Value) | Description |
-| ------------------------------------ | ------------------------ | ----------- |
-| MASBR_ACTION                         | **Yes**                  | Whether to run the playbook to perform a `backup` or a `restore` |
-| MASBR_RESTORE_FROM_VERSION           | **Yes**                  | Set the backup version to use in the restore, this will be in the format of a `YYYMMDDHHMMSS` timestamp (e.g. `20240621021316`) |
-| MASBR_RESTORE_OVERWRITE              | **Yes**                  | Set whether the restore should **overwrite** any existing data or if we should stop and **FAIL** if there is data detected in the directory. **WARNING:** This will overwrite all data when restoring! |
-
-The playbooks are switched to restore mode by setting `MASBR_ACTION` to `restore`. You **must** specify the `MASBR_RESTORE_FROM_VERSION` environment variable to indicate which version of the backup files to use.
-
-In the case of restoring from an incremental backup, the corresponding full backup will be restored first before continuing to restore the incremental backup.
-
-
-Backup/Restore for MongoDB
--------------------------------------------------------------------------------
-This playbook `ibm.mas_devops.br_mongodb` will invoke the role [mongodb](../roles/mongodb.md) to backup/restore the MongoDB databases.
-
-This playbook supports backing up and restoring databases for an in-cluster MongoDB CE instance. If you are using other MongoDB venders, such as IBM Cloud Databases for MongoDB, Amazon DocumentDB or MongoDB Altas Database, please refer to the corresponding vender's documentation for more information about their provided backup/restore service.
-
-### Environment Variables
-- `MONGODB_NAMESPACE`: By default the backup and restore processes will use a namespace of `mongoce`, if you have customized the install of MongoDb CE you must set this environment variable to the appropriate namespace you wish to backup from/restore to.
-- `MAS_INSTANCE_ID`: **Required**. This playbook supports backup/restore MongoDB databases that belong to a specific MAS instance, call the playbook multiple times with different values for `MAS_INSTANCE_ID` if you wish to back up multiple MAS instances that use the same MongoDB CE instance.
-- `MAS_APP_ID`: **Optional**. By default, this playbook will backup all databases belonging to the specified MAS instance. You can backup the databases only belong to a specific MAS application by setting this environment variable to a supported MAS application id `core`, `manage`, `iot`, `monitor`, `health`, `optimizer` or `visualinspection`.
-
-### Examples
 ```bash
-# Full backup all MongoDB data for the dev1 instance
-export MASBR_ACTION=backup
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-ansible-playbook ibm.mas_devops.br_mongodb
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export MONGODB_ACTION=backup
+export MONGODB_INSTANCE_NAME=mas-mongo-ce
+export MONGODB_NAMESPACE=mongoce
 
-# Incremental backup all MongoDB data for the dev1 instance
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-ansible-playbook ibm.mas_devops.br_mongodb
-
-# Restore all MongoDB data for the dev1 instance
-export MASBR_ACTION=restore
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev
-ansible-playbook ibm.mas_devops.br_mongodb
-
-# Backup just the IoT MongoDB data for the dev2 instance
-export MASBR_ACTION=backup
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev2
-export MAS_APP_ID=iot
+oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.br_mongodb
 ```
 
+### Backup with Custom Version
+Create a backup with a custom version identifier:
 
-Backup/Restore for Db2
--------------------------------------------------------------------------------
-This playbook `ibm.mas_devops.br_db2` will invoke the role [db2](../roles/db2.md) to backup/restore a single Db2 instance.
-
-### Environment Variables
-
-- `DB2_INSTANCE_NAME`: **Required** This playbook only supports backing up specific Db2 instance at a time. If you want to backup all Db2 instances in the Db2 cluster, you need to run this playbook multiple times with different value of this environment variable.
-- `MAS_INSTANCE_ID`: **Required** Set the instance ID for the MAS install.
-- `MASBR_ACTION`: **Required** Set the action to be performed, `backup` or `restore`.
-- `MASBR_STORAGE_LOCAL_FOLDER`: **Required** Set the local path to the directory to be used for backup and restore.
-- `DB2_NAMESPACE`: **Optional** Set the DB2 namespace, defaults to `db2u`
-
-### Examples
 ```bash
-# Full backup for the db2w-shared Db2 instance
-export MAS_INSTANCE_ID=dev
-export MASBR_ACTION=backup
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export MONGODB_ACTION=backup
+export MONGODB_BACKUP_VERSION=pre-upgrade-mongo
+export MONGODB_INSTANCE_NAME=mas-mongo-ce
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_mongodb
+```
+
+### Backup Individual Database
+Create a backup of a specific database only:
+
+```bash
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export MONGODB_ACTION=backup-database
+export MONGODB_INSTANCE_NAME=mas-mongo-ce
+export MAS_APP_ID=manage
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_mongodb
+```
+
+### Restore MongoDB Instance
+Restore MongoDB instance from a backup:
+
+```bash
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export MONGODB_ACTION=restore
+export MONGODB_BACKUP_VERSION=20260122-131500
+export MONGODB_INSTANCE_NAME=mas-mongo-ce
+export MONGODB_NAMESPACE=mongoce
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_mongodb
+```
+
+### Restore with Storage Class Override
+Restore MongoDB to a different cluster with different storage class:
+
+```bash
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export MONGODB_ACTION=restore
+export MONGODB_BACKUP_VERSION=20260122-131500
+export MONGODB_INSTANCE_NAME=mas-mongo-ce
+export MONGODB_NAMESPACE=mongoce
+
+# Override storage class
+export OVERRIDE_STORAGECLASS=true
+export MONGODB_STORAGECLASS_NAME_RWO=ocs-storagecluster-ceph-rbd
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_mongodb
+```
+
+### Restore Individual Database
+Restore a specific database only:
+
+```bash
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
+export MONGODB_ACTION=restore-database
+export MONGODB_BACKUP_VERSION=20260122-131500
+export MONGODB_INSTANCE_NAME=mas-mongo-ce
+export MAS_APP_ID=manage
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_mongodb
+```
+
+## Important Considerations
+
+### Backup Actions
+- **backup**: Full backup of MongoDB instance (Kubernetes resources + all database data)
+- **backup-database**: Backup specific database data only (requires `MAS_APP_ID`)
+
+### Restore Actions
+- **restore**: Full restore of MongoDB instance (Kubernetes resources + all database data)
+- **restore-database**: Restore specific database data only (requires `MAS_APP_ID`)
+
+### Prerequisites for Restore
+- Target cluster must have MongoDB Community Operator installed
+- Sufficient storage capacity for database restoration
+- Same or compatible MongoDB version as the backup
+- Target cluster must use the same MAS instance ID as the backup
+
+### Backup Best Practices
+1. **Regular Schedule**: Perform backups regularly, especially before:
+   - MongoDB upgrades
+   - MAS upgrades
+   - Configuration changes
+2. **Full vs Database Backups**: 
+   - Use full backups for complete disaster recovery
+   - Use database backups for application-specific data protection
+3. **Test Restores**: Periodically test restore procedures in non-production environments
+4. **Secure Storage**: Store backups in a secure location separate from the cluster
+
+### Restore Best Practices
+1. **Pre-Restore Validation**:
+   - Verify backup archive exists and is complete
+   - Confirm target cluster has sufficient resources
+   - Verify MongoDB instance name matches the backup
+2. **Post-Restore Verification**:
+   - Verify MongoDB pods are running
+   - Test database connectivity
+   - Verify data integrity
+   - Check application connectivity to MongoDB
+
+### Storage Requirements
+- Plan for sufficient storage for MongoDB backups
+- Database backups can be large depending on data size
+- Backup directory structure: `{mas_backup_dir}/backup-{version}-mongoce/`
+
+### Security Considerations
+- Backup files contain sensitive data including database contents and credentials
+- Secure backup directory with appropriate permissions (chmod 700 recommended)
+- Consider encrypting backups for long-term storage
+- Restrict access to backup files to authorized personnel only
+
+!!! tip
+    If you do not want to set up all the dependencies on your local system, you can run the playbook inside our docker image: `docker run -ti --pull always quay.io/ibmmas/cli`
+
+## Additional Resources
+
+For detailed information about MongoDB backup and restore operations, refer to the role documentation:
+- [MongoDB Backup/Restore](../roles/mongodb.md)
+
+Db2 Backup and Restore
+===============================================================================
+
+## Overview
+This playbook performs backup and restore operations for IBM Db2 Universal Operator instances. It supports both online and offline backups, and can store backups either on disk or in S3-compatible object storage(database backups only).
+
+**Important**: The playbook supports multiple backup actions:
+- `backup` - Full Db2 instance backup
+- `backup-database` - Individual database backup
+- `restore` - Full Db2 instance restore
+- `restore-database` - Individual database restore
+
+## Required Environment Variables
+
+### Common Variables (Backup and Restore)
+- `MAS_INSTANCE_ID` - The instance ID of the MAS installation
+- `MAS_BACKUP_DIR` - Directory where backup files will be stored/retrieved (e.g., `/tmp/mas_backups`)
+- `DB2_INSTANCE_NAME` - Name of the Db2 instance
+- `DB2_ACTION` - Set to `backup`, `backup-database`, `restore`, or `restore-database`
+
+### Backup-Specific Variables
+- `DB2_BACKUP_TYPE` - Set to `online` or `offline` (default: `online`)
+- `BACKUP_VENDOR` - Set to `disk` or `s3` (default: `disk`)
+
+### Restore-Specific Variables
+- `DB2_BACKUP_VERSION` - (Required) The backup version identifier to restore
+
+### S3 Storage Variables (when BACKUP_VENDOR=s3)
+- `BACKUP_S3_ALIAS` - S3 alias name (default: `S3DB2COS`)
+- `BACKUP_S3_ENDPOINT` - S3 endpoint URL
+- `BACKUP_S3_BUCKET` - S3 bucket name
+- `BACKUP_S3_ACCESS_KEY` - S3 access key
+- `BACKUP_S3_SECRET_KEY` - S3 secret key
+
+## Optional Environment Variables
+
+### Db2 Configuration
+- `DB2_NAMESPACE` - Namespace where Db2 is installed (default: `db2u`)
+
+### Storage Class Override (Restore)
+- `OVERRIDE_STORAGECLASS` - Set to `true` to override storage class names from backup (default: `false`)
+- `CUSTOM_STORAGE_CLASS_RWO` - Storage class for Read-write-only
+- `CUSTOM_STORAGE_CLASS_RWX` - Storage class for Read-write-many
+
+
+## Usage Examples
+
+### Backup Db2 to Disk (Online)
+Create an online backup of Db2 instance to local disk:
+
+```bash
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
 export DB2_INSTANCE_NAME=db2w-shared
+export DB2_ACTION=backup
+export DB2_BACKUP_TYPE=online
+export BACKUP_VENDOR=disk
+
+oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.br_db2
+```
 
-# Incremental backup for the db2w-shared Db2 instance
-export MAS_INSTANCE_ID=dev
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
+### Backup Db2 to S3
+Create a backup of Db2 instance to S3 storage:
+
+```bash
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
 export DB2_INSTANCE_NAME=db2w-shared
+export DB2_ACTION=backup
+export DB2_BACKUP_TYPE=online
+export BACKUP_VENDOR=s3
+export BACKUP_S3_ENDPOINT=https://s3.us-east.cloud-object-storage.appdomain.cloud
+export BACKUP_S3_BUCKET=mas-db2-backups
+export BACKUP_S3_ACCESS_KEY=your-access-key
+export BACKUP_S3_SECRET_KEY=your-secret-key
+
+oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.br_db2
+```
 
-# Restore for the db2w-shared Db2 instance
-export MAS_INSTANCE_ID=dev
-export MASBR_ACTION=restore
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MASBR_RESTORE_FROM_VERSION=20240630132439
+### Restore Db2 from Backup
+Restore Db2 instance from a previous backup:
+
+```bash
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
 export DB2_INSTANCE_NAME=db2w-shared
+export DB2_ACTION=restore
+export DB2_BACKUP_VERSION=20260122-131500
+export BACKUP_VENDOR=disk
+
+oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.br_db2
 ```
 
-Backup/Restore for MAS Core
--------------------------------------------------------------------------------
-This playbook `ibm.mas_devops.br_core` will backup the following components that MAS Core depends on in order:
-
-| Component | Ansible Role                                             | Data included                      |
-| --------- | -------------------------------------------------------- | ---------------------------------- |
-| mongodb   | [mongodb](../roles/mongodb.md)                           | MongoDB databases used by MAS Core |
-| core      | [suite_backup_restore](../roles/suite_backup_restore.md) | MAS Core namespace resources       |
-
-
-### Environment Variables
-
-- `MAS_INSTANCE_ID` **Required**. The MAS instance ID to perform a backup for.
-
-### Examples
-```bash
-# Full backup all core data for the dev1 instance
-export MASBR_ACTION=backup
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-ansible-playbook ibm.mas_devops.br_core
-
-# Incremental backup all core data for the dev1 instance
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-ansible-playbook ibm.mas_devops.br_core
-
-# Restore all core data for the dev1 instance
-export MASBR_ACTION=restore
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev
-ansible-playbook ibm.mas_devops.br_core
-```
-
-
-Backup/Restore for Manage
--------------------------------------------------------------------------------
-This playbook `ibm.mas_devops.br_manage` will backup the following components that Manage depends on in order:
-
-| Component | Role                                                             | Data included                                                                  |
-| --------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| mongodb   | [mongodb](../roles/mongodb.md)                                   | MongoDB databases used by MAS Core                                             |
-| db2       | [db2](../roles/db2.md)                                           | Db2 instance used by Manage                                                    |
-| core      | [suite_backup_restore](../roles/suite_backup_restore.md)         | MAS Core namespace resources                                                   |
-| manage    | [suite_app_backup_restore](../roles/suite_app_backup_restore.md) | Manage namespace resources <br>Persistent volume data, such as attachments     |
-
-
-### Environment Variables
-
-- `MAS_INSTANCE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
-- `MAS_WORKSPACE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS workspace at a time. If you have multiple MAS workspaces in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
-- `DB2_INSTANCE_NAME` **Optional**. When defined, this playbook will backup the Db2 instance used by Manage. DB2 role is skipped when environment variable is not defined..
-- `DB2_NAMESPACE`: **Optional** Set the DB2 namespace, defaults to `db2u`
-
-### Examples
+### Restore with Storage Class Override
+Restore Db2 to a different cluster with different storage classes:
 
 ```bash
-# Full backup all manage data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=backup
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage # set this to execute db2 backup role
-ansible-playbook ibm.mas_devops.br_manage
-
-# Incremental backup all manage data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage # set this to execute db2 backup role
-ansible-playbook ibm.mas_devops.br_manage
-
-# Restore all manage data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=restore
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage # set this to execute db2 backup role
-ansible-playbook ibm.mas_devops.br_manage
-```
-
-
-Backup/Restore for IoT
--------------------------------------------------------------------------------
-This playbook `ibm.mas_devops.br_iot` will backup the following components that IoT depends on in order:
-
-| Component | Ansible Role                                                     | Data included                              |
-| --------- | ---------------------------------------------------------------- | ------------------------------------------ |
-| mongodb   | [mongodb](../roles/mongodb.md)                                   | MongoDB databases used by MAS Core and IoT |
-| db2       | [db2](../roles/db2.md)                                           | Db2 instance used by IoT                   |
-| core      | [suite_backup_restore](../roles/suite_backup_restore.md)         | MAS Core namespace resources               |
-| iot       | [suite_app_backup_restore](../roles/suite_app_backup_restore.md) | IoT namespace resources                    |
-
-### Environment Variables
-
-- `MAS_INSTANCE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
-- `MAS_WORKSPACE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS workspace at a time. If you have multiple MAS workspaces in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
-- `DB2_INSTANCE_NAME` **Required**. This playbook will backup the the Db2 instance used by IoT, you need to set the correct Db2 instance name for this environment variable.
-- `DB2_NAMESPACE`: **Optional** Set the DB2 namespace, defaults to `db2u`
-
-### Examples
-
-```bash
-# Full backup all iot data for the dev1 instance
-export MASBR_ACTION=backup
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
+export MAS_INSTANCE_ID=inst1
+export MAS_BACKUP_DIR=/backup/mas
 export DB2_INSTANCE_NAME=db2w-shared
-ansible-playbook ibm.mas_devops.br_iot
+export DB2_ACTION=restore
+export DB2_BACKUP_VERSION=20260122-131500
+export BACKUP_VENDOR=disk
 
-# Incremental backup all iot data for the dev1 instance
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=db2w-shared
-ansible-playbook ibm.mas_devops.br_iot
+# Override storage classes
+export OVERRIDE_STORAGECLASS=true
+export DB2_META_STORAGE_CLASS=ocs-storagecluster-ceph-rbd
+export DB2_DATA_STORAGE_CLASS=ocs-storagecluster-ceph-rbd
+export DB2_BACKUP_STORAGE_CLASS=ocs-storagecluster-ceph-rbd
+export DB2_LOGS_STORAGE_CLASS=ocs-storagecluster-ceph-rbd
+export DB2_TEMP_STORAGE_CLASS=ocs-storagecluster-ceph-rbd
 
-# Restore all iot data for the dev1 instance
-export MASBR_ACTION=restore
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=db2w-shared
-ansible-playbook ibm.mas_devops.br_iot
-
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.br_db2
 ```
 
+## Important Considerations
 
-Backup/Restore for Monitor
--------------------------------------------------------------------------------
-This playbook `ibm.mas_devops.br_monitor` will backup the following components that Monitor depends on in order:
+### Backup Types
+- **Online Backup**: Database remains available during backup (recommended for production)
+- **Offline Backup**: Database is taken offline during backup (faster but causes downtime)
 
-| Component | Ansible Role                                                     | Data included                                       |
-| --------- | ---------------------------------------------------------------- | --------------------------------------------------- |
-| mongodb   | [mongodb](../roles/mongodb.md)                                   | MongoDB databases used by MAS Core, IoT and Monitor |
-| db2       | [db2](../roles/db2.md)                                           | Db2 instance used by IoT and Monitor                |
-| core      | [suite_backup_restore](../roles/suite_backup_restore.md)         | MAS Core namespace resources                        |
-| iot       | [suite_app_backup_restore](../roles/suite_app_backup_restore.md) | IoT namespace resources                             |
-| monitor   | [suite_app_backup_restore](../roles/suite_app_backup_restore.md) | Monitor namespace resources                         |
+### Storage Vendor Options
+- **Disk**: Stores backups on local filesystem or mounted storage
+- **S3**: Stores backups in S3-compatible object storage (recommended for production)
 
-
-### Environment Variables
-
-- `MAS_INSTANCE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
-- `MAS_WORKSPACE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS workspace at a time. If you have multiple MAS workspaces in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
-- `DB2_INSTANCE_NAME` **Required**. This playbook will backup the the Db2 instance used by IoT and Monitor, you need to set the correct Db2 instance name for this environment variable.
-- `DB2_NAMESPACE`: **Optional** Set the DB2 namespace, defaults to `db2u`
-
-### Examples
-
-```bash
-# Full backup all monitor data for the dev1 instance
-export MASBR_ACTION=backup
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=db2w-shared
-ansible-playbook ibm.mas_devops.br_monitor
-
-# Incremental backup all monitor data for the dev1 instance
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=db2w-shared
-ansible-playbook ibm.mas_devops.br_monitor
-
-# Restore all monitor data for the dev1 instance
-export MASBR_ACTION=restore
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=db2w-shared
-ansible-playbook ibm.mas_devops.br_monitor
-```
+### Prerequisites for Restore
+- Target cluster must have Db2 Universal Operator installed
+- Sufficient storage capacity for database restoration
+- Same or compatible Db2 version as the backup
 
 
-Backup/Restore for Health
--------------------------------------------------------------------------------
-This playbook `ibm.mas_devops.br_health` will backup the following components that Health depends on in order:
+MAS Core Backup and Restore
+===============================================================================
 
-| Component | Ansible Role                                                     | Data included                                                                  |
-| --------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| mongodb   | [mongodb](../roles/mongodb.md)                                   | MongoDB databases used by MAS Core                                             |
-| db2       | [db2](../roles/db2.md)                                           | Db2 instance used by Manage and Health                                         |
-| core      | [suite_backup_restore](../roles/suite_backup_restore.md)         | MAS Core namespace resources                                                   |
-| manage    | [suite_app_backup_restore](../roles/suite_app_backup_restore.md) | Manage namespace resources <br>Persistent volume data, such as attachments     |
-| health    | [suite_backup_restore](../roles/suite_backup_restore.md)         | Health namespace resources <br>Watson Studio project assets                    |
+## Overview
+This guide shows backup and restore operations for IBM Maximo Application Suite Core and its dependencies. This guidance can be used to build your own playbooks to run against any OCP cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
 
-### Environment Variables
+**Important**: Backup can only be restored to an instance with the same MAS instance ID.
 
-- `MAS_INSTANCE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
-- `MAS_WORKSPACE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS workspace at a time. If you have multiple MAS workspaces in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
-- `DB2_INSTANCE_NAME` **Required**. This playbook will backup the the Db2 instance used by Manage and Health, you need to set the correct Db2 instance name for this environment variable.
+## Guidance Content
 
-### Examples
+Sequence of roles:
 
-```bash
-# Full backup all health data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=backup
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
-ansible-playbook ibm.mas_devops.br_health
+### Backup Operation
+1. [Backup IBM Operator Catalogs](../roles/ibm_catalogs.md) (~1 minute)
+2. [Backup Certificate Manager](../roles/cert_manager.md) (~1 minute)
+3. [Backup MongoDB Community Edition](../roles/mongodb.md) (~5-30 minutes depending on database size)
+4. [Backup Suite License Service](../roles/sls.md) (~2 minutes, optional)
+5. [Backup MAS Core](../roles/suite_backup.md) (~5 minutes)
 
-# Incremental backup all health data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
-ansible-playbook ibm.mas_devops.br_health
+### Restore Operation
+1. [Restore IBM Operator Catalogs](../roles/ibm_catalogs.md) (~2 minutes)
+2. [Restore Certificate Manager](../roles/cert_manager.md) (~5 minutes)
+3. [Install Grafana](../roles/grafana.md) (~10 minutes, optional)
+4. [Restore MongoDB Community Edition](../roles/mongodb.md) (~10-60 minutes depending on database size)
+5. [Restore Suite License Service](../roles/sls.md) (~10 minutes, optional)
+6. [Install Data Reporter Operator](../roles/dro.md) (~10 minutes, optional)
+7. [Restore MAS Core](../roles/suite_restore.md) (~30 minutes)
 
-# Restore all health data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=restore
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
-ansible-playbook ibm.mas_devops.br_health
-```
+All timings are estimates. See the individual role documentation for more information and full details of all configuration options.
 
+## Important Considerations
 
-Backup/Restore for Optimizer
--------------------------------------------------------------------------------
-This playbook `ibm.mas_devops.br_optimizer` will backup the following components that Optimizer depends on in order:
+### Prerequisites for Restore
+- Target cluster must have sufficient resources (CPU, memory, storage)
+- Certificate Manager must be installed (handled by playbook)
+- Target cluster must use the same MAS instance ID as the backup
+- Backup files must be accessible from the restore environment
 
-| Component | Ansible Role                                                     | Data included                                                                  |
-| --------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| mongodb   | [mongodb](../roles/mongodb.md)                                   | MongoDB databases used by MAS Core and Optimizer                               |
-| db2       | [db2](../roles/db2.md)                                           | Db2 instance used by Manage                                                    |
-| core      | [suite_backup_restore](../roles/suite_backup_restore.md)         | MAS Core namespace resources                                                   |
-| manage    | [suite_app_backup_restore](../roles/suite_app_backup_restore.md) | Manage namespace resources <br>Persistent volume data, such as attachments     |
-| optimizer | [suite_backup_restore](../roles/suite_backup_restore.md)         | Optimizer namespace resources                                                  |
+### Backup Best Practices
+1. **Regular Schedule**: Perform backups regularly, especially before:
+   - MAS upgrades
+   - Configuration changes
+   - Application installations
+   - Cluster maintenance
+2. **Test Restores**: Periodically test restore procedures in non-production environments
+3. **Secure Storage**: Store backups in a secure location separate from the cluster
+4. **Retention Policy**: Implement and document backup retention policies
+5. **Verify Integrity**: Verify backup integrity after completion
 
-### Environment Variables
+### Restore Best Practices
+1. **Pre-Restore Validation**:
+   - Verify backup archive exists and is complete
+   - Confirm target cluster has sufficient resources
+   - Verify MAS instance ID matches the backup
+2. **Dependency Coordination**:
+   - Ensure all external services (SLS, DRO, databases) are accessible
+   - Verify network connectivity to external services
+3. **Post-Restore Verification**:
+   - Verify Suite status is Ready
+   - Verify all Workspaces are Ready
+   - Test application connectivity
+   - Test user authentication
 
-- `MAS_INSTANCE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
-- `MAS_WORKSPACE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS workspace at a time. If you have multiple MAS workspaces in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
-- `DB2_INSTANCE_NAME` **Required**. This playbook will backup the the Db2 instance used by Manage, you need to set the correct Db2 instance name for this environment variable.
-- `DB2_NAMESPACE`: **Optional** Set the DB2 namespace, defaults to `db2u`
+### Storage Requirements
+- Ensure sufficient storage in the backup directory
+- Plan for at least 2x the database size for MongoDB backups
+- Monitor disk space during backup operations
+- Backup directory structure: `{mas_backup_dir}/backup-{version}-{component}/`
 
-### Examples
+### Security Considerations
+- Backup files contain sensitive data including credentials and certificates
+- Secure backup directory with appropriate permissions (chmod 700 recommended)
+- Consider encrypting backups for long-term storage
+- Restrict access to backup files to authorized personnel only
+- Ensure secure transfer of backup files to restore environment
 
-```bash
-# Full backup all optimizer data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=backup
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
-ansible-playbook ibm.mas_devops.br_optimizer
+!!! tip
+    If you do not want to set up all the dependencies on your local system, you can run the playbook inside our docker image: `docker run -ti --pull always quay.io/ibmmas/cli`
 
-# Incremental backup all optimizer data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
-ansible-playbook ibm.mas_devops.br_optimizer
+## Additional Resources
 
-# Restore all optimizer data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=restore
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
-ansible-playbook ibm.mas_devops.br_optimizer
-```
+For detailed information about individual backup and restore operations, refer to the role documentation:
+- [IBM Operator Catalogs Backup/Restore](../roles/ibm_catalogs.md)
+- [Certificate Manager Backup/Restore](../roles/cert_manager.md)
+- [MongoDB Backup/Restore](../roles/mongodb.md)
+- [SLS Backup/Restore](../roles/sls.md)
+- [MAS Core Backup](../roles/suite_backup.md)
+- [MAS Core Restore](../roles/suite_restore.md)
+- [Db2 Backup/Restore](../roles/db2.md)
 
+Manage Application Backup and Restore
+===============================================================================
 
-Backup/Restore for Visual Inspection
--------------------------------------------------------------------------------
-This playbook `ibm.mas_devops.br_visualinspection` will backup the following components that Visual Inspection depends on in order:
+## Overview
+This guide shows backup and restore operations for IBM Maximo Manage application.
 
-| Component        | Ansible Role                                                     | Data included                                                                               |
-| ---------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| mongodb          | [mongodb](../roles/mongodb.md)                                   | MongoDB databases used by MAS Core and Visual Inspection                                    |
-| core             | [suite_backup_restore](../roles/suite_backup_restore.md)         | MAS Core namespace resources                                                                |
-| visualinspection | [suite_app_backup_restore](../roles/suite_app_backup_restore.md) | Visual Inspection namespace resources <br>Persistent volume data, such as images and models |
+**Important**:
+- Backup can only be restored to an instance with the same MAS instance ID
+- You **MUST** run the [DB2 backup and restore playbook](#db2-backup-and-restore) as a prerequisite step before running Manage backup or restore operations
 
-### Environment Variables
+## Content
 
-- `MAS_INSTANCE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
-- `MAS_WORKSPACE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS workspace at a time. If you have multiple MAS workspaces in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
+Executes the following operations:
 
-### Examples
+### Backup Operation
+1. **[Backup Db2 Database](../roles/db2.md) - PREREQUISITE STEP** (run `br_db2.yml` playbook separately first)
+2. [Backup Manage Application](../roles/suite_app_backup.md)
 
-```bash
-# Full backup all visual inspection data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=backup
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-ansible-playbook ibm.mas_devops.br_visualinspection
+### Restore Operation
+1. **[Restore Db2 Database](../roles/db2.md) - PREREQUISITE STEP** (run `br_db2.yml` playbook separately first)
+2. [Restore Manage Application](../roles/suite_app_restore.md)
 
-# Incremental backup all visual inspection data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-ansible-playbook ibm.mas_devops.br_visualinspection
+## Important Considerations
 
-# Restore all visual inspection data for the dev1 instance and ws1 workspace
-export MASBR_ACTION=restore
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev
-export MAS_WORKSPACE_ID=ws1
-ansible-playbook ibm.mas_devops.br_visualinspection
-```
+### Prerequisites for Restore
+- Target cluster must have MAS Core installed and configured
+- Target cluster must have Db2 Universal Operator installed
+- Workspace must exist with the same workspace ID
+- Sufficient resources (CPU, memory, storage) for both Db2 and Manage
+- Target cluster must use the same MAS instance ID as the backup
 
+### Backup Best Practices
+1. **Two-Step Process**: Always backup DB2 first, then Manage application
+   - Run `br_db2.yml` playbook before running Manage application backup
+   - DB2 backup is NOT automatically included in Manage backup
+2. **Version Alignment**: Use consistent version identifiers for both DB2 and Manage backups for easier tracking
+3. **Regular Schedule**: Perform backups regularly, especially before:
+   - Manage upgrades or updates
+   - Configuration changes
+   - Data migrations
+4. **Test Restores**: Periodically test restore procedures in non-production environments
+5. **Secure Storage**: Store backups in a secure location, preferably using S3 storage
 
-Reference
--------------------------------------------------------------------------------
-### Directory Structure
-No matter what kind of storage systems you choose, the folder structure created in the storage system is same.
+### Restore Best Practices
+1. **Pre-Restore Validation**:
+   - Verify both DB2 and Manage backup archives exist
+   - Confirm target cluster has sufficient resources
+   - Verify MAS instance ID and workspace ID match the backup
+2. **Restore Order**: **CRITICAL** - Always restore DB2 first, then Manage application
+   - Run `br_db2.yml` playbook before running Manage application restore
+   - DB2 restore is NOT automatically included in Manage restore
+3. **Post-Restore Verification**:
+   - Verify DB2 instance is running and accessible
+   - Verify Manage workspace status is Ready
+   - Test Manage application functionality
+   - Verify data integrity
 
-Below is the sample folder structure for saving backup jobs:
+### Storage Requirements
+- Plan for sufficient storage for both Db2 and Manage backups
+- Db2 backups can be large depending on database size
+- Manage application configuration is relatively small
+- Consider using S3 storage for production backups
 
-```
-<root_folder>/backups/mongodb-main-full-20240621122530
-├── backup.yml
-├── database
-│   ├── mongodb-main-full-20240621122530.tar.gz
-│   └── query.json
-└── log
-    ├── mongodb-main-full-20240621122530-backup-log.tar.gz
-    └── mongodb-main-full-20240621122530-ansible-log.tar.gz
+### Security Considerations
+- Backup files contain sensitive data including database contents and credentials
+- Secure backup directory with appropriate permissions
+- Consider encrypting backups for long-term storage
+- Restrict access to backup files to authorized personnel only
+- Ensure secure transfer of backup files to restore environment
 
-<root_folder>/backups/core-main-full-20240621122530
-├── backup.yml
-├── log
-│   ├── core-main-full-20240621122530-ansible-log.tar.gz
-│   └── core-main-full-20240621122530-namespace-log.tar.gz
-└── namespace
-    └── core-main-full-20240621122530-namespace.tar.gz
-```
+!!! tip
+    If you do not want to set up all the dependencies on your local system, you can run the playbook inside our docker image: `docker run -ti --pull always quay.io/ibmmas/cli`
 
-- `<root_folder>`: the root folder is specified by `MASBR_STORAGE_LOCAL_FOLDER` or `MASBR_STORAGE_CLOUD_BUCKET`
-- The backup playbooks will create a seperated backup job folder under the `backups` folder for each component. The backup job folder is named by following this format: `{BACKUP COMPONENT}-{INSTANCE ID}-{BACKUP TYPE}-{BACKUP VERSION}`.
-- When using playbook to backup multiple components at once, all backup job folders will be assigned to the same backup version. In above example, the same backup version `20240621122530` for backing up `mongodb` and `core` components.
-- `backup.yml`: keep the backup job information
-- `database`: data type for database. This folder save the backup files of MongoDB database, Db2 database.
-- `namespace`: data type for namespace resources. This folder save the exported namespace resources.
-- `pv`: data type for persistent volume. This folder save the persistent volume data, e.g. the Manage attachments, VI images and models.
-- `log`: this folder save all job running log files
+## Additional Resources
 
-In addition to the backup jobs, we also save restore jobs in the specified storage location. For example:
+For detailed information about individual backup and restore operations, refer to the role documentation:
+- [Db2 Backup/Restore](../roles/db2.md)
+- [Manage Application Backup](../roles/suite_app_backup.md)
+- [Manage Application Restore](../roles/suite_app_restore.md)
 
-```
-<root_folder>/restores/mongodb-main-incr-20240622040201-20240622075501
-├── log
-│   ├── mongodb-main-incr-20240622040201-20240622075501-ansible-log.tar.gz
-│   └── mongodb-main-incr-20240622040201-20240622075501-restore-log.tar.gz
-└── restore.yml
-
-<root_folder>/restores/core-main-incr-20240622040201-20240622075501
-├── log
-│   ├── core-main-incr-20240622040201-20240622075501-ansible-log.tar.gz
-│   └── core-main-incr-20240622040201-20240622075501-namespace-log.tar.gz
-└── restore.yml
-```
-
-The restore playbooks will create a seperated restore job folder under the `restores` folder for each component. The restore job folder is named by following this format: `{BACKUP JOB NAME}-{RESTORE VERSION}`.
-
-- `restore.yml`: keep the restore job information
-- `log`: this folder save all job running log files
-
-### Data Model
-#### backup.yml
-```yaml
-kind: Backup
-name: "core-main-incr-20240622040201"
-version: "20240622040201"
-type: "incr"
-from: "core-main-full-20240621122530"
-source:
-  domain: "source-cluster.mydomain.com"
-  suite: "8.11.11"
-  instance: "main"
-  workspace: ""
-component:
-  name: "core"
-  instance: "main"
-  namespace: "mas-main-core"
-data:
-  - seq: "1"
-    type: "namespace"
-    phase: "Completed"
-status:
-  phase: "Completed"
-  startTimestamp: "2024-06-22T04:05:22"
-  completionTimestamp: "2024-06-22T04:06:04"
-  sentNotifications:
-    - type: "Slack"
-      channel: "#ansible-slack-dev"
-      timestamp: "2024-06-22T04:05:34"
-      phase: "InProgress"
-    - type: "Slack"
-      channel: "#ansible-slack-dev"
-      timestamp: "2024-06-22T04:06:10"
-      phase: "Completed"
-```
-
-#### restore.yml
-```yaml
-kind: Restore
-name: "core-main-incr-20240622040201-20240622075501"
-version: "20240622075501"
-from: "core-main-incr-20240622040201"
-target:
-  domain: "target-cluster.mydomain.com"
-component:
-  name: "core"
-  instance: "main"
-  namespace: "mas-main-core"
-data:
-  - seq: 1
-    type: "namespace"
-    phase: "Completed"
-status:
-  phase: "Completed"
-  startTimestamp: "2024-06-22T08:04:19"
-  completionTimestamp: "2024-06-22T08:04:33"
-```

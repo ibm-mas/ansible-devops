@@ -1,5 +1,4 @@
-aws_policy
-===============================================================================
+# aws_policy
 
 Create AWS IAM policies from JSON policy documents in your AWS account. This role automates IAM policy creation, enabling you to define fine-grained permissions for AWS resources and services used by MAS deployments.
 
@@ -11,8 +10,7 @@ IAM policies define permissions for AWS identities (users, groups, roles) to acc
 - IAM permissions to create policies
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 
 ### aws_policy_name
 Name for the IAM policy to be created.

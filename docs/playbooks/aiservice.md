@@ -100,7 +100,6 @@ Optional environment variables
 * `AISERVICE_DB2_USERNAME` The username to use for authentication with the database
 * `AISERVICE_DB2_PASSWORD` The password to use for authentication with the database
 * `AISERVICE_DB2_JDBC_URL` The JDBC URL specifying the host and port of the database, typically in the format jdbc:db2://host:port/
-* `AISERVICE_DB2_SSL_ENABLED` A flag indicating whether to enable SSL encryption for the database connection (default value is: true)
 * `USE_AWS_DB2` A flag indicating whether to use an AWS-hosted DB2 instance (default value is: false)
 * `AISERVICE_DOMAIN` Provide custom domain (default value is: empty)
 * `AISERVICE_WATSONXAI_CA_CRT` provide WatsonX AI CA certificate
