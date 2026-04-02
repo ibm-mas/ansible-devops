@@ -80,12 +80,7 @@ The role deploys:
 
 ### Image Configuration
 
-The role uses the latest Redis images (version 2.1.40) with SHA256 digests:
-
-```yaml
-redis_image: "cp.icr.io/cp/assist/ema-redis:2.1.40@sha256:a07d618d43dc0d0fe7d476a227e5b27dde6e390bdbdf76ee3056f990367a6633"
-haproxy_image: "cp.icr.io/cp/assist/ema-haproxy:2.1.40@sha256:48670439441724a5fadc1a3ccc8f206feae19fbf6977cb78e00d3d1c5674852c"
-```
+The role uses the latest Redis images (version 2.1.40)
 
 ### Output Configuration
 
