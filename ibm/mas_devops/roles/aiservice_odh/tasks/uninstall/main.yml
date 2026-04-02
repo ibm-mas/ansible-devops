@@ -86,16 +86,50 @@
   pause:
     seconds: 60
 
-# 4. Platform-specific resource cleanup
+# 4. Delete namespace-specific resources (network policies and Istio)
 # -----------------------------------------------------------------------------
-# Note: Network policies and Istio resources are NOT deleted during uninstall
-# This matches the migration behavior and supports platform switching scenarios
-# - Network policies will be recreated by the new platform if needed
-# - Istio resources are shared between ODH and RHOAI
+- name: "ODH Uninstall : Delete network policy"
+  kubernetes.core.k8s:
+    api_version: networking.k8s.io/v1
+    kind: NetworkPolicy
+    name: allow-odh-model-controller
+    namespace: opendatahub
+    state: absent
+  ignore_errors: true
 
-- name: "ODH Uninstall : Debug - Resource cleanup skipped"
+- name: "ODH Uninstall : Delete Istio PeerAuthentication"
+  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+  kubernetes.core.k8s:
+    api_version: security.istio.io/v1beta1
+    kind: PeerAuthentication
+    name: default
+    namespace: opendatahub
+    state: absent
+  ignore_errors: true
+
+- name: "ODH Uninstall : Delete Istio DestinationRule (ds-pipeline)"
+  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+  kubernetes.core.k8s:
+    api_version: networking.istio.io/v1beta1
+    kind: DestinationRule
+    name: ds-pipeline-instance
+    namespace: opendatahub
+    state: absent
+  ignore_errors: true
+
+- name: "ODH Uninstall : Delete Istio DestinationRule (minio)"
+  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+  kubernetes.core.k8s:
+    api_version: networking.istio.io/v1beta1
+    kind: DestinationRule
+    name: minio-instance
+    namespace: opendatahub
+    state: absent
+  ignore_errors: true
+
+- name: "ODH Uninstall : Debug - Resource cleanup complete"
   debug:
-    msg: "Network policies and Istio resources preserved (will be managed by new platform)"
+    msg: "Network policies and Istio resources deleted"
 
 # 5. Delete ODH operator AFTER DSC resources
 # -----------------------------------------------------------------------------
@@ -162,7 +196,96 @@
   debug:
     msg: "Authorino subscription and CSV deleted"
 
-# 7. Wait for resources to be fully deleted (with finalizer removal if stuck)
+# 7. Remove Serverless and ServiceMesh operators (only if installed in serverless mode)
+# -----------------------------------------------------------------------------
+- name: "ODH Uninstall : Get Serverless operator subscription"
+  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: serverless-operator
+    namespace: "{{ serverless_namespace }}"
+  register: serverless_subscription_info
+
+- name: "ODH Uninstall : Get Serverless operator CSV name"
+  when:
+    - aiservice_odh_model_deployment_type is defined
+    - aiservice_odh_model_deployment_type == "serverless"
+    - serverless_subscription_info.resources | length > 0
+  set_fact:
+    serverless_csv_name: "{{ serverless_subscription_info.resources[0].status.installedCSV }}"
+
+- name: "ODH Uninstall : Delete Serverless operator subscription"
+  when:
+    - aiservice_odh_model_deployment_type is defined
+    - aiservice_odh_model_deployment_type == "serverless"
+    - serverless_subscription_info.resources | length > 0
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: serverless-operator
+    namespace: "{{ serverless_namespace }}"
+    state: absent
+    wait: yes
+    wait_timeout: 120
+
+- name: "ODH Uninstall : Debug - Serverless operator removal"
+  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+  debug:
+    msg: "Serverless operator subscription deleted (OLM will remove CSV automatically)"
+
+- name: "ODH Uninstall : Get ServiceMesh operator subscription"
+  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: servicemeshoperator
+    namespace: "{{ service_mesh_namespace }}"
+  register: servicemesh_subscription_info
+
+- name: "ODH Uninstall : Get ServiceMesh operator CSV name"
+  when:
+    - aiservice_odh_model_deployment_type is defined
+    - aiservice_odh_model_deployment_type == "serverless"
+    - servicemesh_subscription_info.resources | length > 0
+  set_fact:
+    servicemesh_csv_name: "{{ servicemesh_subscription_info.resources[0].status.installedCSV }}"
+
+- name: "ODH Uninstall : Delete ServiceMesh operator subscription"
+  when:
+    - aiservice_odh_model_deployment_type is defined
+    - aiservice_odh_model_deployment_type == "serverless"
+    - servicemesh_subscription_info.resources | length > 0
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: servicemeshoperator
+    namespace: "{{ service_mesh_namespace }}"
+    state: absent
+    wait: yes
+    wait_timeout: 120
+
+- name: "ODH Uninstall : Debug - ServiceMesh operator removal"
+  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+  debug:
+    msg: "ServiceMesh operator subscription deleted (OLM will remove CSV automatically)"
+
+- name: "ODH Uninstall : Delete ServiceMesh ServiceAccount"
+  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: ServiceAccount
+    name: istio-operator
+    namespace: "{{ service_mesh_namespace }}"
+    state: absent
+  ignore_errors: true
+
+- name: "ODH Uninstall : Debug - ServiceMesh ServiceAccount removal"
+  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+  debug:
+    msg: "ServiceMesh ServiceAccount deleted"
+
+# 8. Wait for resources to be fully deleted (with finalizer removal if stuck)
 # -----------------------------------------------------------------------------
 - name: "ODH Uninstall : Wait for DataScienceCluster to be deleted"
   kubernetes.core.k8s_info:
@@ -244,6 +367,10 @@
       - "=============================================="
       - "ODH Uninstall Complete"
       - "=============================================="
-      - "ODH operator removed successfully"
+      - "ODH operator removed"
+      - "Authorino operator removed"
+      - "Serverless/ServiceMesh removed (if serverless mode)"
+      - "Network policies and Istio resources deleted"
       - "DSCInitialization and DataScienceCluster deleted"
+      - "All ODH resources cleaned up"
       - "=============================================="
