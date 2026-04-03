@@ -8,13 +8,59 @@
     fail_msg: "aiservice_instance_id is required"
 
 
-# 2. Load variables
+# 2. Detect and perform ODH to RHOAI migration (if needed)
+# -----------------------------------------------------------------------------
+- name: "Detect ODH installation"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: opendatahub-operator
+    namespace: openshift-operators
+  register: odh_subscription_check
+
+- name: "Set ODH detection flag"
+  set_fact:
+    odh_detected: "{{ odh_subscription_check.resources | length > 0 }}"
+
+- name: "Migration Notice: ODH to RHOAI"
+  when: odh_detected
+  debug:
+    msg:
+      - "==============================================================================="
+      - "                    ODH to RHOAI Migration Required                           "
+      - "==============================================================================="
+      - ""
+      - "Open Data Hub (ODH) has been detected and will be migrated to Red Hat OpenShift AI (RHOAI)"
+      - ""
+      - "Migration steps:"
+      - "  - ODH will be automatically migrated to RHOAI"
+      - "  - AI Service instances will be reconfigured to use RHOAI"
+      - "  - ODH components will be uninstalled after migration"
+      - "  - Expected downtime: ~10-12 minutes for AI Service"
+      - ""
+      - "This migration is mandatory to continue receiving updates."
+      - "==============================================================================="
+
+- name: "No Migration Notice"
+  when: not odh_detected
+  debug:
+    msg:
+      - "ODH not detected - no migration needed"
+      - "RHOAI is already installed or this is a fresh installation"
+
+- name: "Perform ODH to RHOAI migration"
+  when: odh_detected
+  include_role:
+    name: ibm.mas_devops.aiservice_rhoai
+
+
+# 3. Load variables
 # -----------------------------------------------------------------------------
 - name: "Load application compatibility matrix"
   include_vars: "{{ role_path }}/../../common_vars/compatibility_matrix.yml"
 
 
-# 3. Determine upgrade target
+# 4. Determine upgrade target
 # -----------------------------------------------------------------------------
 # Default aiservice_channel based on the current version of the
 # installed AI Service if not provided by the user specifically
@@ -56,7 +102,7 @@
     fail_msg: "Unable to determine upgrade target: aiservice_channel={{ aiservice_channel | default('<undefined>') }}"
 
 
-# 4. Validate target upgrade channel exists in the package manifest
+# 5. Validate target upgrade channel exists in the package manifest
 # -----------------------------------------------------------------------------
 - name: "Lookup PackageManifest: ibm-aiservice"
   kubernetes.core.k8s_info:
@@ -125,7 +171,7 @@
     - aiservice_channel is not defined
 
 
-# 5. Provide debug information
+# 6. Provide debug information
 # -----------------------------------------------------------------------------
 - name: "Debug information"
   debug:
@@ -134,42 +180,15 @@
       - "AI Service Instance ID ........................ {{ aiservice_instance_id }}"
       - "AI Service namespace .......................... {{ aiservice_namespace }}"
 
-# 6. Check the existing installation
+# 7. Check the existing installation
 # -----------------------------------------------------------------------------
 - name: "Check existing AI Service installation"
   when:
     - aiservice_channel is defined and aiservice_channel != ""
   include_tasks: tasks/check_aiservice_compatibility.yml
 
-# 6.5. ODH to RHOAI Migration (if needed)
-# -----------------------------------------------------------------------------
-- name: "Check if ODH to RHOAI migration is needed"
-  when:
-    - aiservice_channel is defined and aiservice_channel != ""
-  block:
-    - name: "Migration Notice: ODH to RHOAI"
-      debug:
-        msg:
-          - "==============================================================================="
-          - "                    ODH to RHOAI Migration Check                              "
-          - "==============================================================================="
-          - ""
-          - "Checking if Open Data Hub (ODH) needs to be migrated to Red Hat OpenShift AI (RHOAI)..."
-          - ""
-          - "If ODH is detected:"
-          - "  - ODH will be automatically migrated to RHOAI"
-          - "  - AI Service instances will be reconfigured to use RHOAI"
-          - "  - ODH components will be uninstalled after migration"
-          - "  - Expected downtime: ~10-12 minutes for AI Service"
-          - ""
-          - "This migration is mandatory to continue receiving updates."
-          - "==============================================================================="
 
-    - name: "Perform ODH to RHOAI migration if required"
-      include_role:
-        name: ibm.mas_devops.aiservice_rhoai
-
-# 7. Upgrade
+# 8. Upgrade
 # -----------------------------------------------------------------------------
 - name: "Execute Channel Upgrade"
   when:
