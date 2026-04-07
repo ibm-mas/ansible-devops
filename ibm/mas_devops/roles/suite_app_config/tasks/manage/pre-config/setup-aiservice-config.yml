@@ -4,15 +4,20 @@
 # to be included in the Manage encryption secret
 # ------------------------------------------------------------------------
 
-# Set AI Service namespace
+# Set AI Service namespaces
 - set_fact:
     aiservice_namespace: "aiservice-{{ aiservice_instance_id }}"
+    aiservice_tenant_name: "aiservice-{{ aiservice_instance_id }}-{{ aiservice_tenant_id }}"
 
 # Step 1: Construct fully qualified tenant name
 # ------------------------------------------------------------------------
 - name: "Construct fully qualified AI Service tenant name"
   set_fact:
-    mas_manage_encryptionsecret_aiservice_fqn: "aiservice-{{ aiservice_instance_id }}-{{ aiservice_tenant_id }}"
+    mas_manage_encryptionsecret_aiservice_fqn: "{{ aiservice_tenant_name }}"
+
+- name: "Set target namespace based on channel"
+  set_fact:
+    aiservice_tenant_namespace: "{{ ((aiservice_channel is defined) and aiservice_channel.startswith('9.1.')) | ternary(aiservice_namespace, aiservice_tenant_name) }}"
 
 - name: "Debug: AI Service tenant information"
   debug:
@@ -27,12 +32,12 @@
     api_version: v1
     kind: Secret
     name: "{{ mas_manage_encryptionsecret_aiservice_fqn }}----apikey-secret"
-    namespace: "{{ aiservice_namespace }}"
+    namespace: "{{ aiservice_tenant_namespace }}"
   register: aiservice_apikey_secret
 
 - name: "Fail if AI Service tenant API key secret not found"
   fail:
-    msg: "AI Service tenant API key secret '{{ mas_manage_encryptionsecret_aiservice_fqn }}----apikey-secret' not found in namespace '{{ aiservice_namespace }}'"
+    msg: "AI Service tenant API key secret '{{ mas_manage_encryptionsecret_aiservice_fqn }}----apikey-secret' not found in namespace '{{ aiservice_tenant_namespace }}'"
   when:
     - aiservice_apikey_secret.resources is not defined or aiservice_apikey_secret.resources | length == 0
 
@@ -146,7 +151,9 @@
       - "AI Service instance ID ............................. {{ aiservice_instance_id }}"
       - "AI Service tenant ID ............................... {{ aiservice_tenant_id }}"
       - "AI Service tenant FQN .............................. {{ mas_manage_encryptionsecret_aiservice_fqn }}"
+      - "AI Service channel ................................. {{ aiservice_channel }}"
       - "AI Service namespace ............................... {{ aiservice_namespace }}"
+      - "AI Service tenant namespace ........................ {{ aiservice_tenant_namespace }}"
       - "AI Service URL ..................................... {{ mas_manage_encryptionsecret_aiservice_url }}"
       - "AI Service API key retrieved ....................... Yes"
       - "AI Service TLS certificate retrieved ............... Yes"
