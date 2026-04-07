@@ -50,13 +50,20 @@
 - name: Construct image full image settings
   set_fact:
     target_mongodb_version: "{{ mongo_extras_version }}"
-    mongodb_feature_compatibility_version: "{{ mongo_extras_version | regex_search('(?<=)(.*)(?=...)') }}"
+    #mongodb_feature_compatibility_version: "{{ mongo_extras_version | regex_search('(?<=)(.*)(?=...)') }}"
+    mongodb_feature_compatibility_version: "{{ mongo_extras_version.split('.')[:2] | join('.') }}"
     mongodb_ce_version: "{{ mongodb_operator_image_tag }}"
     target_mongodb_operator_image: "{{ mongodb_operator_image_registry }}/{{ mongodb_operator_image_name }}@{{ mongodb_operator_image_digest }}"
     target_mongodb_operator_version_upgrade_post_start_hook_image: "{{ mongodb_operator_version_upgrade_post_start_hook_image_registry }}/{{ mongodb_operator_version_upgrade_post_start_hook_image_name }}@{{ mongodb_operator_version_upgrade_post_start_hook_image_digest }}"
     target_mongodb_agent_image: "{{ mongodb_agent_image_registry }}/{{ mongodb_agent_image_name }}@{{ mongodb_agent_image_digest }}"
     target_mongodb_readinessprobe_image: "{{ mongodb_readinessprobe_image_registry }}/{{ mongodb_readinessprobe_image_name }}@{{ mongodb_readinessprobe_image_digest }}"
     target_mongodb_image: "{{ mongodb_image_registry }}/{{ mongodb_image_name }}@{{ mongodb_image_digest }}"
+
+# Test Debugging
+- name: "Testing regex change to get feature compatibility version from mongo version"
+  debug:
+    msg:    
+      - "MongoDb feature compatibility version ..... {{ mongodb_feature_compatibility_version }}"
 
 # 2. Debug Properties
 # -----------------------------------------------------------------------------
