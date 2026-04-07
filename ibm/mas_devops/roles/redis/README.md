@@ -80,7 +80,17 @@ The role deploys:
 
 ### Image Configuration
 
-The role uses the latest Redis images (version 2.1.40)
+Redis images are dynamically loaded based on the Maximo Operator Catalog version. The role automatically:
+- Determines the catalog version being used
+- Loads the corresponding `redis_extras_version` from the catalog
+- Constructs image references with registry, name, tag, and SHA256 digest
+
+Images are sourced from `cp.icr.io/cp` registry and include:
+- `assist/ema-redis` - Redis server and Sentinel
+- `assist/ema-haproxy` - HAProxy load balancer
+- `assist/ema-common-util` - Common utilities
+
+The image version is controlled by the catalog, not hardcoded in the role.
 
 ### Output Configuration
 
