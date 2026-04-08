@@ -1,17 +1,16 @@
 ---
 # Permission mode from environment (cluster, nonEssential, essential)
-mas_permission_mode: "{{ lookup('env', 'MAS_PERMISSION_MODE') | default('cluster', true) }}"
+mas_permission_mode: "{{ lookup('env', 'MAS_PERMISSION_MODE') }}"
 
 # MAS instance ID
 mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
 
 # MAS channel from environment (e.g., 9.2.x, 9.3.x)
-mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default('', true) }}"
+mas_channel: "{{ lookup('env', 'MAS_CHANNEL') }}"
 
 # MAS version for RBAC files (e.g., 9.2, 9.3)
-# Extracted from mas_channel or defaults to 9.2
-# This determines which version of RBAC files to use from the CLI image
-mas_rbac_version: "{{ mas_channel | regex_replace('^([0-9]+\\.[0-9]+).*', '\\1') if mas_channel != '' else '9.2' }}"
+# Extracted from mas_channel and used to resolve the versioned RBAC content in the CLI image
+mas_rbac_version: "{{ mas_channel | regex_replace('^([0-9]+\\.[0-9]+).*', '\\1') if mas_channel is defined and mas_channel != '' else '' }}"
 
 # RBAC files location in CLI image /opt/app-root/rbac/operators/<mas_version>/<operator>/rbac/
 rbac_files_dir: "/opt/app-root/rbac/operators"
