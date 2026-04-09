@@ -13,11 +13,21 @@
 # create wx secret
 - include_tasks: tasks/watsonx/main.yml
 
+# Check if the namespace-scoped tenant operator is required.
+# This role will update the value of "is_migration_needed".
+- include_role:
+    name: ibm.mas_devops.aiservice_migration
+  vars:
+    catalog_channel: "{{ aiservice_tenant_channel }}"
+    instance_id: "{{ aiservice_instance_id }}"
+    perform_check_only: true
+
 # Install the tenant operator
 - include_tasks: tasks/aiservice/main.yml
   when:
     - aiservice_channel is defined
     - not aiservice_channel.startswith('9.1.')
+    - is_migration_needed
 
 # create AI Broker tenant
 - include_tasks: tasks/tenant/main.yml
