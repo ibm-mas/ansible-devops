@@ -1,0 +1,163 @@
+---
+# Validate required variables
+- name: "Fail if mas_restore_dir is not defined"
+  ansible.builtin.fail:
+    msg: "mas_restore_dir is required but not defined"
+  when: mas_restore_dir is not defined or mas_restore_dir == ''
+
+- name: "Fail if mas_instance_id is not defined"
+  ansible.builtin.fail:
+    msg: "mas_instance_id is required but not defined"
+  when: mas_instance_id is not defined or mas_instance_id == ''
+
+- name: "Fail if backup_version is not defined"
+  ansible.builtin.fail:
+    msg: "backup_version is required but not defined"
+  when: backup_version is not defined or backup_version == ''
+
+# Determine which archives to download
+- name: "Set backup archive names list"
+  ansible.builtin.set_fact:
+    backup_archives_to_download: []
+
+# Handle explicit list of archives
+- name: "Parse backup_archive_names if provided as string"
+  ansible.builtin.set_fact:
+    backup_archives_to_download: "{{ backup_archive_names.split(',') | map('trim') | list }}"
+  when:
+    - backup_archive_names is defined
+    - backup_archive_names != ''
+    - backup_archive_names is string
+
+- name: "Use backup_archive_names if provided as list"
+  ansible.builtin.set_fact:
+    backup_archives_to_download: "{{ backup_archive_names }}"
+  when:
+    - backup_archive_names is defined
+    - backup_archive_names != ''
+    - backup_archive_names is not string
+
+# Auto-generate archive names based on component versions
+- name: "Auto-generate archive names from component versions"
+  ansible.builtin.set_fact:
+    backup_archives_to_download:
+      - "mas-{{ mas_instance_id }}-backup-{{ ibm_catalogs_backup_version }}-catalog.tar.gz"
+      - "mas-{{ mas_instance_id }}-backup-{{ certmanager_backup_version }}-certmanager.tar.gz"
+      - "mas-{{ mas_instance_id }}-backup-{{ mongodb_backup_version }}-mongoce.tar.gz"
+      - "mas-{{ mas_instance_id }}-backup-{{ sls_backup_version }}-sls.tar.gz"
+      - "mas-{{ mas_instance_id }}-backup-{{ suite_backup_version }}-suite.tar.gz"
+      - "mas-{{ mas_instance_id }}-backup-{{ manage_backup_version }}-app-manage.tar.gz"
+      - "mas-{{ mas_instance_id }}-backup-{{ db2_backup_version }}-db2u-manage.tar.gz"
+  when: backup_archives_to_download | length == 0
+
+
+- name: "Filter out SLS archive when include_sls_archive is false"
+  ansible.builtin.set_fact:
+    backup_archives_to_download: "{{ backup_archives_to_download | reject('search', '-sls\\.tar\\.gz$') | list }}"
+  when: not (include_sls_archive | bool)
+
+- name: "Filter out mongo archive when include_mongo_archive is false"
+  ansible.builtin.set_fact:
+    backup_archives_to_download: "{{ backup_archives_to_download | reject('search', '-mongoce\\.tar\\.gz$') | list }}"
+  when: not (include_mongo_archive | bool)
+
+- name: "Filter out manage app archive when include_manage_app_archive is false"
+  ansible.builtin.set_fact:
+    backup_archives_to_download: "{{ backup_archives_to_download | reject('search', '-app-manage\\.tar\\.gz$') | list }}"
+  when: not (include_manage_app_archive | bool)
+
+# Filter out manage archives if include_manage_db_archive is false
+- name: "Filter out manage archives when include_manage_db_archive is false"
+  ansible.builtin.set_fact:
+    backup_archives_to_download: "{{ backup_archives_to_download | reject('search', '-db2u-manage\\.tar\\.gz$') | list }}"
+  when: not (include_manage_db_archive | bool)
+
+- name: "Display archives to download"
+  ansible.builtin.debug:
+    msg:
+      - "Will download {{ backup_archives_to_download | length }} archive(s):"
+      - "{{ backup_archives_to_download }}"
+
+# Determine download source
+- name: "Check if S3 credentials are provided"
+  ansible.builtin.set_fact:
+    download_from_s3: "{{ (aws_access_key_id is defined and aws_access_key_id != '') and (aws_secret_access_key is defined and aws_secret_access_key != '') and (s3_bucket_name is defined and s3_bucket_name != '') }}"
+
+- name: "Check if Artifactory credentials are provided"
+  ansible.builtin.set_fact:
+    download_from_artifactory: "{{ (artifactory_username is defined and artifactory_username != '') and (artifactory_token is defined and artifactory_token != '') and (artifactory_url is defined and artifactory_url != '') }}"
+
+- name: "Fail if neither S3 nor Artifactory credentials are provided"
+  ansible.builtin.fail:
+    msg: "Either S3 credentials (aws_access_key_id, aws_secret_access_key, s3_bucket_name) or Artifactory credentials (artifactory_username, artifactory_token, artifactory_url) must be provided"
+  when: not download_from_s3 and not download_from_artifactory
+
+- name: "Display download source"
+  ansible.builtin.debug:
+    msg: "Will download from: {{ 'S3' if download_from_s3 else 'Artifactory' }}"
+
+# Create restore directory
+- name: "Create restore directory"
+  ansible.builtin.file:
+    path: "{{ mas_restore_dir }}"
+    state: directory
+    mode: '0755'
+
+# Delete temporary directory to make sure its clean
+- name: "Delete temporary directory before creating to make sure it is clean"
+  ansible.builtin.file:
+    path: "{{ backup_temp_dir }}"
+    state: absent
+
+# Create temporary directory for download
+- name: "Create temporary directory for download"
+  ansible.builtin.file:
+    path: "{{ backup_temp_dir }}"
+    state: directory
+    mode: '0755'
+
+# Download from S3, boto3 needs this base directory for bucket base dir
+- name: "Create temporary base directory"
+  ansible.builtin.file:
+    path: "{{ backup_temp_dir }}/mas-{{ mas_instance_id }}-backups"
+    state: directory
+    mode: '0755'
+
+# Download from S3 or Artifactory
+- name: "Download from S3"
+  ansible.builtin.include_tasks: download_from_s3.yml
+  when: download_from_s3
+
+- name: "Download from Artifactory"
+  ansible.builtin.include_tasks: download_from_artifactory.yml
+  when: download_from_artifactory and not download_from_s3
+
+# Extract archives
+- name: "Extract backup archives"
+  ansible.builtin.include_tasks: extract_archive.yml
+  when: extract_archive | bool
+
+# Cleanup
+- name: "Remove temporary archive files"
+  ansible.builtin.file:
+    path: "{{ backup_temp_dir }}/{{ item }}"
+    state: absent
+  loop: "{{ backup_archives_to_download }}"
+  when:
+    - cleanup_archive | bool
+    - extract_archive | bool
+
+- name: "Remove temporary directory"
+  ansible.builtin.file:
+    path: "{{ backup_temp_dir }}"
+    state: absent
+  when:
+    - cleanup_archive | bool
+    - extract_archive | bool
+
+- name: "Display archive management information"
+  ansible.builtin.debug:
+    msg:
+      - "Archives are being managed in: {{ backup_temp_dir }}"
+      - "Downloaded archives: {{ backup_archives_to_download }}"
+      - "To cleanup manually, remove the directory: {{ backup_temp_dir }}"
