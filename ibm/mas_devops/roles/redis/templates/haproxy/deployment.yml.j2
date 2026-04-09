@@ -1,0 +1,89 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ redis_instance_name }}-haproxy
+  namespace: {{ redis_namespace }}
+  labels:
+    app: haproxy
+    instance: {{ redis_instance_name }}
+spec:
+  replicas: {{ redis_haproxy_replicas }}
+  selector:
+    matchLabels:
+      app: haproxy
+      instance: {{ redis_instance_name }}
+  template:
+    metadata:
+      labels:
+        app: haproxy
+        instance: {{ redis_instance_name }}
+    spec:
+      serviceAccountName: {{ redis_service_account }}
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: haproxy
+          image: {{ haproxy_image }}
+          imagePullPolicy: {{ image_pull_policy }}
+          command:
+            - haproxy
+            - -f
+            - /usr/local/etc/haproxy/haproxy.cfg
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ redis_instance_name }}-credentials
+                  key: password
+          ports:
+            - name: redis
+              containerPort: {{ redis_port }}
+              protocol: TCP
+            - name: stats
+              containerPort: {{ redis_haproxy_stats_port }}
+              protocol: TCP
+{% if redis_sentinel_enabled %}
+            - name: sentinel
+              containerPort: {{ redis_sentinel_port }}
+              protocol: TCP
+{% endif %}
+          livenessProbe:
+            httpGet:
+              path: /_haproxy_health
+              port: 9094
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /_haproxy_health
+              port: 9094
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: {{ haproxy_cpu_requests }}
+              memory: {{ haproxy_mem_requests }}
+            limits:
+              cpu: {{ haproxy_cpu_limits }}
+              memory: {{ haproxy_mem_limits }}
+          volumeMounts:
+            - name: haproxy-config
+              mountPath: /usr/local/etc/haproxy
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+      volumes:
+        - name: haproxy-config
+          configMap:
+            name: {{ redis_instance_name }}-haproxy-config

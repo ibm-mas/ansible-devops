@@ -1,0 +1,42 @@
+---
+# Generate RedisCfg Output File
+# =============================================================================
+
+- name: "Ensure MAS config directory exists"
+  file:
+    path: "{{ mas_config_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: "Get CA certificate from secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ redis_instance_name }}-ca-secret"
+    namespace: "{{ redis_namespace }}"
+  register: ca_secret
+  when: redis_tls_enabled
+
+- name: "Extract CA certificate"
+  set_fact:
+    redis_ca_cert: "{{ ca_secret.resources[0].data['ca.crt'] | b64decode }}"
+  when:
+    - redis_tls_enabled
+    - ca_secret.resources | length > 0
+
+- name: "Generate RedisCfg output file"
+  template:
+    src: output/rediscfg-output.yml.j2
+    dest: "{{ rediscfg_output_file }}"
+    mode: '0644'
+
+- name: "Display RedisCfg output location"
+  debug:
+    msg:
+      - "RedisCfg configuration file generated:"
+      - "  File: {{ rediscfg_output_file }}"
+      - "  Name: {{ rediscfg_name }}"
+      - "  Namespace: {{ rediscfg_namespace }}"
+      - ""
+      - "To apply the configuration:"
+      - "  oc apply -f {{ rediscfg_output_file }}"

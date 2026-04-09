@@ -1,0 +1,33 @@
+---
+apiVersion: config.mas.ibm.com/v1
+kind: RedisCfg
+metadata:
+  name: {{ rediscfg_name }}
+  namespace: {{ rediscfg_namespace }}
+  labels:
+    mas.ibm.com/configScope: system
+    mas.ibm.com/instanceId: {{ mas_instance_id }}
+spec:
+  displayName: "{{ redis_display_name | default('Redis Configuration') }}"
+  type: internal
+  config:
+    host: {{ redis_service_fqdn }}
+    port: {{ redis_port }}
+{% if redis_tls_enabled %}
+    tlsEnabled: true
+    tlsPort: {{ redis_tls_port }}
+    tlsKeyPath: /etc/mas/certs/redis/tls.key
+    tlsCertPath: /etc/mas/certs/redis/tls.crt
+{% endif %}
+{% if redis_sentinel_enabled %}
+    sentinelEnabled: true
+    sentinelPort: {{ redis_sentinel_port }}
+{% endif %}
+    credentials:
+      secretName: {{ redis_credentials_secret }}
+{% if redis_tls_enabled and redis_ca_cert is defined %}
+  certificates:
+    - alias: redis-ca
+      crt: |
+{{ redis_ca_cert | indent(8, first=True) }}
+{% endif %}
