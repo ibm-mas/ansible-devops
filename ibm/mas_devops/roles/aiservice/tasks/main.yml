@@ -16,11 +16,21 @@
   set_fact:
     aiservice_domain: "{{ _cluster_subdomain.resources[0].spec.domain }}"
 
-- name: "Debug: cluster domain"
+- name: "Debug information"
   debug:
-    msg: "AI Service domain ........................ {{ aiservice_domain }}"
+    msg:
+      - "AI Service domain ........................ {{ aiservice_domain }}"
+      - "IPv6 Enabled ............................. {{ enable_ipv6 }}"
 
-# Create IBM Maximo IBM Maximo AI Service
+- name: "Debug: certificate issuer if defined"
+  when: aiservice_certificate_issuer is defined and aiservice_certificate_issuer != ''
+  debug:
+    msg:
+      - "AI Service Certificate Issuer ........................... {{ aiservice_certificate_issuer }}"
+      - "AI Service Certificate Duration ......................... {{ aiservice_certificate_duration }}"
+      - "AI Service Certificate Renew Before ..................... {{ aiservice_certificate_renew_before }}"
+
+# Create IBM Maximo AI Service namespace
 # -----------------------------------------------------------------------------
 - name: "Create IBM Maximo AI Service namespace"
   kubernetes.core.k8s:

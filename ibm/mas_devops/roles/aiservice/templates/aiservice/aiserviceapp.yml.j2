@@ -10,6 +10,12 @@ metadata:
     aiservice.ibm.com/instanceId: {{ aiservice_instance_id }}
     app.kubernetes.io/instance: {{ aiservice_instance_id }}
 spec:
+{% if aiservice_certificate_issuer is defined and aiservice_certificate_issuer != '' %}
+  certificateIssuer:
+    name: "{{ aiservice_certificate_issuer }}"
+    duration: "{{ aiservice_certificate_duration }}"
+    renewBefore: "{{ aiservice_certificate_renew_before }}"
+{% endif %}
   settings:
     dro:
       url: "{{ drocfg.url }}"
@@ -39,3 +45,8 @@ spec:
       cpopen: "{{ mas_icr_cpopen }}"
     watsonxai:
       ca: "{{ aiservice_watsonxai_ca_crt | b64encode }}"
+{% if enable_ipv6 is defined and enable_ipv6 == true %}
+    services:
+      ipFamilyPolicy: "SingleStack"
+      ipFamilies: ["IPv6"]
+{% endif %}

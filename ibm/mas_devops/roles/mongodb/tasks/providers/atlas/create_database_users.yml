@@ -1,0 +1,181 @@
+---
+# MongoDB Atlas Provider - Create Database Users
+# Supports both multi-user (atlas_database_users dict) and legacy single-user (atlas_db_username/atlas_db_password)
+
+# =============================================================================
+# Multi-user approach: atlas_database_users dict
+# =============================================================================
+
+# 1. Generate passwords for users that don't have one
+# -----------------------------------------------------------------------------
+- name: "Build users with auto-generated passwords (multi-user approach)"
+  when:
+    - atlas_database_users is defined
+    - atlas_database_users | length > 0
+  set_fact:
+    atlas_database_users_with_passwords: >-
+      {{ atlas_database_users_with_passwords | default({}) | combine({
+        item.key: item.value | combine({
+          'password': item.value.password | default(lookup('password', '/dev/null chars=ascii_letters,digits length=20'))
+        })
+      }) }}
+  loop: "{{ atlas_database_users | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  no_log: true
+
+# 2. Check if each user already exists
+# -----------------------------------------------------------------------------
+- name: "Check if each database user already exists (multi-user)"
+  when:
+    - atlas_database_users is defined
+    - atlas_database_users | length > 0
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers/{{ item.value.auth_database_name | default('admin') }}/{{ item.value.username }}"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    status_code: [200, 404]
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_multi_user_check
+  loop: "{{ atlas_database_users_with_passwords | dict2items }}"
+  loop_control:
+    label: "{{ item.value.username }}"
+
+# 3. Create each user that does not exist
+#    Roles are mapped from {role_name, database_name} -> {roleName, databaseName}
+# -----------------------------------------------------------------------------
+- name: "Create database user if it does not exist (multi-user)"
+  when:
+    - atlas_database_users is defined
+    - atlas_database_users | length > 0
+    - item.status == 404
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers"
+    method: POST
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    body:
+      databaseName: "{{ item.item.value.auth_database_name | default('admin') }}"
+      username: "{{ item.item.value.username }}"
+      password: "{{ atlas_database_users_with_passwords[item.item.key].password }}"
+      roles: "{{ item.item.value.roles | map('combine', {}) | list | json_query('[].{roleName: role_name, databaseName: database_name}') }}"
+    body_format: json
+    status_code: [201]
+    timeout: "{{ atlas_api_timeout }}"
+  loop: "{{ atlas_multi_user_check.results }}"
+  loop_control:
+    label: "{{ item.item.value.username }}"
+  register: atlas_multi_user_create
+  no_log: true
+
+# 4. Set primary user credentials for use in secret storage
+# -----------------------------------------------------------------------------
+- name: "Set primary user credentials from atlas_mongodb_secret_user"
+  when:
+    - atlas_database_users is defined
+    - atlas_database_users | length > 0
+    - atlas_mongodb_secret_user is defined
+    - atlas_mongodb_secret_user != ""
+    - atlas_database_users_with_passwords[atlas_mongodb_secret_user] is defined
+  set_fact:
+    atlas_db_username: "{{ atlas_database_users_with_passwords[atlas_mongodb_secret_user].username }}"
+    atlas_db_password: "{{ atlas_database_users_with_passwords[atlas_mongodb_secret_user].password }}"
+  no_log: true
+
+- name: "Set primary user credentials from first user (fallback)"
+  when:
+    - atlas_database_users is defined
+    - atlas_database_users | length > 0
+    - >-
+      (atlas_mongodb_secret_user is not defined or atlas_mongodb_secret_user == ""
+       or atlas_database_users_with_passwords[atlas_mongodb_secret_user] is not defined)
+    - atlas_db_username is not defined or atlas_db_username == ""
+  set_fact:
+    atlas_db_username: "{{ (atlas_database_users_with_passwords | dict2items | first).value.username }}"
+    atlas_db_password: "{{ (atlas_database_users_with_passwords | dict2items | first).value.password }}"
+  no_log: true
+
+# 5. Summary (multi-user)
+# -----------------------------------------------------------------------------
+- name: "Database users creation summary (multi-user)"
+  when:
+    - atlas_database_users is defined
+    - atlas_database_users | length > 0
+  debug:
+    msg:
+      - "=========================================="
+      - "Database Users Created/Verified (multi-user)"
+      - "=========================================="
+      - "Total users: {{ atlas_database_users | length }}"
+      - "Users: {{ atlas_database_users | dict2items | map(attribute='value') | map(attribute='username') | list | join(', ') }}"
+      - "Primary user (for secret): {{ atlas_db_username | default('N/A') }}"
+      - "=========================================="
+
+# =============================================================================
+# Legacy single-user approach: atlas_db_username / atlas_db_password
+# =============================================================================
+
+# 6. Check if legacy database user already exists
+# -----------------------------------------------------------------------------
+- name: "Check if database user exists (legacy single-user)"
+  when:
+    - atlas_database_users is not defined or atlas_database_users | length == 0
+    - atlas_db_username is defined
+    - atlas_db_username != ""
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers/admin/{{ atlas_db_username }}"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    status_code: [200, 404]
+    timeout: 60
+  register: atlas_user_check
+
+# 7. Create legacy database user if it doesn't exist
+# -----------------------------------------------------------------------------
+- name: "Create database user (legacy single-user)"
+  when:
+    - atlas_database_users is not defined or atlas_database_users | length == 0
+    - atlas_db_username is defined
+    - atlas_db_username != ""
+    - atlas_user_check is defined
+    - atlas_user_check.status == 404
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers"
+    method: POST
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    body:
+      databaseName: "admin"
+      username: "{{ atlas_db_username }}"
+      password: "{{ atlas_db_password }}"
+      roles:
+        - databaseName: "admin"
+          roleName: "atlasAdmin"
+    body_format: json
+    status_code: [201]
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_user_create
+  no_log: true
+
+# 8. Summary (legacy)
+# -----------------------------------------------------------------------------
+- name: "Database user creation summary (legacy single-user)"
+  when:
+    - atlas_database_users is not defined or atlas_database_users | length == 0
+    - atlas_db_username is defined
+    - atlas_db_username != ""
+    - atlas_user_check is defined
+  debug:
+    msg:
+      - "=========================================="
+      - "Database User Created/Verified"
+      - "=========================================="
+      - "Username: {{ atlas_db_username }}"
+      - "Status: {{ 'Created' if atlas_user_check.status == 404 else 'Already exists' }}"
+      - "=========================================="

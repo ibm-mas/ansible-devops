@@ -1,0 +1,94 @@
+---
+# Validate CR detection results and ensure CR is in proper state
+#
+# Usage:
+# - name: "Validate Db2 CR"
+#   include_tasks: "{{ role_path }}/../../common_tasks/validate_db2_cr.yml"
+#
+# Required variables:
+#   - db2_cr_type: The detected CR type
+#   - db2_cr_exists: Boolean indicating if CR was found
+#   - db2_cr_resource: The CR resource object
+#   - db2_instance_name: Name of the Db2 instance
+#   - db2_namespace: Namespace where Db2 is deployed
+#   - db2_config_version: Configuration version to apply
+#
+# Sets the following facts:
+#   - db2_cr_is_ready: Boolean indicating if CR is in Ready state
+
+- name: "validate-db2-cr : Validate CR detection results"
+  assert:
+    that:
+      - db2_cr_type is defined
+      - db2_cr_type in ['Db2uCluster', 'Db2uInstance']
+      - db2_cr_exists | bool
+      - db2_cr_resource is defined
+      - db2_cr_resource | length > 0
+    fail_msg: |
+      CR detection validation failed:
+      - CR Type: {{ db2_cr_type | default('undefined') }}
+      - CR Exists: {{ db2_cr_exists | default('undefined') }}
+      - CR Resource: {{ 'defined' if db2_cr_resource is defined else 'undefined' }}
+
+      This is an internal error. Please report this issue with the following details:
+      - db2_instance_name: {{ db2_instance_name }}
+      - db2_namespace: {{ db2_namespace }}
+    success_msg: "CR validation successful: {{ db2_cr_type }} detected"
+
+- name: "validate-db2-cr : Validate CR has status information"
+  assert:
+    that:
+      - db2_cr_resource.status is defined
+      - db2_cr_resource.status.state is defined
+    fail_msg: |
+      Db2 instance '{{ db2_instance_name }}' does not have status information.
+      This may indicate the instance is still being created or there is an issue with the operator.
+
+      Current CR state: {{ db2_cr_resource.status | default('No status') }}
+
+      Please wait for the instance to initialize or check the operator logs:
+      oc logs -n {{ db2_namespace }} -l name=db2u-operator --tail=50
+    success_msg: "CR has valid status information"
+
+- name: "validate-db2-cr : Check if CR is in Ready state"
+  set_fact:
+    db2_cr_is_ready: "{{ db2_cr_resource.status.state == 'Ready' }}"
+
+- name: "validate-db2-cr : Display CR status"
+  debug:
+    msg:
+      - "CR Status ................................ {{ db2_cr_resource.status.state }}"
+      - "CR Ready ................................. {{ db2_cr_is_ready }}"
+
+- name: "validate-db2-cr : Validate CR is in Ready state"
+  assert:
+    that:
+      - db2_cr_is_ready | bool
+    fail_msg: |
+      Db2 instance '{{ db2_instance_name }}' is not in Ready state.
+      Current state: {{ db2_cr_resource.status.state | default('Unknown') }}
+
+      Please wait for the instance to be ready before applying configuration.
+      You can check the status with:
+      oc get {{ db2_cr_type | lower }} {{ db2_instance_name | lower }} -n {{ db2_namespace }} -o yaml
+
+      Common states and their meanings:
+      - Pending: Instance is being created
+      - Initializing: Instance is starting up
+      - Ready: Instance is ready for configuration (required state)
+      - Failed: Instance creation failed, check operator logs
+    success_msg: "Db2 instance is Ready"
+
+- name: "validate-db2-cr : Validate required configuration version"
+  assert:
+    that:
+      - db2_config_version is defined
+      - db2_config_version != ""
+    fail_msg: |
+      Invalid or missing db2_config_version: {{ db2_config_version | default('undefined') }}
+
+      Please set db2_config_version to a valid version.
+      Example: db2_config_version: "1.0.0"
+    success_msg: "Configuration version {{ db2_config_version }} is valid"
+
+# Made with Bob
