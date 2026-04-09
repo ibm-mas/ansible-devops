@@ -1,0 +1,50 @@
+---
+# Deploy Redis StatefulSet
+# =============================================================================
+
+- name: "Create Redis ConfigMap"
+  kubernetes.core.k8s:
+    state: present
+    template: redis/configmap.yml.j2
+
+- name: "Create Redis Probes ConfigMap"
+  kubernetes.core.k8s:
+    state: present
+    template: redis/configmap-probes.yml.j2
+
+- name: "Create Redis Init ConfigMap"
+  kubernetes.core.k8s:
+    state: present
+    template: redis/configmap-init.yml.j2
+
+- name: "Create Redis Master Service"
+  kubernetes.core.k8s:
+    state: present
+    template: redis/service-master.yml.j2
+
+- name: "Create Redis Replica Service"
+  kubernetes.core.k8s:
+    state: present
+    template: redis/service-replica.yml.j2
+
+- name: "Create Redis Announce Services (one per pod)"
+  kubernetes.core.k8s:
+    state: present
+    template: redis/service-announce.yml.j2
+  loop: "{{ range(0, redis_replicas | int) | list }}"
+  loop_control:
+    loop_var: item
+
+- name: "Create Redis StatefulSet"
+  kubernetes.core.k8s:
+    state: present
+    template: redis/statefulset.yml.j2
+
+- name: "Display Redis deployment status"
+  debug:
+    msg:
+      - "Redis StatefulSet deployed"
+      - "  Name: {{ redis_instance_name }}"
+      - "  Replicas: {{ redis_replicas }}"
+      - "  Image: {{ redis_image }}"
+      - "  Announce services created: {{ redis_replicas }}"
