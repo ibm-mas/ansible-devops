@@ -1,0 +1,34 @@
+---
+# Check permission mode and block upgrade if in essential mode
+# This is a backup check in case CLI check is bypassed
+
+- name: "Get Suite CR"
+  kubernetes.core.k8s_info:
+    api_version: core.mas.ibm.com/v1
+    kind: Suite
+    name: "{{ mas_instance_id }}"
+    namespace: "mas-{{ mas_instance_id }}-core"
+  register: suite_cr
+
+- name: "Extract permission mode"
+  set_fact:
+    permission_mode: "{{ suite_cr.resources[0].spec.settings.permissionMode | default('cluster') }}"
+
+- name: "Debug permission mode"
+  debug:
+    msg: "Permission Mode: {{ permission_mode }}"
+
+- name: "Block upgrade if in essential mode"
+  fail:
+    msg: |
+      ❌ Cannot upgrade MAS in 'essential' permission mode.
+      
+      The ibm-mas operator does not have sufficient permissions to access
+      application resources and perform upgrade pre-checks.
+      
+      To proceed with the upgrade:
+      1. Temporarily switch to 'cluster' or 'nonEssential' mode
+      2. Complete the upgrade
+      3. Switch back to 'essential' mode after the upgrade
+      
+  when: permission_mode == 'essential'
