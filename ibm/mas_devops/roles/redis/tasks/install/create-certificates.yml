@@ -1,0 +1,93 @@
+---
+# Create TLS Certificates for Redis
+# =============================================================================
+
+- name: "Create CA Issuer for Redis"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: cert-manager.io/v1
+      kind: Issuer
+      metadata:
+        name: "{{ redis_tls_cert_issuer }}"
+        namespace: "{{ redis_namespace }}"
+      spec:
+        selfSigned: {}
+
+- name: "Create CA Certificate"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: cert-manager.io/v1
+      kind: Certificate
+      metadata:
+        name: "{{ redis_instance_name }}-ca"
+        namespace: "{{ redis_namespace }}"
+      spec:
+        isCA: true
+        commonName: "{{ redis_instance_name }}-ca"
+        secretName: "{{ redis_instance_name }}-ca-secret"
+        duration: "{{ redis_tls_cert_duration }}"
+        renewBefore: "{{ redis_tls_cert_renew_before }}"
+        issuerRef:
+          name: "{{ redis_tls_cert_issuer }}"
+          kind: Issuer
+
+- name: "Wait for CA certificate to be ready"
+  kubernetes.core.k8s_info:
+    api_version: cert-manager.io/v1
+    kind: Certificate
+    name: "{{ redis_instance_name }}-ca"
+    namespace: "{{ redis_namespace }}"
+  register: ca_cert
+  until:
+    - ca_cert.resources | length > 0
+    - ca_cert.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True') | list | length > 0
+  retries: 30
+  delay: 10
+
+- name: "Create Redis Server Certificate"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: cert-manager.io/v1
+      kind: Certificate
+      metadata:
+        name: "{{ redis_instance_name }}-server"
+        namespace: "{{ redis_namespace }}"
+      spec:
+        commonName: "{{ redis_instance_name }}"
+        secretName: "{{ redis_instance_name }}-tls"
+        duration: "{{ redis_tls_cert_duration }}"
+        renewBefore: "{{ redis_tls_cert_renew_before }}"
+        dnsNames:
+          - "{{ redis_master_service }}"
+          - "{{ redis_master_service }}.{{ redis_namespace }}"
+          - "{{ redis_master_service }}.{{ redis_namespace }}.svc"
+          - "{{ redis_service_fqdn }}"
+          - "{{ redis_instance_name }}-0.{{ redis_master_service }}.{{ redis_namespace }}.svc.{{ cluster_domain }}"
+          - "{{ redis_instance_name }}-1.{{ redis_master_service }}.{{ redis_namespace }}.svc.{{ cluster_domain }}"
+          - "{{ redis_instance_name }}-2.{{ redis_master_service }}.{{ redis_namespace }}.svc.{{ cluster_domain }}"
+        issuerRef:
+          name: "{{ redis_tls_cert_issuer }}"
+          kind: Issuer
+
+- name: "Wait for server certificate to be ready"
+  kubernetes.core.k8s_info:
+    api_version: cert-manager.io/v1
+    kind: Certificate
+    name: "{{ redis_instance_name }}-server"
+    namespace: "{{ redis_namespace }}"
+  register: server_cert
+  until:
+    - server_cert.resources | length > 0
+    - server_cert.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True') | list | length > 0
+  retries: 30
+  delay: 10
+
+- name: "Display certificate status"
+  debug:
+    msg:
+      - "TLS certificates created successfully"
+      - "  CA Certificate: {{ redis_instance_name }}-ca"
+      - "  Server Certificate: {{ redis_instance_name }}-server"

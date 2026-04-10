@@ -2570,6 +2570,65 @@ Local path to the MongoDB index backup JSON file.
 ```
 ```
 
+### Backup (AWS DocumentDB)
+
+This example demonstrates how to backup an AWS DocumentDB cluster. The backup creates two files:
+- `mongodb-backup.tar.gz` - Compressed database backup
+- `collection-indexes.json` - Collection indexes for restore
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_provider: aws
+    mongodb_action: backup-database
+    docdb_cluster_name: massre-mas-cluster-8-mongo.cluster-cvwxreialrtj.us-east-1.docdb.amazonaws.com
+    docdb_master_username: masinst_inst04
+    docdb_master_password: "{{ lookup('env', 'DOCDB_MASTER_PASSWORD') }}"
+    docdb_port: 27017
+    aws_region: us-east-1
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
+**Command Line Example:**
+```bash
+ansible-playbook ibm/mas_devops/playbooks/docdb_backup_simple.yml \
+  -e "docdb_cluster_name=massre-mas-cluster-8-mongo.cluster-cvwxreialrtj.us-east-1.docdb.amazonaws.com" \
+  -e "docdb_master_username=masinst_inst04" \
+  -e "docdb_master_password=fn9Uh5wZ4KsZy4OZ0OXx" \
+  -e "aws_region=us-east-1" \
+  -e "mongodb_provider=aws" \
+  -e "mongodb_action=backup-database" \
+  -e "docdb_port=27017"
+```
+
+**Backup Output:**
+The backup process creates the following files in `/tmp/docdb-backup-<timestamp>/`:
+- `mongodb-backup.tar.gz` - Full database backup (compressed)
+- `collection-indexes.json` - Collection indexes metadata
+
+**Important Notes:**
+- The backup does NOT upload to S3 automatically 
+- Both files are created locally in the backup directory
+- Temporary files (logs, scripts, CA certificates) are automatically cleaned up after backup
+- The backup uses `mongodump` with TLS/SSL connection to DocumentDB
+- Collection indexes are extracted separately for easier restore operations
+
+**Required Variables:**
+- `docdb_cluster_name` - DocumentDB cluster endpoint
+- `docdb_master_username` - Admin username
+- `docdb_master_password` - Admin password (use environment variable or vault)
+- `aws_region` - AWS region where DocumentDB is deployed
+- `mongodb_provider` - Must be set to `aws`
+- `mongodb_action` - Must be set to `backup-database` or `backup`
+
+**Optional Variables:**
+- `docdb_port` - DocumentDB port (default: 27017)
+- `docdb_backup_dir` - Custom backup directory (default: `/tmp/docdb-backup-<timestamp>`)
+- `docdb_ca_cert_url` - Custom CA certificate URL (default: AWS global bundle)
+
+
 ### AWS DocumentDb destroy-data action
 
 ```yaml

@@ -1,0 +1,43 @@
+- name: Find SLS secret
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ tenant_cr.metadata.name }}----sls-secret"
+    namespace: "{{ api_namespace }}"
+  register: sls_secret
+  no_log: true
+
+- name: Find tenant API key secret
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ tenant_cr.metadata.name }}----apikey-secret"
+    namespace: "{{ api_namespace }}"
+  register: api_secret
+  no_log: true
+
+- name: Set target resources
+  ansible.builtin.set_fact:
+    sls_secret: "{{ sls_secret.resources[0] }}"
+    api_secret: "{{ api_secret.resources[0] }}"
+
+- name: "Delete SLS secret from namespace {{ api_namespace }}"
+  include_tasks: tenant/delete_resource.yml
+  vars:
+    resource_description: SLS secret
+    resource: "{{ sls_secret }}"
+    namespace: "{{ api_namespace }}"
+
+- name: "Delete API key secret from namespace {{ api_namespace }}"
+  include_tasks: tenant/delete_resource.yml
+  vars:
+    resource_description: API key secret
+    resource: "{{ api_secret }}"
+    namespace: "{{ api_namespace }}"
+
+- name: "Delete AIServiceTenant CR from namespace {{ api_namespace }}"
+  include_tasks: tenant/delete_resource.yml
+  vars:
+    resource_description: AIServiceTenant CR
+    resource: "{{ tenant_cr }}"
+    namespace: "{{ api_namespace }}"

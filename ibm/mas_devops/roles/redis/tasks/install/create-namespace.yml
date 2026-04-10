@@ -1,0 +1,41 @@
+---
+# Create Redis Namespace
+# =============================================================================
+
+- name: "Check if Redis namespace exists"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ redis_namespace }}"
+  register: namespace_info
+
+- name: "Create Redis namespace"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ redis_namespace }}"
+        labels:
+          mas.ibm.com/instanceId: "{{ mas_instance_id }}"
+          mas.ibm.com/component: "redis"
+  when: namespace_info.resources | length == 0
+
+- name: "Display namespace status"
+  debug:
+    msg: "Redis namespace '{{ redis_namespace }}' is ready"
+
+- name: "Create Redis service account"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: "{{ redis_service_account }}"
+        namespace: "{{ redis_namespace }}"
+        labels:
+          app: "{{ redis_instance_name }}"
+          mas.ibm.com/instanceId: "{{ mas_instance_id }}"
+          mas.ibm.com/component: "redis"
