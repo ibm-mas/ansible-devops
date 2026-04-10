@@ -100,33 +100,7 @@
       - "Templated workspace CR ................. {{ lookup('template', 'templates/workspace.yml.j2') }}"
 
 
-# 6. Setup Workspace Operator RBAC (Manage only)
-# -----------------------------------------------------------------------------
-- name: "Create ClusterRoleBinding for workspace operator (Manage only)"
-  when: mas_app_id == 'manage'
-  kubernetes.core.k8s:
-    state: present
-    definition:
-      apiVersion: rbac.authorization.k8s.io/v1
-      kind: ClusterRoleBinding
-      metadata:
-        name: "ibm-mas-manage-ws-operator-{{ mas_instance_id }}"
-        labels:
-          app.kubernetes.io/name: ibm-mas-manage
-          app.kubernetes.io/component: workspace-operator
-          app.kubernetes.io/managed-by: ibm-mas-manage
-          mas.ibm.com/instanceId: "{{ mas_instance_id }}"
-      subjects:
-      - kind: ServiceAccount
-        name: ibm-mas-manage-ws-operator
-        namespace: "{{ mas_app_namespace }}"
-      roleRef:
-        apiGroup: rbac.authorization.k8s.io
-        kind: ClusterRole
-        name: ibm-mas-manage-ibm-mas-manage-ws-operator
-
-
-# 7. Workspace configuration
+# 6. Workspace configuration
 # -----------------------------------------------------------------------------
 - name: Configure application in workspace
   kubernetes.core.k8s:
@@ -135,7 +109,7 @@
     template: "templates/workspace.yml.j2"
 
 
-# 8. Check if the application is ready
+# 7. Check if the application is ready
 # -----------------------------------------------------------------------------
 # Workspaces can only be configured when an application is in Ready state.
 #
@@ -149,7 +123,7 @@
     delay: 30
 
 
-# 9. Wait for application workspace to be ready
+# 8. Wait for application workspace to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for application workspace to be ready ({{ mas_app_cfg_delay }}s delay)"
   ibm.mas_devops.wait_for_app_ready:
@@ -160,7 +134,7 @@
     delay: "{{ mas_app_cfg_delay }}"
 
 
-# 10. Run Application Specific Post-configuration
+# 9. Run Application Specific Post-configuration
 # -----------------------------------------------------------------------------
 # Post-config specific application settings after workspace CR be successfully deployed
 - name: "Run application-specific post-configuration"
