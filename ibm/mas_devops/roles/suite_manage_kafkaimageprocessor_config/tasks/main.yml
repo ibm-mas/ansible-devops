@@ -15,6 +15,16 @@
   set_fact:
     kafkaimageprocessorAvailable: "{{ workspaceCR.resources[0].status.components.civil is defined and workspaceCR.resources[0].status.components.civil.enabled and workspaceCR.resources[0].status.components.civil.deploykafkaimageprocessor is defined }}"
 
+# Create ClusterRoleBinding for KafkaImageProcessor operator
+# This grants the operator permission to create RoleBindings in other namespaces (e.g., strimzi)
+# Must be done before the operator tries to reconcile
+- name: Create ClusterRoleBinding for KafkaImageProcessor operator cross-namespace access
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'templates/kafkaimageprocessor-clusterrolebinding.yml.j2') }}"
+  when:
+    - kafkaimageprocessorAvailable
+
 - name: Configure kafka image processor
   include_tasks: tasks/configure-kafkaimageprocessor.yml
   when:
