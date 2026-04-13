@@ -99,6 +99,31 @@
       - "JDBC Binding ........................... {{ mas_appws_bindings_jdbc | default('<undefined>', true) }}"
       - "Templated workspace CR ................. {{ lookup('template', 'templates/workspace.yml.j2') }}"
 
+# 6. Setup Workspace Operator RBAC (Manage only)
+# -----------------------------------------------------------------------------
+- name: "Create ClusterRoleBinding for workspace operator (Manage only)"
+  when: mas_app_id == 'manage'
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: "ibm-mas-manage-ws-operator-{{ mas_instance_id }}"
+        labels:
+          app.kubernetes.io/name: ibm-mas-manage
+          app.kubernetes.io/component: workspace-operator
+          app.kubernetes.io/managed-by: ibm-mas-manage
+          mas.ibm.com/instanceId: "{{ mas_instance_id }}"
+      subjects:
+      - kind: ServiceAccount
+        name: ibm-mas-manage-ws-operator
+        namespace: "{{ mas_app_namespace }}"
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: ibm-mas-manage-ibm-mas-manage-ws-operator
+
 
 # 6. Workspace configuration
 # -----------------------------------------------------------------------------
