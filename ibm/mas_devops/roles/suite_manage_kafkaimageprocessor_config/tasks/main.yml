@@ -15,9 +15,26 @@
   set_fact:
     kafkaimageprocessorAvailable: "{{ workspaceCR.resources[0].status.components.civil is defined and workspaceCR.resources[0].status.components.civil.enabled and workspaceCR.resources[0].status.components.civil.deploykafkaimageprocessor is defined }}"
 
+# Wait for KafkaImageProcessor operator ServiceAccount to be created
+# The ServiceAccount is created by OLM when the operator is deployed
+- name: Wait for KafkaImageProcessor operator ServiceAccount
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ServiceAccount
+    name: ibm-mas-manage-kafkaimageprocessor-operator
+    namespace: "{{ manage_namespace }}"
+  register: sa_result
+  retries: 30
+  delay: 10
+  until:
+    - sa_result.resources is defined
+    - sa_result.resources | length > 0
+  when:
+    - kafkaimageprocessorAvailable
+
 # Create ClusterRoleBinding for KafkaImageProcessor operator
 # This grants the operator permission to create RoleBindings in other namespaces (e.g., strimzi)
-# Must be done before the operator tries to reconcile
+# Must be done after ServiceAccount exists but before operator reconciles
 - name: Create ClusterRoleBinding for KafkaImageProcessor operator cross-namespace access
   kubernetes.core.k8s:
     state: present
