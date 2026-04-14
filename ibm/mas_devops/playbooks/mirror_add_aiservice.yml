@@ -6,6 +6,7 @@
     catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('@@MAS_LATEST_CATALOG@@', True) }}"
     mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default ('9.1.x', True) }}"
     mirror_mode: "{{ lookup('env', 'MIRROR_MODE') | default ('direct', True) }}"
+    aiservice_cases: "{{ ['ibm-aiservice'] if mas_channel.startswith('9.1.') else ['ibm-aiservice', 'ibm-aiservice-tenant'] }}"
 
   pre_tasks:
     - name: "Load Catalog Metadata"
@@ -17,17 +18,21 @@
       assert:
         that: mas_catalog_metadata.failed == false
 
-  roles:
-    # 1. IBM Maximo Facilities
-    # -------------------------------------------------------------------------
-    - role: ibm.mas_devops.mirror_case_prepare
-      when: mirror_mode != "from-filesystem"
+  tasks:
+    - name: Prepare CASE
+      include_role:
+        name: ibm.mas_devops.mirror_case_prepare
+      loop: "{{ aiservice_cases }}"
       vars:
-        case_name: ibm-aiservice
+        case_name: "{{ item }}"
         case_version: "{{ lookup('env', 'AISERVICE_VERSION') | default (mas_catalog_metadata.aiservice_version[mas_channel], True)  | replace('_', '.') }}"
         exclude_images: []
+      when: mirror_mode != "from-filesystem"
 
-    - role: ibm.mas_devops.mirror_images
+    - name: Mirror images
+      include_role:
+        name: ibm.mas_devops.mirror_images
+      loop: "{{ aiservice_cases }}"
       vars:
-        manifest_name: ibm-aiservice
+        manifest_name: "{{ item }}"
         manifest_version: "{{ lookup('env', 'AISERVICE_VERSION') | default (mas_catalog_metadata.aiservice_version[mas_channel], True)  | replace('_', '.') }}"
