@@ -29,7 +29,7 @@
 
 - name: Restart DB2 instance to enforce configuration
   shell: |
-    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc 'db2stop force && sleep 5 && db2start' db2inst1
+    oc exec -n {{db2_namespace}} {{db2_pod_name}} -c db2u -- bash -l -c 'db2stop force && sleep 5 && db2start'
   register: restart_result
   retries: 3
   delay: 30 # seconds
@@ -37,7 +37,7 @@
 
 - name: Verify DB2 instance is available after restart
   shell: |
-    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc 'db2gcf -s | grep Available' db2inst1
+    oc exec -n {{db2_namespace}} {{db2_pod_name}} -c db2u -- bash -l -c 'db2gcf -s | grep Available'
   register: verify_result
   retries: 10
   delay: 10 # seconds

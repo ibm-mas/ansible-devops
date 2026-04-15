@@ -26,7 +26,7 @@
 - name: "Creating LOGARCHMETH1 folder in {{ db2_pod_name }}"
   when: not db2_helm_operator_mode
   shell: |
-    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc "mkdir -p /mnt/bludata0/db2/archive_log/" db2inst1
+    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- bash -l -c "mkdir -p /mnt/bludata0/db2/archive_log/"
   register: creating_logarchmeth1_folder_output
 
 - fail: msg="Failed to create path for LOGARCHMETH1"
@@ -36,7 +36,7 @@
 
 - name: "Creating DB2_OBJECT_STORAGE_LOCAL_STAGING_PATH folder in {{ db2_pod_name }}"
   shell: |
-    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc "mkdir -p /mnt/backup/staging" db2inst1
+    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- bash -l -c "mkdir -p /mnt/backup/staging"
   register: creating_stagingpath_folder_output
 
 - fail: msg="Failed to create path for DB2_OBJECT_STORAGE_LOCAL_STAGING_PATH"
@@ -105,7 +105,7 @@
 - name: Run updatedbsettings to apply DB2 configuration (helm operator)
   when: db2_helm_operator_mode
   shell: |
-    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc '/tmp/updatedbsettings_{{ db2_config_version }}.sh 2>&1 | tee /tmp/updatedbsettings_{{ db2_config_version }}.log' db2inst1
+    oc exec -n {{db2_namespace}} {{db2_pod_name}} -c db2u -- bash -l -c '/tmp/updatedbsettings_{{ db2_config_version }}.sh 2>&1 | tee /tmp/updatedbsettings_{{ db2_config_version }}.log'
   register: updatedb_status
   ignore_errors: true
   retries: 3
@@ -138,7 +138,7 @@
 - name: Verify DB2 configuration is in effect (helm operator)
   when: db2_helm_operator_mode
   shell: |
-    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc 'db2 get db cfg for {{ db2_dbname }} | grep "(CHNGPGS_THRESH) = 40"' db2inst1
+    oc exec -n {{db2_namespace}} {{db2_pod_name}} -c db2u -- bash -l -c 'db2 get db cfg for {{ db2_dbname }} | grep "(CHNGPGS_THRESH) = 40"'
   register: verify_db2_config
   until: verify_db2_config.rc == 0
   retries: 5
