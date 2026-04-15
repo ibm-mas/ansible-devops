@@ -186,7 +186,7 @@
     entitledAuthStr: "{{ registry_user }}:{{ ibm_entitlement_key }}"
     entitledAuth: "{{ entitledAuthStr | b64encode }}"
     content:
-      - '{"auths":{"{{ registry }}/cp/cpd":{"username":"{{ registry_user }}","password":"{{ ibm_entitlement_key }}","email":"{{ registry_user }}","auth":"{{ entitledAuth }}"}'
+      - '{"auths":{"{{ registry }}/{{ db2_registry_repo }}":{"username":"{{ registry_user }}","password":"{{ ibm_entitlement_key }}","email":"{{ registry_user }}","auth":"{{ entitledAuth }}"}'
       - "}"
       - "}"
   set_fact:
@@ -237,17 +237,14 @@
         name: "{{ item.name }}"
         state: absent
       loop:
-        - { kind: "MutatingWebhookConfiguration", name: "release-name-db2-operator-mutating-webhook-configuration" }
-        - { kind: "ValidatingWebhookConfiguration", name: "release-name-db2-operator-validating-webhook-configuration" }
+        - { kind: "MutatingWebhookConfiguration", name: "db2-database-operator-mutating-webhook-configuration-{{ db2_namespace }}" }
+        - { kind: "ValidatingWebhookConfiguration", name: "db2-database-operator-validating-webhook-configuration-{{ db2_namespace }}" }
       ignore_errors: yes
 
     - name: "Install DB2 CRDs for helm-based operator"
       kubernetes.core.k8s:
         apply: yes
-        definition: "{{ lookup('file', 'templates/crds/' + item) }}"
-      loop:
-        - db2uinstance.yaml
-        - db2uengine.yaml
+        template: "templates/crds/db2uCRDs.yml.j2"
       register: crd_install_result
 
     - name: "Apply helm-based DB2 operator manifests"
@@ -260,7 +257,7 @@
       kubernetes.core.k8s_info:
         api_version: apps/v1
         kind: Deployment
-        name: "{{ db2_instance_name }}-db2-operator-controller-manager"
+        name: "db2-database-operator-controller-manager"
         namespace: "{{ db2_namespace }}"
       register: operator_deployment
       until:
