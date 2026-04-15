@@ -1,0 +1,135 @@
+---
+# Db2 License Patching Tasks
+# =============================================================================
+# This file handles patching Db2 instances with license information after upgrade.
+# Supports both Db2uCluster (deprecated) and Db2uInstance (current).
+# =============================================================================
+
+# 1. Check if license file is provided
+# -----------------------------------------------------------------------------
+- name: "Check if DB2 license file is provided"
+  ansible.builtin.debug:
+    msg: "DB2 license file path: {{ db2_license_file | default('Not provided', true) }}"
+
+# 2. Verify license file exists
+# -----------------------------------------------------------------------------
+- name: "Verify DB2 license file exists"
+  ansible.builtin.stat:
+    path: "{{ db2_license_file }}"
+  register: license_file_stat
+  when:
+    - db2_license_file is defined
+    - db2_license_file != ""
+
+- name: "Assert license file exists"
+  ansible.builtin.assert:
+    that:
+      - license_file_stat.stat.exists
+    fail_msg: "DB2 license file not found at path: {{ db2_license_file }}"
+  when:
+    - db2_license_file is defined
+    - db2_license_file != ""
+
+# 3. Read and encode license file
+# -----------------------------------------------------------------------------
+- name: "Read DB2 license file content"
+  ansible.builtin.slurp:
+    src: "{{ db2_license_file }}"
+  register: license_file_content
+  when:
+    - db2_license_file is defined
+    - db2_license_file != ""
+    - license_file_stat.stat.exists
+
+- name: "Set encoded license content"
+  ansible.builtin.set_fact:
+    db2_license_encoded: "{{ license_file_content.content }}"
+  when:
+    - db2_license_file is defined
+    - db2_license_file != ""
+    - license_file_content is defined
+
+# 4. Get list of Db2 instances to patch
+# -----------------------------------------------------------------------------
+- name: "Get {{ instanceKind }} instances list for license patching"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    kind: "{{ instanceKind }}"
+    namespace: "{{ db2_namespace }}"
+  register: db2_instances_for_license
+  when:
+    - db2_license_file is defined
+    - db2_license_file != ""
+    - db2_license_encoded is defined
+
+- name: "Debug {{ instanceKind }} instances for license patching"
+  ansible.builtin.debug:
+    msg:
+      - "Instance Kind ............................ {{ instanceKind }}"
+      - "Instances to patch ....................... {{ db2_instances_for_license.resources | map(attribute='metadata.name') | list }}"
+      - "Number of instances ...................... {{ db2_instances_for_license.resources | length }}"
+  when:
+    - db2_license_file is defined
+    - db2_license_file != ""
+    - db2_instances_for_license is defined
+
+# 5. Patch each instance with license
+# -----------------------------------------------------------------------------
+- name: "Patch {{ instanceKind }} {{ item.metadata.name }} with license"
+  kubernetes.core.k8s:
+    state: patched
+    api_version: db2u.databases.ibm.com/v1
+    kind: "{{ instanceKind }}"
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ db2_namespace }}"
+    definition:
+      spec:
+        license:
+          value: "{{ db2_license_encoded }}"
+  loop: "{{ db2_instances_for_license.resources }}"
+  when:
+    - db2_license_file is defined
+    - db2_license_file != ""
+    - db2_instances_for_license is defined
+    - db2_instances_for_license.resources | length > 0
+
+# 6. Wait for instances to reconcile after license patch
+# -----------------------------------------------------------------------------
+- name: "Wait for {{ instanceKind }} {{ item.metadata.name }} to reconcile after license patch (30s delay)"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ db2_namespace }}"
+    kind: "{{ instanceKind }}"
+  register: db2_instance_status
+  until:
+    - db2_instance_status.resources is defined
+    - db2_instance_status.resources | length > 0
+    - db2_instance_status.resources[0].status is defined
+    - db2_instance_status.resources[0].status.state is defined
+    - db2_instance_status.resources[0].status.state == "Ready"
+  retries: 10 # Approximately 5 minutes
+  delay: 30 # 30 seconds
+  loop: "{{ db2_instances_for_license.resources }}"
+  when:
+    - db2_license_file is defined
+    - db2_license_file != ""
+    - db2_instances_for_license is defined
+    - db2_instances_for_license.resources | length > 0
+
+- name: "License patching completed successfully"
+  ansible.builtin.debug:
+    msg: "All {{ instanceKind }} instances have been patched with the license and are ready"
+  when:
+    - db2_license_file is defined
+    - db2_license_file != ""
+    - db2_instances_for_license is defined
+    - db2_instances_for_license.resources | length > 0
+
+- name: "No license patching needed"
+  ansible.builtin.debug:
+    msg: "Skipping license patching - no DB2_LICENSE_FILE provided"
+  when:
+    - db2_license_file is not defined or db2_license_file == ""
+
+# Made with Bob
