@@ -158,6 +158,37 @@ Local directory path containing additional Kubernetes configuration files to app
 
 ### Advanced Configuration
 
+#### mas_permission_mode
+Specifies the RBAC (Role-Based Access Control) permission mode for MAS installation.
+
+- **Optional**
+- Environment Variable: `MAS_PERMISSION_MODE`
+- Default: `cluster`
+
+**Purpose**: Controls the scope of permissions granted to MAS operators and workloads. This determines whether MAS uses cluster-wide ClusterRoles, namespace-scoped Roles, or minimal essential permissions. This setting is critical for environments with strict security policies or multi-tenant clusters.
+
+**When to use**:
+- Use `cluster` (default) for standard installations with full cluster-wide permissions
+- Use `nonEssential` for installations in restricted environments where cluster-wide permissions are not allowed, using namespace-scoped roles instead
+- Use `essential` for highly restricted environments requiring only minimal permissions, with limited application lifecycle management capabilities
+- Consider your organization's security policies and cluster governance requirements when choosing
+
+**Valid values**: `cluster`, `nonEssential`, `essential`
+
+**Impact**:
+- `cluster`: Full functionality with ClusterRoles, supports all MAS features and application lifecycle management
+- `nonEssential`: Namespace-scoped permissions only, full functionality within namespace boundaries, no cluster-wide access
+- `essential`: Minimal permissions, limited application lifecycle management, suitable for highly restricted environments
+- Cannot be changed after installation without reinstalling
+- Affects RBAC resources applied during installation and operator behavior
+
+**Related variables**:
+- Affects which RBAC resources are applied from the pre-install catalog
+- Impacts MAS operator's ability to manage cluster-wide resources
+- Must align with cluster security policies and governance requirements
+
+**Note**: Choose carefully as this cannot be changed after installation.
+
 #### mas_annotations
 Comma-separated list of key=value annotations to apply to all MAS resources.
 

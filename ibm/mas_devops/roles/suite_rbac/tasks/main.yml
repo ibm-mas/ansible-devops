@@ -1,0 +1,49 @@
+---
+# suite_rbac/tasks/main.yml
+# Apply RBAC resources for ALL operators based on permission mode
+
+- name: "Skip suite_rbac for MAS versions below 9.2"
+  debug:
+    msg:
+      - "Skipping suite_rbac because cluster-role-based permission mode support applies only to MAS 9.2+"
+      - "MAS Channel: {{ mas_channel }}"
+      - "MAS RBAC Version: {{ mas_rbac_version }}"
+  when: mas_rbac_version is version('9.2', '<')
+
+- name: "Apply suite_rbac for MAS versions 9.2+"
+  when: mas_rbac_version is version('9.2', '>=')
+  block:
+    - name: "Validate required parameters"
+      assert:
+        that:
+          - mas_instance_id is defined and mas_instance_id != ""
+          - mas_permission_mode is defined and mas_permission_mode != ""
+          - mas_permission_mode in ['cluster', 'nonEssential', 'essential']
+          - mas_channel is defined and mas_channel != ""
+          - mas_rbac_version is defined and mas_rbac_version != ""
+        fail_msg: "Required parameters not set, invalid permission mode, or MAS channel/RBAC version missing"
+
+    - name: "Debug - RBAC Configuration"
+      debug:
+        msg:
+          - "MAS Instance ID: {{ mas_instance_id }}"
+          - "Permission Mode: {{ mas_permission_mode }}"
+          - "MAS Channel: {{ mas_channel }}"
+          - "MAS RBAC Version: {{ mas_rbac_version }}"
+          - "RBAC Directory: {{ rbac_files_dir }}"
+
+    - name: "Discover all available operators"
+      include_tasks: discover-operators.yml
+
+    - name: "Apply RBAC for each discovered operator"
+      include_tasks: apply-operator-rbac.yml
+      loop: "{{ discovered_operators }}"
+      loop_control:
+        loop_var: current_operator
+        label: "{{ current_operator }}"
+
+    - name: "RBAC application complete"
+      debug:
+        msg:
+          - "RBAC applied for permission mode: {{ mas_permission_mode }}"
+          - "Operators processed: {{ discovered_operators | join(', ') }}"

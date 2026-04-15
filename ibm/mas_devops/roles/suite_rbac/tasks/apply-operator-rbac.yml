@@ -1,0 +1,32 @@
+---
+# Apply RBAC for a specific operator based on permission mode
+
+- name: "Set RBAC path for {{ current_operator }}"
+  set_fact:
+    operator_rbac_path: "{{ rbac_files_dir }}/{{ mas_rbac_version }}/{{ current_operator }}/rbac"
+
+- name: "Check if RBAC path exists"
+  stat:
+    path: "{{ operator_rbac_path }}"
+  register: rbac_path_check
+
+- name: "Apply RBAC for {{ current_operator }}"
+  when: rbac_path_check.stat.exists
+  block:
+    - name: "Apply ClusterRoles (cluster mode)"
+      include_tasks: apply-operator-clusterroles.yml
+      when: mas_permission_mode == "cluster"
+
+    - name: "Apply non-essential Roles (nonEssential mode)"
+      include_tasks: apply-operator-namespace-roles.yml
+      when: mas_permission_mode == "nonEssential"
+
+    - name: "Essential mode - operators handle RBAC"
+      debug:
+        msg: "Essential mode: {{ current_operator }} operators will create essential roles"
+      when: mas_permission_mode == "essential"
+
+- name: "Skip {{ current_operator }} - RBAC path not found"
+  debug:
+    msg: "Skipping {{ current_operator }}: {{ operator_rbac_path }} does not exist"
+  when: not rbac_path_check.stat.exists
