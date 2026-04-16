@@ -1,0 +1,55 @@
+---
+# 1. Create Service Mesh Subscription
+# -----------------------------------------------------------------------------
+- name: "install : Create Service Mesh {{servicemesh_channel}} Subscription"
+  ibm.mas_devops.apply_subscription:
+    namespace: "openshift-operators"
+    package_name: servicemeshoperator3
+    package_channel: "{{servicemesh_channel}}"
+    catalog_source: redhat-operators
+    catalog_source_namespace: openshift-marketplace
+    starting_csv: "{{servicemesh_starting_csv}}"
+    install_plan_approval: Automatic
+  register: subscription
+
+
+# Create required namespaces
+# -----------------------------------------------------------------------------
+- name: "Create Service Mesh Namespaces"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates//namespaces.yml.j2"
+
+# 1. Create Service Mesh Control Plane
+# -----------------------------------------------------------------------------
+- name: "install : Apply Service Mesh Instance"
+  kubernetes.core.k8s:
+    template: "templates//istio.yml.j2"
+    wait: yes
+    wait_timeout: 120
+    wait_condition:
+      status: "True"
+      type: Ready
+
+# 1. Create Service Mesh CNI
+# -----------------------------------------------------------------------------
+- name: "install : Apply Service Mesh CNI"
+  kubernetes.core.k8s:
+    template: "templates//istio-cni.yml.j2"
+    wait: yes
+    wait_timeout: 120
+
+# 1. Create Service Mesh Ingress
+# -----------------------------------------------------------------------------  
+# - name: "install : Apply Service Mesh Ingress"
+#   kubernetes.core.k8s:
+#     template: "templates//istio-ingress.yml.j2"
+#     wait: yes
+#     wait_timeout: 120
+
+
+# 1. Create Kiali Subscription and Instance to visualize the service mesh topology
+# -----------------------------------------------------------------------------
+- name: "install Kiali"
+  when: install_kiali
+  include_tasks: tasks/install-kiali/main.yml

@@ -1,0 +1,50 @@
+---
+apiVersion: kiali.io/v1alpha1
+kind: Kiali
+metadata:
+  name: kiali
+  namespace: {{servicemesh_namespace}}
+spec:
+  auth:
+    strategy: openshift
+  deployment:
+    accessible_namespaces:
+      - '**'
+    remote_cluster_resources_only: false
+    image_digest: ''
+    image_pull_policy: IfNotPresent
+    cluster_wide_access: true
+    instance_name: kiali
+    secret_name: kiali
+    namespace: {{servicemesh_namespace}}
+    replicas: 1
+    view_only_mode: false
+  external_services:
+    custom_dashboards:
+      discovery_auto_threshold: 10
+      discovery_enabled: auto
+      enabled: true
+      is_core: false
+      namespace_label: namespace
+    istio:
+      istio_sidecar_annotation: sidecar.istio.io/status
+      istio_injection_annotation: sidecar.istio.io/inject
+      config_map_name: istio
+      istiod_polling_interval_seconds: 20
+      envoy_admin_local_port: 15000
+      istio_api_enabled: true
+      istiod_pod_monitoring_port: 15014
+      component_status:
+        enabled: false
+      istio_identity_domain: svc.cluster.local
+      istiod_deployment_name: istiod
+      validation_reconcile_interval: 1m
+      validation_change_detection_enabled: true
+      root_namespace: istio-system
+    prometheus:
+      cache_duration: 7
+      cache_enabled: true
+      cache_expiration: 300
+      is_core: true
+      url: 'http://prometheus.prometheus:9090'
+  version: default
