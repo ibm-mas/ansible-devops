@@ -1,0 +1,25 @@
+---
+# Apply cross-namespace scoped essential Roles
+
+- name: "Find cross-namespace scoped essential Role files"
+  find:
+    paths: "{{ cross_namespace_scoped_essential_roles_dir }}/{{ mas_rbac_version }}/cross-namespace-scoped-essential-roles"
+    patterns: "*.yaml,*.yml"
+  register: cross_namespace_scoped_essential_role_files
+  failed_when: false
+
+- name: "Apply cross-namespace scoped essential Roles"
+  when: cross_namespace_scoped_essential_role_files.matched > 0
+  block:
+    - name: "Apply each cross-namespace scoped essential Role"
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', item.path) }}"
+      loop: "{{ cross_namespace_scoped_essential_role_files.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+
+    - name: "Cross-namespace scoped essential Roles applied"
+      debug:
+        msg: "Applied {{ cross_namespace_scoped_essential_role_files.matched }} cross-namespace scoped essential Role file(s)"
+
