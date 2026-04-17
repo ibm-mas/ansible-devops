@@ -1,30 +1,28 @@
 ---
-# Apply RBAC for a specific operator based on permission mode
+# Apply all CLI-managed RBAC for a specific operator
 
 - name: "Set RBAC path for {{ current_operator }}"
   set_fact:
-    operator_rbac_path: "{{ rbac_files_dir }}/{{ mas_rbac_version }}/{{ current_operator }}/rbac"
+    operator_rbac_path: "{{ rbac_files_dir }}/{{ current_operator }}/rbac/{{ mas_rbac_version }}"
 
 - name: "Check if RBAC path exists"
   stat:
     path: "{{ operator_rbac_path }}"
   register: rbac_path_check
 
-- name: "Apply RBAC for {{ current_operator }}"
+- name: "Apply CLI-managed RBAC for {{ current_operator }}"
   when: rbac_path_check.stat.exists
   block:
+    - name: "Apply namespace-scoped essential external Roles"
+      include_tasks: apply-operator-namespace-scoped-essential-external-roles.yml
+
     - name: "Apply ClusterRoles (cluster mode)"
       include_tasks: apply-operator-clusterroles.yml
       when: mas_permission_mode == "cluster"
 
-    - name: "Apply non-essential Roles (nonEssential mode)"
+    - name: "Apply namespace-scoped non-essential Roles (nonEssential mode)"
       include_tasks: apply-operator-namespace-roles.yml
       when: mas_permission_mode == "nonEssential"
-
-    - name: "Essential mode - operators handle RBAC"
-      debug:
-        msg: "Essential mode: {{ current_operator }} operators will create essential roles"
-      when: mas_permission_mode == "essential"
 
 - name: "Skip {{ current_operator }} - RBAC path not found"
   debug:
