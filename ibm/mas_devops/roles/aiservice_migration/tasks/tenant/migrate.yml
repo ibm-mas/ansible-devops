@@ -15,11 +15,24 @@
     source_namespace: "{{ api_namespace }}"
     target_namespace: "{{ tenant_cr.metadata.name }}"
 
+- name: Get the ibm-aiservice subscription
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ api_namespace }}"
+    name: ibm-aiservice
+  register: ais_op_sub
+  no_log: true
+
+- name: Set ibm-aiservice-channel subscription channel
+  ansible.builtin.set_fact:
+    sub_channel: "{{ catalog_channel if (catalog_channel | length > 0) else ais_op_sub.resources[0].spec.channel }}"
+
 - name: "Create ibm-aiservice-tenant subscription in namespace {{ tenant_cr.metadata.name }}"
   ibm.mas_devops.apply_subscription:
     namespace: "{{ tenant_cr.metadata.name }}"
     package_name: ibm-aiservice-tenant
-    package_channel: "{{ catalog_channel }}"
+    package_channel: "{{ sub_channel }}"
     catalog_source: "{{ catalog_source }}"
   register: subscription
 
