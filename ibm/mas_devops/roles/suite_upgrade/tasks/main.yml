@@ -224,7 +224,43 @@
       api_version: apps.mas.ibm.com/v1
 
 
-# 8. Upgrade
+# 8. Recreate RBAC before upgrade (for 9.2+ RBAC channels)
+# -----------------------------------------------------------------------------
+# When upgrading to 9.2.x-rbac or later, ClusterRoles need to be created before the upgrade
+# The operator needs these permissions to perform pre-checks during the upgrade
+- name: "Recreate RBAC before upgrade for MAS 9.2+ with RBAC channel"
+  when:
+    - mas_channel is defined and mas_channel != ""
+    - suite_sub_info is defined and suite_sub_info.resources[0].spec.channel != mas_channel
+    - not mas_upgrade_dryrun
+    - mas_channel is match('9\\.[2-9]\\..*-rbac') or mas_channel is match('9\\.[2-9]\\.x-rbac')
+  block:
+    - name: "Get current permission mode from Suite status"
+      set_fact:
+        current_permission_mode: "{{ suite_cr.resources[0].status.settings.permissionMode | default('cluster') }}"
+
+    - name: "Derive MAS RBAC version from target channel"
+      set_fact:
+        upgrade_mas_rbac_version: "{{ mas_channel | regex_replace('^([0-9]+\\.[0-9]+).*', '\\1') }}"
+
+    - name: "Debug RBAC recreation before upgrade"
+      debug:
+        msg:
+          - "Creating RBAC before upgrade to ensure operator has required permissions"
+          - "Target MAS Channel: {{ mas_channel }}"
+          - "Current Channel: {{ suite_sub_info.resources[0].spec.channel }}"
+          - "Permission Mode: {{ current_permission_mode }}"
+          - "MAS Instance ID: {{ mas_instance_id }}"
+          - "Derived RBAC Version: {{ upgrade_mas_rbac_version }}"
+
+    - name: "Apply RBAC using suite_rbac role"
+      include_role:
+        name: ibm.mas_devops.suite_rbac
+      vars:
+        mas_permission_mode: "{{ current_permission_mode }}"
+        mas_rbac_version: "{{ upgrade_mas_rbac_version }}"
+
+# 9. Upgrade
 # -----------------------------------------------------------------------------
 - name: "Execute Channel Upgrade"
   when:
