@@ -14,7 +14,7 @@
 - name: "Create additional_trusted_ca.json from a template"
   ansible.builtin.template:
     src: templates/additional_trusted_ca.json.j2
-    dest: /tmp/additional_trusted_ca.json
+    dest: "{{ ocp_idms_working_dir }}/additional_trusted_ca.json"
     mode: preserve
 
 # 3. Check for existing additionalTrustedCA in openshift-config
@@ -57,7 +57,7 @@
 - name: "Patch cluster config with additional_trusted_ca.json"
   ansible.builtin.shell: |
     rosa edit cluster \
-      --registry-config-additional-trusted-ca /tmp/additional_trusted_ca.json \
+      --registry-config-additional-trusted-ca "{{ ocp_idms_working_dir }}"/additional_trusted_ca.json \
       --cluster="{{ rosa_hcp_cluster_name }}" \
       -y
 
@@ -87,5 +87,5 @@
 
 - name: "Delete local copy of additional_trusted_ca.json"
   ansible.builtin.file:
-    path: /tmp/additional_trusted_ca.json
+    path: "{{ ocp_idms_working_dir }}/additional_trusted_ca.json"
     state: absent

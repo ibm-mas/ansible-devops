@@ -5,13 +5,13 @@
 - name: "Create {{product_family}} - {{ template_file[:-3] }} from template"
   ansible.builtin.template:
     src: "templates/idms/{{product_family}}/{{ template_file }}"
-    dest: "/tmp/{{ template_file[:-3] }}" # Remove '.j2' from template file extension
+    dest: "{{ ocp_idms_working_dir }}/{{ template_file[:-3] }}" # Remove '.j2' from template file extension
     mode: preserve
 
 # slurp encodes src file in base64 hence we need to decode it later
 - name: "Get content of template file"
   ansible.builtin.slurp:
-    src: "/tmp/{{ template_file[:-3] }}"
+    src: "{{ ocp_idms_working_dir }}/{{ template_file[:-3] }}"
   register: idms_template
 
 - name: "Interpret template file content as yaml"
@@ -32,5 +32,5 @@
 # -----------------------------------------------------------------------------
 - name: "Delete the IDMS template"
   ansible.builtin.file:
-    path: "/tmp/{{ template_file[:-3] }}"
+    path: "{{ ocp_idms_working_dir }}/{{ template_file[:-3] }}"
     state: absent
