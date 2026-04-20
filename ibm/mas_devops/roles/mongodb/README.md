@@ -131,7 +131,7 @@ Specifies which operation to perform on the MongoDB instance.
 - **community**: `install`, `uninstall`, `backup`, `backup-database`, `restore`, `restore-database`
 - **aws**: `install`, `uninstall`, `docdb_secret_rotate`, `destroy-data`
 - **ibm**: `install`, `uninstall`, `backup`, `restore`, `create-mongo-service-credentials`
-- **atlas**: `install`, `uninstall`, `restore`
+- **atlas**: `install`, `uninstall`, `restore`, `restore-database`
 
 **Impact**: The action determines what the role will do. Destructive actions like `uninstall` and `destroy-data` will permanently delete data. Backup/restore actions require additional variables to be set.
 
@@ -1964,7 +1964,7 @@ MongoDB Atlas project ID where the cluster will be created.
 
 **Purpose**: Identifies the Atlas project (organization) that will contain the MongoDB cluster. All Atlas resources are organized under projects.
 
-**When to use**: Always required for Atlas deployments. Obtain from Atlas console under Project Settings.
+**When to use**: Always required for Atlas deployments (except restore-database). Obtain from Atlas console under Project Settings.
 
 **Valid values**: 24-character hexadecimal string (e.g., `507f1f77bcf86cd799439011`)
 
@@ -1979,7 +1979,7 @@ MongoDB Atlas API public key for authentication.
 
 **Purpose**: Public component of Atlas API key pair used for programmatic access to Atlas API.
 
-**When to use**: Required for all Atlas operations unless credentials are stored in AWS Secrets Manager.
+**When to use**: Required for all Atlas operations (except restore-database) unless credentials are stored in AWS Secrets Manager.
 
 **Valid values**: Atlas API public key string
 
@@ -1998,7 +1998,7 @@ MongoDB Atlas API private key for authentication.
 
 **Purpose**: Private component of Atlas API key pair used for programmatic access to Atlas API.
 
-**When to use**: Required for all Atlas operations unless credentials are stored in AWS Secrets Manager.
+**When to use**: Required for all Atlas operations (except restore-database) unless credentials are stored in AWS Secrets Manager.
 
 **Valid values**: Atlas API private key string
 
@@ -2367,82 +2367,22 @@ AWS subnet IDs for auto-discovering route tables.
 
 **Related variables**: Alternative to `atlas_aws_route_table_ids` (manual specification).
 
-#### atlas_s3_bucket_name
-AWS S3 bucket name containing MongoDB backup files for restore.
+### Important Note: Atlas Restore Functionality
 
-- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
-- Environment Variable: `ATLAS_S3_BUCKET_NAME`
-- Default Value: None
+**Why Manual Restore Options Are Provided:**
 
-**Purpose**: Specifies the S3 bucket where MongoDB backup files are stored.
+MongoDB Atlas provides a fully managed backup service with automated backups, point-in-time recovery, and easy restore capabilities through the Atlas console and API. **For normal backup and restore operations, you should use the Atlas managed backup service.**
 
-**When to use**: Required when restoring MongoDB data from S3 backup to Atlas cluster.
+However, this role includes manual restore functionality for **data migration from AWS DocumentDB scenarios only**.
 
-**Valid values**: Valid AWS S3 bucket name
-
-**Impact**: The role will download backup files from this S3 bucket during restore operation.
-
-**Related variables**: Used with `atlas_s3_backup_prefix`, `atlas_backup_file_name`, and `atlas_index_backup_file_name`.
-
-#### atlas_s3_backup_prefix
-S3 prefix (folder path) where backup files are located.
-
-- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
-- Environment Variable: `ATLAS_S3_BACKUP_PREFIX`
-- Default Value: None
-
-**Purpose**: Specifies the S3 prefix/folder path containing the backup files.
-
-**When to use**: Required when restoring MongoDB data from S3 backup to Atlas cluster.
-
-**Valid values**: Valid S3 prefix path (e.g., `backups/mongodb/prod`)
-
-**Impact**: Combined with bucket name to locate backup files in S3.
-
-**Related variables**: Used with `atlas_s3_bucket_name` to construct full S3 path.
-
-#### atlas_backup_file_name
-Name of the MongoDB backup archive file (without .tar.gz extension).
-
-- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
-- Environment Variable: `ATLAS_BACKUP_FILE_NAME`
-- Default Value: None
-
-**Purpose**: Specifies the backup archive filename containing MongoDB data dumps.
-
-**When to use**: Required when restoring MongoDB data from S3 backup to Atlas cluster.
-
-**Valid values**: Backup filename without extension (e.g., `mongodb-backup-20240621`)
-
-**Impact**: The role will download `{filename}.tar.gz` from S3 and extract it for restore.
-
-**Related variables**: Used with `atlas_s3_bucket_name` and `atlas_s3_backup_prefix`.
-
-**Note**: The actual file in S3 should have `.tar.gz` extension, but provide the name without it.
-
-#### atlas_index_backup_file_name
-Name of the MongoDB index backup JSON file.
-
-- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
-- Environment Variable: `ATLAS_INDEX_BACKUP_FILE_NAME`
-- Default Value: None
-
-**Purpose**: Specifies the JSON file containing MongoDB index definitions to restore.
-
-**When to use**: Required when restoring MongoDB data from S3 backup to Atlas cluster.
-
-**Valid values**: JSON filename (e.g., `mongodb-indexes-20240621.json`)
-
-**Impact**: The role will download this file from S3 and recreate indexes after data restore.
-
-**Related variables**: Used with `atlas_s3_bucket_name` and `atlas_s3_backup_prefix`.
-
-**Note**: File must be valid JSON containing index definitions for each database and collection.
+**Recommendation**:
+- **For production backup/restore**: Use Atlas managed backup service (enabled by default with `atlas_backup_enabled: true`)
+- **For data migration**: Use the manual restore-database options provided here
 
 #### atlas_mongodb_host
 MongoDB Atlas cluster hostname for restore connection.
 
-- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore|restore-database`
 - Environment Variable: `ATLAS_MONGODB_HOST`
 - Default Value: None
 
@@ -2461,7 +2401,7 @@ MongoDB Atlas cluster hostname for restore connection.
 #### atlas_mongodb_username
 MongoDB database username for restore connection.
 
-- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore|restore-database`
 - Environment Variable: `ATLAS_MONGODB_USERNAME`
 - Default Value: None
 
@@ -2480,7 +2420,7 @@ MongoDB database username for restore connection.
 #### atlas_mongodb_password
 MongoDB database password for restore connection.
 
-- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore`
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore|restore-database`
 - Environment Variable: `ATLAS_MONGODB_PASSWORD`
 - Default Value: None
 
@@ -2495,6 +2435,45 @@ MongoDB database password for restore connection.
 **Related variables**: Used with `atlas_mongodb_host` and `atlas_mongodb_username`.
 
 **Note**: Store securely. Never commit to version control.
+
+#### atlas_backup_archive_path
+Local path to the MongoDB backup archive file (.tar.gz).
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore|restore-database`
+- Environment Variable: `ATLAS_BACKUP_ARCHIVE_PATH`
+- Default Value: None
+
+**Purpose**: Specifies the local filesystem path to the backup archive containing MongoDB data dumps.
+
+**When to use**: Required when restoring MongoDB data from local backup files to Atlas cluster (typically for data migration scenarios).
+
+**Valid values**: Valid local filesystem path to a .tar.gz file (e.g., `/path/to/mongodb-backup-20240621.tar.gz`)
+
+**Impact**: The role will extract this archive and restore the data to the Atlas cluster.
+
+**Related variables**: Used with `atlas_index_file_path`, `atlas_mongodb_host`, `atlas_mongodb_username`, and `atlas_mongodb_password`.
+
+**Note**: This is for the `restore-database` action which uses local files, not the `restore` action which downloads from S3.
+
+#### atlas_index_file_path
+Local path to the MongoDB index backup JSON file.
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore|restore-database`
+- Environment Variable: `ATLAS_INDEX_FILE_PATH`
+- Default Value: None
+
+**Purpose**: Specifies the local filesystem path to the JSON file containing MongoDB index definitions.
+
+**When to use**: Required when restoring MongoDB data from local backup files to Atlas cluster (typically for data migration scenarios).
+
+**Valid values**: Valid local filesystem path to a JSON file (e.g., `/path/to/mongodb-indexes-20240621.json`)
+
+**Impact**: The role will read this file and recreate indexes after data restore.
+
+**Related variables**: Used with `atlas_backup_archive_path` for the restore-database operation.
+
+**Note**: File must be valid JSON containing index definitions for each database and collection. This is for the `restore-database` action which uses local files, not the `restore` action which downloads from S3.
+
 
 
 
@@ -2580,17 +2559,75 @@ MongoDB database password for restore connection.
   any_errors_fatal: true
   vars:
     mongodb_provider: atlas
-    mongodb_action: restore
-    atlas_s3_bucket_name: my-backup-bucket
-    atlas_s3_backup_prefix: mongodb-backups/prod
-    atlas_backup_file_name: mongodb-backup-20240621
-    atlas_index_backup_file_name: mongodb-indexes-20240621.json
+    mongodb_action: restore-database
+    atlas_backup_archive_path: /path/to/mongodb-backup-20240621.tar.gz
+    atlas_index_file_path: /path/to/mongodb-indexes-20240621.json
     atlas_mongodb_host: cluster0.abc123.mongodb.net
     atlas_mongodb_username: admin
     atlas_mongodb_password: "{{ lookup('env', 'ATLAS_DB_PASSWORD') }}"
   roles:
     - ibm.mas_devops.mongodb
 ```
+```
+
+### Backup (AWS DocumentDB)
+
+This example demonstrates how to backup an AWS DocumentDB cluster. The backup creates two files:
+- `mongodb-backup.tar.gz` - Compressed database backup
+- `collection-indexes.json` - Collection indexes for restore
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_provider: aws
+    mongodb_action: backup-database
+    docdb_cluster_name: massre-mas-cluster-8-mongo.cluster-cvwxreialrtj.us-east-1.docdb.amazonaws.com
+    docdb_master_username: masinst_inst04
+    docdb_master_password: "{{ lookup('env', 'DOCDB_MASTER_PASSWORD') }}"
+    docdb_port: 27017
+    aws_region: us-east-1
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
+**Command Line Example:**
+```bash
+ansible-playbook ibm/mas_devops/playbooks/docdb_backup_simple.yml \
+  -e "docdb_cluster_name=massre-mas-cluster-8-mongo.cluster-cvwxreialrtj.us-east-1.docdb.amazonaws.com" \
+  -e "docdb_master_username=masinst_inst04" \
+  -e "docdb_master_password=fn9Uh5wZ4KsZy4OZ0OXx" \
+  -e "aws_region=us-east-1" \
+  -e "mongodb_provider=aws" \
+  -e "mongodb_action=backup-database" \
+  -e "docdb_port=27017"
+```
+
+**Backup Output:**
+The backup process creates the following files in `/tmp/docdb-backup-<timestamp>/`:
+- `mongodb-backup.tar.gz` - Full database backup (compressed)
+- `collection-indexes.json` - Collection indexes metadata
+
+**Important Notes:**
+- The backup does NOT upload to S3 automatically 
+- Both files are created locally in the backup directory
+- Temporary files (logs, scripts, CA certificates) are automatically cleaned up after backup
+- The backup uses `mongodump` with TLS/SSL connection to DocumentDB
+- Collection indexes are extracted separately for easier restore operations
+
+**Required Variables:**
+- `docdb_cluster_name` - DocumentDB cluster endpoint
+- `docdb_master_username` - Admin username
+- `docdb_master_password` - Admin password (use environment variable or vault)
+- `aws_region` - AWS region where DocumentDB is deployed
+- `mongodb_provider` - Must be set to `aws`
+- `mongodb_action` - Must be set to `backup-database` or `backup`
+
+**Optional Variables:**
+- `docdb_port` - DocumentDB port (default: 27017)
+- `docdb_backup_dir` - Custom backup directory (default: `/tmp/docdb-backup-<timestamp>`)
+- `docdb_ca_cert_url` - Custom CA certificate URL (default: AWS global bundle)
+
 
 ### AWS DocumentDb destroy-data action
 

@@ -1,0 +1,120 @@
+---
+
+- name: Get the AI Service operator deployment
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    namespace: "{{ api_namespace }}"
+    name: ibm-aiservice-operator
+  register: ais_op_deployment
+  no_log: true
+
+- name: Check if deployment requires namespace-scoped tenant operator
+  ansible.builtin.set_fact:
+    requires_namespaced_tenant_operator: >-
+      {{ ((ais_op_deployment.resources[0].spec.template.metadata.labels | default({})).get('aiservice.ibm.com/namespace-scoped-tenant-operator', 'false') == 'true') | bool }}
+
+- name: Display label check result
+  ansible.builtin.debug:
+    msg: "Deployment has namespace-scoped tenant operator label? ......................... {{ requires_namespaced_tenant_operator }}"
+
+- name: Get the cluster-scoped tenant operator deployment
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    namespace: "{{ api_namespace }}"
+    name: "{{ instance_id }}-entitymgr-tenant"
+  register: tenant_op_deployment
+  no_log: true
+
+- name: Check for existence of cluster-scoped tenant operator
+  ansible.builtin.set_fact:
+    is_cluster_op_deployed: "{{ (tenant_op_deployment.resources | length > 0) | bool }}"
+
+- name: Display operator existence check result
+  ansible.builtin.debug:
+    msg: "Is cluster-scoped tenant operator deployed? ......................... {{ is_cluster_op_deployed }}"
+
+- name: Check if migration is needed
+  ansible.builtin.set_fact:
+    is_migration_needed: "{{ (requires_namespaced_tenant_operator and is_cluster_op_deployed) | bool }}"
+
+- name: Display migration check result
+  ansible.builtin.debug:
+    msg: "AI Service tenant operator migration required? ............. {{ is_migration_needed }}"
+
+- name: Perform migration
+  when: is_migration_needed and not perform_check_only
+  block:
+    # Release 9.2.x introduces an architectural change whereby each tenant namespace
+    # has a dedicated "ibm-aiservice-tenant" operator. We must migrate the environment
+    # to support this change:
+    # (1) install the operator to each tenant namespace
+    # (2) move resources from the main namespace into the tenant namespace
+    - name: "Find existing AIServiceTenant CRs in namespace {{ api_namespace }}"
+      kubernetes.core.k8s_info:
+        api_version: aiservice.ibm.com/v1
+        kind: AIServiceTenant
+        namespace: "{{ api_namespace }}"
+      register: search_result
+      no_log: true
+
+    - name: Set target resources
+      ansible.builtin.set_fact:
+        tenant_crs: "{{ search_result.resources }}"
+
+    - name: Migration info
+      ansible.builtin.debug:
+        msg:
+          - "AI Service namespace ............. {{ api_namespace }}"
+          - "Number of tenants to migrate ............. {{ tenant_crs | length }}"
+
+    - name: Migrate tenant
+      include_tasks: tenant/migrate.yml
+      loop: "{{ tenant_crs }}"
+      loop_control:
+        loop_var: tenant_cr
+
+    - name: "Delete tenant operator deployment from namespace {{ api_namespace }}"
+      kubernetes.core.k8s:
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ api_namespace }}"
+        name: "{{ instance_id }}-entitymgr-tenant"
+        state: absent
+
+    - name: "Delete tenant operator secret from namespace {{ api_namespace }}"
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Secret
+        namespace: "{{ api_namespace }}"
+        name: provision-tenant----apikey-secret
+        state: absent
+
+    - name: "Delete tenant operator configmap from namespace {{ api_namespace }}"
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: ConfigMap
+        namespace: "{{ api_namespace }}"
+        name: "{{ instance_id }}-entitymgr-tenant-reconcile"
+        state: absent
+
+    - name: "Verify deployment {{ instance_id }}-entitymgr-tenant is deleted"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ api_namespace }}"
+        name: "{{ instance_id }}-entitymgr-tenant"
+      register: deployment_check
+      no_log: true
+
+    - name: "Fail if deployment still exists"
+      ansible.builtin.fail:
+        msg: "Deployment {{ instance_id }}-entitymgr-tenant still exists in namespace {{ api_namespace }}. Cannot complete migration!"
+      when: deployment_check.resources | length > 0
+
+    - name: Clean up tenant
+      include_tasks: tenant/clean.yml
+      loop: "{{ tenant_crs }}"
+      loop_control:
+        loop_var: tenant_cr

@@ -1,0 +1,83 @@
+#!/bin/bash
+# AWS DocumentDB Index Extraction Script
+# Note: Not using 'set -e' to allow partial extraction
+
+# Variables
+MONGODB_USER="{{ mongodb_admin_user }}"
+MONGODB_PASSWORD="{{ mongodb_admin_password }}"
+MONGODB_HOST="{{ mongodb_host }}"
+BACKUP_DIR="{{ docdb_backup_dir }}"
+CA_CERT="{{ docdb_ca_cert_path }}"
+INDEX_FILE="$BACKUP_DIR/collection-indexes.json"
+
+echo "=========================================="
+echo "Extracting Collection Indexes"
+echo "=========================================="
+
+# Get databases
+databases=$(mongosh --quiet \
+    -u "$MONGODB_USER" \
+    -p "$MONGODB_PASSWORD" \
+    --host "$MONGODB_HOST" \
+    --tlsCAFile "$CA_CERT" \
+    --authenticationDatabase admin \
+    --tls \
+    --eval "db.adminCommand('listDatabases').databases.map(function(d) { return d.name; }).join(' ')")
+
+# Start JSON
+echo "{" > "$INDEX_FILE"
+first_db=true
+
+for db in $databases; do
+    if [[ "$db" == "admin" ]] || [[ "$db" == "local" ]] || [[ "$db" == "config" ]]; then
+        continue
+    fi
+    
+    echo "Extracting indexes for: $db"
+    
+    if [ "$first_db" = false ]; then
+        echo "," >> "$INDEX_FILE"
+    fi
+    first_db=false
+    
+    echo "  \"$db\": {" >> "$INDEX_FILE"
+    
+    # Get collections
+    collections=$(mongosh --quiet \
+        -u "$MONGODB_USER" \
+        -p "$MONGODB_PASSWORD" \
+        --host "$MONGODB_HOST" \
+        --tlsCAFile "$CA_CERT" \
+        --authenticationDatabase admin \
+        --tls \
+        --eval "db.getSiblingDB('$db').getCollectionNames().join(' ')")
+    
+    first_coll=true
+    for coll in $collections; do
+        if [ "$first_coll" = false ]; then
+            echo "," >> "$INDEX_FILE"
+        fi
+        first_coll=false
+        
+        echo "  → $db.$coll"
+        echo "    \"$coll\": " >> "$INDEX_FILE"
+        
+        mongosh --quiet \
+            -u "$MONGODB_USER" \
+            -p "$MONGODB_PASSWORD" \
+            --host "$MONGODB_HOST" \
+            --tlsCAFile "$CA_CERT" \
+            --authenticationDatabase admin \
+            --tls \
+            --eval "JSON.stringify(db.getSiblingDB('$db').getCollection('$coll').getIndexes(), null, 2)" >> "$INDEX_FILE"
+    done
+    
+    echo "" >> "$INDEX_FILE"
+    echo "  }" >> "$INDEX_FILE"
+done
+
+echo "}" >> "$INDEX_FILE"
+
+echo "=========================================="
+echo "✓ Indexes saved to: $INDEX_FILE"
+echo "=========================================="
