@@ -32,18 +32,18 @@
           - "MAS RBAC Version: {{ mas_rbac_version }}"
           - "RBAC Directory: {{ rbac_files_dir }}"
 
-    - name: "Discover all available operators"
+    - name: "Discover all available operator RBAC entries"
       include_tasks: discover-operators.yml
 
-    - name: "Apply RBAC for each discovered operator"
+    - name: "Apply RBAC for each discovered operator RBAC entry"
       include_tasks: apply-operator-rbac.yml
-      loop: "{{ discovered_operators }}"
+      loop: "{{ discovered_operator_entries }}"
       loop_control:
-        loop_var: current_operator
-        label: "{{ current_operator }}"
+        loop_var: current_operator_entry
+        label: "{{ current_operator_entry.operator_source }}/{{ current_operator_entry.operator_name }}"
 
     - name: "RBAC application complete"
       debug:
         msg:
           - "RBAC applied for permission mode: {{ mas_permission_mode }}"
-          - "Operators processed: {{ discovered_operators | join(', ') }}"
+          - "Operator RBAC entries processed: {{ discovered_operator_entries | map(attribute='operator_source') | zip(discovered_operator_entries | map(attribute='operator_name')) | map('join', '/') | join(', ') }}"
