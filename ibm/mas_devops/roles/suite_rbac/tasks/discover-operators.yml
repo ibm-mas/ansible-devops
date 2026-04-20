@@ -1,43 +1,59 @@
 ---
-# Discover all available operators in the RBAC directory for the specified MAS version
-# This allows us to apply RBAC for all operators without knowing which apps will be installed
+# Discover all available operator RBAC entries in the CLI image structure:
+# maximo-operator-catalog/operators/<operator>/rbac/<mas_version>/*.yml
+# openshift-platform/operators/<operator>/rbac/<mas_version>/*.yml
 
-- name: "Set versioned RBAC directory path"
+- name: "Set RBAC root path"
   set_fact:
-    versioned_rbac_dir: "{{ rbac_files_dir }}/{{ mas_rbac_version }}"
+    rbac_root_dir: "{{ rbac_files_dir }}"
 
-- name: "Check if versioned RBAC directory exists"
+- name: "Check if RBAC root exists"
   stat:
-    path: "{{ versioned_rbac_dir }}"
-  register: versioned_dir_check
+    path: "{{ rbac_root_dir }}"
+  register: rbac_root_check
 
-- name: "Fail if versioned RBAC directory not found"
+- name: "Fail if RBAC root not found"
   fail:
-    msg: "RBAC directory not found at {{ versioned_rbac_dir }}. Ensure pre-install RBAC files for MAS {{ mas_rbac_version }} are included in CLI image."
-  when: not versioned_dir_check.stat.exists
+    msg: "RBAC directory not found at {{ rbac_root_dir }}. Ensure pre-install RBAC files are included in CLI image."
+  when: not rbac_root_check.stat.exists
 
-- name: "Find all operator directories in MAS {{ mas_rbac_version }}"
+- name: "Find operator RBAC version directories for MAS {{ mas_rbac_version }}"
   find:
-    paths: "{{ versioned_rbac_dir }}"
+    paths: "{{ rbac_root_dir }}"
     file_type: directory
-    recurse: no
-  register: operator_dirs
+    recurse: true
+    patterns: "{{ mas_rbac_version }}"
+  register: operator_version_dirs
 
-- name: "Extract operator names from directories"
+- name: "Build discovered operator RBAC entries"
   set_fact:
-    discovered_operators: "{{ operator_dirs.files | map(attribute='path') | map('basename') | list }}"
+    discovered_operator_entries: "{{ discovered_operator_entries | default([]) + [entry] }}"
+  vars:
+    relative_path: "{{ item.path | regex_replace('^' ~ (rbac_root_dir | regex_escape) ~ '/', '') }}"
+    path_parts: "{{ relative_path.split('/') }}"
+    entry: >-
+      {{
+        {
+          'operator_name': path_parts[-3],
+          'operator_rbac_path': item.path,
+          'operator_source': path_parts[0]
+        }
+      }}
+  loop: "{{ operator_version_dirs.files }}"
+  when:
+    - item.path is search('/operators/.+/rbac/' ~ (mas_rbac_version | regex_escape) ~ '$')
 
-- name: "Validate at least one operator was discovered"
+- name: "Validate at least one operator RBAC entry was discovered"
   assert:
     that:
-      - discovered_operators is defined
-      - discovered_operators | length > 0
-    fail_msg: "No operators discovered in {{ versioned_rbac_dir }}"
+      - discovered_operator_entries is defined
+      - discovered_operator_entries | length > 0
+    fail_msg: "No operator RBAC entries discovered with RBAC version {{ mas_rbac_version }} under {{ rbac_root_dir }}"
 
-- name: "Debug - Discovered operators"
+- name: "Debug - Discovered operator RBAC entries"
   debug:
     msg:
       - "MAS RBAC Version ............ {{ mas_rbac_version }}"
-      - "Versioned RBAC Directory .... {{ versioned_rbac_dir }}"
-      - "Discovered Operators ........ {{ discovered_operators | join(', ') }}"
-      - "Total Operators ............. {{ discovered_operators | length }}"
+      - "RBAC Root ................... {{ rbac_root_dir }}"
+      - "Discovered Entries .......... {{ discovered_operator_entries | map(attribute='operator_source') | zip(discovered_operator_entries | map(attribute='operator_name')) | map('join', '/') | join(', ') }}"
+      - "Total Entries ............... {{ discovered_operator_entries | length }}"
