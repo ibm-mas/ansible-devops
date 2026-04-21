@@ -2,7 +2,6 @@
 # 1. Create Kiali Subscription
 # -----------------------------------------------------------------------------
 - name: "install : Create Kiali {{servicemesh_channel}} Subscription"
-  when: install_kiali
   ibm.mas_devops.apply_subscription:
     namespace: "openshift-operators"
     package_name: kiali-ossm
@@ -22,12 +21,19 @@
     kind: Namespace
     name: "{{servicemesh_namespace}}"
 
-# 1. Create Kiali Instance to visualize the service mesh topology
+# 3. Get details of prometheus for Kiali
+# -----------------------------------------------------------------------------
+
+- name: Set the Prometheus URL
+  set_fact:
+    prometheus_url: "https://prometheus-k8s.openshift-monitoring.svc:9091"
+
+
+# 4. Create Kiali Instance to visualize the service mesh topology
 # -----------------------------------------------------------------------------
 - name: "install : Apply Kiali Instance"
-  when: install_kiali
   kubernetes.core.k8s:
-    template: "templates//kiali.yml.j2"
+    template: "templates/kiali.yml.j2"
     wait: yes
     wait_timeout: 120
     wait_condition:
