@@ -109,6 +109,56 @@
     success_msg: "Manage DB setup ran successfully"
 
 
-# 4. Execute DB2 config enforcement
+# 4. Grant DB2 roles (temporary workaround for pre-release next-gen DB2U Helm chart)
+# -----------------------------------------------------------------------------
+- name: Create grantroles script in local /tmp
+  ansible.builtin.template:
+    src: grantroles.sh.j2
+    dest: /tmp/grantroles.sh
+    mode: '777'
+
+- name: Copy the grantroles script into the db2u pod
+  shell: "oc cp /tmp/grantroles.sh {{ db2_namespace }}/{{ db2_pod_name }}:/tmp/grantroles.sh -c db2u"
+  register: copy_grantroles_result
+  retries: 10
+  delay: 30 # seconds
+  until: copy_grantroles_result.rc == 0
+
+- name: Run grantroles to grant DB2 roles
+  shell: |
+    oc exec -n {{db2_namespace}} {{db2_pod_name}} -c db2u -- bash -l -c '/tmp/grantroles.sh | tee /tmp/grantroles.log'
+  register: grantroles_status
+  ignore_errors: true
+  retries: 10
+  delay: 30 # seconds
+  until:
+    - grantroles_status.rc == 0
+    - grantroles_status.stdout | regex_search('DBstatus-Success', multiline=True) | length > 0
+
+- name: "Print grantroles.sh return code"
+  when: grantroles_status.rc is defined
+  debug:
+    msg:
+      - "GrantRoles return code (rc) .......................... {{ grantroles_status.rc }}"
+      - "GrantRoles Registered Status  ........................ {{ grantroles_status }}"
+
+- name: "Role grants debug information"
+  when: grantroles_status.stdout is defined
+  debug:
+    msg:
+      - "Result (stdout) ........................ {{ grantroles_status.stdout }}"
+      - "result (stderr) ........................ {{ grantroles_status.stderr }}"
+
+- name: Assert that DB2 roles were granted successfully
+  assert:
+    that:
+      - grantroles_status.rc is defined
+      - grantroles_status.rc == 0
+      - grantroles_status.stdout | regex_search('DBstatus-Success', multiline=True) | length > 0
+    fail_msg: "grantroles.sh failed - DB2 roles may not have been granted"
+    success_msg: "DB2 roles granted successfully"
+
+
+# 5. Execute DB2 config enforcement
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/db2_dbconfig.yml
