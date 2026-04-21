@@ -888,6 +888,12 @@ data:
 type: Opaque
 EOF
 ```
+#### mas_ws_facilities_server_timezone
+Sets the Facilies server timezone. You should set this property only if your Facilities dtabase is running with a timezone other from UTC. If you are creating your Facilities database using `db2` role, you must set `DB2_TIMEZONE` property to the same value while provisioning the corresponding DB2 instance.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_SERVER_TIMEZONE`
+- Default: `UTC`
 
 #### mas_ws_facilities_vault_secret_name
 Provide the name of the secret which contains a password to the vault with AES Encryption key. By default, this secret will be generated automatically.
