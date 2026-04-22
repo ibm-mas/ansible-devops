@@ -19,8 +19,9 @@
 
 # 3. Check for existing additionalTrustedCA in openshift-config
 # -----------------------------------------------------------------------------
-- name: "Set last_additional_trusted_ca_name"
+- name: "Set facts"
   ansible.builtin.set_fact:
+    additional_trusted_ca_exists: false
     last_additional_trusted_ca_name: ""
 
 - name: "Lookup 'cluster' Image resource"
@@ -50,42 +51,52 @@
       - (registry_additional_ca_cfgmap_lookup.resources[0].data[registry_private_host] | replace('\n', '\\n')) != registry_private_ca_crt
     ansible.builtin.set_fact:
       last_additional_trusted_ca_name: "{{ cluster_image_lookup.resources[0].spec.additionalTrustedCA.name }}"
+  
+  - name: "Check if additional_trusted_ca already exists"
+    when:
+      - registry_additional_ca_cfgmap_lookup.resources[0].data[registry_private_host] is defined
+      - registry_additional_ca_cfgmap_lookup.resources[0].data[registry_private_host] != ""
+      - (registry_additional_ca_cfgmap_lookup.resources[0].data[registry_private_host] | replace('\n', '\\n')) == registry_private_ca_crt
+    ansible.builtin.set_fact:
+      additional_trusted_ca_exists: true
 
-# 4. Update or edit the image registry for the cluster
+# 4. Update the image registry for the cluster
 # Patches the cluster config to use this configmap in spec.additionalTrustedCA
 # -----------------------------------------------------------------------------
-- name: "Patch cluster config with additional_trusted_ca.json"
-  ansible.builtin.shell: |
-    rosa edit cluster \
-      --registry-config-additional-trusted-ca "{{ ocp_idms_working_dir }}"/additional_trusted_ca.json \
-      --cluster="{{ rosa_hcp_cluster_name }}" \
-      -y
+- name: "Add additional_trusted_ca.json"
+  when: not additional_trusted_ca_exists
+  block:
+    - name: "Patch cluster config with additional_trusted_ca.json"
+      ansible.builtin.shell: |
+        rosa edit cluster \
+          --registry-config-additional-trusted-ca "{{ ocp_idms_working_dir }}"/additional_trusted_ca.json \
+          --cluster="{{ rosa_hcp_cluster_name }}" \
+          -y
 
-- name: "Check if additional_trusted_ca was added to 'cluster' Image"
-  kubernetes.core.k8s_info:
-    api_version: config.openshift.io/v1
-    kind: Image
-    name: cluster
-  until:
-    - cluster_image_lookup.resources[0].spec.additionalTrustedCA.name is defined
-    - cluster_image_lookup.resources[0].spec.additionalTrustedCA.name != ""
-    - cluster_image_lookup.resources[0].spec.additionalTrustedCA.name != last_additional_trusted_ca_name
-  retries: 30
-  delay: 10
-  register: cluster_image_lookup
+    - name: "Check if additional_trusted_ca was added to 'cluster' Image"
+      kubernetes.core.k8s_info:
+        api_version: config.openshift.io/v1
+        kind: Image
+        name: cluster
+      until:
+        - cluster_image_lookup.resources[0].spec.additionalTrustedCA.name is defined
+        - cluster_image_lookup.resources[0].spec.additionalTrustedCA.name != ""
+        - cluster_image_lookup.resources[0].spec.additionalTrustedCA.name != last_additional_trusted_ca_name
+      retries: 30
+      delay: 10
+      register: cluster_image_lookup
 
-# 5. Cleanup
-# -----------------------------------------------------------------------------
-- name: "Delete {{last_additional_trusted_ca_name }} configmap in openshift-config"
-  when: last_additional_trusted_ca_name != ""
-  kubernetes.core.k8s:
-    state: absent
-    api_version: v1
-    kind: ConfigMap
-    namespace: openshift-config
-    name: "{{ last_additional_trusted_ca_name }}"
+    # Cleanup
+    - name: "Delete {{last_additional_trusted_ca_name }} configmap in openshift-config"
+      when: last_additional_trusted_ca_name != ""
+      kubernetes.core.k8s:
+        state: absent
+        api_version: v1
+        kind: ConfigMap
+        namespace: openshift-config
+        name: "{{ last_additional_trusted_ca_name }}"
 
-- name: "Delete local copy of additional_trusted_ca.json"
-  ansible.builtin.file:
-    path: "{{ ocp_idms_working_dir }}/additional_trusted_ca.json"
-    state: absent
+    - name: "Delete local copy of additional_trusted_ca.json"
+      ansible.builtin.file:
+        path: "{{ ocp_idms_working_dir }}/additional_trusted_ca.json"
+        state: absent

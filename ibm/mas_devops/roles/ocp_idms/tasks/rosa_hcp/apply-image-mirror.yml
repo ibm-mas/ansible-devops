@@ -25,28 +25,29 @@
     source_exists: true
     existing_mirror_idx: "{{ lookup('ansible.utils.index_of', list_image_mirror_lookup.stdout_lines, 'search', search_value, wantlist=True)[0] }}"
 
-- name: "Set existing_mirror"
-  ansible.builtin.set_fact:
-    existing_mirror: "{{ list_image_mirror_lookup.stdout_lines[existing_mirror_idx] | split(' ') | select() }}"
-
-- name: "Set existing_mirror id and mirrors"
-  ansible.builtin.set_fact:
-    existing_mirror_id: "{{ existing_mirror[0] }}"
-    existing_mirror_mirrors: "{{ existing_mirror[3] }}"
-
-- name: "Convert existing_mirror_mirrors to list"
-  ansible.builtin.set_fact:
-    existing_mirror_mirrors_list: "{{ existing_mirror_mirrors | split(',') }}"
-
 - name: "Edit image-mirror for {{ item.source }}"
-  when:
-    - source_exists
-    - item.mirrors | symmetric_difference(existing_mirror_mirrors_list) | length > 0
-  ansible.builtin.shell: |
-    rosa edit image-mirror \
-      --cluster="{{ rosa_hcp_cluster_name }}" \
-      --id="{{ existing_mirror_id }}" \
-      --mirrors="{{ item.mirrors | join(",") }}"
+  when: source_exists
+  block:
+    - name: "Set existing_mirror"
+      ansible.builtin.set_fact:
+        existing_mirror: "{{ list_image_mirror_lookup.stdout_lines[existing_mirror_idx] | split(' ') | select() }}"
+
+    - name: "Set existing_mirror id and mirrors"
+      ansible.builtin.set_fact:
+        existing_mirror_id: "{{ existing_mirror[0] }}"
+        existing_mirror_mirrors: "{{ existing_mirror[3] }}"
+
+    - name: "Convert existing_mirror_mirrors to list"
+      ansible.builtin.set_fact:
+        existing_mirror_mirrors_list: "{{ existing_mirror_mirrors | split(',') }}"
+
+    - name: "Update image-mirror"
+      when: item.mirrors | symmetric_difference(existing_mirror_mirrors_list) | length > 0
+      ansible.builtin.shell: |
+        rosa edit image-mirror \
+          --cluster="{{ rosa_hcp_cluster_name }}" \
+          --id="{{ existing_mirror_id }}" \
+          --mirrors="{{ item.mirrors | join(",") }}"
 
 - name: "Create image-mirror for {{ item.source }}"
   when: not source_exists
