@@ -1,0 +1,90 @@
+---
+# 1. Uninstall Service Mesh operator
+# -----------------------------------------------------------------------------
+# - name: "uninstall : Uninstall Service Mesh"
+#   fail:
+#     msg: "Service Mesh uninstall is not implemented yet"
+
+# 2. Uninstall Kiali instance
+# -----------------------------------------------------------------------------
+- name: "uninstall : Kiali Instance"
+  kubernetes.core.k8s:
+    state: absent
+    template: "templates//kiali.yml.j2"
+    wait: yes
+    wait_timeout: 120
+
+# 3. Uninstall Service Mesh instance
+# -----------------------------------------------------------------------------
+- name: "uninstall : Service Mesh Ingress"
+  kubernetes.core.k8s:
+    template: "templates//istio-ingress.yml.j2"
+    state: absent
+    wait: yes
+    wait_timeout: 120
+
+- name: "uninstall :  Service Mesh CNI"
+  kubernetes.core.k8s:
+    api_version: sailoperator.io/v1
+    kind: IstioCNI
+    name: default
+    state: absent
+    wait: yes
+    wait_timeout: 120
+
+- name: "uninstall :  Service Mesh Instance"
+  kubernetes.core.k8s:
+    template: "templates//istio.yml.j2"
+    state: absent
+    wait: yes
+    wait_timeout: 120
+
+
+
+# 4. Uninstall Operators
+# -----------------------------------------------------------------------------
+- name: "uninstall : Service Mesh Subscription"
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "openshift-operators"
+    name: servicemeshoperator3
+    state: absent
+    wait: yes
+    wait_timeout: 120
+
+- name: "uninstall : Service Mesh CSV"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "openshift-operators"
+    label_selectors:
+      - operators.coreos.com/servicemeshoperator3.openshift-operators
+
+- name: "uninstall : Kiali Subscription"
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "openshift-operators"
+    name: kiali-ossm
+    state: absent
+    wait: yes
+    wait_timeout: 120
+
+- name: "uninstall : Kiali CSV"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "openshift-operators"
+    label_selectors:
+      - operators.coreos.com/kiali-ossm.openshift-operators
+
+# 5. Delete namespaces
+# -----------------------------------------------------------------------------
+- name: "Delete Service Mesh Namespaces"
+  kubernetes.core.k8s:
+    state: absent
+    template: "templates//namespaces.yml.j2"
+

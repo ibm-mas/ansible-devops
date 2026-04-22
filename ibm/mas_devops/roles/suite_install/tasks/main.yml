@@ -187,6 +187,17 @@
     artifactory_password: "{{ artifactory_token }}"
     namespace_kyverno_label: "audit"
 
+- name: "Set namespace Service Mesh annotation"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: "{{ mas_namespace }}"
+    apply: yes
+    definition:
+      metadata:
+        labels:
+          istio-injection: "{{ mas_use_service_mesh | ternary ('enabled', 'disabled') }}"
+
 - name: "Create ibm-mas Subscription"
   ibm.mas_devops.apply_subscription:
     namespace: "{{ mas_namespace }}"
