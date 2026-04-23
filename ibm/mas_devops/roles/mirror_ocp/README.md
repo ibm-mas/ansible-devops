@@ -198,9 +198,9 @@ The Red Hat release you are mirroring content for, e.g. `4.20`.
 **When to use**:
 - Always required for Red Hat content mirroring
 - Must match the OpenShift version in your target environment
-- Use format: `4.19`, `4.18`, `4.17`
+- Use format: `4.20`, `4.19`, `4.18`, `4.17`
 
-**Valid values**: OpenShift major.minor version (e.g., `4.19`, `4.18`, `4.17`, `4.16`)
+**Valid values**: OpenShift major.minor version (e.g., `4.20`, `4.19`, `4.18`, `4.17`, `4.16`)
 
 **Impact**: Determines which OpenShift version's images and operators are mirrored. Must match your target cluster version.
 
@@ -209,7 +209,7 @@ The Red Hat release you are mirroring content for, e.g. `4.20`.
 - `ocp_max_version`: Maximum patch version to mirror
 - `mirror_redhat_platform`: Whether to mirror platform images for this version
 
-**Note**: Use the major.minor version format (e.g., `4.19`), not full version (e.g., `4.19.10`). Use `ocp_min_version` and `ocp_max_version` to control patch version range.
+**Note**: Use the major.minor version format (e.g., `4.20`), not full version (e.g., `4.20.8`). Use `ocp_min_version` and `ocp_max_version` to control patch version range.
 
 ### ocp_min_version
 The minimum version of the Red Hat release to mirror platform content for, e.g. `4.20.8`.
@@ -237,7 +237,7 @@ The minimum version of the Red Hat release to mirror platform content for, e.g. 
 **Note**: Only affects platform image mirroring, not operators. Use to limit mirror size when you know the specific OpenShift versions you need.
 
 ### ocp_max_version
-The maximimum version of the Red Hat release to mirror platform content for, e.g. `4.20.8`.
+The maximimum version of the Red Hat release to mirror platform content for, e.g. `4.20.12`.
 
 - **Optional**
 - Environment Variable: `OCP_MAX_VERSION`
