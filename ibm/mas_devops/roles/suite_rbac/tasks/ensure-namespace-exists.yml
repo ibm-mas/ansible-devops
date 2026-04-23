@@ -1,0 +1,43 @@
+---
+# Helper task to ensure namespace exists before applying roles
+# Extracts namespace from role definition and creates it if missing
+
+- name: "Parse role definition to extract namespace"
+  set_fact:
+    role_definition: "{{ lookup('template', role_file_path) }}"
+
+- name: "Extract namespace from role definition"
+  set_fact:
+    target_namespace: "{{ role_definition | from_yaml | json_query('metadata.namespace') }}"
+  when: 
+    - role_definition is defined
+    - (role_definition | from_yaml).metadata is defined
+    - (role_definition | from_yaml).metadata.namespace is defined
+
+- name: "Check if namespace exists"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ target_namespace }}"
+  register: namespace_check
+  when: target_namespace is defined and target_namespace != ""
+  failed_when: false
+
+- name: "Create namespace if it doesn't exist"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ target_namespace }}"
+  when:
+    - target_namespace is defined
+    - target_namespace != ""
+    - namespace_check.resources | length == 0
+  register: namespace_creation
+
+- name: "Namespace creation result"
+  debug:
+    msg: "Namespace '{{ target_namespace }}' {{ 'created' if namespace_creation.changed else 'already exists' }}"
+  when: target_namespace is defined and target_namespace != ""

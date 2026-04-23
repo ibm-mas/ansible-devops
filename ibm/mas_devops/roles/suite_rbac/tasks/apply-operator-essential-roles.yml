@@ -16,14 +16,36 @@
     - operator_source in ['redhat-operator-catalog', 'openshift-platform']
     - essential_external_files.matched > 0
   block:
-    - name: "Apply each CLI-managed namespace-scoped essential Role"
-      kubernetes.core.k8s:
-        state: present
-        definition: "{{ lookup('template', item.path) }}"
+    - name: "Apply each CLI-managed namespace-scoped essential Role with namespace creation"
+      block:
+        - name: "Ensure namespace exists before applying role"
+          include_tasks: ensure-namespace-exists.yml
+          vars:
+            role_file_path: "{{ item.path }}"
+
+        - name: "Apply CLI-managed namespace-scoped essential Role"
+          kubernetes.core.k8s:
+            state: present
+            definition: "{{ lookup('template', item.path) }}"
+      rescue:
+        - name: "Role application failed, attempting namespace creation and retry"
+          block:
+            - name: "Force namespace creation on failure"
+              include_tasks: ensure-namespace-exists.yml
+              vars:
+                role_file_path: "{{ item.path }}"
+
+            - name: "Retry applying CLI-managed namespace-scoped essential Role"
+              kubernetes.core.k8s:
+                state: present
+                definition: "{{ lookup('template', item.path) }}"
+          rescue:
+            - name: "Log final failure for essential role"
+              debug:
+                msg: "Failed to apply essential role {{ item.path | basename }} even after namespace creation attempt"
       loop: "{{ essential_external_files.files }}"
       loop_control:
         label: "{{ item.path | basename }}"
-      ignore_errors: true  # Target namespace may not exist yet
 
     - name: "CLI-managed namespace-scoped essential Roles applied"
       debug:

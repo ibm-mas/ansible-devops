@@ -11,14 +11,36 @@
 - name: "Apply non-essential Roles for {{ current_operator }}"
   when: nonessential_files.matched > 0
   block:
-    - name: "Apply each non-essential Role"
-      kubernetes.core.k8s:
-        state: present
-        definition: "{{ lookup('template', item.path) }}"
+    - name: "Apply each non-essential Role with namespace creation"
+      block:
+        - name: "Ensure namespace exists before applying role"
+          include_tasks: ensure-namespace-exists.yml
+          vars:
+            role_file_path: "{{ item.path }}"
+
+        - name: "Apply non-essential Role"
+          kubernetes.core.k8s:
+            state: present
+            definition: "{{ lookup('template', item.path) }}"
+      rescue:
+        - name: "Role application failed, attempting namespace creation and retry"
+          block:
+            - name: "Force namespace creation on failure"
+              include_tasks: ensure-namespace-exists.yml
+              vars:
+                role_file_path: "{{ item.path }}"
+
+            - name: "Retry applying non-essential Role"
+              kubernetes.core.k8s:
+                state: present
+                definition: "{{ lookup('template', item.path) }}"
+          rescue:
+            - name: "Log final failure for non-essential role"
+              debug:
+                msg: "Failed to apply non-essential role {{ item.path | basename }} even after namespace creation attempt"
       loop: "{{ nonessential_files.files }}"
       loop_control:
         label: "{{ item.path | basename }}"
-      ignore_errors: true  # Target namespace may not exist yet
 
     - name: "Non-essential Roles applied"
       debug:
