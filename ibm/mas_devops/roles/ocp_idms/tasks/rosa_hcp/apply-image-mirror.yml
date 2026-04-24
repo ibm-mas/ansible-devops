@@ -12,7 +12,7 @@
 - name: "List image-mirror in {{ rosa_hcp_cluster_name }}"
   ansible.builtin.shell: |
     rosa list image-mirror \
-      --cluster="{{ rosa_hcp_cluster_name }}" \
+    --cluster="{{ rosa_hcp_cluster_name }}" \
   register: list_image_mirror_lookup
 
 - name: Check if image-mirror source already exists
@@ -45,17 +45,17 @@
       when: item.mirrors | symmetric_difference(existing_mirror_mirrors_list) | length > 0
       ansible.builtin.shell: |
         rosa edit image-mirror \
-          --cluster="{{ rosa_hcp_cluster_name }}" \
-          --id="{{ existing_mirror_id }}" \
-          --mirrors="{{ item.mirrors | join(",") }}"
+        --cluster="{{ rosa_hcp_cluster_name }}" \
+        --id="{{ existing_mirror_id }}" \
+        --mirrors="{{ item.mirrors | join(",") }}"
 
 - name: "Create image-mirror for {{ item.source }}"
   when: not source_exists
   ansible.builtin.shell: |
     rosa create image-mirror \
-      --cluster="{{ rosa_hcp_cluster_name }}" \
-      --source="{{ item.source }}" \
-      --mirrors="{{ item.mirrors | join(",") }}"
+    --cluster="{{ rosa_hcp_cluster_name }}" \
+    --source="{{ item.source }}" \
+    --mirrors="{{ item.mirrors | join(",") }}"
 
 - name: "Validate {{ item.source }} is in 'cluster' ImageDigestMirrorSet"
   kubernetes.core.k8s_info:
