@@ -1,0 +1,49 @@
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: {% if redhat_catalogs_prefix | length > 0 %}{{ redhat_catalogs_prefix }}-{% endif %}certified-operator-index
+  namespace: openshift-marketplace
+spec:
+  displayName: Certified Operators
+  publisher: Red Hat
+  image: {{ registry_private_url_with_path_redhat}}/redhat/certified-operator-index:v{{ ocp_release }}
+  sourceType: grpc
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: {% if redhat_catalogs_prefix | length > 0 %}{{ redhat_catalogs_prefix }}-{% endif %}redhat-operator-index
+  namespace: openshift-marketplace
+spec:
+  displayName: Red Hat Operators
+  publisher: Red Hat
+  image: {{ registry_private_url_with_path_redhat }}/redhat/redhat-operator-index:v{{ ocp_release }}
+  sourceType: grpc
+---
+apiVersion: config.openshift.io/v1
+kind: ImageDigestMirrorSet
+metadata:
+  name: mas-redhat-catalogs{{ idms_suffix_redhat }}
+  labels:
+    mas.ibm.com/idmsContent: redhat-catalogs
+  annotations:
+    mas.ibm.com/idmsRegistry: "{{ registry_private_url_with_path_redhat }}"
+    mas.ibm.com/idmsRegistryHost: "{{ registry_private_host }}"
+    mas.ibm.com/idmsRegistryPort: "{{ registry_private_port }}"
+    mas.ibm.com/idmsRegistryPrefix: "{{ registry_prefix_redhat }}"
+    operators.openshift.org/catalog: "true"
+spec:
+  imageDigestMirrors:
+  - mirrors:
+    - {{ registry_private_url_with_path_redhat }}/rhoai/odh-rhel9-operator
+    source: registry.redhat.io/rhoai/odh-rhel9-operator
+    mirrorSourcePolicy: NeverContactSource
+  - mirrors:
+    - {{ registry_private_url_with_path_redhat }}/rhoai/odh-model-controller-rhel9
+    source: registry.redhat.io/rhoai/odh-model-controller-rhel9
+    mirrorSourcePolicy: NeverContactSource
+  - mirrors:
+    - {{ registry_private_url_with_path_redhat }}/rhoai/odh-kserve-controller-rhel9
+    source: registry.redhat.io/rhoai/odh-kserve-controller-rhel9
+    mirrorSourcePolicy: NeverContactSource
