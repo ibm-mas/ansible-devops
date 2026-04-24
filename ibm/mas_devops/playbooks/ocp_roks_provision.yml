@@ -19,6 +19,10 @@
     # We use "turbonomic_target_name" as a key to indicate that we want to run the turbonomic role
     turbonomic_target_name: "{{ lookup('env', 'TURBONOMIC_TARGET_NAME') }}"
 
+    # Determine if we install service mesh and kiali
+    install_service_mesh: "{{ lookup('env', 'INSTALL_SERVICE_MESH') == 'true' }}"
+    install_kiali: "{{ lookup('env', 'INSTALL_KIALI') == 'true' }}"
+
   pre_tasks:
     # For the full set of supported environment variables refer to the playbook documentation
     - name: Check for required environment variables
@@ -49,3 +53,7 @@
     # 6. Configure optional turbonomic integration
     - role: ibm.mas_devops.turbonomic
       when: turbonomic_target_name != ""
+
+    # 7. Install optional service mesh
+    - role: ibm.mas_devops.servicemesh
+      when: install_service_mesh
