@@ -1,0 +1,99 @@
+---
+- name: "Install External Secrets Operator"
+  block:
+    - name: "Create External Secrets Operator Subscription"
+      ibm.mas_devops.apply_subscription:
+        namespace: "{{ eso_namespace }}"
+        package_name: "{{ eso_operator_name }}"
+        package_channel: "{{ eso_channel }}"
+      register: eso_subscription
+
+    - name: "Wait for OperatorConfig CRD to be available"
+      kubernetes.core.k8s_info:
+        api_version: apiextensions.k8s.io/v1
+        kind: CustomResourceDefinition
+        name: operatorconfigs.operator.external-secrets.io
+      register: operatorconfig_crd
+      retries: 30
+      delay: 10
+      until:
+        - operatorconfig_crd.resources is defined
+        - operatorconfig_crd.resources | length > 0
+
+    - name: "Create OperatorConfig to deploy External Secrets components"
+      kubernetes.core.k8s:
+        template: operator-config.yml.j2
+        wait: yes
+        wait_timeout: 120
+
+    - name: "Wait for External Secrets Operator deployment to be ready"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: external-secrets
+        namespace: "{{ eso_namespace }}"
+      register: eso_deployment
+      retries: 30
+      delay: 20
+      until:
+        - eso_deployment.resources is defined
+        - eso_deployment.resources | length > 0
+        - eso_deployment.resources[0].status is defined
+        - eso_deployment.resources[0].status.replicas is defined
+        - eso_deployment.resources[0].status.readyReplicas is defined
+        - eso_deployment.resources[0].status.readyReplicas == eso_deployment.resources[0].status.replicas
+
+    - name: "Wait for External Secrets webhook deployment to be ready (if present)"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: external-secrets-webhook
+        namespace: "{{ eso_namespace }}"
+      register: eso_webhook_deployment
+      retries: 30
+      delay: 20
+      until:
+        - eso_webhook_deployment.resources is defined
+        - eso_webhook_deployment.resources | length > 0
+        - eso_webhook_deployment.resources[0].status is defined
+        - eso_webhook_deployment.resources[0].status.replicas is defined
+        - eso_webhook_deployment.resources[0].status.readyReplicas is defined
+        - eso_webhook_deployment.resources[0].status.readyReplicas == eso_webhook_deployment.resources[0].status.replicas
+      failed_when: false  # Don't fail if webhook doesn't exist
+
+    - name: "Wait for External Secrets webhook service to be available (if present)"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Service
+        name: external-secrets-webhook
+        namespace: "{{ eso_namespace }}"
+      register: eso_webhook_service
+      retries: 20
+      delay: 10
+      until:
+        - eso_webhook_service.resources is defined
+        - eso_webhook_service.resources | length > 0
+      failed_when: false  # Don't fail if webhook doesn't exist
+
+    - name: "Verify External Secrets CRDs are installed"
+      kubernetes.core.k8s_info:
+        api_version: apiextensions.k8s.io/v1
+        kind: CustomResourceDefinition
+        name: "{{ item }}"
+      register: crd_check
+      failed_when: crd_check.resources | length == 0
+      loop:
+        - secretstores.external-secrets.io
+        - clustersecretstores.external-secrets.io
+        - externalsecrets.external-secrets.io
+
+    - name: "External Secrets Operator installation complete"
+      debug:
+        msg:
+          - "External Secrets Operator has been successfully installed"
+          - "Namespace: {{ eso_namespace }}"
+          - "Operator deployments are ready"
+          - "CRDs are installed and available"
+          - "Webhook status: {{ 'Available' if (eso_webhook_service.resources | length > 0) else 'Not installed (validation disabled)' }}"
+
+# Made with Bob

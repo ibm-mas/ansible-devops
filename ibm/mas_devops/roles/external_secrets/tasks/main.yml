@@ -1,0 +1,42 @@
+---
+- name: "Debug External Secrets Operator Parameters"
+  debug:
+    msg:
+      - "Action ..................................... {{ eso_action }}"
+      - "Namespace .................................. {{ eso_namespace }}"
+      - "Operator Name .............................. {{ eso_operator_name }}"
+      - "Catalog Source ............................. {{ eso_catalog_source }}"
+      - "Channel .................................... {{ eso_channel }}"
+      - "IBM SM Instance URL ........................ {{ ibm_sm_instance_url | default('<not set>', true) }}"
+      - "IBM SM Store Namespace ..................... {{ ibm_sm_store_namespace | default('<not set>', true) }}"
+
+- name: "Execute install action"
+  when: eso_action == "install"
+  include_tasks: "install.yml"
+
+- name: "Execute uninstall action"
+  when: eso_action == "uninstall"
+  include_tasks: "uninstall.yml"
+
+- name: "Execute create-clustersecretstore action"
+  when: eso_action == "create-clustersecretstore"
+  include_tasks: "create-clustersecretstore.yml"
+
+- name: "Execute create-secretstore action"
+  when: eso_action == "create-secretstore"
+  include_tasks: "create-secretstore.yml"
+
+- name: "Execute delete-clustersecretstore action"
+  when: eso_action == "delete-clustersecretstore"
+  include_tasks: "delete-clustersecretstore.yml"
+
+- name: "Execute delete-secretstore action"
+  when: eso_action == "delete-secretstore"
+  include_tasks: "delete-secretstore.yml"
+
+- name: "No action specified"
+  when: eso_action == "none"
+  debug:
+    msg: "eso_action is set to 'none', skipping all actions"
+
+# Made with Bob

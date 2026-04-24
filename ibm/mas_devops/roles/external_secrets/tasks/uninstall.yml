@@ -1,0 +1,49 @@
+---
+- name: "Uninstall External Secrets Operator"
+  block:
+    - name: "Warning about uninstalling External Secrets Operator"
+      debug:
+        msg:
+          - "WARNING: Uninstalling External Secrets Operator"
+          - "This will remove the operator but NOT SecretStores, ClusterSecretStores, or ExternalSecrets"
+          - "You should delete those resources first using the delete-secretstore or delete-clustersecretstore actions"
+
+    - name: "Delete External Secrets Operator Subscription"
+      kubernetes.core.k8s:
+        api_version: operators.coreos.com/v1alpha1
+        kind: Subscription
+        name: "{{ eso_operator_name }}"
+        namespace: "{{ eso_namespace }}"
+        state: absent
+        wait: yes
+        wait_timeout: 120
+
+    - name: "Delete External Secrets Operator OperatorGroup"
+      kubernetes.core.k8s:
+        api_version: operators.coreos.com/v1
+        kind: OperatorGroup
+        name: "{{ eso_operator_name }}-group"
+        namespace: "{{ eso_namespace }}"
+        state: absent
+        wait: yes
+        wait_timeout: 60
+
+    - name: "Wait for operator deployments to be removed"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ eso_namespace }}"
+      register: deployments
+      retries: 20
+      delay: 10
+      until: deployments.resources | length == 0
+
+    - name: "External Secrets Operator uninstallation complete"
+      debug:
+        msg:
+          - "External Secrets Operator has been uninstalled"
+          - "Namespace {{ eso_namespace }} has been preserved"
+          - "Note: SecretStores, ClusterSecretStores, and ExternalSecrets were not removed"
+          - "Note: CRDs were not removed (this is standard Kubernetes behavior)"
+
+# Made with Bob
