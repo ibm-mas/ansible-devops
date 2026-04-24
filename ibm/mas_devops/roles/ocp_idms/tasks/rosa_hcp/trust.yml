@@ -36,29 +36,29 @@
     - cluster_image_lookup.resources[0].spec.additionalTrustedCA.name is defined
     - cluster_image_lookup.resources[0].spec.additionalTrustedCA.name != ""
   block:
-  - name: "Lookup registry-additional-ca configmap"
-    kubernetes.core.k8s_info:
-      api_version: v1
-      kind: ConfigMap
-      namespace: openshift-config
-      name: "{{ cluster_image_lookup.resources[0].spec.additionalTrustedCA.name }}"
-    register: registry_additional_ca_cfgmap_lookup
+    - name: "Lookup registry-additional-ca configmap"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: ConfigMap
+        namespace: openshift-config
+        name: "{{ cluster_image_lookup.resources[0].spec.additionalTrustedCA.name }}"
+      register: registry_additional_ca_cfgmap_lookup
 
-  - name: "Update last_additional_trusted_ca_name"
-    when:
-      - registry_additional_ca_cfgmap_lookup.resources[0].data[registry_private_host] is defined
-      - registry_additional_ca_cfgmap_lookup.resources[0].data[registry_private_host] != ""
-      - (registry_additional_ca_cfgmap_lookup.resources[0].data[registry_private_host] | replace('\n', '\\n')) != registry_private_ca_crt
-    ansible.builtin.set_fact:
-      last_additional_trusted_ca_name: "{{ cluster_image_lookup.resources[0].spec.additionalTrustedCA.name }}"
-  
-  - name: "Check if additional_trusted_ca already exists"
-    when:
-      - registry_additional_ca_cfgmap_lookup.resources[0].data[registry_private_host] is defined
-      - registry_additional_ca_cfgmap_lookup.resources[0].data[registry_private_host] != ""
-      - (registry_additional_ca_cfgmap_lookup.resources[0].data[registry_private_host] | replace('\n', '\\n')) == registry_private_ca_crt
-    ansible.builtin.set_fact:
-      additional_trusted_ca_exists: true
+    - name: "Update last_additional_trusted_ca_name"
+      when:
+        - registry_additional_ca_cfgmap_lookup.resources[0].data[registry_private_host] is defined
+        - registry_additional_ca_cfgmap_lookup.resources[0].data[registry_private_host] != ""
+        - (registry_additional_ca_cfgmap_lookup.resources[0].data[registry_private_host] | replace('\n', '\\n')) != registry_private_ca_crt
+      ansible.builtin.set_fact:
+        last_additional_trusted_ca_name: "{{ cluster_image_lookup.resources[0].spec.additionalTrustedCA.name }}"
+
+    - name: "Check if additional_trusted_ca already exists"
+      when:
+        - registry_additional_ca_cfgmap_lookup.resources[0].data[registry_private_host] is defined
+        - registry_additional_ca_cfgmap_lookup.resources[0].data[registry_private_host] != ""
+        - (registry_additional_ca_cfgmap_lookup.resources[0].data[registry_private_host] | replace('\n', '\\n')) == registry_private_ca_crt
+      ansible.builtin.set_fact:
+        additional_trusted_ca_exists: true
 
 # 4. Update the image registry for the cluster
 # Patches the cluster config to use this configmap in spec.additionalTrustedCA
