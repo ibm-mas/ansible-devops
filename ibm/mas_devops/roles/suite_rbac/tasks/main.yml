@@ -30,7 +30,22 @@
           - "Permission Mode: {{ mas_permission_mode }}"
           - "MAS Channel: {{ mas_channel }}"
           - "MAS RBAC Version: {{ mas_rbac_version }}"
+          - "Selected Apps: {{ selected_app_ids | join(', ') }}"
           - "RBAC Directory: {{ rbac_files_dir }}"
+
+    - name: "Create namespaces for selected MAS applications"
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: "mas-{{ mas_instance_id }}-{{ item }}"
+      loop: "{{ selected_app_ids }}"
+      loop_control:
+        label: "mas-{{ mas_instance_id }}-{{ item }}"
+      when:
+        - item in ['assist', 'iot', 'manage', 'monitor', 'predict', 'visualinspection', 'optimizer', 'facilities']
 
     - name: "Discover all available operator RBAC entries"
       include_tasks: discover-operators.yml
@@ -47,3 +62,4 @@
         msg:
           - "RBAC applied for permission mode: {{ mas_permission_mode }}"
           - "Operator RBAC entries processed: {{ discovered_operator_entries | map(attribute='operator_source') | zip(discovered_operator_entries | map(attribute='operator_name')) | map('join', '/') | join(', ') }}"
+          - "Selected Apps processed: {{ selected_app_ids | join(', ') }}"
