@@ -31,29 +31,34 @@
   vars:
     relative_path: "{{ item.path | regex_replace('^' ~ (rbac_root_dir | regex_escape) ~ '/', '') }}"
     path_parts: "{{ relative_path.split('/') }}"
+    operator_name: "{{ path_parts[-3] }}"
+    operator_app_id: "{{ operator_app_map.get(operator_name, 'external') }}"
     entry: >-
       {{
         {
-          'operator_name': path_parts[-3],
+          'operator_name': operator_name,
           'operator_rbac_path': item.path,
-          'operator_source': path_parts[0]
+          'operator_source': path_parts[0],
+          'operator_app_id': operator_app_id
         }
       }}
   loop: "{{ operator_version_dirs.files }}"
   when:
     - item.path is search('/operators/.+/rbac/' ~ (mas_rbac_version | regex_escape) ~ '$')
+    - operator_app_id == 'external' or operator_app_id in selected_app_ids
 
 - name: "Validate at least one operator RBAC entry was discovered"
   assert:
     that:
       - discovered_operator_entries is defined
       - discovered_operator_entries | length > 0
-    fail_msg: "No operator RBAC entries discovered with RBAC version {{ mas_rbac_version }} under {{ rbac_root_dir }}"
+    fail_msg: "No operator RBAC entries discovered with RBAC version {{ mas_rbac_version }} under {{ rbac_root_dir }} for selected apps {{ selected_app_ids | join(', ') }}"
 
 - name: "Debug - Discovered operator RBAC entries"
   debug:
     msg:
       - "MAS RBAC Version ............ {{ mas_rbac_version }}"
       - "RBAC Root ................... {{ rbac_root_dir }}"
+      - "Selected Apps ............... {{ selected_app_ids | join(', ') }}"
       - "Discovered Entries .......... {{ discovered_operator_entries | map(attribute='operator_source') | zip(discovered_operator_entries | map(attribute='operator_name')) | map('join', '/') | join(', ') }}"
       - "Total Entries ............... {{ discovered_operator_entries | length }}"
