@@ -16,7 +16,7 @@ export AWS_SECRET_ACCESS_KEY=xxx
 export ROSA_TOKEN=xxx
 
 export CLUSTER_NAME=masonrosa
-export OCP_VERSION=4.20
+export OCP_VERSION=4.21
 export ROSA_COMPUTE_NODES=5
 export ROSA_CLUSTER_ADMIN_PASSWORD=xxx
 ansible-playbook ibm.mas_devops.ocp_rosa_provision
@@ -44,7 +44,7 @@ This playbook will provision a QuickBurn OCP cluster in IBM DevIT Fyre service, 
 
 ```bash
 export CLUSTER_NAME=masinst1
-export OCP_VERSION=4.20
+export OCP_VERSION=4.21
 export FYRE_USERNAME=xxx
 export FYRE_APIKEY=xxx
 export FYRE_PRODUCT_ID=xxx
