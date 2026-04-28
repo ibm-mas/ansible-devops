@@ -2,7 +2,7 @@
 # MAS Application Backup Role
 # =============================================================================
 # This role backs up MAS application resources and data.
-# Currently supports: manage
+# Currently supports: manage, facilities
 #
 # The backup includes:
 # - Application namespace resources (CRs, secrets, subscriptions)
@@ -67,9 +67,31 @@
               - "Backup Location: {{ manage_backup_path }}"
               - "=========================================="
 
+    # Facilities backup
+    # ---------------------------------------------------------------------------
+    - name: "Backup Facilities application"
+      when: mas_app_id == "facilities"
+      block:
+        - name: "Backup Facilities namespace resources"
+          include_tasks: "{{ role_path }}/tasks/facilities/backup-namespace.yml"
+
+        # - name: "Backup Facilities persistent volumes"
+        #   include_tasks: "{{ role_path }}/tasks/facilities/backup-pv.yml"
+
+        - name: "Facilities backup completed successfully"
+          debug:
+            msg:
+              - "=========================================="
+              - "Facilities Backup Completed Successfully"
+              - "=========================================="
+              - "Instance ID: {{ mas_instance_id }}"
+              - "Workspace ID: {{ mas_workspace_id }}"
+              - "Backup Location: {{ facilities_backup_path }}"
+              - "=========================================="
+
     # Unsupported app
     # ---------------------------------------------------------------------------
     - name: "Fail if app is not supported"
       fail:
-        msg: "Application '{{ mas_app_id }}' is not yet supported for backup. Currently supported: manage"
-      when: mas_app_id not in ['manage']
+        msg: "Application '{{ mas_app_id }}' is not yet supported for backup. Currently supported: manage, facilities"
+      when: mas_app_id not in ['manage', 'facilities']
