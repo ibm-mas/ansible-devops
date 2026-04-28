@@ -32,15 +32,9 @@
   when:
     - kafkaimageprocessorAvailable
 
-# Create ClusterRoleBinding for KafkaImageProcessor operator
-# This grants the operator permission to create RoleBindings in other namespaces (e.g., strimzi)
-# Must be done after ServiceAccount exists but before operator reconciles
-- name: Create ClusterRoleBinding for KafkaImageProcessor operator cross-namespace access
-  kubernetes.core.k8s:
-    state: present
-    definition: "{{ lookup('template', 'templates/kafkaimageprocessor-clusterrolebinding.yml.j2') }}"
-  when:
-    - kafkaimageprocessorAvailable
+# Note: ClusterRoleBinding is now created by OLM from the operator's CSV
+# The operator defines both ClusterRole and ClusterRoleBinding in its RBAC configuration
+# ansible-devops no longer creates RBAC resources
 
 - name: Configure kafka image processor
   include_tasks: tasks/configure-kafkaimageprocessor.yml
