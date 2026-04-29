@@ -221,7 +221,111 @@ End date for tenant entitlement period.
 - Should be after `tenant_entitlement_start_date`
 - Plan for entitlement renewal before expiration
 
+## Scheduling Configuration
 
+### aiservice_tenant_scheduling_config_file
+Path to YAML file containing scheduling configuration for pipeline and predictor workloads for tenant.
+
+- Optional
+- Environment Variable: `AISERVICE_TENANT_SCHEDULING_CONFIG_FILE`
+- Default: None (empty string)
+
+**Purpose**: Specifies tolerations and nodeSelector for pipeline and predictor workloads to control pod scheduling on specific nodes.
+
+**When to use**: Use when you need to:
+- Schedule AI workloads on dedicated nodes with specific taints
+- Direct pipeline and predictor pods to nodes with specific labels
+- Isolate AI workloads from other cluster workloads
+- Ensure GPU-enabled nodes are used for inference workloads
+
+**Valid values**: Path to a valid YAML file containing scheduling configuration
+
+**Impact**: Controls where pipeline and predictor pods are scheduled in the Kubernetes cluster. Improper configuration may prevent pods from scheduling.
+
+**Related variables**: None
+
+**Configuration File Structure**:
+
+The YAML file must contain `pipeline` and/or `predictor` objects. Each object can have:
+- `tolerations`: List of Kubernetes tolerations (required fields: `key`, `operator`, `effect`)
+- `nodeSelector`: Dictionary of node label key-value pairs
+
+At least one of `tolerations` or `nodeSelector` must be defined for each non-empty object.
+
+**Example Configuration File**:
+
+```yaml
+---
+# Pipeline scheduling configuration
+pipeline:
+  tolerations:
+    - key: "aiservice-pipeline"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+  nodeSelector:
+    workload-type: "aiservice-pipeline"
+    node-role: "compute"
+
+# Predictor scheduling configuration
+predictor:
+  tolerations:
+    - key: "aiservice-predictor"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+    - key: "gpu"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+  nodeSelector:
+    workload-type: "aiservice-predictor"
+    accelerator: "gpu"
+```
+
+**Validation Rules**:
+1. File must be in valid YAML format
+2. Must contain `pipeline` and/or `predictor` objects
+3. Non-empty objects must have `tolerations` or `nodeSelector` (or both)
+4. Tolerations must be a non-empty list with required fields: `key`, `operator`, `effect`
+5. Optional toleration fields: `value`, `tolerationSeconds`
+6. NodeSelector must be a non-empty dictionary
+
+**Notes**:
+- Configuration is applied to AIServiceTenant CR under `spec.settings.scheduling`
+- Empty objects (`pipeline: {}` or `predictor: {}`) are allowed and will be ignored
+
+**Common Use Cases**:
+
+1. **GPU Node Scheduling**: Direct predictor workloads to GPU-enabled nodes
+   ```yaml
+   predictor:
+     nodeSelector:
+       accelerator: "nvidia-gpu"
+     tolerations:
+       - key: "nvidia.com/gpu"
+         operator: "Exists"
+         effect: "NoSchedule"
+   ```
+
+2. **Dedicated Node Pools**: Isolate AI workloads on dedicated nodes
+   ```yaml
+   pipeline:
+     nodeSelector:
+       node-pool: "ai-workloads"
+     tolerations:
+       - key: "dedicated"
+         operator: "Equal"
+         value: "ai"
+         effect: "NoSchedule"
+   ```
+
+3. **Zone-based Scheduling**: Schedule workloads in specific availability zones
+   ```yaml
+   predictor:
+     nodeSelector:
+       topology.kubernetes.io/zone: "us-east-1a"
+   ```
 
 ## Example Playbook
 
