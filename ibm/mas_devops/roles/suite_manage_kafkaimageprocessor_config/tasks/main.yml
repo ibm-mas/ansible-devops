@@ -32,9 +32,13 @@
   when:
     - kafkaimageprocessorAvailable
 
-# Note: ClusterRoleBinding is now created by OLM from the operator's CSV
-# The operator defines both ClusterRole and ClusterRoleBinding in its RBAC configuration
-# ansible-devops no longer creates RBAC resources
+# Note: RBAC for Kafka access is now created by Manage operator using namespace-scoped resources
+# - KafkaImageProcessor operator defines RBAC templates and a ClusterRole for Manage operator
+# - The ClusterRole grants Manage operator permission to create RBAC in any namespace
+# - Manage operator creates Role and RoleBindings in the Kafka namespace BEFORE deploying KafkaImageProcessor
+# - KafkaImageProcessor operator itself has NO ClusterRole (satisfies security requirement)
+# See: ibm-mas-manage/operator/ibm-mas-manage-ws/roles/workspace/tasks/setup-kafkaimageprocessor-rbac.yml
+# See: ibm-mas-imagestitching/operator/ibm-mas-kafkaimageprocessor/config/rbac/manage_operator_cluster_role.yaml
 
 - name: Configure kafka image processor
   include_tasks: tasks/configure-kafkaimageprocessor.yml
