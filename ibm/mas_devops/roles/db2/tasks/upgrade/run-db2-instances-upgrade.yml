@@ -131,3 +131,26 @@
   retries: 30 # Approximately 30 minutes before we give up
   delay: 60 # 1 minute
   loop: "{{ db2Instance_names | zip(db2Instance_versions) | list }}"
+
+# 5b. Apply license to instances during v12 upgrade
+# -----------------------------------------------------------------------------
+- name: "Apply license to {{ instanceKind }} instance during v12 upgrade"
+  when:
+    - db2_instance_list.resources | length > 0
+    - new_db2_major_version == '12'
+    - db2_license_encoded is defined
+    - db2_license_encoded != ""
+    - item.1 != db2_version
+  kubernetes.core.k8s:
+    state: present
+    api_version: db2u.databases.ibm.com/v1
+    kind: "{{ instanceKind }}"
+    namespace: "{{ db2_namespace }}"
+    name: "{{ item.0 }}"
+    definition:
+      spec:
+        license:
+          accept: true
+          value: "{{ db2_license_encoded }}"
+    merge_type: merge
+  loop: "{{ db2Instance_names | zip(db2Instance_versions) | list }}"

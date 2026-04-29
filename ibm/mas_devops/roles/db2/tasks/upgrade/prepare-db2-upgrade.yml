@@ -89,6 +89,39 @@
 # 4. Validate major upgrade
 - include_tasks: "tasks/upgrade/validate-upgrade.yml"
 
+# 4b. Read and encode license file (required for v12 upgrade)
+# -----------------------------------------------------------------------------
+- name: "Read and encode Db2 license file for v12 upgrade"
+  when:
+    - db2_license_file is defined
+    - db2_license_file != ""
+  block:
+    - name: "Check if license file exists"
+      ansible.builtin.stat:
+        path: "{{ db2_license_file }}"
+      register: license_file_stat
+
+    - name: "Fail if license file path provided but file does not exist"
+      ansible.builtin.fail:
+        msg: "License file not found at: {{ db2_license_file }}"
+      when: not license_file_stat.stat.exists
+
+    - name: "Read license file content"
+      ansible.builtin.slurp:
+        src: "{{ db2_license_file }}"
+      register: license_file_content
+
+    - name: "Set encoded license fact"
+      ansible.builtin.set_fact:
+        db2_license_encoded: "{{ license_file_content.content }}"
+
+    - name: "Debug license file information"
+      ansible.builtin.debug:
+        msg:
+          - "License file path ...................... {{ db2_license_file }}"
+          - "License file exists .................... {{ license_file_stat.stat.exists }}"
+          - "License encoded (first 50 chars) ....... {{ db2_license_encoded[:50] }}..."
+
 # 5. Patch STMTHEAP for Db2 v12 upgrade (before subscription upgrade)
 # -----------------------------------------------------------------------------
 # This must run before the subscription upgrade to ensure STMTHEAP has AUTOMATIC

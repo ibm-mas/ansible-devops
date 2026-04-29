@@ -31,3 +31,19 @@
           - db2_v12_upgrade == true
         fail_msg: "Your current Db2 version is {{ old_db2_major_version }}, in order to upgrade to version {{ new_db2_major_version }}, you must set 'db2_v12_upgrade': true"
         success_msg: "Db2 upgrade approved from {{ old_db2_channel }} to {{ db2_channel }}"
+
+    - name: "Assert that the Db2 license file is provided for v12 upgrade"
+      when:
+        - old_db2_major_version is version('12', '<')
+        - new_db2_major_version == '12'
+      assert:
+        that:
+          - db2_license_file is defined
+          - db2_license_file != ""
+        fail_msg: >-
+          Upgrading to Db2 v12 requires a valid Db2 license file. Without a license,
+          Db2 v12 will operate under a 30-day trial license, which will cause your
+          production system to go offline after expiry. Please provide the path to
+          your Db2 v12 license file using the 'db2_license_file' variable
+          (or DB2_LICENSE_FILE environment variable).
+        success_msg: "Db2 v12 license file provided: {{ db2_license_file }}"
