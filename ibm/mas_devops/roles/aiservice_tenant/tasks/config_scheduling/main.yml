@@ -1,0 +1,44 @@
+---
+# This task reads and validates scheduling configuration from a YAML file
+# The file should contain pipeline and predictor objects with tolerations or nodeSelector
+
+- name: "Process scheduling configuration from file"
+  when: aiservice_tenant_scheduling_config_file is defined and aiservice_tenant_scheduling_config_file != ''
+  block:
+    - name: "Check if scheduling config file exists"
+      ansible.builtin.stat:
+        path: "{{ aiservice_tenant_scheduling_config_file }}"
+      register: scheduling_config_file_stat
+
+    - name: "Fail if scheduling config file does not exist"
+      ansible.builtin.fail:
+        msg: "Scheduling config file not found at: {{ aiservice_tenant_scheduling_config_file }}"
+      when: not scheduling_config_file_stat.stat.exists
+
+    - name: "Read scheduling configuration from YAML file"
+      ansible.builtin.include_vars:
+        file: "{{ aiservice_tenant_scheduling_config_file }}"
+        name: scheduling_config
+
+    - name: "Validate scheduling configuration structure"
+      ansible.builtin.assert:
+        that:
+          - scheduling_config is defined
+          - scheduling_config is mapping
+        fail_msg: "Scheduling configuration file must contain a valid YAML object"
+
+    - name: "Prepare scheduling config for validation"
+      ansible.builtin.set_fact:
+        workload_types:
+          - name: "pipeline"
+            config: "{{ scheduling_config.pipeline | default({}) }}"
+            has_config: "{{ 'pipeline' in scheduling_config and scheduling_config.pipeline is not none and scheduling_config.pipeline != {} }}"
+          - name: "predictor"
+            config: "{{ scheduling_config.predictor | default({}) }}"
+            has_config: "{{ 'predictor' in scheduling_config and scheduling_config.predictor is not none and scheduling_config.predictor != {} }}"
+
+    - name: "Validate scheduling configurations"
+      ansible.builtin.include_tasks: tasks/config_scheduling/validate.yml
+      loop: "{{ workload_types }}"
+      loop_control:
+        label: "{{ item.name }}"
