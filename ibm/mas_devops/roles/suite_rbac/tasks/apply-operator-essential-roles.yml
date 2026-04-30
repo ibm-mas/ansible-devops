@@ -16,14 +16,25 @@
     - operator_source in ['redhat-operator-catalog', 'openshift-platform']
     - essential_external_files.matched > 0
   block:
+    # Essential external role files follow the naming format:
+    #   role-essential-<app-id>-<rest>.yaml
+    # Example:
+    #   role-essential-manage-entitymgr-primary-entity-cert-manager.yaml
+    #
+    # We extract <app-id> from the filename using split('-')[2] and only apply
+    # the role when that app id is present in selected_app_ids. This prevents
+    # creating external namespace roles for MAS applications that were not
+    # selected in the install flow.
     - name: "Apply each CLI-managed namespace-scoped essential Role"
       kubernetes.core.k8s:
         state: present
         definition: "{{ lookup('template', item.path) }}"
       loop: "{{ essential_external_files.files }}"
+      when: >
+        (item.path | basename).split('-')[2] in selected_app_ids
       loop_control:
         label: "{{ item.path | basename }}"
 
     - name: "CLI-managed namespace-scoped essential Roles applied"
       debug:
-        msg: "Applied {{ essential_external_files.matched }} CLI-managed namespace-scoped essential Role(s) for {{ operator_source }}/{{ current_operator }}"
+        msg: "Processed {{ essential_external_files.matched }} CLI-managed namespace-scoped essential Role file(s) for {{ operator_source }}/{{ current_operator }} using selected apps {{ selected_app_ids | join(', ') }}"

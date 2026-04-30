@@ -165,20 +165,20 @@ Specifies the RBAC (Role-Based Access Control) permission mode for MAS installat
 - Environment Variable: `MAS_PERMISSION_MODE`
 - Default: `cluster`
 
-**Purpose**: Controls the scope of permissions granted to MAS operators and workloads. This determines whether MAS uses cluster-wide ClusterRoles, namespace-scoped Roles, or minimal essential permissions. This setting is critical for environments with strict security policies or multi-tenant clusters.
+**Purpose**: Controls the scope of delegated permissions granted through MAS service accounts. This determines whether the CLI pre-installs cluster-scoped RBAC, namespace-scoped RBAC, or leaves MAS admins without delegated admin powers. This setting is important for environments with strict security policies or multi-tenant cluster governance.
 
 **When to use**:
-- Use `cluster` (default) for standard installations with full cluster-wide permissions
-- Use `nonEssential` for installations in restricted environments where cluster-wide permissions are not allowed, using namespace-scoped roles instead
-- Use `essential` for highly restricted environments requiring only minimal permissions, with limited application lifecycle management capabilities
+- Use `cluster` (default) when MAS should have delegated cluster-wide admin powers through CLI-managed ClusterRoles
+- Use `namespaced` when cluster-wide permissions are not allowed, but MAS should still have delegated admin powers within pre-created namespaces through namespace-scoped Roles
+- Use `minimal` when MAS admins should not receive delegated admin powers and application lifecycle administration must be handled outside MAS
 - Consider your organization's security policies and cluster governance requirements when choosing
 
-**Valid values**: `cluster`, `nonEssential`, `essential`
+**Valid values**: `cluster`, `namespaced`, `minimal`
 
 **Impact**:
-- `cluster`: Full functionality with ClusterRoles, supports all MAS features and application lifecycle management
-- `nonEssential`: Namespace-scoped permissions only, full functionality within namespace boundaries, no cluster-wide access
-- `essential`: Minimal permissions, limited application lifecycle management, suitable for highly restricted environments
+- `cluster`: CLI pre-installs ClusterRoles that grant delegated cluster admin powers via MAS service accounts; full MAS application lifecycle behavior remains available
+- `namespaced`: CLI pre-installs namespace-scoped Roles that grant delegated admin powers only within allowed namespaces; MAS lifecycle actions are limited to those prepared namespaces
+- `minimal`: MAS admins have no delegated admin powers; application lifecycle administration must be handled outside MAS
 - Cannot be changed after installation without reinstalling
 - Affects RBAC resources applied during installation and operator behavior
 
