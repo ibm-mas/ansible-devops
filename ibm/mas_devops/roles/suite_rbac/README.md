@@ -1,6 +1,6 @@
 # suite_rbac
 
-This role applies CLI-managed RBAC resources for MAS 9.2+ based on the selected permission mode and the applications selected for installation.
+This role applies RBAC resources for MAS 9.2+ based on the selected permission mode and the applications selected for installation.
 
 ## Role Variables
 
@@ -117,23 +117,6 @@ The role only applies RBAC for MAS 9.2 and later.
 
 ### RBAC discovery
 The role scans the RBAC root recursively and discovers operator RBAC directories that match the resolved MAS version.
-
-Expected structure is based on the CLI image layout, for example:
-
-```text
-/opt/app-root/rbac/
-├── catalogs/
-│   └── maximo-operator-catalog/
-│       └── operators/
-│           └── <operator>/
-│               └── rbac/
-│                   └── <mas_version>/
-└── openshift-platform/
-    └── operators/
-        └── <operator>/
-            └── rbac/
-                └── <mas_version>/
-```
 
 For each discovered operator entry, the role records:
 - operator source
