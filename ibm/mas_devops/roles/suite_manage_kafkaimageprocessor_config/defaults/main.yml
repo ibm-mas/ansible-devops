@@ -1,0 +1,31 @@
+---
+# MAS Domain
+# -----------------------------------------------------------------------------
+mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') }}"
+manage_namespace: "mas-{{ mas_instance_id }}-manage"
+mas_domain: "{{ lookup('env', 'MAS_DOMAIN') }}"
+mas_ws_cr_name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
+
+# Kafka Image Processor properties
+# -----------------------------------------------------------------------------
+kafkaimageprocessor_pvcname: "{{ lookup('env', 'KAFKAIMAGEPROCESSOR_PVCNAME') | default('manage-kafkaimageprocessor', true) }}"
+kafkaimageprocessor_storage_class: "{{ lookup('env', 'KAFKAIMAGEPROCESSOR_STORAGE_CLASS') }}"
+kafkaimageprocessor_storage_size: "{{ lookup('env', 'KAFKAIMAGEPROCESSOR_STORAGE_SIZE') | default('20Gi', true) }}"
+kafkaimageprocessor_storage_mode: "{{ lookup('env', 'KAFKAIMAGEPROCESSOR_STORAGE_MODE') | default('ReadWriteMany', true) }}"
+kafkaimageprocessor_storage_mountpath: "{{ lookup('env', 'KAFKAIMAGEPROCESSOR_STORAGE_MOUNTPATH') | default('kafkaimageprocessor', true) }}"
+# Kafka Configuration (Auto-fetched from KafkaCfg or manually provided)
+# -----------------------------------------------------------------------------
+# These variables are automatically fetched from the MAS system-level KafkaCfg CR
+# If not provided via environment variables, they will be retrieved from:
+#   - KafkaCfg: {{ mas_instance_id }}-kafka-system (in mas-{{ mas_instance_id }}-core namespace)
+#   - Secret: Referenced in KafkaCfg.spec.config.credentials.secretName
+#
+# You can override these by setting environment variables:
+kafka_brokers: "{{ lookup('env', 'KAFKA_BROKERS') }}"  # List of broker URLs (auto-fetched if empty)
+kafka_username: "{{ lookup('env', 'KAFKA_USERNAME') }}"  # SASL username (auto-fetched if empty)
+kafka_password: "{{ lookup('env', 'KAFKA_PASSWORD') }}"  # SASL password (auto-fetched if empty)
+kafka_certificates: "{{ lookup('env', 'KAFKA_CERTIFICATES') }}"  # JSON string of certificates (auto-fetched if empty)
+kafka_saslmechanism: "{{ lookup('env', 'KAFKA_SASL_MECHANISM') | default('SCRAM-SHA-512', true) }}"  # SASL mechanism (auto-fetched if empty)
+
+

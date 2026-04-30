@@ -1,0 +1,47 @@
+---
+- name: Retrieve Manage workspace CR
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ mas_ws_cr_name }}"
+    namespace: "{{ manage_namespace }}"
+    kind: ManageWorkspace
+  register: workspaceCR
+  retries: 3
+  delay: 10
+  until:
+    - workspaceCR.resources | length > 0
+
+- name: Check if Civil is enabled and kafka image processor is available
+  set_fact:
+    kafkaimageprocessorAvailable: "{{ workspaceCR.resources[0].status.components.civil is defined and workspaceCR.resources[0].status.components.civil.enabled and workspaceCR.resources[0].status.components.civil.deploykafkaimageprocessor is defined }}"
+
+# Wait for KafkaImageProcessor operator ServiceAccount to be created
+# The ServiceAccount is created by OLM when the operator is deployed
+- name: Wait for KafkaImageProcessor operator ServiceAccount
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ServiceAccount
+    name: ibm-mas-manage-kafkaimageprocessor-operator
+    namespace: "{{ manage_namespace }}"
+  register: sa_result
+  retries: 30
+  delay: 10
+  until:
+    - sa_result.resources is defined
+    - sa_result.resources | length > 0
+  when:
+    - kafkaimageprocessorAvailable
+
+# Note: RBAC for Kafka access is now created by Manage operator using namespace-scoped resources
+# - KafkaImageProcessor operator defines RBAC templates and a ClusterRole for Manage operator
+# - The ClusterRole grants Manage operator permission to create RBAC in any namespace
+# - Manage operator creates Role and RoleBindings in the Kafka namespace BEFORE deploying KafkaImageProcessor
+# - KafkaImageProcessor operator itself has NO ClusterRole (satisfies security requirement)
+# See: ibm-mas-manage/operator/ibm-mas-manage-ws/roles/workspace/tasks/setup-kafkaimageprocessor-rbac.yml
+# See: ibm-mas-imagestitching/operator/ibm-mas-kafkaimageprocessor/config/rbac/manage_operator_cluster_role.yaml
+
+- name: Configure kafka image processor
+  include_tasks: tasks/configure-kafkaimageprocessor.yml
+  when:
+    - kafkaimageprocessorAvailable
+
