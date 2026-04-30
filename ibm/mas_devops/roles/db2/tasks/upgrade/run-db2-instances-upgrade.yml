@@ -58,13 +58,14 @@
       no_log: true
       set_fact:
         db2_releases_content: "{{ db2_release_info.resources[0].data.json | from_json }}"
+        db2_release_version_name: "^s{{ new_db2_major_version }}"
 
-    - name: Filter out s12* versions and pick latest s11*
+    - name: Filter major version {{ new_db2_major_version }}
       set_fact:
         db2_version: >-
           {{
             (db2_releases_content.databases.db2u.keys()
-            | select('match', '^s11')
+            | select('match', db2_release_version_name)
             | sort)
             | last
           }}
@@ -129,4 +130,27 @@
     - db2_instance_lookup.resources[0].status.version == db2_version
   retries: 30 # Approximately 30 minutes before we give up
   delay: 60 # 1 minute
+  loop: "{{ db2Instance_names | zip(db2Instance_versions) | list }}"
+
+# 5b. Apply license to instances during v12 upgrade
+# -----------------------------------------------------------------------------
+- name: "Apply license to {{ instanceKind }} instance during v12 upgrade"
+  when:
+    - db2_instance_list.resources | length > 0
+    - new_db2_major_version == '12'
+    - db2_license_encoded is defined
+    - db2_license_encoded != ""
+    - item.1 != db2_version
+  kubernetes.core.k8s:
+    state: present
+    api_version: db2u.databases.ibm.com/v1
+    kind: "{{ instanceKind }}"
+    namespace: "{{ db2_namespace }}"
+    name: "{{ item.0 }}"
+    definition:
+      spec:
+        license:
+          accept: true
+          value: "{{ db2_license_encoded }}"
+    merge_type: merge
   loop: "{{ db2Instance_names | zip(db2Instance_versions) | list }}"
