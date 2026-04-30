@@ -1,0 +1,24 @@
+---
+# Apply non-essential namespace-scoped Roles for a specific operator (namepsaced mode)
+
+- name: "Find non-essential Role files for {{ current_operator }}"
+  find:
+    paths: "{{ operator_rbac_path }}"
+    patterns: "role-non-essential-*.yaml,role-non-essential-*.yml"
+  register: nonessential_files
+  failed_when: false
+
+- name: "Apply non-essential Roles for {{ current_operator }}"
+  when: nonessential_files.matched > 0
+  block:
+    - name: "Apply each non-essential Role"
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', item.path) }}"
+      loop: "{{ nonessential_files.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+
+    - name: "Non-essential Roles applied"
+      debug:
+        msg: "Applied {{ nonessential_files.matched }} non-essential Role(s) for {{ current_operator }}"

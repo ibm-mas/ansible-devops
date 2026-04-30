@@ -1,0 +1,24 @@
+---
+# Apply ClusterRoles for a specific operator (cluster mode)
+
+- name: "Find ClusterRole files for {{ current_operator }}"
+  find:
+    paths: "{{ operator_rbac_path }}"
+    patterns: "cluster-role-*.yaml,cluster-role-*.yml"
+  register: clusterrole_files
+  failed_when: false
+
+- name: "Apply ClusterRoles for {{ current_operator }}"
+  when: clusterrole_files.matched > 0
+  block:
+    - name: "Apply each ClusterRole"
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', item.path) }}"
+      loop: "{{ clusterrole_files.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+
+    - name: "ClusterRoles applied"
+      debug:
+        msg: "Applied {{ clusterrole_files.matched }} ClusterRole(s) for {{ current_operator }}"

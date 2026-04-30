@@ -1,0 +1,42 @@
+---
+# Permission mode from environment (cluster, namespaced, minimal)
+mas_permission_mode: "{{ lookup('env', 'MAS_PERMISSION_MODE') }}"
+
+# MAS instance ID
+mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+
+# MAS channel from environment (e.g., 9.2.x, 9.3.x)
+mas_channel: "{{ lookup('env', 'MAS_CHANNEL') }}"
+
+# MAS version for RBAC files (e.g., 9.2, 9.3)
+# Use MAS_RBAC_VERSION from environment if set (passed by CLI for upgrades)
+# Extract from mas_channel if MAS_RBAC_VERSION is not set
+mas_rbac_version: "{{ lookup('env', 'MAS_RBAC_VERSION') if lookup('env', 'MAS_RBAC_VERSION') != '' else (mas_channel | regex_replace('^([0-9]+\\.[0-9]+).*', '\\1') if mas_channel is defined and mas_channel != '' else '') }}"
+
+# Selected applications passed from CLI
+mas_selected_apps: "{{ lookup('env', 'MAS_SELECTED_APPS') }}"
+
+# Selected applications list
+selected_app_ids: "{{ mas_selected_apps.split(',') | map('trim') | reject('equalto', '') | list if mas_selected_apps is defined and mas_selected_apps != '' else ['core'] }}"
+
+# Map RBAC operator names from pre-install/catalogs/maximo-operator-catalog/operators/*
+# to selected application IDs
+operator_app_map:
+  ibm-mas: core
+  ibm-aiservice: aiservice
+  ibm-mas-arcgis: arcgis
+  ibm-mas-facilities: facilities
+  ibm-mas-iot: iot
+  ibm-mas-manage: manage
+  ibm-mas-monitor: monitor
+  ibm-mas-optimizer: optimizer
+  ibm-mas-predict: predict
+  ibm-mas-visualinspection: visualinspection
+
+# RBAC files location in CLI image:
+#   /opt/app-root/rbac/catalogs/<catalog>/operators/<operator>/rbac/<mas_version>
+#   /opt/app-root/rbac/openshift-platform/operators/<operator>/rbac/<mas_version>
+rbac_files_dir: "/opt/app-root/rbac"
+
+# List of discovered operator RBAC entries (populated by discover-operators.yml)
+discovered_operator_entries: []

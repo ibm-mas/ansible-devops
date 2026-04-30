@@ -1,0 +1,32 @@
+---
+# Apply all CLI-managed RBAC for a specific discovered operator RBAC entry
+
+- name: "Set RBAC entry facts for {{ current_operator_entry.operator_name }}"
+  set_fact:
+    current_operator: "{{ current_operator_entry.operator_name }}"
+    operator_rbac_path: "{{ current_operator_entry.operator_rbac_path }}"
+    operator_source: "{{ current_operator_entry.operator_source }}"
+
+- name: "Check if RBAC path exists"
+  stat:
+    path: "{{ operator_rbac_path }}"
+  register: rbac_path_check
+
+- name: "Apply CLI-managed RBAC for {{ operator_source }}/{{ current_operator }}"
+  when: rbac_path_check.stat.exists
+  block:
+    - name: "Apply namespace-scoped essential external Roles"
+      include_tasks: apply-operator-essential-roles.yml
+
+    - name: "Apply ClusterRoles (cluster mode)"
+      include_tasks: apply-operator-cluster-roles.yml
+      when: mas_permission_mode == "cluster"
+
+    - name: "Apply namespace-scoped non-essential Roles (namespaced mode)"
+      include_tasks: apply-operator-non-essential-roles.yml
+      when: mas_permission_mode == "namespaced"
+
+- name: "Skip {{ operator_source }}/{{ current_operator }} - RBAC path not found"
+  debug:
+    msg: "Skipping {{ operator_source }}/{{ current_operator }}: {{ operator_rbac_path }} does not exist"
+  when: not rbac_path_check.stat.exists
