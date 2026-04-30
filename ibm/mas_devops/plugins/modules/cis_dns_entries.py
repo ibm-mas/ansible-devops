@@ -197,9 +197,9 @@ def main():
                     url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/dns_records/{dnsId}"
                     # proxied = True
                     if cisProxy and 'reportdb' not in entryName and 'messaging.iot' not in entryName:
-                        payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": true \n}"    
+                        payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": true \n}"
                     else:
-                        payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": false \n}"    
+                        payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": false \n}"
 
             
                     headers = {
@@ -211,15 +211,16 @@ def main():
                     response = requests.request("PUT", url, headers=headers, data=payload)
                     if(response.status_code == 200):
                         changed = True
-                    #     DNS record updated successfully                    
+                    else:
+                        module.fail_json(msg = f"Failed to update DNS entry '{entryName}'. Status code: {response.status_code}, Response: {response.content}")
 
             else:
                 # Adding DNS entry
                 url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/dns_records"
                 if cisProxy and 'reportdb' not in entryName and 'messaging.iot' not in entryName:
-                    payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": true \n}"    
+                    payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": true \n}"
                 else:
-                    payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": false \n}"    
+                    payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": false \n}"
 
                 headers = {
                 'Content-Type': 'application/json',
@@ -230,7 +231,8 @@ def main():
                 response = requests.request("POST", url, headers=headers, data=payload)
                 if(response.status_code == 200):
                     changed = True
-                    # DNS record created successfully
+                else:
+                    module.fail_json(msg = f"Failed to create DNS entry '{entryName}'. Status code: {response.status_code}, Response: {response.content}")
         
         if delete_wildcards:
             for entry in existingDNSEntries:
