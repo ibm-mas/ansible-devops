@@ -9,7 +9,7 @@
     # -----------------------------------------------------------------------------
     - name: "Find additional trusted CAs"
       ansible.builtin.find:
-        paths: ocp_additional_trusted_ca_dir
+        paths: "{{ ocp_additional_trusted_ca_dir }}"
         patterns: '*.crt'
       register: ocp_additional_trusted_ca_lookup
 
@@ -24,6 +24,13 @@
       set_fact:
         trusted_ca_dict: "{{ trusted_ca_dict | default({}) | combine({((item.path | basename)[:-4]): (lookup('file', item.path) | replace('\n', '\\n')) }) }}"
       loop: "{{ ocp_additional_trusted_ca_lookup.files }}"
+
+    - name: "Check if registries are valid"
+      when: trusted_ca_dict | length > 0
+      ansible.builtin.assert:
+        that: item is regex('^[-._a-zA-Z0-9]+$')
+        fail_msg: "'{{ item }}'' must consist of alphanumeric characters, -, _ or ."
+      loop: "{{ trusted_ca_dict.keys() }}"
 
     # 1.2. Create the additional_trusted_ca.json
     # A JSON file containing the registry hostname as the key, and the PEM-encoded
@@ -51,7 +58,23 @@
 
     # 1.4. Verify additional trusted CAs were added in the cluster
     # -----------------------------------------------------------------------------
+    # Delete scenario
     - name: "Lookup 'cluster' Image resource"
+      when: trusted_ca_dict | length == 0
+      kubernetes.core.k8s_info:
+        api_version: config.openshift.io/v1
+        kind: Image
+        name: cluster
+      register: cluster_image_lookup
+      until: (cluster_image_lookup.resources[0].spec.additionalTrustedCA.name is not defined) or
+             ((cluster_image_lookup.resources[0].spec.additionalTrustedCA.name is defined) and
+             (cluster_image_lookup.resources[0].spec.additionalTrustedCA.name == ""))
+      retries: 5
+      delay: 10
+
+    # Add/Update scenario
+    - name: "Lookup 'cluster' Image resource"
+      when: trusted_ca_dict | length > 0
       kubernetes.core.k8s_info:
         api_version: config.openshift.io/v1
         kind: Image
@@ -64,6 +87,7 @@
       delay: 10
 
     - name: "Lookup and compare registry-additional-ca configmap"
+      when: trusted_ca_dict | length > 0
       kubernetes.core.k8s_info:
         api_version: v1
         kind: ConfigMap
