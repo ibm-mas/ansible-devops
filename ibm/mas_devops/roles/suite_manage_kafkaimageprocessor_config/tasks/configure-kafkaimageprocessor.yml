@@ -95,6 +95,60 @@
     kind: Kafkaimageprocessor
   register: kafkaimageprocessorCR
 
+# 3. Ensure Kafka binding exists in ManageWorkspace
+# -----------------------------------------------------------------------------
+# The KafkaImageProcessor operator requires kafka-cfg-data Secret which is created
+# by the ManageWorkspace operator when spec.bindings.kafka is configured.
+# This task ensures the Kafka binding is added if it doesn't exist.
+
+- name: Check if Kafka binding exists in ManageWorkspace
+  set_fact:
+    kafka_binding_exists: "{{ manageWorkspace.resources[0].spec.bindings.kafka is defined }}"
+
+- name: Debug Kafka binding status
+  debug:
+    msg:
+      - "Kafka binding exists: {{ kafka_binding_exists }}"
+      - "Current bindings: {{ manageWorkspace.resources[0].spec.bindings }}"
+
+- name: Add Kafka binding to ManageWorkspace if missing
+  when: not kafka_binding_exists
+  kubernetes.core.k8s:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ mas_ws_cr_name }}"
+    namespace: "{{ manage_namespace }}"
+    kind: ManageWorkspace
+    definition:
+      spec:
+        bindings:
+          kafka: system
+  register: addKafkaBinding
+  retries: 10
+  delay: 10
+  until:
+    - addKafkaBinding.result is defined
+    - addKafkaBinding.result | length > 0
+
+- name: Wait for ManageWorkspace operator to process Kafka binding
+  when: not kafka_binding_exists
+  pause:
+    seconds: 30
+    prompt: "Waiting for ManageWorkspace operator to create kafka-cfg-data Secret from Kafka binding"
+
+- name: Verify kafka-cfg-data Secret was created
+  when: not kafka_binding_exists
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: kafka-cfg-data
+    namespace: "{{ manage_namespace }}"
+  register: kafka_cfg_secret
+  retries: 20
+  delay: 15
+  until:
+    - kafka_cfg_secret.resources is defined
+    - kafka_cfg_secret.resources | length > 0
+
 - name: Retrieve current kafka image processor status
   set_fact:
     deploykafkaimageprocessor: "{{ manageWorkspace.resources[0].status.components.civil is defined and manageWorkspace.resources[0].status.components.civil.deploykafkaimageprocessor }}"
