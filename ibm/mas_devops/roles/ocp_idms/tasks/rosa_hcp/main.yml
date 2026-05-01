@@ -9,12 +9,12 @@
 - name: "Check for required parameters"
   assert:
     that:
-      - rosa_hcp_cluster_name is defined and rosa_hcp_cluster_name != ""
+      - ocp_cluster_name is defined and ocp_cluster_name != ""
 
 - name: "Settings"
   debug:
     msg:
-      - "Cluster Name .............................. {{ rosa_hcp_cluster_name }}"
+      - "Cluster Name .............................. {{ ocp_cluster_name }}"
       - "Registry Private Host ..................... {{ registry_private_host }}"
       - "Registry Private Port ..................... {{ registry_private_port | default('<undefined>') }}"
       - "Registry Private URL ...................... {{ registry_private_url }}"
@@ -23,12 +23,7 @@
       - "Registry Prefix (Red Hat) ................. {{ registry_prefix_redhat }}"
       - "Registry (Red Hat) ........................ {{ registry_private_url_with_path_redhat }}"
 
-# 2. Configure CA trust
-# -----------------------------------------------------------------------------
-- name: "Set up trust for the registry"
-  include_tasks: "tasks/rosa_hcp/trust.yml"
-
-# 3. Update default image pull secret
+# 2. Update default image pull secret
 # -----------------------------------------------------------------------------
 - name: "Update default image pull secret"
   when:
@@ -49,7 +44,7 @@
     registry_host: "{{ fvt_image_registry }}"
   include_tasks: "tasks/rosa_hcp/update-pull-secret.yml"
 
-# 4. IBM Maximo Operator Catalog
+# 3. IBM Maximo Operator Catalog
 # -----------------------------------------------------------------------------
 - name: "Create ImageDigestMirrorSet"
   vars:
@@ -57,7 +52,7 @@
   include_tasks:
     file: tasks/rosa_hcp/idms.yml
 
-# 5. Red Hat Operator Catalogs
+# 4. Red Hat Operator Catalogs
 # -----------------------------------------------------------------------------
 - name: "Setup Red Hat Operator Catalogs"
   when: setup_redhat_catalogs
@@ -91,7 +86,7 @@
       include_tasks:
         file: tasks/rosa_hcp/idms.yml
 
-# 6. Red Hat Release Catalog
+# 5. Red Hat Release Catalog
 # -----------------------------------------------------------------------------
 - name: "Create ImageDigestMirrorSet for OCP release"
   when: setup_redhat_release
@@ -100,7 +95,7 @@
   include_tasks:
     file: tasks/rosa_hcp/idms.yml
 
-# 7. Wait until the nodes have applied the updates
+# 6. Wait until the nodes have applied the updates
 # We have no way of accessing MachinePoolConfigs to reliability figure this step out
 # -----------------------------------------------------------------------------
 # - name: Wait for Machine Configs to update

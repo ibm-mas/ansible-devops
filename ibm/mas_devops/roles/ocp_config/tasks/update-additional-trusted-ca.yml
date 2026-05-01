@@ -1,0 +1,87 @@
+---
+# 1. AWS ROSA HCP
+# Login to rosa by exporting ROSA_TOKEN and running 'rosa login'
+# -----------------------------------------------------------------------------
+- name: "ROSA HCP: Update Additional Trusted CA"
+  when: ocp_deployment_model == "rosa_hcp"
+  block:
+    # 1.1 Find all CA certs in ocp_additional_trusted_ca_dir
+    # -----------------------------------------------------------------------------
+    - name: "Find additional trusted CAs"
+      ansible.builtin.find:
+        paths: ocp_additional_trusted_ca_dir
+        patterns: '*.crt'
+      register: ocp_additional_trusted_ca_lookup
+
+    - name: Initialize trusted_ca_dict
+      set_fact:
+        trusted_ca_dict: {}
+
+    - name: Add found CAs to trusted_ca_dict
+      when:
+        - ocp_additional_trusted_ca_lookup.files is defined
+        - ocp_additional_trusted_ca_lookup.files | length > 0
+      set_fact:
+        trusted_ca_dict: "{{ trusted_ca_dict | default({}) | combine({((item.path | basename)[:-4]): (lookup('file', item.path) | replace('\n', '\\n')) }) }}"
+      loop: "{{ ocp_additional_trusted_ca_lookup.files }}"
+
+    # 1.2. Create the additional_trusted_ca.json
+    # A JSON file containing the registry hostname as the key, and the PEM-encoded
+    # certificate as the value, for each additional registry CA to trust.
+    # If no files were found then an empty dict will be created. This will remove
+    # all additional trusted CAs from the cluster.
+    # -----------------------------------------------------------------------------
+    - name: Generate additional_trusted_ca.json from template
+      ansible.builtin.template:
+        src: "templates/additional_trusted_ca.json.j2"
+        dest: "{{ ocp_additional_trusted_ca_dir }}/additional_trusted_ca.json"
+        mode: preserve
+
+    # 1.3. Update the image registry for the cluster
+    # Patches the cluster config to use this configmap in spec.additionalTrustedCA
+    # -----------------------------------------------------------------------------
+    - name: "Patch cluster config with additional_trusted_ca.json"
+      ansible.builtin.shell: |
+        rosa edit cluster \
+        --registry-config-additional-trusted-ca="{{ ocp_additional_trusted_ca_dir }}"/additional_trusted_ca.json \
+        --cluster="{{ ocp_cluster_name }}" \
+        -y
+      register: rosa_cli_result
+      failed_when: rosa_cli_result.rc != 0
+
+    # 1.4. Verify additional trusted CAs were added in the cluster
+    # -----------------------------------------------------------------------------
+    - name: "Lookup 'cluster' Image resource"
+      kubernetes.core.k8s_info:
+        api_version: config.openshift.io/v1
+        kind: Image
+        name: cluster
+      register: cluster_image_lookup
+      until:
+        - cluster_image_lookup.resources[0].spec.additionalTrustedCA.name is defined
+        - cluster_image_lookup.resources[0].spec.additionalTrustedCA.name != ""
+      retries: 5
+      delay: 10
+
+    - name: "Lookup and compare registry-additional-ca configmap"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: ConfigMap
+        namespace: openshift-config
+        name: "{{ cluster_image_lookup.resources[0].spec.additionalTrustedCA.name }}"
+      register: registry_additional_ca_cfgmap_lookup
+      until:
+        - registry_additional_ca_cfgmap_lookup.resources is defined
+        - registry_additional_ca_cfgmap_lookup.resources | length > 0
+        - registry_additional_ca_cfgmap_lookup.resources[0].data is defined
+        - registry_additional_ca_cfgmap_lookup.resources[0].data | symmetric_difference(trusted_ca_dict) | length == 0
+      retries: 5
+      delay: 10
+
+    # 1.5. Cleanup
+    # Todo: delete the previous cfgmap in openshift-config
+    # -----------------------------------------------------------------------------
+    - name: "Delete local copy of additional_trusted_ca.json"
+      ansible.builtin.file:
+        path: "{{ ocp_additional_trusted_ca_dir }}/additional_trusted_ca.json"
+        state: absent
