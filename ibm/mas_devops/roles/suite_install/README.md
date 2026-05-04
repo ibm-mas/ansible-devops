@@ -159,7 +159,7 @@ Local directory path containing additional Kubernetes configuration files to app
 ### Advanced Configuration
 
 #### mas_permission_mode
-Specifies the RBAC (Role-Based Access Control) permission mode for MAS installation.
+Specifies the RBAC (Role-Based Access Control) permission mode for MAS.
 
 - **Optional**
 - Environment Variable: `MAS_PERMISSION_MODE`
@@ -179,16 +179,14 @@ Specifies the RBAC (Role-Based Access Control) permission mode for MAS installat
 - `cluster`: ClusterRoles that grant delegated cluster admin powers via MAS service accounts; full MAS application lifecycle behavior remains available
 - `namespaced`: Namespace-scoped permissions only, full functionality within namespace boundaries, no cluster-wide access
 - `minimal`: MAS admins have no delegated admin powers; application lifecycle administration must be handled outside MAS
-- Cannot be changed after installation without reinstalling
 - Affects RBAC resources applied during installation and operator behavior
 
 **Related variables**:
-- Affects which RBAC resources are applied from the pre-install catalog
+- Affects which RBAC resources are applied from the pre-install
 - Impacts MAS operator's ability to manage cluster-wide resources
 - Must align with cluster security policies and governance requirements
 
-**Note**: Choose carefully as this cannot be changed after installation.
-
+**Note**: Choose the permission mode carefully. It affects which RBAC resources are applied and what MAS can manage.
 #### mas_annotations
 Comma-separated list of key=value annotations to apply to all MAS resources.
 
@@ -389,7 +387,7 @@ Name of the cert-manager ClusterIssuer to use for automatic certificate generati
 **Note**: Ensure the ClusterIssuer is created and functional before installing MAS. Test certificate generation with a test Certificate resource first.
 
 #### mas_internal_certificate_issuer_kind
-Specifies the issuer kind to configure for MAS internal certificates in the Suite custom resource.
+Specifies the issuer kind to configure for MAS internal certificates.
 
 - **Optional**
 - Environment Variable: `MAS_INTERNAL_CERTIFICATE_ISSUER_KIND`
@@ -400,20 +398,18 @@ Specifies the issuer kind to configure for MAS internal certificates in the Suit
 **When to use**:
 - Use `Issuer` in any permission mode: `cluster`, `namespaced`, or `minimal`
 - Use `ClusterIssuer` only when MAS is installed in `cluster` permission mode
-- Leave unset if you want higher-level installation tooling to decide whether this field should be rendered
-- Use only when the MAS version/channel supports `spec.settings.internalCertificateIssuer.kind`
+
 
 **Valid values**: `Issuer`, `ClusterIssuer`
 
 **Impact**:
 - `Issuer`: Internal certificate references remain namespace-scoped and can be used in all permission modes
 - `ClusterIssuer`: Internal certificate references use a cluster-scoped issuer and should only be used with `cluster` permission mode
-- This only affects `spec.settings.internalCertificateIssuer.kind` in the Suite CR
 
 **Related variables**:
 - `mas_permission_mode`
 
-**Note**: Choose an issuer kind that matches the permission model and cert-manager resources available in the cluster. `Issuer` is universally valid across all permission modes, while `ClusterIssuer` is restricted to `cluster` mode.
+**Note**: Choose an issuer kind that matches the permission mode. `Issuer` is universally valid across all permission modes, while `ClusterIssuer` is restricted to `cluster` mode.
 
 #### mas_certificate_duration
 Specifies the validity period for MAS certificates.
