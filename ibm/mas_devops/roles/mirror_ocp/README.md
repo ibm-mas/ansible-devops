@@ -28,8 +28,27 @@ Three catalogs are mirrored, containing the following content:
 4. aws-efs-csi-driver-operator (required by ibm.mas_devops.ocp_efs role)
 5. local-storage-operator (required by ibm.mas_devops.ocs role)
 6. odf-operator (required by ibm.mas_devops.ocs role)
-7. openshift-cert-manager-operator (required by ibm.mas_devops.cert_manager role)
-8. lvms-operator (not directly used, but often used in SNO environments)
+7. rook-ceph-operator (required by odf)
+8. recipe (required by odf)
+9. odf-prometheus-operator (required by odf)
+10. odf-external-snapshotter-operator (required by odf)
+11. odf-csi-addons-operator (required by odf)
+12. ocs-operator (required by odf)
+13. ocs-client-operator (required by odf)
+14. mcg-operator (required by odf)
+15. cephcsi-operator (required by odf)
+16. odf-dependencies (required by ibm.mas_devops.ocs role for OCP 4.18+)
+17. openshift-cert-manager-operator (required by ibm.mas_devops.cert_manager role)
+18. serverless-operator (required by ibm.mas_devops.aiservice_odh role, OCP 4.18+)
+19. servicemeshoperator (required by ibm.mas_devops.aiservice_odh role, OCP 4.18+)
+20. authorino-operator (required by ibm.mas_devops.aiservice_odh role, OCP 4.18+)
+21. lvms-operator (not used by any of our roles, but used in SNO installations)
+
+### Additional Images
+The following specific images are also mirrored:
+1. registry.redhat.io/openshift-service-mesh/istio-operator-bundle (specific digest)
+2. quay.io/community-operator-pipeline-prod/opendatahub-operator:2.32.0
+3. quay.io/opendatahub/opendatahub-operator:v2.32.0
 
 ## Requirements
 - `oc` tool must be installed
@@ -179,9 +198,9 @@ The Red Hat release you are mirroring content for, e.g. `4.20`.
 **When to use**:
 - Always required for Red Hat content mirroring
 - Must match the OpenShift version in your target environment
-- Use format: `4.19`, `4.18`, `4.17`
+- Use format: `4.20`, `4.19`, `4.18`, `4.17`
 
-**Valid values**: OpenShift major.minor version (e.g., `4.19`, `4.18`, `4.17`, `4.16`)
+**Valid values**: OpenShift major.minor version (e.g., `4.20`, `4.19`, `4.18`, `4.17`, `4.16`)
 
 **Impact**: Determines which OpenShift version's images and operators are mirrored. Must match your target cluster version.
 
@@ -190,7 +209,7 @@ The Red Hat release you are mirroring content for, e.g. `4.20`.
 - `ocp_max_version`: Maximum patch version to mirror
 - `mirror_redhat_platform`: Whether to mirror platform images for this version
 
-**Note**: Use the major.minor version format (e.g., `4.19`), not full version (e.g., `4.19.10`). Use `ocp_min_version` and `ocp_max_version` to control patch version range.
+**Note**: Use the major.minor version format (e.g., `4.20`), not full version (e.g., `4.20.8`). Use `ocp_min_version` and `ocp_max_version` to control patch version range.
 
 ### ocp_min_version
 The minimum version of the Red Hat release to mirror platform content for, e.g. `4.20.8`.
@@ -218,7 +237,7 @@ The minimum version of the Red Hat release to mirror platform content for, e.g. 
 **Note**: Only affects platform image mirroring, not operators. Use to limit mirror size when you know the specific OpenShift versions you need.
 
 ### ocp_max_version
-The maximimum version of the Red Hat release to mirror platform content for, e.g. `4.20.8`.
+The maximimum version of the Red Hat release to mirror platform content for, e.g. `4.20.12`.
 
 - **Optional**
 - Environment Variable: `OCP_MAX_VERSION`

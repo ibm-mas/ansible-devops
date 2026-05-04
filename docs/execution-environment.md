@@ -225,7 +225,7 @@ If you need to set an environment variable then you can do this in the playbook 
   vars:
     cluster_name: testcluster
     cluster_type: rosa
-    ocp_version: 4.20.8
+    ocp_version: 4.21.3
     rosa_compute_nodes: 3
 
   environment:
