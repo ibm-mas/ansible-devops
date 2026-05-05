@@ -5,14 +5,19 @@
 - name: "ROSA HCP: Update allowed registries"
   when: ocp_deployment_model == "rosa_hcp"
   block:
-    # 1.1 Check for required params
+    # 1.1 Rosa Login
+    # -----------------------------------------------------------------------------
+    - name: "Login to Rosa"
+      include_tasks: "{{ role_path }}/../../common_tasks/rosa_login.yml"
+
+    # 1.2 Check for required params
     # -----------------------------------------------------------------------------
     - name: "ROSA HCP: Check for required parameters"
       assert:
         that:
           - ocp_cluster_name is defined and ocp_cluster_name != ""
 
-    # 1.2 Add additional registries
+    # 1.3 Add additional registries
     # -----------------------------------------------------------------------------
     - name: "ROSA HCP: Add MAS registries"
       ansible.builtin.set_fact:
@@ -22,7 +27,7 @@
       ansible.builtin.set_fact:
         ocp_allowed_registries: "{{ ocp_add_rh_registries | ternary((ocp_allowed_rh_registries | union(ocp_allowed_registries)), ocp_allowed_registries) }}"
 
-    # 1.3 Update allowed registries
+    # 1.4 Update allowed registries
     # -----------------------------------------------------------------------------
     # The following registries are added automatically by the HCP:
     #   - 'image-registry.openshift-image-registry.svc:5000'
@@ -38,7 +43,7 @@
       register: rosa_cli_result
       failed_when: rosa_cli_result.rc != 0
 
-    # 1.4 Verify registries in cluster
+    # 1.5 Verify registries in cluster
     # -----------------------------------------------------------------------------
     - name: "Lookup 'cluster' Image resource"
       kubernetes.core.k8s_info:
