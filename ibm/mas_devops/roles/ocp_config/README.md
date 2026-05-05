@@ -36,11 +36,11 @@ This role configures:
 
 ## Role Variables - General
 
-### ocp_deployment_model
+### cluster_type
 The deployment model of OpenShift.
 
 - **Optional**
-- Environment Variable: `OCP_DEPLOYMENT_MODEL`
+- Environment Variable: `CLUSTER_TYPE`
 - Default Value: `default`
 
 **Purpose**: Specifies the deployment model of OpenShift to run model specific tasks.
@@ -410,7 +410,7 @@ The path to the additional trusted CAs.
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    ocp_deployment_model: "rosa_hcp"
+    cluster_type: "rosa_hcp"
     ocp_cluster_name: "rosa-dev-cluster"
     ocp_update_allowed_registries: True
     ocp_allowed_registries:
