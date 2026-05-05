@@ -158,35 +158,6 @@ Local directory path containing additional Kubernetes configuration files to app
 
 ### Advanced Configuration
 
-#### mas_permission_mode
-Specifies the RBAC (Role-Based Access Control) permission mode for MAS.
-
-- **Optional**
-- Environment Variable: `MAS_PERMISSION_MODE`
-- Default: `cluster`
-
-**Purpose**: Controls the scope of permissions granted to MAS operators and workloads. This determines whether MAS uses cluster-wide ClusterRoles, namespace-scoped Roles, or minimal essential permissions. This setting is critical for environments with strict security policies or multi-tenant clusters.
-
-**When to use**:
-- Use `cluster` (default) for standard installations with full cluster-wide permissions
-- Use `namespaced`for installations in restricted environments where cluster-wide permissions are not allowed, using namespace-scoped roles instead
-- Use `minimal` for highly restricted environments requiring only minimal permissions, with limited application lifecycle management capabilities
-- Consider your organization's security policies and cluster governance requirements when choosing
-
-**Valid values**: `cluster`, `namespaced`, `minimal`
-
-**Impact**:
-- `cluster`: ClusterRoles that grant delegated cluster admin powers via MAS service accounts; full MAS application lifecycle behavior remains available
-- `namespaced`: Namespace-scoped permissions only, full functionality within namespace boundaries, no cluster-wide access
-- `minimal`: MAS admins have no delegated admin powers; application lifecycle administration must be handled outside MAS
-- Affects RBAC resources applied during installation and operator behavior
-
-**Related variables**:
-- Affects which RBAC resources are applied from the pre-install
-- Impacts MAS operator's ability to manage cluster-wide resources
-- Must align with cluster security policies and governance requirements
-
-**Note**: Choose the permission mode carefully. It affects which RBAC resources are applied and what MAS can manage.
 #### mas_annotations
 Comma-separated list of key=value annotations to apply to all MAS resources.
 
@@ -386,14 +357,14 @@ Name of the cert-manager ClusterIssuer to use for automatic certificate generati
 
 **Note**: Ensure the ClusterIssuer is created and functional before installing MAS. Test certificate generation with a test Certificate resource first.
 
-#### mas_internal_certificate_issuer_kind
-Specifies the issuer kind to configure for MAS internal certificates.
+#### mas_issuer_kind
+Specifies the issuer kind to configure for MAS certificates.
 
 - **Optional**
-- Environment Variable: `MAS_INTERNAL_CERTIFICATE_ISSUER_KIND`
+- Environment Variable: `mas_issuer_kind`
 - Default: None
 
-**Purpose**: Controls the value written to `spec.settings.internalCertificateIssuer.kind` in the MAS Suite custom resource. This determines whether MAS internal certificates use a namespace-scoped `Issuer` or a cluster-scoped `ClusterIssuer`.
+**Purpose**: Controls the value written to `spec.settings.issuerKind` in the MAS Suite custom resource. This determines whether MAS certificates use a namespace-scoped `Issuer` or a cluster-scoped `ClusterIssuer`.
 
 **When to use**:
 - Use `Issuer` in any permission mode: `cluster`, `namespaced`, or `minimal`
@@ -403,13 +374,10 @@ Specifies the issuer kind to configure for MAS internal certificates.
 **Valid values**: `Issuer`, `ClusterIssuer`
 
 **Impact**:
-- `Issuer`: Internal certificate references remain namespace-scoped and can be used in all permission modes
-- `ClusterIssuer`: Internal certificate references use a cluster-scoped issuer and should only be used with `cluster` permission mode
+- `Issuer`: certificate references remain namespace-scoped and can be used in all permission modes
+- `ClusterIssuer`: certificate references use a cluster-scoped issuer and should only be used with `cluster` permission mode
 
-**Related variables**:
-- `mas_permission_mode`
-
-**Note**: Choose an issuer kind that matches the permission mode. `Issuer` is universally valid across all permission modes, while `ClusterIssuer` is restricted to `cluster` mode.
+*Note**: Choose an issuer kind that matches the permission mode. `Issuer` is universally valid across all permission modes, while `ClusterIssuer` is restricted to `cluster` mode.
 
 #### mas_certificate_duration
 Specifies the validity period for MAS certificates.
