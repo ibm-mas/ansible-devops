@@ -58,11 +58,11 @@ The deployment model of OpenShift.
 **Notes**:
 - Most OpenShift clusters use only the `default` deployment model
 
-### ocp_cluster_name
+### cluster_name
 The name of the OpenShift cluster.
 
 - **Optional**
-- Environment Variable: `OCP_CLUSTER_NAME`
+- Environment Variable: `CLUSTER_NAME`
 - Default Value: Not set
 
 **Purpose**: Specifies the name of the OpenShift cluster.
@@ -411,7 +411,7 @@ The path to the additional trusted CAs.
   any_errors_fatal: true
   vars:
     cluster_type: "rosa_hcp"
-    ocp_cluster_name: "rosa-dev-cluster"
+    cluster_name: "rosa-dev-cluster"
     ocp_update_allowed_registries: True
     ocp_allowed_registries:
         - ibm.com
