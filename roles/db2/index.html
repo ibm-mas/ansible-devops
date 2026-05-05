@@ -736,6 +736,8 @@
     
       <cds-select-item value="#backup-and-restore-troubleshooting">Backup and Restore Troubleshooting</cds-select-item>
     
+      <cds-select-item value="#upgrading-db2-from-v11-to-v12">Upgrading Db2 from v11 to v12</cds-select-item>
+    
       <cds-select-item value="#license">License</cds-select-item>
     
     </cds-select>
@@ -949,6 +951,39 @@ export DB2_INSTANCE_NAME=my-db
 - <code>db2_action</code>: When set to <code>upgrade</code>, this version is the target
 - <code>db2_namespace</code>: All instances in namespace upgraded to this version</p>
 <p><strong>Note</strong>: Supported versions are listed in the <code>db2u-release</code> configmap in <code>ibm-common-services</code> namespace. Ensure the version matches your operator channel. When upgrading, all instances in the namespace are upgraded together.</p>
+<h4 id="db2_license_file">db2_license_file<a class="headerlink" href="#db2_license_file" title="Permanent link">¤</a></h4>
+<p>Path to the Db2 v12 license file on the local filesystem.</p>
+<ul>
+<li><strong>Required</strong> when upgrading from Db2 v11 to v12</li>
+<li><strong>Optional</strong> for new Db2 installations</li>
+<li>Environment Variable: <code>DB2_LICENSE_FILE</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Provides the Db2 Warehouse license to apply to the instance. Without a valid license, Db2 v12 operates under a 30-day trial license. When the trial expires, the database becomes unavailable — this is especially critical for production systems.</p>
+<p><strong>When to use</strong>:
+- <strong>Required</strong> when <code>db2_action=upgrade</code> and upgrading from v11 to v12 (<code>db2_v12_upgrade=true</code>)
+- Optional for new installations (Db2 will use trial license if not provided)
+- IBM may refer to this file by different names: "Db2 Warehouse license", "Db2 activation key", <code>db2wh.lic</code>, or <code>db2ese.lic</code> — see the <a href="#upgrading-db2-from-v11-to-v12">Upgrading Db2 from v11 to v12</a> section for an example of the expected file format</p>
+<p><strong>Valid values</strong>: Absolute path to a valid Db2 license file (<code>.lic</code> format)</p>
+<p><strong>Related variables</strong>:
+- <code>db2_v12_upgrade</code>: Must be <code>true</code> alongside this variable for v12 upgrades
+- <code>db2_channel</code>: Must target a v12 channel (e.g., <code>v12.0.0-cn1</code>)</p>
+<p><strong>Example</strong>: <code>/path/to/db2wh.lic</code></p>
+<h4 id="db2_v12_upgrade">db2_v12_upgrade<a class="headerlink" href="#db2_v12_upgrade" title="Permanent link">¤</a></h4>
+<p>Explicit opt-in flag required to authorize a major version upgrade from Db2 v11 to v12.</p>
+<ul>
+<li><strong>Required</strong> when upgrading from Db2 v11 to v12</li>
+<li>Environment Variable: <code>DB2_V12_UPGRADE</code></li>
+<li>Default: <code>false</code></li>
+</ul>
+<p><strong>Purpose</strong>: Acts as a safety gate to prevent accidental major version upgrades. Upgrading from Db2 v11 to v12 is a significant, irreversible operation that requires explicit user consent. This flag, combined with <code>db2_license_file</code>, ensures the upgrade is intentional and properly licensed.</p>
+<p><strong>When to use</strong>:
+- Set to <code>true</code> only when you intend to upgrade from Db2 v11 to v12
+- Must be combined with <code>db2_license_file</code> — the upgrade will fail if the license file is not provided, to prevent a silent downgrade to a 30-day trial license</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Related variables</strong>:
+- <code>db2_license_file</code>: Required alongside this flag for v12 upgrades
+- <code>db2_channel</code>: Must target a v12 channel (e.g., <code>v12.0.0-cn1</code>)</p>
 <h4 id="db2_type">db2_type<a class="headerlink" href="#db2_type" title="Permanent link">¤</a></h4>
 <p>Db2 instance type optimized for specific workload patterns.</p>
 <ul>
@@ -2199,6 +2234,91 @@ oc exec -n &lt;namespace&gt; &lt;db2-pod&gt; -- cat /database/config/db2inst1/sq
 <li><strong>Check resources</strong>: Ensure adequate CPU, memory, and storage are available</li>
 <li><strong>Open an issue</strong>: Report problems at the project repository with logs and configuration details</li>
 </ol>
+<h2 id="upgrading-db2-from-v11-to-v12">Upgrading Db2 from v11 to v12<a class="headerlink" href="#upgrading-db2-from-v11-to-v12" title="Permanent link">¤</a></h2>
+<p>Upgrading from Db2 v11 to v12 is a major version change that requires explicit opt-in and a valid Db2 Warehouse license. Without a license, Db2 v12 will operate under a 30-day trial license — <strong>this will cause your production system to go offline after expiry</strong>.</p>
+<h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">¤</a></h3>
+<ul>
+<li>A valid Db2 Warehouse license file (<code>.lic</code> format) — see <a href="#db2-v12-license-file-format">Db2 v12 License File Format</a> below</li>
+<li>The <code>db2_v12_upgrade</code> flag set to <code>true</code></li>
+<li>A v12 target channel (e.g., <code>v12.0.0-cn1</code>)</li>
+</ul>
+<h3 id="required-variables">Required Variables<a class="headerlink" href="#required-variables" title="Permanent link">¤</a></h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Environment Variable</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>db2_v12_upgrade</code></td>
+<td><code>DB2_V12_UPGRADE</code></td>
+<td>Must be <code>true</code> to authorize the upgrade</td>
+</tr>
+<tr>
+<td><code>db2_license_file</code></td>
+<td><code>DB2_LICENSE_FILE</code></td>
+<td>Path to the Db2 v12 license file</td>
+</tr>
+<tr>
+<td><code>db2_channel</code></td>
+<td><code>DB2_CHANNEL</code></td>
+<td>Target v12 channel (e.g., <code>v12.0.0-cn1</code>)</td>
+</tr>
+<tr>
+<td><code>db2_namespace</code></td>
+<td><code>DB2_NAMESPACE</code></td>
+<td>Namespace containing the Db2 instances to upgrade</td>
+</tr>
+</tbody>
+</table>
+<h3 id="example-usage">Example Usage<a class="headerlink" href="#example-usage" title="Permanent link">¤</a></h3>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    db2_action: upgrade
+    db2_namespace: db2u
+    db2_channel: v12.0.0-cn1
+    db2_v12_upgrade: true
+    db2_license_file: /path/to/db2wh.lic
+  roles:
+    - ibm.mas_devops.db2
+</code></pre>
+<p>Or using environment variables:</p>
+<pre><code class="language-bash">export DB2_ACTION=upgrade
+export DB2_NAMESPACE=db2u
+export DB2_CHANNEL=v12.0.0-cn1
+export DB2_V12_UPGRADE=true
+export DB2_LICENSE_FILE=/path/to/db2wh.lic
+ansible-playbook ibm.mas_devops.oneclick_upgrade_db2
+</code></pre>
+<h3 id="db2-v12-license-file-format">Db2 v12 License File Format<a class="headerlink" href="#db2-v12-license-file-format" title="Permanent link">¤</a></h3>
+<p>IBM distributes the Db2 Warehouse license under several names — you may have received it as <code>db2wh.lic</code>, <code>db2ese.lic</code>, <code>db2aese.lic</code>, or simply as an "activation key" or "entitlement file". The file is a plain-text file with the following structure:</p>
+<pre><code>[LicenseCertificate]
+CheckSum=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+TimeStamp=YYYY-MM-DD HH:MM:SS
+PasswordVersion=5
+VendorName=IBM Corporation
+VendorPassword=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+ProductName=IBM Db2 Warehouse
+ProductID=5765-F41
+ProductVersion=12.0
+ProductAnnotation=
+LicenseType=Permanent
+...
+</code></pre>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This is a sample structure only — not a real license. Use it to verify that the file you have from IBM matches this format. The file should contain <code>[LicenseCertificate]</code> as the first line and include <code>ProductName=IBM Db2 Warehouse</code> or similar. If your file looks significantly different, you may have the wrong entitlement file.</p>
+</div>
+<h3 id="what-happens-without-a-license">What Happens Without a License<a class="headerlink" href="#what-happens-without-a-license" title="Permanent link">¤</a></h3>
+<p>If <code>db2_license_file</code> is not provided when upgrading to v12, the role will <strong>fail immediately</strong> with a clear error message. This is intentional — it prevents a silent downgrade from a full production license to a 30-day trial license, which would cause your database to go offline after the trial period expires.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>New installations (<code>db2_action=install</code>) do not require a license file. Only upgrades from v11 to v12 enforce this requirement.</p>
+</div>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">¤</a></h2>
 <p>EPL-2.0</p>
             
@@ -2562,6 +2682,38 @@ oc exec -n &lt;namespace&gt; &lt;db2-pod&gt; -- cat /database/config/db2inst1/sq
                       <li class="md-toc__item">
                         <a href="#getting-help" class="md-toc__link" data-md-level="2">
                           Getting Help
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#upgrading-db2-from-v11-to-v12" class="md-toc__link" data-md-level="1">
+                  Upgrading Db2 from v11 to v12
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#prerequisites" class="md-toc__link" data-md-level="2">
+                          Prerequisites
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#required-variables" class="md-toc__link" data-md-level="2">
+                          Required Variables
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#example-usage" class="md-toc__link" data-md-level="2">
+                          Example Usage
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2-v12-license-file-format" class="md-toc__link" data-md-level="2">
+                          Db2 v12 License File Format
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#what-happens-without-a-license" class="md-toc__link" data-md-level="2">
+                          What Happens Without a License
                         </a>
                       </li>
                   </ul>
