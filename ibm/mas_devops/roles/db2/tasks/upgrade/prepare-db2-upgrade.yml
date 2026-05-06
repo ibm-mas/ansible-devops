@@ -41,17 +41,34 @@
     that: db2_operator_namespace_lookup.stdout_lines | length > 0
     fail_msg: "DB2 operator was not found in the cluster. Aborting DB2 upgrade."
 
-- name: Assert there is just one db2 operator running
-  assert:
-    that: db2_operator_namespace_lookup.stdout_lines | length == 1
-    fail_msg:
-      - "There are multiple subscriptions for DB2 in the cluster."
-      - "Make sure you just have one DB2 operator running."
-      - "DB2 operator namespaces identified: {{ db2_operator_namespace_lookup.stdout_lines }}"
+#- name: Assert there is just one db2 operator running
+#  assert:
+#    that: db2_operator_namespace_lookup.stdout_lines | length == 1
+#    fail_msg:
+#      - "There are multiple subscriptions for DB2 in the cluster."
+#      - "Make sure you just have one DB2 operator running."
+#      - "DB2 operator namespaces identified: {{ db2_operator_namespace_lookup.stdout_lines }}"
 
-- name: Define db2_operator_namespace based on the lookup
+#- name: Define db2_operator_namespace based on the lookup
+#  set_fact:
+#    current_db2_operator_namespace: "{{ db2_operator_namespace_lookup.stdout }}"
+
+# Handle multiple DB2 operators by using db2_namespace parameter
+- name: Check if multiple db2 operators are running
   set_fact:
-    current_db2_operator_namespace: "{{ db2_operator_namespace_lookup.stdout }}"
+    multiple_db2_operators: "{{ db2_operator_namespace_lookup.stdout_lines | length > 1 }}"
+
+- name: Define db2_operator_namespace based on the lookup or parameter
+  set_fact:
+    current_db2_operator_namespace: "{{ db2_namespace if multiple_db2_operators else db2_operator_namespace_lookup.stdout }}"
+
+- name: Warn about multiple DB2 operators
+  debug:
+    msg:
+      - "WARNING: Multiple DB2 operators detected in namespaces: {{ db2_operator_namespace_lookup.stdout_lines }}"
+      - "Using db2_namespace parameter: {{ db2_namespace }}"
+      - "The upgrade will only affect DB2 instances in the {{ db2_namespace }} namespace"
+  when: multiple_db2_operators
 
 - debug:
     msg: "DB2 subscription/operator is currently running in '{{ current_db2_operator_namespace }}' namespace"
