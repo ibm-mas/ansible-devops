@@ -2,7 +2,7 @@
     <meta charset="utf-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>ocp_efs - MAS DevOps Ansible Collection</title>
+    <title>suite_restore - MAS DevOps Ansible Collection</title>
 
     <!-- Pure CSS (https://pure-css.github.io/) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/purecss@3.0.0/build/pure-min.css" integrity="sha384-X38yfunGUhNzHpBaEBsWLO+A0HDYOQi8ufWDkZ0k9e0eXz/tH3II7uKZ9msv++Ls" crossorigin="anonymous">
@@ -226,7 +226,7 @@
 
                 
                   
-  <cds-side-nav-menu title="Roles: OCP Mgmt" active="" expanded="">
+  <cds-side-nav-menu title="Roles: OCP Mgmt">
     
       
   <cds-side-nav-menu-item href="../ocp_cluster_monitoring/">
@@ -247,7 +247,7 @@
 
     
       
-  <cds-side-nav-menu-item href="./" active="" expanded="">
+  <cds-side-nav-menu-item href="../ocp_efs/">
     ocp_efs
   </cds-side-nav-menu-item>
 
@@ -508,7 +508,7 @@
 
                 
                   
-  <cds-side-nav-menu title="Roles: Suite Mgmt">
+  <cds-side-nav-menu title="Roles: Suite Mgmt" active="" expanded="">
     
       
   <cds-side-nav-menu-item href="../suite_app_config/">
@@ -673,7 +673,7 @@
 
     
       
-  <cds-side-nav-menu-item href="../suite_restore/">
+  <cds-side-nav-menu-item href="./" active="" expanded="">
     suite_restore
   </cds-side-nav-menu-item>
 
@@ -737,20 +737,20 @@
   <cds-breadcrumb-item>
     <cds-breadcrumb-link href="../..">Home</cds-breadcrumb-link>
   </cds-breadcrumb-item>
-      <cds-breadcrumb-item>Roles: OCP Mgmt</cds-breadcrumb-item>
+      <cds-breadcrumb-item>Roles: Suite Mgmt</cds-breadcrumb-item>
   <cds-breadcrumb-item>
-    <cds-breadcrumb-link href="#ocp_efs">ocp_efs</cds-breadcrumb-link>
+    <cds-breadcrumb-link href="#restore-mas-core">Restore MAS Core</cds-breadcrumb-link>
   </cds-breadcrumb-item>
 
   <cds-breadcrumb-item aria-current="page">
     <cds-select id="breadcrumbs-toc" inline="" placeholder="..." oninput="changeAnchor(this.value)">
     
     
+      <cds-select-item value="#overview">Overview</cds-select-item>
+    
       <cds-select-item value="#role-variables">Role Variables</cds-select-item>
     
-      <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
-    
-      <cds-select-item value="#license">License</cds-select-item>
+      <cds-select-item value="#restore-operations">Restore Operations</cds-select-item>
     
     </cds-select>
   </cds-breadcrumb-item>
@@ -760,156 +760,228 @@
           <!-- Page content -->
           <div class="rst-content">
             
-            <h1 id="ocp_efs">ocp_efs<a class="headerlink" href="#ocp_efs" title="Permanent link">¤</a></h1>
-<p>Provision and configure AWS Elastic File System (EFS) storage for Red Hat OpenShift Service on AWS (ROSA) clusters. This role automates the complete EFS setup including security group configuration, EFS instance creation, access points, mount targets, and StorageClass creation.</p>
-<p>EFS provides ReadWriteMany (RWX) persistent storage essential for MAS applications that require shared file access across multiple pods, such as Manage attachments and customer files.</p>
-<p>The role performs the following operations:
-1. Configures security group inbound rules for NFS access
-2. Creates EFS file system in the cluster's VPC
-3. Establishes mount targets in all availability zones
-4. Creates access points for isolated storage
-5. Deploys EFS CSI driver and StorageClass</p>
+            <h1 id="restore-mas-core">Restore MAS Core<a class="headerlink" href="#restore-mas-core" title="Permanent link">¤</a></h1>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">¤</a></h2>
+<p>This role supports restoring the MAS Core namespace resources and supporting
+resources in other namespace when provided the backup archive generated from
+<code>suite_backup</code> role.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Restore can only be made to the an instance with the same MAS instance ID as the backup.</p>
+</div>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
-<h3 id="aws_access_key_id">aws_access_key_id<a class="headerlink" href="#aws_access_key_id" title="Permanent link">¤</a></h3>
-<p>AWS access key ID for authentication.</p>
+<h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
+<p>The instance ID of the Maximo Application Suite installation to restore. This
+should match the instance ID of the backup.</p>
 <ul>
 <li><strong>Required</strong></li>
-<li>Environment Variable: <code>AWS_ACCESS_KEY_ID</code></li>
-<li>Default: None</li>
+<li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
+<li>Default Value: None</li>
 </ul>
-<p><strong>Purpose</strong>: Provides AWS credentials for creating and configuring EFS resources via AWS CLI.</p>
-<p><strong>When to use</strong>: Always required. Must have permissions to create EFS, modify security groups, and manage VPC resources.</p>
-<p><strong>Valid values</strong>: Valid AWS access key ID (20-character alphanumeric string).</p>
-<p><strong>Impact</strong>: Used to authenticate all AWS API calls. Insufficient permissions will cause provisioning failures.</p>
-<p><strong>Related variables</strong>: <code>aws_secret_access_key</code>, <code>aws_region</code></p>
-<p><strong>Notes</strong>:
-- Requires IAM permissions for EFS, EC2, and VPC operations
-- Consider using IAM roles instead of access keys for better security
-- Store credentials securely, never commit to version control</p>
-<h3 id="aws_secret_access_key">aws_secret_access_key<a class="headerlink" href="#aws_secret_access_key" title="Permanent link">¤</a></h3>
-<p>AWS secret access key for authentication.</p>
+<h3 id="mas_backup_dir">mas_backup_dir<a class="headerlink" href="#mas_backup_dir" title="Permanent link">¤</a></h3>
+<p>The local directory path where backup files to restore are stored.</p>
 <ul>
 <li><strong>Required</strong></li>
-<li>Environment Variable: <code>AWS_SECRET_ACCESS_KEY</code></li>
+<li>Environment Variaable: <code>MAS_BACKUP_DIR</code></li>
 <li>Default: None</li>
+<li>Example: <code>/tmp/mas_backups</code></li>
 </ul>
-<p><strong>Purpose</strong>: Provides the secret key component of AWS credentials for API authentication.</p>
-<p><strong>When to use</strong>: Always required. Must correspond to the <code>aws_access_key_id</code>.</p>
-<p><strong>Valid values</strong>: Valid AWS secret access key (40-character alphanumeric string).</p>
-<p><strong>Impact</strong>: Used with access key ID to authenticate AWS API calls. Incorrect key will cause authentication failures.</p>
-<p><strong>Related variables</strong>: <code>aws_access_key_id</code>, <code>aws_region</code></p>
-<p><strong>Notes</strong>:
-- Keep secret key secure and never expose in logs or version control
-- Rotate credentials regularly per security best practices
-- Consider using AWS STS temporary credentials for enhanced security</p>
-<h3 id="aws_region">aws_region<a class="headerlink" href="#aws_region" title="Permanent link">¤</a></h3>
-<p>AWS region where the EFS instance will be provisioned.</p>
-<ul>
-<li>Optional</li>
-<li>Environment Variable: <code>AWS_DEFAULT_REGION</code></li>
-<li>Default: <code>eu-west-2</code></li>
-</ul>
-<p><strong>Purpose</strong>: Specifies the AWS region for EFS provisioning. Must match the ROSA cluster's region.</p>
-<p><strong>When to use</strong>: Always set to match your ROSA cluster's region. Default is suitable for EU deployments.</p>
-<p><strong>Valid values</strong>: Valid AWS region code (e.g., <code>us-east-1</code>, <code>eu-west-2</code>, <code>ap-southeast-1</code>). Common values:
-- <code>us-east-1</code> - US East (N. Virginia)
-- <code>us-west-2</code> - US West (Oregon)
-- <code>eu-west-1</code> - Europe (Ireland)
-- <code>eu-west-2</code> - Europe (London)
-- <code>ap-southeast-1</code> - Asia Pacific (Singapore)</p>
-<p><strong>Impact</strong>: EFS must be in the same region as the ROSA cluster. Cross-region access is not supported.</p>
-<p><strong>Related variables</strong>: <code>cluster_name</code></p>
-<p><strong>Notes</strong>:
-- <strong>Critical</strong>: Must match ROSA cluster region exactly
-- Verify cluster region: <code>rosa describe cluster -c &lt;cluster-name&gt;</code>
-- EFS pricing varies by region</p>
-<h3 id="cluster_name">cluster_name<a class="headerlink" href="#cluster_name" title="Permanent link">¤</a></h3>
-<p>Name of the ROSA cluster to attach EFS storage.</p>
+<h3 id="suite_backup_version">suite_backup_version<a class="headerlink" href="#suite_backup_version" title="Permanent link">¤</a></h3>
+<p>The version of the backup file located in the <code>MAS_BACKUP_DIR</code> to be used
+in the restore.</p>
 <ul>
 <li><strong>Required</strong></li>
-<li>Environment Variable: <code>CLUSTER_NAME</code></li>
 <li>Default: None</li>
+<li>Environment Variable: <code>SUITE_BACKUP_VERSION</code></li>
+<li>Example: <code>20260116-130937</code></li>
 </ul>
-<p><strong>Purpose</strong>: Identifies the target ROSA cluster for EFS integration. Used to locate the cluster's VPC and configure security groups.</p>
-<p><strong>When to use</strong>: Always required. Must be the exact name of an existing ROSA cluster.</p>
-<p><strong>Valid values</strong>: Valid ROSA cluster name as shown in <code>rosa list clusters</code>.</p>
-<p><strong>Impact</strong>: The role uses this name to find the cluster's VPC ID and configure EFS mount targets in the correct network.</p>
-<p><strong>Related variables</strong>: <code>aws_region</code>, <code>efs_unique_id</code></p>
-<p><strong>Notes</strong>:
-- Cluster must exist before running this role
-- Name is case-sensitive
-- Verify cluster name: <code>rosa list clusters</code>
-- Used to tag AWS resources for cost tracking</p>
-<h3 id="efs_unique_id">efs_unique_id<a class="headerlink" href="#efs_unique_id" title="Permanent link">¤</a></h3>
-<p>Unique identifier for the EFS instance and StorageClass.</p>
+<h3 id="mas_domain">mas_domain<a class="headerlink" href="#mas_domain" title="Permanent link">¤</a></h3>
+<p>The domain to use for the MAS Suite instance. If not provided, the domain from the backup will be used.</p>
 <ul>
-<li>Optional</li>
-<li>Environment Variable: <code>EFS_UNIQUE_ID</code></li>
-<li>Default: Value of <code>cluster_name</code></li>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>MAS_DOMAIN</code></li>
+<li>Default: <code>NO_OVERRIDE</code> (uses value from backup)</li>
+<li>Example: <code>mydomain.example.com</code></li>
 </ul>
-<p><strong>Purpose</strong>: Provides a unique identifier used in EFS resource naming and StorageClass creation. Enables multiple EFS instances per cluster.</p>
-<p><strong>When to use</strong>: Set when you need multiple EFS instances in the same cluster, or want a more descriptive name than the cluster name.</p>
-<p><strong>Valid values</strong>: Alphanumeric string, typically lowercase (e.g., <code>mas-prod</code>, <code>manage-storage</code>, <code>shared-files</code>).</p>
-<p><strong>Impact</strong>:
-- StorageClass will be named <code>efs-&lt;efs_unique_id&gt;</code>
-- EFS file system will be tagged with this identifier
-- Creation tokens will include this identifier</p>
-<p><strong>Related variables</strong>: <code>cluster_name</code>, <code>creation_token_prefix</code>, <code>create_storage_class</code></p>
-<p><strong>Notes</strong>:
-- Defaults to cluster name if not specified
-- Use descriptive names for multiple EFS instances (e.g., <code>mas-attachments</code>, <code>mas-logs</code>)
-- Must be unique within the cluster if creating multiple EFS instances</p>
-<h3 id="creation_token_prefix">creation_token_prefix<a class="headerlink" href="#creation_token_prefix" title="Permanent link">¤</a></h3>
-<p>Prefix for AWS resource creation tokens.</p>
+<h3 id="include_sls_from_backup">include_sls_from_backup<a class="headerlink" href="#include_sls_from_backup" title="Permanent link">¤</a></h3>
+<p>Controls whether to restore the Suite SLS (Suite License Service) configuration from the backup archive.
+This should be used when the registration key stays the same, either due to also restoring the same
+SLS service, or you are using a centralized SLS service that has not changed. If you plan to install 
+and use a new SLS service then set this value to <code>false</code> and use the <code>sls_cfg_file</code> variable to point
+to the new SLS configuration file.</p>
 <ul>
-<li>Optional</li>
-<li>Environment Variable: <code>CREATION_TOKEN_PREFIX</code></li>
-<li>Default: <code>mas_devops.</code></li>
-</ul>
-<p><strong>Purpose</strong>: Provides a prefix for creation tokens used to ensure idempotency of AWS resource creation.</p>
-<p><strong>When to use</strong>: Customize to identify resources created by this automation or to avoid conflicts with other tools.</p>
-<p><strong>Valid values</strong>: String prefix, typically ending with a dot or dash (e.g., <code>mas_devops.</code>, <code>myorg-</code>, <code>prod_</code>).</p>
-<p><strong>Impact</strong>: Creation tokens are built by concatenating this prefix with <code>efs_unique_id</code>. Used for idempotent resource creation.</p>
-<p><strong>Related variables</strong>: <code>efs_unique_id</code></p>
-<p><strong>Notes</strong>:
-- Default <code>mas_devops.</code> identifies resources created by this collection
-- Helps track resource provenance in AWS
-- Change if you need to distinguish from other automation tools</p>
-<h3 id="create_storage_class">create_storage_class<a class="headerlink" href="#create_storage_class" title="Permanent link">¤</a></h3>
-<p>Enable automatic StorageClass creation for the EFS instance.</p>
-<ul>
-<li>Optional</li>
-<li>Environment Variable: <code>CREATE_STORAGE_CLASS</code></li>
+<li><strong>Optional</strong></li>
 <li>Default: <code>true</code></li>
+<li>Environment Variable: <code>INCLUDE_SLS_FROM_BACKUP</code></li>
 </ul>
-<p><strong>Purpose</strong>: Controls whether a Kubernetes StorageClass is automatically created for the EFS instance.</p>
-<p><strong>When to use</strong>: Set to <code>true</code> for normal operations. Set to <code>false</code> if you want to manually create the StorageClass or use a custom configuration.</p>
-<p><strong>Valid values</strong>:
-- <code>true</code> - Automatically create StorageClass named <code>efs-&lt;efs_unique_id&gt;</code> (default)
-- <code>false</code> - Skip StorageClass creation</p>
-<p><strong>Impact</strong>: When <code>true</code>, creates a StorageClass that applications can use to provision PVCs backed by EFS. When <code>false</code>, you must manually create the StorageClass.</p>
-<p><strong>Related variables</strong>: <code>efs_unique_id</code></p>
-<p><strong>Notes</strong>:
-- Default <code>true</code> is recommended for most deployments
-- StorageClass name format: <code>efs-&lt;efs_unique_id&gt;</code>
-- StorageClass supports dynamic provisioning with RWX access mode
-- Set to <code>false</code> only if you need custom StorageClass parameters</p>
-<h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
-<pre><code class="language-yaml">- hosts: localhost
-  vars:
-    # Add required variables here
-  roles:
-    - ibm.mas_devops.ocp_efs
-</code></pre>
-<h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">¤</a></h2>
-<p>EPL-2.0</p>
+<h3 id="sls_url">sls_url<a class="headerlink" href="#sls_url" title="Permanent link">¤</a></h3>
+<p>If <code>include_sls_from_backup</code> is true. The URL for the Suite License Service (SLS). If not provided, the URL from the backup will be used.
+This is used when the domain has changed for SLS but SLS was restored from a backup and so the regristration key is the same.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>SLS_URL</code></li>
+<li>Default: <code>NO_OVERRIDE</code> (uses value from backup)</li>
+<li>Example: <code>https://sls.example.com</code></li>
+</ul>
+<h3 id="sls_cfg_file">sls_cfg_file<a class="headerlink" href="#sls_cfg_file" title="Permanent link">¤</a></h3>
+<p>If <code>include_sls_from_backup</code> is false. Path to the file containing external SLS configuration YAML file to apply.
+This is used when you want to use SLS configuration from outside the backup archive (e.g., from a separate SLS role execution).</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>SLS_CFG_FILE</code></li>
+<li>Default: None</li>
+<li>Example: <code>/tmp/sls_config/sls.yml</code></li>
+</ul>
+<h3 id="include_dro_from_backup">include_dro_from_backup<a class="headerlink" href="#include_dro_from_backup" title="Permanent link">¤</a></h3>
+<p>Controls whether to restore the Suite DRO configuration from the backup archive.
+This should be used when the DRO details stay the same as you are using a centralized DRO service that has not changed.
+If you plan to install and use a new DRO service then set this value to <code>false</code> and use the <code>dro_cfg_file</code> variable to point
+to the new DRO configuration file.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Default: <code>true</code></li>
+<li>Environment Variable: <code>INCLUDE_DRO_FROM_BACKUP</code></li>
+</ul>
+<h3 id="bas_url">bas_url<a class="headerlink" href="#bas_url" title="Permanent link">¤</a></h3>
+<p>If <code>include_dro_from_backup</code> is true. The URL for the Behavior Analytics Service (BAS). If not provided, the URL from the backup will be used.
+This is used when the domain has changed for DRO but DRO was restored from a backup and so the api key is the same.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>BAS_URL</code></li>
+<li>Default: <code>NO_OVERRIDE</code> (uses value from backup)</li>
+<li>Example: <code>https://bas.example.com</code></li>
+</ul>
+<h3 id="dro_cfg_file">dro_cfg_file<a class="headerlink" href="#dro_cfg_file" title="Permanent link">¤</a></h3>
+<p>If <code>include_dro_from_backup</code> is false. Path to the file containing external DRO (BAS) configuration YAML file to apply.
+This is used when you want to use DRO configuration from outside the backup archive (e.g., from a separate DRO role execution).</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>DRO_CFG_FILE</code></li>
+<li>Default: None</li>
+<li>Example: <code>/tmp/dro_config/dro.yml</code></li>
+</ul>
+<h2 id="restore-operations">Restore Operations<a class="headerlink" href="#restore-operations" title="Permanent link">¤</a></h2>
+<p>This section provides comprehensive information about MAS Core restore operations.</p>
+<h3 id="overview_1">Overview<a class="headerlink" href="#overview_1" title="Permanent link">¤</a></h3>
+<p>The MAS Core restore operation performs a complete restoration of a MAS Core installation from a backup created by the <a href="../suite_backup/"><code>suite_backup</code></a> role. The restore process recreates all namespace resources and supporting resources in the correct order.</p>
+<p><strong>Important</strong>: Restore can only be made to an instance with the same MAS instance ID as the backup.</p>
+<h3 id="restore-process">Restore Process<a class="headerlink" href="#restore-process" title="Permanent link">¤</a></h3>
+<p>The MAS Core restore operation performs the following steps in sequence:</p>
+<ol>
+<li><strong>Validation</strong>: Verifies required variables and backup archive existence</li>
+<li><strong>Certificate Manager Check</strong>: Ensures cert-manager is installed in the cluster</li>
+<li><strong>Projects Restoration</strong>: Restores the MAS Core namespace</li>
+<li><strong>Secrets and ConfigMaps</strong>: Restores all secrets and configuration maps</li>
+<li><strong>Operator Resources</strong>: Restores OperatorGroups and Subscriptions</li>
+<li><strong>Subscription Wait</strong>: Waits for subscriptions to be ready (up to 30 minutes)</li>
+<li><strong>Certificate Manager Resources</strong>: Restores ClusterIssuers, Issuers, and Certificates</li>
+<li><strong>MAS Addon Resources</strong>: Restores MVIEdge, ReplicaDB, and GenericAddon resources</li>
+<li><strong>MAS Configuration Resources</strong>: Restores all config.mas.ibm.com resources with optional overrides:</li>
+<li>BasCfg (if <code>include_dro_from_backup</code> is true, with optional <code>bas_url</code> override)</li>
+<li>SlsCfg (if <code>include_sls_from_backup</code> is true, with optional <code>sls_url</code> override)</li>
+<li>AppCfg, IDPCfg, JdbcCfg, KafkaCfg, MongoCfg, ObjectStorageCfg, etc.</li>
+<li><strong>MAS Internal Resources</strong>: Restores CoreIDP resources</li>
+<li><strong>Suite Restoration</strong>: Restores the Suite CR with optional <code>mas_domain</code> override</li>
+<li><strong>Suite Wait</strong>: Waits for Suite to be ready (up to 60 minutes)</li>
+<li><strong>Workspace Restoration</strong>: Restores all Workspace CRs</li>
+<li><strong>Workspace Wait</strong>: Waits for all Workspaces to be ready (up to 60 minutes)</li>
+</ol>
+<h3 id="configuration-override-options">Configuration Override Options<a class="headerlink" href="#configuration-override-options" title="Permanent link">¤</a></h3>
+<p>The restore process supports several override options to adapt the backup to a new environment:</p>
+<p><strong>Domain Override:</strong>
+- Use <code>mas_domain</code> to change the domain when restoring to a different cluster
+- Default: Uses the domain from the backup</p>
+<p><strong>SLS Configuration:</strong>
+- If <code>include_sls_from_backup=true</code>: Restores SlsCfg from backup
+  - Use <code>sls_url</code> to override the SLS URL if the domain changed
+- If <code>include_sls_from_backup=false</code>: Use <code>sls_cfg_file</code> to provide external SLS configuration</p>
+<p><strong>DRO Configuration:</strong>
+- If <code>include_dro_from_backup=true</code>: Restores BasCfg from backup
+  - Use <code>bas_url</code> to override the BAS URL if the domain changed
+- If <code>include_dro_from_backup=false</code>: Use <code>dro_cfg_file</code> to provide external DRO configuration</p>
+<h3 id="when-to-use">When to Use<a class="headerlink" href="#when-to-use" title="Permanent link">¤</a></h3>
+<p><strong>Full Restore Scenarios:</strong>
+- Disaster recovery after cluster failure
+- Migrating MAS Core to a new cluster
+- Recreating a deleted MAS Core instance
+- Setting up a new environment from backup
+- Testing backup integrity in non-production</p>
+<p><strong>Partial Configuration Scenarios:</strong>
+- Restoring with new SLS service (set <code>include_sls_from_backup=false</code>)
+- Restoring with new DRO service (set <code>include_dro_from_backup=false</code>)
+- Restoring to cluster with different domain (use <code>mas_domain</code> override)</p>
+<h3 id="important-considerations">Important Considerations<a class="headerlink" href="#important-considerations" title="Permanent link">¤</a></h3>
+<p><strong>Prerequisites:</strong>
+- Target cluster must have Certificate Manager installed
+- Target cluster must have the same MAS instance ID as the backup
+- Required dependencies (MongoDB, Db2, etc.) must be available and accessible
+- Sufficient cluster resources (CPU, memory, storage) must be available</p>
+<p><strong>Instance ID Requirement:</strong>
+- Restore can only be made to an instance with the same MAS instance ID
+- The instance ID is embedded in resource names and cannot be changed</p>
+<p><strong>Storage Requirements:</strong>
+- Ensure backup directory is accessible from the restore environment
+- Verify backup archive integrity before starting restore</p>
+<p><strong>Security:</strong>
+- Backup files contain sensitive data including credentials and certificates
+- Ensure secure transfer of backup files to restore environment
+- Verify backup file permissions and access controls</p>
+<p><strong>Configuration Dependencies:</strong>
+- If using external SLS/DRO configuration files, ensure they are valid and accessible
+- Coordinate with database restore operations to ensure data consistency
+- Verify network connectivity to external services (SLS, DRO, databases)</p>
+<h3 id="restore-best-practices">Restore Best Practices<a class="headerlink" href="#restore-best-practices" title="Permanent link">¤</a></h3>
+<ol>
+<li><strong>Pre-Restore Validation</strong>:</li>
+<li>Verify backup archive exists and is complete</li>
+<li>Confirm Certificate Manager is installed</li>
+<li>Ensure target cluster has sufficient resources</li>
+<li>
+<p>Verify MAS instance ID matches the backup</p>
+</li>
+<li>
+<p><strong>Dependency Coordination</strong>:</p>
+</li>
+<li>Restore databases (MongoDB, Db2) before MAS Core</li>
+<li>Restore SLS before MAS Core if using separate SLS</li>
+<li>Restore DRO before MAS Core if using separate DRO</li>
+<li>
+<p>Ensure all external services are accessible</p>
+</li>
+<li>
+<p><strong>Configuration Planning</strong>:</p>
+</li>
+<li>Determine if domain override is needed</li>
+<li>Decide whether to use backup SLS/DRO or new services</li>
+<li>Prepare external configuration files if needed</li>
+<li>
+<p>Document any configuration changes</p>
+</li>
+<li>
+<p><strong>Post-Restore Verification</strong>:</p>
+</li>
+<li>Verify Suite status is Ready</li>
+<li>Verify all Workspaces are Ready</li>
+<li>Test application connectivity</li>
+<li>Verify database connections</li>
+<li>
+<p>Test user authentication</p>
+</li>
+<li>
+<p><strong>Disaster Recovery</strong>:</p>
+</li>
+<li>Test restore procedures regularly in non-production</li>
+<li>Document restore procedures and configuration</li>
+<li>Maintain backup version identifiers</li>
+<li>Keep external configuration files secure and accessible</li>
+</ol>
             
           </div>
 
           <!-- Navigation footer (prev/next) -->
 <nav class="md-footer-nav" aria-label="Footer navigation">
   <div class="md-footer-nav__inner">
-    <a href="../ocp_deprovision/" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+    <a href="../suite_backup/" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
       <div class="md-footer-nav__direction">
         <svg class="md-footer-nav__icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path>
@@ -917,10 +989,10 @@
         <span>Previous</span>
       </div>
       <div class="md-footer-nav__title">
-        <span class="md-footer-nav__title-text">ocp_deprovision</span>
+        <span class="md-footer-nav__title-text">suite_backup</span>
       </div>
     </a>
-    <a href="../ocp_github_oauth/" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
+    <a href="../ansible_version_check/" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
       <div class="md-footer-nav__direction">
         <span>Next</span>
         <svg class="md-footer-nav__icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -928,7 +1000,7 @@
         </svg>
       </div>
       <div class="md-footer-nav__title">
-        <span class="md-footer-nav__title-text">ocp_github_oauth</span>
+        <span class="md-footer-nav__title-text">ansible_version_check</span>
       </div>
     </a>
   </div>
@@ -945,56 +1017,103 @@
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
               <li class="md-toc__item">
+                <a href="#overview" class="md-toc__link" data-md-level="1">
+                  Overview
+                </a>
+              </li>
+              <li class="md-toc__item">
                 <a href="#role-variables" class="md-toc__link" data-md-level="1">
                   Role Variables
                 </a>
                   <ul class="md-toc__list">
                       <li class="md-toc__item">
-                        <a href="#aws_access_key_id" class="md-toc__link" data-md-level="2">
-                          aws_access_key_id
+                        <a href="#mas_instance_id" class="md-toc__link" data-md-level="2">
+                          mas_instance_id
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#aws_secret_access_key" class="md-toc__link" data-md-level="2">
-                          aws_secret_access_key
+                        <a href="#mas_backup_dir" class="md-toc__link" data-md-level="2">
+                          mas_backup_dir
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#aws_region" class="md-toc__link" data-md-level="2">
-                          aws_region
+                        <a href="#suite_backup_version" class="md-toc__link" data-md-level="2">
+                          suite_backup_version
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#cluster_name" class="md-toc__link" data-md-level="2">
-                          cluster_name
+                        <a href="#mas_domain" class="md-toc__link" data-md-level="2">
+                          mas_domain
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#efs_unique_id" class="md-toc__link" data-md-level="2">
-                          efs_unique_id
+                        <a href="#include_sls_from_backup" class="md-toc__link" data-md-level="2">
+                          include_sls_from_backup
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#creation_token_prefix" class="md-toc__link" data-md-level="2">
-                          creation_token_prefix
+                        <a href="#sls_url" class="md-toc__link" data-md-level="2">
+                          sls_url
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#create_storage_class" class="md-toc__link" data-md-level="2">
-                          create_storage_class
+                        <a href="#sls_cfg_file" class="md-toc__link" data-md-level="2">
+                          sls_cfg_file
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#include_dro_from_backup" class="md-toc__link" data-md-level="2">
+                          include_dro_from_backup
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#bas_url" class="md-toc__link" data-md-level="2">
+                          bas_url
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#dro_cfg_file" class="md-toc__link" data-md-level="2">
+                          dro_cfg_file
                         </a>
                       </li>
                   </ul>
               </li>
               <li class="md-toc__item">
-                <a href="#example-playbook" class="md-toc__link" data-md-level="1">
-                  Example Playbook
+                <a href="#restore-operations" class="md-toc__link" data-md-level="1">
+                  Restore Operations
                 </a>
-              </li>
-              <li class="md-toc__item">
-                <a href="#license" class="md-toc__link" data-md-level="1">
-                  License
-                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#overview_1" class="md-toc__link" data-md-level="2">
+                          Overview
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#restore-process" class="md-toc__link" data-md-level="2">
+                          Restore Process
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#configuration-override-options" class="md-toc__link" data-md-level="2">
+                          Configuration Override Options
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#when-to-use" class="md-toc__link" data-md-level="2">
+                          When to Use
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#important-considerations" class="md-toc__link" data-md-level="2">
+                          Important Considerations
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#restore-best-practices" class="md-toc__link" data-md-level="2">
+                          Restore Best Practices
+                        </a>
+                      </li>
+                  </ul>
               </li>
         </ul>
       </div>

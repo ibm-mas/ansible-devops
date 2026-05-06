@@ -2,7 +2,7 @@
     <meta charset="utf-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>ocp_efs - MAS DevOps Ansible Collection</title>
+    <title>suite_app_backup - MAS DevOps Ansible Collection</title>
 
     <!-- Pure CSS (https://pure-css.github.io/) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/purecss@3.0.0/build/pure-min.css" integrity="sha384-X38yfunGUhNzHpBaEBsWLO+A0HDYOQi8ufWDkZ0k9e0eXz/tH3II7uKZ9msv++Ls" crossorigin="anonymous">
@@ -226,7 +226,7 @@
 
                 
                   
-  <cds-side-nav-menu title="Roles: OCP Mgmt" active="" expanded="">
+  <cds-side-nav-menu title="Roles: OCP Mgmt">
     
       
   <cds-side-nav-menu-item href="../ocp_cluster_monitoring/">
@@ -247,7 +247,7 @@
 
     
       
-  <cds-side-nav-menu-item href="./" active="" expanded="">
+  <cds-side-nav-menu-item href="../ocp_efs/">
     ocp_efs
   </cds-side-nav-menu-item>
 
@@ -508,7 +508,7 @@
 
                 
                   
-  <cds-side-nav-menu title="Roles: Suite Mgmt">
+  <cds-side-nav-menu title="Roles: Suite Mgmt" active="" expanded="">
     
       
   <cds-side-nav-menu-item href="../suite_app_config/">
@@ -541,7 +541,7 @@
 
     
       
-  <cds-side-nav-menu-item href="../suite_app_backup/">
+  <cds-side-nav-menu-item href="./" active="" expanded="">
     suite_app_backup
   </cds-side-nav-menu-item>
 
@@ -737,20 +737,28 @@
   <cds-breadcrumb-item>
     <cds-breadcrumb-link href="../..">Home</cds-breadcrumb-link>
   </cds-breadcrumb-item>
-      <cds-breadcrumb-item>Roles: OCP Mgmt</cds-breadcrumb-item>
+      <cds-breadcrumb-item>Roles: Suite Mgmt</cds-breadcrumb-item>
   <cds-breadcrumb-item>
-    <cds-breadcrumb-link href="#ocp_efs">ocp_efs</cds-breadcrumb-link>
+    <cds-breadcrumb-link href="#backup-mas-applications">Backup MAS Applications</cds-breadcrumb-link>
   </cds-breadcrumb-item>
 
   <cds-breadcrumb-item aria-current="page">
     <cds-select id="breadcrumbs-toc" inline="" placeholder="..." oninput="changeAnchor(this.value)">
     
     
-      <cds-select-item value="#role-variables">Role Variables</cds-select-item>
+      <cds-select-item value="#overview">Overview</cds-select-item>
     
-      <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
+      <cds-select-item value="#role-variables-general">Role Variables - General</cds-select-item>
     
-      <cds-select-item value="#license">License</cds-select-item>
+      <cds-select-item value="#what-gets-backed-up">What Gets Backed Up</cds-select-item>
+    
+      <cds-select-item value="#how-persistent-volume-backup-works">How Persistent Volume Backup Works</cds-select-item>
+    
+      <cds-select-item value="#backup-directory-structure">Backup Directory Structure</cds-select-item>
+    
+      <cds-select-item value="#example-playbooks">Example Playbooks</cds-select-item>
+    
+      <cds-select-item value="#notes">Notes</cds-select-item>
     
     </cds-select>
   </cds-breadcrumb-item>
@@ -760,156 +768,175 @@
           <!-- Page content -->
           <div class="rst-content">
             
-            <h1 id="ocp_efs">ocp_efs<a class="headerlink" href="#ocp_efs" title="Permanent link">¤</a></h1>
-<p>Provision and configure AWS Elastic File System (EFS) storage for Red Hat OpenShift Service on AWS (ROSA) clusters. This role automates the complete EFS setup including security group configuration, EFS instance creation, access points, mount targets, and StorageClass creation.</p>
-<p>EFS provides ReadWriteMany (RWX) persistent storage essential for MAS applications that require shared file access across multiple pods, such as Manage attachments and customer files.</p>
-<p>The role performs the following operations:
-1. Configures security group inbound rules for NFS access
-2. Creates EFS file system in the cluster's VPC
-3. Establishes mount targets in all availability zones
-4. Creates access points for isolated storage
-5. Deploys EFS CSI driver and StorageClass</p>
-<h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
-<h3 id="aws_access_key_id">aws_access_key_id<a class="headerlink" href="#aws_access_key_id" title="Permanent link">¤</a></h3>
-<p>AWS access key ID for authentication.</p>
+            <h1 id="backup-mas-applications">Backup MAS Applications<a class="headerlink" href="#backup-mas-applications" title="Permanent link">¤</a></h1>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">¤</a></h2>
+<p>This role supports backing up MAS application resources and data. Currently supported applications:</p>
+<ul>
+<li><strong><code>manage</code></strong>: Backs up Manage namespace resources (CRs, secrets, subscriptions) and persistent volume data</li>
+</ul>
+<p>Future support planned for: <code>iot</code>, <code>monitor</code>, <code>health</code>, <code>optimizer</code>, <code>visualinspection</code></p>
+<p>The backup process creates a timestamped backup directory containing:
+1. <strong>Namespace Resources</strong>: Kubernetes resources including ManageApp, ManageWorkspace, secrets, and subscriptions
+2. <strong>Persistent Volume Data</strong>: Application data stored in PVCs (automatically detected from ManageWorkspace CR)</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<ul>
+<li>An application backup can only be restored to an instance with the same MAS instance ID</li>
+<li>This role backs up application resources and PV data only. Database backups must be performed separately using the appropriate database backup role</li>
+<li>For Manage, see the <a href="../db2/">db2</a> role for database backup</li>
+</ul>
+</div>
+<h2 id="role-variables-general">Role Variables - General<a class="headerlink" href="#role-variables-general" title="Permanent link">¤</a></h2>
+<h3 id="mas_app_id">mas_app_id<a class="headerlink" href="#mas_app_id" title="Permanent link">¤</a></h3>
+<p>Defines the MAS application ID for the backup action.</p>
 <ul>
 <li><strong>Required</strong></li>
-<li>Environment Variable: <code>AWS_ACCESS_KEY_ID</code></li>
+<li>Environment Variable: <code>MAS_APP_ID</code></li>
 <li>Default: None</li>
+<li>Valid Values: <code>manage</code> (currently supported)</li>
 </ul>
-<p><strong>Purpose</strong>: Provides AWS credentials for creating and configuring EFS resources via AWS CLI.</p>
-<p><strong>When to use</strong>: Always required. Must have permissions to create EFS, modify security groups, and manage VPC resources.</p>
-<p><strong>Valid values</strong>: Valid AWS access key ID (20-character alphanumeric string).</p>
-<p><strong>Impact</strong>: Used to authenticate all AWS API calls. Insufficient permissions will cause provisioning failures.</p>
-<p><strong>Related variables</strong>: <code>aws_secret_access_key</code>, <code>aws_region</code></p>
-<p><strong>Notes</strong>:
-- Requires IAM permissions for EFS, EC2, and VPC operations
-- Consider using IAM roles instead of access keys for better security
-- Store credentials securely, never commit to version control</p>
-<h3 id="aws_secret_access_key">aws_secret_access_key<a class="headerlink" href="#aws_secret_access_key" title="Permanent link">¤</a></h3>
-<p>AWS secret access key for authentication.</p>
+<h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
+<p>Defines the MAS instance ID for the backup action.</p>
 <ul>
 <li><strong>Required</strong></li>
-<li>Environment Variable: <code>AWS_SECRET_ACCESS_KEY</code></li>
+<li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
 <li>Default: None</li>
 </ul>
-<p><strong>Purpose</strong>: Provides the secret key component of AWS credentials for API authentication.</p>
-<p><strong>When to use</strong>: Always required. Must correspond to the <code>aws_access_key_id</code>.</p>
-<p><strong>Valid values</strong>: Valid AWS secret access key (40-character alphanumeric string).</p>
-<p><strong>Impact</strong>: Used with access key ID to authenticate AWS API calls. Incorrect key will cause authentication failures.</p>
-<p><strong>Related variables</strong>: <code>aws_access_key_id</code>, <code>aws_region</code></p>
-<p><strong>Notes</strong>:
-- Keep secret key secure and never expose in logs or version control
-- Rotate credentials regularly per security best practices
-- Consider using AWS STS temporary credentials for enhanced security</p>
-<h3 id="aws_region">aws_region<a class="headerlink" href="#aws_region" title="Permanent link">¤</a></h3>
-<p>AWS region where the EFS instance will be provisioned.</p>
-<ul>
-<li>Optional</li>
-<li>Environment Variable: <code>AWS_DEFAULT_REGION</code></li>
-<li>Default: <code>eu-west-2</code></li>
-</ul>
-<p><strong>Purpose</strong>: Specifies the AWS region for EFS provisioning. Must match the ROSA cluster's region.</p>
-<p><strong>When to use</strong>: Always set to match your ROSA cluster's region. Default is suitable for EU deployments.</p>
-<p><strong>Valid values</strong>: Valid AWS region code (e.g., <code>us-east-1</code>, <code>eu-west-2</code>, <code>ap-southeast-1</code>). Common values:
-- <code>us-east-1</code> - US East (N. Virginia)
-- <code>us-west-2</code> - US West (Oregon)
-- <code>eu-west-1</code> - Europe (Ireland)
-- <code>eu-west-2</code> - Europe (London)
-- <code>ap-southeast-1</code> - Asia Pacific (Singapore)</p>
-<p><strong>Impact</strong>: EFS must be in the same region as the ROSA cluster. Cross-region access is not supported.</p>
-<p><strong>Related variables</strong>: <code>cluster_name</code></p>
-<p><strong>Notes</strong>:
-- <strong>Critical</strong>: Must match ROSA cluster region exactly
-- Verify cluster region: <code>rosa describe cluster -c &lt;cluster-name&gt;</code>
-- EFS pricing varies by region</p>
-<h3 id="cluster_name">cluster_name<a class="headerlink" href="#cluster_name" title="Permanent link">¤</a></h3>
-<p>Name of the ROSA cluster to attach EFS storage.</p>
+<h3 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link">¤</a></h3>
+<p>Defines the MAS workspace ID for the backup action.</p>
 <ul>
 <li><strong>Required</strong></li>
-<li>Environment Variable: <code>CLUSTER_NAME</code></li>
+<li>Environment Variable: <code>MAS_WORKSPACE_ID</code></li>
 <li>Default: None</li>
 </ul>
-<p><strong>Purpose</strong>: Identifies the target ROSA cluster for EFS integration. Used to locate the cluster's VPC and configure security groups.</p>
-<p><strong>When to use</strong>: Always required. Must be the exact name of an existing ROSA cluster.</p>
-<p><strong>Valid values</strong>: Valid ROSA cluster name as shown in <code>rosa list clusters</code>.</p>
-<p><strong>Impact</strong>: The role uses this name to find the cluster's VPC ID and configure EFS mount targets in the correct network.</p>
-<p><strong>Related variables</strong>: <code>aws_region</code>, <code>efs_unique_id</code></p>
-<p><strong>Notes</strong>:
-- Cluster must exist before running this role
-- Name is case-sensitive
-- Verify cluster name: <code>rosa list clusters</code>
-- Used to tag AWS resources for cost tracking</p>
-<h3 id="efs_unique_id">efs_unique_id<a class="headerlink" href="#efs_unique_id" title="Permanent link">¤</a></h3>
-<p>Unique identifier for the EFS instance and StorageClass.</p>
+<h3 id="mas_backup_dir">mas_backup_dir<a class="headerlink" href="#mas_backup_dir" title="Permanent link">¤</a></h3>
+<p>Defines the directory where backups will be stored. The role will create a timestamped subdirectory within this location.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>MAS_BACKUP_DIR</code></li>
+<li>Default: None</li>
+<li>Example: <code>/backup/mas</code></li>
+</ul>
+<h3 id="mas_app_backup_version">mas_app_backup_version<a class="headerlink" href="#mas_app_backup_version" title="Permanent link">¤</a></h3>
+<p>Optional custom version identifier for the backup. If not specified, defaults to timestamp format <code>YYYYMMDD-HHMMSS</code>.</p>
 <ul>
 <li>Optional</li>
-<li>Environment Variable: <code>EFS_UNIQUE_ID</code></li>
-<li>Default: Value of <code>cluster_name</code></li>
+<li>Environment Variable: <code>MAS_APP_BACKUP_VERSION</code></li>
+<li>Default: Auto-generated timestamp</li>
+<li>Example: <code>20240315-143022</code> or <code>v1.0-prod</code></li>
 </ul>
-<p><strong>Purpose</strong>: Provides a unique identifier used in EFS resource naming and StorageClass creation. Enables multiple EFS instances per cluster.</p>
-<p><strong>When to use</strong>: Set when you need multiple EFS instances in the same cluster, or want a more descriptive name than the cluster name.</p>
-<p><strong>Valid values</strong>: Alphanumeric string, typically lowercase (e.g., <code>mas-prod</code>, <code>manage-storage</code>, <code>shared-files</code>).</p>
-<p><strong>Impact</strong>:
-- StorageClass will be named <code>efs-&lt;efs_unique_id&gt;</code>
-- EFS file system will be tagged with this identifier
-- Creation tokens will include this identifier</p>
-<p><strong>Related variables</strong>: <code>cluster_name</code>, <code>creation_token_prefix</code>, <code>create_storage_class</code></p>
-<p><strong>Notes</strong>:
-- Defaults to cluster name if not specified
-- Use descriptive names for multiple EFS instances (e.g., <code>mas-attachments</code>, <code>mas-logs</code>)
-- Must be unique within the cluster if creating multiple EFS instances</p>
-<h3 id="creation_token_prefix">creation_token_prefix<a class="headerlink" href="#creation_token_prefix" title="Permanent link">¤</a></h3>
-<p>Prefix for AWS resource creation tokens.</p>
-<ul>
-<li>Optional</li>
-<li>Environment Variable: <code>CREATION_TOKEN_PREFIX</code></li>
-<li>Default: <code>mas_devops.</code></li>
-</ul>
-<p><strong>Purpose</strong>: Provides a prefix for creation tokens used to ensure idempotency of AWS resource creation.</p>
-<p><strong>When to use</strong>: Customize to identify resources created by this automation or to avoid conflicts with other tools.</p>
-<p><strong>Valid values</strong>: String prefix, typically ending with a dot or dash (e.g., <code>mas_devops.</code>, <code>myorg-</code>, <code>prod_</code>).</p>
-<p><strong>Impact</strong>: Creation tokens are built by concatenating this prefix with <code>efs_unique_id</code>. Used for idempotent resource creation.</p>
-<p><strong>Related variables</strong>: <code>efs_unique_id</code></p>
-<p><strong>Notes</strong>:
-- Default <code>mas_devops.</code> identifies resources created by this collection
-- Helps track resource provenance in AWS
-- Change if you need to distinguish from other automation tools</p>
-<h3 id="create_storage_class">create_storage_class<a class="headerlink" href="#create_storage_class" title="Permanent link">¤</a></h3>
-<p>Enable automatic StorageClass creation for the EFS instance.</p>
-<ul>
-<li>Optional</li>
-<li>Environment Variable: <code>CREATE_STORAGE_CLASS</code></li>
-<li>Default: <code>true</code></li>
-</ul>
-<p><strong>Purpose</strong>: Controls whether a Kubernetes StorageClass is automatically created for the EFS instance.</p>
-<p><strong>When to use</strong>: Set to <code>true</code> for normal operations. Set to <code>false</code> if you want to manually create the StorageClass or use a custom configuration.</p>
-<p><strong>Valid values</strong>:
-- <code>true</code> - Automatically create StorageClass named <code>efs-&lt;efs_unique_id&gt;</code> (default)
-- <code>false</code> - Skip StorageClass creation</p>
-<p><strong>Impact</strong>: When <code>true</code>, creates a StorageClass that applications can use to provision PVCs backed by EFS. When <code>false</code>, you must manually create the StorageClass.</p>
-<p><strong>Related variables</strong>: <code>efs_unique_id</code></p>
-<p><strong>Notes</strong>:
-- Default <code>true</code> is recommended for most deployments
-- StorageClass name format: <code>efs-&lt;efs_unique_id&gt;</code>
-- StorageClass supports dynamic provisioning with RWX access mode
-- Set to <code>false</code> only if you need custom StorageClass parameters</p>
-<h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
-<pre><code class="language-yaml">- hosts: localhost
-  vars:
-    # Add required variables here
-  roles:
-    - ibm.mas_devops.ocp_efs
+<h2 id="what-gets-backed-up">What Gets Backed Up<a class="headerlink" href="#what-gets-backed-up" title="Permanent link">¤</a></h2>
+<h3 id="manage-application">Manage Application<a class="headerlink" href="#manage-application" title="Permanent link">¤</a></h3>
+<p>When backing up the Manage application, the following resources are included:</p>
+<p><strong>Namespace Resources</strong> (automatically backed up):
+- <code>ManageApp</code> CR
+- <code>ManageWorkspace</code> CR
+- Encryption secrets (dynamically determined from ManageWorkspace CR)
+- Certificates with <code>mas.ibm.com/instanceId</code> label
+- Subscription and OperatorGroup
+- IBM entitlement secret
+- All referenced secrets (auto-discovered)</p>
+<p><strong>Persistent Volume Data</strong> (automatically backed up if configured in ManageWorkspace CR):
+- All persistent volumes defined in <code>spec.settings.deployment.persistentVolumes</code>
+- Data is backed up as compressed tar.gz archives
+- Each PVC's mount path is archived separately
+- Archives are stored in the <code>data</code> subdirectory</p>
+<p><strong>NOT Included</strong> (must be backed up separately):
+- Manage database (Db2) - use the <a href="../db2/">db2</a> role
+- Suite-level resources - use the <a href="../suite_backup/">suite_backup</a> role</p>
+<h2 id="how-persistent-volume-backup-works">How Persistent Volume Backup Works<a class="headerlink" href="#how-persistent-volume-backup-works" title="Permanent link">¤</a></h2>
+<p>The role automatically detects and backs up persistent volumes configured in the ManageWorkspace CR:</p>
+<ol>
+<li><strong>Detection</strong>: Reads <code>spec.settings.deployment.persistentVolumes</code> from ManageWorkspace CR</li>
+<li><strong>Pod Selection</strong>: Finds the UI or ALL server bundle pod for the workspace</li>
+<li><strong>Archive Creation</strong>: Creates tar.gz archives of each mount path inside the pod</li>
+<li><strong>Transfer</strong>: Copies archives from pod to local backup directory</li>
+<li><strong>Cleanup</strong>: Removes temporary archives from the pod</li>
+</ol>
+<p>Example ManageWorkspace CR configuration:</p>
+<pre><code class="language-yaml">spec:
+  settings:
+    deployment:
+      persistentVolumes:
+        - accessModes:
+            - ReadWriteMany
+          mountPath: /jmsstore
+          pvcName: mas-inst1-ws1-jmsserver-pvc
+          size: 25Gi
+          storageClassName: efs-csi
+        - accessModes:
+            - ReadWriteMany
+          mountPath: /usr/share/fonts/truetype/Free3of9Extended
+          pvcName: masms-inst1-ws1-fonts-pvc
+          size: 8Gi
+          storageClassName: efs-csi
 </code></pre>
-<h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">¤</a></h2>
-<p>EPL-2.0</p>
+<p>This configuration will result in two tar.gz archives:
+- <code>mas-inst1-ws1-jmsserver-pvc.tar.gz</code>
+- <code>masms-inst1-ws1-fonts-pvc.tar.gz</code></p>
+<h2 id="backup-directory-structure">Backup Directory Structure<a class="headerlink" href="#backup-directory-structure" title="Permanent link">¤</a></h2>
+<p>The role creates a backup directory with the following structure:</p>
+<pre><code>&lt;mas_backup_dir&gt;/
+└── backup-&lt;version&gt;-app-manage/
+    ├── resources/
+    │   ├── projects
+    │   │   └── mas-&lt;instance_id&gt;-manage.yaml
+    |   ├── secrets
+    │   │   └── &lt;secret1_name&gt;.yaml
+    │   │   └── &lt;secret2_name&gt;.yaml
+    |   ├── configmaps
+    │   │   └── &lt;configmap1_name&gt;.yaml
+    │   │   └── &lt;configmap2_name&gt;.yaml
+    |   ├── subscriptions
+    │   │   └── &lt;subscription_name&gt;.yaml
+    │   └── ... (other resources)
+    └── data/
+        ├── &lt;pvc-name-1&gt;.tar.gz
+        ├── &lt;pvc-name-2&gt;.tar.gz
+</code></pre>
+<h2 id="example-playbooks">Example Playbooks<a class="headerlink" href="#example-playbooks" title="Permanent link">¤</a></h2>
+<h3 id="basic-backup">Basic Backup<a class="headerlink" href="#basic-backup" title="Permanent link">¤</a></h3>
+<p>Backup Manage namespace resources and any configured persistent volumes:</p>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: inst1
+    mas_workspace_id: ws1
+    mas_app_id: manage
+    mas_backup_dir: /backup/mas
+  roles:
+    - ibm.mas_devops.suite_app_backup
+</code></pre>
+<h3 id="backup-with-custom-version">Backup with Custom Version<a class="headerlink" href="#backup-with-custom-version" title="Permanent link">¤</a></h3>
+<p>Backup with a custom version identifier:</p>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: inst1
+    mas_workspace_id: ws1
+    mas_app_id: manage
+    mas_backup_dir: /backup/mas
+    mas_app_backup_version: "prod-backup-20240315"
+  roles:
+    - ibm.mas_devops.suite_app_backup
+</code></pre>
+<h2 id="notes">Notes<a class="headerlink" href="#notes" title="Permanent link">¤</a></h2>
+<ul>
+<li><strong>Database Backup</strong>: This role does NOT backup the Manage database. Use the <a href="../db2/">db2</a> role to backup Db2 databases separately</li>
+<li><strong>Suite Resources</strong>: This role backs up application-specific resources only. For suite-level resources (Suite CR, workspace CRs, etc.), use the <a href="../suite_backup/">suite_backup</a> role</li>
+<li><strong>Storage Requirements</strong>: Ensure sufficient storage space in <code>mas_backup_dir</code> for both namespace resources and PV data</li>
+<li><strong>Pod Access</strong>: The role uses the UI or ALL server bundle pod to access PVC data. Ensure at least one of these pods is running and healthy</li>
+<li><strong>Backup Time</strong>: PV backup duration depends on the amount of data in the persistent volumes</li>
+<li><strong>Automatic Detection</strong>: Persistent volumes are automatically detected from the ManageWorkspace CR - no manual configuration needed</li>
+<li><strong>Compression</strong>: All PV data is compressed using gzip to minimize storage requirements</li>
+</ul>
             
           </div>
 
           <!-- Navigation footer (prev/next) -->
 <nav class="md-footer-nav" aria-label="Footer navigation">
   <div class="md-footer-nav__inner">
-    <a href="../ocp_deprovision/" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+    <a href="../suite_app_rollback/" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
       <div class="md-footer-nav__direction">
         <svg class="md-footer-nav__icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path>
@@ -917,10 +944,10 @@
         <span>Previous</span>
       </div>
       <div class="md-footer-nav__title">
-        <span class="md-footer-nav__title-text">ocp_deprovision</span>
+        <span class="md-footer-nav__title-text">suite_app_rollback</span>
       </div>
     </a>
-    <a href="../ocp_github_oauth/" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
+    <a href="../suite_app_restore/" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
       <div class="md-footer-nav__direction">
         <span>Next</span>
         <svg class="md-footer-nav__icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -928,7 +955,7 @@
         </svg>
       </div>
       <div class="md-footer-nav__title">
-        <span class="md-footer-nav__title-text">ocp_github_oauth</span>
+        <span class="md-footer-nav__title-text">suite_app_restore</span>
       </div>
     </a>
   </div>
@@ -945,55 +972,84 @@
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
               <li class="md-toc__item">
-                <a href="#role-variables" class="md-toc__link" data-md-level="1">
-                  Role Variables
+                <a href="#overview" class="md-toc__link" data-md-level="1">
+                  Overview
+                </a>
+              </li>
+              <li class="md-toc__item">
+                <a href="#role-variables-general" class="md-toc__link" data-md-level="1">
+                  Role Variables - General
                 </a>
                   <ul class="md-toc__list">
                       <li class="md-toc__item">
-                        <a href="#aws_access_key_id" class="md-toc__link" data-md-level="2">
-                          aws_access_key_id
+                        <a href="#mas_app_id" class="md-toc__link" data-md-level="2">
+                          mas_app_id
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#aws_secret_access_key" class="md-toc__link" data-md-level="2">
-                          aws_secret_access_key
+                        <a href="#mas_instance_id" class="md-toc__link" data-md-level="2">
+                          mas_instance_id
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#aws_region" class="md-toc__link" data-md-level="2">
-                          aws_region
+                        <a href="#mas_workspace_id" class="md-toc__link" data-md-level="2">
+                          mas_workspace_id
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#cluster_name" class="md-toc__link" data-md-level="2">
-                          cluster_name
+                        <a href="#mas_backup_dir" class="md-toc__link" data-md-level="2">
+                          mas_backup_dir
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#efs_unique_id" class="md-toc__link" data-md-level="2">
-                          efs_unique_id
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#creation_token_prefix" class="md-toc__link" data-md-level="2">
-                          creation_token_prefix
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#create_storage_class" class="md-toc__link" data-md-level="2">
-                          create_storage_class
+                        <a href="#mas_app_backup_version" class="md-toc__link" data-md-level="2">
+                          mas_app_backup_version
                         </a>
                       </li>
                   </ul>
               </li>
               <li class="md-toc__item">
-                <a href="#example-playbook" class="md-toc__link" data-md-level="1">
-                  Example Playbook
+                <a href="#what-gets-backed-up" class="md-toc__link" data-md-level="1">
+                  What Gets Backed Up
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#manage-application" class="md-toc__link" data-md-level="2">
+                          Manage Application
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#how-persistent-volume-backup-works" class="md-toc__link" data-md-level="1">
+                  How Persistent Volume Backup Works
                 </a>
               </li>
               <li class="md-toc__item">
-                <a href="#license" class="md-toc__link" data-md-level="1">
-                  License
+                <a href="#backup-directory-structure" class="md-toc__link" data-md-level="1">
+                  Backup Directory Structure
+                </a>
+              </li>
+              <li class="md-toc__item">
+                <a href="#example-playbooks" class="md-toc__link" data-md-level="1">
+                  Example Playbooks
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#basic-backup" class="md-toc__link" data-md-level="2">
+                          Basic Backup
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#backup-with-custom-version" class="md-toc__link" data-md-level="2">
+                          Backup with Custom Version
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#notes" class="md-toc__link" data-md-level="1">
+                  Notes
                 </a>
               </li>
         </ul>
