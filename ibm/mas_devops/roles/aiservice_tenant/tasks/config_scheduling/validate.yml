@@ -1,0 +1,44 @@
+---
+# This task validates scheduling configuration.
+
+- name: "Validate workload configurations"
+  when: item.config is not none and item.config != {}
+  block:
+    - name: "Check if {{ item.name }} has tolerations or nodeSelector"
+      ansible.builtin.assert:
+        that:
+          - "'tolerations' in item.config or 'nodeSelector' in item.config"
+        fail_msg: "{{ item.name | capitalize }} configuration must have either 'tolerations' or 'nodeSelector' defined"
+
+    - name: "Validate {{ item.name }} tolerations structure"
+      when: "'tolerations' in item.config"
+      ansible.builtin.assert:
+        that:
+          - item.config.tolerations is sequence
+          - item.config.tolerations | length > 0
+        fail_msg: "{{ item.name | capitalize }} tolerations must be a non-empty list"
+
+    - name: "Validate each toleration in {{ item.name }}"
+      when: "'tolerations' in item.config"
+      ansible.builtin.assert:
+        that:
+          - toleration.key is defined
+          - toleration.operator is defined
+          - toleration.operator in ['Equal', 'Exists']
+          - not (toleration.operator == 'Equal' and toleration.value is not defined)
+          - toleration.effect is defined
+          - toleration.effect in ['NoSchedule', 'PreferNoSchedule', 'NoExecute']
+        fail_msg: "Invalid toleration in {{ item.name }}"
+
+      loop: "{{ item.config.tolerations }}"
+      loop_control:
+        loop_var: toleration
+        label: "{{ item.name }} -> {{ toleration.key | default('undefined') }}"
+
+    - name: "Validate {{ item.name }} nodeSelector structure"
+      when: "'nodeSelector' in item.config"
+      ansible.builtin.assert:
+        that:
+          - item.config.nodeSelector is mapping
+          - item.config.nodeSelector | length > 0
+        fail_msg: "{{ item.name | capitalize }} nodeSelector must be a non-empty dictionary"
