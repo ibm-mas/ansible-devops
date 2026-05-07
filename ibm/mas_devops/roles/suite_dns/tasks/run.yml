@@ -1,5 +1,52 @@
 ---
-# 1. Check cert-manager installation
+# 1. Parse MAS version from channel
+# -----------------------------------------------------------------------------
+- name: "Parse MAS version and set IS_POST_92 flag"
+  shell: |
+    #!/bin/bash
+    set -e
+    
+    echo "DEBUG: Parsing MAS version from channel"
+    echo "DEBUG: Input mas_channel: {{ mas_channel | default('') }}"
+    
+    # Default to false if mas_channel is not set
+    IS_POST_92="false"
+    echo "DEBUG: Initial IS_POST_92 value: $IS_POST_92"
+    
+    if [ -n "{{ mas_channel | default('') }}" ]; then
+      echo "DEBUG: mas_channel is not empty, parsing version"
+      # Extract major, minor versions
+      MAJOR=$(echo "{{ mas_channel }}" | cut -d. -f1)
+      MINOR=$(echo "{{ mas_channel }}" | cut -d. -f2 | sed 's/[^0-9].*$//')
+      echo "DEBUG: Parsed version - MAJOR: $MAJOR, MINOR: $MINOR"
+      
+      # Check if version is >= 9.2
+      if [ "$MAJOR" -gt 9 ] || ([ "$MAJOR" -eq 9 ] && [ "$MINOR" -ge 2 ]); then
+        IS_POST_92="true"
+        echo "DEBUG: Version is >= 9.2, setting IS_POST_92 to true"
+      else
+        echo "DEBUG: Version is < 9.2, keeping IS_POST_92 as false"
+      fi
+    else
+      echo "DEBUG: mas_channel is empty, keeping IS_POST_92 as false"
+    fi
+    
+    echo "DEBUG: Final IS_POST_92 value: $IS_POST_92"
+    echo "$IS_POST_92"
+  register: _is_post_92_result
+  changed_when: false
+
+- name: "Set mas_version_lt_92 fact"
+  set_fact:
+    mas_version_lt_92: "{{ _is_post_92_result.stdout.strip() == 'false' }}"
+
+- name: "Debug version comparison result"
+  debug:
+    msg:
+      - "MAS Channel ......................... {{ mas_channel | default('not set') }}"
+      - "Version < 9.2 ...................... {{ mas_version_lt_92 }}"
+
+# 2. Check cert-manager installation
 # -----------------------------------------------------------------------------
 # Ensure cert manager is installed prior continuing as this role will install
 # v1alpha1.acme.cis.ibm.com apiservice which requires cert manager to be running
@@ -11,13 +58,13 @@
     msg:
       - "Certificate Manager Namespace .......... {{ cert_manager_namespace }}"
 
-# 2. Run provider task
+# 3. Run provider task
 # -----------------------------------------------------------------------------
 - name: "Run the provider specific task"
   when: dns_provider != ""
   include_tasks: tasks/providers/{{ dns_provider }}/main.yml
 
-# 3. Set custom cp4d route based on the custom cluster issuer
+# 4. Set custom cp4d route based on the custom cluster issuer
 # -----------------------------------------------------------------------------
 - block:
     - name: Check if custom CP4D route is already configured # if it is, then we skip it to avoid override
