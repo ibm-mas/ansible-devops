@@ -207,13 +207,3 @@ Check the operator's Job logs:
 oc get jobs -n mas-{instance}-manage | grep topics-setup
 oc logs job/{instance}-kafkaimageprocessor-topics-setup -n mas-{instance}-manage
 ```
-
-## Related Documentation
-
-- [Kafkamodel Integration Summary](../../../../../../mas-doc/test-operator-temp%20bob%20project%20fixes%20and%20documentations/KAFKAMODEL_INTEGRATION_COMPLETE_SUMMARY.md)
-- [Branch Changes Summary](../../../../../../mas-doc/test-operator-temp%20bob%20project%20fixes%20and%20documentations/BRANCH_CHANGES_SUMMARY.md)
-- [Technical Design Specification](../../../../../../mas-doc/test-operator-temp%20bob%20project%20fixes%20and%20documentations/TDD/KAFKA_IMAGE_PROCESSOR_TECHNICAL_DESIGN_SPEC_FORMAL.md)
-
-## License
-
-EPL-2.0
