@@ -1,44 +1,15 @@
 ---
 # 1. Parse MAS version from channel
 # -----------------------------------------------------------------------------
-- name: "Parse MAS version and set IS_POST_92 flag"
-  shell: |
-    #!/bin/bash
-    set -e
-    
-    echo "DEBUG: Parsing MAS version from channel"
-    echo "DEBUG: Input mas_channel: {{ mas_channel | default('') }}"
-    
-    # Default to false if mas_channel is not set
-    IS_POST_92="false"
-    echo "DEBUG: Initial IS_POST_92 value: $IS_POST_92"
-    
-    if [ -n "{{ mas_channel | default('') }}" ]; then
-      echo "DEBUG: mas_channel is not empty, parsing version"
-      # Extract major, minor versions
-      MAJOR=$(echo "{{ mas_channel }}" | cut -d. -f1)
-      MINOR=$(echo "{{ mas_channel }}" | cut -d. -f2 | sed 's/[^0-9].*$//')
-      echo "DEBUG: Parsed version - MAJOR: $MAJOR, MINOR: $MINOR"
-      
-      # Check if version is >= 9.2
-      if [ "$MAJOR" -gt 9 ] || ([ "$MAJOR" -eq 9 ] && [ "$MINOR" -ge 2 ]); then
-        IS_POST_92="true"
-        echo "DEBUG: Version is >= 9.2, setting IS_POST_92 to true"
-      else
-        echo "DEBUG: Version is < 9.2, keeping IS_POST_92 as false"
-      fi
-    else
-      echo "DEBUG: mas_channel is empty, keeping IS_POST_92 as false"
-    fi
-    
-    echo "DEBUG: Final IS_POST_92 value: $IS_POST_92"
-    echo "$IS_POST_92"
-  register: _is_post_92_result
-  changed_when: false
-
-- name: "Set mas_version_lt_92 fact"
+- name: "Set mas_version_lt_92 fact based on mas_channel"
+  when: mas_channel is defined and mas_channel != ""
   set_fact:
-    mas_version_lt_92: "{{ _is_post_92_result.stdout.strip() == 'false' }}"
+    mas_version_lt_92: "{{ mas_channel.split('.')[:2] | join('.') is version('9.2', '<') }}"
+
+- name: "Set default for mas_version_lt_92 when mas_channel is not defined"
+  when: mas_channel is not defined or mas_channel == ""
+  set_fact:
+    mas_version_lt_92: true
 
 - name: "Debug version comparison result"
   debug:
