@@ -89,16 +89,26 @@
     kind: ManageWorkspace
   register: workspaceCR
 
-- name: Retrieve Kafka Image Processor CR if available
+- name: Retrieve Civil Imagestitching CR if available
   kubernetes.core.k8s_info:
     api_version: apps.mas.ibm.com/v1
-    kind: Kafkaimageprocessor
-  register: kafkaimageprocessorCR
+    kind: Imagestitching
+    name: imagestitching
+    namespace: "{{ manage_namespace }}"
+  register: imagestitchingCR
 
 - name: Retrieve current kafka image processor status
   set_fact:
     deploykafkaimageprocessor: "{{ manageWorkspace.resources[0].status.components.civil is defined and manageWorkspace.resources[0].status.components.civil.deploykafkaimageprocessor }}"
-    kafkaimageprocessorcrReady: "{{ kafkaimageprocessorCR is defined and kafkaimageprocessorCR.resources | length > 0 }}"
+    kafkaimageprocessorcrReady: >-
+      {{
+        imagestitchingCR is defined and
+        imagestitchingCR.resources | length > 0 and
+        imagestitchingCR.resources[0].status is defined and
+        imagestitchingCR.resources[0].status.components is defined and
+        imagestitchingCR.resources[0].status.components.kafkaimageprocessor is defined and
+        (imagestitchingCR.resources[0].status.components.kafkaimageprocessor.enabled | default(false))
+      }}
 
 - name: Debug
   debug:
@@ -178,11 +188,11 @@
 
 # 3. Ensure Kafka binding exists in ManageWorkspace
 # -----------------------------------------------------------------------------
-# The KafkaImageProcessor operator requires kafka-cfg-data Secret which is created
-# by the KafkaImageProcessor operator when it fetches KafkaCfg via MAS binding.
+# The Civil Imagestitching extension requires kafka-cfg-data Secret which is created
+# by the extension-owned KafkaImageProcessor reconciliation via MAS binding.
 # This task ensures the Kafka binding is added if it doesn't exist.
 # NOTE: This must happen AFTER kafkaimageprocessorpvcname is set, because the
-# ManageWorkspace operator only creates the KafkaImageProcessor CR when pvcname exists.
+# ManageWorkspace operator only creates the Civil extension CR content when pvcname exists.
 
 - name: Retrieve updated ManageWorkspace CR
   kubernetes.core.k8s_info:
@@ -220,13 +230,13 @@
     - addKafkaBinding.result is defined
     - addKafkaBinding.result | length > 0
 
-- name: Wait for KafkaImageProcessor operator to create kafka-cfg-data Secret
+- name: Wait for Civil Imagestitching extension to create kafka-cfg-data Secret
   when: not kafka_binding_exists or not kafkaimageprocessorcrReady
   pause:
     seconds: 60
-    prompt: "Waiting for KafkaImageProcessor operator to fetch KafkaCfg and create kafka-cfg-data Secret"
+    prompt: "Waiting for Civil Imagestitching extension to fetch KafkaCfg and create kafka-cfg-data Secret"
 
-- name: Verify kafka-cfg-data Secret was created by KafkaImageProcessor operator
+- name: Verify kafka-cfg-data Secret was created by Civil Imagestitching extension
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
