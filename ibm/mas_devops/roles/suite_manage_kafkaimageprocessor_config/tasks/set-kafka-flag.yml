@@ -1,0 +1,27 @@
+---
+# This task sets the Kafka Image Processor enabled flag in the ManageWorkspace CR
+# This flag controls whether the Kafka Image Processor should be installed
+
+- name: "Set Kafka Image Processor flag in ManageWorkspace CR"
+  kubernetes.core.k8s:
+    merge_type: merge
+    definition:
+      apiVersion: apps.mas.ibm.com/v1
+      kind: ManageWorkspace
+      metadata:
+        name: "{{ mas_ws_cr_name }}"
+        namespace: "{{ manage_namespace }}"
+      spec:
+        settings:
+          deployment:
+            kafkaImageProcessor:
+              enabled: "{{ kafka_imageprocessor_enabled | bool }}"
+  register: kafka_flag_result
+
+- name: "Debug Kafka Image Processor flag update"
+  debug:
+    msg:
+      - "Kafka Image Processor flag set to: {{ kafka_imageprocessor_enabled }}"
+      - "ManageWorkspace CR updated: {{ kafka_flag_result.changed }}"
+
+# Made with Bob
