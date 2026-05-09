@@ -33,6 +33,31 @@
       - "Kafka Image Processor Available (from status): {{ kafkaimageprocessorAvailable }}"
       - "Will {{ 'INSTALL' if (kafka_imageprocessor_enabled_from_cr | bool) and kafkaimageprocessorAvailable else 'SKIP' }} Kafka Image Processor"
 
+# Wait for KafkaImageProcessor operator ServiceAccount to be created
+# The ServiceAccount is created by OLM when the operator is deployed
+- name: Wait for KafkaImageProcessor operator ServiceAccount
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ServiceAccount
+    name: ibm-mas-manage-kafkaimageprocessor-operator
+    namespace: "{{ manage_namespace }}"
+  register: sa_result
+  retries: 30
+  delay: 10
+  until:
+    - sa_result.resources is defined
+    - sa_result.resources | length > 0
+  when:
+    - kafkaimageprocessorAvailable
+
+# Note: RBAC for Kafka access is now created by Manage operator using namespace-scoped resources
+# - KafkaImageProcessor operator defines RBAC templates and a ClusterRole for Manage operator
+# - The ClusterRole grants Manage operator permission to create RBAC in any namespace
+# - Manage operator creates Role and RoleBindings in the Kafka namespace BEFORE deploying KafkaImageProcessor
+# - KafkaImageProcessor operator itself has NO ClusterRole (satisfies security requirement)
+# See: ibm-mas-manage/operator/ibm-mas-manage-ws/roles/workspace/tasks/setup-kafkaimageprocessor-rbac.yml
+# See: ibm-mas-imagestitching/operator/ibm-mas-kafkaimageprocessor/config/rbac/manage_operator_cluster_role.yaml
+
 - name: Configure kafka image processor
   include_tasks: tasks/configure-kafkaimageprocessor.yml
   when:

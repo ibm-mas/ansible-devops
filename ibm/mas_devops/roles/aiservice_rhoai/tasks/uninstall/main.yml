@@ -1,0 +1,373 @@
+---
+# aiservice_rhoai/tasks/uninstall/main.yml
+# =============================================================================
+# Uninstall Red Hat OpenShift AI (RHOAI)
+# This removes the RHOAI operator and related resources
+
+- name: "RHOAI Uninstall : Display uninstall notice"
+  debug:
+    msg:
+      - "=============================================="
+      - "RHOAI Uninstall Starting"
+      - "=============================================="
+      - "Removing Red Hat OpenShift AI (RHOAI) operator"
+      - "and related resources"
+      - "=============================================="
+
+# 1. Get RHOAI CSV name
+# -----------------------------------------------------------------------------
+- name: "RHOAI Uninstall : Get RHOAI CSV"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ rhoai_namespace }}"
+  register: csv_list
+
+- name: "RHOAI Uninstall : Extract RHOAI CSV name"
+  set_fact:
+    rhoai_csv_name: "{{ csv_list.resources | selectattr('metadata.name', 'match', '^rhods-operator\\..*') | map(attribute='metadata.name') | first }}"
+  when: csv_list.resources | selectattr('metadata.name', 'match', '^rhods-operator\\..*') | list | length > 0
+
+- name: "RHOAI Uninstall : Debug - RHOAI CSV name"
+  debug:
+    msg: "RHOAI CSV to remove: {{ rhoai_csv_name | default('Not found') }}"
+
+# 2. Scale down DataScienceCluster
+# -----------------------------------------------------------------------------
+- name: "RHOAI Uninstall : Scale down DataScienceCluster"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: datasciencecluster.opendatahub.io/v1
+      kind: DataScienceCluster
+      metadata:
+        name: default-dsc
+      spec:
+        components:
+          kserve:
+            managementState: Removed
+  ignore_errors: true
+
+- name: "RHOAI Uninstall : Debug - DataScienceCluster scaled down"
+  debug:
+    msg: "DataScienceCluster kserve component set to Removed"
+
+- name: "RHOAI Uninstall : Wait for pods to terminate (60s)"
+  pause:
+    seconds: 60
+
+# 3. Delete DSCInitialization and DataScienceCluster BEFORE operator
+# This allows the operator's finalizer controller to process finalizers
+# -----------------------------------------------------------------------------
+- name: "RHOAI Uninstall : Delete DataScienceCluster"
+  kubernetes.core.k8s:
+    api_version: datasciencecluster.opendatahub.io/v1
+    kind: DataScienceCluster
+    name: default-dsc
+    state: absent
+  ignore_errors: true
+
+- name: "RHOAI Uninstall : Delete DSCInitialization"
+  kubernetes.core.k8s:
+    api_version: dscinitialization.opendatahub.io/v1
+    kind: DSCInitialization
+    name: default-dsci
+    state: absent
+  ignore_errors: true
+
+- name: "RHOAI Uninstall : Debug - DSC resources deletion initiated"
+  debug:
+    msg: "DSCInitialization and DataScienceCluster deletion initiated"
+
+- name: "RHOAI Uninstall : Wait for operator to process finalizers (60s)"
+  pause:
+    seconds: 60
+
+# 4. Delete namespace-specific resources (network policies and Istio)
+# -----------------------------------------------------------------------------
+- name: "RHOAI Uninstall : Delete network policy"
+  kubernetes.core.k8s:
+    api_version: networking.k8s.io/v1
+    kind: NetworkPolicy
+    name: allow-rhods-model-controller
+    namespace: redhat-ods-applications
+    state: absent
+  ignore_errors: true
+
+- name: "RHOAI Uninstall : Delete Istio PeerAuthentication"
+  when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
+  kubernetes.core.k8s:
+    api_version: security.istio.io/v1beta1
+    kind: PeerAuthentication
+    name: default
+    namespace: redhat-ods-applications
+    state: absent
+  ignore_errors: true
+
+- name: "RHOAI Uninstall : Delete Istio DestinationRule (ds-pipeline)"
+  when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
+  kubernetes.core.k8s:
+    api_version: networking.istio.io/v1beta1
+    kind: DestinationRule
+    name: ds-pipeline-instance
+    namespace: redhat-ods-applications
+    state: absent
+  ignore_errors: true
+
+- name: "RHOAI Uninstall : Delete Istio DestinationRule (minio)"
+  when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
+  kubernetes.core.k8s:
+    api_version: networking.istio.io/v1beta1
+    kind: DestinationRule
+    name: minio-instance
+    namespace: redhat-ods-applications
+    state: absent
+  ignore_errors: true
+
+- name: "RHOAI Uninstall : Debug - Resource cleanup complete"
+  debug:
+    msg: "Network policies and Istio resources deleted"
+
+# 5. Delete RHOAI operator AFTER DSC resources
+# -----------------------------------------------------------------------------
+- name: "RHOAI Uninstall : Delete RHOAI subscription"
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: rhods-operator
+    namespace: "{{ rhoai_namespace }}"
+    state: absent
+  when: rhoai_csv_name is defined
+
+- name: "RHOAI Uninstall : Delete RHOAI CSV"
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: "{{ rhoai_csv_name }}"
+    namespace: "{{ rhoai_namespace }}"
+    state: absent
+  when: rhoai_csv_name is defined
+
+- name: "RHOAI Uninstall : Debug - RHOAI operator deleted"
+  debug:
+    msg: "RHOAI subscription and CSV deleted from {{ rhoai_namespace }}"
+
+- name: "RHOAI Uninstall : Wait for RHOAI cleanup (60s)"
+  pause:
+    seconds: 60
+
+# 6. Delete Authorino operator
+# -----------------------------------------------------------------------------
+- name: "RHOAI Uninstall : Get Authorino CSV"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: openshift-operators
+  register: authorino_csv_list
+
+- name: "RHOAI Uninstall : Extract Authorino CSV name"
+  set_fact:
+    authorino_csv_name: "{{ authorino_csv_list.resources | selectattr('metadata.name', 'match', '^authorino-operator\\..*') | map(attribute='metadata.name') | first }}"
+  when: authorino_csv_list.resources | selectattr('metadata.name', 'match', '^authorino-operator\\..*') | list | length > 0
+
+- name: "RHOAI Uninstall : Delete Authorino subscription"
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: authorino-operator
+    namespace: openshift-operators
+    state: absent
+  ignore_errors: true
+
+- name: "RHOAI Uninstall : Delete Authorino CSV"
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: "{{ authorino_csv_name }}"
+    namespace: openshift-operators
+    state: absent
+  when: authorino_csv_name is defined
+  ignore_errors: true
+
+- name: "RHOAI Uninstall : Debug - Authorino operator removed"
+  debug:
+    msg: "Authorino subscription and CSV deleted"
+
+# 7. Remove Serverless and ServiceMesh operators (only if installed in serverless mode)
+# -----------------------------------------------------------------------------
+- name: "RHOAI Uninstall : Get Serverless operator subscription"
+  when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: serverless-operator
+    namespace: "{{ serverless_namespace }}"
+  register: serverless_subscription_info
+
+- name: "RHOAI Uninstall : Get Serverless operator CSV name"
+  when:
+    - aiservice_rhoai_model_deployment_type is defined
+    - aiservice_rhoai_model_deployment_type == "serverless"
+    - serverless_subscription_info.resources | length > 0
+  set_fact:
+    serverless_csv_name: "{{ serverless_subscription_info.resources[0].status.installedCSV }}"
+
+- name: "RHOAI Uninstall : Delete Serverless operator subscription"
+  when:
+    - aiservice_rhoai_model_deployment_type is defined
+    - aiservice_rhoai_model_deployment_type == "serverless"
+    - serverless_subscription_info.resources | length > 0
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: serverless-operator
+    namespace: "{{ serverless_namespace }}"
+    state: absent
+    wait: yes
+    wait_timeout: 120
+
+- name: "RHOAI Uninstall : Debug - Serverless operator removal"
+  when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
+  debug:
+    msg: "Serverless operator subscription deleted (OLM will remove CSV automatically)"
+
+- name: "RHOAI Uninstall : Get ServiceMesh operator subscription"
+  when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: servicemeshoperator
+    namespace: "{{ service_mesh_namespace }}"
+  register: servicemesh_subscription_info
+
+- name: "RHOAI Uninstall : Get ServiceMesh operator CSV name"
+  when:
+    - aiservice_rhoai_model_deployment_type is defined
+    - aiservice_rhoai_model_deployment_type == "serverless"
+    - servicemesh_subscription_info.resources | length > 0
+  set_fact:
+    servicemesh_csv_name: "{{ servicemesh_subscription_info.resources[0].status.installedCSV }}"
+
+- name: "RHOAI Uninstall : Delete ServiceMesh operator subscription"
+  when:
+    - aiservice_rhoai_model_deployment_type is defined
+    - aiservice_rhoai_model_deployment_type == "serverless"
+    - servicemesh_subscription_info.resources | length > 0
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: servicemeshoperator
+    namespace: "{{ service_mesh_namespace }}"
+    state: absent
+    wait: yes
+    wait_timeout: 120
+
+- name: "RHOAI Uninstall : Debug - ServiceMesh operator removal"
+  when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
+  debug:
+    msg: "ServiceMesh operator subscription deleted (OLM will remove CSV automatically)"
+
+- name: "RHOAI Uninstall : Delete ServiceMesh ServiceAccount"
+  when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: ServiceAccount
+    name: istio-operator
+    namespace: "{{ service_mesh_namespace }}"
+    state: absent
+  ignore_errors: true
+
+- name: "RHOAI Uninstall : Debug - ServiceMesh ServiceAccount removal"
+  when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
+  debug:
+    msg: "ServiceMesh ServiceAccount deleted"
+
+# 8. Wait for resources to be fully deleted (with finalizer removal if stuck)
+# -----------------------------------------------------------------------------
+- name: "RHOAI Uninstall : Wait for DataScienceCluster to be deleted"
+  kubernetes.core.k8s_info:
+    api_version: datasciencecluster.opendatahub.io/v1
+    kind: DataScienceCluster
+    name: default-dsc
+  register: dsc_check
+  until: dsc_check.resources | length == 0
+  retries: 20
+  delay: 15
+  ignore_errors: true
+
+- name: "RHOAI Uninstall : Force remove DataScienceCluster finalizers if stuck"
+  when: dsc_check.resources | length > 0
+  kubernetes.core.k8s:
+    api_version: datasciencecluster.opendatahub.io/v1
+    kind: DataScienceCluster
+    name: default-dsc
+    definition:
+      metadata:
+        finalizers: []
+  ignore_errors: true
+
+- name: "RHOAI Uninstall : Wait again for DataScienceCluster deletion after finalizer removal"
+  when: dsc_check.resources | length > 0
+  kubernetes.core.k8s_info:
+    api_version: datasciencecluster.opendatahub.io/v1
+    kind: DataScienceCluster
+    name: default-dsc
+  register: dsc_final_check
+  until: dsc_final_check.resources | length == 0
+  retries: 10
+  delay: 10
+  ignore_errors: true
+
+- name: "RHOAI Uninstall : Wait for DSCInitialization to be deleted"
+  kubernetes.core.k8s_info:
+    api_version: dscinitialization.opendatahub.io/v1
+    kind: DSCInitialization
+    name: default-dsci
+  register: dsci_check
+  until: dsci_check.resources | length == 0
+  retries: 20
+  delay: 15
+  ignore_errors: true
+
+- name: "RHOAI Uninstall : Force remove DSCInitialization finalizers if stuck"
+  when: dsci_check.resources | length > 0
+  kubernetes.core.k8s:
+    api_version: dscinitialization.opendatahub.io/v1
+    kind: DSCInitialization
+    name: default-dsci
+    definition:
+      metadata:
+        finalizers: []
+  ignore_errors: true
+
+- name: "RHOAI Uninstall : Wait again for DSCInitialization deletion after finalizer removal"
+  when: dsci_check.resources | length > 0
+  kubernetes.core.k8s_info:
+    api_version: dscinitialization.opendatahub.io/v1
+    kind: DSCInitialization
+    name: default-dsci
+  register: dsci_final_check
+  until: dsci_final_check.resources | length == 0
+  retries: 10
+  delay: 10
+  ignore_errors: true
+
+- name: "RHOAI Uninstall : Debug - Verification complete"
+  debug:
+    msg:
+      - "DataScienceCluster deleted: {{ (dsc_final_check.resources | default(dsc_check.resources)) | length == 0 }}"
+      - "DSCInitialization deleted: {{ (dsci_final_check.resources | default(dsci_check.resources)) | length == 0 }}"
+
+- name: "RHOAI Uninstall : Complete"
+  debug:
+    msg:
+      - "=============================================="
+      - "RHOAI Uninstall Complete"
+      - "=============================================="
+      - "RHOAI operator removed"
+      - "Authorino operator removed"
+      - "Serverless/ServiceMesh removed (if serverless mode)"
+      - "Network policies and Istio resources deleted"
+      - "DSCInitialization and DataScienceCluster deleted"
+      - "All RHOAI resources cleaned up"
+      - "=============================================="

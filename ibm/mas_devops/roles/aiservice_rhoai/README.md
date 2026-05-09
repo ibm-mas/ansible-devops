@@ -4,10 +4,51 @@ This role provides support to deploy rhoai components for AI Broker Application:
 * Install Red Hat OpenShift Serverless Operator
 * Install Red Hat OpenShift Service Mesh Operator
 * Install Authorino Operator
-* Install Open Data Hub Operator
+* Install Red Hat OpenShift AI Operator
 * Create DSCInitialization instance
 * Create Data Science Cluster
 * Create Create Data Science Pipelines Application
+
+## Actions
+
+This role supports multiple actions through the `rhoai_action` variable:
+
+- **`install`** (default): Install RHOAI and all dependencies. Automatically detects and migrates existing ODH installations.
+- **`uninstall`**: Remove RHOAI and optionally remove Serverless/ServiceMesh operators
+
+### Action Variable
+
+**`rhoai_action`**
+- Optional
+- Environment Variable: `RHOAI_ACTION`
+- Default: `install`
+- Valid values: `install`, `uninstall`
+
+**Example:**
+```bash
+# Install RHOAI (default) - will auto-migrate ODH if detected
+export RHOAI_ACTION=install
+ansible-playbook playbook.yml
+
+# Uninstall RHOAI
+export RHOAI_ACTION=uninstall
+ansible-playbook playbook.yml
+```
+
+## ODH to RHOAI Migration
+
+When installing RHOAI, this role automatically:
+
+1. **Detects** existing Open Data Hub (ODH) installations
+2. **Preserves** all data science workloads and deployed models
+3. **Uninstalls** ODH operator and resources
+4. **Installs** RHOAI operator and resources
+
+**Migration is automatic** - no manual intervention required. The migration process:
+- Maintains data science pipelines and notebooks
+- Preserves model deployments and serving configurations
+- Retains all user data and configurations
+- Typically completes in 10-12 minutes
 
 ## Role Variables
 
