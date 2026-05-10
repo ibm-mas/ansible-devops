@@ -1,4 +1,14 @@
 ---
+# Backward Compatibility Check
+# -----------------------------------------------------------------------------
+- name: Check if kafkaimageprocessor deployment is enabled
+  debug:
+    msg: "KafkaImageProcessor deployment is {{ 'enabled' if enable_kafkaimageprocessor else 'disabled' }}"
+
+- name: Skip kafkaimageprocessor configuration if disabled
+  meta: end_play
+  when: not enable_kafkaimageprocessor | bool
+
 # Note: Kafka configuration fetching has been moved to the kafkaimageprocessor operator
 # The operator now fetches KafkaCfg via MAS binding and creates ConfigMap/Secret
 # ansible-devops no longer handles Kafka configuration
@@ -159,6 +169,7 @@
   when:
     - not deploykafkaimageprocessor
     - not kafkaimageprocessorcrReady
+    - enable_kafkaimageprocessor | bool
   kubernetes.core.k8s:
     api_version: apps.mas.ibm.com/v1
     name: "{{ mas_ws_cr_name }}"
@@ -169,6 +180,7 @@
         components:
           civil:
             kafkaimageprocessorpvcname: "{{ kafkaimageprocessor_pvcname }}"
+            enableKafkaimageprocessor: true
   register: manageWorkspaceUpdate
   retries: 10
   delay: 10
