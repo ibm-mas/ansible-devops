@@ -684,18 +684,18 @@ The following properties can be defined to configure the persistent volume for t
 
 **Important:** As of Manage 9.2, these properties are **required** when the Civil Infrastructure component is enabled. They are not supported in earlier releases. The role automatically detects the Manage version and only includes these settings when Manage >= 9.2.
 
-#### manage_kafkaimageprocessor_pvc_storageclass
+#### mas_manage_kafkaimageprocessor_pvc_storageclass
 Provide the persistent volume storage class to be used for Kafka Image Processor configuration. The PVC will be created with `ReadWriteMany` access mode as it must be shared between Manage/Civil and KafkaImageProcessor deployments.
 
 - **Optional** (automatically included when Civil component is enabled in Manage 9.2+)
-- Environment Variable: `MANAGE_KAFKAIMAGEPROCESSOR_PVC_STORAGECLASS`
+- Environment Variable: `MAS_MANAGE_KAFKAIMAGEPROCESSOR_PVC_STORAGECLASS`
 - Default: None - If not set, a default storage class will be auto-defined according to your cluster's available storage classes
 
-#### manage_kafkaimageprocessor_pvc_size
+#### mas_manage_kafkaimageprocessor_pvc_size
 Provide the persistent volume claim size to be used for Kafka Image Processor configuration.
 
 - **Optional** (automatically included when Civil component is enabled in Manage 9.2+)
-- Environment Variable: `MANAGE_KAFKAIMAGEPROCESSOR_PVC_SIZE`
+- Environment Variable: `MAS_MANAGE_KAFKAIMAGEPROCESSOR_PVC_SIZE`
 - Default: `10Gi`
 
 ### BIM (Building Information Models)
