@@ -201,7 +201,7 @@ JDBC binding scope for the workspace.
 
 **Valid values**: `system`, `application`, `workspace`, `workspace-application`
 
-**Impact**: 
+**Impact**:
 - `system`: Uses system-level JDBC configuration (shared across all workspaces)
 - `application`: Uses application-level JDBC configuration
 - `workspace`: Uses workspace-specific JDBC configuration
@@ -287,7 +287,7 @@ Workload size for Predict containers (Predict only).
 
 **Valid values**: `developer`, `small`, `medium`, `large`
 
-**Impact**: 
+**Impact**:
 - `developer`: 1 replica (no high availability)
 - `small`: 2 replicas (basic high availability)
 - `medium`: 3 replicas (enhanced high availability)
@@ -678,6 +678,26 @@ Provide the persistent volume storage access-mode to be used for doclinks/attach
 - Environment Variable: `MAS_APP_SETTINGS_DOCLINKS_PVC_ACCESSMODE`
 - Default: `ReadWriteMany`
 
+### Kafka Image Processor (Civil Component)
+
+The following properties can be defined to configure the persistent volume for the Kafka Image Processor component when the Civil Infrastructure component is enabled.
+
+**Important:** As of Manage 9.2, these properties are **required** when the Civil Infrastructure component is enabled. They are not supported in earlier releases. The role automatically detects the Manage version and only includes these settings when Manage >= 9.2.
+
+#### manage_kafkaimageprocessor_pvc_storageclass
+Provide the persistent volume storage class to be used for Kafka Image Processor configuration. The PVC will be created with `ReadWriteMany` access mode as it must be shared between Manage/Civil and KafkaImageProcessor deployments.
+
+- **Optional** (automatically included when Civil component is enabled in Manage 9.2+)
+- Environment Variable: `MANAGE_KAFKAIMAGEPROCESSOR_PVC_STORAGECLASS`
+- Default: None - If not set, a default storage class will be auto-defined according to your cluster's available storage classes
+
+#### manage_kafkaimageprocessor_pvc_size
+Provide the persistent volume claim size to be used for Kafka Image Processor configuration.
+
+- **Optional** (automatically included when Civil component is enabled in Manage 9.2+)
+- Environment Variable: `MANAGE_KAFKAIMAGEPROCESSOR_PVC_SIZE`
+- Default: `10Gi`
+
 ### BIM (Building Information Models)
 
 The following properties can be defined to customize the persistent volumes for the Building Information Models setup for Manage.
@@ -847,8 +867,8 @@ Sets the size of deployment.
 - Default: `small` Available options are `small`, `medium` and `large`
 
 #### mas_ws_facilities_app_om_upgrade_mode
-**Note**: 
-- **WARNING** Application upgrades can overwrite your custom changes. Do not select Automatic if you have customized your application. 
+**Note**:
+- **WARNING** Application upgrades can overwrite your custom changes. Do not select Automatic if you have customized your application.
 - Currently supported `Maximo Real Estate and Facilities` release versions are: `9.2.x`
 
 Sets the Application Object Migration Mode.
