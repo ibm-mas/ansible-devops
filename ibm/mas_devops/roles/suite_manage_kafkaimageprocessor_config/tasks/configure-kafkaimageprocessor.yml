@@ -114,56 +114,13 @@
   debug:
     msg: "Kafka Image Processor CR ready: {{ kafkaimageprocessorcrReady }}, deploykafkaimageprocessor: {{ deploykafkaimageprocessor }}"
 
-- name: Check if kafka image processor PVC has already been created
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: PersistentVolumeClaim
-    name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-{{ kafkaimageprocessor_pvcname }}"
-    namespace: "{{ manage_namespace }}"
-  register: kafkaimageprocessorPvc
-
-- name: Create kafka image processor PVC
-  when:
-    - kafkaimageprocessorPvc.resources | length == 0
-  kubernetes.core.k8s:
-    state: present
-    template: templates/kafkaimageprocessor-pvc.yml.j2
+# Note: PVC creation has been moved to the kafkaimageprocessor operator
+# The operator now creates the PVC automatically if it doesn't exist
+# ansible-devops only needs to enable kafkaimageprocessor in the ManageWorkspace CR
 
 # Note: Kafka ConfigMap and Secret creation has been moved to the kafkaimageprocessor operator
 # The operator now fetches KafkaCfg via MAS binding and creates these resources
-# ansible-devops no longer creates Kafka ConfigMap/Secret
-
-- name: Check if PV has been defined in workspace
-  set_fact:
-    kafkaimageprocessorpvAdded: "{{ manageWorkspace.resources | length > 0 and manageWorkspace.resources[0].spec.settings.deployment.persistentVolumes is defined and manageWorkspace.resources[0].spec.settings.deployment.persistentVolumes|selectattr('mountPath', 'contains', kafkaimageprocessor_storage_mountpath)|length > 0 }}"
-
-- name: Get current PV count
-  set_fact:
-    pvcount: "{{ manageWorkspace.resources[0].spec.settings.deployment.persistentVolumes|length }}"
-
-- name: Patch Manage Workspace CR with persistent volume definition
-  when: not kafkaimageprocessorpvAdded
-  kubernetes.core.k8s_json_patch:
-    api_version: apps.mas.ibm.com/v1
-    name: "{{ mas_ws_cr_name }}"
-    namespace: "{{ manage_namespace }}"
-    kind: ManageWorkspace
-    patch:
-      - op: add
-        path: "/spec/settings/deployment/persistentVolumes/{{ pvcount }}"
-        value:
-          accessModes:
-            - "{{ kafkaimageprocessor_storage_mode }}"
-          mountPath: "/{{ kafkaimageprocessor_storage_mountpath }}"
-          pvcName: "{{ kafkaimageprocessor_pvcname }}"
-          size: "{{ kafkaimageprocessor_storage_size }}"
-          storageClassName: "{{ kafkaimageprocessor_storage_class }}"
-  register: patchWorkspace
-  retries: 10
-  delay: 10
-  until:
-    - patchWorkspace.result is defined
-    - patchWorkspace.result | length > 0
+# ansible-devops no longer creates Kafka ConfigMap/Secret or PVC
 
 - name: Patch Manage Workspace CR with kafka image processor pvc name
   when:
