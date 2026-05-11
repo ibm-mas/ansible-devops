@@ -1,0 +1,56 @@
+---
+# Check Manage application version to determine if Kafka Image Processor PVC is required
+# ------------------------------------------------------------------------
+- name: "Get ManageApp CR to check version"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: ManageApp
+    name: "{{ mas_instance_id }}"
+    namespace: "mas-{{ mas_instance_id }}-manage"
+  register: manage_app_info
+
+- name: "Fail if ManageApp CR not found"
+  assert:
+    that:
+      - manage_app_info.resources is defined
+      - manage_app_info.resources | length > 0
+    fail_msg: "ManageApp CR '{{ mas_instance_id }}' not found in namespace 'mas-{{ mas_instance_id }}-manage'. Cannot determine if Kafka Image Processor PVC configuration is required for Civil component."
+
+- name: "Fail if ManageApp version information not available"
+  assert:
+    that:
+      - manage_app_info.resources[0].status is defined
+      - manage_app_info.resources[0].status.versions is defined
+      - manage_app_info.resources[0].status.versions.reconciled is defined
+    fail_msg: "ManageApp CR '{{ mas_instance_id }}' does not have version information in status.versions.reconciled. Cannot determine if Kafka Image Processor PVC configuration is required for Civil component."
+
+- name: "Extract Manage version"
+  set_fact:
+    manage_reconciled_version: "{{ manage_app_info.resources[0].status.versions.reconciled }}"
+
+- name: "Extract major.minor version from reconciled version"
+  set_fact:
+    manage_major_minor: "{{ manage_reconciled_version.split('.')[0] }}.{{ manage_reconciled_version.split('.')[1] }}"
+
+- name: "Debug Manage version information"
+  debug:
+    msg:
+      - "Manage reconciled version ............. {{ manage_reconciled_version }}"
+      - "Manage major.minor version ............ {{ manage_major_minor }}"
+
+- name: "Determine if Kafka Image Processor PVC is required (Manage >= 9.2)"
+  when:
+    - manage_major_minor is version('9.2', '>=')
+  set_fact:
+    manage_requires_kafka_image_processor_pvc: true
+
+- name: "Set flag when Kafka Image Processor PVC is not required"
+  when: manage_requires_kafka_image_processor_pvc is not defined
+  set_fact:
+    manage_requires_kafka_image_processor_pvc: false
+
+- name: "Debug Kafka Image Processor PVC requirement"
+  debug:
+    msg: "Kafka Image Processor PVC required: {{ manage_requires_kafka_image_processor_pvc }}"
+
+# Made with Bob
