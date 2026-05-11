@@ -1,15 +1,15 @@
 ---
 # 1. Parse MAS version from channel
 # -----------------------------------------------------------------------------
-- name: "Set mas_version_lt_92 fact based on mas_channel"
+- name: "Set default for mas_version_lt_92"
+  when: mas_version_lt_92 is not defined
+  set_fact:
+    mas_version_lt_92: true
+
+- name: "Override mas_version_lt_92 based on mas_channel if provided"
   when: mas_channel is defined and mas_channel != ""
   set_fact:
     mas_version_lt_92: "{{ mas_channel.split('.')[:2] | join('.') is version('9.2', '<') }}"
-
-- name: "Set default for mas_version_lt_92 when mas_channel is not defined"
-  when: mas_channel is not defined or mas_channel == ""
-  set_fact:
-    mas_version_lt_92: true
 
 - name: "Debug version comparison result"
   debug:
