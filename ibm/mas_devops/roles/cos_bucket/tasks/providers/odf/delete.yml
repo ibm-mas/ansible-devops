@@ -1,0 +1,105 @@
+---
+# 1. Validate required parameters
+# -----------------------------------------------------------------------------
+- name: "odf/delete : Fail if bucket name is not provided"
+  assert:
+    that:
+      - cos_bucket_name is defined
+      - cos_bucket_name != ""
+    fail_msg: "cos_bucket_name is required for bucket deprovisioning"
+
+# 2. Check if ObjectBucketClaim exists
+# -----------------------------------------------------------------------------
+- name: "odf/delete : Check if bucket exists"
+  kubernetes.core.k8s_info:
+    api_version: objectbucket.io/v1alpha1
+    kind: ObjectBucketClaim
+    name: "{{ cos_bucket_name }}"
+    namespace: "{{ cos_bucket_namespace }}"
+  register: existing_obc
+
+- name: "odf/delete : Bucket does not exist"
+  when: existing_obc.resources | length == 0
+  debug:
+    msg: "ObjectBucketClaim '{{ cos_bucket_name }}' does not exist, nothing to delete"
+
+# 3. Delete the route (if it exists)
+# -----------------------------------------------------------------------------
+- name: "odf/delete : Delete route"
+  when: existing_obc.resources | length > 0
+  kubernetes.core.k8s:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: "{{ cos_bucket_route_name }}"
+    namespace: "{{ cos_bucket_namespace }}"
+    state: absent
+  ignore_errors: true
+
+# 4. Delete ObjectBucketClaim
+# -----------------------------------------------------------------------------
+- name: "odf/delete : Delete ObjectBucketClaim"
+  when: existing_obc.resources | length > 0
+  kubernetes.core.k8s:
+    api_version: objectbucket.io/v1alpha1
+    kind: ObjectBucketClaim
+    name: "{{ cos_bucket_name }}"
+    namespace: "{{ cos_bucket_namespace }}"
+    state: absent
+
+# 5. Wait for resources to be deleted
+# -----------------------------------------------------------------------------
+- name: "odf/delete : Wait for ObjectBucketClaim deletion (10s delay)"
+  when: existing_obc.resources | length > 0
+  kubernetes.core.k8s_info:
+    api_version: objectbucket.io/v1alpha1
+    kind: ObjectBucketClaim
+    name: "{{ cos_bucket_name }}"
+    namespace: "{{ cos_bucket_namespace }}"
+  register: obc_check
+  until: obc_check.resources | length == 0
+  retries: 30  # 5 minutes total
+  delay: 10
+  ignore_errors: true
+
+# 6. Verify ConfigMap and Secret are deleted
+# -----------------------------------------------------------------------------
+- name: "odf/delete : Check if ConfigMap still exists"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: "{{ cos_bucket_name }}"
+    namespace: "{{ cos_bucket_namespace }}"
+  register: cm_check
+
+- name: "odf/delete : Check if Secret still exists"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ cos_bucket_name }}"
+    namespace: "{{ cos_bucket_namespace }}"
+  register: secret_check
+
+- name: "odf/delete : Cleanup status"
+  debug:
+    msg:
+      - "=========================================="
+      - "Bucket Deprovisioning Complete"
+      - "=========================================="
+      - "Bucket Claim Name ........... {{ cos_bucket_name }}"
+      - "ObjectBucketClaim deleted ... {{ 'Yes' if obc_check.resources | length == 0 else 'No (still exists)' }}"
+      - "ConfigMap deleted ........... {{ 'Yes' if cm_check.resources | length == 0 else 'No (still exists)' }}"
+      - "Secret deleted .............. {{ 'Yes' if secret_check.resources | length == 0 else 'No (still exists)' }}"
+      - "Route deleted ............... Attempted"
+      - "=========================================="
+
+- name: "odf/delete : Warning if resources still exist"
+  when: 
+    - obc_check.resources | length > 0 or cm_check.resources | length > 0 or secret_check.resources | length > 0
+  debug:
+    msg:
+      - "WARNING: Some resources may still exist. This could be due to:"
+      - "  - Finalizers preventing deletion"
+      - "  - Bucket containing data (some providers prevent deletion of non-empty buckets)"
+      - "  - Network issues"
+      - "Please verify manually with: oc get obc,cm,secret -n {{ cos_bucket_namespace }} | grep {{ cos_bucket_name }}"
+
