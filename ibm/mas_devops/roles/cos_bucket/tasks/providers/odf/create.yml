@@ -14,7 +14,7 @@
   kubernetes.core.k8s_info:
     api_version: ocs.openshift.io/v1
     kind: StorageCluster
-    namespace: "{{ cos_bucket_namespace }}"
+    namespace: "{{ odf_bucket_namespace }}"
   register: storage_cluster
 
 - name: "odf/create : Verify OCS is ready"
@@ -35,7 +35,7 @@
     api_version: objectbucket.io/v1alpha1
     kind: ObjectBucketClaim
     name: "{{ cos_bucket_name }}"
-    namespace: "{{ cos_bucket_namespace }}"
+    namespace: "{{ odf_bucket_namespace }}"
   register: existing_obc
 
 - name: "odf/create : Bucket already exists"
@@ -56,7 +56,7 @@
     api_version: objectbucket.io/v1alpha1
     kind: ObjectBucketClaim
     name: "{{ cos_bucket_name }}"
-    namespace: "{{ cos_bucket_namespace }}"
+    namespace: "{{ odf_bucket_namespace }}"
   register: obc_status
   until:
     - obc_status.resources | length > 0
@@ -72,7 +72,7 @@
     api_version: v1
     kind: ConfigMap
     name: "{{ cos_bucket_name }}"
-    namespace: "{{ cos_bucket_namespace }}"
+    namespace: "{{ odf_bucket_namespace }}"
   register: bucket_configmap
 
 - name: "odf/create : Get bucket Secret"
@@ -80,7 +80,7 @@
     api_version: v1
     kind: Secret
     name: "{{ cos_bucket_name }}"
-    namespace: "{{ cos_bucket_namespace }}"
+    namespace: "{{ odf_bucket_namespace }}"
   register: bucket_secret
 
 # 6. Set bucket facts
@@ -108,14 +108,14 @@
 
 - name: "odf/create : Set route hostname"
   set_fact:
-    cos_bucket_route_host: "{{ cos_bucket_route_name }}.{{ cluster_ingress.resources[0].spec.domain }}"
+    cos_bucket_route_host: "{{ odf_bucket_route_name }}.{{ cluster_ingress.resources[0].spec.domain }}"
 
 - name: "odf/create : Check if route exists"
   kubernetes.core.k8s_info:
     api_version: route.openshift.io/v1
     kind: Route
-    name: "{{ cos_bucket_route_name }}"
-    namespace: "{{ cos_bucket_namespace }}"
+    name: "{{ odf_bucket_route_name }}"
+    namespace: "{{ odf_bucket_namespace }}"
   register: existing_route
 
 - name: "odf/create : Create route for external access"

@@ -15,7 +15,7 @@
     api_version: objectbucket.io/v1alpha1
     kind: ObjectBucketClaim
     name: "{{ cos_bucket_name }}"
-    namespace: "{{ cos_bucket_namespace }}"
+    namespace: "{{ odf_bucket_namespace }}"
   register: existing_obc
 
 - name: "odf/delete : Bucket does not exist"
@@ -30,8 +30,8 @@
   kubernetes.core.k8s:
     api_version: route.openshift.io/v1
     kind: Route
-    name: "{{ cos_bucket_route_name }}"
-    namespace: "{{ cos_bucket_namespace }}"
+    name: "{{ odf_bucket_route_name }}"
+    namespace: "{{ odf_bucket_namespace }}"
     state: absent
   ignore_errors: true
 
@@ -43,7 +43,7 @@
     api_version: objectbucket.io/v1alpha1
     kind: ObjectBucketClaim
     name: "{{ cos_bucket_name }}"
-    namespace: "{{ cos_bucket_namespace }}"
+    namespace: "{{ odf_bucket_namespace }}"
     state: absent
 
 # 5. Wait for resources to be deleted
@@ -54,7 +54,7 @@
     api_version: objectbucket.io/v1alpha1
     kind: ObjectBucketClaim
     name: "{{ cos_bucket_name }}"
-    namespace: "{{ cos_bucket_namespace }}"
+    namespace: "{{ odf_bucket_namespace }}"
   register: obc_check
   until: obc_check.resources | length == 0
   retries: 30  # 5 minutes total
@@ -68,7 +68,7 @@
     api_version: v1
     kind: ConfigMap
     name: "{{ cos_bucket_name }}"
-    namespace: "{{ cos_bucket_namespace }}"
+    namespace: "{{ odf_bucket_namespace }}"
   register: cm_check
 
 - name: "odf/delete : Check if Secret still exists"
@@ -76,7 +76,7 @@
     api_version: v1
     kind: Secret
     name: "{{ cos_bucket_name }}"
-    namespace: "{{ cos_bucket_namespace }}"
+    namespace: "{{ odf_bucket_namespace }}"
   register: secret_check
 
 - name: "odf/delete : Cleanup status"
@@ -93,7 +93,7 @@
       - "=========================================="
 
 - name: "odf/delete : Warning if resources still exist"
-  when: 
+  when:
     - obc_check.resources | length > 0 or cm_check.resources | length > 0 or secret_check.resources | length > 0
   debug:
     msg:
@@ -101,5 +101,5 @@
       - "  - Finalizers preventing deletion"
       - "  - Bucket containing data (some providers prevent deletion of non-empty buckets)"
       - "  - Network issues"
-      - "Please verify manually with: oc get obc,cm,secret -n {{ cos_bucket_namespace }} | grep {{ cos_bucket_name }}"
+      - "Please verify manually with: oc get obc,cm,secret -n {{ odf_bucket_namespace }} | grep {{ cos_bucket_name }}"
 
