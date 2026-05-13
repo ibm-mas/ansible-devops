@@ -1,0 +1,138 @@
+---
+# Patch STMTHEAP for a single Db2 instance
+# =============================================================================
+# This task checks and patches STMTHEAP configuration for a single instance.
+# It verifies if AUTOMATIC is already present and only patches if needed.
+# =============================================================================
+
+- name: "Set instance name for STMTHEAP patching"
+  set_fact:
+    current_instance_name: "{{ db2_instance.metadata.name }}"
+    current_dbconfig: "{{ db2_instance.spec.environment.database.dbConfig | default({}) }}"
+
+- name: "Debug current STMTHEAP configuration for {{ current_instance_name }}"
+  ansible.builtin.debug:
+    msg:
+      - "Instance: {{ current_instance_name }}"
+      - "Current dbConfig: {{ current_dbconfig }}"
+      - "Current STMTHEAP: {{ current_dbconfig.STMTHEAP | default('NOT SET') }}"
+
+- name: "Check if STMTHEAP needs patching for {{ current_instance_name }}"
+  set_fact:
+    stmtheap_value: "{{ current_dbconfig.STMTHEAP | default('') | string }}"
+    needs_stmtheap_patch: false
+    stmtheap_from_pod: ""
+
+# If STMTHEAP is not in CR, check the actual database configuration from the pod
+- name: "Fallback: Check STMTHEAP from Db2 pod when not in CR"
+  when: stmtheap_value == ''
+  block:
+    - name: "Get STMTHEAP value from c-{{ current_instance_name }}-db2u-0 pod"
+      kubernetes.core.k8s_exec:
+        namespace: "{{ db2_namespace }}"
+        pod: "c-{{ current_instance_name }}-db2u-0"
+        command: >
+          su - db2inst1 -c "db2 get db config for {{ db2_dbname }} | grep STMTHEAP"
+      register: stmtheap_pod_result
+      failed_when: false
+
+    - name: "Parse STMTHEAP value from pod output"
+      when: stmtheap_pod_result.rc == 0
+      set_fact:
+        stmtheap_from_pod: "{{ stmtheap_pod_result.stdout | regex_search('\\(STMTHEAP\\)\\s*=\\s*(\\S+)', '\\1') | first | default('') }}"
+
+    - name: "Debug STMTHEAP from pod for {{ current_instance_name }}"
+      ansible.builtin.debug:
+        msg:
+          - "Instance: {{ current_instance_name }}"
+          - "STMTHEAP from pod: {{ stmtheap_from_pod if stmtheap_from_pod != '' else 'NOT FOUND' }}"
+          - "Pod command output: {{ stmtheap_pod_result.stdout | default('FAILED') }}"
+
+    - name: "Use STMTHEAP value from pod if found"
+      when: stmtheap_from_pod != ''
+      set_fact:
+        stmtheap_value: "{{ stmtheap_from_pod }}"
+
+- name: "Determine if STMTHEAP patch is needed"
+  set_fact:
+    needs_stmtheap_patch: "{{ stmtheap_value != '' and 'AUTOMATIC' not in stmtheap_value.upper() }}"
+
+- name: "STMTHEAP patch status for {{ current_instance_name }}"
+  ansible.builtin.debug:
+    msg:
+      - "Instance: {{ current_instance_name }}"
+      - "STMTHEAP from CR: {{ current_dbconfig.STMTHEAP | default('NOT SET') }}"
+      - "STMTHEAP from pod: {{ stmtheap_from_pod if stmtheap_from_pod != '' else 'NOT CHECKED' }}"
+      - "Final STMTHEAP value: {{ stmtheap_value if stmtheap_value != '' else 'NOT SET' }}"
+      - "Needs patching: {{ needs_stmtheap_patch }}"
+      - "Reason: {{ 'AUTOMATIC keyword missing' if needs_stmtheap_patch else 'Already has AUTOMATIC or not set' }}"
+
+- name: "Patch STMTHEAP configuration for {{ current_instance_name }}"
+  when: needs_stmtheap_patch
+  block:
+    - name: "Prepare patched STMTHEAP value"
+      set_fact:
+        patched_stmtheap: "{{ stmtheap_value }} AUTOMATIC"
+
+    - name: "Apply STMTHEAP patch to {{ instanceKind }} {{ current_instance_name }}"
+      kubernetes.core.k8s:
+        state: present
+        api_version: db2u.databases.ibm.com/v1
+        kind: "{{ instanceKind }}"
+        namespace: "{{ db2_namespace }}"
+        name: "{{ current_instance_name }}"
+        definition:
+          spec:
+            environment:
+              database:
+                dbConfig:
+                  STMTHEAP: "{{ patched_stmtheap }}"
+        merge_type: merge
+
+    - name: "Verify STMTHEAP patch applied for {{ current_instance_name }}"
+      kubernetes.core.k8s_info:
+        api_version: db2u.databases.ibm.com/v1
+        kind: "{{ instanceKind }}"
+        namespace: "{{ db2_namespace }}"
+        name: "{{ current_instance_name }}"
+      register: patched_instance
+
+    - name: "Confirm STMTHEAP patch for {{ current_instance_name }}"
+      ansible.builtin.debug:
+        msg:
+          - "Instance: {{ current_instance_name }}"
+          - "Original STMTHEAP: {{ stmtheap_value }}"
+          - "Patched STMTHEAP: {{ patched_stmtheap }}"
+          - "Applied successfully: {{ patched_instance.resources[0].spec.environment.database.dbConfig.STMTHEAP | default('VERIFICATION FAILED') }}"
+
+    - name: "Verify STMTHEAP patch applied in database for {{ current_instance_name }}"
+      kubernetes.core.k8s_exec:
+        namespace: "{{ db2_namespace }}"
+        pod: "c-{{ current_instance_name }}-db2u-0"
+        command: >
+          su - db2inst1 -c "db2 get db config for {{ db2_dbname }} | grep STMTHEAP"
+      register: stmtheap_verification
+      retries: 5
+      delay: 30
+      until:
+        - stmtheap_verification.rc == 0
+        - "'AUTOMATIC' in stmtheap_verification.stdout.upper()"
+      failed_when:
+        - stmtheap_verification.rc != 0 or 'AUTOMATIC' not in stmtheap_verification.stdout.upper()
+
+    - name: "STMTHEAP verification successful for {{ current_instance_name }}"
+      ansible.builtin.debug:
+        msg:
+          - "Instance: {{ current_instance_name }}"
+          - "STMTHEAP verification successful"
+          - "Database config output: {{ stmtheap_verification.stdout }}"
+          - "Verification completed after {{ stmtheap_verification.attempts }} attempt(s)"
+
+- name: "Skip STMTHEAP patch for {{ current_instance_name }}"
+  when: not needs_stmtheap_patch
+  ansible.builtin.debug:
+    msg:
+      - "Skipping STMTHEAP patch for {{ current_instance_name }}"
+      - "Reason: {{ 'AUTOMATIC keyword already present' if 'AUTOMATIC' in stmtheap_value.upper() else 'STMTHEAP not configured' }}"
+
+# Made with Bob

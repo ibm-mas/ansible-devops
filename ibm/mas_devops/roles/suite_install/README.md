@@ -357,6 +357,28 @@ Name of the cert-manager ClusterIssuer to use for automatic certificate generati
 
 **Note**: Ensure the ClusterIssuer is created and functional before installing MAS. Test certificate generation with a test Certificate resource first.
 
+#### mas_issuer_kind
+Specifies the issuer kind to configure for MAS certificates.
+
+- **Optional**
+- Environment Variable: `mas_issuer_kind`
+- Default: None
+
+**Purpose**: Controls the value written to `spec.settings.issuerKind` in the MAS Suite custom resource. This determines whether MAS certificates use a namespace-scoped `Issuer` or a cluster-scoped `ClusterIssuer`.
+
+**When to use**:
+- Use `Issuer` in any permission mode: `cluster`, `namespaced`, or `minimal`
+- Use `ClusterIssuer` only when MAS is installed in `cluster` permission mode
+
+
+**Valid values**: `Issuer`, `ClusterIssuer`
+
+**Impact**:
+- `Issuer`: certificate references remain namespace-scoped and can be used in all permission modes
+- `ClusterIssuer`: certificate references use a cluster-scoped issuer and should only be used with `cluster` permission mode
+
+*Note**: Choose an issuer kind that matches the permission mode. `Issuer` is universally valid across all permission modes, while `ClusterIssuer` is restricted to `cluster` mode.
+
 #### mas_certificate_duration
 Specifies the validity period for MAS certificates.
 
