@@ -1,0 +1,143 @@
+---
+# Backup Single Pod Persistent Volume
+# =============================================================================
+# This task creates a tar.gz archive of persistent volume data from a single pod.
+# It extracts PVC name and mount paths from the pod spec.
+
+# 1. Extract PVC name from pod spec
+# -----------------------------------------------------------------------------
+- name: "Extract PVC name from pod spec (volume name: userfiles)"
+  set_fact:
+    pod_pvc_name: "{{ pod_item.spec.volumes | selectattr('name', 'equalto', 'userfiles') | map(attribute='persistentVolumeClaim.claimName') | first | default('') }}"
+
+- name: "Display pod PVC information"
+  debug:
+    msg:
+      - "Processing {{ pod_type }} pod {{ pod_index + 1 }}/{{ total_pods }}"
+      - "Pod name: {{ pod_item.metadata.name }}"
+      - "PVC name: {{ pod_pvc_name }}"
+
+# 2. Skip if no PVC found
+# -----------------------------------------------------------------------------
+- name: "Skip pod if no userfiles PVC found"
+  debug:
+    msg: "Skipping {{ pod_item.metadata.name }} - no userfiles PVC found"
+  when: pod_pvc_name == ''
+
+- name: "Process pod PVC backup"
+  when: pod_pvc_name != ''
+  block:
+    # 3. Extract mount paths from pod spec
+    # -------------------------------------------------------------------------
+    - name: "Extract all containers with volumeMounts"
+      set_fact:
+        containers_with_mounts: "{{ pod_item.spec.containers | selectattr('volumeMounts', 'defined') | list }}"
+
+    - name: "Find container with userfiles volume mount and extract mount paths"
+      set_fact:
+        target_container: "{{ item }}"
+        pod_mount_paths: "{{ item.volumeMounts | selectattr('name', 'equalto', 'userfiles') | map(attribute='mountPath') | list }}"
+      when: item.volumeMounts | selectattr('name', 'equalto', 'userfiles') | list | length > 0
+      loop: "{{ containers_with_mounts }}"
+      loop_control:
+        loop_var: item
+
+    - name: "Display mount paths"
+      debug:
+        msg:
+          - "Container name: {{ target_container.name | default('not found') }}"
+          - "Mount paths found: {{ pod_mount_paths | length }}"
+          - "Paths: {{ pod_mount_paths }}"
+
+    # 4. Skip if no mount paths found
+    # -------------------------------------------------------------------------
+    - name: "Fail if no mount paths found"
+      fail:
+        msg: "No userfiles mount paths found in pod {{ pod_item.metadata.name }}"
+      when: pod_mount_paths | length == 0
+
+    # 5. Create tar archive directly in /tmp with full paths
+    # -------------------------------------------------------------------------
+    - name: "Set fact: archive details"
+      set_fact:
+        pod_archive_name: "{{ pod_pvc_name }}.tar.gz"
+        pod_archive_path: "{{ facilities_pv_data_path }}/{{ pod_pvc_name }}.tar.gz"
+
+    - name: "Build tar command with full paths"
+      set_fact:
+        tar_command: "tar -czf /tmp/{{ pod_archive_name }} {{ pod_mount_paths | join(' ') }}"
+
+    - name: "Display tar command"
+      debug:
+        msg: "Tar command: {{ tar_command }}"
+
+    - name: "Create tar.gz archive of mount paths in pod"
+      kubernetes.core.k8s_exec:
+        namespace: "mas-{{ mas_instance_id }}-facilities"
+        pod: "{{ pod_item.metadata.name }}"
+        container: "{{ target_container.name }}"
+        command: "{{ tar_command }}"
+      register: tar_result
+      failed_when: false
+
+    - name: "Check tar creation result"
+      debug:
+        msg:
+          - "Tar creation return code: {{ tar_result.rc }}"
+          - "{{ 'Success' if tar_result.rc == 0 else 'Failed' }}"
+
+    - name: "Fail if tar creation failed"
+      fail:
+        msg: "Failed to create tar archive for {{ pod_pvc_name }}: {{ tar_result.stderr | default('Unknown error') }}"
+      when: tar_result.rc != 0
+
+    # 6. Copy tar archive from pod to host
+    # -------------------------------------------------------------------------
+    - name: "Copy tar.gz archive from pod to backup location"
+      shell: |
+        oc cp --retries=50 mas-{{ mas_instance_id }}-facilities/{{ pod_item.metadata.name }}:/tmp/{{ pod_archive_name }} {{ pod_archive_path }} -c {{ target_container.name }}
+      register: copy_result
+      failed_when: false
+
+    - name: "Check copy result"
+      debug:
+        msg:
+          - "Copy return code: {{ copy_result.rc }}"
+          - "{{ 'Success' if copy_result.rc == 0 else 'Failed' }}"
+
+    - name: "Fail if copy failed"
+      fail:
+        msg: "Failed to copy tar archive for {{ pod_pvc_name }}: {{ copy_result.stderr | default('Unknown error') }}"
+      when: copy_result.rc != 0
+
+    # 7. Clean up tar archive from pod
+    # -------------------------------------------------------------------------
+    - name: "Remove tar archive from pod"
+      kubernetes.core.k8s_exec:
+        namespace: "mas-{{ mas_instance_id }}-facilities"
+        pod: "{{ pod_item.metadata.name }}"
+        container: "{{ target_container.name }}"
+        command: rm -f /tmp/{{ pod_archive_name }}
+      register: cleanup_result
+      failed_when: false
+
+    # 8. Verify backup was created
+    # -------------------------------------------------------------------------
+    - name: "Verify backup archive exists and get size"
+      stat:
+        path: "{{ pod_archive_path }}"
+      register: archive_stat
+
+    - name: "Display backup statistics"
+      debug:
+        msg:
+          - "Archive created: {{ archive_stat.stat.exists }}"
+          - "Archive size: {{ (archive_stat.stat.size / 1024 / 1024) | round(2) }} MB"
+          - "Archive location: {{ pod_archive_path }}"
+      when: archive_stat.stat.exists
+
+    - name: "Warning if archive not found"
+      debug:
+        msg: "WARNING: Archive file not found at {{ pod_archive_path }}"
+      when: not archive_stat.stat.exists
+
