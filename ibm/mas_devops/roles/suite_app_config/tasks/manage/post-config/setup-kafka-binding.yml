@@ -1,0 +1,56 @@
+---
+# Add Kafka binding to ManageWorkspace for Kafka Image Processor
+# This enables the ManageWorkspace operator to create the kafka-cfg-data Secret
+# which the KafkaImageProcessor operator needs to deploy the application
+# =============================================================================
+
+- name: "Retrieve ManageWorkspace CR"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ mas_workspace_id }}"
+    namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
+    kind: ManageWorkspace
+  register: manageworkspace_lookup
+
+- name: "Check if Kafka binding exists in ManageWorkspace"
+  set_fact:
+    kafka_binding_exists: "{{ manageworkspace_lookup.resources[0].spec.bindings.kafka is defined }}"
+  when:
+    - manageworkspace_lookup.resources | length > 0
+
+- name: "Debug Kafka binding status"
+  debug:
+    msg:
+      - "Kafka binding exists: {{ kafka_binding_exists | default(false) }}"
+      - "Current bindings: {{ manageworkspace_lookup.resources[0].spec.bindings | default({}) }}"
+
+- name: "Add Kafka binding to ManageWorkspace if missing"
+  when:
+    - manageworkspace_lookup.resources | length > 0
+    - not (kafka_binding_exists | default(false))
+  kubernetes.core.k8s:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ mas_workspace_id }}"
+    namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
+    kind: ManageWorkspace
+    definition:
+      spec:
+        bindings:
+          kafka: system
+  register: add_kafka_binding_result
+  retries: 10
+  delay: 10
+  until:
+    - add_kafka_binding_result.result is defined
+    - add_kafka_binding_result.result | length > 0
+
+- name: "Kafka binding configuration complete"
+  debug:
+    msg:
+      - "Kafka binding added to ManageWorkspace"
+      - "ManageWorkspace operator will create kafka-cfg-data Secret"
+      - "KafkaImageProcessor operator will use this Secret to deploy the application"
+  when:
+    - not (kafka_binding_exists | default(false))
+
+# Made with Bob
