@@ -1,0 +1,441 @@
+---
+# Restore Facilities Persistent Volumes
+# =============================================================================
+# This task restores Facilities persistent volume data by:
+# 1. Checking if FacilitiesWorkspace CR exists
+# 2. If not present, restoring FacilitiesWorkspace CR and waiting for ready
+# 3. If present, scaling down pods using podTemplates
+# 4. Restoring PVC data using dummy pods
+# 5. Scaling up pods by clearing podTemplates
+
+
+# 1. Check if FacilitiesWorkspace CR exists
+# -----------------------------------------------------------------------------
+- name: "Display restore phase 3 information"
+  debug:
+    msg:
+      - "=========================================="
+      - "Phase 3: Check FacilitiesWorkspace CR"
+      - "=========================================="
+
+- name: "Check if FacilitiesWorkspace CR exists"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: FacilitiesWorkspace
+    name: "{{ facilities_workspace_cr_name }}"
+    namespace: "{{ mas_app_namespace }}"
+  register: existing_facilities_workspace_cr
+
+- name: "Set fact: FacilitiesWorkspace CR exists"
+  set_fact:
+    facilities_workspace_exists: "{{ existing_facilities_workspace_cr.resources is defined and existing_facilities_workspace_cr.resources | length > 0 }}"
+
+- name: "Display FacilitiesWorkspace CR status"
+  debug:
+    msg: "FacilitiesWorkspace CR {{ 'exists' if facilities_workspace_exists else 'does not exist' }}"
+
+# 2. If workspace CR not present, restore it and wait for ready
+# -----------------------------------------------------------------------------
+- name: "Restore FacilitiesWorkspace CR (if not present)"
+  when: not facilities_workspace_exists
+  block:
+    - name: "Display workspace restore information"
+      debug:
+        msg: "FacilitiesWorkspace CR not found - restoring from backup"
+
+    - name: "Restore FacilitiesWorkspace CR"
+      ibm.mas_devops.restore_resource:
+        backup_path: "{{ facilities_backup_path }}"
+        resource_kinds:
+          - FacilitiesWorkspace
+      register: facilities_restore_workspace_result
+
+    - name: "Display FacilitiesWorkspace CR restore results"
+      debug:
+        msg: >-
+          Facilities Workspace resource: {{ facilities_restore_workspace_result.created_count }} created,
+          {{ facilities_restore_workspace_result.updated_count }} updated,
+          {{ facilities_restore_workspace_result.skipped_count }} skipped,
+          {{ facilities_restore_workspace_result.failed_count }} failed
+
+    - name: "Fail if FacilitiesWorkspace CR restore had errors"
+      fail:
+        msg: "FacilitiesWorkspace CR restore failed. See logs for details."
+      when: facilities_restore_workspace_result.failed_count | int > 0
+
+    - name: "Wait for FacilitiesWorkspace to be ready"
+      kubernetes.core.k8s_info:
+        api_version: apps.mas.ibm.com/v1
+        kind: FacilitiesWorkspace
+        name: "{{ facilities_workspace_cr_name }}"
+        namespace: "{{ mas_app_namespace }}"
+      register: workspace_ready_status
+      retries: "{{ mas_app_restore_wait_retries | int }}"
+      delay: "{{ mas_app_restore_wait_delay | int }}"
+      until:
+        - workspace_ready_status.resources is defined
+        - workspace_ready_status.resources | length > 0
+        - workspace_ready_status.resources[0].status is defined
+        - workspace_ready_status.resources[0].status.conditions is defined
+        - workspace_ready_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | list | length > 0
+        - (workspace_ready_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | first).status == 'True'
+
+    - name: "FacilitiesWorkspace is ready"
+      debug:
+        msg: "FacilitiesWorkspace {{ facilities_workspace_cr_name }} is ready"
+
+# 3. Check if PV data backup exists (tar.gz files)
+# -----------------------------------------------------------------------------
+- name: "Display restore phase 4 information"
+  debug:
+    msg:
+      - "=========================================="
+      - "Phase 4: Check PV Data Backup"
+      - "=========================================="
+
+- name: "Check if PV data backup directory exists"
+  stat:
+    path: "{{ facilities_backup_path }}/data"
+  register: pv_data_dir_stat
+
+- name: "Find PVC backup archives"
+  find:
+    paths: "{{ facilities_backup_path }}/data"
+    patterns: "*.tar.gz"
+  register: pvc_backup_archives
+  when: pv_data_dir_stat.stat.exists and pv_data_dir_stat.stat.isdir
+
+- name: "Set fact: PV data needs restore"
+  set_fact:
+    pv_data_needs_restore: "{{ pv_data_dir_stat.stat.exists and pv_data_dir_stat.stat.isdir and pvc_backup_archives.files | default([]) | length > 0 }}"
+
+- name: "Display PV restore decision"
+  debug:
+    msg:
+      - "PV data restore {{ 'required' if pv_data_needs_restore else 'not required' }}"
+      - "{{ 'Found ' + (pvc_backup_archives.files | default([]) | length | string) + ' tar.gz file(s)' if pv_data_dir_stat.stat.exists and pv_data_dir_stat.stat.isdir else 'Backup data directory not found' }}"
+
+# 4. If workspace CR exists and PV data needs restore, scale down pods using podTemplates
+# -----------------------------------------------------------------------------
+- name: "Scale down FacilitiesWorkspace pods (if exists and PV data needs restore)"
+  when:
+    - facilities_workspace_exists
+    - pv_data_needs_restore
+  block:
+    - name: "Display restore phase 5 information"
+      debug:
+        msg:
+          - "=========================================="
+          - "Phase 5: Scale Down Pods Using podTemplates"
+          - "=========================================="
+
+    # Collect deployment names with agent labels
+    - name: "Find agent deployments"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ mas_app_namespace }}"
+        label_selectors:
+          - mas.ibm.com/appType=agent
+          - mas.ibm.com/instanceId={{ mas_instance_id }}
+      register: agent_deployments
+
+    - name: "Display agent deployments found"
+      debug:
+        msg:
+          - "Agent deployments found: {{ agent_deployments.resources | length }}"
+          - "{{ agent_deployments.resources | map(attribute='metadata.name') | list }}"
+
+    # Build podTemplates array with appserver first, then agents
+    - name: "Build podTemplates array"
+      set_fact:
+        pod_templates_scale_down: |
+          {% set templates = [] %}
+          {% set _ = templates.append({'name': 'appserver', 'replicas': 0}) %}
+          {% for deployment in agent_deployments.resources %}
+          {% set deployment_name = deployment.metadata.name %}
+          {% set pod_name = deployment_name.split('-')[-1] %}
+          {% set _ = templates.append({'name': pod_name, 'replicas': 0}) %}
+          {% endfor %}
+          {{ templates }}
+
+    - name: "Display podTemplates to apply"
+      debug:
+        msg:
+          - "podTemplates for scale down:"
+          - "{{ pod_templates_scale_down | from_yaml | to_nice_yaml }}"
+
+    # Apply podTemplates to workspace CR
+    - name: "Apply podTemplates to FacilitiesWorkspace CR"
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: apps.mas.ibm.com/v1
+          kind: FacilitiesWorkspace
+          metadata:
+            name: "{{ facilities_workspace_cr_name }}"
+            namespace: "{{ mas_app_namespace }}"
+          spec:
+            podTemplates: "{{ pod_templates_scale_down | from_yaml }}"
+        merge_type: merge
+
+    - name: "Wait for podTemplates to be applied"
+      pause:
+        seconds: 10
+
+    # Wait for agent deployments to scale to zero
+    - name: "Wait for agent deployments to scale to zero"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ deployment_item.metadata.name }}"
+        namespace: "{{ mas_app_namespace }}"
+      register: deployment_status
+      retries: 60
+      delay: 10
+      until:
+        - deployment_status.resources is defined
+        - deployment_status.resources | length > 0
+        - deployment_status.resources[0].spec.replicas == 0
+        - deployment_status.resources[0].status.replicas | default(0) == 0
+      loop: "{{ agent_deployments.resources }}"
+      loop_control:
+        loop_var: deployment_item
+
+    # Wait for appserver statefulset to scale to zero
+    - name: "Find appserver statefulsets"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: StatefulSet
+        namespace: "{{ mas_app_namespace }}"
+        label_selectors:
+          - mas.ibm.com/appType=appserver
+          - mas.ibm.com/instanceId={{ mas_instance_id }}
+      register: appserver_statefulsets
+
+    - name: "Wait for appserver statefulsets to scale to zero"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: StatefulSet
+        name: "{{ statefulset_item.metadata.name }}"
+        namespace: "{{ mas_app_namespace }}"
+      register: statefulset_status
+      retries: 60
+      delay: 10
+      until:
+        - statefulset_status.resources is defined
+        - statefulset_status.resources | length > 0
+        - statefulset_status.resources[0].spec.replicas == 0
+        - statefulset_status.resources[0].status.replicas | default(0) == 0
+      loop: "{{ appserver_statefulsets.resources }}"
+      loop_control:
+        loop_var: statefulset_item
+
+    - name: "All pods scaled to zero"
+      debug:
+        msg: "All Facilities pods have been scaled to zero"
+
+# 5. Restore PV data using dummy pods
+# -----------------------------------------------------------------------------
+- name: "Display restore phase 6 information"
+  debug:
+    msg:
+      - "=========================================="
+      - "Phase 6: Restore Persistent Volume Data"
+      - "=========================================="
+  when: pv_data_needs_restore
+
+# 6. Restore PV data using dummy pods
+# -----------------------------------------------------------------------------
+- name: "Restore Facilities persistent volume data"
+  when: pv_data_needs_restore
+  block:
+    # Use previously found PVC backup archives
+    - name: "Display PVC archives found"
+      debug:
+        msg:
+          - "PVC archives found: {{ pvc_backup_archives.files | length }}"
+          - "{{ pvc_backup_archives.files | map(attribute='path') | list }}"
+
+    - name: "Get PVC list from backup directory"
+      set_fact:
+        pvc_list: "{{ pvc_backup_archives.files | map(attribute='path') | map('basename') | map('regex_replace', '\\.tar\\.gz$', '') | list }}"
+
+    - name: "Display PVCs to restore"
+      debug:
+        msg:
+          - "PVCs to restore: {{ pvc_list | length }}"
+          - "{{ pvc_list }}"
+
+    # Create dummy pod for each PVC
+    - name: "Create dummy pod for each PVC"
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: "{{ mas_instance_id }}-facilities-restore-{{ pvc_item }}"
+            namespace: "{{ mas_app_namespace }}"
+            labels:
+              app: facilities-restore
+              mas.ibm.com/instanceId: "{{ mas_instance_id }}"
+          spec:
+            restartPolicy: Never
+            containers:
+              - name: restore-container
+                image: "{{ helper_pod_image }}"
+                command: ["/bin/sh", "-c", "sleep infinity"]
+                volumeMounts:
+                  - name: pvc-mount
+                    mountPath: /mnt/pvc
+            volumes:
+              - name: pvc-mount
+                persistentVolumeClaim:
+                  claimName: "{{ pvc_item }}"
+      loop: "{{ pvc_list }}"
+      loop_control:
+        loop_var: pvc_item
+
+    - name: "Wait for dummy pods to be running"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        name: "{{ mas_instance_id }}-facilities-restore-{{ pvc_item }}"
+        namespace: "{{ mas_app_namespace }}"
+      register: dummy_pod_status
+      retries: 60
+      delay: 5
+      until:
+        - dummy_pod_status.resources is defined
+        - dummy_pod_status.resources | length > 0
+        - dummy_pod_status.resources[0].status.phase == 'Running'
+      loop: "{{ pvc_list }}"
+      loop_control:
+        loop_var: pvc_item
+
+    # Restore each PVC
+    - name: "Restore PVC data"
+      include_tasks: "{{ role_path }}/tasks/facilities/restore-single-pvc-data.yml"
+      loop: "{{ pvc_list }}"
+      loop_control:
+        loop_var: pvc_name
+        index_var: pvc_index
+      vars:
+        total_pvcs: "{{ pvc_list | length }}"
+
+    # Delete dummy pods
+    - name: "Delete dummy pods"
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Pod
+        name: "{{ mas_instance_id }}-facilities-restore-{{ pvc_item }}"
+        namespace: "{{ mas_app_namespace }}"
+        state: absent
+        wait: yes
+        wait_timeout: 300
+      loop: "{{ pvc_list }}"
+      loop_control:
+        loop_var: pvc_item
+
+    - name: "Dummy pods deleted successfully"
+      debug:
+        msg: "All dummy restore pods have been deleted"
+
+    - name: "Display PV restore completion"
+      debug:
+        msg:
+          - "Facilities PV restore completed"
+          - "PVC archives restored: {{ pvc_archives.files | length }}"
+
+# 7. Skip message if no PV data to restore
+# -----------------------------------------------------------------------------
+- name: "Skip PV restore message"
+  debug:
+    msg: "Skipping Facilities PV restore - no persistent volume data found in backup"
+  when: not pv_data_needs_restore
+
+# 8. Scale up pods by clearing podTemplates (only if workspace existed before and PV data was restored)
+# -----------------------------------------------------------------------------
+- name: "Scale up FacilitiesWorkspace pods"
+  when:
+    - facilities_workspace_exists
+    - pv_data_needs_restore
+  block:
+    - name: "Display restore phase 7 information"
+      debug:
+        msg:
+          - "=========================================="
+          - "Phase 7: Scale Up Pods"
+          - "=========================================="
+
+    # Clear podTemplates to scale up
+    - name: "Clear podTemplates in FacilitiesWorkspace CR"
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: apps.mas.ibm.com/v1
+          kind: FacilitiesWorkspace
+          metadata:
+            name: "{{ facilities_workspace_cr_name }}"
+            namespace: "{{ mas_app_namespace }}"
+          spec:
+            podTemplates: []
+        merge_type: merge
+
+    - name: "Wait for podTemplates to be cleared"
+      pause:
+        seconds: 10
+
+    # Wait for agent deployments to scale back up
+    - name: "Wait for agent deployments to scale back up"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ deployment_item.metadata.name }}"
+        namespace: "{{ mas_app_namespace }}"
+      register: deployment_status
+      retries: 60
+      delay: 10
+      until:
+        - deployment_status.resources is defined
+        - deployment_status.resources | length > 0
+        - deployment_status.resources[0].spec.replicas | int > 0
+        - deployment_status.resources[0].status.readyReplicas | default(0) == deployment_status.resources[0].spec.replicas
+      loop: "{{ agent_deployments.resources }}"
+      loop_control:
+        loop_var: deployment_item
+
+    # Wait for appserver statefulset to scale back up
+    - name: "Wait for appserver statefulsets to scale back up"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: StatefulSet
+        name: "{{ statefulset_item.metadata.name }}"
+        namespace: "{{ mas_app_namespace }}"
+      register: statefulset_status
+      retries: 60
+      delay: 10
+      until:
+        - statefulset_status.resources is defined
+        - statefulset_status.resources | length > 0
+        - statefulset_status.resources[0].spec.replicas | int > 0
+        - statefulset_status.resources[0].status.readyReplicas | default(0) == statefulset_status.resources[0].spec.replicas
+      loop: "{{ appserver_statefulsets.resources }}"
+      loop_control:
+        loop_var: statefulset_item
+
+    - name: "All pods scaled back up"
+      debug:
+        msg: "All Facilities pods have been scaled back up and are ready"
+
+# 9. Final status
+# -----------------------------------------------------------------------------
+- name: "Facilities restore completed"
+  debug:
+    msg:
+      - "=========================================="
+      - "Facilities Restore Completed Successfully"
+      - "=========================================="
+      - "Workspace: {{ facilities_workspace_cr_name }}"
+      - "Namespace: {{ mas_app_namespace }}"

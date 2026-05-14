@@ -1,0 +1,144 @@
+---
+# Restore Single PVC Data
+# =============================================================================
+# This task restores persistent volume data from a tar.gz archive to a PVC
+# using a dummy pod. It deletes specific directories before restoring.
+
+- name: "Display PVC restore information"
+  debug:
+    msg:
+      - "Processing PVC {{ pvc_index + 1 }}/{{ total_pvcs }}"
+      - "PVC name: {{ pvc_name }}"
+
+# 1. Set archive details
+# -----------------------------------------------------------------------------
+- name: "Set fact: archive details"
+  set_fact:
+    archive_name: "{{ pvc_name }}.tar.gz"
+    archive_path: "{{ facilities_backup_path }}/data/{{ pvc_name }}.tar.gz"
+    pod_name: "{{ mas_instance_id }}-facilities-restore-{{ pvc_name }}"
+
+# 2. Verify backup archive exists
+# -----------------------------------------------------------------------------
+- name: "Verify backup archive exists"
+  stat:
+    path: "{{ archive_path }}"
+  register: archive_stat
+
+- name: "Fail if backup archive not found"
+  fail:
+    msg: "Backup archive not found: {{ archive_path }}"
+  when: not archive_stat.stat.exists
+
+- name: "Display archive information"
+  debug:
+    msg:
+      - "Archive size: {{ (archive_stat.stat.size / 1024 / 1024) | round(2) }} MB"
+      - "Archive location: {{ archive_path }}"
+
+# 3. Copy tar.gz archive to pod
+# -----------------------------------------------------------------------------
+- name: "Copy tar.gz archive to pod"
+  shell: |
+    oc cp {{ archive_path }} {{ mas_app_namespace }}/{{ pod_name }}:/tmp/{{ archive_name }} -c restore-container
+  register: copy_result
+  failed_when: false
+
+- name: "Check copy result"
+  debug:
+    msg:
+      - "Copy return code: {{ copy_result.rc }}"
+      - "{{ 'Success' if copy_result.rc == 0 else 'Failed' }}"
+
+- name: "Fail if copy failed"
+  fail:
+    msg: "Failed to copy tar archive to pod for {{ pvc_name }}: {{ copy_result.stderr | default('Unknown error') }}"
+  when: copy_result.rc != 0
+
+# 4. Delete home/wiotp/config and home/wiotp/userfiles directories
+# -----------------------------------------------------------------------------
+- name: "Delete home/wiotp/config directory contents"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: >
+      sh -c "rm -rf /mnt/pvc/home/wiotp/config/* /mnt/pvc/home/wiotp/config/.[!.]* 2>/dev/null || true"
+  register: delete_config_result
+  failed_when: false
+
+- name: "Display config deletion result"
+  debug:
+    msg: "Deleted contents of /mnt/pvc/home/wiotp/config"
+
+- name: "Delete home/wiotp/userfiles directory contents"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: >
+      sh -c "rm -rf /mnt/pvc/home/wiotp/userfiles/* /mnt/pvc/home/wiotp/userfiles/.[!.]* 2>/dev/null || true"
+  register: delete_userfiles_result
+  failed_when: false
+
+- name: "Display userfiles deletion result"
+  debug:
+    msg: "Deleted contents of /mnt/pvc/home/wiotp/userfiles"
+
+# 5. Extract tar.gz archive in the pod
+# -----------------------------------------------------------------------------
+- name: "Extract tar.gz archive in pod"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: "tar -xzf /tmp/{{ archive_name }} -C /mnt/pvc"
+  register: extract_result
+  failed_when: false
+
+- name: "Check extract result"
+  debug:
+    msg:
+      - "Extract return code: {{ extract_result.rc }}"
+      - "{{ 'Success' if extract_result.rc == 0 else 'Failed' }}"
+
+- name: "Fail if extract failed"
+  fail:
+    msg: "Failed to extract tar archive for {{ pvc_name }}: {{ extract_result.stderr | default('Unknown error') }}"
+  when: extract_result.rc != 0
+
+# 6. Clean up tar.gz archive from pod
+# -----------------------------------------------------------------------------
+- name: "Remove tar.gz archive from pod"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: rm -f /tmp/{{ archive_name }}
+  register: cleanup_result
+  failed_when: false
+
+# 7. Verify restore was successful
+# -----------------------------------------------------------------------------
+- name: "Verify data was restored"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: >
+      sh -c "ls -la /mnt/pvc/home/wiotp/ 2>/dev/null || ls -la /mnt/pvc/ | head -20"
+  register: verify_result
+  failed_when: false
+
+- name: "Display restored data verification"
+  debug:
+    msg:
+      - "Restored data in PVC:"
+      - "{{ verify_result.stdout_lines | default(['No output']) }}"
+  when: verify_result.rc == 0
+
+- name: "PVC restore completed"
+  debug:
+    msg:
+      - "Successfully restored PVC: {{ pvc_name }}"
+      - "Pod: {{ pod_name }}"
