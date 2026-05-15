@@ -36,7 +36,7 @@
 # 2. If workspace CR not present, restore it and wait for ready
 # -----------------------------------------------------------------------------
 - name: "Restore FacilitiesWorkspace CR (if not present)"
-  when: not facilities_workspace_exists
+  when: (facilities_workspace_exists | bool) == false
   block:
     - name: "Display workspace restore information"
       debug:
@@ -79,6 +79,10 @@
         - workspace_ready_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | list | length > 0
         - (workspace_ready_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | first).status == 'True'
 
+    - name: "Set fact: FacilitiesWorkspace CR exists"
+      set_fact:
+        facilities_workspace_exists: true
+
     - name: "FacilitiesWorkspace is ready"
       debug:
         msg: "FacilitiesWorkspace {{ facilities_workspace_cr_name }} is ready"
@@ -118,8 +122,8 @@
 # -----------------------------------------------------------------------------
 - name: "Scale down FacilitiesWorkspace pods (if exists and PV data needs restore)"
   when:
-    - facilities_workspace_exists
-    - pv_data_needs_restore
+    - (facilities_workspace_exists | bool) == true
+    - (pv_data_needs_restore | bool) == true
   block:
     - name: "Display restore phase 5 information"
       debug:
@@ -234,6 +238,10 @@
       debug:
         msg: "All Facilities pods have been scaled to zero"
 
+    - name: "Set fact: Pods scaled down"
+      set_fact:
+        pods_scaled_down: true
+
 # 5. Restore PV data using dummy pods
 # -----------------------------------------------------------------------------
 - name: "Display restore phase 6 information"
@@ -242,12 +250,14 @@
       - "=========================================="
       - "Phase 6: Restore Persistent Volume Data"
       - "=========================================="
-  when: pv_data_needs_restore
+  when: (pv_data_needs_restore | bool) == true
 
 # 6. Restore PV data using dummy pods
 # -----------------------------------------------------------------------------
 - name: "Restore Facilities persistent volume data"
-  when: pv_data_needs_restore
+  when: 
+    - (pv_data_needs_restore | bool) == true
+    - pods_scaled_down is defined and pods_scaled_down == true
   block:
     # Use previously found PVC backup archives
     - name: "Display PVC archives found"
@@ -345,21 +355,19 @@
       debug:
         msg:
           - "Facilities PV restore completed"
-          - "PVC archives restored: {{ pvc_archives.files | length }}"
 
 # 7. Skip message if no PV data to restore
 # -----------------------------------------------------------------------------
 - name: "Skip PV restore message"
   debug:
     msg: "Skipping Facilities PV restore - no persistent volume data found in backup"
-  when: not pv_data_needs_restore
+  when: (pv_data_needs_restore | bool) == false
 
 # 8. Scale up pods by clearing podTemplates (only if workspace existed before and PV data was restored)
 # -----------------------------------------------------------------------------
 - name: "Scale up FacilitiesWorkspace pods"
   when:
-    - facilities_workspace_exists
-    - pv_data_needs_restore
+    - pods_scaled_down is defined and pods_scaled_down == true
   block:
     - name: "Display restore phase 7 information"
       debug:
