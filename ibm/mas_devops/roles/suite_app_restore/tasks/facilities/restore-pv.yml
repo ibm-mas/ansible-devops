@@ -132,6 +132,25 @@
           - "Phase 5: Scale Down Pods Using podTemplates"
           - "=========================================="
 
+    # Get current podTemplates from FacilitiesWorkspace CR
+    - name: "Get current FacilitiesWorkspace CR"
+      kubernetes.core.k8s_info:
+        api_version: apps.mas.ibm.com/v1
+        kind: FacilitiesWorkspace
+        name: "{{ facilities_workspace_cr_name }}"
+        namespace: "{{ mas_app_namespace }}"
+      register: current_facilities_workspace
+
+    - name: "Save original podTemplates"
+      set_fact:
+        original_pod_templates: "{{ current_facilities_workspace.resources[0].spec.podTemplates | default([]) }}"
+
+    - name: "Display original podTemplates"
+      debug:
+        msg:
+          - "Original podTemplates saved:"
+          - "{{ original_pod_templates | to_nice_yaml }}"
+
     # Collect deployment names with agent labels
     - name: "Find agent deployments"
       kubernetes.core.k8s_info:
@@ -376,8 +395,8 @@
           - "Phase 7: Scale Up Pods"
           - "=========================================="
 
-    # Clear podTemplates to scale up
-    - name: "Clear podTemplates in FacilitiesWorkspace CR"
+    # Restore original podTemplates to scale up
+    - name: "Restore original podTemplates in FacilitiesWorkspace CR"
       kubernetes.core.k8s:
         state: present
         definition:
@@ -387,12 +406,12 @@
             name: "{{ facilities_workspace_cr_name }}"
             namespace: "{{ mas_app_namespace }}"
           spec:
-            podTemplates: []
+            podTemplates: "{{ original_pod_templates }}"
         merge_type: merge
 
-    - name: "Wait for podTemplates to be cleared"
+    - name: "Wait for podTemplates to be restored"
       pause:
-        seconds: 10
+        seconds: 30
 
     # Wait for agent deployments to scale back up
     - name: "Wait for agent deployments to scale back up"
