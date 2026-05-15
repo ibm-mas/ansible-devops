@@ -1,0 +1,57 @@
+---
+# Determine Storage Class Override Settings
+# =============================================================================
+# This task determines the storage class override settings for Facilities restore.
+# It handles:
+# 1. Checking if override is enabled
+# 2. Looking up default storage classes if custom classes not provided
+# 3. Determining log and userfiles storage classes based on access mode
+
+- name: "Display storage class override settings"
+  debug:
+    msg:
+      - "Storage class override enabled: {{ override_storageclass }}"
+      - "Custom RWX storage class: {{ mas_app_custom_storage_class_rwx | default('not set') }}"
+      - "Custom RWO storage class: {{ mas_app_custom_storage_class_rwo | default('not set') }}"
+
+# Get default storage classes if override is enabled but custom classes not provided
+# -----------------------------------------------------------------------------
+- name: "Lookup default storage classes"
+  when:
+    - override_storageclass
+  block:
+    - name: "Include default storage classes lookup"
+      include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
+
+    - name: "Set default RWX storage class if not provided"
+      set_fact:
+        mas_app_custom_storage_class_rwx: "{{ defaultStorageClasses.rwx }}"
+      when: mas_app_custom_storage_class_rwx == ''
+
+    - name: "Set default RWO storage class if not provided"
+      set_fact:
+        mas_app_custom_storage_class_rwo: "{{ defaultStorageClasses.rwo }}"
+      when: mas_app_custom_storage_class_rwo == ''
+
+    - name: "Fail storage class override if default storage classes not found"
+      fail:
+        msg: "Storage class override enabled but no custom storage classes provided and default storage classes not found"
+      when: mas_app_custom_storage_class_rwx == '' or mas_app_custom_storage_class_rwo == ''
+
+    - name: "Determine log storage class based on mode"
+      set_fact:
+        _facilities_log_storage: >-
+          {%- if workspace_backup_cr.spec.settings.storage.log.mode == 'ReadWriteMany' -%}
+            {{ mas_app_custom_storage_class_rwx }}
+          {%- else -%}
+            {{ mas_app_custom_storage_class_rwo }}
+          {%- endif -%}
+
+    - name: "Determine userfiles storage class based on mode"
+      set_fact:
+        _facilities_userfiles_storage: >-
+          {%- if workspace_backup_cr.spec.settings.storage.userfiles.mode == 'ReadWriteMany' -%}
+            {{ mas_app_custom_storage_class_rwx }}
+          {%- else -%}
+            {{ mas_app_custom_storage_class_rwo }}
+          {%- endif -%}

@@ -42,11 +42,20 @@
       debug:
         msg: "FacilitiesWorkspace CR not found - restoring from backup"
 
+    # Determine storage class override settings
+    # ---------------------------------------------------------------------
+    - name: "Determine storage class override settings"
+      include_tasks: "{{ role_path }}/tasks/facilities/determine-storage-class-override.yml"
+
     - name: "Restore FacilitiesWorkspace CR"
       ibm.mas_devops.restore_resource:
         backup_path: "{{ facilities_backup_path }}"
         resource_kinds:
           - FacilitiesWorkspace
+        override_values:
+          FacilitiesWorkspace:
+            - spec.settings.storage.log.class: "{{ _facilities_log_storage }}"
+            - spec.settings.storage.userfiles.class: "{{ _facilities_userfiles_storage }}"
       register: facilities_restore_workspace_result
 
     - name: "Display FacilitiesWorkspace CR restore results"
