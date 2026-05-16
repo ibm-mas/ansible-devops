@@ -16,8 +16,8 @@ Implement a Python-based filter to calculate appropriate timeout values for Mana
 - Foundation mode (empty components): Should use `~4 hours = 14,400s`
 - Full mode (with components): Should use current `~18 hours = 64,800s`
 - Variable `mas_appws_components` structure: `{'base': {'version': 'latest'}, 'health': {'version': 'latest'}}` or `None`/`{}`
-- Defined in [`ibm/mas_devops/roles/suite_app_config/defaults/main.yml:32`](ibm/mas_devops/roles/suite_app_config/defaults/main.yml:32)
-- Used in [`ibm/mas_devops/roles/suite_app_config/tasks/main.yml:138-139`](ibm/mas_devops/roles/suite_app_config/tasks/main.yml:138-139)
+- Defined in [../../ibm/mas_devops/roles/suite_app_config/defaults/main.yml:32](../../ibm/mas_devops/roles/suite_app_config/defaults/main.yml#L32)
+- Used in [../../ibm/mas_devops/roles/suite_app_config/tasks/main.yml:138-139](../../ibm/mas_devops/roles/suite_app_config/tasks/main.yml#L138-L139)
 
 ## Execution Plan
 
@@ -33,7 +33,7 @@ Implement a Python-based filter to calculate appropriate timeout values for Mana
 - [x] **1.2** Validate with `black` and `flake8`
 
 ### Phase 2: Update Manage Variables
-- [x] **2.1** Modify [`ibm/mas_devops/roles/suite_app_config/vars/manage.yml:7-8`](ibm/mas_devops/roles/suite_app_config/vars/manage.yml:7-8)
+- [x] **2.1** Modify [../../ibm/mas_devops/roles/suite_app_config/vars/manage.yml:7-8](../../ibm/mas_devops/roles/suite_app_config/vars/manage.yml#L7-L8)
   - [x] Replace hardcoded values with filter call
   - [x] Use pattern: `"{{ mas_appws_components | ibm.mas_devops.calculate_manage_timeouts }}"`
   - [x] Extract `delay` and `retries` from returned dict
