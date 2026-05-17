@@ -12,22 +12,26 @@ class TestCalculateManageTimeouts:
         """Test foundation mode when components is None."""
         result = calculateManageTimeouts(None)
         assert result == {"delay": 240, "retries": 60}
-        assert result["delay"] * result["retries"] == 14400  # 4 hours in seconds
 
     def test_foundation_mode_with_empty_dict(self):
         """Test foundation mode when components is an empty dict."""
         result = calculateManageTimeouts({})
         assert result == {"delay": 240, "retries": 60}
 
-    def test_full_mode_with_single_component(self):
-        """Test full mode with a single component."""
+    def test_base_mode(self):
+        """Test base mode"""
         components = {"base": {"version": "latest"}}
         result = calculateManageTimeouts(components)
-        assert result == {"delay": 360, "retries": 180}
-        assert result["delay"] * result["retries"] == 64800  # 18 hours in seconds
+        assert result == {"delay": 240, "retries": 60}
 
-    def test_full_mode_with_multiple_components(self):
-        """Test full mode with multiple components."""
+    def test_health_mode(self):
+        """Test health mode"""
+        components = {"base": {"version": "latest"}, "health": {"version": "latest"}}
+        result = calculateManageTimeouts(components)
+        assert result == {"delay": 360, "retries": 60}
+
+    def test_unknown_mode(self):
+        """Test unknown mode"""
         components = {
             "base": {"version": "latest"},
             "health": {"version": "8.8.0"},
