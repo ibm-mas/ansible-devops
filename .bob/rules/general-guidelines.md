@@ -84,6 +84,15 @@ cd image/majel && wsl bash -lc "black majel-cli.py"
 - Plans must be **definitive** and **actionable**
 - Do not leave open questions in the plan, prompt the developer to make decisions and provide answers where necessary
 
+### File Links in Plan Documents
+When linking to files from plan documents in `.bob/plans/`:
+- Use relative paths with `../../` prefix to navigate from plan directory to project root
+- Include line numbers using GitHub-style anchors: `#L<line>` or `#L<start>-L<end>`
+- Examples:
+  - Single line: `[file.py:42](../../path/to/file.py#L42)`
+  - Line range: `[file.py:10-20](../../path/to/file.py#L10-L20)`
+- **Never** use paths without proper relative navigation (e.g., `ibm/mas_devops/file.py`)
+
 ### Tracking Progress
 **Critical:** Track progress ONLY in the plan document, NOT in chat
 - Do NOT use `update_todo_list` tool - it creates redundant tracking in chat
