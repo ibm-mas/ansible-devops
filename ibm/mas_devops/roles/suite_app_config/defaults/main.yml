@@ -16,12 +16,20 @@ aiservice_instance_id: "{{ lookup('env', 'AISERVICE_INSTANCE_ID') }}"
 aiservice_tenant_id: "{{ lookup('env', 'AISERVICE_TENANT_ID') }}"
 aiservice_channel: "{{ lookup('env', 'AISERVICE_CHANNEL') }}"
 
+
 # 3. MAS application configuration
 # -----------------------------------------------------------------------------
 mas_app_id: "{{ lookup('env', 'MAS_APP_ID') }}"
 mas_app_namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
-mas_appws_bindings_jdbc: "{{ lookup('env', 'MAS_APPWS_BINDINGS_JDBC') }}"
-mas_appws_components: "{{ lookup('env', 'MAS_APPWS_COMPONENTS') | ibm.mas_devops.appws_components | default('{}', true) }}"
+
+# Bindings
+mas_appws_bindings_jdbc: "{{ lookup('env', 'MAS_APPWS_BINDINGS_JDBC') | default('system', true) }}"
+mas_appws_bindings_kafka: "{{ lookup('env', 'MAS_APPWS_BINDINGS_KAFKA') }}"
+# TODO: This should be handled the standard way (as above)
+mas_appws_bindings_health_wsl_flag: "{{ lookup('env', 'MAS_APPWS_BINDINGS_HEALTH_WSL_FLAG') | default('false', true) | bool }}"
+
+# Components
+mas_appws_components: "{{ lookup('env', 'MAS_APPWS_COMPONENTS') | ibm.mas_devops.appws_components | default({}, true) }}"
 
 # Only used by Predict currently - will be deprecated in favour of OM3.1 implementation
 mas_appws_settings_deployment_size: "{{ lookup('env', 'MAS_APPWS_SETTINGS_DEPLOYMENT_SIZE') | default('small', true) }}"
@@ -77,13 +85,11 @@ mas_ws_facilities_storage_userfiles_size: "{{ lookup('env', 'MAS_FACILITIES_STOR
 mas_ws_facilities_config_map_name: "{{ lookup('env', 'MAS_FACILITIES_CONFIG_MAP_NAME') | default('', true) }}"
 
 
-# Manage Application Workspace
+# Manage - Encryption Secret
 # -----------------------------------------------------------------------------
 mas_manage_ws_db_encryptionsecret_default: "{{ mas_workspace_id }}-{{ mas_app_id }}-encryptionsecret"
 mas_manage_ws_db_encryptionsecret: "{{ lookup('env', 'MAS_MANAGE_WS_DB_ENCRYPTIONSECRET') | default(mas_manage_ws_db_encryptionsecret_default, true) }}"
 
-# Manage Encryption Secret
-# -----------------------------------------------------------------------------
 mas_manage_encryptionsecret_crypto_key: "{{ lookup('env', 'MAS_MANAGE_ENCRYPTIONSECRET_CRYPTO_KEY') }}"
 mas_manage_encryptionsecret_cryptox_key: "{{ lookup('env', 'MAS_MANAGE_ENCRYPTIONSECRET_CRYPTOX_KEY') }}"
 mas_manage_encryptionsecret_old_crypto_key: "{{ lookup('env', 'MAS_MANAGE_ENCRYPTIONSECRET_OLD_CRYPTO_KEY') }}"
@@ -93,7 +99,7 @@ mas_manage_encryptionsecret_aiservice_apikey: "{{ lookup('env', 'MAS_MANAGE_ENCR
 mas_manage_encryptionsecret_aiservice_url: "{{ lookup('env', 'MAS_MANAGE_ENCRYPTIONSECRET_AISERVICE_URL') }}"
 mas_manage_encryptionsecret_aiservice_fqn: "{{ lookup('env', 'MAS_MANAGE_ENCRYPTIONSECRET_AISERVICE_FQN') }}"
 
-# Manage Kafka Image Processor PVC (Civil Component)
+# Manage - Kafka Image Processor PVC (Civil Component)
 # -----------------------------------------------------------------------------
 mas_manage_kafkaimageprocessor_pvc_storageclass: "{{ lookup('env', 'MAS_MANAGE_KAFKAIMAGEPROCESSOR_PVC_STORAGECLASS') }}"
 mas_manage_kafkaimageprocessor_pvc_size: "{{ lookup('env', 'MAS_MANAGE_KAFKAIMAGEPROCESSOR_PVC_SIZE') | default('10Gi', true) }}"
