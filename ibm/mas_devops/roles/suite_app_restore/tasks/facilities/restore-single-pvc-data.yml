@@ -101,6 +101,24 @@
       - "Config directory: {{ config_dir_path }}"
       - "Workload type: {{ workload_type }}"
 
+- name: "Capture ownership using config directory"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: >
+      sh -c "find {{ config_dir_path }} -type f | head -1 | xargs stat -c '%u:%g' 2>/dev/null || echo '1000:1000'"
+  register: config_ownership_result
+  failed_when: false
+
+- name: "Set fact: ownership"
+  set_fact:
+    dir_uid_gid: "{{ config_ownership_result.stdout | trim }}"
+
+- name: "Display config directory ownership"
+  debug:
+    msg: "Config directory ownership (UID:GID): {{ dir_uid_gid }}"
+
 - name: "Delete configs directory contents"
   kubernetes.core.k8s_exec:
     namespace: "{{ mas_app_namespace }}"
@@ -172,6 +190,20 @@
   debug:
     msg: "{{ copy_config_result.stdout_lines | default(['No output']) }}"
 
+- name: "Restore ownership on config directory"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: >
+      sh -c "chown -R {{ dir_uid_gid }} {{ config_dir_path }} && echo 'Ownership restored to {{ dir_uid_gid }}'"
+  register: restore_ownership_result
+  failed_when: false
+
+- name: "Display ownership restoration result"
+  debug:
+    msg: "{{ restore_ownership_result.stdout_lines | default(['No output']) }}"
+
 - name: "Copy userfiles from extracted location to userfiles directory"
   kubernetes.core.k8s_exec:
     namespace: "{{ mas_app_namespace }}"
@@ -190,6 +222,20 @@
 - name: "Display userfiles copy result"
   debug:
     msg: "{{ copy_userfiles_result.stdout_lines | default(['No output']) }}"
+
+- name: "Restore ownership on userfiles directory"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: >
+      sh -c "chown -R {{ dir_uid_gid }} /mnt/pvc/userfiles && echo 'Ownership restored to {{ dir_uid_gid }}'"
+  register: restore_userfiles_ownership_result
+  failed_when: false
+
+- name: "Display ownership restoration result"
+  debug:
+    msg: "{{ restore_userfiles_ownership_result.stdout_lines | default(['No output']) }}"
 
 - name: "Delete temporary home directory"
   kubernetes.core.k8s_exec:
