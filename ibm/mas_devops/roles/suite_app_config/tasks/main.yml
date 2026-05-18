@@ -26,18 +26,23 @@
 # volumes for Manage attachments/BIM configurations (Manage OOTB features)
 - name: Determine Storage Class for {{ mas_app_id }} application
   when:
+    - mas_appws_spec is not defined
     - mas_app_id in ['manage','health']
     - mas_app_settings_persistent_volumes_flag or mas_app_settings_server_bundles_size in ['jms','snojms']
   include_tasks: "tasks/determine-storage-classes.yml"
 
 # Pre-config specific application settings before workspace CR be deployed
 - name: "Run Manage specific pre-configuration"
-  when: mas_app_id is in ['manage'] # applications which have something to process before configuration
+  when:
+    - mas_appws_spec is not defined
+    - mas_app_id is in ['manage'] # applications which have something to process before configuration
   include_tasks: "tasks/{{ mas_app_id }}/pre-config/main.yml"
 
 # Resolve the WSL project ID that will be used by Predict
 - name: Lookup Watson Studio Project ID
-  when: mas_app_id is in ['predict']
+  when:
+    - mas_appws_spec is not defined
+    - mas_app_id is in ['predict']
   include_tasks: "tasks/determine-watson-studio-id.yml"
 
 
