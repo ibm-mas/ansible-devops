@@ -4,9 +4,14 @@ mas_app_ws_apiversion: apps.mas.ibm.com/v1
 mas_app_ws_kind: ManageWorkspace
 
 # Depending on the number of components being used the time to configure Manage can grow significantly
-mas_app_cfg_delay: "{{ lookup('env', 'MAS_APP_CFG_DELAY') | default(360, true)}}" # ~6 minutes
-mas_app_cfg_retries: "{{ lookup('env', 'MAS_APP_CFG_RETRIES') | default(180, true)}}" # ~18 hours
+# Calculate timeouts based on whether this is foundation mode (no components) or full mode (with components)
+mas_app_cfg_timeouts: "{{ mas_appws_components | ibm.mas_devops.calculate_manage_timeouts }}"
+mas_app_cfg_delay: "{{ lookup('env', 'MAS_APP_CFG_DELAY') | default(mas_app_cfg_timeouts.delay, true)}}"
+mas_app_cfg_retries: "{{ lookup('env', 'MAS_APP_CFG_RETRIES') | default(mas_app_cfg_timeouts.retries, true)}}"
 
+
+# Database Settings
+# -----------------------------------------------------------------------------
 mas_app_settings_aio_flag: "{{ lookup('env', 'MAS_APP_SETTINGS_AIO_FLAG') | default('true', true) | bool }}"
 mas_app_settings_db2_schema: "{{ lookup('env', 'MAS_APP_SETTINGS_DB2_SCHEMA') | default('maximo', true)}}"
 mas_app_settings_db_schema: "{{ lookup('env', 'MAS_APP_SETTINGS_DB_SCHEMA') | default(mas_app_settings_db2_schema, true)}}"
@@ -15,20 +20,25 @@ mas_app_settings_db2vargraphic: "{{ lookup('env', 'MAS_APP_SETTINGS_DB2VARGRAPHI
 mas_app_settings_tablespace: "{{ lookup('env', 'MAS_APP_SETTINGS_TABLESPACE') | default('MAXDATA', true)}}"
 mas_app_settings_indexspace: "{{ lookup('env', 'MAS_APP_SETTINGS_INDEXSPACE') | default('MAXINDEX', true)}}"
 
-# if mas_app_settings_persistent_volumes_flag is 'true' then it will configure persistent storage for attachments and bim
-# otherwise no persistent storage will be configured at all
+
+# PVC Management
+# -----------------------------------------------------------------------------
 mas_app_settings_persistent_volumes_flag: "{{ lookup('env', 'MAS_APP_SETTINGS_PERSISTENT_VOLUMES_FLAG') | default(False, true) | bool }}"
 mas_app_settings_persistent_volumes_default_accessmode: "ReadWriteMany"
 
-# properties to configure persistent volumes for doclinks i.e attachments
+
+# PVC Management - Doclinks
+# -----------------------------------------------------------------------------
 mas_app_settings_doclinks_pvc_storage_class: "{{ lookup('env', 'MAS_APP_SETTINGS_DOCLINKS_PVC_STORAGE_CLASS') }}" # if not defined by user, it will be automatically defined while setting persistent storage
 mas_app_settings_doclinks_pvc_accessmode: "{{ lookup('env', 'MAS_APP_SETTINGS_DOCLINKS_PVC_ACCESSMODE') | default(mas_app_settings_persistent_volumes_default_accessmode, true) }}"
 mas_app_settings_doclinks_pvc_name: "{{ lookup('env', 'MAS_APP_SETTINGS_DOCLINKS_PVC_NAME') | default('manage-doclinks', true) }}"
 mas_app_settings_doclinks_pvc_size: "{{ lookup('env', 'MAS_APP_SETTINGS_DOCLINKS_PVC_SIZE') | default('20Gi', true) }}"
 mas_app_settings_doclinks_mount_path: "{{ lookup('env', 'MAS_APP_SETTINGS_DOCLINKS_MOUNT_PATH') | default('/DOCLINKS', true) }}"
 
-# properties to configure persistent volumes for Building Information Modeling (i.e BIM)
-# the values defined here will be used to create 3 separate PVCs with the same size each:
+
+# PVC Management - BIM
+# -----------------------------------------------------------------------------
+# There are three PVCs:
 # - bim/models
 # - bim/docs
 # - bim/import
@@ -38,13 +48,19 @@ mas_app_settings_bim_pvc_name: "{{ lookup('env', 'MAS_APP_SETTINGS_BIM_PVC_NAME'
 mas_app_settings_bim_pvc_size: "{{ lookup('env', 'MAS_APP_SETTINGS_BIM_PVC_SIZE') | default('20Gi', true) }}"
 mas_app_settings_bim_mount_path: "{{ lookup('env', 'MAS_APP_SETTINGS_BIM_MOUNT_PATH') | default('/bim', true) }}"
 
-# properties to configure persistent volumes for JMS queues, the below will only be set if 'mas_app_settings_server_bundles_size' = 'jms'
+
+# PVC Management - JMS queues
+# -----------------------------------------------------------------------------
+# The below will only be set if 'mas_app_settings_server_bundles_size' = 'jms'
 mas_app_settings_jms_queue_pvc_storage_class: "{{ lookup('env', 'MAS_APP_SETTINGS_JMS_QUEUE_PVC_STORAGE_CLASS') }}" # if not defined by user, it will be automatically defined while setting persistent storage
 mas_app_settings_jms_queue_pvc_accessmode: "{{ lookup('env', 'MAS_APP_SETTINGS_JMS_QUEUE_PVC_ACCESSMODE') | default(mas_app_settings_persistent_volumes_default_accessmode, true) }}"
 mas_app_settings_jms_queue_pvc_name: "{{ lookup('env', 'MAS_APP_SETTINGS_JMS_QUEUE_PVC_NAME') | default('manage-jms', true) }}"
 mas_app_settings_jms_queue_pvc_size: "{{ lookup('env', 'MAS_APP_SETTINGS_JMS_QUEUE_PVC_SIZE') | default('20Gi', true) }}"
 mas_app_settings_jms_queue_mount_path: "{{ lookup('env', 'MAS_APP_SETTINGS_JMS_QUEUE_MOUNT_PATH') | default('/jms', true) }}"
 
+
+# PVC Management - BIM & Doclinks
+# -----------------------------------------------------------------------------
 mas_app_settings_persistent_volumes_default:
   - accessModes:
       - "{{ mas_app_settings_doclinks_pvc_accessmode }}"
@@ -61,6 +77,12 @@ mas_app_settings_persistent_volumes_default:
 
 mas_app_settings_persistent_volumes: "{{ mas_app_settings_persistent_volumes_default if (mas_app_settings_persistent_volumes_flag) else [] }}"
 
+
+# General Settings
+# -----------------------------------------------------------------------------
+# This is to specify if manage installation is full or foundation
+is_full_manage: "{{ (mas_appws_components is defined) and (mas_appws_components | length > 0) }}"
+
 # property to configure server timezone
 mas_app_settings_server_timezone: "{{ lookup('env', 'MAS_APP_SETTINGS_SERVER_TIMEZONE') | default('GMT', true) }}"
 
@@ -71,6 +93,9 @@ mas_app_settings_secondary_langs: "{{ lookup('env', 'MAS_APP_SETTINGS_SECONDARY_
 # property to confifure jms queues
 mas_app_settings_default_jms: "{{ lookup('env', 'MAS_APP_SETTINGS_DEFAULT_JMS') | default('false', true) | bool }}"
 
+
+# Server Bundles
+# -----------------------------------------------------------------------------
 # properties to configure bundle servers
 server_bundle_jms_internal_endpoint: "{{ mas_instance_id }}-{{ mas_workspace_id }}-jms.mas-{{ mas_instance_id }}-manage.svc:7276" # maspreivt89-main-jms.mas-maspreivt89-manage.svc:7276
 
@@ -85,8 +110,7 @@ server_bundles_jms_add_server_config_content: "{{ lookup('file', '{{ role_path }
 
 # these settings will define the bundle servers spec
 mas_app_settings_server_bundles_size: "{{ lookup('env', 'MAS_APP_SETTINGS_SERVER_BUNDLES_SIZE') | default('dev', true)  }}"
-# This is to specify if manage installation is full or foundation
-is_full_manage: "{{ (mas_appws_components is defined) and (mas_appws_components | length > 0) }}"
+
 mas_app_settings_server_bundles:
   dev:
     serverBundleEarFilename: maximo-all
@@ -199,7 +223,9 @@ mas_app_settings_server_bundles:
         replica: 1
         routeSubDomain: jms
 
-# these settings will define the customization archive
+
+# Customization Archive
+# -----------------------------------------------------------------------------
 mas_app_settings_customization_archive_url: "{{ lookup('env', 'MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_URL') }}"
 mas_app_settings_customization_archive_name: "{{ lookup('env', 'MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_NAME') | default('manage-custom-archive', true) }}"
 mas_app_settings_customization_archive_username: "{{ lookup('env', 'MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_USERNAME') }}"
@@ -217,22 +243,6 @@ mas_app_settings_customization_credentials:
     secretName: "{{ mas_app_settings_customization_credentials_secret_name }}"
 
 
-# -------------------
-# Manage/Health Bindings
-# -------------------
-
-mas_appws_bindings_health_wsl_flag: "{{ lookup('env', 'MAS_APPWS_BINDINGS_HEALTH_WSL_FLAG') | default('false', true) | bool }}"
-
-# Bindins will be like this
-mas_app_bindings_jdbc:
-  jdbc: "{{ mas_appws_bindings_jdbc | default( 'system' , true) }}"
-# ... or this, depending on
-mas_app_bindings_jdbc_wsl:
-  jdbc: "{{ mas_appws_bindings_jdbc | default( 'system' , true) }}"
-  watsonstudio: system # cp4d_service role creates WatsonStudioCfg as system, no other option today
-
-mas_app_bindings: "{{ mas_app_bindings_jdbc_wsl if mas_appws_bindings_health_wsl_flag else mas_app_bindings_jdbc }}"
-
-
+# Pod Templates
+# -----------------------------------------------------------------------------
 manage_workspace_default_podTemplates_containers: ['monitoragent', 'manage-maxinst']
-# -------------------

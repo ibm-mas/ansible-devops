@@ -39,9 +39,15 @@
 ## Windows Development with WSL
 Check `environment_details` for the operating system, if `operating system: windows` then wrap Linux commands with WSL:
 
+**Important:** When using `wsl bash -lc`, do NOT use `cd` before the command. The WSL session automatically starts in the current workspace directory, so commands should be run directly:
+
 ```bash
-# `wsl` launches with the current directory already set to the project root
-wsl bash -lc "ls -l"
+# ✅ CORRECT - Run command directly
+wsl bash -lc "black image/majel/majel-cli.py"
+
+# ❌ INCORRECT - Don't cd first
+wsl bash -lc "cd image/majel && black majel-cli.py"
+cd image/majel && wsl bash -lc "black majel-cli.py"
 ```
 
 
@@ -78,9 +84,21 @@ wsl bash -lc "ls -l"
 - Plans must be **definitive** and **actionable**
 - Do not leave open questions in the plan, prompt the developer to make decisions and provide answers where necessary
 
+### File Links in Plan Documents
+When linking to files from plan documents in `.bob/plans/`:
+- Use relative paths with `../../` prefix to navigate from plan directory to project root
+- Include line numbers using GitHub-style anchors: `#L<line>` or `#L<start>-L<end>`
+- Examples:
+  - Single line: `[file.py:42](../../path/to/file.py#L42)`
+  - Line range: `[file.py:10-20](../../path/to/file.py#L10-L20)`
+- **Never** use paths without proper relative navigation (e.g., `ibm/mas_devops/file.py`)
+
 ### Tracking Progress
-**Critical:** Update the plan document to reflect progress in real-time
-- **For iterative tasks** (migrating multiple tests, processing multiple files): Update the checklist immediately after each successful iteration/validation
+**Critical:** Track progress ONLY in the plan document, NOT in chat
+- Do NOT use `update_todo_list` tool - it creates redundant tracking in chat
+- Update the plan markdown file directly using `apply_diff` to mark completed items
+- Mark completed items with `[x]` and add completion notes/timestamps if helpful
+- **For iterative tasks**: Update checklist after each successful iteration/validation
 - **For multi-step phases**: Update after completing each major step within the phase
-- **Before using `attempt_completion`**: Ensure the plan reflects all completed work
-- The plan document should always show current progress, not just final completion
+- **Before using `attempt_completion`**: Ensure plan reflects all completed work
+- The plan document is the single source of truth for task progress
