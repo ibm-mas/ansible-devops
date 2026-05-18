@@ -10,7 +10,34 @@
       - "Processing PVC {{ pvc_index + 1 }}/{{ total_pvcs }}"
       - "PVC name: {{ pvc_name }}"
 
-# 1. Set archive details
+# 1. Extract component name and determine workload type
+# -----------------------------------------------------------------------------
+- name: "Set fact: Extract component name from PVC"
+  set_fact:
+    # Extract component name based on PVC naming pattern
+    # Pattern 1: {instance}-{workspace}-{component}-userfiles -> extract component
+    # Pattern 2: userfiles-{instance}-{workspace}-{component} -> extract component
+    pvc_component: >-
+      {%- if pvc_name.startswith('userfiles-') -%}
+        {{ pvc_name.split('-')[3:] | join('-') }}
+      {%- else -%}
+        {{ pvc_name.split('-')[2] }}
+      {%- endif -%}
+
+- name: "Set fact: Determine workload type"
+  set_fact:
+    # StatefulSet components end with -N (e.g., appserver-0)
+    # Deployments do not have numeric suffix (e.g., wfagent)
+    is_statefulset: "{{ pvc_component | regex_search('-[0-9]+$') is not none | bool }}"
+    workload_type: "{{ 'StatefulSet' if (pvc_component | regex_search('-[0-9]+$') is not none) else 'Deployment' }}"
+
+- name: "Display component information"
+  debug:
+    msg:
+      - "Component name: {{ pvc_component }}"
+      - "Workload type: {{ workload_type }}"
+
+# 2. Set archive details
 # -----------------------------------------------------------------------------
 - name: "Set fact: archive details"
   set_fact:
@@ -55,35 +82,52 @@
     msg: "Failed to copy tar archive to pod for {{ pvc_name }}: {{ copy_result.stderr | default('Unknown error') }}"
   when: copy_result.rc != 0
 
-# 4. Delete home/wiotp/config and home/wiotp/userfiles directories
+# 4. Delete configs and userfiles directories
 # -----------------------------------------------------------------------------
-- name: "Delete home/wiotp/config directory contents"
+# For StatefulSet (appserver-0): configs in /mnt/pvc/<pvcname> (without 'userfiles-' prefix)
+# For Deployment: configs in /mnt/pvc/<pvc_component>
+- name: "Set fact: Determine config directory path"
+  set_fact:
+    config_dir_path: >-
+      {%- if is_statefulset -%}
+        /mnt/pvc/configs/{{ pvc_name | regex_replace('^userfiles-', '') }}
+      {%- else -%}
+        /mnt/pvc/configs/{{ pvc_component }}
+      {%- endif -%}
+
+- name: "Display directory paths"
+  debug:
+    msg:
+      - "Config directory: {{ config_dir_path }}"
+      - "Workload type: {{ workload_type }}"
+
+- name: "Delete configs directory contents"
   kubernetes.core.k8s_exec:
     namespace: "{{ mas_app_namespace }}"
     pod: "{{ pod_name }}"
     container: restore-container
     command: >
-      sh -c "rm -rf /mnt/pvc/home/wiotp/config/* /mnt/pvc/home/wiotp/config/.[!.]* 2>/dev/null || true"
+      sh -c "rm -rf {{ config_dir_path }}/* {{ config_dir_path }}/.[!.]* 2>/dev/null || true"
   register: delete_config_result
   failed_when: false
 
 - name: "Display config deletion result"
   debug:
-    msg: "Deleted contents of /mnt/pvc/home/wiotp/config"
+    msg: "Deleted contents of {{ config_dir_path }}"
 
-- name: "Delete home/wiotp/userfiles directory contents"
+- name: "Delete userfiles directory contents"
   kubernetes.core.k8s_exec:
     namespace: "{{ mas_app_namespace }}"
     pod: "{{ pod_name }}"
     container: restore-container
     command: >
-      sh -c "rm -rf /mnt/pvc/home/wiotp/userfiles/* /mnt/pvc/home/wiotp/userfiles/.[!.]* 2>/dev/null || true"
+      sh -c "rm -rf /mnt/pvc/userfiles/* /mnt/pvc/userfiles/.[!.]* 2>/dev/null || true"
   register: delete_userfiles_result
   failed_when: false
 
 - name: "Display userfiles deletion result"
   debug:
-    msg: "Deleted contents of /mnt/pvc/home/wiotp/userfiles"
+    msg: "Deleted contents of userfiles"
 
 # 5. Extract tar.gz archive in the pod
 # -----------------------------------------------------------------------------
@@ -107,7 +151,61 @@
     msg: "Failed to extract tar archive for {{ pvc_name }}: {{ extract_result.stderr | default('Unknown error') }}"
   when: extract_result.rc != 0
 
-# 6. Clean up tar.gz archive from pod
+# 6. Move extracted data to correct locations
+# -----------------------------------------------------------------------------
+- name: "Copy config files from extracted location to config directory"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: >
+      sh -c "if [ -d /mnt/pvc/home/wiotp/config ]; then
+        cp -r /mnt/pvc/home/wiotp/config/* {{ config_dir_path }}/ 2>/dev/null || true;
+        echo 'Config files copied';
+      else
+        echo 'No config directory found in extracted data';
+      fi"
+  register: copy_config_result
+  failed_when: false
+
+- name: "Display config copy result"
+  debug:
+    msg: "{{ copy_config_result.stdout_lines | default(['No output']) }}"
+
+- name: "Copy userfiles from extracted location to userfiles directory"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: >
+      sh -c "if [ -d /mnt/pvc/home/wiotp/userfiles ]; then
+        cp -r /mnt/pvc/home/wiotp/userfiles/* /mnt/pvc/userfiles/ 2>/dev/null || true;
+        echo 'Userfiles copied';
+      else
+        echo 'No userfiles directory found in extracted data';
+      fi"
+  register: copy_userfiles_result
+  failed_when: false
+
+- name: "Display userfiles copy result"
+  debug:
+    msg: "{{ copy_userfiles_result.stdout_lines | default(['No output']) }}"
+
+- name: "Delete temporary home directory"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: >
+      sh -c "rm -rf /mnt/pvc/home && echo 'Temporary home directory deleted'"
+  register: delete_home_result
+  failed_when: false
+
+- name: "Display home directory deletion result"
+  debug:
+    msg: "{{ delete_home_result.stdout_lines | default(['No output']) }}"
+
+# 7. Clean up tar.gz archive from pod
 # -----------------------------------------------------------------------------
 - name: "Remove tar.gz archive from pod"
   kubernetes.core.k8s_exec:
@@ -118,24 +216,41 @@
   register: cleanup_result
   failed_when: false
 
-# 7. Verify restore was successful
+# 8. Verify restore was successful
 # -----------------------------------------------------------------------------
-- name: "Verify data was restored"
+- name: "Verify config data was restored"
   kubernetes.core.k8s_exec:
     namespace: "{{ mas_app_namespace }}"
     pod: "{{ pod_name }}"
     container: restore-container
     command: >
-      sh -c "ls -la /mnt/pvc/home/wiotp/ 2>/dev/null || ls -la /mnt/pvc/ | head -20"
-  register: verify_result
+      sh -c "ls -la {{ config_dir_path }} 2>/dev/null | head -20"
+  register: verify_config_result
   failed_when: false
 
-- name: "Display restored data verification"
+- name: "Display restored config data verification"
   debug:
     msg:
-      - "Restored data in PVC:"
-      - "{{ verify_result.stdout_lines | default(['No output']) }}"
-  when: verify_result.rc == 0
+      - "Restored config data in {{ config_dir_path }}:"
+      - "{{ verify_config_result.stdout_lines | default(['No output']) }}"
+  when: verify_config_result.rc == 0
+
+- name: "Verify userfiles data was restored"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: >
+      sh -c "ls -la /mnt/pvc/userfiles 2>/dev/null | head -20"
+  register: verify_userfiles_result
+  failed_when: false
+
+- name: "Display restored userfiles data verification"
+  debug:
+    msg:
+      - "Restored userfiles data in /mnt/pvc/userfiles:"
+      - "{{ verify_userfiles_result.stdout_lines | default(['No output']) }}"
+  when: verify_userfiles_result.rc == 0
 
 - name: "PVC restore completed"
   debug:
