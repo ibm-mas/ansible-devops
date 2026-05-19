@@ -604,7 +604,7 @@ Fyre datacenter site location.
 **Impact**: Determines cluster location, which affects network latency and available resources.
 
 **Related variables**:
-- `enable_ipv6`: IPv6 only available at RTP site
+- `ocp_enable_ipv6`: IPv6 only available at RTP site
 
 **Note**: Not all sites support all features. SVL is the default and most commonly used site.
 
@@ -800,11 +800,11 @@ NFS storage size for OpenShift image registry.
 
 **Note**: Size is limited by available storage on the Fyre infrastructure node. Image registry stores all container images used in the cluster.
 
-### enable_ipv6
+### ocp_enable_ipv6
 Enable IPv6 networking for Fyre cluster.
 
 - **Optional**
-- Environment Variable: `ENABLE_IPV6`
+- Environment Variable: `OCP_ENABLE_IPV6`
 - Default: `false`
 
 **Purpose**: Enables IPv6 networking for the Fyre cluster. Only supported at the RTP (Raleigh) Fyre site.
