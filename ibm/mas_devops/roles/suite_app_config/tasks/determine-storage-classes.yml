@@ -34,6 +34,11 @@
   set_fact:
     mas_app_settings_jms_queue_pvc_storage_class: "{{ mas_app_settings_default_pvc_storage_class }}"
 
+- name: "determine-storage-classes : Set kafka image processor default pvc storage class"
+  when: mas_manage_kafkaimageprocessor_pvc_storageclass is not defined or mas_manage_kafkaimageprocessor_pvc_storageclass == ""
+  set_fact:
+    mas_manage_kafkaimageprocessor_pvc_storageclass: "{{ mas_app_settings_default_pvc_storage_class }}"
+
 
 # 4. Check that all storage classes are defined
 # -----------------------------------------------------------------------------
@@ -46,9 +51,12 @@
       - mas_app_settings_bim_pvc_storage_class != ''
       - mas_app_settings_jms_queue_pvc_storage_class is defined
       - mas_app_settings_jms_queue_pvc_storage_class != ''
+      - mas_manage_kafkaimageprocessor_pvc_storageclass is defined
+      - mas_manage_kafkaimageprocessor_pvc_storageclass != ''
     fail_msg:
       - "Failed: One of more storage classes are not defined for Manage"
       - ""
-      - Doclinks PVC Storage Class .............. {{ mas_app_settings_doclinks_pvc_storage_class | default('<undefined>', true) }}"
-      - BIM PVC Storage Class  .................. {{ mas_app_settings_bim_pvc_storage_class | default('<undefined>', true) }}"
-      - JMS Queue Storage Class ................. {{ mas_app_settings_jms_queue_pvc_storage_class | default('<undefined>', true) }}"
+      - "Doclinks PVC Storage Class .............. {{ mas_app_settings_doclinks_pvc_storage_class | default('<undefined>', true) }}"
+      - "BIM PVC Storage Class  .................. {{ mas_app_settings_bim_pvc_storage_class | default('<undefined>', true) }}"
+      - "JMS Queue Storage Class ................. {{ mas_app_settings_jms_queue_pvc_storage_class | default('<undefined>', true) }}"
+      - "Kafka Image Processor Storage Class .... {{ mas_manage_kafkaimageprocessor_pvc_storageclass | default('<undefined>', true) }}"
