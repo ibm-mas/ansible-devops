@@ -909,7 +909,7 @@ type: Opaque
 EOF
 ```
 #### mas_ws_facilities_server_timezone
-Sets the Facilies server timezone. You should set this property only if your Facilities dtabase is running with a timezone other from UTC. If you are creating your Facilities database using `db2` role, you must set `DB2_TIMEZONE` property to the same value while provisioning the corresponding DB2 instance.
+Sets the Facilies application servers timezone. You should set this property only if your Facilities database is running with a timezone other from UTC. If you are creating your Facilities database using `db2` role, you must set `DB2_TIMEZONE` property to the same value while provisioning the corresponding DB2 instance.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_SERVER_TIMEZONE`
