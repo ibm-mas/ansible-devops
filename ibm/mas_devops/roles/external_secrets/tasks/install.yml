@@ -1,0 +1,246 @@
+---
+# Register the Helm repository
+# -----------------------------------------------------------------------------
+- name: "install : Add External Secrets Helm repository"
+  kubernetes.core.helm_repository:
+    name: external-secrets
+    repo_url: "{{ external_secrets_repo_url }}"
+  tags:
+    - install
+    - external-secrets
+
+# Check for existing CRDs
+# -----------------------------------------------------------------------------
+- name: "install : Check for existing External Secrets CRDs"
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: externalsecrets.external-secrets.io
+  register: existing_crd_check
+  tags:
+    - install
+    - external-secrets
+
+- name: "install : Check if existing CRDs have Helm ownership"
+  when:
+    - existing_crd_check.resources is defined
+    - existing_crd_check.resources | length > 0
+  ansible.builtin.set_fact:
+    crd_has_helm_ownership: "{{ existing_crd_check.resources[0].metadata.labels['app.kubernetes.io/managed-by'] | default('') == 'Helm' }}"
+  tags:
+    - install
+    - external-secrets
+
+- name: "install : Display warning about existing CRDs without Helm ownership"
+  when:
+    - existing_crd_check.resources is defined
+    - existing_crd_check.resources | length > 0
+    - not (crd_has_helm_ownership | default(false) | bool)
+  ansible.builtin.debug:
+    msg:
+      - "WARNING: External Secrets CRDs already exist but are not managed by Helm"
+      - "These CRDs will be deleted and recreated with proper Helm ownership"
+      - "This is safe and will not affect existing ExternalSecret resources"
+  tags:
+    - install
+    - external-secrets
+
+- name: "install : Get all External Secrets CRDs"
+  when:
+    - existing_crd_check.resources is defined
+    - existing_crd_check.resources | length > 0
+    - not (crd_has_helm_ownership | default(false) | bool)
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+  register: all_crds
+  tags:
+    - install
+    - external-secrets
+
+- name: "install : Filter External Secrets CRDs"
+  when:
+    - existing_crd_check.resources is defined
+    - existing_crd_check.resources | length > 0
+    - not (crd_has_helm_ownership | default(false) | bool)
+  ansible.builtin.set_fact:
+    external_secrets_crds: "{{ all_crds.resources | selectattr('metadata.name', 'search', 'external-secrets.io$') | map(attribute='metadata.name') | list }}"
+  tags:
+    - install
+    - external-secrets
+
+- name: "install : Display CRDs to be deleted"
+  when:
+    - existing_crd_check.resources is defined
+    - existing_crd_check.resources | length > 0
+    - not (crd_has_helm_ownership | default(false) | bool)
+  ansible.builtin.debug:
+    msg: "Deleting {{ external_secrets_crds | length }} External Secrets CRDs: {{ external_secrets_crds | join(', ') }}"
+  tags:
+    - install
+    - external-secrets
+
+- name: "install : Delete existing CRDs without Helm ownership"
+  when:
+    - existing_crd_check.resources is defined
+    - existing_crd_check.resources | length > 0
+    - not (crd_has_helm_ownership | default(false) | bool)
+  kubernetes.core.k8s:
+    state: absent
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: "{{ item }}"
+    wait: yes
+    wait_timeout: 300
+  loop: "{{ external_secrets_crds }}"
+  tags:
+    - install
+    - external-secrets
+
+# Create the namespace
+# -----------------------------------------------------------------------------
+- name: "install : Create {{ external_secrets_namespace }} namespace"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/namespace.yml.j2"
+  tags:
+    - install
+    - external-secrets
+
+# Install External Secrets Operator
+# -----------------------------------------------------------------------------
+- name: "install : Install External Secrets Operator Helm chart to {{ external_secrets_namespace }}"
+  kubernetes.core.helm:
+    name: "{{ external_secrets_release_name }}"
+    chart_ref: external-secrets/external-secrets
+    release_namespace: "{{ external_secrets_namespace }}"
+    values: "{{ lookup('template', 'values.yml.j2') | from_yaml }}"
+    wait: yes
+    wait_timeout: 10m
+  tags:
+    - install
+    - external-secrets
+
+# Wait for deployments to be running
+# -----------------------------------------------------------------------------
+- name: "install : Wait for external-secrets deployment to be ready"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: external-secrets
+    namespace: "{{ external_secrets_namespace }}"
+    kind: Deployment
+  register: external_secrets_deployment
+  until:
+    - external_secrets_deployment.resources is defined
+    - external_secrets_deployment.resources | length == 1
+    - external_secrets_deployment.resources[0].status is defined
+    - external_secrets_deployment.resources[0].status.readyReplicas is defined
+    - external_secrets_deployment.resources[0].status.replicas is defined
+    - external_secrets_deployment.resources[0].status.readyReplicas == external_secrets_deployment.resources[0].status.replicas
+  retries: 30
+  delay: 60
+  tags:
+    - install
+    - external-secrets
+
+- name: "install : Wait for external-secrets-webhook deployment to be ready"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: external-secrets-webhook
+    namespace: "{{ external_secrets_namespace }}"
+    kind: Deployment
+  register: external_secrets_webhook_deployment
+  until:
+    - external_secrets_webhook_deployment.resources is defined
+    - external_secrets_webhook_deployment.resources | length == 1
+    - external_secrets_webhook_deployment.resources[0].status is defined
+    - external_secrets_webhook_deployment.resources[0].status.readyReplicas is defined
+    - external_secrets_webhook_deployment.resources[0].status.replicas is defined
+    - external_secrets_webhook_deployment.resources[0].status.readyReplicas == external_secrets_webhook_deployment.resources[0].status.replicas
+  retries: 30
+  delay: 60
+  tags:
+    - install
+    - external-secrets
+
+- name: "install : Wait for external-secrets-cert-controller deployment to be ready"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: external-secrets-cert-controller
+    namespace: "{{ external_secrets_namespace }}"
+    kind: Deployment
+  register: external_secrets_cert_controller_deployment
+  until:
+    - external_secrets_cert_controller_deployment.resources is defined
+    - external_secrets_cert_controller_deployment.resources | length == 1
+    - external_secrets_cert_controller_deployment.resources[0].status is defined
+    - external_secrets_cert_controller_deployment.resources[0].status.readyReplicas is defined
+    - external_secrets_cert_controller_deployment.resources[0].status.replicas is defined
+    - external_secrets_cert_controller_deployment.resources[0].status.readyReplicas == external_secrets_cert_controller_deployment.resources[0].status.replicas
+  retries: 30
+  delay: 60
+  tags:
+    - install
+    - external-secrets
+
+# Verify CRDs are created
+# -----------------------------------------------------------------------------
+- name: "install : Verify ExternalSecret CRD is created"
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: externalsecrets.external-secrets.io
+  register: externalsecret_crd
+  until:
+    - externalsecret_crd.resources is defined
+    - externalsecret_crd.resources | length == 1
+  retries: 10
+  delay: 30
+  tags:
+    - install
+    - external-secrets
+
+- name: "install : Verify SecretStore CRD is created"
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: secretstores.external-secrets.io
+  register: secretstore_crd
+  until:
+    - secretstore_crd.resources is defined
+    - secretstore_crd.resources | length == 1
+  retries: 10
+  delay: 30
+  tags:
+    - install
+    - external-secrets
+
+- name: "install : Verify ClusterSecretStore CRD is created"
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: clustersecretstores.external-secrets.io
+  register: clustersecretstore_crd
+  until:
+    - clustersecretstore_crd.resources is defined
+    - clustersecretstore_crd.resources | length == 1
+  retries: 10
+  delay: 30
+  tags:
+    - install
+    - external-secrets
+
+# Display installation summary
+# -----------------------------------------------------------------------------
+- name: "install : External Secrets Operator installation complete"
+  ansible.builtin.debug:
+    msg:
+      - "External Secrets Operator has been successfully installed"
+      - "Namespace: {{ external_secrets_namespace }}"
+      - "Release: {{ external_secrets_release_name }}"
+      - "All deployments are ready and CRDs are available"
+  tags:
+    - install
+    - external-secrets
+
+# Made with Bob

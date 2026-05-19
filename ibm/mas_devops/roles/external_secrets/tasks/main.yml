@@ -1,0 +1,31 @@
+---
+# Display configuration parameters
+# -----------------------------------------------------------------------------
+- name: "Debug External Secrets Operator Parameters"
+  ansible.builtin.debug:
+    msg:
+      - "Action ................................. {{ external_secrets_action }}"
+      - "Namespace .............................. {{ external_secrets_namespace }}"
+      - "Release Name ........................... {{ external_secrets_release_name }}"
+      - "Helm Repository ........................ {{ external_secrets_repo_url }}"
+      - "Chart Version .......................... {{ external_secrets_chart_version | default('latest', true) }}"
+      - "Cleanup CRDs on Uninstall .............. {{ external_secrets_cleanup_crds }}"
+      - "Cleanup Namespace on Uninstall ......... {{ external_secrets_cleanup_namespace }}"
+
+# Validate action parameter
+# -----------------------------------------------------------------------------
+- name: "Validate external_secrets_action parameter"
+  ansible.builtin.assert:
+    that:
+      - external_secrets_action is defined
+      - external_secrets_action in ['install', 'uninstall']
+    fail_msg: "external_secrets_action must be either 'install' or 'uninstall', got '{{ external_secrets_action }}'"
+
+# Execute the chosen action
+# -----------------------------------------------------------------------------
+- name: "Execute {{ external_secrets_action }} action"
+  ansible.builtin.include_tasks: "{{ external_secrets_action }}.yml"
+  tags:
+    - external-secrets
+
+# Made with Bob
