@@ -45,7 +45,9 @@
 # 5. Backup Storage (Optional)
 # -----------------------------------------------------------------------------
 - name: Default Backup Storage for ROKS if not set by user (ReadWriteMany)
-  when: db2_backup_storage_class is not defined or db2_backup_storage_class == ""
+  when: 
+    - db2_backup_storage_class is not defined or db2_backup_storage_class == ""
+    - defaultStorageClasses.success
   set_fact:
     db2_backup_storage_class: "{{ defaultStorageClasses.rwx }}"
 
@@ -60,12 +62,17 @@
 
 # 7. Archive Logs Storage (Optional)
 # -----------------------------------------------------------------------------
-- name: Default Archive Logs Storage for ROKS if not set by user (ReadWriteOnce)
+# Reference: https://www.ibm.com/docs/en/db2/11.5.x?topic=logs-new-deployments#taskarch-log_new_deploy__steps__1
+- name: Dynamically set the Db2 ArchiveLogs storage access mode
+  ansible.builtin.set_fact:
+    db2_archivelogs_storage_accessmode: "{{ 'ReadWriteMany' if db2u_kind == 'db2uinstance' else 'ReadWriteOnce' }}"
+
+- name: Default Archive Logs Storage for ROKS if not set by user
   when:
     - db2_archivelogs_storage_class is not defined or db2_archivelogs_storage_class == ""
     - defaultStorageClasses.success
   set_fact:
-    db2_archivelogs_storage_class: "{{ defaultStorageClasses.rwo }}"
+    db2_archivelogs_storage_class: "{{ defaultStorageClasses.rwx if db2u_kind == 'db2uinstance' else defaultStorageClasses.rwo }}"
 
 # 8. Audit Logs Storage (Optional)
 # -----------------------------------------------------------------------------
@@ -86,5 +93,5 @@
       - "Storage class (backup) ................. {{ db2_backup_storage_class | default('<undefined>', true) }}"
       - "Storage class (logs) ................... {{ db2_logs_storage_class | default('<undefined>', true) }}"
       - "Storage class (temp) ................... {{ db2_temp_storage_class | default('<undefined>', true) }}"
-      - "Storage class (archive lgos) ........... {{ db2_archivelogs_storage_class | default('<undefined>', true) }}"
+      - "Storage class (archive logs) ........... {{ db2_archivelogs_storage_class | default('<undefined>', true) }}"
       - "Storage class (audit logs) ............. {{ db2_audit_logs_storage_class | default('<undefined>', true) }}"
