@@ -1,0 +1,137 @@
+---
+# Backup Facilities Namespace Resources
+# =============================================================================
+# This task backs up all Facilities namespace resources using the backup_resource
+# plugin, following the pattern used in suite_backup role.
+
+# 1. Verify required variables
+# -----------------------------------------------------------------------------
+- name: "Verify required variables for Facilities backup"
+  ibm.mas_devops.verify_backup_restore_vars:
+    component: facilities
+    action: backup
+    mas_instance_id: "{{ mas_instance_id }}"
+    mas_workspace_id: "{{ mas_workspace_id }}"
+    mas_backup_dir: "{{ mas_backup_dir }}"
+
+# 2. Set backup version if not provided
+# -----------------------------------------------------------------------------
+- name: "Check if MAS_APP_BACKUP_VERSION is provided, if not set to default 'YYYYMMDD-HHMMSS' format"
+  set_fact:
+    mas_app_backup_version: "{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
+  when: mas_app_backup_version is not defined or mas_app_backup_version == "" or mas_app_backup_version == "None"
+
+# 3. Set backup path
+# -----------------------------------------------------------------------------
+- name: "Set fact: Facilities backup base directory path"
+  set_fact:
+    facilities_backup_path: "{{ mas_backup_dir }}/backup-{{ mas_app_backup_version }}-app-facilities"
+
+# 4. Set Facilities namespace and workspace CR name
+# -----------------------------------------------------------------------------
+- name: "Set fact: Facilities namespace"
+  set_fact:
+    mas_app_namespace: "mas-{{ mas_instance_id }}-facilities"
+
+- name: "Set fact: Facilities workspace CR name"
+  set_fact:
+    facilities_workspace_cr_name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
+
+# 5. Get FacilitiesWorkspace CR to determine encryption secret name
+# -----------------------------------------------------------------------------
+- name: "Get FacilitiesWorkspace CR"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: FacilitiesWorkspace
+    name: "{{ facilities_workspace_cr_name }}"
+    namespace: "{{ mas_app_namespace }}"
+  register: facilities_workspace_cr
+
+- name: "Fail if FacilitiesWorkspace CR not found"
+  fail:
+    msg: "FacilitiesWorkspace CR '{{ facilities_workspace_cr_name }}' not found in namespace '{{ mas_app_namespace }}'"
+  when:
+    - facilities_workspace_cr.resources is not defined or facilities_workspace_cr.resources | length == 0
+
+# 6. Build the Facilities namespace resources list.
+# Note: the FacilitiesWorkspace CR contains entries with the key secretName and these
+# will be automatically picked up. We only need to define secrets in the fact below
+# that are not referenced by a resource or not having the key secretName
+# -----------------------------------------------------------------------------
+- name: "Set fact: Facilities namespace resources"
+  set_fact:
+    facilities_namespace_resources:
+      # Core Facilities CRs
+      - kind: Project
+        api_version: project.openshift.io/v1
+        name: "{{ mas_app_namespace }}"
+      - kind: FacilitiesApp
+        api_version: apps.mas.ibm.com/v1
+        name: "{{ mas_instance_id }}"
+      - kind: FacilitiesWorkspace
+        api_version: apps.mas.ibm.com/v1
+        name: "{{ facilities_workspace_cr_name }}"
+      # Certificates
+      - kind: Certificate
+        api_version: cert-manager.io/v1
+        labels:
+          - "mas.ibm.com/instanceId={{ mas_instance_id }}"
+      # Subscription and OperatorGroup
+      - kind: Subscription
+        api_version: operators.coreos.com/v1alpha1
+        name: ibm-mas-facilities
+      - kind: OperatorGroup
+        api_version: operators.coreos.com/v1
+        name: operatorgroup
+      # IBM entitlement secret
+      - kind: Secret
+        api_version: v1
+        name: ibm-entitlement
+
+- name: "Set fact: Facilities backup resources"
+  set_fact:
+    facilities_backup_resources:
+      - namespace: "{{ mas_app_namespace }}"
+        resources: "{{ facilities_namespace_resources }}"
+
+# 7. Backup Facilities namespace resources
+# -----------------------------------------------------------------------------
+- name: "Backup Facilities namespace resources (referenced secrets are auto-discovered)"
+  ibm.mas_devops.backup_resource:
+    backup_resources: "{{ facilities_backup_resources }}"
+    backup_path: "{{ facilities_backup_path }}"
+  register: facilities_backup_result
+
+# 8. Display backup results
+# -----------------------------------------------------------------------------
+- name: "Display Facilities backup results"
+  debug:
+    msg:
+      - "Backup completed{{ ' with failures' if facilities_backup_result.failed_count > 0 else ' successfully' }}"
+      - "Total resources backed up: {{ facilities_backup_result.backed_up_count }}"
+      - "Total resources failed: {{ facilities_backup_result.failed_count }}"
+      - "Resources not found: {{ facilities_backup_result.not_found_count }}"
+      - "Secrets auto-discovered: {{ facilities_backup_result.discovered_secrets_count }}"
+      - "Backup location: {{ facilities_backup_path }}"
+
+# 9. Display failed resources if any
+# -----------------------------------------------------------------------------
+- name: "Display failed resources"
+  debug:
+    msg:
+      - "Failed resources:"
+      - "{{ facilities_backup_result.failed_resources | to_nice_yaml }}"
+  when: facilities_backup_result.failed_count > 0
+
+# 10. Fail if backup had errors
+# -----------------------------------------------------------------------------
+- name: "Fail if backup had errors"
+  fail:
+    msg: |
+      Backup failed for {{ facilities_backup_result.failed_count }} resource(s):
+      {% for resource in facilities_backup_result.failed_resources %}
+      - {{ resource.description }} in {{ resource.scope }}
+      {% endfor %}
+  when: facilities_backup_result.failed_count > 0
+
+# Made with Bob

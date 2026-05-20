@@ -2,7 +2,7 @@
 # MAS Application Restore Role
 # =============================================================================
 # This role restores MAS application resources and data.
-# Currently supports: manage
+# Currently supports: manage, facilities
 #
 # The restore includes:
 # - Application namespace resources (CRs, secrets, subscriptions)
@@ -33,7 +33,7 @@
 # 2. Load var files
 # -----------------------------------------------------------------------------
 - name: Load mas_appws variables
-  include_vars: "vars/{{ mas_app_id }}.yml"
+  include_vars: "{{ mas_app_id }}.yml"
 
 # 3. Display restore configuration
 # -----------------------------------------------------------------------------
@@ -71,9 +71,31 @@
               - "Restored from: {{ manage_backup_path }}"
               - "=========================================="
 
+    # Facilities restore
+    # ---------------------------------------------------------------------------
+    - name: "Restore Facilities application"
+      when: mas_app_id == "facilities"
+      block:
+        - name: "Restore Facilities namespace resources"
+          include_tasks: "{{ role_path }}/tasks/facilities/restore-namespace.yml"
+
+        - name: "Restore Facilities persistent volumes"
+          include_tasks: "{{ role_path }}/tasks/facilities/restore-pv.yml"
+
+        - name: "Facilities restore completed successfully"
+          debug:
+            msg:
+              - "=========================================="
+              - "Facilities Restore Completed Successfully"
+              - "=========================================="
+              - "Instance ID: {{ mas_instance_id }}"
+              - "Backup Version: {{ mas_app_backup_version }}"
+              - "Restored from: {{ facilities_backup_path }}"
+              - "=========================================="
+
     # Unsupported app
     # ---------------------------------------------------------------------------
     - name: "Fail if app is not supported"
       fail:
-        msg: "Application '{{ mas_app_id }}' is not yet supported for restore. Currently supported: manage"
-      when: mas_app_id not in ['manage']
+        msg: "Application '{{ mas_app_id }}' is not yet supported for restore. Currently supported: manage, facilities"
+      when: mas_app_id not in ['manage', 'facilities']
