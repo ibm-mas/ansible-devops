@@ -773,17 +773,19 @@
 <p>This role supports backing up MAS application resources and data. Currently supported applications:</p>
 <ul>
 <li><strong><code>manage</code></strong>: Backs up Manage namespace resources (CRs, secrets, subscriptions) and persistent volume data</li>
+<li><strong><code>facilities</code></strong>: Backs up Facilities namespace resources (CRs, secrets, subscriptions) and persistent volume data</li>
 </ul>
 <p>Future support planned for: <code>iot</code>, <code>monitor</code>, <code>health</code>, <code>optimizer</code>, <code>visualinspection</code></p>
 <p>The backup process creates a timestamped backup directory containing:
-1. <strong>Namespace Resources</strong>: Kubernetes resources including ManageApp, ManageWorkspace, secrets, and subscriptions
-2. <strong>Persistent Volume Data</strong>: Application data stored in PVCs (automatically detected from ManageWorkspace CR)</p>
+1. <strong>Namespace Resources</strong>: Kubernetes resources including application CRs (ManageApp/FacilitiesApp, ManageWorkspace/FacilitiesWorkspace), secrets, and subscriptions
+2. <strong>Persistent Volume Data</strong>: Application data stored in PVCs (automatically detected from workspace CR)</p>
 <div class="admonition important">
 <p class="admonition-title">Important</p>
 <ul>
 <li>An application backup can only be restored to an instance with the same MAS instance ID</li>
 <li>This role backs up application resources and PV data only. Database backups must be performed separately using the appropriate database backup role</li>
 <li>For Manage, see the <a href="../db2/">db2</a> role for database backup</li>
+<li>For Facilities, see the <a href="../db2/">db2</a> role for database backup</li>
 </ul>
 </div>
 <h2 id="role-variables-general">Role Variables - General<a class="headerlink" href="#role-variables-general" title="Permanent link">¤</a></h2>
@@ -793,7 +795,7 @@
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_APP_ID</code></li>
 <li>Default: None</li>
-<li>Valid Values: <code>manage</code> (currently supported)</li>
+<li>Valid Values: <code>manage</code>, <code>facilities</code> (currently supported)</li>
 </ul>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
 <p>Defines the MAS instance ID for the backup action.</p>
@@ -844,10 +846,28 @@
 <p><strong>NOT Included</strong> (must be backed up separately):
 - Manage database (Db2) - use the <a href="../db2/">db2</a> role
 - Suite-level resources - use the <a href="../suite_backup/">suite_backup</a> role</p>
+<h3 id="facilities-application">Facilities Application<a class="headerlink" href="#facilities-application" title="Permanent link">¤</a></h3>
+<p>When backing up the Facilities application, the following resources are included:</p>
+<p><strong>Namespace Resources</strong> (automatically backed up):
+- <code>FacilitiesApp</code> CR
+- <code>FacilitiesWorkspace</code> CR
+- Encryption secrets (dynamically determined from FacilitiesWorkspace CR)
+- Certificates with <code>mas.ibm.com/instanceId</code> label
+- Subscription and OperatorGroup
+- IBM entitlement secret
+- All referenced secrets (auto-discovered)</p>
+<p><strong>Persistent Volume Data</strong> (automatically backed up if configured in FacilitiesWorkspace CR):
+- All persistent volumes defined in <code>spec.settings.deployment.persistentVolumes</code>
+- Data is backed up as compressed tar.gz archives
+- Each PVC's mount path is archived separately
+- Archives are stored in the <code>data</code> subdirectory</p>
+<p><strong>NOT Included</strong> (must be backed up separately):
+- Facilities database (Db2) - use the <a href="../db2/">db2</a> role
+- Suite-level resources - use the <a href="../suite_backup/">suite_backup</a> role</p>
 <h2 id="how-persistent-volume-backup-works">How Persistent Volume Backup Works<a class="headerlink" href="#how-persistent-volume-backup-works" title="Permanent link">¤</a></h2>
-<p>The role automatically detects and backs up persistent volumes configured in the ManageWorkspace CR:</p>
+<p>The role automatically detects and backs up persistent volumes configured in the application workspace CR (ManageWorkspace or FacilitiesWorkspace):</p>
 <ol>
-<li><strong>Detection</strong>: Reads <code>spec.settings.deployment.persistentVolumes</code> from ManageWorkspace CR</li>
+<li><strong>Detection</strong>: Reads <code>spec.settings.deployment.persistentVolumes</code> from the workspace CR</li>
 <li><strong>Pod Selection</strong>: Finds the UI or ALL server bundle pod for the workspace</li>
 <li><strong>Archive Creation</strong>: Creates tar.gz archives of each mount path inside the pod</li>
 <li><strong>Transfer</strong>: Copies archives from pod to local backup directory</li>
@@ -874,13 +894,43 @@
 <p>This configuration will result in two tar.gz archives:
 - <code>mas-inst1-ws1-jmsserver-pvc.tar.gz</code>
 - <code>masms-inst1-ws1-fonts-pvc.tar.gz</code></p>
+<p>Example FacilitiesWorkspace CR configuration:</p>
+<pre><code class="language-yaml">spec:
+  settings:
+    deployment:
+      persistentVolumes:
+        - accessModes:
+            - ReadWriteMany
+          mountPath: /jmsstore
+          pvcName: mas-inst1-ws1-jmsserver-pvc
+          size: 25Gi
+          storageClassName: efs-csi
+</code></pre>
+<p>This configuration will result in one tar.gz archive:
+- <code>mas-inst1-ws1-jmsserver-pvc.tar.gz</code></p>
 <h2 id="backup-directory-structure">Backup Directory Structure<a class="headerlink" href="#backup-directory-structure" title="Permanent link">¤</a></h2>
 <p>The role creates a backup directory with the following structure:</p>
 <pre><code>&lt;mas_backup_dir&gt;/
-└── backup-&lt;version&gt;-app-manage/
+├── backup-&lt;version&gt;-app-manage/
+│   ├── resources/
+│   │   ├── projects
+│   │   │   └── mas-&lt;instance_id&gt;-manage.yaml
+│   |   ├── secrets
+│   │   │   └── &lt;secret1_name&gt;.yaml
+│   │   │   └── &lt;secret2_name&gt;.yaml
+│   |   ├── configmaps
+│   │   │   └── &lt;configmap1_name&gt;.yaml
+│   │   │   └── &lt;configmap2_name&gt;.yaml
+│   |   ├── subscriptions
+│   │   │   └── &lt;subscription_name&gt;.yaml
+│   │   └── ... (other resources)
+│   └── data/
+│       ├── &lt;pvc-name-1&gt;.tar.gz
+│       ├── &lt;pvc-name-2&gt;.tar.gz
+└── backup-&lt;version&gt;-app-facilities/
     ├── resources/
     │   ├── projects
-    │   │   └── mas-&lt;instance_id&gt;-manage.yaml
+    │   │   └── mas-&lt;instance_id&gt;-facilities.yaml
     |   ├── secrets
     │   │   └── &lt;secret1_name&gt;.yaml
     │   │   └── &lt;secret2_name&gt;.yaml
@@ -892,7 +942,6 @@
     │   └── ... (other resources)
     └── data/
         ├── &lt;pvc-name-1&gt;.tar.gz
-        ├── &lt;pvc-name-2&gt;.tar.gz
 </code></pre>
 <h2 id="example-playbooks">Example Playbooks<a class="headerlink" href="#example-playbooks" title="Permanent link">¤</a></h2>
 <h3 id="basic-backup">Basic Backup<a class="headerlink" href="#basic-backup" title="Permanent link">¤</a></h3>
@@ -920,14 +969,27 @@
   roles:
     - ibm.mas_devops.suite_app_backup
 </code></pre>
+<h3 id="backup-facilities-with-custom-version">Backup Facilities with Custom Version<a class="headerlink" href="#backup-facilities-with-custom-version" title="Permanent link">¤</a></h3>
+<p>Backup Facilities with a custom version identifier:</p>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: inst1
+    mas_workspace_id: ws1
+    mas_app_id: facilities
+    mas_backup_dir: /backup/mas
+    mas_app_backup_version: "prod-backup-20240315"
+  roles:
+    - ibm.mas_devops.suite_app_backup
+</code></pre>
 <h2 id="notes">Notes<a class="headerlink" href="#notes" title="Permanent link">¤</a></h2>
 <ul>
-<li><strong>Database Backup</strong>: This role does NOT backup the Manage database. Use the <a href="../db2/">db2</a> role to backup Db2 databases separately</li>
+<li><strong>Database Backup</strong>: This role does NOT backup application databases. Use the <a href="../db2/">db2</a> role to backup Db2 databases separately</li>
 <li><strong>Suite Resources</strong>: This role backs up application-specific resources only. For suite-level resources (Suite CR, workspace CRs, etc.), use the <a href="../suite_backup/">suite_backup</a> role</li>
 <li><strong>Storage Requirements</strong>: Ensure sufficient storage space in <code>mas_backup_dir</code> for both namespace resources and PV data</li>
 <li><strong>Pod Access</strong>: The role uses the UI or ALL server bundle pod to access PVC data. Ensure at least one of these pods is running and healthy</li>
 <li><strong>Backup Time</strong>: PV backup duration depends on the amount of data in the persistent volumes</li>
-<li><strong>Automatic Detection</strong>: Persistent volumes are automatically detected from the ManageWorkspace CR - no manual configuration needed</li>
+<li><strong>Automatic Detection</strong>: Persistent volumes are automatically detected from the application workspace CR - no manual configuration needed</li>
 <li><strong>Compression</strong>: All PV data is compressed using gzip to minimize storage requirements</li>
 </ul>
             
@@ -1018,6 +1080,11 @@
                           Manage Application
                         </a>
                       </li>
+                      <li class="md-toc__item">
+                        <a href="#facilities-application" class="md-toc__link" data-md-level="2">
+                          Facilities Application
+                        </a>
+                      </li>
                   </ul>
               </li>
               <li class="md-toc__item">
@@ -1043,6 +1110,11 @@
                       <li class="md-toc__item">
                         <a href="#backup-with-custom-version" class="md-toc__link" data-md-level="2">
                           Backup with Custom Version
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#backup-facilities-with-custom-version" class="md-toc__link" data-md-level="2">
+                          Backup Facilities with Custom Version
                         </a>
                       </li>
                   </ul>

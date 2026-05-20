@@ -754,7 +754,9 @@
     
       <cds-select-item value="#how-persistent-volume-restore-works">How Persistent Volume Restore Works</cds-select-item>
     
-      <cds-select-item value="#restore-process-phases">Restore Process Phases</cds-select-item>
+      <cds-select-item value="#manage-restore-process-phases">Manage Restore Process Phases</cds-select-item>
+    
+      <cds-select-item value="#facilities-restore-process-phases">Facilities Restore Process Phases</cds-select-item>
     
       <cds-select-item value="#expected-backup-directory-structure">Expected Backup Directory Structure</cds-select-item>
     
@@ -777,6 +779,7 @@
 <p>This role supports restoring MAS application resources and data from backups created by the <code>suite_app_backup</code> role. Currently supported applications:</p>
 <ul>
 <li><strong><code>manage</code></strong>: Restores Manage namespace resources (CRs, secrets, subscriptions) and persistent volume data</li>
+<li><strong><code>facilities</code></strong>: Restores Facilities namespace resources (CRs, secrets, subscriptions) and persistent volume data</li>
 </ul>
 <p>Future support planned for: <code>iot</code>, <code>monitor</code>, <code>health</code>, <code>optimizer</code>, <code>visualinspection</code></p>
 <p>The restore process follows these phases:
@@ -803,7 +806,7 @@
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_APP_ID</code></li>
 <li>Default: None</li>
-<li>Valid Values: <code>manage</code> (currently supported)</li>
+<li>Valid Values: <code>manage</code>, <code>facilities</code> (currently supported)</li>
 </ul>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
 <p>Defines the MAS instance ID for the restore action. Must match the instance ID from the backup.</p>
@@ -901,6 +904,29 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
 <p><strong>NOT Restored</strong> (must be restored separately):
 - Manage database (Db2) - use the <a href="../db2/">db2</a> role
 - Suite-level resources - use the <a href="../suite_restore/">suite_restore</a> role</p>
+<h3 id="facilities-application">Facilities Application<a class="headerlink" href="#facilities-application" title="Permanent link">¤</a></h3>
+<p>When restoring the Facilities application, the following resources are restored:</p>
+<p><strong>Namespace Resources</strong> (Phase 1 &amp; 4):
+- <code>Project</code> (namespace)
+- Encryption secrets
+- Certificates with <code>mas.ibm.com/instanceId</code> label
+- IBM entitlement secret
+- All referenced secrets
+- Subscription and OperatorGroup
+- <code>FacilitiesApp</code> CR (Phase 1)
+- <code>FacilitiesWorkspace</code> CR (Phase 4)</p>
+<p><strong>Persistent Volume Data</strong> (Phase 3):
+- All persistent volumes defined in <code>spec.settings.deployment.persistentVolumes</code>
+- Data is restored from compressed tar.gz archives
+- Each PVC is restored with special handling for extracted data:
+  - Extracts tar.gz to temporary location
+  - Moves config files to appropriate config directory
+  - Moves userfiles to userfiles directory
+  - Preserves original file ownership
+- Archives are read from the <code>data</code> subdirectory</p>
+<p><strong>NOT Restored</strong> (must be restored separately):
+- Facilities database (Db2) - use the <a href="../db2/">db2</a> role
+- Suite-level resources - use the <a href="../suite_restore/">suite_restore</a> role</p>
 <h2 id="how-persistent-volume-restore-works">How Persistent Volume Restore Works<a class="headerlink" href="#how-persistent-volume-restore-works" title="Permanent link">¤</a></h2>
 <p>The role intelligently handles PV restoration based on whether ManageWorkspace CR is already deployed:</p>
 <h3 id="scenario-1-manageworkspace-cr-does-not-exist-fresh-restore">Scenario 1: ManageWorkspace CR Does Not Exist (Fresh Restore)<a class="headerlink" href="#scenario-1-manageworkspace-cr-does-not-exist-fresh-restore" title="Permanent link">¤</a></h3>
@@ -928,7 +954,7 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
 - <strong>Command</strong>: <code>sleep infinity</code> (keeps pod running)
 - <strong>Volumes</strong>: All PVCs from ManageWorkspace CR configuration
 - <strong>Labels</strong>: Tagged with instance ID and workspace ID for easy identification</p>
-<h2 id="restore-process-phases">Restore Process Phases<a class="headerlink" href="#restore-process-phases" title="Permanent link">¤</a></h2>
+<h2 id="manage-restore-process-phases">Manage Restore Process Phases<a class="headerlink" href="#manage-restore-process-phases" title="Permanent link">¤</a></h2>
 <h3 id="phase-1-restore-resources-until-manageapp-cr">Phase 1: Restore Resources Until ManageApp CR<a class="headerlink" href="#phase-1-restore-resources-until-manageapp-cr" title="Permanent link">¤</a></h3>
 <ul>
 <li>Restores all namespace resources except ManageWorkspace CR</li>
@@ -961,13 +987,56 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
 <li>Waits for Ready condition to be True</li>
 <li>Configurable timeout and delay between checks</li>
 </ul>
+<h2 id="facilities-restore-process-phases">Facilities Restore Process Phases<a class="headerlink" href="#facilities-restore-process-phases" title="Permanent link">¤</a></h2>
+<h3 id="phase-1-restore-resources-until-facilitiesapp-cr">Phase 1: Restore Resources Until FacilitiesApp CR<a class="headerlink" href="#phase-1-restore-resources-until-facilitiesapp-cr" title="Permanent link">¤</a></h3>
+<ul>
+<li>Restores all namespace resources except FacilitiesWorkspace CR</li>
+<li>Includes: FacilitiesApp, secrets, certificates, subscriptions, operator groups</li>
+<li>Waits for FacilitiesApp CR to become ready</li>
+<li>Auto-discovers and restores referenced secrets</li>
+</ul>
+<h3 id="phase-2-check-facilitiesworkspace-status">Phase 2: Check FacilitiesWorkspace Status<a class="headerlink" href="#phase-2-check-facilitiesworkspace-status" title="Permanent link">¤</a></h3>
+<ul>
+<li>Checks if FacilitiesWorkspace CR already exists</li>
+<li>If exists: Proceeds to scale down deployments and statefulsets using pod templates</li>
+<li>If not exists: Deploys FacilitiesWorkspace CR and waits for CR to become ready and Proceeds to scale down deployments and statefulsets replicas using pod templates</li>
+</ul>
+<h3 id="phase-3-restore-persistent-volume-data_1">Phase 3: Restore Persistent Volume Data<a class="headerlink" href="#phase-3-restore-persistent-volume-data_1" title="Permanent link">¤</a></h3>
+<ul>
+<li>PVC backup tar.gz are named after the pvc names</li>
+<li>PVCs are created by the workspace operator when CR was deployed</li>
+<li>Create dummy pods to mount to each of the PVCs</li>
+<li>Restore data from tar.gz archives to each PVC</li>
+<li>Clean up dummy pods</li>
+</ul>
+<h3 id="phase-4-restore-facilitiesworkspace-cr">Phase 4: Restore FacilitiesWorkspace CR<a class="headerlink" href="#phase-4-restore-facilitiesworkspace-cr" title="Permanent link">¤</a></h3>
+<ul>
+<li>Revert the podtemplates changes done in phase 2</li>
+<li>Wait for deployments and statefulsets to be ready</li>
+</ul>
 <h2 id="expected-backup-directory-structure">Expected Backup Directory Structure<a class="headerlink" href="#expected-backup-directory-structure" title="Permanent link">¤</a></h2>
 <p>The role expects the backup directory to have the following structure:</p>
 <pre><code>&lt;mas_backup_dir&gt;/
-└── backup-&lt;version&gt;-app-manage/
+├── backup-&lt;version&gt;-app-manage/
+│   ├── resources/
+│   │   ├── projects
+│   │   │   └── mas-&lt;instance_id&gt;-manage.yaml
+│   |   ├── secrets
+│   │   │   └── &lt;secret1_name&gt;.yaml
+│   │   │   └── &lt;secret2_name&gt;.yaml
+│   |   ├── configmaps
+│   │   │   └── &lt;configmap1_name&gt;.yaml
+│   │   │   └── &lt;configmap2_name&gt;.yaml
+│   |   ├── subscriptions
+│   │   │   └── &lt;subscription_name&gt;.yaml
+│   │   └── ... (other resources)
+│   └── data/
+│       ├── &lt;pvc-name-1&gt;.tar.gz
+│       └── &lt;pvc-name-2&gt;.tar.gz
+└── backup-&lt;version&gt;-app-facilities/
     ├── resources/
     │   ├── projects
-    │   │   └── mas-&lt;instance_id&gt;-manage.yaml
+    │   │   └── mas-&lt;instance_id&gt;-facilities.yaml
     |   ├── secrets
     │   │   └── &lt;secret1_name&gt;.yaml
     │   │   └── &lt;secret2_name&gt;.yaml
@@ -979,7 +1048,7 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
     │   └── ... (other resources)
     └── data/
         ├── &lt;pvc-name-1&gt;.tar.gz
-        ├── &lt;pvc-name-2&gt;.tar.gz
+        └── &lt;pvc-name-2&gt;.tar.gz
 </code></pre>
 <h2 id="example-playbooks">Example Playbooks<a class="headerlink" href="#example-playbooks" title="Permanent link">¤</a></h2>
 <h3 id="basic-restore">Basic Restore<a class="headerlink" href="#basic-restore" title="Permanent link">¤</a></h3>
@@ -1010,7 +1079,20 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
   roles:
     - ibm.mas_devops.suite_app_restore
 </code></pre>
-<h3 id="complete-restore-workflow">Complete Restore Workflow<a class="headerlink" href="#complete-restore-workflow" title="Permanent link">¤</a></h3>
+<h3 id="restore-facilities-application">Restore Facilities Application<a class="headerlink" href="#restore-facilities-application" title="Permanent link">¤</a></h3>
+<p>Restore Facilities namespace resources and persistent volumes from a backup:</p>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: inst1
+    mas_workspace_id: ws1
+    mas_app_id: facilities
+    mas_backup_dir: /backup/mas
+    mas_app_backup_version: "20240315-143022"
+  roles:
+    - ibm.mas_devops.suite_app_restore
+</code></pre>
+<h3 id="complete-restore-workflow-manage">Complete Restore Workflow - Manage<a class="headerlink" href="#complete-restore-workflow-manage" title="Permanent link">¤</a></h3>
 <p>Complete workflow including database restore:</p>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
@@ -1035,6 +1117,33 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
         name: ibm.mas_devops.suite_app_restore
       vars:
         mas_app_id: manage
+        mas_app_backup_version: "{{ backup_version }}"
+</code></pre>
+<h3 id="complete-restore-workflow-facilities">Complete Restore Workflow - Facilities<a class="headerlink" href="#complete-restore-workflow-facilities" title="Permanent link">¤</a></h3>
+<p>Complete workflow including database restore:</p>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: inst1
+    mas_workspace_id: ws1
+    mas_backup_dir: /backup/mas
+    backup_version: "20240315-143022"
+
+  tasks:
+    # 1. Restore Db2 database first
+    - name: "Restore Facilities database"
+      include_role:
+        name: ibm.mas_devops.db2
+      vars:
+        db2_action: restore
+        db2_backup_version: "{{ backup_version }}"
+
+    # 2. Restore Facilities application
+    - name: "Restore Facilities application"
+      include_role:
+        name: ibm.mas_devops.suite_app_restore
+      vars:
+        mas_app_id: facilities
         mas_app_backup_version: "{{ backup_version }}"
 </code></pre>
 <h3 id="restore-with-storage-class-override">Restore with Storage Class Override<a class="headerlink" href="#restore-with-storage-class-override" title="Permanent link">¤</a></h3>
@@ -1099,16 +1208,16 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
 - Increase <code>mas_app_restore_wait_retries</code> and <code>mas_app_restore_wait_delay</code> values` if deployment is slow</p>
 <h2 id="notes">Notes<a class="headerlink" href="#notes" title="Permanent link">¤</a></h2>
 <ul>
-<li><strong>Database Restore</strong>: This role does NOT restore the Manage database. Use the <a href="../db2/">db2</a> role to restore Db2 databases separately, and do this BEFORE running the application restore</li>
+<li><strong>Database Restore</strong>: This role does NOT restore application databases. Use the <a href="../db2/">db2</a> role to restore Db2 databases separately, and do this BEFORE running the application restore</li>
 <li><strong>Suite Resources</strong>: This role restores application-specific resources only. For suite-level resources (Suite CR, workspace CRs, etc.), use the <a href="../suite_restore/">suite_restore</a> role</li>
 <li><strong>Instance ID Match</strong>: The restore must be performed on a cluster with the same MAS instance ID as the backup</li>
 <li><strong>Idempotent</strong>: The restore process is idempotent and can be run multiple times</li>
-<li><strong>Dummy Pod</strong>: When ManageWorkspace doesn't exist, a temporary pod is created for data restoration and automatically cleaned up</li>
-<li><strong>Scale Down</strong>: When ManageWorkspace exists, it's automatically scaled down before data restoration</li>
-<li><strong>Automatic Detection</strong>: Persistent volumes are automatically detected from the ManageWorkspace CR backup</li>
+<li><strong>Dummy Pod</strong>: When workspace CR doesn't exist, a temporary pod is created for data restoration and automatically cleaned up</li>
+<li><strong>Scale Down</strong>: When workspace CR exists, it's automatically scaled down before data restoration</li>
+<li><strong>Automatic Detection</strong>: Persistent volumes are automatically detected from the workspace CR backup</li>
 <li><strong>Compression</strong>: All PV data is stored as compressed tar.gz archives</li>
-<li><strong>Wait Time</strong>: The default wait timeout is 1 hour, but this can be adjusted based on deployment size</li>
-<li><strong>Prerequisites</strong>: Ensure the MAS operator and Manage operator are installed before running restore</li>
+<li><strong>Wait Time</strong>: Default wait timeout varies by application (Manage: 1 hour, Facilities: 9 hours), but can be adjusted based on deployment size</li>
+<li><strong>Prerequisites</strong>: Ensure the MAS operator and application operator are installed before running restore</li>
 <li><strong>Storage Class Override</strong>: When restoring to a different cluster with different storage classes, enable <code>override_storageclass</code> to automatically map PVCs to appropriate storage classes based on access modes (RWX/RWO)</li>
 <li><strong>Default Storage Classes</strong>: If <code>override_storageclass</code> is enabled but custom storage classes are not specified, the cluster's default storage class will be used automatically</li>
 <li><strong>Access Mode Mapping</strong>: The role intelligently assigns storage classes based on PVC access modes - RWX (ReadWriteMany) uses <code>mas_app_custom_storage_class_rwx</code> and RWO (ReadWriteOnce) uses <code>mas_app_custom_storage_class_rwo</code></li>
@@ -1231,6 +1340,11 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
                           Manage Application
                         </a>
                       </li>
+                      <li class="md-toc__item">
+                        <a href="#facilities-application" class="md-toc__link" data-md-level="2">
+                          Facilities Application
+                        </a>
+                      </li>
                   </ul>
               </li>
               <li class="md-toc__item">
@@ -1256,8 +1370,8 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
                   </ul>
               </li>
               <li class="md-toc__item">
-                <a href="#restore-process-phases" class="md-toc__link" data-md-level="1">
-                  Restore Process Phases
+                <a href="#manage-restore-process-phases" class="md-toc__link" data-md-level="1">
+                  Manage Restore Process Phases
                 </a>
                   <ul class="md-toc__list">
                       <li class="md-toc__item">
@@ -1288,6 +1402,33 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
                   </ul>
               </li>
               <li class="md-toc__item">
+                <a href="#facilities-restore-process-phases" class="md-toc__link" data-md-level="1">
+                  Facilities Restore Process Phases
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#phase-1-restore-resources-until-facilitiesapp-cr" class="md-toc__link" data-md-level="2">
+                          Phase 1: Restore Resources Until FacilitiesApp CR
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#phase-2-check-facilitiesworkspace-status" class="md-toc__link" data-md-level="2">
+                          Phase 2: Check FacilitiesWorkspace Status
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#phase-3-restore-persistent-volume-data_1" class="md-toc__link" data-md-level="2">
+                          Phase 3: Restore Persistent Volume Data
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#phase-4-restore-facilitiesworkspace-cr" class="md-toc__link" data-md-level="2">
+                          Phase 4: Restore FacilitiesWorkspace CR
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
                 <a href="#expected-backup-directory-structure" class="md-toc__link" data-md-level="1">
                   Expected Backup Directory Structure
                 </a>
@@ -1308,8 +1449,18 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#complete-restore-workflow" class="md-toc__link" data-md-level="2">
-                          Complete Restore Workflow
+                        <a href="#restore-facilities-application" class="md-toc__link" data-md-level="2">
+                          Restore Facilities Application
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#complete-restore-workflow-manage" class="md-toc__link" data-md-level="2">
+                          Complete Restore Workflow - Manage
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#complete-restore-workflow-facilities" class="md-toc__link" data-md-level="2">
+                          Complete Restore Workflow - Facilities
                         </a>
                       </li>
                       <li class="md-toc__item">
