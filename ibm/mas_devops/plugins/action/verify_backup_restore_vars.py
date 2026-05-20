@@ -39,6 +39,10 @@ class ActionModule(ActionBase):
         "manage": {
             "backup": ["mas_instance_id", "mas_workspace_id", "mas_backup_dir"],
             "restore": ["mas_instance_id", "mas_backup_dir", "mas_app_backup_version"]
+        },
+        "facilities": {
+            "backup": ["mas_instance_id", "mas_workspace_id", "mas_backup_dir"],
+            "restore": ["mas_instance_id", "mas_backup_dir", "mas_app_backup_version"]
         }
     }
 

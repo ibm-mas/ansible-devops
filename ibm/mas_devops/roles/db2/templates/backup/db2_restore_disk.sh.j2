@@ -126,6 +126,10 @@ echo "  PREPARING DATABASE FOR RESTORE"
 echo "========================================================================"
 echo ""
 
+echo "STEP 0: Pausing Probes.."
+touch /db2u/tmp/.pause_probe
+echo ""
+
 echo "STEP 1: Temporarily disable the built-in HA"
 if [ -f /etc/wolverine/config.json ]; then
     wvcli system disable -m "Disable HA before Db2 maintenance"
@@ -144,9 +148,13 @@ if [ $rc -ne 0 ]; then
         echo "INFO: Database ${DATABASE} does not exist. Proceeding with restore."
     elif echo "$connect_status" | grep -q "SQL30081N"; then
         echo "ERROR: Network error while connecting to database ${DATABASE}"
+        ### remove locks before exiting
+        rm -f /db2u/tmp/.pause_probe
         exit 1
     elif echo "$connect_status" | grep -q "SQL1119N"; then
         echo "ERROR: $connect_status"
+        ### remove locks before exiting
+        rm -f /db2u/tmp/.pause_probe
         exit 1
     else
         echo "INFO: $connect_status. Proceeding with restore."
@@ -298,6 +306,10 @@ rc=$?
 if [ $rc -ne 0 ]; then
     echo "ERROR: Error connecting to database ${DATABASE}. Return code: $rc"
 fi
+
+echo ""
+echo "INFO: Resuming Probes.."
+rm -f /db2u/tmp/.pause_probe
 
 # Cleanup the backup files from local path
 echo "INFO: Cleaning up local backup files at: ${POD_BACKUP_PATH}"
