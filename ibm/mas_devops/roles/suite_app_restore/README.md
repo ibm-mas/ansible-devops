@@ -6,6 +6,7 @@ Overview
 This role supports restoring MAS application resources and data from backups created by the `suite_app_backup` role. Currently supported applications:
 
 - **`manage`**: Restores Manage namespace resources (CRs, secrets, subscriptions) and persistent volume data
+- **`facilities`**: Restores Facilities namespace resources (CRs, secrets, subscriptions) and persistent volume data
 
 Future support planned for: `iot`, `monitor`, `health`, `optimizer`, `visualinspection`
 
@@ -33,7 +34,7 @@ Defines the MAS application ID for the restore action.
 - **Required**
 - Environment Variable: `MAS_APP_ID`
 - Default: None
-- Valid Values: `manage` (currently supported)
+- Valid Values: `manage`, `facilities` (currently supported)
 
 ### mas_instance_id
 Defines the MAS instance ID for the restore action. Must match the instance ID from the backup.
@@ -137,6 +138,33 @@ When restoring the Manage application, the following resources are restored:
 - Manage database (Db2) - use the [db2](db2.md) role
 - Suite-level resources - use the [suite_restore](suite_restore.md) role
 
+### Facilities Application
+When restoring the Facilities application, the following resources are restored:
+
+**Namespace Resources** (Phase 1 & 4):
+- `Project` (namespace)
+- Encryption secrets
+- Certificates with `mas.ibm.com/instanceId` label
+- IBM entitlement secret
+- All referenced secrets
+- Subscription and OperatorGroup
+- `FacilitiesApp` CR (Phase 1)
+- `FacilitiesWorkspace` CR (Phase 4)
+
+**Persistent Volume Data** (Phase 3):
+- All persistent volumes defined in `spec.settings.deployment.persistentVolumes`
+- Data is restored from compressed tar.gz archives
+- Each PVC is restored with special handling for extracted data:
+  - Extracts tar.gz to temporary location
+  - Moves config files to appropriate config directory
+  - Moves userfiles to userfiles directory
+  - Preserves original file ownership
+- Archives are read from the `data` subdirectory
+
+**NOT Restored** (must be restored separately):
+- Facilities database (Db2) - use the [db2](db2.md) role
+- Suite-level resources - use the [suite_restore](suite_restore.md) role
+
 
 How Persistent Volume Restore Works
 -------------------------------------------------------------------------------
@@ -167,7 +195,7 @@ When a dummy pod is created for restoration, it uses:
 - **Labels**: Tagged with instance ID and workspace ID for easy identification
 
 
-Restore Process Phases
+Manage Restore Process Phases
 -------------------------------------------------------------------------------
 
 ### Phase 1: Restore Resources Until ManageApp CR
@@ -198,16 +226,58 @@ Restore Process Phases
 - Configurable timeout and delay between checks
 
 
+Facilities Restore Process Phases
+-------------------------------------------------------------------------------
+
+### Phase 1: Restore Resources Until FacilitiesApp CR
+- Restores all namespace resources except FacilitiesWorkspace CR
+- Includes: FacilitiesApp, secrets, certificates, subscriptions, operator groups
+- Waits for FacilitiesApp CR to become ready
+- Auto-discovers and restores referenced secrets
+
+### Phase 2: Check FacilitiesWorkspace Status
+- Checks if FacilitiesWorkspace CR already exists
+- If exists: Proceeds to scale down deployments and statefulsets using pod templates
+- If not exists: Deploys FacilitiesWorkspace CR and waits for CR to become ready and Proceeds to scale down deployments and statefulsets replicas using pod templates
+
+### Phase 3: Restore Persistent Volume Data
+- PVC backup tar.gz are named after the pvc names
+- PVCs are created by the workspace operator when CR was deployed
+- Create dummy pods to mount to each of the PVCs
+- Restore data from tar.gz archives to each PVC
+- Clean up dummy pods
+
+### Phase 4: Restore FacilitiesWorkspace CR
+- Revert the podtemplates changes done in phase 2
+- Wait for deployments and statefulsets to be ready
+
+
 Expected Backup Directory Structure
 -------------------------------------------------------------------------------
 The role expects the backup directory to have the following structure:
 
 ```
 <mas_backup_dir>/
-└── backup-<version>-app-manage/
+├── backup-<version>-app-manage/
+│   ├── resources/
+│   │   ├── projects
+│   │   │   └── mas-<instance_id>-manage.yaml
+│   |   ├── secrets
+│   │   │   └── <secret1_name>.yaml
+│   │   │   └── <secret2_name>.yaml
+│   |   ├── configmaps
+│   │   │   └── <configmap1_name>.yaml
+│   │   │   └── <configmap2_name>.yaml
+│   |   ├── subscriptions
+│   │   │   └── <subscription_name>.yaml
+│   │   └── ... (other resources)
+│   └── data/
+│       ├── <pvc-name-1>.tar.gz
+│       └── <pvc-name-2>.tar.gz
+└── backup-<version>-app-facilities/
     ├── resources/
     │   ├── projects
-    │   │   └── mas-<instance_id>-manage.yaml
+    │   │   └── mas-<instance_id>-facilities.yaml
     |   ├── secrets
     │   │   └── <secret1_name>.yaml
     │   │   └── <secret2_name>.yaml
@@ -219,7 +289,7 @@ The role expects the backup directory to have the following structure:
     │   └── ... (other resources)
     └── data/
         ├── <pvc-name-1>.tar.gz
-        ├── <pvc-name-2>.tar.gz
+        └── <pvc-name-2>.tar.gz
 ```
 
 
@@ -260,7 +330,23 @@ Restore with a custom wait timeout for large deployments:
     - ibm.mas_devops.suite_app_restore
 ```
 
-### Complete Restore Workflow
+### Restore Facilities Application
+Restore Facilities namespace resources and persistent volumes from a backup:
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: inst1
+    mas_workspace_id: ws1
+    mas_app_id: facilities
+    mas_backup_dir: /backup/mas
+    mas_app_backup_version: "20240315-143022"
+  roles:
+    - ibm.mas_devops.suite_app_restore
+```
+
+### Complete Restore Workflow - Manage
 Complete workflow including database restore:
 
 ```yaml
@@ -287,6 +373,36 @@ Complete workflow including database restore:
         name: ibm.mas_devops.suite_app_restore
       vars:
         mas_app_id: manage
+        mas_app_backup_version: "{{ backup_version }}"
+```
+
+### Complete Restore Workflow - Facilities
+Complete workflow including database restore:
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: inst1
+    mas_workspace_id: ws1
+    mas_backup_dir: /backup/mas
+    backup_version: "20240315-143022"
+  
+  tasks:
+    # 1. Restore Db2 database first
+    - name: "Restore Facilities database"
+      include_role:
+        name: ibm.mas_devops.db2
+      vars:
+        db2_action: restore
+        db2_backup_version: "{{ backup_version }}"
+    
+    # 2. Restore Facilities application
+    - name: "Restore Facilities application"
+      include_role:
+        name: ibm.mas_devops.suite_app_restore
+      vars:
+        mas_app_id: facilities
         mas_app_backup_version: "{{ backup_version }}"
 ```
 
@@ -366,16 +482,16 @@ Troubleshooting
 
 Notes
 -------------------------------------------------------------------------------
-- **Database Restore**: This role does NOT restore the Manage database. Use the [db2](db2.md) role to restore Db2 databases separately, and do this BEFORE running the application restore
+- **Database Restore**: This role does NOT restore application databases. Use the [db2](db2.md) role to restore Db2 databases separately, and do this BEFORE running the application restore
 - **Suite Resources**: This role restores application-specific resources only. For suite-level resources (Suite CR, workspace CRs, etc.), use the [suite_restore](suite_restore.md) role
 - **Instance ID Match**: The restore must be performed on a cluster with the same MAS instance ID as the backup
 - **Idempotent**: The restore process is idempotent and can be run multiple times
-- **Dummy Pod**: When ManageWorkspace doesn't exist, a temporary pod is created for data restoration and automatically cleaned up
-- **Scale Down**: When ManageWorkspace exists, it's automatically scaled down before data restoration
-- **Automatic Detection**: Persistent volumes are automatically detected from the ManageWorkspace CR backup
+- **Dummy Pod**: When workspace CR doesn't exist, a temporary pod is created for data restoration and automatically cleaned up
+- **Scale Down**: When workspace CR exists, it's automatically scaled down before data restoration
+- **Automatic Detection**: Persistent volumes are automatically detected from the workspace CR backup
 - **Compression**: All PV data is stored as compressed tar.gz archives
-- **Wait Time**: The default wait timeout is 1 hour, but this can be adjusted based on deployment size
-- **Prerequisites**: Ensure the MAS operator and Manage operator are installed before running restore
+- **Wait Time**: Default wait timeout varies by application (Manage: 1 hour, Facilities: 9 hours), but can be adjusted based on deployment size
+- **Prerequisites**: Ensure the MAS operator and application operator are installed before running restore
 - **Storage Class Override**: When restoring to a different cluster with different storage classes, enable `override_storageclass` to automatically map PVCs to appropriate storage classes based on access modes (RWX/RWO)
 - **Default Storage Classes**: If `override_storageclass` is enabled but custom storage classes are not specified, the cluster's default storage class will be used automatically
 - **Access Mode Mapping**: The role intelligently assigns storage classes based on PVC access modes - RWX (ReadWriteMany) uses `mas_app_custom_storage_class_rwx` and RWO (ReadWriteOnce) uses `mas_app_custom_storage_class_rwo`

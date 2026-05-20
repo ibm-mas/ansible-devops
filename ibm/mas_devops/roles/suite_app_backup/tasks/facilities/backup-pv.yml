@@ -1,0 +1,107 @@
+---
+# Backup Facilities Persistent Volumes
+# =============================================================================
+# This task backs up Facilities persistent volume data by:
+# 1. Finding appserver and agent pods
+# 2. Extracting PVC names and mount paths from pod specs
+# 3. Creating tar.gz archives of each mount path
+# 4. Storing them in the backup data folder
+
+# 1. Create data backup directory
+# -----------------------------------------------------------------------------
+- name: "Set fact: PV backup data path"
+  set_fact:
+    facilities_pv_data_path: "{{ facilities_backup_path }}/data"
+
+- name: "Create PV backup data directory"
+  file:
+    path: "{{ facilities_pv_data_path }}"
+    state: directory
+    mode: '0755'
+
+# 2. Find appserver pods
+# -----------------------------------------------------------------------------
+- name: "Find Facilities appserver pods"
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "mas-{{ mas_instance_id }}-facilities"
+    label_selectors:
+      - mas.ibm.com/appType=appserver
+      - mas.ibm.com/applicationId=facilities
+      - mas.ibm.com/instanceId={{ mas_instance_id }}
+  register: appserver_pods_output
+
+- name: "Display appserver pods found"
+  debug:
+    msg:
+      - "Appserver pods found: {{ appserver_pods_output.resources | length }}"
+      - "{{ appserver_pods_output.resources | map(attribute='metadata.name') | list }}"
+
+# 3. Find agent pods
+# -----------------------------------------------------------------------------
+- name: "Find Facilities agent pods"
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "mas-{{ mas_instance_id }}-facilities"
+    label_selectors:
+      - mas.ibm.com/appType=agent
+      - mas.ibm.com/applicationId=facilities
+      - mas.ibm.com/instanceId={{ mas_instance_id }}
+  register: agent_pods_output
+
+- name: "Display agent pods found"
+  debug:
+    msg:
+      - "Agent pods found: {{ agent_pods_output.resources | length }}"
+      - "{{ agent_pods_output.resources | map(attribute='metadata.name') | list }}"
+
+# 4. Backup appserver pods PVCs
+# -----------------------------------------------------------------------------
+- name: "Backup appserver pods persistent volumes"
+  when: appserver_pods_output.resources | length > 0
+  block:
+    - name: "Process each appserver pod"
+      include_tasks: "{{ role_path }}/tasks/facilities/backup-single-pod-pv.yml"
+      loop: "{{ appserver_pods_output.resources }}"
+      loop_control:
+        loop_var: pod_item
+        index_var: pod_index
+      vars:
+        pod_type: "appserver"
+        container_name: "appserver"
+        total_pods: "{{ appserver_pods_output.resources | length }}"
+
+# 5. Backup agent pods PVCs
+# -----------------------------------------------------------------------------
+- name: "Backup agent pods persistent volumes"
+  when: agent_pods_output.resources | length > 0
+  block:
+    - name: "Process each agent pod"
+      include_tasks: "{{ role_path }}/tasks/facilities/backup-single-pod-pv.yml"
+      loop: "{{ agent_pods_output.resources }}"
+      loop_control:
+        loop_var: pod_item
+        index_var: pod_index
+      vars:
+        pod_type: "agent"
+        container_name: "{{ pod_item.spec.containers | selectattr('volumeMounts', 'defined') | map(attribute='name') | first | default('') }}"
+        total_pods: "{{ agent_pods_output.resources | length }}"
+
+# 6. Display completion message
+# -----------------------------------------------------------------------------
+- name: "Display PV backup completion"
+  debug:
+    msg:
+      - "Facilities PV backup completed"
+      - "Appserver pods backed up: {{ appserver_pods_output.resources | length }}"
+      - "Agent pods backed up: {{ agent_pods_output.resources | length }}"
+      - "Backup location: {{ facilities_pv_data_path }}"
+
+# 7. Skip message if no pods found
+# -----------------------------------------------------------------------------
+- name: "Skip PV backup message"
+  debug:
+    msg: "Skipping Facilities PV backup - no appserver or agent pods found"
+  when:
+    - appserver_pods_output.resources | length == 0
+    - agent_pods_output.resources | length == 0
