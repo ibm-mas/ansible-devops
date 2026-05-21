@@ -17,16 +17,16 @@
         name: "{{ tenantNamespace }}----apikey-secret"
       register: tenant_api_secret_result
       no_log: true
-    
+
     - name: Confirm if API key secret rollback is needed
       set_fact:
-        is_api_key_rollback_needed: {{ tenant_api_secret_result.resources | length == 1 }}
-    
-    - name: "Move tenant API key secret back to namespace {{ api_namespace }}"
+        is_api_key_rollback_needed: "{{ tenant_api_secret_result.resources | length == 1 | bool }}"
+
+    - name: "Move tenant API key secret back to namespace {{ aiservice_namespace }}"
       when: is_api_key_rollback_needed
       kubernetes.core.k8s:
         state: present
-        namespace: "{{ api_namespace }}"
+        namespace: "{{ aiservice_namespace }}"
         definition: >
           {{ tenant_api_secret_result.resources[0] | ibm.mas_devops.remove_dict_keys(['status', 'metadata.namespace', 'metadata.creationTimestamp',
           'metadata.generation', 'metadata.resourceVersion', 'metadata.uid', 'metadata.ownerReferences']) | to_yaml }}
@@ -42,7 +42,7 @@
 
     - name: Confirm if rollback was performed
       ansible.builtin.debug:
-        msg: "Was tenant API key secret moved to namespace {{ api_namespace  }}? .......... {{ is_api_key_rollback_needed }}"
+        msg: "Was tenant API key secret moved to namespace {{ aiservice_namespace  }}? .......... {{ is_api_key_rollback_needed }}"
 
 # END rollback
 
