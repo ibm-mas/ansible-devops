@@ -17,6 +17,14 @@
       - "MAS Channel ......................... {{ mas_channel | default('not set') }}"
       - "Version < 9.2 ...................... {{ mas_version_lt_92 }}"
 
+- name: "Set default routing mode to 'path' for MAS 9.2+"
+  when:
+    - mas_routing_mode is not defined or mas_routing_mode == ""
+    - mas_channel is defined and mas_channel != ""
+    - mas_channel.split('.')[:2] | join('.') is version('9.2', '>=')
+  set_fact:
+    mas_routing_mode: "path"
+
 # 2. Check cert-manager installation
 # -----------------------------------------------------------------------------
 # Ensure cert manager is installed prior continuing as this role will install

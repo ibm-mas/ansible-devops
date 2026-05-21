@@ -257,7 +257,7 @@ Defines the URL routing strategy for MAS applications and services.
 
 - **Optional**
 - Environment Variable: `MAS_ROUTING_MODE`
-- Default: `subdomain`
+- Default: `path` for MAS 9.2+, otherwise not set
 
 **Purpose**: Controls how MAS constructs URLs for different applications and services. This affects the URL structure users see and how DNS must be configured.
 
