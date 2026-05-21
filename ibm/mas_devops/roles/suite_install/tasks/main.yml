@@ -138,15 +138,23 @@
   set_fact:
     mas_domain: "{{ mas_instance_id }}.{{ _cluster_subdomain.resources[0].spec.domain }}"
 
-# 9. Set default routing mode for MAS 9.2+ if not already set
+# 9. Set default routing mode and issuer kind for MAS 9.2+ if not already set
 # -----------------------------------------------------------------------------
-- name: "Set default routing mode to 'path' for MAS 9.2+"
+- name: "Set default routing mode to 'path' for MAS 9.2+ if it's not defined"
   when:
     - mas_routing_mode is not defined or mas_routing_mode == ""
     - mas_channel is defined and mas_channel != ""
     - mas_channel.split('.')[:2] | join('.') is version('9.2', '>=')
   set_fact:
     mas_routing_mode: "path"
+
+- name: "Set default issuer kind to 'ClusterIssuer' for MAS 9.2+ if it's not defined"
+  when:
+    - mas_issuer_kind is not defined or mas_issuer_kind == ""
+    - mas_channel is defined and mas_channel != ""
+    - mas_channel.split('.')[:2] | join('.') is version('9.2', '>=')
+  set_fact:
+    mas_issuer_kind: "ClusterIssuer"
 
 # 10. Determine version of cert-manager in use on the cluster
 # -----------------------------------------------------------------------------
@@ -174,6 +182,7 @@
       - "MAS ICR cpopen content ........ {{ mas_icr_cpopen }}"
       - "Cert Manager namespace ........ {{ cert_manager_cluster_resource_namespace }}"
       - "MAS Cluster Issuer ............ {{ mas_cluster_issuer }}"
+      - "MAS Issuer Kind ............... {{ mas_issuer_kind | default('<not set>', true) }}"
       - "MAS Routing Mode .............. {{ mas_routing_mode | default('<not set>', true) }}"
       - "IPv6 Enabled .................. {{ ocp_enable_ipv6 }}"
 
