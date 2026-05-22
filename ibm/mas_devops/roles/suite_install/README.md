@@ -257,7 +257,7 @@ Defines the URL routing strategy for MAS applications and services.
 
 - **Optional**
 - Environment Variable: `MAS_ROUTING_MODE`
-- Default: `subdomain`
+- Default: `path` for MAS 9.2+, otherwise not set
 
 **Purpose**: Controls how MAS constructs URLs for different applications and services. This affects the URL structure users see and how DNS must be configured.
 
@@ -279,6 +279,23 @@ Defines the URL routing strategy for MAS applications and services.
 - Must align with `mas_domain` configuration
 
 **Note**: Choose carefully as this cannot be changed after installation. Subdomain routing is recommended for production environments.
+
+#### mas_manual_route_mgmt
+Enables manual route management mode, disabling automatic route generation.
+
+- **Optional**
+- Environment Variable: `MAS_MANUAL_ROUTE_MGMT`
+- Default: `false`
+
+**Purpose**: Allows you to disable automatic routes creation and management if alternative routing is required.
+
+**When to use**:
+- Use `false` (default) for MAS to automatically manage routes.
+- Use `true` to manage routes in an alternative way. 
+
+**Valid values**: `true`, `false`
+
+**Impact**: When `true`, you must manually create and manage all routes required by MAS.
 
 #### mas_trust_default_cas
 Controls whether default system Certificate Authorities are included in MAS trust stores.
@@ -362,7 +379,7 @@ Specifies the issuer kind to configure for MAS certificates.
 
 - **Optional**
 - Environment Variable: `mas_issuer_kind`
-- Default: None
+- Default: `ClusterIssuer` for MAS 9.2+
 
 **Purpose**: Controls the value written to `spec.settings.issuerKind` in the MAS Suite custom resource. This determines whether MAS certificates use a namespace-scoped `Issuer` or a cluster-scoped `ClusterIssuer`.
 
