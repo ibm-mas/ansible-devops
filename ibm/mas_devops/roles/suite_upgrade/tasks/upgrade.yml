@@ -100,6 +100,84 @@
   debug:
     var: updated_suite_info
 
+# 6. Detect and Update Certificate Manager Namespace if Changed
+# -----------------------------------------------------------------------------
+# During upgrade, cert-manager may have been migrated from IBM to Red Hat
+# We need to detect the current cert-manager namespace and update Suite CR if it differs
+
+- name: "upgrade : Get current Suite CR certManagerNamespace value"
+  set_fact:
+    current_cert_manager_namespace: "{{ updated_suite_info.resources[0].spec.certManagerNamespace | default('') }}"
+
+- name: "upgrade : Debug current certManagerNamespace in Suite CR"
+  debug:
+    msg:
+      - "Current certManagerNamespace in Suite CR .... {{ current_cert_manager_namespace }}"
+
+- name: "upgrade : Detect Certificate Manager installation"
+  include_tasks: "{{ role_path }}/../../common_tasks/detect_cert_manager.yml"
+
+- name: "upgrade : Debug detected cert-manager namespace"
+  debug:
+    msg:
+      - "Detected cert-manager namespace .............. {{ cert_manager_namespace }}"
+      - "Detected cert-manager cluster resource ns .... {{ cert_manager_cluster_resource_namespace }}"
+
+- name: "upgrade : Check if certManagerNamespace needs to be updated"
+  set_fact:
+    cert_manager_namespace_changed: "{{ current_cert_manager_namespace != cert_manager_cluster_resource_namespace }}"
+
+- name: "upgrade : Update Suite CR certManagerNamespace if changed"
+  when: cert_manager_namespace_changed | bool
+  block:
+    - name: "upgrade : Log cert-manager namespace migration"
+      debug:
+        msg:
+          - "Certificate Manager namespace has changed during upgrade!"
+          - "Old namespace: {{ current_cert_manager_namespace }}"
+          - "New namespace: {{ cert_manager_cluster_resource_namespace }}"
+          - "Updating Suite CR to reflect the new cert-manager namespace..."
+
+    - name: "upgrade : Patch Suite CR with new certManagerNamespace"
+      kubernetes.core.k8s:
+        api_version: core.mas.ibm.com/v1
+        kind: Suite
+        name: "{{ mas_instance_id }}"
+        namespace: "{{ mas_namespace }}"
+        definition:
+          spec:
+            certManagerNamespace: "{{ cert_manager_cluster_resource_namespace }}"
+        state: patched
+
+    - name: "upgrade : Wait for Suite CR to reconcile after certManagerNamespace update (60s delay)"
+      kubernetes.core.k8s_info:
+        api_version: core.mas.ibm.com/v1
+        name: "{{ mas_instance_id }}"
+        namespace: "{{ mas_namespace }}"
+        kind: Suite
+      register: suite_after_cert_update
+      retries: 10 # about 10 minutes
+      delay: 60 # 1 minute
+      until:
+        - suite_after_cert_update.resources is defined
+        - suite_after_cert_update.resources | length > 0
+        - suite_after_cert_update.resources[0].status is defined
+        - suite_after_cert_update.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
+
+    - name: "upgrade : Confirm certManagerNamespace update"
+      debug:
+        msg:
+          - "✓ Suite CR certManagerNamespace successfully updated"
+          - "✓ New value: {{ cert_manager_cluster_resource_namespace }}"
+          - "✓ Suite is Ready after update"
+
+- name: "upgrade : No certManagerNamespace update needed"
+  when: not (cert_manager_namespace_changed | bool)
+  debug:
+    msg:
+      - "Certificate Manager namespace unchanged"
+      - "Current namespace: {{ current_cert_manager_namespace }}"
+
 
 # Unfortunately, our status reporting isn't ideal for upgrades, so even though the operator is now
 # reporting that the Suite is running at the new version and is Ready, that's not necessarily the case
