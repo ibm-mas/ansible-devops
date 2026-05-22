@@ -536,7 +536,7 @@ Rotates the password for an **existing** Db2 LDAP user.
 **Note**: When enabled, the auto-generated password is stored securely in Kubernetes secrets and MAS configuration.
 
 ### Storage Variables
-We recommend reviewing the Db2 documentation about the certified storage options for Db2 on Red Hat OpenShift. Please ensure your storage class meets the specified deployment requirements for Db2. [https://www.ibm.com/docs/en/db2/11.5?topic=storage-certified-options](https://www.ibm.com/docs/en/db2/11.5?topic=storage-certified-options)
+We recommend reviewing the Db2 documentation about the certified storage options for Db2 on Red Hat OpenShift. Please ensure your storage class meets the specified deployment requirements for [Db2uInstance](https://www.ibm.com/docs/en/db2/11.5.x?topic=resource-deploying-db2-using-db2uinstance-custom) and for [Db2uCluster](https://www.ibm.com/docs/en/db2/11.5.x?topic=resource-deploying-db2-using-db2ucluster-custom).
 
 #### db2_meta_storage_class
 Storage class for Db2 metadata storage (must support ReadWriteMany).
@@ -780,7 +780,7 @@ The access mode for the storage.
 - Default: `ReadWriteOnce`
 
 #### db2_temp_storage_class
-Storage class used for temporary data. This must support ReadWriteMany(RWX) access mode.
+Storage class used for temporary data. This must support ReadWriteOnce(RWO) access mode.
 
 - **Optional**
 - Environment Variable: `DB2_TEMP_STORAGE_CLASS`
@@ -802,7 +802,7 @@ The access mode for the storage. This must support ReadWriteOnce(RWO) access mod
 
 ### Resource Request Variables
 ### db2_audit_logs_storage_class
-Storage class used for audit logs. This must support ReadWriteMany(RWX) access mode.
+Storage class used for audit logs. This must support ReadWriteOnce(RWO) access mode.
 
 - Optional
 - Environment Variable: `DB2_AUDIT_LOGS_STORAGE_CLASS`
@@ -823,11 +823,11 @@ The access mode for the storage. This must support ReadWriteOnce(RWO) access mod
 - Default: `ReadWriteOnce`
 
 ### db2_archivelogs_storage_class
-Storage class used for archive logs. This must support ReadWriteMany(RWX) access mode.
+Storage class used for archive logs. This must support ReadWriteMany(RWX) access mode for `Db2uInstance` and ReadWriteOnce(RWO) access mode for `Db2uCluster`.
 
 - Optional
 - Environment Variable: `DB2_ARCHIVELOGS_STORAGE_CLASS`
-- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster. Set to `None` will drop the tempts storage on Db2uInstace CR.
+- Default: Defaults to `ibmc-block-gold` or `ibmc-file-gold` if the storage class is available in the cluster. Set to `None` will drop the tempts storage on Db2uInstace CR.
 
 ### db2_archivelogs_storage_size
 Size of audit logs persistent volume.
@@ -837,54 +837,11 @@ Size of audit logs persistent volume.
 - Default: `10Gi`
 
 ### db2_archivelogs_storage_accessmode
-The access mode for the storage. This must support ReadWriteOnce(RWO) access mode.
+The access mode for the storage. This must support ReadWriteMany(RWX) access mode for `Db2uInstance` and ReadWriteOnce(RWO) access mode for `Db2uCluster`.
 
 - Optional
 - Environment Variable: `DB2_ARCHIVELOGS_STORAGE_ACCESSMODE`
-- Default: `ReadWriteOnce`
-
-### db2_audit_logs_storage_class
-Storage class used for audit logs. This must support ReadWriteMany(RWX) access mode.
-
-- Optional
-- Environment Variable: `DB2_AUDIT_LOGS_STORAGE_CLASS`
-- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster. Set to `None` will drop the tempts storage on Db2uInstace CR.
-
-### db2_audit_logs_storage_size
-Size of audit logs persistent volume.
-
-- Optional
-- Environment Variable: `DB2_AUDIT_LOGS_STORAGE_SIZE`
-- Default: `10Gi`
-
-### db2_audit_logs_storage_accessmode
-The access mode for the storage. This must support ReadWriteOnce(RWO) access mode.
-
-- Optional
-- Environment Variable: `DB2_AUDIT_LOGS_STORAGE_ACCESSMODE`
-- Default: `ReadWriteOnce`
-
-### db2_archivelogs_storage_class
-Storage class used for archive logs. This must support ReadWriteMany(RWX) access mode.
-
-- Optional
-- Environment Variable: `DB2_ARCHIVELOGS_STORAGE_CLASS`
-- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster. Set to `None` will drop the tempts storage on Db2uInstace CR.
-
-### db2_archivelogs_storage_size
-Size of audit logs persistent volume.
-
-- Optional
-- Environment Variable: `DB2_ARCHIVELOGS_STORAGE_SIZE`
-- Default: `10Gi`
-
-### db2_archivelogs_storage_accessmode
-The access mode for the storage. This must support ReadWriteOnce(RWO) access mode.
-
-- Optional
-- Environment Variable: `DB2_ARCHIVELOGS_STORAGE_ACCESSMODE`
-- Default: `ReadWriteOnce`
-
+- Default: Dynamically set according with kind of Db2 (`Db2uInstance` or `Db2uCluster`)
 
 Role Variables - Resource Requests
 -----------------------------------------------------------------------------------------------------------------
