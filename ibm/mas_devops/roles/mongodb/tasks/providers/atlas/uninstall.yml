@@ -56,8 +56,8 @@
 
     - name: "Set Atlas API credentials from AWS Secrets Manager"
       set_fact:
-        atlas_public_key: "{{ atlas_credentials.public_key }}"
-        atlas_private_key: "{{ atlas_credentials.private_key }}"
+        atlas_public_key: "{{ atlas_credentials.mongodb_atlas_api_pub_key }}"
+        atlas_private_key: "{{ atlas_credentials.mongodb_atlas_api_pri_key }}"
       no_log: true
 
   rescue:
@@ -209,56 +209,40 @@
   debug:
     msg: "Cluster '{{ atlas_cluster_name }}' does not exist or has already been deleted"
 
-# 5. Deconfigure VPC peering (if enabled)
+# 5. Remove database users for MAS instances (if configured)
 # -----------------------------------------------------------------------------
-- name: "Deconfigure VPC peering"
-  when:
-    - atlas_cluster_exists
-    - atlas_deconfigure_vpc_peering | default(false) | bool
-    - atlas_vpc_id is defined
-    - atlas_vpc_id != ""
-    - atlas_aws_region is defined
-    - atlas_aws_route_table_ids is defined
-    - atlas_cluster_provider is defined
-  include_tasks: "{{ role_path }}/tasks/providers/atlas/deconfigure_vpc_peering.yml"
-
-# 6. Remove database users (if configured)
-# -----------------------------------------------------------------------------
-- name: "Remove database users"
+- name: "Parse MAS instances for user cleanup"
   when:
     - atlas_cluster_exists
     - atlas_remove_db_users | default(true) | bool
+    - atlas_mas_instances is defined
+    - atlas_mas_instances != ""
+  set_fact:
+    atlas_mas_instances_parsed: "{{ atlas_mas_instances if (atlas_mas_instances is iterable and atlas_mas_instances is not string) else (atlas_mas_instances | from_json if (atlas_mas_instances.startswith('[')) else atlas_mas_instances.split(',')) }}"
+
+- name: "Remove database users for MAS instances"
+  when:
+    - atlas_cluster_exists
+    - atlas_remove_db_users | default(true) | bool
+    - atlas_mas_instances_parsed is defined
+    - atlas_mas_instances_parsed | length > 0
   block:
-    - name: "Get all database users"
+    - name: "Remove database user for each MAS instance"
       uri:
-        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers"
-        method: GET
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers/admin/{{ atlas_cluster_name }}-{{ item }}"
+        method: DELETE
         user: "{{ atlas_public_key }}"
         password: "{{ atlas_private_key }}"
         force_basic_auth: no
-        status_code: [200]
+        status_code: [200, 202, 204, 404]
         timeout: "{{ atlas_api_timeout }}"
-      register: atlas_db_users_list
-      failed_when: false
-
-    - name: "Remove each database user"
-      when: atlas_db_users_list.status == 200 and atlas_db_users_list.json.results | length > 0
-      shell: |
-        curl --request DELETE \
-          --digest \
-          --user "{{ atlas_public_key }}:{{ atlas_private_key }}" \
-          --write-out "\n%{http_code}" \
-          --silent \
-          "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers/{{ item.databaseName }}/{{ item.username }}"
-      loop: "{{ atlas_db_users_list.json.results }}"
+      loop: "{{ atlas_mas_instances_parsed }}"
       register: atlas_user_delete_result
       failed_when: false
-      no_log: true
 
     - name: "Database users cleanup completed"
       debug:
-        msg: "Removed {{ atlas_db_users_list.json.results | length }} database users"
-      when: atlas_db_users_list.status == 200
+        msg: "Removed database users for {{ atlas_mas_instances_parsed | length }} MAS instances: {{ atlas_mas_instances_parsed | join(', ') }}"
 
 # 7. Delete the Atlas cluster
 # -----------------------------------------------------------------------------
@@ -304,46 +288,73 @@
         msg: "{{ 'Cluster deleted successfully' if atlas_cluster_deletion_check.status == 404 else 'Cluster deletion in progress (check Atlas console for status)' }}"
       when: atlas_wait_for_deletion | default(true) | bool
 
-# 8. Clean up AWS Secrets Manager (if applicable)
+# 8. Clean up AWS Secrets Manager secrets (if applicable)
 # -----------------------------------------------------------------------------
-- name: "Clean up AWS Secrets Manager secret"
+- name: "Clean up AWS Secrets Manager secrets"
   when:
-    - atlas_delete_secret | default(false) | bool
-    - atlas_credentials_secret_name_final is defined
-    - atlas_credentials_secret_name_final != ""
-    - atlas_credentials_secret_region is defined
+    - atlas_delete_secret | default(true) | bool
+    - atlas_account_id is defined
+    - atlas_account_id != ""
+    - atlas_cluster_name is defined
+    - atlas_cluster_name != ""
+    - atlas_aws_region is defined
   block:
-    - name: "Check if secret exists"
+    # Delete cluster-level secret
+    - name: "Set cluster secret name"
+      set_fact:
+        atlas_cluster_secret_name: "{{ atlas_account_id }}/{{ atlas_cluster_name }}/mongo"
+
+    - name: "Check if cluster secret exists"
       shell: |
         aws secretsmanager describe-secret \
-          --secret-id "{{ atlas_credentials_secret_name_final }}" \
-          --region "{{ atlas_credentials_secret_region }}" \
+          --secret-id "{{ atlas_cluster_secret_name }}" \
+          --region "{{ atlas_aws_region }}" \
           --output json
-      register: atlas_secret_exists_check
+      register: atlas_cluster_secret_check
       failed_when: false
       changed_when: false
 
-    - name: "Delete AWS Secrets Manager secret"
-      when: atlas_secret_exists_check.rc == 0
+    - name: "Delete cluster secret"
+      when: atlas_cluster_secret_check.rc == 0
       shell: |
         aws secretsmanager delete-secret \
-          --secret-id "{{ atlas_credentials_secret_name_final }}" \
-          --region "{{ atlas_credentials_secret_region }}" \
+          --secret-id "{{ atlas_cluster_secret_name }}" \
+          --region "{{ atlas_aws_region }}" \
           {{ '--force-delete-without-recovery' if (atlas_force_delete_secret | default(false)) else '--recovery-window-in-days 7' }} \
           --output json
-      register: atlas_secret_delete
+      register: atlas_cluster_secret_delete
 
-    - name: "Secret deletion status"
-      when: atlas_secret_exists_check.rc == 0
+    - name: "Cluster secret deletion status"
+      debug:
+        msg: "{{ 'Cluster secret deleted: ' + atlas_cluster_secret_name if atlas_cluster_secret_check.rc == 0 else 'Cluster secret not found: ' + atlas_cluster_secret_name }}"
+
+    # Delete instance-level secrets
+    - name: "Delete instance secrets"
+      when:
+        - atlas_mas_instances_parsed is defined
+        - atlas_mas_instances_parsed | length > 0
+      block:
+        - name: "Delete secret for each MAS instance"
+          shell: |
+            aws secretsmanager delete-secret \
+              --secret-id "{{ atlas_account_id }}/{{ atlas_cluster_name }}/{{ item }}/mongo" \
+              --region "{{ atlas_aws_region }}" \
+              {{ '--force-delete-without-recovery' if (atlas_force_delete_secret | default(false)) else '--recovery-window-in-days 7' }} \
+              --output json
+          loop: "{{ atlas_mas_instances_parsed }}"
+          register: atlas_instance_secrets_delete
+          failed_when: false
+
+        - name: "Instance secrets deletion status"
+          debug:
+            msg: "Deleted {{ atlas_mas_instances_parsed | length }} instance secrets for: {{ atlas_mas_instances_parsed | join(', ') }}"
+
+    - name: "Secrets cleanup summary"
       debug:
         msg:
-          - "Secret '{{ atlas_credentials_secret_name_final }}' deleted"
           - "Deletion type: {{ 'Immediate (force)' if (atlas_force_delete_secret | default(false)) else 'Scheduled (7 day recovery window)' }}"
-
-    - name: "Secret not found"
-      when: atlas_secret_exists_check.rc != 0
-      debug:
-        msg: "Secret '{{ atlas_credentials_secret_name_final }}' does not exist or has already been deleted"
+          - "Cluster secret: {{ atlas_cluster_secret_name }}"
+          - "Instance secrets: {{ atlas_mas_instances_parsed | length if (atlas_mas_instances_parsed is defined) else 0 }}"
 
 # 9. Display decommission results
 # -----------------------------------------------------------------------------
