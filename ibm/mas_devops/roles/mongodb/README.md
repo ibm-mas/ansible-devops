@@ -1955,6 +1955,54 @@ Mongo Certificates, please refer to the below example playbook section for detai
 
 ## Role Variables - MongoDB Atlas
 
+### Overview
+
+The MongoDB Atlas provider automates the complete lifecycle of Atlas cluster provisioning, including:
+
+1. **Project Creation**: Creates or verifies an Atlas project within your organization
+2. **Backup Compliance Policy**: Configures automated backup policies with compliance settings
+3. **Cluster Provisioning**: Creates a MongoDB cluster with specified configuration
+4. **Database Users**: Creates instance-specific database users with scoped permissions
+5. **Secret Management**: Stores connection information in AWS Secrets Manager
+   - **Cluster-level secret**: `<account_id>/<cluster_name>/mongo` (empty credentials for cluster metadata)
+   - **Instance-level secrets**: `<account_id>/<cluster_name>/<instance_id>/mongo` (with user credentials)
+
+### Atlas Project Configuration
+
+#### atlas_org_id
+MongoDB Atlas organization ID where the project will be created.
+
+- **Required** when creating a new project (when `atlas_project_id` is not provided)
+- Environment Variable: `ATLAS_ORG_ID`
+- Default Value: None
+
+**Purpose**: Identifies the Atlas organization that will contain the project. Required for project creation.
+
+**When to use**: Required when `atlas_project_name` is provided but `atlas_project_id` is not.
+
+**Valid values**: 24-character hexadecimal string (e.g., `507f1f77bcf86cd799439011`)
+
+**Impact**: Determines which organization owns the project and its billing.
+
+**How to find**: Atlas Console → Organization Settings → Organization ID
+
+#### atlas_project_name
+Name for the Atlas project to create or find.
+
+- **Required** when `atlas_project_id` is not provided
+- Environment Variable: `ATLAS_PROJECT_NAME`
+- Default Value: None
+
+**Purpose**: Name of the Atlas project. If a project with this name exists in the organization, it will be used; otherwise, a new project will be created.
+
+**When to use**: Use instead of `atlas_project_id` when you want the role to find or create a project by name.
+
+**Valid values**: Alphanumeric string with spaces, hyphens, and underscores allowed
+
+**Impact**: Determines the project name in Atlas console and API operations.
+
+**Related variables**: Requires `atlas_org_id` when creating a new project. Alternative to `atlas_project_id`.
+
 #### atlas_project_id
 MongoDB Atlas project ID where the cluster will be created.
 
@@ -2017,15 +2065,45 @@ AWS Secrets Manager secret name containing Atlas API credentials.
 
 **Purpose**: Retrieves Atlas API credentials from AWS Secrets Manager instead of using environment variables. Recommended for production deployments.
 
-**When to use**: Use instead of `atlas_public_key`/`atlas_private_key` for better security. Secret must contain JSON with `public_key` and `private_key` fields.
+**When to use**: Use instead of `atlas_public_key`/`atlas_private_key` for better security. Secret must contain JSON with specific field names.
 
-**Valid values**: AWS Secrets Manager secret name or ARN
+**Valid values**: AWS Secrets Manager secret name in format `<account_id>/mongodb-atlas` or full ARN
 
 **Impact**: When set, Atlas API credentials are retrieved from AWS Secrets Manager. Requires AWS CLI configured and appropriate IAM permissions.
 
 **Related variables**: Requires `atlas_aws_secret_region`. Alternative to `atlas_public_key`/`atlas_private_key`.
 
-**Note**: Secret format: `{"public_key": "xxx", "private_key": "yyy"}`
+**Secret Naming Convention**: The secret should follow the naming pattern `<account_id>/mongodb-atlas` where `<account_id>` is your AWS account ID (e.g., `123456789012/mongodb-atlas`).
+
+**Secret Format**: The AWS Secrets Manager secret must contain a JSON object with the following fields:
+```json
+{
+  "mongodb_atlas_api_pub_key": "your-atlas-public-key",
+  "mongodb_atlas_api_pri_key": "your-atlas-private-key"
+}
+```
+
+**How to create the secret**:
+```bash
+# Replace 123456789012 with your AWS account ID
+export ACCOUNT_ID="123456789012"
+export SECRET_NAME="${ACCOUNT_ID}/mongodb-atlas"
+
+# Create the secret with Atlas API credentials
+aws secretsmanager create-secret \
+  --name "${SECRET_NAME}" \
+  --description "MongoDB Atlas API credentials for account ${ACCOUNT_ID}" \
+  --secret-string '{"mongodb_atlas_api_pub_key":"YOUR_PUBLIC_KEY","mongodb_atlas_api_pri_key":"YOUR_PRIVATE_KEY"}' \
+  --region us-east-1
+
+# Or update an existing secret
+aws secretsmanager put-secret-value \
+  --secret-id "${SECRET_NAME}" \
+  --secret-string '{"mongodb_atlas_api_pub_key":"YOUR_PUBLIC_KEY","mongodb_atlas_api_pri_key":"YOUR_PRIVATE_KEY"}' \
+  --region us-east-1
+```
+
+**Note**: The field names must be exactly `mongodb_atlas_api_pub_key` and `mongodb_atlas_api_pri_key` as shown above.
 
 #### atlas_aws_secret_region
 AWS region where the Secrets Manager secret is stored.
@@ -2138,17 +2216,319 @@ Enable automated backups for the Atlas cluster.
 
 - **Optional** when `mongodb_provider=atlas`
 - Environment Variable: `ATLAS_BACKUP_ENABLED`
-- Default Value: `true`
+- Default Value: `false`
 
 **Purpose**: Controls whether Atlas creates automated backups of the cluster.
 
-**When to use**: Leave enabled (default) for production. Disable only for temporary/test clusters.
+**When to use**: Enable for production clusters. Disable only for temporary/test clusters.
 
 **Valid values**: `true`, `false`
 
 **Impact**: When enabled, Atlas creates continuous backups with point-in-time recovery. Affects cluster cost.
 
 **Note**: Highly recommended for production deployments.
+
+**Related variables**: Required to be `true` when `atlas_backup_compliance_enabled` is enabled.
+
+### Atlas Backup Compliance Policy Configuration
+
+The backup compliance policy enforces backup retention and protection rules at the project level. When enabled, it applies to all clusters in the project.
+
+#### atlas_backup_compliance_enabled
+Enable backup compliance policy for the Atlas project.
+
+- **Optional** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_BACKUP_COMPLIANCE_ENABLED`
+- Default Value: `false`
+
+**Purpose**: Enables backup compliance policy with configurable retention schedules and protection settings.
+
+**When to use**: Enable for production environments requiring regulatory compliance or strict backup retention policies.
+
+**Valid values**: `true`, `false`
+
+**Impact**: Enforces backup retention policies, prevents unauthorized backup deletion, and enables compliance features.
+
+**Note**: Requires `atlas_backup_enabled: true` on the cluster. Once enabled, compliance policy cannot be disabled without contacting Atlas support.
+
+**Related variables**: Requires multiple `atlas_compliance_*` variables for configuration.
+
+#### atlas_compliance_authorized_email
+Email address of the authorized user for compliance policy changes.
+
+- **Required** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_AUTHORIZED_EMAIL`
+- Default Value: `admin@example.com`
+
+**Purpose**: Identifies the user authorized to make changes to the backup compliance policy.
+
+**Valid values**: Valid email address
+
+**Impact**: Used for audit trail and authorization of compliance policy changes.
+
+#### atlas_compliance_authorized_first_name
+First name of the authorized user for compliance policy changes.
+
+- **Required** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_AUTHORIZED_FIRST_NAME`
+- Default Value: `Admin`
+
+**Purpose**: First name of the authorized user for compliance policy.
+
+**Valid values**: String
+
+#### atlas_compliance_authorized_last_name
+Last name of the authorized user for compliance policy changes.
+
+- **Required** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_AUTHORIZED_LAST_NAME`
+- Default Value: `User`
+
+**Purpose**: Last name of the authorized user for compliance policy.
+
+**Valid values**: String
+
+#### atlas_compliance_copy_protection
+Enable copy protection for backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_COPY_PROTECTION`
+- Default Value: `false`
+
+**Purpose**: Prevents copying of backup snapshots to other regions or projects.
+
+**Valid values**: `true`, `false`
+
+**Impact**: When enabled, backups cannot be copied outside the configured region.
+
+#### atlas_compliance_encryption_at_rest
+Enable encryption at rest for backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_ENCRYPTION_AT_REST`
+- Default Value: `false`
+
+**Purpose**: Ensures all backup snapshots are encrypted at rest.
+
+**Valid values**: `true`, `false`
+
+**Impact**: Adds encryption layer to backup storage.
+
+#### atlas_compliance_pit_enabled
+Enable point-in-time restore for compliance backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_PIT_ENABLED`
+- Default Value: `false`
+
+**Purpose**: Enables continuous backup with point-in-time recovery capability.
+
+**Valid values**: `true`, `false`
+
+**Impact**: Allows restore to any point in time within the retention window. Increases backup storage costs.
+
+#### atlas_compliance_restore_window_days
+Number of days for the restore window.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_RESTORE_WINDOW_DAYS`
+- Default Value: `7`
+
+**Purpose**: Defines how many days of continuous backup history are maintained for point-in-time restore.
+
+**Valid values**: Integer (1-365)
+
+**Impact**: Determines the maximum age of data that can be restored.
+
+#### atlas_compliance_hourly_frequency_interval
+Frequency interval for hourly backups (in hours).
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_HOURLY_FREQUENCY_INTERVAL`
+- Default Value: `6`
+
+**Purpose**: How often hourly snapshots are taken.
+
+**Valid values**: Integer (1, 2, 4, 6, 8, 12)
+
+**Impact**: More frequent backups provide finer recovery granularity but increase storage costs.
+
+#### atlas_compliance_hourly_retention_unit
+Retention unit for hourly backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_HOURLY_RETENTION_UNIT`
+- Default Value: `days`
+
+**Purpose**: Unit of time for hourly backup retention.
+
+**Valid values**: `days`, `weeks`, `months`
+
+#### atlas_compliance_hourly_retention_value
+Retention value for hourly backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_HOURLY_RETENTION_VALUE`
+- Default Value: `7`
+
+**Purpose**: How long to retain hourly backups.
+
+**Valid values**: Integer (1-365 for days, 1-52 for weeks, 1-36 for months)
+
+**Impact**: Longer retention increases storage costs.
+
+#### atlas_compliance_daily_frequency_interval
+Frequency interval for daily backups (in days).
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_DAILY_FREQUENCY_INTERVAL`
+- Default Value: `1`
+
+**Purpose**: How often daily snapshots are taken.
+
+**Valid values**: Integer (1-365)
+
+#### atlas_compliance_daily_retention_unit
+Retention unit for daily backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_DAILY_RETENTION_UNIT`
+- Default Value: `days`
+
+**Purpose**: Unit of time for daily backup retention.
+
+**Valid values**: `days`, `weeks`, `months`
+
+#### atlas_compliance_daily_retention_value
+Retention value for daily backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_DAILY_RETENTION_VALUE`
+- Default Value: `7`
+
+**Purpose**: How long to retain daily backups.
+
+**Valid values**: Integer (1-365 for days, 1-52 for weeks, 1-36 for months)
+
+#### atlas_compliance_weekly_frequency_interval
+Frequency interval for weekly backups (in weeks).
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_WEEKLY_FREQUENCY_INTERVAL`
+- Default Value: `1`
+
+**Purpose**: How often weekly snapshots are taken.
+
+**Valid values**: Integer (1-52)
+
+#### atlas_compliance_weekly_retention_unit
+Retention unit for weekly backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_WEEKLY_RETENTION_UNIT`
+- Default Value: `weeks`
+
+**Purpose**: Unit of time for weekly backup retention.
+
+**Valid values**: `weeks`, `months`, `years`
+
+#### atlas_compliance_weekly_retention_value
+Retention value for weekly backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_WEEKLY_RETENTION_VALUE`
+- Default Value: `4`
+
+**Purpose**: How long to retain weekly backups.
+
+**Valid values**: Integer (1-52 for weeks, 1-36 for months, 1-10 for years)
+
+#### atlas_compliance_monthly_frequency_interval
+Frequency interval for monthly backups (in months).
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_MONTHLY_FREQUENCY_INTERVAL`
+- Default Value: `1`
+
+**Purpose**: How often monthly snapshots are taken.
+
+**Valid values**: Integer (1-12)
+
+#### atlas_compliance_monthly_retention_unit
+Retention unit for monthly backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_MONTHLY_RETENTION_UNIT`
+- Default Value: `months`
+
+**Purpose**: Unit of time for monthly backup retention.
+
+**Valid values**: `months`, `years`
+
+#### atlas_compliance_monthly_retention_value
+Retention value for monthly backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_MONTHLY_RETENTION_VALUE`
+- Default Value: `12`
+
+**Purpose**: How long to retain monthly backups.
+
+**Valid values**: Integer (1-36 for months, 1-10 for years)
+
+#### atlas_compliance_yearly_frequency_interval
+Frequency interval for yearly backups (in years).
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_YEARLY_FREQUENCY_INTERVAL`
+- Default Value: `1`
+
+**Purpose**: How often yearly snapshots are taken.
+
+**Valid values**: Integer (1-10)
+
+#### atlas_compliance_yearly_retention_unit
+Retention unit for yearly backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_YEARLY_RETENTION_UNIT`
+- Default Value: `years`
+
+**Purpose**: Unit of time for yearly backup retention.
+
+**Valid values**: `years`
+
+#### atlas_compliance_yearly_retention_value
+Retention value for yearly backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_YEARLY_RETENTION_VALUE`
+- Default Value: `1`
+
+**Purpose**: How long to retain yearly backups.
+
+**Valid values**: Integer (1-10)
+
+**Impact**: Longer retention increases storage costs significantly.
+
+### Atlas Database Users Configuration
+
+#### atlas_mas_instances
+List of MAS instance names for creating instance-specific database users.
+
+- **Optional** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_MAS_INSTANCES`
+- Default Value: `[]`
+
+**Purpose**: Defines MAS instances that will use this cluster. Each instance gets a dedicated database user with scoped permissions.
+
+**When to use**: Provide when deploying Atlas cluster for multiple MAS instances.
+
+**Valid values**: List of instance names or comma-separated string (e.g., `["inst1", "inst2"]` or `"inst1,inst2"`)
+
+**Impact**: Creates one database user per instance with username format `<instance_name>-user`.
+
+**Related variables**: Used with `atlas_store_credentials_in_secret` to create instance-level secrets.
 
 #### atlas_database_users
 Multi-user database configuration for Atlas cluster.
@@ -2214,6 +2594,25 @@ Legacy single database user password.
 
 **Note**: Store securely. Never commit to version control.
 
+### Atlas Secret Management Configuration
+
+#### atlas_account_id
+AWS account ID for secret naming convention.
+
+- **Required** when `atlas_store_credentials_in_secret=true`
+- Environment Variable: `ATLAS_ACCOUNT_ID`
+- Default Value: None
+
+**Purpose**: Used to construct secret names in the format `<account_id>/<cluster_name>/mongo` and `<account_id>/<cluster_name>/<instance_id>/mongo`.
+
+**When to use**: Required when storing credentials in AWS Secrets Manager.
+
+**Valid values**: 12-digit AWS account ID
+
+**Impact**: Determines the secret naming structure in AWS Secrets Manager.
+
+**Related variables**: Used with `atlas_store_credentials_in_secret`.
+
 #### atlas_store_credentials_in_secret
 Store Atlas connection information in AWS Secrets Manager.
 
@@ -2221,81 +2620,30 @@ Store Atlas connection information in AWS Secrets Manager.
 - Environment Variable: `ATLAS_STORE_CREDENTIALS_IN_SECRET`
 - Default Value: `false`
 
-**Purpose**: Automatically stores Atlas connection details (hosts, port, username, password, CA cert) in AWS Secrets Manager after provisioning.
+**Purpose**: Automatically stores Atlas connection details in AWS Secrets Manager after provisioning. Creates two types of secrets:
+- **Cluster-level secret**: `<account_id>/<cluster_name>/mongo` - Contains cluster metadata (hosts, port, CA certificates) with empty username/password
+- **Instance-level secrets**: `<account_id>/<cluster_name>/<instance_id>/mongo` - Contains instance-specific credentials (username, password) plus cluster metadata
 
-**When to use**: Enable for production deployments to centralize credential management.
+**When to use**: Enable for production deployments to centralize credential management and enable MAS to retrieve connection information.
 
 **Valid values**: `true`, `false`
 
-**Impact**: Creates/updates AWS Secrets Manager secret with connection information.
+**Impact**: Creates/updates AWS Secrets Manager secrets with connection information. Requires AWS CLI configured with appropriate IAM permissions.
 
-**Related variables**: Requires `atlas_credentials_secret_name` or `atlas_credentials_secret_prefix`/`atlas_mongodb_secret_name`.
+**Related variables**: Requires `atlas_account_id`, `atlas_cluster_name`, and `atlas_aws_region`. Works with `atlas_mas_instances` to create instance-level secrets.
 
-#### atlas_credentials_secret_name
-Full AWS Secrets Manager secret name for storing connection information.
+**Secret Structure**:
+```json
+{
+  "info": "# YAML content with hosts, port, CA certificates",
+  "username": "instance-user",
+  "password": "generated-password"
+}
+```
 
-- **Optional** when `mongodb_provider=atlas` and `atlas_store_credentials_in_secret=true`
-- Environment Variable: `ATLAS_CREDENTIALS_SECRET_NAME`
-- Default Value: None
+**Note**: The cluster-level secret has empty `username` and `password` fields (or `docdb_username`/`docdb_password` for compatibility), while instance-level secrets contain actual credentials.
 
-**Purpose**: Specifies exact secret name for storing Atlas connection information.
-
-**When to use**: Use when you want full control over secret naming.
-
-**Valid values**: Valid AWS Secrets Manager secret name
-
-**Impact**: Connection information stored at this exact secret name.
-
-**Related variables**: Alternative to using `atlas_credentials_secret_prefix`/`atlas_mongodb_secret_name`.
-
-#### atlas_credentials_secret_prefix
-Prefix for building AWS Secrets Manager secret name.
-
-- **Optional** when `mongodb_provider=atlas` and `atlas_store_credentials_in_secret=true`
-- Environment Variable: `ATLAS_CREDENTIALS_SECRET_PREFIX`
-- Default Value: None
-
-**Purpose**: Prefix for constructing secret name in format: `{prefix}/{name}/mongo`
-
-**When to use**: Use with `atlas_mongodb_secret_name` for consistent naming pattern.
-
-**Valid values**: Valid secret name prefix (e.g., `/aws-dev`, `/prod`)
-
-**Impact**: Combined with `atlas_mongodb_secret_name` to create full secret path.
-
-**Related variables**: Used with `atlas_mongodb_secret_name`. Alternative to `atlas_credentials_secret_name`.
-
-#### atlas_mongodb_secret_name
-Name component for building AWS Secrets Manager secret name.
-
-- **Optional** when `mongodb_provider=atlas` and `atlas_store_credentials_in_secret=true`
-- Environment Variable: `ATLAS_MONGODB_SECRET_NAME`
-- Default Value: None
-
-**Purpose**: Name component for constructing secret name in format: `{prefix}/{name}/mongo`
-
-**When to use**: Use with `atlas_credentials_secret_prefix` for consistent naming pattern.
-
-**Valid values**: Valid secret name component
-
-**Impact**: Combined with `atlas_credentials_secret_prefix` to create full secret path.
-
-**Related variables**: Used with `atlas_credentials_secret_prefix`. Alternative to `atlas_credentials_secret_name`.
-
-#### atlas_credentials_secret_region
-AWS region for storing connection information secret.
-
-- **Optional** when `mongodb_provider=atlas` and `atlas_store_credentials_in_secret=true`
-- Environment Variable: `ATLAS_CREDENTIALS_SECRET_REGION`
-- Default Value: `us-east-1`
-
-**Purpose**: Specifies AWS region where connection information secret will be stored.
-
-**When to use**: Set when storing secret in region other than us-east-1.
-
-**Valid values**: Valid AWS region name
-
-**Impact**: Determines which AWS region stores the connection secret.
+### Atlas VPC/PrivateLink Configuration
 
 #### atlas_vpc_id
 AWS VPC ID for VPC peering with Atlas.
@@ -2501,6 +2849,76 @@ Local path to the MongoDB index backup JSON file.
     mongodb_provider: ibm
     ibmcloud_apikey: apikey****
     ibmcloud_resource_group: mas-test
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
+### Install (MongoDB Atlas)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_provider: atlas
+    mongodb_action: install
+    
+    # Atlas API credentials (or use atlas_aws_secret_name)
+    atlas_public_key: "your-atlas-public-key"
+    atlas_private_key: "your-atlas-private-key"
+    
+    # Project configuration (creates project if it doesn't exist)
+    atlas_org_id: "507f1f77bcf86cd799439011"
+    atlas_project_name: "MAS Production"
+    
+    # Cluster configuration
+    atlas_cluster_name: "mas-cluster"
+    atlas_cluster_provider: "AWS"
+    atlas_aws_region: "US_EAST_1"
+    atlas_cluster_size: "M10"
+    atlas_mongodb_version: "7.0"
+    
+    # Backup configuration
+    atlas_backup_enabled: true
+    atlas_backup_compliance_enabled: true
+    atlas_compliance_authorized_email: "admin@example.com"
+    atlas_compliance_authorized_first_name: "Admin"
+    atlas_compliance_authorized_last_name: "User"
+    
+    # MAS instances (creates dedicated users for each)
+    atlas_mas_instances: "inst1,inst2,inst3"
+    
+    # PrivateLink configuration
+    atlas_privatelink_enabled: true
+    atlas_vpc_id: "vpc-0123456789abcdef0"
+    atlas_subnet_ids: "subnet-111,subnet-222,subnet-333"
+    atlas_rosa_cidr_ranges: "10.0.0.0/16"
+    
+    # Secret management
+    atlas_store_credentials_in_secret: true
+    atlas_account_id: "123456789012"
+    
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
+### Install (MongoDB Atlas - Minimal Configuration)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_provider: atlas
+    
+    # Credentials from AWS Secrets Manager
+    atlas_aws_secret_name: "atlas-api-credentials"
+    atlas_aws_secret_region: "us-east-1"
+    
+    # Use existing project
+    atlas_project_id: "507f1f77bcf86cd799439011"
+    
+    # Cluster configuration
+    atlas_cluster_name: "mas-dev-cluster"
+    atlas_aws_region: "US_EAST_1"
+    atlas_cluster_size: "M10"
+    
   roles:
     - ibm.mas_devops.mongodb
 ```
