@@ -50,25 +50,6 @@ The following specific images are also mirrored:
 2. quay.io/community-operator-pipeline-prod/opendatahub-operator:2.32.0
 3. quay.io/opendatahub/opendatahub-operator:v2.32.0
 
-## Signature Mirroring Strategy
-This role implements **selective signature mirroring** to handle missing image signatures in the Red Hat Certified Operator Catalog while preserving signatures for Red Hat operators.
-
-### Background
-Some certified operators (gpu-operator, kubeturbo, ibm-data-reporter, ibm-metrics-operator) from `registry.connect.redhat.com` have missing image signature manifests (.sig files). When oc-mirror attempts to copy these signatures, it fails with "name unknown: Image not found" errors.
-
-### Implementation
-The role uses the `--registries.d` flag with a custom configuration that:
-- **Disables** signature copying only for `registry.connect.redhat.com` (certified operators)
-- **Preserves** signature copying for all other registries (Red Hat operators)
-
-This provides better security than using `--remove-signatures` globally, as it maintains signature verification for Red Hat operators while bypassing the known issue with certified operators.
-
-### Configuration
-The registry configuration is automatically generated in `{{ mirror_working_dir }}/registries.d/registry.connect.redhat.com.yaml` and applied to all mirroring operations.
-
-**Reference**: Red Hat Support Case #04446606 - This is a known issue with the Red Hat Certified Operator Catalog.
-
-
 ## Requirements
 - `oc` tool must be installed
 - `oc-mirror` plugin must be installed
