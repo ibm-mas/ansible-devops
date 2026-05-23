@@ -1,0 +1,20 @@
+---
+- name: "cis: validate rule {{ item.rule_id }} exists"
+  ansible.builtin.shell: |
+    ibmcloud cis managed-waf ruleset {{ (_cis_domains_result.stdout | from_json)[0].id }} {{ _cis_ruleset_result.stdout }} --output json | jq -r --arg rule_id {{ item.rule_id }} '.rules[] | select(.id == $rule_id) | .id'
+  failed_when: false
+  register: _cis_rule_check
+
+- name: "cis: Check if rule exists. "
+  ansible.builtin.debug:
+    msg: "cis: rule {{ item.rule_id }} does not exist. Skipping"
+  when: _cis_rule_check.stdout | trim | length == 0
+  failed_when: false
+
+- name: "cis: disable rule {{ item.rule_id }}"
+  ansible.builtin.shell: |
+    ibmcloud cis managed-waf deployment-update-ruleset {{ (_cis_domains_result.stdout | from_json)[0].id }} {{ _cis_rule_id_result.stdout }} \
+    --override-rules rule={{ item.rule_id }},action=block,enabled=false -i "{{ cis_service_name }}"
+  register: _cis_ruleset_rule_disable_result
+  failed_when: false
+  when: _cis_rule_check.stdout | trim | length > 0

@@ -1,19 +1,66 @@
 ---
-- include_tasks: tasks/providers/cis/cis_dns_mgmt.yml
+- ansible.builtin.include_tasks: tasks/providers/cis/cis_dns_mgmt.yml
 
 - name: "cis : login to IBM Cloud"
-  shell: |
+  ansible.builtin.shell: |
     ibmcloud login --apikey "{{ cis_apikey }}" -q --no-region
   retries: 10
   delay: 60 # 1 minute
 
 - include_tasks: tasks/providers/cis/cis_edge_certificate.yml
 
-# Load the WAF rules to disable
-- name: "cis : WAF rules to disable"
-  include_vars: vars/waf_rules_to_disable.yml
+- name: "cis: use managed_rulesets"
+  ansible.builtin.shell: |
+    ibmcloud cis waf-packages {{ (_cis_domains_result.stdout | from_json)[0].id}}
+  failed_when: false
+  register: error_output
 
-- include_tasks: tasks/providers/cis/cis_waf_rule.yml
-  loop: "{{ waf_rules_to_disable }}"
 
-- include_tasks: tasks/providers/cis/cis_domain_setting.yml
+- name: "cis: configure WAF rules"
+  when: error_output.rc == 0
+  block:
+  # Load the WAF rules to disable
+
+    - name: "cis : WAF rules to disable"
+      include_vars: vars/waf_rules_to_disable.yml
+
+    - include_tasks: tasks/providers/cis/cis_waf_rule.yml
+      loop: "{{ waf_rules_to_disable }}"
+
+- name: "cis: Configure WAF managed rulesets"
+  when: error_output.rc != 0
+  block:
+
+    - name: "cis: list of managed ruleset rules to disable"
+      ansible.builtin.include_vars: vars/managed_ruleset_rules_to_disable.yml
+
+    - name: "cis: get CIS Managed Ruleset ruleset_id"
+      ansible.builtin.shell: |
+        ibmcloud cis managed-waf rulesets {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+        --output json | jq '.[] | select(.name == "CIS Managed Ruleset") | .id'
+      register: _cis_ruleset_result
+
+    - name: "cis: get deployed rule id for CIS Managed Ruleset id"
+      ansible.builtin.shell: |
+        ibmcloud cis managed-waf deployments {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+        --output json | jq -r --arg target_id {{ _cis_ruleset_result.stdout }} '.rules[] | select(.action_parameters.id == $target_id) | .id'
+      register: _cis_rule_id_result
+
+    - name: "cis: add CIS Managed Ruleset to WAF when WAF rule does not exist"
+      ansible.builtin.shell: |
+        ibmcloud cis managed-waf deployment-add-ruleset {{ (_cis_domains_result.stdout | from_json)[0].id }} {{ _cis_ruleset_result.stdout }} --enabled true
+      when: _cis_rule_id_result.stdout | trim | length == 0
+
+    - name: "cis: get deployed rule id for CIS Managed Ruleset id"
+      ansible.builtin.shell: |
+        ibmcloud cis managed-waf deployments {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+        --output json | jq -r --arg target_id "{{ _cis_ruleset_result.stdout }}" '.rules[] | select(.action_parameters.id == $target_id) | .id'
+      register: _cis_rule_id_result
+
+    - name: "cis: enable CIS Default Ruleset"
+      ansible.builtin.shell: |
+        ibmcloud cis managed-waf deployment-update-ruleset {{ (_cis_domains_result.stdout | from_json)[0].id }} {{ _cis_rule_id_result.stdout }} --enabled true
+
+    - ansible.builtin.include_tasks: tasks/providers/cis/cis_managed_ruleset.yml
+      loop: "{{ managed_ruleset_rules_to_disable }}"
+- ansible.builtin.include_tasks: tasks/providers/cis/cis_domain_setting.yml
