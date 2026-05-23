@@ -1,0 +1,33 @@
+---
+# Setup registries.d configuration for selective signature mirroring
+# This allows us to disable signature copying only for registries with missing signatures
+# while preserving signatures for Red Hat operators that have complete coverage
+# -----------------------------------------------------------------------------
+
+- name: "Create registries.d configuration directory"
+  ansible.builtin.file:
+    path: "{{ mirror_working_dir }}/registries.d"
+    state: directory
+    mode: "0755"
+
+- name: "Generate registry.connect.redhat.com configuration"
+  ansible.builtin.copy:
+    content: |
+      # Registry configuration for registry.connect.redhat.com
+      # Disables signature mirroring for certified operators that have missing .sig files
+      # This is a known issue with the Red Hat Certified Operator Catalog
+      # Reference: Red Hat Support Case #04446606
+
+      docker:
+        registry.connect.redhat.com:
+          sigstore-staging: file:///var/lib/containers/sigstore
+          sigstore: ""
+    dest: "{{ mirror_working_dir }}/registries.d/registry.connect.redhat.com.yaml"
+    mode: "0644"
+
+- name: "Debug registries.d configuration"
+  debug:
+    msg:
+      - "Registries.d directory ............. {{ mirror_working_dir }}/registries.d"
+      - "Configuration ...................... Signature mirroring disabled for registry.connect.redhat.com"
+      - "Benefit ............................ Preserves signatures for Red Hat operators while bypassing missing signatures in certified operators"
