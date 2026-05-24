@@ -44,11 +44,7 @@ class ActionModule(ActionBase):
           # [NOTREADY] ibm-cpd/wd-discovery-ranker-rest = 1 replicas/None ready/1 updated/None available
           # [NOTREADY] ibm-cpd/ax-wdp-notebooks-api-deploy = 1 replicas/None ready/1 updated/None available
           "wd-discovery-ranker-rest",
-          "ax-wdp-notebooks-api-deploy",
-          # [NOTREADY] mas-*-monitor/*-v2-deviceidpopulation-scheduler = 1 replicas/None ready/1 updated/None available
-          # Missing /healthcheck endpoint in Monitor versions 9.0.0 to 9.0.21
-          # TODO: Remove this ignore rule once Monitor >= 9.0.22 is deployed everywhere
-          "v2-deviceidpopulation-scheduler"
+          "ax-wdp-notebooks-api-deploy"
         ]
 
         allResourcesHealthy = False
