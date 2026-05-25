@@ -5,55 +5,55 @@
   ansible.builtin.debug:
     msg:
       - "Uninstalling External Secrets Operator"
-      - "Namespace: {{ external_secrets_namespace }}"
-      - "Release: {{ external_secrets_release_name }}"
-      - "Cleanup CRDs: {{ external_secrets_cleanup_crds }}"
-      - "Cleanup Namespace: {{ external_secrets_cleanup_namespace }}"
+      - "Namespace: {{ eso_namespace }}"
+      - "Release: {{ eso_release_name }}"
+      - "Cleanup CRDs: {{ eso_cleanup_crds }}"
+      - "Cleanup Namespace: {{ eso_cleanup_namespace }}"
   tags:
     - uninstall
-    - external-secrets
+    - eso
 
 - name: "uninstall : Uninstall External Secrets Operator Helm release"
   kubernetes.core.helm:
-    name: "{{ external_secrets_release_name }}"
-    release_namespace: "{{ external_secrets_namespace }}"
+    name: "{{ eso_release_name }}"
+    release_namespace: "{{ eso_namespace }}"
     state: absent
     wait: yes
     wait_timeout: 10m
   tags:
     - uninstall
-    - external-secrets
+    - eso
 
 # Delete CRDs if cleanup flag is set
 # -----------------------------------------------------------------------------
 - name: "uninstall : Get all External Secrets CRDs"
-  when: external_secrets_cleanup_crds | bool
+  when: eso_cleanup_crds | bool
   kubernetes.core.k8s_info:
     api_version: apiextensions.k8s.io/v1
     kind: CustomResourceDefinition
   register: all_crds
   tags:
     - uninstall
-    - external-secrets
+    - eso
 
 - name: "uninstall : Filter External Secrets CRDs"
-  when: external_secrets_cleanup_crds | bool
+  when: eso_cleanup_crds | bool
   ansible.builtin.set_fact:
-    external_secrets_crds: "{{ all_crds.resources | selectattr('metadata.name', 'search', 'external-secrets.io$') | map(attribute='metadata.name') | list }}"
+    eso_crds: "{{ all_crds.resources | selectattr('metadata.name', 'search', 'external-secrets.io$') | map(attribute='metadata.name') | list }}"
   tags:
     - uninstall
-    - external-secrets
+    - eso
 
 - name: "uninstall : Display CRDs to be deleted"
-  when: external_secrets_cleanup_crds | bool
+  when: eso_cleanup_crds | bool
   ansible.builtin.debug:
-    msg: "Deleting {{ external_secrets_crds | length }} External Secrets CRDs: {{ external_secrets_crds | join(', ') }}"
+    msg: "Deleting {{ eso_crds | length }} External Secrets CRDs: {{ eso_crds | join(', ') }}"
   tags:
     - uninstall
-    - external-secrets
+    - eso
 
 - name: "uninstall : Delete External Secrets CRDs"
-  when: external_secrets_cleanup_crds | bool
+  when: eso_cleanup_crds | bool
   kubernetes.core.k8s:
     state: absent
     api_version: apiextensions.k8s.io/v1
@@ -61,25 +61,25 @@
     name: "{{ item }}"
     wait: yes
     wait_timeout: 300
-  loop: "{{ external_secrets_crds }}"
+  loop: "{{ eso_crds }}"
   tags:
     - uninstall
-    - external-secrets
+    - eso
 
 # Delete namespace if cleanup flag is set
 # -----------------------------------------------------------------------------
-- name: "uninstall : Delete {{ external_secrets_namespace }} namespace"
-  when: external_secrets_cleanup_namespace | bool
+- name: "uninstall : Delete {{ eso_namespace }} namespace"
+  when: eso_cleanup_namespace | bool
   kubernetes.core.k8s:
     state: absent
     api_version: v1
     kind: Namespace
-    name: "{{ external_secrets_namespace }}"
+    name: "{{ eso_namespace }}"
     wait: yes
     wait_timeout: 600
   tags:
     - uninstall
-    - external-secrets
+    - eso
 
 # Display uninstallation summary
 # -----------------------------------------------------------------------------
@@ -87,11 +87,11 @@
   ansible.builtin.debug:
     msg:
       - "External Secrets Operator has been successfully uninstalled"
-      - "Helm release removed: {{ external_secrets_release_name }}"
-      - "CRDs removed: {{ external_secrets_cleanup_crds }}"
-      - "Namespace removed: {{ external_secrets_cleanup_namespace }}"
+      - "Helm release removed: {{ eso_release_name }}"
+      - "CRDs removed: {{ eso_cleanup_crds }}"
+      - "Namespace removed: {{ eso_cleanup_namespace }}"
   tags:
     - uninstall
-    - external-secrets
+    - eso
 
 # Made with Bob

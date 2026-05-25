@@ -1,0 +1,40 @@
+---
+# Display configuration parameters
+# -----------------------------------------------------------------------------
+- name: "Debug External Secrets Operator Parameters"
+  ansible.builtin.debug:
+    msg:
+      - "Action ................................. {{ eso_action }}"
+      - "Namespace .............................. {{ eso_namespace }}"
+      - "Release Name ........................... {{ eso_release_name }}"
+      - "Helm Repository ........................ {{ eso_repo_url }}"
+      - "Chart Version .......................... {{ eso_chart_version | default('latest', true) }}"
+      - "Cleanup CRDs on Uninstall .............. {{ eso_cleanup_crds }}"
+      - "Cleanup Namespace on Uninstall ......... {{ eso_cleanup_namespace }}"
+      - "Provider ............................... {{ eso_provider }}" 
+
+# Validate action parameter
+# -----------------------------------------------------------------------------
+- name: "Validate eso_action parameter"
+  ansible.builtin.assert:
+    that:
+      - eso_action is defined
+      - eso_action in ['install', 'uninstall', 'create-clustersecretstore']
+    fail_msg: "eso_action must be either 'install', 'uninstall', 'create-clustersecretstore'; got '{{ eso_action }}'"
+
+# Execute the chosen action
+# -----------------------------------------------------------------------------
+- name: "Execute {{ eso_action }} action"
+  block:
+    - ansible.builtin.include_tasks: "{{ eso_action }}.yml"
+      when:
+        - eso_action in ['install', 'uninstall']
+
+    - ansible.builtin.include_tasks: "tasks/providers/{{ eso_provider }}/{{ eso_action }}.yml"
+      when:
+        - eso_action not in ['install', 'uninstall']
+        - eso_provider is defined and eso_provider != ""
+
+
+
+# Made with Bob

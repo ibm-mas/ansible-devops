@@ -4,10 +4,10 @@
 - name: "install : Add External Secrets Helm repository"
   kubernetes.core.helm_repository:
     name: external-secrets
-    repo_url: "{{ external_secrets_repo_url }}"
+    repo_url: "{{ eso_repo_url }}"
   tags:
     - install
-    - external-secrets
+    - eso
 
 # Check for existing CRDs
 # -----------------------------------------------------------------------------
@@ -19,7 +19,7 @@
   register: existing_crd_check
   tags:
     - install
-    - external-secrets
+    - eso
 
 - name: "install : Check if existing CRDs have Helm ownership"
   when:
@@ -29,7 +29,7 @@
     crd_has_helm_ownership: "{{ existing_crd_check.resources[0].metadata.labels['app.kubernetes.io/managed-by'] | default('') == 'Helm' }}"
   tags:
     - install
-    - external-secrets
+    - eso
 
 - name: "install : Display warning about existing CRDs without Helm ownership"
   when:
@@ -43,7 +43,7 @@
       - "This is safe and will not affect existing ExternalSecret resources"
   tags:
     - install
-    - external-secrets
+    - eso
 
 - name: "install : Get all External Secrets CRDs"
   when:
@@ -56,7 +56,7 @@
   register: all_crds
   tags:
     - install
-    - external-secrets
+    - eso
 
 - name: "install : Filter External Secrets CRDs"
   when:
@@ -64,10 +64,10 @@
     - existing_crd_check.resources | length > 0
     - not (crd_has_helm_ownership | default(false) | bool)
   ansible.builtin.set_fact:
-    external_secrets_crds: "{{ all_crds.resources | selectattr('metadata.name', 'search', 'external-secrets.io$') | map(attribute='metadata.name') | list }}"
+    eso_crds: "{{ all_crds.resources | selectattr('metadata.name', 'search', 'external-secrets.io$') | map(attribute='metadata.name') | list }}"
   tags:
     - install
-    - external-secrets
+    - eso
 
 - name: "install : Display CRDs to be deleted"
   when:
@@ -75,10 +75,10 @@
     - existing_crd_check.resources | length > 0
     - not (crd_has_helm_ownership | default(false) | bool)
   ansible.builtin.debug:
-    msg: "Deleting {{ external_secrets_crds | length }} External Secrets CRDs: {{ external_secrets_crds | join(', ') }}"
+    msg: "Deleting {{ eso_crds | length }} External Secrets CRDs: {{ eso_crds | join(', ') }}"
   tags:
     - install
-    - external-secrets
+    - eso
 
 - name: "install : Delete existing CRDs without Helm ownership"
   when:
@@ -92,34 +92,34 @@
     name: "{{ item }}"
     wait: yes
     wait_timeout: 300
-  loop: "{{ external_secrets_crds }}"
+  loop: "{{ eso_crds }}"
   tags:
     - install
-    - external-secrets
+    - eso
 
 # Create the namespace
 # -----------------------------------------------------------------------------
-- name: "install : Create {{ external_secrets_namespace }} namespace"
+- name: "install : Create {{ eso_namespace }} namespace"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/namespace.yml.j2"
   tags:
     - install
-    - external-secrets
+    - eso
 
 # Install External Secrets Operator
 # -----------------------------------------------------------------------------
-- name: "install : Install External Secrets Operator Helm chart to {{ external_secrets_namespace }}"
+- name: "install : Install External Secrets Operator Helm chart to {{ eso_namespace }}"
   kubernetes.core.helm:
-    name: "{{ external_secrets_release_name }}"
+    name: "{{ eso_release_name }}"
     chart_ref: external-secrets/external-secrets
-    release_namespace: "{{ external_secrets_namespace }}"
+    release_namespace: "{{ eso_namespace }}"
     values: "{{ lookup('template', 'values.yml.j2') | from_yaml }}"
     wait: yes
     wait_timeout: 10m
   tags:
     - install
-    - external-secrets
+    - eso
 
 # Wait for deployments to be running
 # -----------------------------------------------------------------------------
@@ -127,7 +127,7 @@
   kubernetes.core.k8s_info:
     api_version: apps/v1
     name: external-secrets
-    namespace: "{{ external_secrets_namespace }}"
+    namespace: "{{ eso_namespace }}"
     kind: Deployment
   register: external_secrets_deployment
   until:
@@ -141,13 +141,13 @@
   delay: 60
   tags:
     - install
-    - external-secrets
+    - eso
 
 - name: "install : Wait for external-secrets-webhook deployment to be ready"
   kubernetes.core.k8s_info:
     api_version: apps/v1
     name: external-secrets-webhook
-    namespace: "{{ external_secrets_namespace }}"
+    namespace: "{{ eso_namespace }}"
     kind: Deployment
   register: external_secrets_webhook_deployment
   until:
@@ -161,13 +161,13 @@
   delay: 60
   tags:
     - install
-    - external-secrets
+    - eso
 
 - name: "install : Wait for external-secrets-cert-controller deployment to be ready"
   kubernetes.core.k8s_info:
     api_version: apps/v1
     name: external-secrets-cert-controller
-    namespace: "{{ external_secrets_namespace }}"
+    namespace: "{{ eso_namespace }}"
     kind: Deployment
   register: external_secrets_cert_controller_deployment
   until:
@@ -181,7 +181,7 @@
   delay: 60
   tags:
     - install
-    - external-secrets
+    - eso
 
 # Verify CRDs are created
 # -----------------------------------------------------------------------------
@@ -198,7 +198,7 @@
   delay: 30
   tags:
     - install
-    - external-secrets
+    - eso
 
 - name: "install : Verify SecretStore CRD is created"
   kubernetes.core.k8s_info:
@@ -213,7 +213,7 @@
   delay: 30
   tags:
     - install
-    - external-secrets
+    - eso
 
 - name: "install : Verify ClusterSecretStore CRD is created"
   kubernetes.core.k8s_info:
@@ -228,7 +228,7 @@
   delay: 30
   tags:
     - install
-    - external-secrets
+    - eso
 
 # Display installation summary
 # -----------------------------------------------------------------------------
@@ -236,11 +236,11 @@
   ansible.builtin.debug:
     msg:
       - "External Secrets Operator has been successfully installed"
-      - "Namespace: {{ external_secrets_namespace }}"
-      - "Release: {{ external_secrets_release_name }}"
+      - "Namespace: {{ eso_namespace }}"
+      - "Release: {{ eso_release_name }}"
       - "All deployments are ready and CRDs are available"
   tags:
     - install
-    - external-secrets
+    - eso
 
 # Made with Bob
