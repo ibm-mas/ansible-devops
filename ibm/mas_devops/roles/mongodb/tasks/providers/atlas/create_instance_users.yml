@@ -1,0 +1,112 @@
+---
+# MongoDB Atlas Provider - Create Instance-Specific Database Users
+# Creates one database user per MAS instance with scoped permissions matching Terraform module
+
+# 1. Build list of users to create (one per instance)
+# -----------------------------------------------------------------------------
+- name: "Build database users for MAS instances"
+  set_fact:
+    atlas_instance_users: "{{ atlas_instance_users | default([]) + [user_config] }}"
+  loop: "{{ atlas_mas_instances_parsed }}"
+  loop_control:
+    loop_var: instance_name
+    label: "{{ instance_name }}"
+  vars:
+    user_config:
+      username: "{{ atlas_cluster_name }}-{{ instance_name }}"
+      password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits length=20') }}"
+      auth_database_name: "admin"
+      instance_name: "{{ instance_name }}"
+      roles:
+        # Core database - readWrite and dbAdmin
+        - role_name: "readWrite"
+          database_name: "mas_{{ instance_name }}_core"
+        - role_name: "dbAdmin"
+          database_name: "mas_{{ instance_name }}_core"
+        # Catalog database - readWrite and dbAdmin
+        - role_name: "readWrite"
+          database_name: "mas_{{ instance_name }}_catalog"
+        - role_name: "dbAdmin"
+          database_name: "mas_{{ instance_name }}_catalog"
+        # Adoption usage database - readWrite and dbAdmin
+        - role_name: "readWrite"
+          database_name: "mas_{{ instance_name }}_adoptionusage"
+        - role_name: "dbAdmin"
+          database_name: "mas_{{ instance_name }}_adoptionusage"
+        # SLS licensing database - readWrite and dbAdmin
+        - role_name: "readWrite"
+          database_name: "{{ instance_name }}_sls_licensing"
+        - role_name: "dbAdmin"
+          database_name: "{{ instance_name }}_sls_licensing"
+        # Atlas admin role
+        - role_name: "atlasAdmin"
+          database_name: "admin"
+  no_log: true
+
+# 2. Check if each user already exists
+# -----------------------------------------------------------------------------
+- name: "Check if each database user already exists"
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers/{{ item.auth_database_name }}/{{ item.username }}"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    status_code: [200, 404]
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_instance_user_check
+  loop: "{{ atlas_instance_users }}"
+  loop_control:
+    label: "{{ item.username }}"
+
+# 3. Create each user that does not exist
+# -----------------------------------------------------------------------------
+- name: "Create database user if it does not exist"
+  when: item.status == 404
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/databaseUsers"
+    method: POST
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    body:
+      databaseName: "{{ item.item.auth_database_name }}"
+      username: "{{ item.item.username }}"
+      password: "{{ item.item.password }}"
+      roles: "{{ item.item.roles | map('combine', {}) | list | json_query('[].{roleName: role_name, databaseName: database_name}') }}"
+      scopes:
+        - name: "{{ atlas_cluster_name }}"
+          type: "CLUSTER"
+    body_format: json
+    status_code: [201]
+    timeout: "{{ atlas_api_timeout }}"
+  loop: "{{ atlas_instance_user_check.results }}"
+  loop_control:
+    label: "{{ item.item.username }}"
+  register: atlas_instance_user_create
+  no_log: true
+
+# 4. Set primary user credentials for secret storage (use first instance user)
+# -----------------------------------------------------------------------------
+- name: "Set primary user credentials from first instance"
+  when:
+    - atlas_instance_users is defined
+    - atlas_instance_users | length > 0
+  set_fact:
+    atlas_db_username: "{{ atlas_instance_users[0].username }}"
+    atlas_db_password: "{{ atlas_instance_users[0].password }}"
+  no_log: true
+
+# 5. Summary
+# -----------------------------------------------------------------------------
+- name: "Database users creation summary (instance-based)"
+  debug:
+    msg:
+      - "=========================================="
+      - "Instance Database Users Created/Verified"
+      - "=========================================="
+      - "Total instances: {{ atlas_mas_instances_parsed | length }}"
+      - "Instances: {{ atlas_mas_instances_parsed | join(', ') }}"
+      - "Users created: {{ atlas_instance_users | map(attribute='username') | list | join(', ') }}"
+      - "Primary user (for secret): {{ atlas_db_username | default('N/A') }}"
+      - "=========================================="
