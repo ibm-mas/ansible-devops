@@ -2333,6 +2333,42 @@ Set to <code>true</code> to override the storage class with <code>MONGODB_STORAG
 <li>Default Value: None</li>
 </ul>
 <h2 id="role-variables-mongodb-atlas">Role Variables - MongoDB Atlas<a class="headerlink" href="#role-variables-mongodb-atlas" title="Permanent link">¤</a></h2>
+<h3 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">¤</a></h3>
+<p>The MongoDB Atlas provider automates the complete lifecycle of Atlas cluster provisioning, including:</p>
+<ol>
+<li><strong>Project Creation</strong>: Creates or verifies an Atlas project within your organization</li>
+<li><strong>Backup Compliance Policy</strong>: Configures automated backup policies with compliance settings</li>
+<li><strong>Cluster Provisioning</strong>: Creates a MongoDB cluster with specified configuration</li>
+<li><strong>Database Users</strong>: Creates instance-specific database users with scoped permissions</li>
+<li><strong>Secret Management</strong>: Stores connection information in AWS Secrets Manager</li>
+<li><strong>Cluster-level secret</strong>: <code>&lt;account_id&gt;/&lt;cluster_name&gt;/mongo</code> (empty credentials for cluster metadata)</li>
+<li><strong>Instance-level secrets</strong>: <code>&lt;account_id&gt;/&lt;cluster_name&gt;/&lt;instance_id&gt;/mongo</code> (with user credentials)</li>
+</ol>
+<h3 id="atlas-project-configuration">Atlas Project Configuration<a class="headerlink" href="#atlas-project-configuration" title="Permanent link">¤</a></h3>
+<h4 id="atlas_org_id">atlas_org_id<a class="headerlink" href="#atlas_org_id" title="Permanent link">¤</a></h4>
+<p>MongoDB Atlas organization ID where the project will be created.</p>
+<ul>
+<li><strong>Required</strong> when creating a new project (when <code>atlas_project_id</code> is not provided)</li>
+<li>Environment Variable: <code>ATLAS_ORG_ID</code></li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: Identifies the Atlas organization that will contain the project. Required for project creation.</p>
+<p><strong>When to use</strong>: Required when <code>atlas_project_name</code> is provided but <code>atlas_project_id</code> is not.</p>
+<p><strong>Valid values</strong>: 24-character hexadecimal string (e.g., <code>507f1f77bcf86cd799439011</code>)</p>
+<p><strong>Impact</strong>: Determines which organization owns the project and its billing.</p>
+<p><strong>How to find</strong>: Atlas Console → Organization Settings → Organization ID</p>
+<h4 id="atlas_project_name">atlas_project_name<a class="headerlink" href="#atlas_project_name" title="Permanent link">¤</a></h4>
+<p>Name for the Atlas project to create or find.</p>
+<ul>
+<li><strong>Required</strong> when <code>atlas_project_id</code> is not provided</li>
+<li>Environment Variable: <code>ATLAS_PROJECT_NAME</code></li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: Name of the Atlas project. If a project with this name exists in the organization, it will be used; otherwise, a new project will be created.</p>
+<p><strong>When to use</strong>: Use instead of <code>atlas_project_id</code> when you want the role to find or create a project by name.</p>
+<p><strong>Valid values</strong>: Alphanumeric string with spaces, hyphens, and underscores allowed</p>
+<p><strong>Impact</strong>: Determines the project name in Atlas console and API operations.</p>
+<p><strong>Related variables</strong>: Requires <code>atlas_org_id</code> when creating a new project. Alternative to <code>atlas_project_id</code>.</p>
 <h4 id="atlas_project_id">atlas_project_id<a class="headerlink" href="#atlas_project_id" title="Permanent link">¤</a></h4>
 <p>MongoDB Atlas project ID where the cluster will be created.</p>
 <ul>
@@ -2378,11 +2414,36 @@ Set to <code>true</code> to override the storage class with <code>MONGODB_STORAG
 <li>Default Value: None</li>
 </ul>
 <p><strong>Purpose</strong>: Retrieves Atlas API credentials from AWS Secrets Manager instead of using environment variables. Recommended for production deployments.</p>
-<p><strong>When to use</strong>: Use instead of <code>atlas_public_key</code>/<code>atlas_private_key</code> for better security. Secret must contain JSON with <code>public_key</code> and <code>private_key</code> fields.</p>
-<p><strong>Valid values</strong>: AWS Secrets Manager secret name or ARN</p>
+<p><strong>When to use</strong>: Use instead of <code>atlas_public_key</code>/<code>atlas_private_key</code> for better security. Secret must contain JSON with specific field names.</p>
+<p><strong>Valid values</strong>: AWS Secrets Manager secret name in format <code>&lt;account_id&gt;/mongodb-atlas</code> or full ARN</p>
 <p><strong>Impact</strong>: When set, Atlas API credentials are retrieved from AWS Secrets Manager. Requires AWS CLI configured and appropriate IAM permissions.</p>
 <p><strong>Related variables</strong>: Requires <code>atlas_aws_secret_region</code>. Alternative to <code>atlas_public_key</code>/<code>atlas_private_key</code>.</p>
-<p><strong>Note</strong>: Secret format: <code>{"public_key": "xxx", "private_key": "yyy"}</code></p>
+<p><strong>Secret Naming Convention</strong>: The secret should follow the naming pattern <code>&lt;account_id&gt;/mongodb-atlas</code> where <code>&lt;account_id&gt;</code> is your AWS account ID (e.g., <code>123456789012/mongodb-atlas</code>).</p>
+<p><strong>Secret Format</strong>: The AWS Secrets Manager secret must contain a JSON object with the following fields:</p>
+<pre><code class="language-json">{
+  "mongodb_atlas_api_pub_key": "your-atlas-public-key",
+  "mongodb_atlas_api_pri_key": "your-atlas-private-key"
+}
+</code></pre>
+<p><strong>How to create the secret</strong>:</p>
+<pre><code class="language-bash"># Replace 123456789012 with your AWS account ID
+export ACCOUNT_ID="123456789012"
+export SECRET_NAME="${ACCOUNT_ID}/mongodb-atlas"
+
+# Create the secret with Atlas API credentials
+aws secretsmanager create-secret \
+  --name "${SECRET_NAME}" \
+  --description "MongoDB Atlas API credentials for account ${ACCOUNT_ID}" \
+  --secret-string '{"mongodb_atlas_api_pub_key":"YOUR_PUBLIC_KEY","mongodb_atlas_api_pri_key":"YOUR_PRIVATE_KEY"}' \
+  --region us-east-1
+
+# Or update an existing secret
+aws secretsmanager put-secret-value \
+  --secret-id "${SECRET_NAME}" \
+  --secret-string '{"mongodb_atlas_api_pub_key":"YOUR_PUBLIC_KEY","mongodb_atlas_api_pri_key":"YOUR_PRIVATE_KEY"}' \
+  --region us-east-1
+</code></pre>
+<p><strong>Note</strong>: The field names must be exactly <code>mongodb_atlas_api_pub_key</code> and <code>mongodb_atlas_api_pri_key</code> as shown above.</p>
 <h4 id="atlas_aws_secret_region">atlas_aws_secret_region<a class="headerlink" href="#atlas_aws_secret_region" title="Permanent link">¤</a></h4>
 <p>AWS region where the Secrets Manager secret is stored.</p>
 <ul>
@@ -2462,13 +2523,248 @@ Set to <code>true</code> to override the storage class with <code>MONGODB_STORAG
 <ul>
 <li><strong>Optional</strong> when <code>mongodb_provider=atlas</code></li>
 <li>Environment Variable: <code>ATLAS_BACKUP_ENABLED</code></li>
-<li>Default Value: <code>true</code></li>
+<li>Default Value: <code>false</code></li>
 </ul>
 <p><strong>Purpose</strong>: Controls whether Atlas creates automated backups of the cluster.</p>
-<p><strong>When to use</strong>: Leave enabled (default) for production. Disable only for temporary/test clusters.</p>
+<p><strong>When to use</strong>: Enable for production clusters. Disable only for temporary/test clusters.</p>
 <p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
 <p><strong>Impact</strong>: When enabled, Atlas creates continuous backups with point-in-time recovery. Affects cluster cost.</p>
 <p><strong>Note</strong>: Highly recommended for production deployments.</p>
+<p><strong>Related variables</strong>: Required to be <code>true</code> when <code>atlas_backup_compliance_enabled</code> is enabled.</p>
+<h3 id="atlas-backup-compliance-policy-configuration">Atlas Backup Compliance Policy Configuration<a class="headerlink" href="#atlas-backup-compliance-policy-configuration" title="Permanent link">¤</a></h3>
+<p>The backup compliance policy enforces backup retention and protection rules at the project level. When enabled, it applies to all clusters in the project.</p>
+<h4 id="atlas_backup_compliance_enabled">atlas_backup_compliance_enabled<a class="headerlink" href="#atlas_backup_compliance_enabled" title="Permanent link">¤</a></h4>
+<p>Enable backup compliance policy for the Atlas project.</p>
+<ul>
+<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code></li>
+<li>Environment Variable: <code>ATLAS_BACKUP_COMPLIANCE_ENABLED</code></li>
+<li>Default Value: <code>false</code></li>
+</ul>
+<p><strong>Purpose</strong>: Enables backup compliance policy with configurable retention schedules and protection settings.</p>
+<p><strong>When to use</strong>: Enable for production environments requiring regulatory compliance or strict backup retention policies.</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: Enforces backup retention policies, prevents unauthorized backup deletion, and enables compliance features.</p>
+<p><strong>Note</strong>: Requires <code>atlas_backup_enabled: true</code> on the cluster. Once enabled, compliance policy cannot be disabled without contacting Atlas support.</p>
+<p><strong>Related variables</strong>: Requires multiple <code>atlas_compliance_*</code> variables for configuration.</p>
+<h4 id="atlas_compliance_authorized_email">atlas_compliance_authorized_email<a class="headerlink" href="#atlas_compliance_authorized_email" title="Permanent link">¤</a></h4>
+<p>Email address of the authorized user for compliance policy changes.</p>
+<ul>
+<li><strong>Required</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_AUTHORIZED_EMAIL</code></li>
+<li>Default Value: <code>admin@example.com</code></li>
+</ul>
+<p><strong>Purpose</strong>: Identifies the user authorized to make changes to the backup compliance policy.</p>
+<p><strong>Valid values</strong>: Valid email address</p>
+<p><strong>Impact</strong>: Used for audit trail and authorization of compliance policy changes.</p>
+<h4 id="atlas_compliance_authorized_first_name">atlas_compliance_authorized_first_name<a class="headerlink" href="#atlas_compliance_authorized_first_name" title="Permanent link">¤</a></h4>
+<p>First name of the authorized user for compliance policy changes.</p>
+<ul>
+<li><strong>Required</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_AUTHORIZED_FIRST_NAME</code></li>
+<li>Default Value: <code>Admin</code></li>
+</ul>
+<p><strong>Purpose</strong>: First name of the authorized user for compliance policy.</p>
+<p><strong>Valid values</strong>: String</p>
+<h4 id="atlas_compliance_authorized_last_name">atlas_compliance_authorized_last_name<a class="headerlink" href="#atlas_compliance_authorized_last_name" title="Permanent link">¤</a></h4>
+<p>Last name of the authorized user for compliance policy changes.</p>
+<ul>
+<li><strong>Required</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_AUTHORIZED_LAST_NAME</code></li>
+<li>Default Value: <code>User</code></li>
+</ul>
+<p><strong>Purpose</strong>: Last name of the authorized user for compliance policy.</p>
+<p><strong>Valid values</strong>: String</p>
+<h4 id="atlas_compliance_copy_protection">atlas_compliance_copy_protection<a class="headerlink" href="#atlas_compliance_copy_protection" title="Permanent link">¤</a></h4>
+<p>Enable copy protection for backups.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_COPY_PROTECTION</code></li>
+<li>Default Value: <code>false</code></li>
+</ul>
+<p><strong>Purpose</strong>: Prevents copying of backup snapshots to other regions or projects.</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: When enabled, backups cannot be copied outside the configured region.</p>
+<h4 id="atlas_compliance_encryption_at_rest">atlas_compliance_encryption_at_rest<a class="headerlink" href="#atlas_compliance_encryption_at_rest" title="Permanent link">¤</a></h4>
+<p>Enable encryption at rest for backups.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_ENCRYPTION_AT_REST</code></li>
+<li>Default Value: <code>false</code></li>
+</ul>
+<p><strong>Purpose</strong>: Ensures all backup snapshots are encrypted at rest.</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: Adds encryption layer to backup storage.</p>
+<h4 id="atlas_compliance_pit_enabled">atlas_compliance_pit_enabled<a class="headerlink" href="#atlas_compliance_pit_enabled" title="Permanent link">¤</a></h4>
+<p>Enable point-in-time restore for compliance backups.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_PIT_ENABLED</code></li>
+<li>Default Value: <code>false</code></li>
+</ul>
+<p><strong>Purpose</strong>: Enables continuous backup with point-in-time recovery capability.</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: Allows restore to any point in time within the retention window. Increases backup storage costs.</p>
+<h4 id="atlas_compliance_restore_window_days">atlas_compliance_restore_window_days<a class="headerlink" href="#atlas_compliance_restore_window_days" title="Permanent link">¤</a></h4>
+<p>Number of days for the restore window.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_RESTORE_WINDOW_DAYS</code></li>
+<li>Default Value: <code>7</code></li>
+</ul>
+<p><strong>Purpose</strong>: Defines how many days of continuous backup history are maintained for point-in-time restore.</p>
+<p><strong>Valid values</strong>: Integer (1-365)</p>
+<p><strong>Impact</strong>: Determines the maximum age of data that can be restored.</p>
+<h4 id="atlas_compliance_hourly_frequency_interval">atlas_compliance_hourly_frequency_interval<a class="headerlink" href="#atlas_compliance_hourly_frequency_interval" title="Permanent link">¤</a></h4>
+<p>Frequency interval for hourly backups (in hours).</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_HOURLY_FREQUENCY_INTERVAL</code></li>
+<li>Default Value: <code>6</code></li>
+</ul>
+<p><strong>Purpose</strong>: How often hourly snapshots are taken.</p>
+<p><strong>Valid values</strong>: Integer (1, 2, 4, 6, 8, 12)</p>
+<p><strong>Impact</strong>: More frequent backups provide finer recovery granularity but increase storage costs.</p>
+<h4 id="atlas_compliance_hourly_retention_unit">atlas_compliance_hourly_retention_unit<a class="headerlink" href="#atlas_compliance_hourly_retention_unit" title="Permanent link">¤</a></h4>
+<p>Retention unit for hourly backups.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_HOURLY_RETENTION_UNIT</code></li>
+<li>Default Value: <code>days</code></li>
+</ul>
+<p><strong>Purpose</strong>: Unit of time for hourly backup retention.</p>
+<p><strong>Valid values</strong>: <code>days</code>, <code>weeks</code>, <code>months</code></p>
+<h4 id="atlas_compliance_hourly_retention_value">atlas_compliance_hourly_retention_value<a class="headerlink" href="#atlas_compliance_hourly_retention_value" title="Permanent link">¤</a></h4>
+<p>Retention value for hourly backups.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_HOURLY_RETENTION_VALUE</code></li>
+<li>Default Value: <code>7</code></li>
+</ul>
+<p><strong>Purpose</strong>: How long to retain hourly backups.</p>
+<p><strong>Valid values</strong>: Integer (1-365 for days, 1-52 for weeks, 1-36 for months)</p>
+<p><strong>Impact</strong>: Longer retention increases storage costs.</p>
+<h4 id="atlas_compliance_daily_frequency_interval">atlas_compliance_daily_frequency_interval<a class="headerlink" href="#atlas_compliance_daily_frequency_interval" title="Permanent link">¤</a></h4>
+<p>Frequency interval for daily backups (in days).</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_DAILY_FREQUENCY_INTERVAL</code></li>
+<li>Default Value: <code>1</code></li>
+</ul>
+<p><strong>Purpose</strong>: How often daily snapshots are taken.</p>
+<p><strong>Valid values</strong>: Integer (1-365)</p>
+<h4 id="atlas_compliance_daily_retention_unit">atlas_compliance_daily_retention_unit<a class="headerlink" href="#atlas_compliance_daily_retention_unit" title="Permanent link">¤</a></h4>
+<p>Retention unit for daily backups.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_DAILY_RETENTION_UNIT</code></li>
+<li>Default Value: <code>days</code></li>
+</ul>
+<p><strong>Purpose</strong>: Unit of time for daily backup retention.</p>
+<p><strong>Valid values</strong>: <code>days</code>, <code>weeks</code>, <code>months</code></p>
+<h4 id="atlas_compliance_daily_retention_value">atlas_compliance_daily_retention_value<a class="headerlink" href="#atlas_compliance_daily_retention_value" title="Permanent link">¤</a></h4>
+<p>Retention value for daily backups.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_DAILY_RETENTION_VALUE</code></li>
+<li>Default Value: <code>7</code></li>
+</ul>
+<p><strong>Purpose</strong>: How long to retain daily backups.</p>
+<p><strong>Valid values</strong>: Integer (1-365 for days, 1-52 for weeks, 1-36 for months)</p>
+<h4 id="atlas_compliance_weekly_frequency_interval">atlas_compliance_weekly_frequency_interval<a class="headerlink" href="#atlas_compliance_weekly_frequency_interval" title="Permanent link">¤</a></h4>
+<p>Frequency interval for weekly backups (in weeks).</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_WEEKLY_FREQUENCY_INTERVAL</code></li>
+<li>Default Value: <code>1</code></li>
+</ul>
+<p><strong>Purpose</strong>: How often weekly snapshots are taken.</p>
+<p><strong>Valid values</strong>: Integer (1-52)</p>
+<h4 id="atlas_compliance_weekly_retention_unit">atlas_compliance_weekly_retention_unit<a class="headerlink" href="#atlas_compliance_weekly_retention_unit" title="Permanent link">¤</a></h4>
+<p>Retention unit for weekly backups.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_WEEKLY_RETENTION_UNIT</code></li>
+<li>Default Value: <code>weeks</code></li>
+</ul>
+<p><strong>Purpose</strong>: Unit of time for weekly backup retention.</p>
+<p><strong>Valid values</strong>: <code>weeks</code>, <code>months</code>, <code>years</code></p>
+<h4 id="atlas_compliance_weekly_retention_value">atlas_compliance_weekly_retention_value<a class="headerlink" href="#atlas_compliance_weekly_retention_value" title="Permanent link">¤</a></h4>
+<p>Retention value for weekly backups.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_WEEKLY_RETENTION_VALUE</code></li>
+<li>Default Value: <code>4</code></li>
+</ul>
+<p><strong>Purpose</strong>: How long to retain weekly backups.</p>
+<p><strong>Valid values</strong>: Integer (1-52 for weeks, 1-36 for months, 1-10 for years)</p>
+<h4 id="atlas_compliance_monthly_frequency_interval">atlas_compliance_monthly_frequency_interval<a class="headerlink" href="#atlas_compliance_monthly_frequency_interval" title="Permanent link">¤</a></h4>
+<p>Frequency interval for monthly backups (in months).</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_MONTHLY_FREQUENCY_INTERVAL</code></li>
+<li>Default Value: <code>1</code></li>
+</ul>
+<p><strong>Purpose</strong>: How often monthly snapshots are taken.</p>
+<p><strong>Valid values</strong>: Integer (1-12)</p>
+<h4 id="atlas_compliance_monthly_retention_unit">atlas_compliance_monthly_retention_unit<a class="headerlink" href="#atlas_compliance_monthly_retention_unit" title="Permanent link">¤</a></h4>
+<p>Retention unit for monthly backups.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_MONTHLY_RETENTION_UNIT</code></li>
+<li>Default Value: <code>months</code></li>
+</ul>
+<p><strong>Purpose</strong>: Unit of time for monthly backup retention.</p>
+<p><strong>Valid values</strong>: <code>months</code>, <code>years</code></p>
+<h4 id="atlas_compliance_monthly_retention_value">atlas_compliance_monthly_retention_value<a class="headerlink" href="#atlas_compliance_monthly_retention_value" title="Permanent link">¤</a></h4>
+<p>Retention value for monthly backups.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_MONTHLY_RETENTION_VALUE</code></li>
+<li>Default Value: <code>12</code></li>
+</ul>
+<p><strong>Purpose</strong>: How long to retain monthly backups.</p>
+<p><strong>Valid values</strong>: Integer (1-36 for months, 1-10 for years)</p>
+<h4 id="atlas_compliance_yearly_frequency_interval">atlas_compliance_yearly_frequency_interval<a class="headerlink" href="#atlas_compliance_yearly_frequency_interval" title="Permanent link">¤</a></h4>
+<p>Frequency interval for yearly backups (in years).</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_YEARLY_FREQUENCY_INTERVAL</code></li>
+<li>Default Value: <code>1</code></li>
+</ul>
+<p><strong>Purpose</strong>: How often yearly snapshots are taken.</p>
+<p><strong>Valid values</strong>: Integer (1-10)</p>
+<h4 id="atlas_compliance_yearly_retention_unit">atlas_compliance_yearly_retention_unit<a class="headerlink" href="#atlas_compliance_yearly_retention_unit" title="Permanent link">¤</a></h4>
+<p>Retention unit for yearly backups.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_YEARLY_RETENTION_UNIT</code></li>
+<li>Default Value: <code>years</code></li>
+</ul>
+<p><strong>Purpose</strong>: Unit of time for yearly backup retention.</p>
+<p><strong>Valid values</strong>: <code>years</code></p>
+<h4 id="atlas_compliance_yearly_retention_value">atlas_compliance_yearly_retention_value<a class="headerlink" href="#atlas_compliance_yearly_retention_value" title="Permanent link">¤</a></h4>
+<p>Retention value for yearly backups.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_backup_compliance_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_COMPLIANCE_YEARLY_RETENTION_VALUE</code></li>
+<li>Default Value: <code>1</code></li>
+</ul>
+<p><strong>Purpose</strong>: How long to retain yearly backups.</p>
+<p><strong>Valid values</strong>: Integer (1-10)</p>
+<p><strong>Impact</strong>: Longer retention increases storage costs significantly.</p>
+<h3 id="atlas-database-users-configuration">Atlas Database Users Configuration<a class="headerlink" href="#atlas-database-users-configuration" title="Permanent link">¤</a></h3>
+<h4 id="atlas_mas_instances">atlas_mas_instances<a class="headerlink" href="#atlas_mas_instances" title="Permanent link">¤</a></h4>
+<p>List of MAS instance names for creating instance-specific database users.</p>
+<ul>
+<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code></li>
+<li>Environment Variable: <code>ATLAS_MAS_INSTANCES</code></li>
+<li>Default Value: <code>[]</code></li>
+</ul>
+<p><strong>Purpose</strong>: Defines MAS instances that will use this cluster. Each instance gets a dedicated database user with scoped permissions.</p>
+<p><strong>When to use</strong>: Provide when deploying Atlas cluster for multiple MAS instances.</p>
+<p><strong>Valid values</strong>: List of instance names or comma-separated string (e.g., <code>["inst1", "inst2"]</code> or <code>"inst1,inst2"</code>)</p>
+<p><strong>Impact</strong>: Creates one database user per instance with username format <code>&lt;instance_name&gt;-user</code>.</p>
+<p><strong>Related variables</strong>: Used with <code>atlas_store_credentials_in_secret</code> to create instance-level secrets.</p>
 <h4 id="atlas_database_users">atlas_database_users<a class="headerlink" href="#atlas_database_users" title="Permanent link">¤</a></h4>
 <p>Multi-user database configuration for Atlas cluster.</p>
 <ul>
@@ -2515,6 +2811,19 @@ Set to <code>true</code> to override the storage class with <code>MONGODB_STORAG
 <p><strong>Impact</strong>: Sets password for the database user.</p>
 <p><strong>Related variables</strong>: Must be used with <code>atlas_db_username</code>. Alternative: use <code>atlas_database_users</code>.</p>
 <p><strong>Note</strong>: Store securely. Never commit to version control.</p>
+<h3 id="atlas-secret-management-configuration">Atlas Secret Management Configuration<a class="headerlink" href="#atlas-secret-management-configuration" title="Permanent link">¤</a></h3>
+<h4 id="atlas_account_id">atlas_account_id<a class="headerlink" href="#atlas_account_id" title="Permanent link">¤</a></h4>
+<p>AWS account ID for secret naming convention.</p>
+<ul>
+<li><strong>Required</strong> when <code>atlas_store_credentials_in_secret=true</code></li>
+<li>Environment Variable: <code>ATLAS_ACCOUNT_ID</code></li>
+<li>Default Value: None</li>
+</ul>
+<p><strong>Purpose</strong>: Used to construct secret names in the format <code>&lt;account_id&gt;/&lt;cluster_name&gt;/mongo</code> and <code>&lt;account_id&gt;/&lt;cluster_name&gt;/&lt;instance_id&gt;/mongo</code>.</p>
+<p><strong>When to use</strong>: Required when storing credentials in AWS Secrets Manager.</p>
+<p><strong>Valid values</strong>: 12-digit AWS account ID</p>
+<p><strong>Impact</strong>: Determines the secret naming structure in AWS Secrets Manager.</p>
+<p><strong>Related variables</strong>: Used with <code>atlas_store_credentials_in_secret</code>.</p>
 <h4 id="atlas_store_credentials_in_secret">atlas_store_credentials_in_secret<a class="headerlink" href="#atlas_store_credentials_in_secret" title="Permanent link">¤</a></h4>
 <p>Store Atlas connection information in AWS Secrets Manager.</p>
 <ul>
@@ -2522,58 +2831,22 @@ Set to <code>true</code> to override the storage class with <code>MONGODB_STORAG
 <li>Environment Variable: <code>ATLAS_STORE_CREDENTIALS_IN_SECRET</code></li>
 <li>Default Value: <code>false</code></li>
 </ul>
-<p><strong>Purpose</strong>: Automatically stores Atlas connection details (hosts, port, username, password, CA cert) in AWS Secrets Manager after provisioning.</p>
-<p><strong>When to use</strong>: Enable for production deployments to centralize credential management.</p>
+<p><strong>Purpose</strong>: Automatically stores Atlas connection details in AWS Secrets Manager after provisioning. Creates two types of secrets:
+- <strong>Cluster-level secret</strong>: <code>&lt;account_id&gt;/&lt;cluster_name&gt;/mongo</code> - Contains cluster metadata (hosts, port, CA certificates) with empty username/password
+- <strong>Instance-level secrets</strong>: <code>&lt;account_id&gt;/&lt;cluster_name&gt;/&lt;instance_id&gt;/mongo</code> - Contains instance-specific credentials (username, password) plus cluster metadata</p>
+<p><strong>When to use</strong>: Enable for production deployments to centralize credential management and enable MAS to retrieve connection information.</p>
 <p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
-<p><strong>Impact</strong>: Creates/updates AWS Secrets Manager secret with connection information.</p>
-<p><strong>Related variables</strong>: Requires <code>atlas_credentials_secret_name</code> or <code>atlas_credentials_secret_prefix</code>/<code>atlas_mongodb_secret_name</code>.</p>
-<h4 id="atlas_credentials_secret_name">atlas_credentials_secret_name<a class="headerlink" href="#atlas_credentials_secret_name" title="Permanent link">¤</a></h4>
-<p>Full AWS Secrets Manager secret name for storing connection information.</p>
-<ul>
-<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code> and <code>atlas_store_credentials_in_secret=true</code></li>
-<li>Environment Variable: <code>ATLAS_CREDENTIALS_SECRET_NAME</code></li>
-<li>Default Value: None</li>
-</ul>
-<p><strong>Purpose</strong>: Specifies exact secret name for storing Atlas connection information.</p>
-<p><strong>When to use</strong>: Use when you want full control over secret naming.</p>
-<p><strong>Valid values</strong>: Valid AWS Secrets Manager secret name</p>
-<p><strong>Impact</strong>: Connection information stored at this exact secret name.</p>
-<p><strong>Related variables</strong>: Alternative to using <code>atlas_credentials_secret_prefix</code>/<code>atlas_mongodb_secret_name</code>.</p>
-<h4 id="atlas_credentials_secret_prefix">atlas_credentials_secret_prefix<a class="headerlink" href="#atlas_credentials_secret_prefix" title="Permanent link">¤</a></h4>
-<p>Prefix for building AWS Secrets Manager secret name.</p>
-<ul>
-<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code> and <code>atlas_store_credentials_in_secret=true</code></li>
-<li>Environment Variable: <code>ATLAS_CREDENTIALS_SECRET_PREFIX</code></li>
-<li>Default Value: None</li>
-</ul>
-<p><strong>Purpose</strong>: Prefix for constructing secret name in format: <code>{prefix}/{name}/mongo</code></p>
-<p><strong>When to use</strong>: Use with <code>atlas_mongodb_secret_name</code> for consistent naming pattern.</p>
-<p><strong>Valid values</strong>: Valid secret name prefix (e.g., <code>/aws-dev</code>, <code>/prod</code>)</p>
-<p><strong>Impact</strong>: Combined with <code>atlas_mongodb_secret_name</code> to create full secret path.</p>
-<p><strong>Related variables</strong>: Used with <code>atlas_mongodb_secret_name</code>. Alternative to <code>atlas_credentials_secret_name</code>.</p>
-<h4 id="atlas_mongodb_secret_name">atlas_mongodb_secret_name<a class="headerlink" href="#atlas_mongodb_secret_name" title="Permanent link">¤</a></h4>
-<p>Name component for building AWS Secrets Manager secret name.</p>
-<ul>
-<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code> and <code>atlas_store_credentials_in_secret=true</code></li>
-<li>Environment Variable: <code>ATLAS_MONGODB_SECRET_NAME</code></li>
-<li>Default Value: None</li>
-</ul>
-<p><strong>Purpose</strong>: Name component for constructing secret name in format: <code>{prefix}/{name}/mongo</code></p>
-<p><strong>When to use</strong>: Use with <code>atlas_credentials_secret_prefix</code> for consistent naming pattern.</p>
-<p><strong>Valid values</strong>: Valid secret name component</p>
-<p><strong>Impact</strong>: Combined with <code>atlas_credentials_secret_prefix</code> to create full secret path.</p>
-<p><strong>Related variables</strong>: Used with <code>atlas_credentials_secret_prefix</code>. Alternative to <code>atlas_credentials_secret_name</code>.</p>
-<h4 id="atlas_credentials_secret_region">atlas_credentials_secret_region<a class="headerlink" href="#atlas_credentials_secret_region" title="Permanent link">¤</a></h4>
-<p>AWS region for storing connection information secret.</p>
-<ul>
-<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code> and <code>atlas_store_credentials_in_secret=true</code></li>
-<li>Environment Variable: <code>ATLAS_CREDENTIALS_SECRET_REGION</code></li>
-<li>Default Value: <code>us-east-1</code></li>
-</ul>
-<p><strong>Purpose</strong>: Specifies AWS region where connection information secret will be stored.</p>
-<p><strong>When to use</strong>: Set when storing secret in region other than us-east-1.</p>
-<p><strong>Valid values</strong>: Valid AWS region name</p>
-<p><strong>Impact</strong>: Determines which AWS region stores the connection secret.</p>
+<p><strong>Impact</strong>: Creates/updates AWS Secrets Manager secrets with connection information. Requires AWS CLI configured with appropriate IAM permissions.</p>
+<p><strong>Related variables</strong>: Requires <code>atlas_account_id</code>, <code>atlas_cluster_name</code>, and <code>atlas_aws_region</code>. Works with <code>atlas_mas_instances</code> to create instance-level secrets.</p>
+<p><strong>Secret Structure</strong>:</p>
+<pre><code class="language-json">{
+  "info": "# YAML content with hosts, port, CA certificates",
+  "username": "instance-user",
+  "password": "generated-password"
+}
+</code></pre>
+<p><strong>Note</strong>: The cluster-level secret has empty <code>username</code> and <code>password</code> fields (or <code>docdb_username</code>/<code>docdb_password</code> for compatibility), while instance-level secrets contain actual credentials.</p>
+<h3 id="atlas-vpcprivatelink-configuration">Atlas VPC/PrivateLink Configuration<a class="headerlink" href="#atlas-vpcprivatelink-configuration" title="Permanent link">¤</a></h3>
 <h4 id="atlas_vpc_id">atlas_vpc_id<a class="headerlink" href="#atlas_vpc_id" title="Permanent link">¤</a></h4>
 <p>AWS VPC ID for VPC peering with Atlas.</p>
 <ul>
@@ -2715,6 +2988,72 @@ Set to <code>true</code> to override the storage class with <code>MONGODB_STORAG
     mongodb_provider: ibm
     ibmcloud_apikey: apikey****
     ibmcloud_resource_group: mas-test
+  roles:
+    - ibm.mas_devops.mongodb
+</code></pre>
+<h3 id="install-mongodb-atlas">Install (MongoDB Atlas)<a class="headerlink" href="#install-mongodb-atlas" title="Permanent link">¤</a></h3>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_provider: atlas
+    mongodb_action: install
+
+    # Atlas API credentials (or use atlas_aws_secret_name)
+    atlas_public_key: "your-atlas-public-key"
+    atlas_private_key: "your-atlas-private-key"
+
+    # Project configuration (creates project if it doesn't exist)
+    atlas_org_id: "507f1f77bcf86cd799439011"
+    atlas_project_name: "MAS Production"
+
+    # Cluster configuration
+    atlas_cluster_name: "mas-cluster"
+    atlas_cluster_provider: "AWS"
+    atlas_aws_region: "US_EAST_1"
+    atlas_cluster_size: "M10"
+    atlas_mongodb_version: "7.0"
+
+    # Backup configuration
+    atlas_backup_enabled: true
+    atlas_backup_compliance_enabled: true
+    atlas_compliance_authorized_email: "admin@example.com"
+    atlas_compliance_authorized_first_name: "Admin"
+    atlas_compliance_authorized_last_name: "User"
+
+    # MAS instances (creates dedicated users for each)
+    atlas_mas_instances: "inst1,inst2,inst3"
+
+    # PrivateLink configuration
+    atlas_privatelink_enabled: true
+    atlas_vpc_id: "vpc-0123456789abcdef0"
+    atlas_subnet_ids: "subnet-111,subnet-222,subnet-333"
+    atlas_rosa_cidr_ranges: "10.0.0.0/16"
+
+    # Secret management
+    atlas_store_credentials_in_secret: true
+    atlas_account_id: "123456789012"
+
+  roles:
+    - ibm.mas_devops.mongodb
+</code></pre>
+<h3 id="install-mongodb-atlas-minimal-configuration">Install (MongoDB Atlas - Minimal Configuration)<a class="headerlink" href="#install-mongodb-atlas-minimal-configuration" title="Permanent link">¤</a></h3>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_provider: atlas
+
+    # Credentials from AWS Secrets Manager
+    atlas_aws_secret_name: "atlas-api-credentials"
+    atlas_aws_secret_region: "us-east-1"
+
+    # Use existing project
+    atlas_project_id: "507f1f77bcf86cd799439011"
+
+    # Cluster configuration
+    atlas_cluster_name: "mas-dev-cluster"
+    atlas_aws_region: "US_EAST_1"
+    atlas_cluster_size: "M10"
+
   roles:
     - ibm.mas_devops.mongodb
 </code></pre>
@@ -3355,118 +3694,33 @@ ansible-playbook ibm.mas_devops.run_role
                 </a>
                   <ul class="md-toc__list">
                       <li class="md-toc__item">
-                        <a href="#atlas_project_id" class="md-toc__link" data-md-level="2">
-                          atlas_project_id
+                        <a href="#overview" class="md-toc__link" data-md-level="2">
+                          Overview
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#atlas_public_key" class="md-toc__link" data-md-level="2">
-                          atlas_public_key
+                        <a href="#atlas-project-configuration" class="md-toc__link" data-md-level="2">
+                          Atlas Project Configuration
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#atlas_private_key" class="md-toc__link" data-md-level="2">
-                          atlas_private_key
+                        <a href="#atlas-backup-compliance-policy-configuration" class="md-toc__link" data-md-level="2">
+                          Atlas Backup Compliance Policy Configuration
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#atlas_aws_secret_name" class="md-toc__link" data-md-level="2">
-                          atlas_aws_secret_name
+                        <a href="#atlas-database-users-configuration" class="md-toc__link" data-md-level="2">
+                          Atlas Database Users Configuration
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#atlas_aws_secret_region" class="md-toc__link" data-md-level="2">
-                          atlas_aws_secret_region
+                        <a href="#atlas-secret-management-configuration" class="md-toc__link" data-md-level="2">
+                          Atlas Secret Management Configuration
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#atlas_cluster_name" class="md-toc__link" data-md-level="2">
-                          atlas_cluster_name
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_cluster_provider" class="md-toc__link" data-md-level="2">
-                          atlas_cluster_provider
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_cluster_region" class="md-toc__link" data-md-level="2">
-                          atlas_cluster_region
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_cluster_size" class="md-toc__link" data-md-level="2">
-                          atlas_cluster_size
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_mongodb_version" class="md-toc__link" data-md-level="2">
-                          atlas_mongodb_version
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_backup_enabled" class="md-toc__link" data-md-level="2">
-                          atlas_backup_enabled
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_database_users" class="md-toc__link" data-md-level="2">
-                          atlas_database_users
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_db_username" class="md-toc__link" data-md-level="2">
-                          atlas_db_username
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_db_password" class="md-toc__link" data-md-level="2">
-                          atlas_db_password
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_store_credentials_in_secret" class="md-toc__link" data-md-level="2">
-                          atlas_store_credentials_in_secret
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_credentials_secret_name" class="md-toc__link" data-md-level="2">
-                          atlas_credentials_secret_name
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_credentials_secret_prefix" class="md-toc__link" data-md-level="2">
-                          atlas_credentials_secret_prefix
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_mongodb_secret_name" class="md-toc__link" data-md-level="2">
-                          atlas_mongodb_secret_name
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_credentials_secret_region" class="md-toc__link" data-md-level="2">
-                          atlas_credentials_secret_region
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_vpc_id" class="md-toc__link" data-md-level="2">
-                          atlas_vpc_id
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_aws_region" class="md-toc__link" data-md-level="2">
-                          atlas_aws_region
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_aws_route_table_ids" class="md-toc__link" data-md-level="2">
-                          atlas_aws_route_table_ids
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#atlas_aws_subnet_ids" class="md-toc__link" data-md-level="2">
-                          atlas_aws_subnet_ids
+                        <a href="#atlas-vpcprivatelink-configuration" class="md-toc__link" data-md-level="2">
+                          Atlas VPC/PrivateLink Configuration
                         </a>
                       </li>
                       <li class="md-toc__item">
@@ -3489,6 +3743,16 @@ ansible-playbook ibm.mas_devops.run_role
                       <li class="md-toc__item">
                         <a href="#install-ibm-cloud" class="md-toc__link" data-md-level="2">
                           Install (IBM Cloud)
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#install-mongodb-atlas" class="md-toc__link" data-md-level="2">
+                          Install (MongoDB Atlas)
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#install-mongodb-atlas-minimal-configuration" class="md-toc__link" data-md-level="2">
+                          Install (MongoDB Atlas - Minimal Configuration)
                         </a>
                       </li>
                       <li class="md-toc__item">
