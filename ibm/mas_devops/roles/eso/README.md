@@ -249,6 +249,27 @@ eso_values:
       memory: 256Mi
 ```
 
+### eso_provider
+Provider type for secret store creation.
+
+- **Optional**
+- Environment Variable: `ESO_PROVIDER`
+- Default: `ibm`
+
+**Purpose**: Specifies which secret management provider to use when creating a ClusterSecretStore.
+
+**When to use**: Set when using the `create-clustersecretstore` action to specify the provider type.
+
+**Valid values**: `ibm` (currently only IBM Secrets Manager is supported)
+
+**Impact**: Determines which provider-specific tasks are executed during ClusterSecretStore creation.
+
+**Related variables**: `eso_action`, `eso_store_name`
+
+**Notes**:
+- Only used when `eso_action` is set to `create-clustersecretstore`
+- Future versions may support additional providers (AWS, Azure, GCP, HashiCorp Vault, etc.)
+
 ### eso_store_name
 Name for the ClusterSecretStore resource.
 
@@ -264,7 +285,7 @@ Name for the ClusterSecretStore resource.
 
 **Impact**: Determines the name of the ClusterSecretStore that ExternalSecret resources will reference.
 
-**Related variables**: `eso_action`, `ibm_sm_instance_url`, `ibm_sm_api_key`
+**Related variables**: `eso_action`, `eso_provider`, `ibm_sm_instance_url`, `ibm_sm_api_key`
 
 **Notes**:
 - Only used when `eso_action` is set to `create-clustersecretstore`
