@@ -17,12 +17,24 @@ If the selected provider is `community` then the [MongoDB Community Kubernetes O
 
 
 ## Prerequisites
+
+### General Prerequisites
 To run this role with providers as `ibm` or `aws` you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
 Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role when provider is either `ibm` or `aws` or `atlas`.
 
 To run the `docdb_secret_rotate` MONGODB_ACTION when the provider is `aws` you must have already installed the [Mongo Shell](https://www.mongodb.com/docs/mongodb-shell/install/).
 
 This role will install a GrafanaDashboard used for monitoring the MongoDB instance when the provided is `community` and you have run the [grafana role](https://ibm-mas.github.io/ansible-devops/roles/grafana/) previously. If you did not run the [grafana role](https://ibm-mas.github.io/ansible-devops/roles/grafana/) then the GrafanaDashboard won't be installed.
+
+### MongoDB Atlas Prerequisites
+When using `mongodb_provider=atlas`, you must add your IP address to the Atlas API Access List before running this role:
+
+1. Log in to [MongoDB Atlas Console](https://cloud.mongodb.com)
+2. Navigate to your Organization → Access Manager → API Keys
+3. Select your API key
+4. Click "Edit" and add your current IP address to the Access List
+
+**Note**: The role cannot automatically add IP addresses to the Atlas API Access List. If your IP is not whitelisted, API calls will fail with `403 IP_ADDRESS_NOT_ON_ACCESS_LIST` error.
 
 
 ## Role Variables - General
@@ -2229,6 +2241,292 @@ Enable automated backups for the Atlas cluster.
 **Note**: Highly recommended for production deployments.
 
 **Related variables**: Required to be `true` when `atlas_backup_compliance_enabled` is enabled.
+### Atlas Audit Logging Configuration
+
+MongoDB Atlas Auditing captures database operations for compliance and security monitoring. It records authentication events, authorization failures, and database operations, which is required for FedRAMP, HIPAA, and other regulatory compliance.
+
+#### atlas_audit_enabled
+Enable audit logging for the Atlas project.
+
+- **Optional** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_AUDIT_ENABLED`
+- Default Value: `false`
+
+**Purpose**: Enables audit logging to capture database operations, authentication events, and authorization failures for compliance and security monitoring.
+
+**When to use**: Enable for production and staging environments requiring regulatory compliance (FedRAMP, HIPAA, SOC 2, PCI-DSS) or security monitoring.
+
+**Valid values**: `true`, `false`
+
+**Impact**: 
+- Captures audit events based on the configured filter
+- May impact cluster performance depending on filter complexity
+- Generates audit logs that can be accessed via Atlas UI or API
+- Additional costs may apply based on log volume
+
+**Note**: Audit logging is configured at the project level and applies to all clusters in the project.
+
+**Related variables**: `atlas_audit_filter`, `atlas_audit_authorization_success`
+
+#### atlas_audit_filter
+JSON filter for audit events to capture.
+
+- **Optional** when `atlas_audit_enabled=true`
+- Environment Variable: `ATLAS_AUDIT_FILTER`
+- Default Value: `{}` (captures all events)
+
+**Purpose**: Defines which database operations and events should be captured in audit logs.
+
+**Valid values**: Valid JSON string representing MongoDB audit filter
+
+**Common filter examples**:
+- All events (default): `{}`
+- Authentication only: `{"atype": "authenticate"}`
+- Failed operations: `{"result": {"$ne": 0}}`
+- Specific database: `{"param.ns": {"$regex": "^mydb\\."}}`
+- Admin database operations: `{"param.db": "admin"}`
+
+**Compliance use cases**:
+- **SOC 2**: Track all authentication and authorization events
+- **HIPAA**: Monitor access to protected health information
+- **PCI-DSS**: Log all access to cardholder data
+- **FedRAMP**: Comprehensive audit trail of all database operations
+
+**Impact**: More specific filters reduce log volume and performance impact.
+
+**Note**: Filter syntax follows MongoDB query language. Invalid JSON will cause configuration to fail.
+
+#### atlas_audit_authorization_success
+Log successful authorization events.
+
+- **Optional** when `atlas_audit_enabled=true`
+- Environment Variable: `ATLAS_AUDIT_AUTHORIZATION_SUCCESS`
+- Default Value: `false`
+
+**Purpose**: Controls whether successful authorization events are logged in addition to failures.
+
+**Valid values**: `true`, `false`
+
+**When to use**: 
+- Set to `true` for comprehensive audit trails required by strict compliance frameworks
+- Set to `false` to reduce log volume by only capturing authorization failures
+
+**Impact**: 
+- `true`: Increases log volume significantly as all successful operations are logged
+
+### Atlas Alert Monitoring Configuration
+
+MongoDB Atlas Alert Monitoring provides proactive notifications for cluster health, performance, and security events. Alerts help identify and resolve issues before they impact users.
+
+**Note**: Alerts are configured per cluster using matchers to target the specific cluster name (`atlas_cluster_name`). Each alert configuration includes a matcher that ensures it only applies to the specified cluster.
+
+#### Alert Categories
+
+**Basic Alerts (Always Enabled)**:
+When `atlas_enable_alerts=true`, the following alerts are automatically configured:
+- CPU usage (warning and critical thresholds)
+- Memory usage (warning and critical thresholds)
+- Connection count (warning and critical thresholds)
+
+**Optional Alerts (Require Explicit Enablement)**:
+- Cluster health alerts (`atlas_enable_cluster_health_alerts`)
+- Additional performance alerts - query performance (`atlas_enable_performance_alerts`)
+
+#### atlas_enable_alerts
+Enable alert monitoring for the Atlas cluster.
+
+- **Optional** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_ENABLE_ALERTS`
+- Default Value: `false`
+
+**Purpose**: Enables basic alert monitoring (CPU, memory, connections) with email notifications. Additional alert categories can be enabled separately.
+
+**When to use**: Enable for production and staging environments to receive proactive notifications about potential issues.
+
+**Valid values**: `true`, `false`
+
+**Impact**:
+- Automatically configures 6 basic alerts (CPU, memory, connections - warning and critical)
+- Sends email notifications when thresholds are exceeded
+- Helps prevent downtime by alerting before critical issues occur
+
+**Note**: Requires `atlas_alert_notification_emails` to be configured with at least one email address.
+
+**Related variables**: `atlas_alert_notification_emails`, `atlas_enable_cluster_health_alerts`, `atlas_enable_performance_alerts`
+
+#### atlas_alert_notification_emails
+List of email addresses to receive alert notifications.
+
+- **Required** when `atlas_enable_alerts=true`
+- Environment Variable: `ATLAS_ALERT_NOTIFICATION_EMAILS`
+- Default Value: `[]`
+
+**Purpose**: Specifies email addresses that will receive alert notifications via OCM (Operations Center Manager).
+
+**Valid values**: Comma-separated list of valid email addresses or JSON array
+
+**Examples**:
+- Comma-separated: `ocm-team@example.com,monitoring@example.com`
+- JSON array: `["ocm-team@example.com", "monitoring@example.com"]`
+
+**Impact**: All specified email addresses will receive notifications for all configured alerts.
+
+**Important**: Use OCM (Operations Center Manager) email addresses only. Do not configure generic or personal email addresses. OCM emails are integrated with incident management systems and ensure proper alert routing and escalation.
+
+**Note**: At least one OCM email address is required when alerts are enabled.
+
+#### atlas_enable_cluster_health_alerts
+Enable alerts for cluster health issues.
+
+- **Optional** when `atlas_enable_alerts=true`
+- Environment Variable: `ATLAS_ENABLE_CLUSTER_HEALTH_ALERTS`
+- Default Value: `false`
+
+**Purpose**: Enables alerts for cluster health events including replication lag, primary election, and node failures.
+
+**Valid values**: `true`, `false`
+
+**Alert types configured**:
+- Replication oplog window running out (< 1 hour)
+- Primary elected (replica set election)
+- No primary available
+- Cluster mongos missing
+
+**When to use**: Enable for production and staging environments to monitor cluster stability.
+
+#### atlas_enable_performance_alerts
+Enable alerts for performance issues.
+
+- **Optional** when `atlas_enable_alerts=true`
+- Environment Variable: `ATLAS_ENABLE_PERFORMANCE_ALERTS`
+- Default Value: `false`
+
+**Purpose**: Enables alerts for performance metrics including CPU, memory, disk, and connection usage.
+
+**Valid values**: `true`, `false`
+
+**Alert types configured**:
+- CPU usage (warning and critical thresholds)
+- Memory usage (warning and critical thresholds)
+- Disk usage
+- Connection count (warning and critical thresholds)
+- Query performance (scanned objects per returned)
+
+**When to use**: Enable for production and staging environments to monitor resource utilization.
+
+**Related variables**: `atlas_alert_cpu_threshold_warning`, `atlas_alert_cpu_threshold_critical`, `atlas_alert_memory_threshold_warning`, `atlas_alert_memory_threshold_critical`, `atlas_alert_connection_threshold_warning`, `atlas_alert_connection_threshold_critical`
+
+#### atlas_enable_security_alerts
+Enable alerts for security events.
+
+- **Optional** when `atlas_enable_alerts=true`
+- Environment Variable: `ATLAS_ENABLE_SECURITY_ALERTS`
+- Default Value: `false`
+
+**Purpose**: Enables alerts for security-related events including authentication failures and configuration changes.
+
+**Valid values**: `true`, `false`
+
+**Alert types configured**:
+- Too many unhealthy connections
+- Users without multi-factor authentication
+
+**When to use**: Enable for all environments to monitor security posture.
+
+#### atlas_alert_cpu_threshold_warning
+CPU utilization percentage threshold for WARNING alerts.
+
+- **Optional** when `atlas_enable_performance_alerts=true`
+- Environment Variable: `ATLAS_ALERT_CPU_THRESHOLD_WARNING`
+- Default Value: `70`
+
+**Purpose**: Triggers warning alert when CPU usage exceeds this percentage.
+
+**Valid values**: 0-100
+
+**Impact**: Lower values trigger alerts earlier, higher values allow more CPU usage before alerting.
+
+#### atlas_alert_cpu_threshold_critical
+CPU utilization percentage threshold for CRITICAL alerts.
+
+- **Optional** when `atlas_enable_performance_alerts=true`
+- Environment Variable: `ATLAS_ALERT_CPU_THRESHOLD_CRITICAL`
+- Default Value: `80`
+
+**Purpose**: Triggers critical alert when CPU usage exceeds this percentage.
+
+**Valid values**: 0-100
+
+**Impact**: Should be higher than warning threshold to provide escalation path.
+
+#### atlas_alert_memory_threshold_warning
+Memory utilization percentage threshold for WARNING alerts.
+
+- **Optional** when `atlas_enable_performance_alerts=true`
+- Environment Variable: `ATLAS_ALERT_MEMORY_THRESHOLD_WARNING`
+- Default Value: `70`
+
+**Purpose**: Triggers warning alert when memory usage exceeds this percentage.
+
+**Valid values**: 0-100
+
+#### atlas_alert_memory_threshold_critical
+Memory utilization percentage threshold for CRITICAL alerts.
+
+- **Optional** when `atlas_enable_performance_alerts=true`
+- Environment Variable: `ATLAS_ALERT_MEMORY_THRESHOLD_CRITICAL`
+- Default Value: `80`
+
+**Purpose**: Triggers critical alert when memory usage exceeds this percentage.
+
+**Valid values**: 0-100
+
+#### atlas_alert_connection_threshold_warning
+Connection count threshold as percentage of maximum for WARNING.
+
+- **Optional** when `atlas_enable_performance_alerts=true`
+- Environment Variable: `ATLAS_ALERT_CONNECTION_THRESHOLD_WARNING`
+- Default Value: `70`
+
+**Purpose**: Triggers warning alert when connection usage exceeds this percentage of maximum connections.
+
+**Valid values**: 0-100
+
+#### atlas_alert_connection_threshold_critical
+Connection count threshold as percentage of maximum for CRITICAL.
+
+- **Optional** when `atlas_enable_performance_alerts=true`
+- Environment Variable: `ATLAS_ALERT_CONNECTION_THRESHOLD_CRITICAL`
+- Default Value: `80`
+
+**Purpose**: Triggers critical alert when connection usage exceeds this percentage of maximum connections.
+
+**Valid values**: 0-100
+
+**Impact**: Connection exhaustion can prevent new connections and cause application failures.
+
+#### atlas_alert_interval_min
+Interval in minutes for metric threshold alert evaluation.
+
+- **Optional**
+- Environment Variable: `ATLAS_ALERT_INTERVAL_MIN`
+- Default Value: `5`
+
+**Purpose**: Defines how frequently Atlas evaluates metric thresholds for all performance alerts (CPU, memory, connections, query performance). This applies to all `OUTSIDE_METRIC_THRESHOLD` alert types.
+
+**Valid values**: Positive integer (minutes)
+
+**Impact**:
+- Lower values (e.g., 1-5 minutes) provide faster detection but may increase alert noise
+- Higher values (e.g., 10-15 minutes) reduce noise but delay detection
+- Affects all metric threshold alerts uniformly
+
+**Note**: This is a required parameter for MongoDB Atlas metric threshold alerts. The default of 5 minutes balances responsiveness with stability.
+
+- `false`: Only logs authorization failures, reducing log volume
+
+**Note**: Most compliance frameworks require logging of both successful and failed authorization attempts.
+
 
 ### Atlas Backup Compliance Policy Configuration
 
@@ -2882,6 +3180,20 @@ Local path to the MongoDB index backup JSON file.
     atlas_compliance_authorized_email: "admin@example.com"
     atlas_compliance_authorized_first_name: "Admin"
     atlas_compliance_authorized_last_name: "User"
+    
+    # Audit logging configuration
+    atlas_audit_enabled: true
+    atlas_audit_filter: '{"atype": "authenticate"}'
+    atlas_audit_authorization_success: false
+    
+    # Alert monitoring configuration
+    # Basic alerts (CPU, memory, connections) are automatically enabled
+    atlas_enable_alerts: true
+    atlas_alert_notification_emails: "ocm-team@example.com,monitoring@example.com"
+    
+    # Optional: Enable additional alert categories
+    atlas_enable_cluster_health_alerts: true
+    atlas_enable_performance_alerts: true  # Disk and query performance
     
     # MAS instances (creates dedicated users for each)
     atlas_mas_instances: "inst1,inst2,inst3"
