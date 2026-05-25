@@ -3181,6 +3181,7 @@ Local path to the MongoDB index backup JSON file.
     atlas_compliance_authorized_first_name: "Admin"
     atlas_compliance_authorized_last_name: "User"
     
+<<<<<<< HEAD
     # Audit logging configuration
     atlas_audit_enabled: true
     atlas_audit_filter: '{"atype": "authenticate"}'
@@ -3195,6 +3196,8 @@ Local path to the MongoDB index backup JSON file.
     atlas_enable_cluster_health_alerts: true
     atlas_enable_performance_alerts: true  # Disk and query performance
     
+=======
+>>>>>>> f32cb70d87ee668af6ce347c1522445166b9e09a
     # MAS instances (creates dedicated users for each)
     atlas_mas_instances: "inst1,inst2,inst3"
     
