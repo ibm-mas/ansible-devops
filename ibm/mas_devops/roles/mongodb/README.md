@@ -27,7 +27,47 @@ To run the `docdb_secret_rotate` MONGODB_ACTION when the provider is `aws` you m
 This role will install a GrafanaDashboard used for monitoring the MongoDB instance when the provided is `community` and you have run the [grafana role](https://ibm-mas.github.io/ansible-devops/roles/grafana/) previously. If you did not run the [grafana role](https://ibm-mas.github.io/ansible-devops/roles/grafana/) then the GrafanaDashboard won't be installed.
 
 ### MongoDB Atlas Prerequisites
-When using `mongodb_provider=atlas`, you must add your IP address to the Atlas API Access List before running this role:
+When using `mongodb_provider=atlas`, you must complete the following prerequisites:
+
+#### 1. Create AWS Secrets Manager Secret (Required)
+Create a secret in AWS Secrets Manager to store your Atlas API credentials. The secret must follow this naming convention:
+
+**Secret Name**: `<atlas_account_id>/mongodb-atlas`
+
+Where `<atlas_account_id>` is your AWS account ID (e.g., `123456789012/mongodb-atlas`).
+
+**Secret Format**: The secret must contain a JSON object with these exact field names:
+```json
+{
+  "mongodb_atlas_api_pub_key": "your-atlas-public-key",
+  "mongodb_atlas_api_pri_key": "your-atlas-private-key"
+}
+```
+
+**How to create the secret**:
+```bash
+# Replace 123456789012 with your AWS account ID
+export ACCOUNT_ID="123456789012"
+export SECRET_NAME="${ACCOUNT_ID}/mongodb-atlas"
+
+# Create the secret with Atlas API credentials
+aws secretsmanager create-secret \
+  --name "${SECRET_NAME}" \
+  --description "MongoDB Atlas API credentials for account ${ACCOUNT_ID}" \
+  --secret-string '{"mongodb_atlas_api_pub_key":"YOUR_PUBLIC_KEY","mongodb_atlas_api_pri_key":"YOUR_PRIVATE_KEY"}' \
+  --region us-east-1
+
+# Or update an existing secret
+aws secretsmanager put-secret-value \
+  --secret-id "${SECRET_NAME}" \
+  --secret-string '{"mongodb_atlas_api_pub_key":"YOUR_PUBLIC_KEY","mongodb_atlas_api_pri_key":"YOUR_PRIVATE_KEY"}' \
+  --region us-east-1
+```
+
+**Note**: The field names must be exactly `mongodb_atlas_api_pub_key` and `mongodb_atlas_api_pri_key` as shown above.
+
+#### 2. Add IP Address to Atlas API Access List
+Add your IP address to the Atlas API Access List before running this role:
 
 1. Log in to [MongoDB Atlas Console](https://cloud.mongodb.com)
 2. Navigate to your Organization → Access Manager → API Keys
@@ -116,7 +156,7 @@ Selects which MongoDB deployment option to use for MAS database requirements.
 - When `community`: Requires `mongodb_storage_class` and related storage/resource variables
 - When `ibm`: Requires `ibmcloud_apikey`, `ibm_mongo_region`, `ibm_mongo_resourcegroup`
 - When `aws`: Requires `aws_access_key_id`, `aws_secret_access_key`, `vpc_id`, `docdb_*` variables
-- When `atlas`: Requires `aws_access_key_id`, `aws_secret_access_key`, `atlas_aws_secret_name`
+- When `atlas`: Requires `aws_access_key_id`, `aws_secret_access_key`, `atlas_account_id` (secret name is automatically derived as `<atlas_account_id>/mongodb-atlas`)
 - Affects which `mongodb_action` values are supported
 
 **Note**: Provider cannot be changed after initial deployment. Migration between providers requires backup and restore procedures.
@@ -2030,97 +2070,29 @@ MongoDB Atlas project ID where the cluster will be created.
 
 **Impact**: Determines billing, access control, and resource organization for the cluster.
 
-#### atlas_public_key
-MongoDB Atlas API public key for authentication.
+#### atlas_account_id
+AWS account ID used to construct the AWS Secrets Manager secret name for Atlas API credentials.
 
-- **Required** when `mongodb_provider=atlas` (unless using `atlas_aws_secret_name`)
-- Environment Variable: `ATLAS_PUBLIC_KEY`
+- **Required** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_ACCOUNT_ID`
 - Default Value: None
 
-**Purpose**: Public component of Atlas API key pair used for programmatic access to Atlas API.
+**Purpose**: Used to construct the AWS Secrets Manager secret name in the format `<atlas_account_id>/mongodb-atlas`. This secret must contain the Atlas API credentials.
 
-**When to use**: Required for all Atlas operations (except restore-database) unless credentials are stored in AWS Secrets Manager.
+**When to use**: Always required for Atlas operations. The secret must be created as a prerequisite (see Prerequisites section).
 
-**Valid values**: Atlas API public key string
+**Valid values**: AWS account ID (12-digit number, e.g., `123456789012`)
 
-**Impact**: Used with `atlas_private_key` for Atlas API authentication.
+**Impact**: Determines which AWS Secrets Manager secret is used to retrieve Atlas API credentials. The role will fail if the secret does not exist or cannot be accessed.
 
-**Related variables**: Must be used with `atlas_private_key`. Alternative: use `atlas_aws_secret_name` to retrieve from AWS Secrets Manager.
+**Related variables**: Used with `aws_region` to locate the secret in AWS Secrets Manager.
 
-**Note**: Store securely. Never commit to version control. Consider using AWS Secrets Manager for production.
+**Note**: The secret `<atlas_account_id>/mongodb-atlas` must be created before running this role. See Prerequisites section for secret creation instructions.
 
-#### atlas_private_key
-MongoDB Atlas API private key for authentication.
-
-- **Required** when `mongodb_provider=atlas` (unless using `atlas_aws_secret_name`)
-- Environment Variable: `ATLAS_PRIVATE_KEY`
-- Default Value: None
-
-**Purpose**: Private component of Atlas API key pair used for programmatic access to Atlas API.
-
-**When to use**: Required for all Atlas operations (except restore-database) unless credentials are stored in AWS Secrets Manager.
-
-**Valid values**: Atlas API private key string
-
-**Impact**: Used with `atlas_public_key` for Atlas API authentication.
-
-**Related variables**: Must be used with `atlas_public_key`. Alternative: use `atlas_aws_secret_name` to retrieve from AWS Secrets Manager.
-
-**Note**: Store securely. Never commit to version control. Consider using AWS Secrets Manager for production.
-
-#### atlas_aws_secret_name
-AWS Secrets Manager secret name containing Atlas API credentials.
+#### aws_region
+AWS region where the Atlas credentials secret is stored.
 
 - **Optional** when `mongodb_provider=atlas`
-- Environment Variable: `ATLAS_AWS_SECRET_NAME`
-- Default Value: None
-
-**Purpose**: Retrieves Atlas API credentials from AWS Secrets Manager instead of using environment variables. Recommended for production deployments.
-
-**When to use**: Use instead of `atlas_public_key`/`atlas_private_key` for better security. Secret must contain JSON with specific field names.
-
-**Valid values**: AWS Secrets Manager secret name in format `<account_id>/mongodb-atlas` or full ARN
-
-**Impact**: When set, Atlas API credentials are retrieved from AWS Secrets Manager. Requires AWS CLI configured and appropriate IAM permissions.
-
-**Related variables**: Requires `atlas_aws_secret_region`. Alternative to `atlas_public_key`/`atlas_private_key`.
-
-**Secret Naming Convention**: The secret should follow the naming pattern `<account_id>/mongodb-atlas` where `<account_id>` is your AWS account ID (e.g., `123456789012/mongodb-atlas`).
-
-**Secret Format**: The AWS Secrets Manager secret must contain a JSON object with the following fields:
-```json
-{
-  "mongodb_atlas_api_pub_key": "your-atlas-public-key",
-  "mongodb_atlas_api_pri_key": "your-atlas-private-key"
-}
-```
-
-**How to create the secret**:
-```bash
-# Replace 123456789012 with your AWS account ID
-export ACCOUNT_ID="123456789012"
-export SECRET_NAME="${ACCOUNT_ID}/mongodb-atlas"
-
-# Create the secret with Atlas API credentials
-aws secretsmanager create-secret \
-  --name "${SECRET_NAME}" \
-  --description "MongoDB Atlas API credentials for account ${ACCOUNT_ID}" \
-  --secret-string '{"mongodb_atlas_api_pub_key":"YOUR_PUBLIC_KEY","mongodb_atlas_api_pri_key":"YOUR_PRIVATE_KEY"}' \
-  --region us-east-1
-
-# Or update an existing secret
-aws secretsmanager put-secret-value \
-  --secret-id "${SECRET_NAME}" \
-  --secret-string '{"mongodb_atlas_api_pub_key":"YOUR_PUBLIC_KEY","mongodb_atlas_api_pri_key":"YOUR_PRIVATE_KEY"}' \
-  --region us-east-1
-```
-
-**Note**: The field names must be exactly `mongodb_atlas_api_pub_key` and `mongodb_atlas_api_pri_key` as shown above.
-
-#### atlas_aws_secret_region
-AWS region where the Secrets Manager secret is stored.
-
-- **Optional** when `mongodb_provider=atlas` and `atlas_aws_secret_name` is set
 - Environment Variable: `ATLAS_AWS_SECRET_REGION`
 - Default Value: `us-east-1`
 
@@ -3159,10 +3131,6 @@ Local path to the MongoDB index backup JSON file.
     mongodb_provider: atlas
     mongodb_action: install
     
-    # Atlas API credentials (or use atlas_aws_secret_name)
-    atlas_public_key: "your-atlas-public-key"
-    atlas_private_key: "your-atlas-private-key"
-    
     # Project configuration (creates project if it doesn't exist)
     atlas_org_id: "507f1f77bcf86cd799439011"
     atlas_project_name: "MAS Production"
@@ -3219,9 +3187,10 @@ Local path to the MongoDB index backup JSON file.
   vars:
     mongodb_provider: atlas
     
-    # Credentials from AWS Secrets Manager
-    atlas_aws_secret_name: "atlas-api-credentials"
-    atlas_aws_secret_region: "us-east-1"
+    # AWS account ID (used to retrieve credentials from AWS Secrets Manager)
+    # Secret name will be: <atlas_account_id>/mongodb-atlas
+    atlas_account_id: "123456789012"
+    aws_region: "us-east-1"
     
     # Use existing project
     atlas_project_id: "507f1f77bcf86cd799439011"
