@@ -1,0 +1,98 @@
+---
+# 1. Check for required properties
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that:
+      - mas_instance_id is defined
+      - mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
+
+- name: "Fail if mas_version is not provided"
+  assert:
+    that:
+      - mas_version is defined
+      - mas_version != ""
+    fail_msg: "mas_version property is required"
+
+- name: "Fail if mas_preinstall_permission_mode is not valid"
+  assert:
+    that:
+      - mas_preinstall_permission_mode is defined
+      - mas_preinstall_permission_mode in ['minimal', 'namespaced', 'cluster']
+    fail_msg: "mas_preinstall_permission_mode must be one of: minimal, namespaced, cluster"
+
+
+# 2. Parse selected apps
+# -----------------------------------------------------------------------------
+- name: "Parse selected apps from string to list"
+  set_fact:
+    mas_preinstall_selected_apps_list: "{{ mas_preinstall_selected_apps.split(',') | map('trim') | select() | list }}"
+  when:
+    - mas_preinstall_selected_apps is defined
+    - mas_preinstall_selected_apps is string
+    - mas_preinstall_selected_apps != ""
+
+- name: "Use selected apps list as-is if already a list"
+  set_fact:
+    mas_preinstall_selected_apps_list: "{{ mas_preinstall_selected_apps }}"
+  when:
+    - mas_preinstall_selected_apps is defined
+    - mas_preinstall_selected_apps is not string
+
+- name: "Set empty list if no apps selected"
+  set_fact:
+    mas_preinstall_selected_apps_list: []
+  when:
+    - mas_preinstall_selected_apps is not defined or mas_preinstall_selected_apps == ""
+
+
+# 3. Debug information
+# -----------------------------------------------------------------------------
+- name: "Pre-install RBAC Configuration"
+  debug:
+    msg:
+      - "MAS Instance ID ......................... {{ mas_instance_id }}"
+      - "MAS Version ............................. {{ mas_version }}"
+      - "Permission Mode ......................... {{ mas_preinstall_permission_mode }}"
+      - "Selected Apps ........................... {{ mas_preinstall_selected_apps_list | join(', ') if mas_preinstall_selected_apps_list | length > 0 else 'none' }}"
+      - "RBAC Root Directory ..................... {{ mas_preinstall_rbac_root_dir if mas_preinstall_rbac_root_dir != '' else 'default (/opt/app-root/rbac)' }}"
+      - "Check Permissions ....................... {{ mas_preinstall_check_permissions }}"
+
+
+# 4. Check permissions (optional)
+# -----------------------------------------------------------------------------
+- name: "Check cluster permissions for RBAC operations"
+  when: mas_preinstall_check_permissions
+  block:
+    - name: "Run permission check"
+      ibm.mas_devops.mas_preinstall_check_permissions:
+      register: permission_check_result
+      ignore_errors: true
+
+    - name: "Display permission check results"
+      debug:
+        msg: "{{ permission_check_result.formatted_results }}"
+
+    - name: "Fail if permissions are denied"
+      fail:
+        msg: "{{ permission_check_result.msg }}"
+      when: permission_check_result.failed
+
+
+# 5. Apply pre-install RBAC
+# -----------------------------------------------------------------------------
+- name: "Apply pre-install MAS RBAC"
+  ibm.mas_devops.mas_preinstall_apply_rbac:
+    mas_version: "{{ mas_version }}"
+    mas_instance_id: "{{ mas_instance_id }}"
+    permission_mode: "{{ mas_preinstall_permission_mode }}"
+    selected_apps: "{{ mas_preinstall_selected_apps_list | default(omit) }}"
+    rbac_root_dir: "{{ mas_preinstall_rbac_root_dir | default(omit) }}"
+  register: apply_rbac_result
+
+- name: "Display RBAC apply results"
+  debug:
+    msg: "{{ apply_rbac_result.message }}"
+
+# Made with Bob
