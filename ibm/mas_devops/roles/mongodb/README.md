@@ -2386,7 +2386,7 @@ Enable alerts for performance issues.
 
 **When to use**: Enable for production and staging environments to monitor resource utilization.
 
-**Related variables**: `atlas_alert_cpu_threshold_warning`, `atlas_alert_cpu_threshold_critical`, `atlas_alert_memory_threshold_warning`, `atlas_alert_memory_threshold_critical`, `atlas_alert_connection_threshold_warning`, `atlas_alert_connection_threshold_critical`
+**Related variables**: `atlas_alert_cpu_thresholds`, `atlas_alert_memory_thresholds`, `atlas_alert_connection_thresholds`
 
 #### atlas_enable_security_alerts
 Enable alerts for security events.
@@ -2405,77 +2405,59 @@ Enable alerts for security events.
 
 **When to use**: Enable for all environments to monitor security posture.
 
-#### atlas_alert_cpu_threshold_warning
-CPU utilization percentage threshold for WARNING alerts.
+#### atlas_alert_cpu_thresholds
+CPU utilization percentage thresholds for WARNING and CRITICAL alerts.
 
 - **Optional** when `atlas_enable_performance_alerts=true`
-- Environment Variable: `ATLAS_ALERT_CPU_THRESHOLD_WARNING`
-- Default Value: `70`
+- Environment Variable: `ATLAS_ALERT_CPU_THRESHOLDS`
+- Default Value: `[70, 80]`
 
-**Purpose**: Triggers warning alert when CPU usage exceeds this percentage.
+**Purpose**: Defines CPU usage thresholds as an array `[warning, critical]`. Warning alert triggers at first value, critical at second.
 
-**Valid values**: 0-100
+**Valid values**: JSON array of two integers between 0-100
 
-**Impact**: Lower values trigger alerts earlier, higher values allow more CPU usage before alerting.
+**Impact**: Lower values trigger alerts earlier. Critical threshold should be higher than warning for proper escalation.
 
-#### atlas_alert_cpu_threshold_critical
-CPU utilization percentage threshold for CRITICAL alerts.
+**Example**:
+```bash
+export ATLAS_ALERT_CPU_THRESHOLDS='[70, 80]'
+```
 
-- **Optional** when `atlas_enable_performance_alerts=true`
-- Environment Variable: `ATLAS_ALERT_CPU_THRESHOLD_CRITICAL`
-- Default Value: `80`
-
-**Purpose**: Triggers critical alert when CPU usage exceeds this percentage.
-
-**Valid values**: 0-100
-
-**Impact**: Should be higher than warning threshold to provide escalation path.
-
-#### atlas_alert_memory_threshold_warning
-Memory utilization percentage threshold for WARNING alerts.
+#### atlas_alert_memory_thresholds
+Memory utilization percentage thresholds for WARNING and CRITICAL alerts.
 
 - **Optional** when `atlas_enable_performance_alerts=true`
-- Environment Variable: `ATLAS_ALERT_MEMORY_THRESHOLD_WARNING`
-- Default Value: `70`
+- Environment Variable: `ATLAS_ALERT_MEMORY_THRESHOLDS`
+- Default Value: `[70, 80]`
 
-**Purpose**: Triggers warning alert when memory usage exceeds this percentage.
+**Purpose**: Defines memory usage thresholds as an array `[warning, critical]`. Warning alert triggers at first value, critical at second.
 
-**Valid values**: 0-100
+**Valid values**: JSON array of two integers between 0-100
 
-#### atlas_alert_memory_threshold_critical
-Memory utilization percentage threshold for CRITICAL alerts.
+**Impact**: Memory exhaustion can cause performance degradation and OOM errors.
 
-- **Optional** when `atlas_enable_performance_alerts=true`
-- Environment Variable: `ATLAS_ALERT_MEMORY_THRESHOLD_CRITICAL`
-- Default Value: `80`
+**Example**:
+```bash
+export ATLAS_ALERT_MEMORY_THRESHOLDS='[70, 80]'
+```
 
-**Purpose**: Triggers critical alert when memory usage exceeds this percentage.
-
-**Valid values**: 0-100
-
-#### atlas_alert_connection_threshold_warning
-Connection count threshold as percentage of maximum for WARNING.
+#### atlas_alert_connection_thresholds
+Connection count thresholds as percentage of maximum for WARNING and CRITICAL alerts.
 
 - **Optional** when `atlas_enable_performance_alerts=true`
-- Environment Variable: `ATLAS_ALERT_CONNECTION_THRESHOLD_WARNING`
-- Default Value: `70`
+- Environment Variable: `ATLAS_ALERT_CONNECTION_THRESHOLDS`
+- Default Value: `[70, 80]`
 
-**Purpose**: Triggers warning alert when connection usage exceeds this percentage of maximum connections.
+**Purpose**: Defines connection usage thresholds as an array `[warning, critical]`. Warning alert triggers at first value, critical at second.
 
-**Valid values**: 0-100
-
-#### atlas_alert_connection_threshold_critical
-Connection count threshold as percentage of maximum for CRITICAL.
-
-- **Optional** when `atlas_enable_performance_alerts=true`
-- Environment Variable: `ATLAS_ALERT_CONNECTION_THRESHOLD_CRITICAL`
-- Default Value: `80`
-
-**Purpose**: Triggers critical alert when connection usage exceeds this percentage of maximum connections.
-
-**Valid values**: 0-100
+**Valid values**: JSON array of two integers between 0-100
 
 **Impact**: Connection exhaustion can prevent new connections and cause application failures.
+
+**Example**:
+```bash
+export ATLAS_ALERT_CONNECTION_THRESHOLDS='[70, 80]'
+```
 
 #### atlas_alert_interval_min
 Interval in minutes for metric threshold alert evaluation.
