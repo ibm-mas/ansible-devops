@@ -44,7 +44,58 @@
   fail:
     msg: "slscfg.ca must not empty"
 
+# BEGIN rollback
+# The following steps will perform a roll back of the SLS secret namespace change performed when upgrading from 9.1 to 9.2.
+# If the secret is detected in the tenant namespace then it is assumed that a rollback is necessary.
+# Remove this block when 9.1 is no longer supported.
+- name: Initialize SLS secret rollback flag
+  set_fact:
+    is_sls_secret_rollback_needed: false
+
+- name: Roll back SLS secret namespace change if necessary
+  when:
+    - aiservice_channel is defined
+    - aiservice_channel.startswith('9.1.')
+  block:
+    - name: Check if SLS secret exists in tenant namespace
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        namespace: "{{ tenantNamespace }}"
+        name: "{{ tenantNamespace }}----sls-secret"
+      register: tenant_sls_secret_result
+      no_log: true
+
+    - name: Confirm if SLS secret rollback is needed
+      set_fact:
+        is_sls_secret_rollback_needed: "{{ tenant_sls_secret_result.resources | length == 1 | bool }}"
+
+    - name: "Move tenant SLS secret back to namespace {{ aiservice_namespace }}"
+      when: is_sls_secret_rollback_needed
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ aiservice_namespace }}"
+        definition: >
+          {{ tenant_sls_secret_result.resources[0] | ibm.mas_devops.remove_dict_keys(['status', 'metadata.namespace', 'metadata.creationTimestamp',
+          'metadata.generation', 'metadata.resourceVersion', 'metadata.uid', 'metadata.ownerReferences']) | to_yaml }}
+
+    - name: "Delete tenant SLS secret from namespace {{ tenantNamespace }}"
+      when: is_sls_secret_rollback_needed
+      kubernetes.core.k8s:
+        state: absent
+        api_version: v1
+        namespace: "{{ tenantNamespace }}"
+        name: "{{ tenantNamespace }}----sls-secret"
+        kind: Secret
+
+    - name: Confirm if rollback was performed
+      ansible.builtin.debug:
+        msg: "Was tenant SLS secret moved to namespace {{ aiservice_namespace  }}? .......... {{ is_sls_secret_rollback_needed }}"
+
+# END rollback
+
 - name: Create SLS secret
+  when: not is_sls_secret_rollback_needed
   kubernetes.core.k8s:
     state: present
     template: "templates/sls/sls-secret.yml.j2"

@@ -1,5 +1,51 @@
 ---
 
+# BEGIN rollback
+# The following steps will perform a roll back of the API key secret namespace change performed when upgrading from 9.1 to 9.2.
+# If the secret is detected in the tenant namespace then it is assumed that a rollback is necessary.
+# Remove this block when 9.1 is no longer supported.
+- name: Roll back API key secret namespace change if necessary
+  when:
+    - aiservice_channel is defined
+    - aiservice_channel.startswith('9.1.')
+  block:
+    - name: Check if API key secret exists in tenant namespace
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        namespace: "{{ tenantNamespace }}"
+        name: "{{ tenantNamespace }}----apikey-secret"
+      register: tenant_api_secret_result
+      no_log: true
+
+    - name: Confirm if API key secret rollback is needed
+      set_fact:
+        is_api_key_rollback_needed: "{{ tenant_api_secret_result.resources | length == 1 | bool }}"
+
+    - name: "Move tenant API key secret back to namespace {{ aiservice_namespace }}"
+      when: is_api_key_rollback_needed
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ aiservice_namespace }}"
+        definition: >
+          {{ tenant_api_secret_result.resources[0] | ibm.mas_devops.remove_dict_keys(['status', 'metadata.namespace', 'metadata.creationTimestamp',
+          'metadata.generation', 'metadata.resourceVersion', 'metadata.uid', 'metadata.ownerReferences']) | to_yaml }}
+
+    - name: "Delete tenant API key secret from namespace {{ tenantNamespace }}"
+      when: is_api_key_rollback_needed
+      kubernetes.core.k8s:
+        state: absent
+        api_version: v1
+        namespace: "{{ tenantNamespace }}"
+        name: "{{ tenantNamespace }}----apikey-secret"
+        kind: Secret
+
+    - name: Confirm if rollback was performed
+      ansible.builtin.debug:
+        msg: "Was tenant API key secret moved to namespace {{ aiservice_namespace  }}? .......... {{ is_api_key_rollback_needed }}"
+
+# END rollback
+
 - name: Set target namespace
   set_fact:
     target_namespace: "{{ (((aiservice_channel is defined) and aiservice_channel.startswith('9.1.')) or not requires_namespaced_tenant_operator) | ternary(aiservice_namespace, tenantNamespace) }}"
