@@ -793,10 +793,51 @@ Support for the <strong>atlas (MongoDB Atlas)</strong> provider is currently in 
 <p>This file can be directly applied using <code>oc apply -f $MAS_CONFIG_DIR/mongocfg-mongoce-system.yaml</code> or used in conjunction with the <a href="../suite_config/">suite_config</a> role.</p>
 </div>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">¤</a></h2>
+<h3 id="general-prerequisites">General Prerequisites<a class="headerlink" href="#general-prerequisites" title="Permanent link">¤</a></h3>
 <p>To run this role with providers as <code>ibm</code> or <code>aws</code> you must have already installed the <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">AWS CLI</a>.
 Also, you need to have AWS user credentials configured via <code>aws configure</code> command or simply export <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code> environment variables with your corresponding AWS username credentials prior running this role when provider is either <code>ibm</code> or <code>aws</code> or <code>atlas</code>.</p>
 <p>To run the <code>docdb_secret_rotate</code> MONGODB_ACTION when the provider is <code>aws</code> you must have already installed the <a href="https://www.mongodb.com/docs/mongodb-shell/install/">Mongo Shell</a>.</p>
 <p>This role will install a GrafanaDashboard used for monitoring the MongoDB instance when the provided is <code>community</code> and you have run the <a href="https://ibm-mas.github.io/ansible-devops/roles/grafana/">grafana role</a> previously. If you did not run the <a href="https://ibm-mas.github.io/ansible-devops/roles/grafana/">grafana role</a> then the GrafanaDashboard won't be installed.</p>
+<h3 id="mongodb-atlas-prerequisites">MongoDB Atlas Prerequisites<a class="headerlink" href="#mongodb-atlas-prerequisites" title="Permanent link">¤</a></h3>
+<p>When using <code>mongodb_provider=atlas</code>, you must complete the following prerequisites:</p>
+<h4 id="1-create-aws-secrets-manager-secret-required">1. Create AWS Secrets Manager Secret (Required)<a class="headerlink" href="#1-create-aws-secrets-manager-secret-required" title="Permanent link">¤</a></h4>
+<p>Create a secret in AWS Secrets Manager to store your Atlas API credentials. The secret must follow this naming convention:</p>
+<p><strong>Secret Name</strong>: <code>&lt;atlas_account_id&gt;/mongodb-atlas</code></p>
+<p>Where <code>&lt;atlas_account_id&gt;</code> is your AWS account ID (e.g., <code>123456789012/mongodb-atlas</code>).</p>
+<p><strong>Secret Format</strong>: The secret must contain a JSON object with these exact field names:</p>
+<pre><code class="language-json">{
+  "mongodb_atlas_api_pub_key": "your-atlas-public-key",
+  "mongodb_atlas_api_pri_key": "your-atlas-private-key"
+}
+</code></pre>
+<p><strong>How to create the secret</strong>:</p>
+<pre><code class="language-bash"># Replace 123456789012 with your AWS account ID
+export ACCOUNT_ID="123456789012"
+export SECRET_NAME="${ACCOUNT_ID}/mongodb-atlas"
+
+# Create the secret with Atlas API credentials
+aws secretsmanager create-secret \
+  --name "${SECRET_NAME}" \
+  --description "MongoDB Atlas API credentials for account ${ACCOUNT_ID}" \
+  --secret-string '{"mongodb_atlas_api_pub_key":"YOUR_PUBLIC_KEY","mongodb_atlas_api_pri_key":"YOUR_PRIVATE_KEY"}' \
+  --region us-east-1
+
+# Or update an existing secret
+aws secretsmanager put-secret-value \
+  --secret-id "${SECRET_NAME}" \
+  --secret-string '{"mongodb_atlas_api_pub_key":"YOUR_PUBLIC_KEY","mongodb_atlas_api_pri_key":"YOUR_PRIVATE_KEY"}' \
+  --region us-east-1
+</code></pre>
+<p><strong>Note</strong>: The field names must be exactly <code>mongodb_atlas_api_pub_key</code> and <code>mongodb_atlas_api_pri_key</code> as shown above.</p>
+<h4 id="2-add-ip-address-to-atlas-api-access-list">2. Add IP Address to Atlas API Access List<a class="headerlink" href="#2-add-ip-address-to-atlas-api-access-list" title="Permanent link">¤</a></h4>
+<p>Add your IP address to the Atlas API Access List before running this role:</p>
+<ol>
+<li>Log in to <a href="https://cloud.mongodb.com">MongoDB Atlas Console</a></li>
+<li>Navigate to your Organization → Access Manager → API Keys</li>
+<li>Select your API key</li>
+<li>Click "Edit" and add your current IP address to the Access List</li>
+</ol>
+<p><strong>Note</strong>: The role cannot automatically add IP addresses to the Atlas API Access List. If your IP is not whitelisted, API calls will fail with <code>403 IP_ADDRESS_NOT_ON_ACCESS_LIST</code> error.</p>
 <h2 id="role-variables-general">Role Variables - General<a class="headerlink" href="#role-variables-general" title="Permanent link">¤</a></h2>
 <h3 id="common-variables">Common Variables<a class="headerlink" href="#common-variables" title="Permanent link">¤</a></h3>
 <h4 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h4>
@@ -860,7 +901,7 @@ Also, you need to have AWS user credentials configured via <code>aws configure</
 - When <code>community</code>: Requires <code>mongodb_storage_class</code> and related storage/resource variables
 - When <code>ibm</code>: Requires <code>ibmcloud_apikey</code>, <code>ibm_mongo_region</code>, <code>ibm_mongo_resourcegroup</code>
 - When <code>aws</code>: Requires <code>aws_access_key_id</code>, <code>aws_secret_access_key</code>, <code>vpc_id</code>, <code>docdb_*</code> variables
-- When <code>atlas</code>: Requires <code>aws_access_key_id</code>, <code>aws_secret_access_key</code>, <code>atlas_aws_secret_name</code>
+- When <code>atlas</code>: Requires <code>aws_access_key_id</code>, <code>aws_secret_access_key</code>, <code>atlas_account_id</code> (secret name is automatically derived as <code>&lt;atlas_account_id&gt;/mongodb-atlas</code>)
 - Affects which <code>mongodb_action</code> values are supported</p>
 <p><strong>Note</strong>: Provider cannot be changed after initial deployment. Migration between providers requires backup and restore procedures.</p>
 <h4 id="mongodb_action">mongodb_action<a class="headerlink" href="#mongodb_action" title="Permanent link">¤</a></h4>
@@ -2380,74 +2421,23 @@ Set to <code>true</code> to override the storage class with <code>MONGODB_STORAG
 <p><strong>When to use</strong>: Always required for Atlas deployments (except restore-database). Obtain from Atlas console under Project Settings.</p>
 <p><strong>Valid values</strong>: 24-character hexadecimal string (e.g., <code>507f1f77bcf86cd799439011</code>)</p>
 <p><strong>Impact</strong>: Determines billing, access control, and resource organization for the cluster.</p>
-<h4 id="atlas_public_key">atlas_public_key<a class="headerlink" href="#atlas_public_key" title="Permanent link">¤</a></h4>
-<p>MongoDB Atlas API public key for authentication.</p>
+<h4 id="atlas_account_id">atlas_account_id<a class="headerlink" href="#atlas_account_id" title="Permanent link">¤</a></h4>
+<p>AWS account ID used to construct the AWS Secrets Manager secret name for Atlas API credentials.</p>
 <ul>
-<li><strong>Required</strong> when <code>mongodb_provider=atlas</code> (unless using <code>atlas_aws_secret_name</code>)</li>
-<li>Environment Variable: <code>ATLAS_PUBLIC_KEY</code></li>
+<li><strong>Required</strong> when <code>mongodb_provider=atlas</code></li>
+<li>Environment Variable: <code>ATLAS_ACCOUNT_ID</code></li>
 <li>Default Value: None</li>
 </ul>
-<p><strong>Purpose</strong>: Public component of Atlas API key pair used for programmatic access to Atlas API.</p>
-<p><strong>When to use</strong>: Required for all Atlas operations (except restore-database) unless credentials are stored in AWS Secrets Manager.</p>
-<p><strong>Valid values</strong>: Atlas API public key string</p>
-<p><strong>Impact</strong>: Used with <code>atlas_private_key</code> for Atlas API authentication.</p>
-<p><strong>Related variables</strong>: Must be used with <code>atlas_private_key</code>. Alternative: use <code>atlas_aws_secret_name</code> to retrieve from AWS Secrets Manager.</p>
-<p><strong>Note</strong>: Store securely. Never commit to version control. Consider using AWS Secrets Manager for production.</p>
-<h4 id="atlas_private_key">atlas_private_key<a class="headerlink" href="#atlas_private_key" title="Permanent link">¤</a></h4>
-<p>MongoDB Atlas API private key for authentication.</p>
-<ul>
-<li><strong>Required</strong> when <code>mongodb_provider=atlas</code> (unless using <code>atlas_aws_secret_name</code>)</li>
-<li>Environment Variable: <code>ATLAS_PRIVATE_KEY</code></li>
-<li>Default Value: None</li>
-</ul>
-<p><strong>Purpose</strong>: Private component of Atlas API key pair used for programmatic access to Atlas API.</p>
-<p><strong>When to use</strong>: Required for all Atlas operations (except restore-database) unless credentials are stored in AWS Secrets Manager.</p>
-<p><strong>Valid values</strong>: Atlas API private key string</p>
-<p><strong>Impact</strong>: Used with <code>atlas_public_key</code> for Atlas API authentication.</p>
-<p><strong>Related variables</strong>: Must be used with <code>atlas_public_key</code>. Alternative: use <code>atlas_aws_secret_name</code> to retrieve from AWS Secrets Manager.</p>
-<p><strong>Note</strong>: Store securely. Never commit to version control. Consider using AWS Secrets Manager for production.</p>
-<h4 id="atlas_aws_secret_name">atlas_aws_secret_name<a class="headerlink" href="#atlas_aws_secret_name" title="Permanent link">¤</a></h4>
-<p>AWS Secrets Manager secret name containing Atlas API credentials.</p>
+<p><strong>Purpose</strong>: Used to construct the AWS Secrets Manager secret name in the format <code>&lt;atlas_account_id&gt;/mongodb-atlas</code>. This secret must contain the Atlas API credentials.</p>
+<p><strong>When to use</strong>: Always required for Atlas operations. The secret must be created as a prerequisite (see Prerequisites section).</p>
+<p><strong>Valid values</strong>: AWS account ID (12-digit number, e.g., <code>123456789012</code>)</p>
+<p><strong>Impact</strong>: Determines which AWS Secrets Manager secret is used to retrieve Atlas API credentials. The role will fail if the secret does not exist or cannot be accessed.</p>
+<p><strong>Related variables</strong>: Used with <code>aws_region</code> to locate the secret in AWS Secrets Manager.</p>
+<p><strong>Note</strong>: The secret <code>&lt;atlas_account_id&gt;/mongodb-atlas</code> must be created before running this role. See Prerequisites section for secret creation instructions.</p>
+<h4 id="aws_region_1">aws_region<a class="headerlink" href="#aws_region_1" title="Permanent link">¤</a></h4>
+<p>AWS region where the Atlas credentials secret is stored.</p>
 <ul>
 <li><strong>Optional</strong> when <code>mongodb_provider=atlas</code></li>
-<li>Environment Variable: <code>ATLAS_AWS_SECRET_NAME</code></li>
-<li>Default Value: None</li>
-</ul>
-<p><strong>Purpose</strong>: Retrieves Atlas API credentials from AWS Secrets Manager instead of using environment variables. Recommended for production deployments.</p>
-<p><strong>When to use</strong>: Use instead of <code>atlas_public_key</code>/<code>atlas_private_key</code> for better security. Secret must contain JSON with specific field names.</p>
-<p><strong>Valid values</strong>: AWS Secrets Manager secret name in format <code>&lt;account_id&gt;/mongodb-atlas</code> or full ARN</p>
-<p><strong>Impact</strong>: When set, Atlas API credentials are retrieved from AWS Secrets Manager. Requires AWS CLI configured and appropriate IAM permissions.</p>
-<p><strong>Related variables</strong>: Requires <code>atlas_aws_secret_region</code>. Alternative to <code>atlas_public_key</code>/<code>atlas_private_key</code>.</p>
-<p><strong>Secret Naming Convention</strong>: The secret should follow the naming pattern <code>&lt;account_id&gt;/mongodb-atlas</code> where <code>&lt;account_id&gt;</code> is your AWS account ID (e.g., <code>123456789012/mongodb-atlas</code>).</p>
-<p><strong>Secret Format</strong>: The AWS Secrets Manager secret must contain a JSON object with the following fields:</p>
-<pre><code class="language-json">{
-  "mongodb_atlas_api_pub_key": "your-atlas-public-key",
-  "mongodb_atlas_api_pri_key": "your-atlas-private-key"
-}
-</code></pre>
-<p><strong>How to create the secret</strong>:</p>
-<pre><code class="language-bash"># Replace 123456789012 with your AWS account ID
-export ACCOUNT_ID="123456789012"
-export SECRET_NAME="${ACCOUNT_ID}/mongodb-atlas"
-
-# Create the secret with Atlas API credentials
-aws secretsmanager create-secret \
-  --name "${SECRET_NAME}" \
-  --description "MongoDB Atlas API credentials for account ${ACCOUNT_ID}" \
-  --secret-string '{"mongodb_atlas_api_pub_key":"YOUR_PUBLIC_KEY","mongodb_atlas_api_pri_key":"YOUR_PRIVATE_KEY"}' \
-  --region us-east-1
-
-# Or update an existing secret
-aws secretsmanager put-secret-value \
-  --secret-id "${SECRET_NAME}" \
-  --secret-string '{"mongodb_atlas_api_pub_key":"YOUR_PUBLIC_KEY","mongodb_atlas_api_pri_key":"YOUR_PRIVATE_KEY"}' \
-  --region us-east-1
-</code></pre>
-<p><strong>Note</strong>: The field names must be exactly <code>mongodb_atlas_api_pub_key</code> and <code>mongodb_atlas_api_pri_key</code> as shown above.</p>
-<h4 id="atlas_aws_secret_region">atlas_aws_secret_region<a class="headerlink" href="#atlas_aws_secret_region" title="Permanent link">¤</a></h4>
-<p>AWS region where the Secrets Manager secret is stored.</p>
-<ul>
-<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code> and <code>atlas_aws_secret_name</code> is set</li>
 <li>Environment Variable: <code>ATLAS_AWS_SECRET_REGION</code></li>
 <li>Default Value: <code>us-east-1</code></li>
 </ul>
@@ -2531,6 +2521,206 @@ aws secretsmanager put-secret-value \
 <p><strong>Impact</strong>: When enabled, Atlas creates continuous backups with point-in-time recovery. Affects cluster cost.</p>
 <p><strong>Note</strong>: Highly recommended for production deployments.</p>
 <p><strong>Related variables</strong>: Required to be <code>true</code> when <code>atlas_backup_compliance_enabled</code> is enabled.</p>
+<h3 id="atlas-audit-logging-configuration">Atlas Audit Logging Configuration<a class="headerlink" href="#atlas-audit-logging-configuration" title="Permanent link">¤</a></h3>
+<p>MongoDB Atlas Auditing captures database operations for compliance and security monitoring. It records authentication events, authorization failures, and database operations, which is required for FedRAMP, HIPAA, and other regulatory compliance.</p>
+<h4 id="atlas_audit_enabled">atlas_audit_enabled<a class="headerlink" href="#atlas_audit_enabled" title="Permanent link">¤</a></h4>
+<p>Enable audit logging for the Atlas project.</p>
+<ul>
+<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code></li>
+<li>Environment Variable: <code>ATLAS_AUDIT_ENABLED</code></li>
+<li>Default Value: <code>false</code></li>
+</ul>
+<p><strong>Purpose</strong>: Enables audit logging to capture database operations, authentication events, and authorization failures for compliance and security monitoring.</p>
+<p><strong>When to use</strong>: Enable for production and staging environments requiring regulatory compliance (FedRAMP, HIPAA, SOC 2, PCI-DSS) or security monitoring.</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>: 
+- Captures audit events based on the configured filter
+- May impact cluster performance depending on filter complexity
+- Generates audit logs that can be accessed via Atlas UI or API
+- Additional costs may apply based on log volume</p>
+<p><strong>Note</strong>: Audit logging is configured at the project level and applies to all clusters in the project.</p>
+<p><strong>Related variables</strong>: <code>atlas_audit_filter</code>, <code>atlas_audit_authorization_success</code></p>
+<h4 id="atlas_audit_filter">atlas_audit_filter<a class="headerlink" href="#atlas_audit_filter" title="Permanent link">¤</a></h4>
+<p>JSON filter for audit events to capture.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_audit_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_AUDIT_FILTER</code></li>
+<li>Default Value: <code>{}</code> (captures all events)</li>
+</ul>
+<p><strong>Purpose</strong>: Defines which database operations and events should be captured in audit logs.</p>
+<p><strong>Valid values</strong>: Valid JSON string representing MongoDB audit filter</p>
+<p><strong>Common filter examples</strong>:
+- All events (default): <code>{}</code>
+- Authentication only: <code>{"atype": "authenticate"}</code>
+- Failed operations: <code>{"result": {"$ne": 0}}</code>
+- Specific database: <code>{"param.ns": {"$regex": "^mydb\\."}}</code>
+- Admin database operations: <code>{"param.db": "admin"}</code></p>
+<p><strong>Compliance use cases</strong>:
+- <strong>SOC 2</strong>: Track all authentication and authorization events
+- <strong>HIPAA</strong>: Monitor access to protected health information
+- <strong>PCI-DSS</strong>: Log all access to cardholder data
+- <strong>FedRAMP</strong>: Comprehensive audit trail of all database operations</p>
+<p><strong>Impact</strong>: More specific filters reduce log volume and performance impact.</p>
+<p><strong>Note</strong>: Filter syntax follows MongoDB query language. Invalid JSON will cause configuration to fail.</p>
+<h4 id="atlas_audit_authorization_success">atlas_audit_authorization_success<a class="headerlink" href="#atlas_audit_authorization_success" title="Permanent link">¤</a></h4>
+<p>Log successful authorization events.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_audit_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_AUDIT_AUTHORIZATION_SUCCESS</code></li>
+<li>Default Value: <code>false</code></li>
+</ul>
+<p><strong>Purpose</strong>: Controls whether successful authorization events are logged in addition to failures.</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>When to use</strong>: 
+- Set to <code>true</code> for comprehensive audit trails required by strict compliance frameworks
+- Set to <code>false</code> to reduce log volume by only capturing authorization failures</p>
+<p><strong>Impact</strong>: 
+- <code>true</code>: Increases log volume significantly as all successful operations are logged</p>
+<h3 id="atlas-alert-monitoring-configuration">Atlas Alert Monitoring Configuration<a class="headerlink" href="#atlas-alert-monitoring-configuration" title="Permanent link">¤</a></h3>
+<p>MongoDB Atlas Alert Monitoring provides proactive notifications for cluster health, performance, and security events. Alerts help identify and resolve issues before they impact users.</p>
+<p><strong>Note</strong>: Alerts are configured per cluster using matchers to target the specific cluster name (<code>atlas_cluster_name</code>). Each alert configuration includes a matcher that ensures it only applies to the specified cluster.</p>
+<h4 id="alert-categories">Alert Categories<a class="headerlink" href="#alert-categories" title="Permanent link">¤</a></h4>
+<p><strong>Basic Alerts (Always Enabled)</strong>:
+When <code>atlas_enable_alerts=true</code>, the following alerts are automatically configured:
+- CPU usage (warning and critical thresholds)
+- Memory usage (warning and critical thresholds)
+- Connection count (warning and critical thresholds)</p>
+<p><strong>Optional Alerts (Require Explicit Enablement)</strong>:
+- Cluster health alerts (<code>atlas_enable_cluster_health_alerts</code>)
+- Additional performance alerts - query performance (<code>atlas_enable_performance_alerts</code>)</p>
+<h4 id="atlas_enable_alerts">atlas_enable_alerts<a class="headerlink" href="#atlas_enable_alerts" title="Permanent link">¤</a></h4>
+<p>Enable alert monitoring for the Atlas cluster.</p>
+<ul>
+<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code></li>
+<li>Environment Variable: <code>ATLAS_ENABLE_ALERTS</code></li>
+<li>Default Value: <code>false</code></li>
+</ul>
+<p><strong>Purpose</strong>: Enables basic alert monitoring (CPU, memory, connections) with email notifications. Additional alert categories can be enabled separately.</p>
+<p><strong>When to use</strong>: Enable for production and staging environments to receive proactive notifications about potential issues.</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- Automatically configures 6 basic alerts (CPU, memory, connections - warning and critical)
+- Sends email notifications when thresholds are exceeded
+- Helps prevent downtime by alerting before critical issues occur</p>
+<p><strong>Note</strong>: Requires <code>atlas_alert_notification_emails</code> to be configured with at least one email address.</p>
+<p><strong>Related variables</strong>: <code>atlas_alert_notification_emails</code>, <code>atlas_enable_cluster_health_alerts</code>, <code>atlas_enable_performance_alerts</code></p>
+<h4 id="atlas_alert_notification_emails">atlas_alert_notification_emails<a class="headerlink" href="#atlas_alert_notification_emails" title="Permanent link">¤</a></h4>
+<p>List of email addresses to receive alert notifications.</p>
+<ul>
+<li><strong>Required</strong> when <code>atlas_enable_alerts=true</code></li>
+<li>Environment Variable: <code>ATLAS_ALERT_NOTIFICATION_EMAILS</code></li>
+<li>Default Value: <code>[]</code></li>
+</ul>
+<p><strong>Purpose</strong>: Specifies email addresses that will receive alert notifications via OCM (Operations Center Manager).</p>
+<p><strong>Valid values</strong>: Comma-separated list of valid email addresses or JSON array</p>
+<p><strong>Examples</strong>:
+- Comma-separated: <code>ocm-team@example.com,monitoring@example.com</code>
+- JSON array: <code>["ocm-team@example.com", "monitoring@example.com"]</code></p>
+<p><strong>Impact</strong>: All specified email addresses will receive notifications for all configured alerts.</p>
+<p><strong>Important</strong>: Use OCM (Operations Center Manager) email addresses only. Do not configure generic or personal email addresses. OCM emails are integrated with incident management systems and ensure proper alert routing and escalation.</p>
+<p><strong>Note</strong>: At least one OCM email address is required when alerts are enabled.</p>
+<h4 id="atlas_enable_cluster_health_alerts">atlas_enable_cluster_health_alerts<a class="headerlink" href="#atlas_enable_cluster_health_alerts" title="Permanent link">¤</a></h4>
+<p>Enable alerts for cluster health issues.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_enable_alerts=true</code></li>
+<li>Environment Variable: <code>ATLAS_ENABLE_CLUSTER_HEALTH_ALERTS</code></li>
+<li>Default Value: <code>false</code></li>
+</ul>
+<p><strong>Purpose</strong>: Enables alerts for cluster health events including replication lag, primary election, and node failures.</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Alert types configured</strong>:
+- Replication oplog window running out (&lt; 1 hour)
+- Primary elected (replica set election)
+- No primary available
+- Cluster mongos missing</p>
+<p><strong>When to use</strong>: Enable for production and staging environments to monitor cluster stability.</p>
+<h4 id="atlas_enable_performance_alerts">atlas_enable_performance_alerts<a class="headerlink" href="#atlas_enable_performance_alerts" title="Permanent link">¤</a></h4>
+<p>Enable alerts for performance issues.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_enable_alerts=true</code></li>
+<li>Environment Variable: <code>ATLAS_ENABLE_PERFORMANCE_ALERTS</code></li>
+<li>Default Value: <code>false</code></li>
+</ul>
+<p><strong>Purpose</strong>: Enables alerts for performance metrics including CPU, memory, disk, and connection usage.</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Alert types configured</strong>:
+- CPU usage (warning and critical thresholds)
+- Memory usage (warning and critical thresholds)
+- Disk usage
+- Connection count (warning and critical thresholds)
+- Query performance (scanned objects per returned)</p>
+<p><strong>When to use</strong>: Enable for production and staging environments to monitor resource utilization.</p>
+<p><strong>Related variables</strong>: <code>atlas_alert_cpu_thresholds</code>, <code>atlas_alert_memory_thresholds</code>, <code>atlas_alert_connection_thresholds</code></p>
+<h4 id="atlas_enable_security_alerts">atlas_enable_security_alerts<a class="headerlink" href="#atlas_enable_security_alerts" title="Permanent link">¤</a></h4>
+<p>Enable alerts for security events.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_enable_alerts=true</code></li>
+<li>Environment Variable: <code>ATLAS_ENABLE_SECURITY_ALERTS</code></li>
+<li>Default Value: <code>false</code></li>
+</ul>
+<p><strong>Purpose</strong>: Enables alerts for security-related events including authentication failures and configuration changes.</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Alert types configured</strong>:
+- Too many unhealthy connections
+- Users without multi-factor authentication</p>
+<p><strong>When to use</strong>: Enable for all environments to monitor security posture.</p>
+<h4 id="atlas_alert_cpu_thresholds">atlas_alert_cpu_thresholds<a class="headerlink" href="#atlas_alert_cpu_thresholds" title="Permanent link">¤</a></h4>
+<p>CPU utilization percentage thresholds for WARNING and CRITICAL alerts.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_enable_performance_alerts=true</code></li>
+<li>Environment Variable: <code>ATLAS_ALERT_CPU_THRESHOLDS</code></li>
+<li>Default Value: <code>[70, 80]</code></li>
+</ul>
+<p><strong>Purpose</strong>: Defines CPU usage thresholds as an array <code>[warning, critical]</code>. Warning alert triggers at first value, critical at second.</p>
+<p><strong>Valid values</strong>: JSON array of two integers between 0-100</p>
+<p><strong>Impact</strong>: Lower values trigger alerts earlier. Critical threshold should be higher than warning for proper escalation.</p>
+<p><strong>Example</strong>:</p>
+<pre><code class="language-bash">export ATLAS_ALERT_CPU_THRESHOLDS='[70, 80]'
+</code></pre>
+<h4 id="atlas_alert_memory_thresholds">atlas_alert_memory_thresholds<a class="headerlink" href="#atlas_alert_memory_thresholds" title="Permanent link">¤</a></h4>
+<p>Memory utilization percentage thresholds for WARNING and CRITICAL alerts.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_enable_performance_alerts=true</code></li>
+<li>Environment Variable: <code>ATLAS_ALERT_MEMORY_THRESHOLDS</code></li>
+<li>Default Value: <code>[70, 80]</code></li>
+</ul>
+<p><strong>Purpose</strong>: Defines memory usage thresholds as an array <code>[warning, critical]</code>. Warning alert triggers at first value, critical at second.</p>
+<p><strong>Valid values</strong>: JSON array of two integers between 0-100</p>
+<p><strong>Impact</strong>: Memory exhaustion can cause performance degradation and OOM errors.</p>
+<p><strong>Example</strong>:</p>
+<pre><code class="language-bash">export ATLAS_ALERT_MEMORY_THRESHOLDS='[70, 80]'
+</code></pre>
+<h4 id="atlas_alert_connection_thresholds">atlas_alert_connection_thresholds<a class="headerlink" href="#atlas_alert_connection_thresholds" title="Permanent link">¤</a></h4>
+<p>Connection count thresholds as percentage of maximum for WARNING and CRITICAL alerts.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_enable_performance_alerts=true</code></li>
+<li>Environment Variable: <code>ATLAS_ALERT_CONNECTION_THRESHOLDS</code></li>
+<li>Default Value: <code>[70, 80]</code></li>
+</ul>
+<p><strong>Purpose</strong>: Defines connection usage thresholds as an array <code>[warning, critical]</code>. Warning alert triggers at first value, critical at second.</p>
+<p><strong>Valid values</strong>: JSON array of two integers between 0-100</p>
+<p><strong>Impact</strong>: Connection exhaustion can prevent new connections and cause application failures.</p>
+<p><strong>Example</strong>:</p>
+<pre><code class="language-bash">export ATLAS_ALERT_CONNECTION_THRESHOLDS='[70, 80]'
+</code></pre>
+<h4 id="atlas_alert_interval_min">atlas_alert_interval_min<a class="headerlink" href="#atlas_alert_interval_min" title="Permanent link">¤</a></h4>
+<p>Interval in minutes for metric threshold alert evaluation.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>ATLAS_ALERT_INTERVAL_MIN</code></li>
+<li>Default Value: <code>5</code></li>
+</ul>
+<p><strong>Purpose</strong>: Defines how frequently Atlas evaluates metric thresholds for all performance alerts (CPU, memory, connections, query performance). This applies to all <code>OUTSIDE_METRIC_THRESHOLD</code> alert types.</p>
+<p><strong>Valid values</strong>: Positive integer (minutes)</p>
+<p><strong>Impact</strong>:
+- Lower values (e.g., 1-5 minutes) provide faster detection but may increase alert noise
+- Higher values (e.g., 10-15 minutes) reduce noise but delay detection
+- Affects all metric threshold alerts uniformly</p>
+<p><strong>Note</strong>: This is a required parameter for MongoDB Atlas metric threshold alerts. The default of 5 minutes balances responsiveness with stability.</p>
+<ul>
+<li><code>false</code>: Only logs authorization failures, reducing log volume</li>
+</ul>
+<p><strong>Note</strong>: Most compliance frameworks require logging of both successful and failed authorization attempts.</p>
 <h3 id="atlas-backup-compliance-policy-configuration">Atlas Backup Compliance Policy Configuration<a class="headerlink" href="#atlas-backup-compliance-policy-configuration" title="Permanent link">¤</a></h3>
 <p>The backup compliance policy enforces backup retention and protection rules at the project level. When enabled, it applies to all clusters in the project.</p>
 <h4 id="atlas_backup_compliance_enabled">atlas_backup_compliance_enabled<a class="headerlink" href="#atlas_backup_compliance_enabled" title="Permanent link">¤</a></h4>
@@ -2812,7 +3002,7 @@ aws secretsmanager put-secret-value \
 <p><strong>Related variables</strong>: Must be used with <code>atlas_db_username</code>. Alternative: use <code>atlas_database_users</code>.</p>
 <p><strong>Note</strong>: Store securely. Never commit to version control.</p>
 <h3 id="atlas-secret-management-configuration">Atlas Secret Management Configuration<a class="headerlink" href="#atlas-secret-management-configuration" title="Permanent link">¤</a></h3>
-<h4 id="atlas_account_id">atlas_account_id<a class="headerlink" href="#atlas_account_id" title="Permanent link">¤</a></h4>
+<h4 id="atlas_account_id_1">atlas_account_id<a class="headerlink" href="#atlas_account_id_1" title="Permanent link">¤</a></h4>
 <p>AWS account ID for secret naming convention.</p>
 <ul>
 <li><strong>Required</strong> when <code>atlas_store_credentials_in_secret=true</code></li>
@@ -2998,10 +3188,6 @@ aws secretsmanager put-secret-value \
     mongodb_provider: atlas
     mongodb_action: install
 
-    # Atlas API credentials (or use atlas_aws_secret_name)
-    atlas_public_key: "your-atlas-public-key"
-    atlas_private_key: "your-atlas-private-key"
-
     # Project configuration (creates project if it doesn't exist)
     atlas_org_id: "507f1f77bcf86cd799439011"
     atlas_project_name: "MAS Production"
@@ -3019,6 +3205,20 @@ aws secretsmanager put-secret-value \
     atlas_compliance_authorized_email: "admin@example.com"
     atlas_compliance_authorized_first_name: "Admin"
     atlas_compliance_authorized_last_name: "User"
+
+    # Audit logging configuration
+    atlas_audit_enabled: true
+    atlas_audit_filter: '{"atype": "authenticate"}'
+    atlas_audit_authorization_success: false
+
+    # Alert monitoring configuration
+    # Basic alerts (CPU, memory, connections) are automatically enabled
+    atlas_enable_alerts: true
+    atlas_alert_notification_emails: "ocm-team@example.com,monitoring@example.com"
+
+    # Optional: Enable additional alert categories
+    atlas_enable_cluster_health_alerts: true
+    atlas_enable_performance_alerts: true  # Disk and query performance
 
     # MAS instances (creates dedicated users for each)
     atlas_mas_instances: "inst1,inst2,inst3"
@@ -3042,9 +3242,10 @@ aws secretsmanager put-secret-value \
   vars:
     mongodb_provider: atlas
 
-    # Credentials from AWS Secrets Manager
-    atlas_aws_secret_name: "atlas-api-credentials"
-    atlas_aws_secret_region: "us-east-1"
+    # AWS account ID (used to retrieve credentials from AWS Secrets Manager)
+    # Secret name will be: &lt;atlas_account_id&gt;/mongodb-atlas
+    atlas_account_id: "123456789012"
+    aws_region: "us-east-1"
 
     # Use existing project
     atlas_project_id: "507f1f77bcf86cd799439011"
@@ -3335,6 +3536,18 @@ ansible-playbook ibm.mas_devops.run_role
                 <a href="#prerequisites" class="md-toc__link" data-md-level="1">
                   Prerequisites
                 </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#general-prerequisites" class="md-toc__link" data-md-level="2">
+                          General Prerequisites
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#mongodb-atlas-prerequisites" class="md-toc__link" data-md-level="2">
+                          MongoDB Atlas Prerequisites
+                        </a>
+                      </li>
+                  </ul>
               </li>
               <li class="md-toc__item">
                 <a href="#role-variables-general" class="md-toc__link" data-md-level="1">
@@ -3701,6 +3914,16 @@ ansible-playbook ibm.mas_devops.run_role
                       <li class="md-toc__item">
                         <a href="#atlas-project-configuration" class="md-toc__link" data-md-level="2">
                           Atlas Project Configuration
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas-audit-logging-configuration" class="md-toc__link" data-md-level="2">
+                          Atlas Audit Logging Configuration
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas-alert-monitoring-configuration" class="md-toc__link" data-md-level="2">
+                          Atlas Alert Monitoring Configuration
                         </a>
                       </li>
                       <li class="md-toc__item">
