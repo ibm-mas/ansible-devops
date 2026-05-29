@@ -76,6 +76,7 @@
     msg: "Network operator - Progressing: {{ _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Progressing') | map(attribute='status') | first }}, Available: {{ _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | map(attribute='status') | first }}"
   when:
     - ocp_enable_ipv6 == true
+    - _network_status is defined
     - _network_status is failed
 
 # 8. Wait for all nodes to report network ready
@@ -84,7 +85,10 @@
     api_version: v1
     kind: Node
   register: _nodes
-  until: _nodes.resources | selectattr('status.conditions', 'defined') | map(attribute='status.conditions') | flatten | selectattr('type', 'equalto', 'NetworkUnavailable') | map(attribute='status') | select('equalto', 'True') | list | length == 0
+  until:
+    - _nodes is succeeded
+    - _nodes.resources is defined
+    - _nodes.resources | selectattr('status.conditions', 'defined') | map(attribute='status.conditions') | flatten | selectattr('type', 'equalto', 'NetworkUnavailable') | map(attribute='status') | select('equalto', 'True') | list | length == 0
   retries: 60
   delay: 10
   when:
