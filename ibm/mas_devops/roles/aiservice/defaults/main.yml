@@ -54,16 +54,17 @@ enable_ipv6: "{{ lookup('env', 'ENABLE_IPV6') | default('false', true) | bool }}
 # S3
 # -----------------------------------------------------------------------------
 aiservice_s3_bucket_prefix: "{{ lookup('env', 'AISERVICE_S3_BUCKET_PREFIX') }}"
-aiservice_s3_region: "{{ lookup('env', 'AISERVICE_S3_REGION') | default('none', True) }}"
+aiservice_s3_region: "{{ lookup('env', 'AISERVICE_S3_REGION') | default(cos_bucket_region | default('none', True), True) }}"
 
-aiservice_s3_host: "{{ lookup('env', 'AISERVICE_S3_HOST') }}"
-aiservice_s3_port: "{{ lookup('env', 'AISERVICE_S3_PORT') }}"
+aiservice_s3_host: "{{ lookup('env', 'AISERVICE_S3_HOST') | default(cos_bucket_host | default('', True), True) }}"
+aiservice_s3_port: "{{ lookup('env', 'AISERVICE_S3_PORT') | default(cos_bucket_port | default('', True), True) }}"
 aiservice_s3_host_with_port: "{{ aiservice_s3_host }}{{ (aiservice_s3_port == '') | ternary('', ':' ~ aiservice_s3_port) }}"
-aiservice_s3_ssl: "{{ lookup('env', 'AISERVICE_S3_SSL') | bool }}"
+
+aiservice_s3_ssl: "{{ lookup('env', 'AISERVICE_S3_SSL') | default(cos_bucket_ssl | default(false, True) if (cos_bucket_needs_ca_cert | default(false)) else true, True) | bool }}"
 aiservice_s3_url: "{{ aiservice_s3_ssl | ternary('https://' ~ aiservice_s3_host_with_port, 'http://' ~ aiservice_s3_host_with_port) }}"
 
-aiservice_s3_accesskey: "{{ lookup('env', 'AISERVICE_S3_ACCESSKEY') }}"
-aiservice_s3_secretkey: "{{ lookup('env', 'AISERVICE_S3_SECRETKEY') }}"
+aiservice_s3_accesskey: "{{ lookup('env', 'AISERVICE_S3_ACCESSKEY') | default(cos_access_key_id | default('', True), True) }}"
+aiservice_s3_secretkey: "{{ lookup('env', 'AISERVICE_S3_SECRETKEY') | default(cos_secret_access_key | default('', True), True) }}"
 aiservice_s3_secret: "aiservice-s3cfg"
 
 aiservice_s3_templates_bucket: "{{ lookup('env', 'AISERVICE_S3_TEMPLATES_BUCKET') | default('km-templates', True) }}"
