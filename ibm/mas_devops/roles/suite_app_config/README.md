@@ -964,7 +964,7 @@ Name of the secret that will be created in the `mas-<instanceId>-facilities` nam
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_PROPERTIES_SECRET_NAME`
-- Default: `custom-facilities-properties` (when custom file is provided)
+- Default: `custom-facilities-properties`
 
 ### Facilities Database Settings
 
