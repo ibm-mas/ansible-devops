@@ -1,0 +1,131 @@
+---
+# Set CP4D namespaces that will be scanned for custom resources
+- name: Set CP4D target namespaces
+  set_fact:
+    cp4d_target_namespaces: "{{ cp4d_namespaces }}"
+
+# Fetch all CRDs from the cluster for dynamic CP4D detection
+- name: Fetch all CRDs
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+  register: all_crds
+  failed_when: false
+  changed_when: false
+
+# Select CRDs that potentially belong to CP4D using name patterns
+- name: Select candidate CP4D-related CRDs (broad match)
+  set_fact:
+    cp4d_candidate_crds: >-
+      {{
+        all_crds.resources | default([])
+        | selectattr(
+            'metadata.name',
+            'search',
+            '(ibm|cpd|zen|commonservice|operand)'
+          )
+        | list
+      }}
+  changed_when: false
+
+# Discover CR instances for candidate CRDs inside CP4D namespaces
+- name: Discover CRs for candidate CRDs in CP4D namespaces
+  kubernetes.core.k8s_info:
+    api_version: "{{ item.0.spec.group }}/{{ item.0.spec.versions[0].name | default('v1') }}"
+    kind: "{{ item.0.spec.names.kind }}"
+    namespace: "{{ item.1 }}"
+  loop: "{{ cp4d_candidate_crds | product(cp4d_target_namespaces) | list }}"
+  loop_control:
+    label: "{{ item.0.metadata.name }} @ {{ item.1 }}"
+  register: crs_per_crd
+  failed_when: false
+  changed_when: false
+
+# Consolidate all discovered CP4D CR instances into a single list
+- name: Consolidate discovered CP4D CRs
+  set_fact:
+    cp4d_found_crs: >-
+      {{
+        crs_per_crd.results | default([])
+        | map(attribute='resources')
+        | flatten(1)
+        | default([])
+      }}
+  changed_when: false
+
+# Determine which CRD API groups are actually in use by CP4D
+- name: Derive CRD groups actually used by CP4D
+  set_fact:
+    cp4d_used_crd_groups: >-
+      {{
+        cp4d_found_crs
+        | map(attribute='apiVersion')
+        | map('regex_replace', '^([^/]+)/.*$', '\\1')
+        | unique
+        | list
+      }}
+  changed_when: false
+
+# Narrow down CRDs to only those actively used by CP4D namespaces
+- name: Select CP4D CRDs actually used by CP4D namespaces
+  set_fact:
+    cp4d_crds_to_delete: >-
+      {{
+        cp4d_candidate_crds
+        | selectattr('spec.group', 'in', cp4d_used_crd_groups | default([]))
+        | list
+      }}
+  changed_when: false
+
+# Remove finalizers and owner references from CP4D CRs to unblock deletion
+- name: Patch finalizers and ownerReferences on CP4D CRs
+  kubernetes.core.k8s:
+    api_version: "{{ item.apiVersion }}"
+    kind: "{{ item.kind }}"
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ item.metadata.namespace | default(cp4d_namespaces[0]) }}"
+    merge_type: merge
+    definition:
+      metadata:
+        finalizers: []
+        ownerReferences: []
+    wait: no
+  loop: "{{ cp4d_found_crs }}"
+  loop_control:
+    label: "{{ item.metadata.namespace | default(cp4d_namespaces[0]) }}/{{ item.metadata.name }}"
+  failed_when: false
+
+# Allow time for finalizer updates to be persisted by the API server
+- name: Pause briefly to allow finalizer updates
+  pause:
+    seconds: 5
+
+# Delete CP4D custom resources after finalizers are cleared
+- name: Delete CP4D CRs
+  kubernetes.core.k8s:
+    state: absent
+    api_version: "{{ item.apiVersion }}"
+    kind: "{{ item.kind }}"
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ item.metadata.namespace | default(cp4d_namespaces[0]) }}"
+    wait: true
+    wait_timeout: 120
+    force: true
+  loop: "{{ cp4d_found_crs }}"
+  loop_control:
+    label: "{{ item.metadata.namespace | default(cp4d_namespaces[0]) }}/{{ item.metadata.name }}"
+  failed_when: false
+
+# Delete only CP4D CRDs that were actually used by CP4D workloads
+- name: Delete CP4D CRDs actually used by CP4D
+  kubernetes.core.k8s:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: "{{ item.metadata.name }}"
+    state: absent
+    wait: true
+    force: true
+  loop: "{{ cp4d_crds_to_delete }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  failed_when: false

@@ -1,0 +1,78 @@
+---
+# Define known operator-scoped CR kinds that commonly block CP4D uninstall
+- name: Define operator-scoped CR kinds for finalizer cleanup
+  set_fact:
+    operator_cr_kinds:
+      - OperandRequest
+      - OperandConfig
+      - OperandRegistry
+      - OperandBindInfo
+      - OperandBindInfos
+      - NamespaceScope
+      - CommonService
+      - OperandRegistries
+
+# Discover operator-scoped custom resources in the CP4D operator namespace
+- name: Gather operator-scoped CRs
+  kubernetes.core.k8s_info:
+    api_version: operator.ibm.com/v1alpha1
+    kind: "{{ item }}"
+    namespace: "{{ cp4d_namespaces[1] }}"
+  loop: "{{ operator_cr_kinds }}"
+  loop_control:
+    label: "{{ item }}"
+  register: operator_crs
+  failed_when: false
+  changed_when: false
+
+# Consolidate all discovered operator-scoped CR instances into a single list
+- name: Consolidate operator-scoped CRs
+  set_fact:
+    operator_resources: >-
+      {{
+        operator_crs.results | default([])
+        | map(attribute='resources')
+        | flatten(1)
+        | default([])
+      }}
+  failed_when: false
+  changed_when: false
+
+# Remove finalizers and ownerReferences to unblock CR deletion
+- name: Remove finalizers and ownerReferences from operator CRs
+  kubernetes.core.k8s:
+    api_version: "{{ item.apiVersion }}"
+    kind: "{{ item.kind }}"
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ item.metadata.namespace | default(cp4d_namespaces[1]) }}"
+    merge_type: merge
+    definition:
+      metadata:
+        finalizers: []
+        ownerReferences: []
+    wait: no
+  loop: "{{ operator_resources }}"
+  loop_control:
+    label: "{{ item.kind }} {{ item.metadata.name }}"
+  failed_when: false
+
+# Allow API server time to persist operator CR finalizer removal
+- name: Pause briefly to allow finalizer removal to persist
+  pause:
+    seconds: 5
+
+# Force delete any remaining operator-scoped CRs after finalizer cleanup
+- name: Force delete operator CRs
+  kubernetes.core.k8s:
+    api_version: "{{ item.apiVersion }}"
+    kind: "{{ item.kind }}"
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ item.metadata.namespace | default(cp4d_namespaces[1]) }}"
+    state: absent
+    force: true
+    wait: true
+    wait_timeout: 60
+  loop: "{{ operator_resources }}"
+  loop_control:
+    label: "{{ item.kind }} {{ item.metadata.name }}"
+  failed_when: false
