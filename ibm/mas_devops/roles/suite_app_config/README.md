@@ -966,21 +966,6 @@ Name of the secret that will be created in the `mas-<instanceId>-facilities` nam
 - Environment Variable: `MAS_FACILITIES_PROPERTIES_SECRET_NAME`
 - Default: `custom-facilities-properties` (when custom file is provided)
 
-**Example Usage with Custom Properties File:**
-
-```bash
-export MAS_FACILITIES_CUSTOM_PROPERTIES=true
-export MAS_FACILITIES_PROPERTIES_FILE_LOCAL=/workspace/facilities/FACILITIES.properties
-export MAS_FACILITIES_PROPERTIES_SECRET_NAME=my-custom-facilities-props
-```
-
-When a custom file is provided, the role will:
-1. Read the file from `MAS_FACILITIES_PROPERTIES_FILE_LOCAL`
-2. Create a secret named `MAS_FACILITIES_PROPERTIES_SECRET_NAME` in the `mas-<instanceId>-facilities` namespace
-3. Configure the FacilitiesWorkspace CR to reference this secret
-
-When no custom file is provided (`MAS_FACILITIES_CUSTOM_PROPERTIES=false` or not set), the operator will use its built-in default FACILITIES.properties configuration, and no secret needs to be created.
-
 ### Facilities Database Settings
 
 #### mas_ws_facilities_db_maxconnpoolsize
