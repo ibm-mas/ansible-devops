@@ -1,0 +1,49 @@
+---
+- name: "Service Mesh Domain Config : Debug properties"
+  debug:
+    msg:
+      - "MAS Suite Domain ......................... {{ mas_domain }}"
+      - "MAS Suite Instance ....................... {{ mas_instance }}"
+      - "Service Mesh Ingress namespace ........... {{ servicemesh_gateway_namespace }}"
+      - "Gateway Strategy ......................... {{ gateway_strategy }}"
+
+# Get route references from the MAS core namespace to determine what routes we need to create.
+# -----------------------------------------------------------------------------
+- name: "Get Config Maps in mas-{{mas_instance}}-core"
+  kubernetes.core.k8s_info:
+     kind: ConfigMap
+     namespace: "mas-{{ mas_instance }}-core"
+  register: all_configmaps
+
+# TODO simplified version for tetsing.....
+# - name: "Test Config Maps in mas-{{mas_instance}}-core"
+#   kubernetes.core.k8s_info:
+#      kind: ConfigMap
+#      namespace: "mas-{{ mas_instance }}-core"
+#      name: "routeref-{{ mas_instance }}-admin"
+#   register: all_configmaps
+
+- name: Extract and filter route references only
+  set_fact:
+    routeref_configmaps: "{{ all_configmaps.resources | 
+                             selectattr('metadata.name', 'match', '^' + configmap_prefix) | 
+                             list }}"
+  vars:
+    configmap_prefix: "routeref-{{ mas_instance }}"
+
+- name: Display route references config maps
+  debug:
+    msg: 
+      - "Creating Routes for these  route reference config maps: {{ routeref_configmaps | map(attribute='metadata.name') | list  }}"
+
+
+# Create Gateway instances for these route references
+# -----------------------------------------------------------------------------
+- name: "Create Gateway Namespace"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/namespace.yml.j2"
+
+
+- name: Create Gateways according to {{ gateway_strategy }} strategy
+  include_tasks: "tasks/{{ gateway_strategy }}/create_gateways.yml"
