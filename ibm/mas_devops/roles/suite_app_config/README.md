@@ -944,6 +944,43 @@ export MAS_FACILITIES_DWFAGENTS='[{"name":"dwfa1","members":[{"name": "u1", "cla
 - Environment Variable: `MAS_FACILITIES_DWFAGENTS`
 - Default: `[]`
 
+#### mas_ws_facilities_custom_properties
+Indicates whether a custom FACILITIES.properties file is being used. When set to `true`, the role will create a secret from the provided file. When set to `false` or not provided, the operator will use its default FACILITIES.properties configuration.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_CUSTOM_PROPERTIES`
+- Default: `false`
+- For reference, please refer to the file located at /ansible-devops/ibm/mas_devops/roles/suite_app_config/files/facilities/FACILITIES.properties
+
+#### mas_ws_facilities_properties_file_local
+Path to the custom FACILITIES.properties file in the workspace. This file will be read and used to create a secret in the Facilities namespace. **This parameter is only used when `mas_ws_facilities_custom_properties` is set to `true`.**
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_PROPERTIES_FILE_LOCAL`
+- Default: None
+
+#### mas_ws_facilities_properties_secret_name
+Name of the secret that will be created in the `mas-<instanceId>-facilities` namespace containing the custom FACILITIES.properties file. **This parameter is only used when a custom properties file is provided.** If not specified, defaults to `custom-facilities-properties`.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_PROPERTIES_SECRET_NAME`
+- Default: `custom-facilities-properties` (when custom file is provided)
+
+**Example Usage with Custom Properties File:**
+
+```bash
+export MAS_FACILITIES_CUSTOM_PROPERTIES=true
+export MAS_FACILITIES_PROPERTIES_FILE_LOCAL=/workspace/facilities/FACILITIES.properties
+export MAS_FACILITIES_PROPERTIES_SECRET_NAME=my-custom-facilities-props
+```
+
+When a custom file is provided, the role will:
+1. Read the file from `MAS_FACILITIES_PROPERTIES_FILE_LOCAL`
+2. Create a secret named `MAS_FACILITIES_PROPERTIES_SECRET_NAME` in the `mas-<instanceId>-facilities` namespace
+3. Configure the FacilitiesWorkspace CR to reference this secret
+
+When no custom file is provided (`MAS_FACILITIES_CUSTOM_PROPERTIES=false` or not set), the operator will use its built-in default FACILITIES.properties configuration, and no secret needs to be created.
+
 ### Facilities Database Settings
 
 #### mas_ws_facilities_db_maxconnpoolsize
