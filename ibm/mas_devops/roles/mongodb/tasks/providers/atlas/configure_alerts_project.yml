@@ -1,0 +1,232 @@
+---
+# MongoDB Atlas Provider - Configure Project-Level Alert Monitoring
+# Basic performance alerts that don't require cluster matchers
+# Can be configured immediately after project creation
+
+# Validate prerequisites before attempting configuration
+- name: "Validate alert notification emails are provided"
+  when: atlas_enable_alerts | bool
+  assert:
+    that:
+      - atlas_alert_notification_emails is defined
+      - atlas_alert_notification_emails != ""
+      - atlas_alert_notification_emails != "[]"
+    fail_msg: "At least one email address is required in atlas_alert_notification_emails when alerts are enabled"
+
+- name: "Configure Atlas project-level alert monitoring"
+  when: atlas_enable_alerts | bool
+  block:
+    - name: "Parse alert notification emails"
+      set_fact:
+        atlas_alert_emails_list: "{{ atlas_alert_notification_emails if atlas_alert_notification_emails is iterable and atlas_alert_notification_emails is not string else (atlas_alert_notification_emails.split(',') if atlas_alert_notification_emails is string else atlas_alert_notification_emails | from_json) }}"
+
+    - name: "Build email notifications list"
+      set_fact:
+        atlas_email_notifications: "{{ atlas_email_notifications | default([]) + [{'typeName': 'EMAIL', 'emailAddress': item, 'delayMin': 0, 'intervalMin': atlas_alert_interval_min}] }}"
+      loop: "{{ atlas_alert_emails_list }}"
+
+    - name: "Display project-level alert configuration"
+      debug:
+        msg:
+          - "=========================================="
+          - "Atlas Project-Level Alert Configuration"
+          - "=========================================="
+          - "Alerts Enabled: true"
+          - "Notification Emails: {{ atlas_alert_emails_list | join(', ') }}"
+          - "Configuring: CPU, Memory, Connection alerts"
+          - "=========================================="
+
+    # Basic Performance Alerts (No cluster matcher required)
+    # CPU, Memory, and Connection alerts
+    - name: "Configure basic performance alerts"
+      block:
+        - name: "Create CPU warning alert"
+          uri:
+            url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
+            method: POST
+            user: "{{ atlas_public_key }}"
+            password: "{{ atlas_private_key }}"
+            force_basic_auth: false
+            body:
+              eventTypeName: "OUTSIDE_METRIC_THRESHOLD"
+              enabled: true
+              metricThreshold:
+                metricName: "NORMALIZED_SYSTEM_CPU_USER"
+                operator: "GREATER_THAN"
+                threshold: "{{ atlas_alert_cpu_thresholds[0] }}"
+                units: "RAW"
+                mode: "AVERAGE"
+              notifications: "{{ atlas_email_notifications }}"
+            body_format: json
+            status_code: [200, 201]
+            timeout: "{{ atlas_api_timeout }}"
+          register: alert_cpu_warning
+
+        - name: "Create CPU critical alert"
+          uri:
+            url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
+            method: POST
+            user: "{{ atlas_public_key }}"
+            password: "{{ atlas_private_key }}"
+            force_basic_auth: false
+            body:
+              eventTypeName: "OUTSIDE_METRIC_THRESHOLD"
+              enabled: true
+              metricThreshold:
+                metricName: "NORMALIZED_SYSTEM_CPU_USER"
+                operator: "GREATER_THAN"
+                threshold: "{{ atlas_alert_cpu_thresholds[1] }}"
+                units: "RAW"
+                mode: "AVERAGE"
+              notifications: "{{ atlas_email_notifications }}"
+            body_format: json
+            status_code: [200, 201]
+            timeout: "{{ atlas_api_timeout }}"
+          register: alert_cpu_critical
+
+        - name: "Create memory warning alert"
+          uri:
+            url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
+            method: POST
+            user: "{{ atlas_public_key }}"
+            password: "{{ atlas_private_key }}"
+            force_basic_auth: false
+            body:
+              eventTypeName: "OUTSIDE_METRIC_THRESHOLD"
+              enabled: true
+              metricThreshold:
+                metricName: "SYSTEM_MEMORY_PERCENT_USED"
+                operator: "GREATER_THAN"
+                threshold: "{{ atlas_alert_memory_thresholds[0] }}"
+                units: "RAW"
+                mode: "AVERAGE"
+              notifications: "{{ atlas_email_notifications }}"
+            body_format: json
+            status_code: [200, 201]
+            timeout: "{{ atlas_api_timeout }}"
+          register: alert_memory_warning
+
+        - name: "Create memory critical alert"
+          uri:
+            url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
+            method: POST
+            user: "{{ atlas_public_key }}"
+            password: "{{ atlas_private_key }}"
+            force_basic_auth: false
+            body:
+              eventTypeName: "OUTSIDE_METRIC_THRESHOLD"
+              enabled: true
+              metricThreshold:
+                metricName: "SYSTEM_MEMORY_PERCENT_USED"
+                operator: "GREATER_THAN"
+                threshold: "{{ atlas_alert_memory_thresholds[1] }}"
+                units: "RAW"
+                mode: "AVERAGE"
+              notifications: "{{ atlas_email_notifications }}"
+            body_format: json
+            status_code: [200, 201]
+            timeout: "{{ atlas_api_timeout }}"
+          register: alert_memory_critical
+
+        - name: "Create connections warning alert"
+          uri:
+            url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
+            method: POST
+            user: "{{ atlas_public_key }}"
+            password: "{{ atlas_private_key }}"
+            force_basic_auth: false
+            body:
+              eventTypeName: "OUTSIDE_METRIC_THRESHOLD"
+              enabled: true
+              metricThreshold:
+                metricName: "CONNECTIONS_PERCENT"
+                operator: "GREATER_THAN"
+                threshold: "{{ atlas_alert_connection_thresholds[0] }}"
+                units: "RAW"
+                mode: "AVERAGE"
+              notifications: "{{ atlas_email_notifications }}"
+            body_format: json
+            status_code: [200, 201]
+            timeout: "{{ atlas_api_timeout }}"
+          register: alert_connections_warning
+
+        - name: "Create connections critical alert"
+          uri:
+            url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
+            method: POST
+            user: "{{ atlas_public_key }}"
+            password: "{{ atlas_private_key }}"
+            force_basic_auth: false
+            body:
+              eventTypeName: "OUTSIDE_METRIC_THRESHOLD"
+              enabled: true
+              metricThreshold:
+                metricName: "CONNECTIONS_PERCENT"
+                operator: "GREATER_THAN"
+                threshold: "{{ atlas_alert_connection_thresholds[1] }}"
+                units: "RAW"
+                mode: "AVERAGE"
+              notifications: "{{ atlas_email_notifications }}"
+            body_format: json
+            status_code: [200, 201]
+            timeout: "{{ atlas_api_timeout }}"
+          register: alert_connections_critical
+
+    # Optional: Additional Performance Alerts (Query Performance)
+    - name: "Configure additional performance alerts"
+      when: atlas_enable_performance_alerts | bool
+      block:
+        - name: "Create query performance alert"
+          uri:
+            url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
+            method: POST
+            user: "{{ atlas_public_key }}"
+            password: "{{ atlas_private_key }}"
+            force_basic_auth: false
+            body:
+              eventTypeName: "OUTSIDE_METRIC_THRESHOLD"
+              enabled: true
+              metricThreshold:
+                metricName: "QUERY_TARGETING_SCANNED_OBJECTS_PER_RETURNED"
+                operator: "GREATER_THAN"
+                threshold: 1000
+                units: "RAW"
+                mode: "AVERAGE"
+              notifications: "{{ atlas_email_notifications }}"
+            body_format: json
+            status_code: [200, 201]
+            timeout: "{{ atlas_api_timeout }}"
+          register: alert_query_performance
+
+    - name: "Project-level alerts configured successfully"
+      debug:
+        msg:
+          - "=========================================="
+          - "Project-Level Alert Monitoring Status"
+          - "=========================================="
+          - "Status: Successfully Configured"
+          - "Project ID: {{ atlas_project_id }}"
+          - "Alerts Created: {{ '7 (CPU, Memory, Connections, Query Performance)' if atlas_enable_performance_alerts else '6 (CPU, Memory, Connections)' }}"
+          - "Note: Cluster-level alerts will be configured after cluster creation"
+          - "=========================================="
+
+  rescue:
+    - name: "Display project-level alert configuration error details"
+      debug:
+        msg:
+          - "=========================================="
+          - "Project-Level Alert Configuration Error"
+          - "=========================================="
+          - "Failed to configure project-level alerts"
+          - "Common causes:"
+          - "1. Invalid API credentials"
+          - "2. Insufficient permissions"
+          - "3. Invalid email addresses"
+          - "4. Alert already exists (not an error, can be ignored)"
+          - "=========================================="
+          - "Error details:"
+          - "{{ ansible_failed_result | default('No error details available') }}"
+
+    - name: "Fail after displaying project-level alert configuration errors"
+      fail:
+        msg: "Project-level alert configuration failed. See error details above."
