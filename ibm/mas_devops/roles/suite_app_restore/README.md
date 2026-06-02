@@ -1,6 +1,12 @@
 Restore MAS Applications
 ===============================================================================
 
+!!! important
+
+    Supported only for MAS 9.1.x.
+
+    Restore can only be made to the an instance with the same MAS instance ID as the backup.
+
 Overview
 -------------------------------------------------------------------------------
 This role supports restoring MAS application resources and data from backups created by the `suite_app_backup` role. Currently supported applications:
