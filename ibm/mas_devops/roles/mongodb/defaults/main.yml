@@ -148,20 +148,17 @@ mongodb_v8_upgrade: "{{ lookup('env', 'MONGODB_V8_UPGRADE') | default(false, tru
 atlas_api_base_url: "{{ lookup('env', 'ATLAS_API_BASE_URL') | default('https://cloud.mongodb.com/api/atlas/v1.0', True) }}"
 atlas_api_timeout: "{{ lookup('env', 'ATLAS_API_TIMEOUT') | default(30, True) }}"
 
-# Atlas API Credentials (can be provided directly or via AWS Secrets Manager)
-atlas_public_key: "{{ lookup('env', 'ATLAS_PUBLIC_KEY') }}"
-atlas_private_key: "{{ lookup('env', 'ATLAS_PRIVATE_KEY') }}"
-
-# AWS Secrets Manager Configuration (optional - for retrieving Atlas credentials)
-atlas_aws_secret_name: "{{ lookup('env', 'ATLAS_AWS_SECRET_NAME') }}"
-atlas_aws_secret_region: "{{ lookup('env', 'ATLAS_AWS_SECRET_REGION') | default('us-east-1', True) }}"
-
 # Atlas Organization and Project Configuration
 atlas_org_id: "{{ lookup('env', 'ATLAS_ORG_ID') }}"
 atlas_project_id: "{{ lookup('env', 'ATLAS_PROJECT_ID') }}"
 atlas_project_name: "{{ lookup('env', 'ATLAS_PROJECT_NAME') }}"
 atlas_cluster_name: "{{ lookup('env', 'ATLAS_CLUSTER_NAME') }}"
 atlas_account_id: "{{ lookup('env', 'ATLAS_ACCOUNT_ID') }}"
+
+# AWS Secrets Manager Configuration (required - for retrieving Atlas credentials)
+# Secret name follows the format: <atlas_account_id>/mongodb-atlas
+# Atlas API credentials are ONLY retrieved from AWS Secrets Manager
+atlas_aws_secret_name: "{{ atlas_account_id }}/mongodb-atlas"
 atlas_backup_compliance_enabled: "{{ (lookup('env', 'ATLAS_BACKUP_COMPLIANCE_ENABLED') | default('false', True)) | bool }}"
 # Atlas Backup Compliance Policy Configuration
 ## Authorized user details for compliance policy changes
@@ -193,6 +190,32 @@ atlas_compliance_monthly_retention_value: "{{ lookup('env', 'ATLAS_COMPLIANCE_MO
 atlas_compliance_yearly_frequency_interval: "{{ lookup('env', 'ATLAS_COMPLIANCE_YEARLY_FREQUENCY_INTERVAL') | default(1, True) | int }}"
 atlas_compliance_yearly_retention_unit: "{{ lookup('env', 'ATLAS_COMPLIANCE_YEARLY_RETENTION_UNIT') | default('years', True) }}"
 atlas_compliance_yearly_retention_value: "{{ lookup('env', 'ATLAS_COMPLIANCE_YEARLY_RETENTION_VALUE') | default(1, True) | int }}"
+
+# Atlas Audit Logging Configuration
+# MongoDB Atlas Auditing captures database operations for compliance and security
+# Required for FedRAMP, HIPAA, and other regulatory compliance
+atlas_audit_enabled: "{{ (lookup('env', 'ATLAS_AUDIT_ENABLED') | default('false', True)) | bool }}"
+atlas_audit_filter: "{{ lookup('env', 'ATLAS_AUDIT_FILTER') | default('{\"$or\":[{\"atype\":\"authenticate\"},{\"atype\":\"logout\"},{\"atype\":\"authCheck\",\"result\":{\"$ne\":0}},{\"atype\":\"authCheck\",\"param.command\":{\"$in\":[\"aggregate\",\"count\",\"distinct\",\"group\",\"mapReduce\",\"geoNear\",\"geoSearch\",\"eval\",\"find\",\"getLastError\",\"getMore\",\"getPrevError\",\"parallelCollectionScan\",\"delete\",\"findAndModify\",\"insert\",\"update\",\"resetError\",\"bulkWrite\"]}},{\"atype\":{\"$in\":[\"createCollection\",\"createDatabase\",\"createIndex\",\"renameCollection\",\"dropCollection\",\"dropDatabase\",\"dropIndex\",\"createUser\",\"dropUser\",\"dropAllUsersFromDatabase\",\"updateUser\",\"grantRolesToUser\",\"revokeRolesFromUser\",\"createRole\",\"updateRole\",\"dropRole\",\"dropAllRolesFromDatabase\",\"grantRolesToRole\",\"revokeRolesFromRole\",\"grantPrivilegesToRole\",\"revokePrivilegesFromRole\",\"directAuthMutation\",\"enableSharding\",\"shardCollection\",\"addShard\",\"removeShard\",\"shutdown\",\"applicationMessage\",\"replSetReconfig\",\"setClusterParameter\",\"fsync\",\"restoreBackup\"]}}]}', True) }}"
+atlas_audit_authorization_success: "{{ (lookup('env', 'ATLAS_AUDIT_AUTHORIZATION_SUCCESS') | default('false', True)) | bool }}"
+
+# Atlas Alert Monitoring Configuration
+# Provides proactive notifications for cluster health, performance, and security events
+atlas_enable_alerts: "{{ (lookup('env', 'ATLAS_ENABLE_ALERTS') | default('false', True)) | bool }}"
+atlas_alert_notification_emails: "{{ lookup('env', 'ATLAS_ALERT_NOTIFICATION_EMAILS') | default('[]', True) }}"
+
+# Alert category toggles
+atlas_enable_cluster_health_alerts: "{{ (lookup('env', 'ATLAS_ENABLE_CLUSTER_HEALTH_ALERTS') | default('false', True)) | bool }}"
+atlas_enable_performance_alerts: "{{ (lookup('env', 'ATLAS_ENABLE_PERFORMANCE_ALERTS') | default('false', True)) | bool }}"
+
+# Performance alert thresholds
+# Format: [warning, critical]
+atlas_alert_cpu_thresholds: "{{ lookup('env', 'ATLAS_ALERT_CPU_THRESHOLDS') | default('[70, 80]', True) | from_json }}"
+atlas_alert_memory_thresholds: "{{ lookup('env', 'ATLAS_ALERT_MEMORY_THRESHOLDS') | default('[70, 80]', True) | from_json }}"
+atlas_alert_connection_thresholds: "{{ lookup('env', 'ATLAS_ALERT_CONNECTION_THRESHOLDS') | default('[70, 80]', True) | from_json }}"
+atlas_alert_replication_lag_threshold: "{{ lookup('env', 'ATLAS_ALERT_REPLICATION_LAG_THRESHOLD') | default(300, True) | int }}"
+
+# Alert interval configuration (in minutes) - applies to all metric threshold alerts
+atlas_alert_interval_min: "{{ lookup('env', 'ATLAS_ALERT_INTERVAL_MIN') | default(60, True) | int }}"
 
 # Atlas PrivateLink Configuration
 # PrivateLink provides secure, private connectivity between Atlas and AWS VPC
