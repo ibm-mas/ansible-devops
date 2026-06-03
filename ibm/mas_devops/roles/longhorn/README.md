@@ -107,6 +107,38 @@ Number of data replicas for Longhorn volumes.
 - Consider storage capacity when setting replica count (3 replicas = 3x storage consumption)
 
 
+### longhorn_data_path
+Directory path on each node where Longhorn stores volume data.
+
+- **Optional**
+- Environment Variable: `LONGHORN_DATA_PATH`
+- Default: `/var/lib/longhorn/`
+
+**Purpose**: Specifies the filesystem path on worker nodes where Longhorn will store all volume data and metadata. This directory must have sufficient space and appropriate permissions for Longhorn to function properly.
+
+**When to use**:
+- Use default `/var/lib/longhorn/` for standard deployments
+- Customize when you have dedicated storage mounts or specific filesystem requirements
+- Change if default path conflicts with existing applications or storage configurations
+
+**Valid values**: Absolute filesystem path (must start with `/` and end with `/`)
+
+**Impact**:
+- **Storage Location**: All Longhorn volume data will be stored at this path on each node
+- **Disk Space**: Ensure the filesystem at this path has sufficient capacity for all volumes
+- **Performance**: Path should be on a high-performance filesystem (avoid network mounts)
+- **Node Requirements**: Path must exist and be writable on all worker nodes where Longhorn runs
+
+**Notes**:
+- Path must be an absolute path starting with `/`
+- Path should end with a trailing slash `/`
+- Ensure sufficient disk space is available at this location on all nodes
+- Do not use network-mounted filesystems (NFS, CIFS) as they will cause performance issues
+- Path must be writable by the Longhorn process (typically runs as root)
+- Changing this path after installation requires data migration and is not recommended
+- Monitor disk usage at this path to prevent storage exhaustion
+
+
 ## Example Playbook
 
 ```yaml
@@ -115,6 +147,7 @@ Number of data replicas for Longhorn volumes.
   vars:
     longhorn_namespace: longhorn-system
     longhorn_replica_count: 3
+    longhorn_data_path: /var/lib/longhorn/
   roles:
     - ibm.mas_devops.longhorn
 ```
@@ -127,6 +160,7 @@ For development environments with reduced storage requirements:
   vars:
     longhorn_namespace: longhorn-system
     longhorn_replica_count: 1
+    longhorn_data_path: /var/lib/longhorn/
   roles:
     - ibm.mas_devops.longhorn
 ```
