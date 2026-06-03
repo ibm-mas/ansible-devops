@@ -138,7 +138,25 @@
   set_fact:
     mas_domain: "{{ mas_instance_id }}.{{ _cluster_subdomain.resources[0].spec.domain }}"
 
-# 9. Determine version of cert-manager in use on the cluster
+# 9. Set default routing mode and issuer kind for MAS 9.2+ if not already set
+# -----------------------------------------------------------------------------
+- name: "Set default routing mode to 'path' for MAS 9.2+ if it's not defined"
+  when:
+    - mas_routing_mode is not defined or mas_routing_mode == ""
+    - mas_channel is defined and mas_channel != ""
+    - mas_channel.split('.')[:2] | join('.') is version('9.2', '>=')
+  set_fact:
+    mas_routing_mode: "path"
+
+- name: "Set default issuer kind to 'ClusterIssuer' for MAS 9.2+ if it's not defined"
+  when:
+    - mas_issuer_kind is not defined or mas_issuer_kind == ""
+    - mas_channel is defined and mas_channel != ""
+    - mas_channel.split('.')[:2] | join('.') is version('9.2', '>=')
+  set_fact:
+    mas_issuer_kind: "ClusterIssuer"
+
+# 10. Determine version of cert-manager in use on the cluster
 # -----------------------------------------------------------------------------
 # if cert_manager_cluster_resource_namespace is not set then
 # run 'detect_cert_manager' task to set it as this will be needed to be set in Suite CR
@@ -146,7 +164,7 @@
   include_tasks: "{{ role_path }}/../../common_tasks/detect_cert_manager.yml"
   when: cert_manager_cluster_resource_namespace is not defined or cert_manager_cluster_resource_namespace == ''
 
-# 10. Provide debug information
+# 11. Provide debug information
 # -----------------------------------------------------------------------------
 - name: "Configure namespace"
   set_fact:
@@ -164,9 +182,11 @@
       - "MAS ICR cpopen content ........ {{ mas_icr_cpopen }}"
       - "Cert Manager namespace ........ {{ cert_manager_cluster_resource_namespace }}"
       - "MAS Cluster Issuer ............ {{ mas_cluster_issuer }}"
+      - "MAS Issuer Kind ............... {{ mas_issuer_kind | default('<not set>', true) }}"
+      - "MAS Routing Mode .............. {{ mas_routing_mode | default('<not set>', true) }}"
       - "IPv6 Enabled .................. {{ ocp_enable_ipv6 }}"
 
-# 11. Create entitlement secret and install the operator
+# 12. Create entitlement secret and install the operator
 # -----------------------------------------------------------------------------
 - name: "Create IBM Entitlement Key"
   ibm.mas_devops.update_ibm_entitlement:
@@ -196,14 +216,14 @@
     catalog_source: "{{ mas_catalog_source }}"
   register: subscription
 
-# 12. Wait until the Suite CRD is available
+# 13. Wait until the Suite CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the Suite CRD is available"
   include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
   vars:
     crd_name: suites.core.mas.ibm.com
 
-# 13. Before we install the suite create the optional filebeat and superuser secrets
+# 14. Before we install the suite create the optional filebeat and superuser secrets
 # -----------------------------------------------------------------------------
 # Note that this will have no effect on older version of MAS, but will do no harm
 - name: Configure Filebeat for Logstash
@@ -222,7 +242,7 @@
     namespace: "{{ mas_namespace }}"
     template: templates/secret-superuser.yml.j2
 
-# 14. Suite installation
+# 15. Suite installation
 # -----------------------------------------------------------------------------
 - name: Create suite.ibm.com/v1 CR
   vars:
@@ -237,7 +257,7 @@
   debug:
     msg: "{{ suiteResult }}"
 
-# 15. Set up OCP ConsoleLink for MAS Admin Dashboard
+# 16. Set up OCP ConsoleLink for MAS Admin Dashboard
 # -----------------------------------------------------------------------------
 - name: Create ConsoleLink for MAS Admin Dashbord
   kubernetes.core.k8s:

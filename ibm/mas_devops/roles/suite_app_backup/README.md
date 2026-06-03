@@ -1,6 +1,12 @@
 Backup MAS Applications
 ===============================================================================
 
+!!! important
+
+    Supported only for MAS 9.1.x.
+
+    Backup can only be restored to an instance with the same MAS instance ID.
+
 Overview
 -------------------------------------------------------------------------------
 This role supports backing up MAS application resources and data. Currently supported applications:
