@@ -944,6 +944,28 @@ export MAS_FACILITIES_DWFAGENTS='[{"name":"dwfa1","members":[{"name": "u1", "cla
 - Environment Variable: `MAS_FACILITIES_DWFAGENTS`
 - Default: `[]`
 
+#### mas_ws_facilities_custom_properties
+Indicates whether a custom FACILITIES.properties file is being used. When set to `true`, the role will create a secret from the provided file. When set to `false` or not provided, the operator will use its default FACILITIES.properties configuration.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_CUSTOM_PROPERTIES`
+- Default: `false`
+
+#### mas_ws_facilities_properties_file_local
+Path to the custom FACILITIES.properties file in the workspace. This file will be read and used to create a secret in the Facilities namespace. **This parameter is only used when `mas_ws_facilities_custom_properties` is set to `true`.**
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_PROPERTIES_FILE_LOCAL`
+- Default: None
+- For reference, please refer to the file located at ansible-devops/docs/samples/FACILITIES.properties
+
+#### mas_ws_facilities_properties_secret_name
+Name of the secret that will be created in the `mas-<instanceId>-facilities` namespace containing the custom FACILITIES.properties file. **This parameter is only used when a custom properties file is provided.** If not specified, defaults to `custom-facilities-properties`.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_PROPERTIES_SECRET_NAME`
+- Default: `custom-facilities-properties`
+
 ### Facilities Database Settings
 
 #### mas_ws_facilities_db_maxconnpoolsize
