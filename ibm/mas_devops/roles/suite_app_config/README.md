@@ -950,7 +950,6 @@ Indicates whether a custom FACILITIES.properties file is being used. When set to
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_CUSTOM_PROPERTIES`
 - Default: `false`
-- For reference, please refer to the file located at /ansible-devops/ibm/mas_devops/roles/suite_app_config/files/facilities/FACILITIES.properties
 
 #### mas_ws_facilities_properties_file_local
 Path to the custom FACILITIES.properties file in the workspace. This file will be read and used to create a secret in the Facilities namespace. **This parameter is only used when `mas_ws_facilities_custom_properties` is set to `true`.**
@@ -958,6 +957,7 @@ Path to the custom FACILITIES.properties file in the workspace. This file will b
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_PROPERTIES_FILE_LOCAL`
 - Default: None
+- For reference, please refer to the file located at ansible-devops/docs/samples/FACILITIES.properties
 
 #### mas_ws_facilities_properties_secret_name
 Name of the secret that will be created in the `mas-<instanceId>-facilities` namespace containing the custom FACILITIES.properties file. **This parameter is only used when a custom properties file is provided.** If not specified, defaults to `custom-facilities-properties`.
