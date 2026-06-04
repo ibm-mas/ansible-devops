@@ -220,6 +220,26 @@ IBM Container Library entitlement key for accessing Db2 container images.
 
 **Note**: Keep this key secure and do not commit to source control. The key is tied to your IBM entitlement and should be treated as a credential. Obtain from the IBM Container Library using your IBM ID.
 
+#### norootsquash_tag
+Container image tag or digest for the norootsquash DaemonSet used by Db2.
+
+- **Optional**
+- Environment Variable: `NOROOTSQUASH_TAG`
+- Default: `@sha256:5dbe9310d15cbe452f6099017defd411eeb6eebb2fecea5d99463227e2518574`
+
+**Purpose**: Specifies the version/tag or SHA digest of the norootsquash container image used in the DaemonSet that configures NFS settings for Db2.
+
+**When to use**:
+- When you need to use a specific version of the norootsquash image
+- When working with custom or mirrored registries that use different tags
+- For testing or troubleshooting with alternative image versions
+
+**Valid values**: Any valid container image tag (e.g., `3.0-amd64`, `latest`) or SHA digest (e.g., `@sha256:5dbe9310d15cbe452f6099017defd411eeb6eebb2fecea5d99463227e2518574`)
+
+**Impact**: The norootsquash DaemonSet will pull the specified image tag or digest from the configured registry. Using an incorrect or unavailable tag/digest will cause the DaemonSet pods to fail.
+
+**Related variables**: Works in conjunction with `registry` variable to form the complete image reference: `{{ registry }}/cp/cpd/norootsquash:{{ norootsquash_tag }}`
+
 #### db2_dbname
 Name of the database to create within the Db2 instance.
 
