@@ -1,24 +1,19 @@
 ---
 # 1. Create Gateway deployment, service etc
 # -----------------------------------------------------------------------------
-- name: "Expand the route reference data"
+- name: "create gateway : Expand the route reference data"
   set_fact:
     route_reference : "{{ routeref_configmap.data['route.yml'] | from_yaml }}"
 
-- debug: 
-    msg:
-      - "routeref_configmap.data['route.yml'] ..... {{ routeref_configmap.data['route.yml'] }}"
-      - "route_reference ..... {{ route_reference }}"
-
-- name: "determine gateway name"
+- name: "create gateway : Determine gateway name"
   set_fact:
     gateway_name: "gateway-{{ route_reference.metadata.name }}"
 
-- debug: 
+- debug:
     msg:
       - "gateway_name ..... {{ gateway_name }}"
 
-- name: "install : Set facts for Virtual Service"
+- name: "create gateway : Set facts for Virtual Service"
   set_fact:
     route: "{{ route_reference.metadata.name | regex_replace('^'+mas_instance+'-', '') }}"
     service_name: "{{ route_reference.spec.to.name }}"
@@ -28,43 +23,25 @@
     route_path: "{{ route_reference.spec.path }}"
     route_tls: "{{ route_reference.spec.tls }}"
 
-- debug: 
-    msg:
-      - "route_tls ..... {{ route_tls }}"
-
-- name: Initialize fixed_tls
-  set_fact:
-    fixed_tls: {}
-
-- name: Fix newlines for each certificate field
-  set_fact:
-    fixed_tls: "{{ fixed_tls | combine({item.key: item.value | replace('\\n', '\n')}) }}"
-  loop: "{{ route_tls | dict2items }}"
-  when: item.value is string
-
-- debug: 
-    msg:
-      - "fixed_tls ..... {{ fixed_tls }}"      
-
-- name: "install : Create Service Mesh Gateway Deployment"
+- name: "create gateway : Create Service Mesh Gateway Deployment"
   kubernetes.core.k8s:
     template: "templates/gateway-deployment.yml.j2"
     wait: yes
     wait_timeout: 300
 
-- name: "install : Create Service Mesh Gateway Service"
+- name: "create gateway : Create Service Mesh Gateway Service"
   kubernetes.core.k8s:
     template: "templates/gateway-service.yml.j2"
     wait: yes
     wait_timeout: 120
 
-- name: "install : Create Service Mesh Gateway CR"
+- name: "create gateway : Create Service Mesh Gateway CR"
   kubernetes.core.k8s:
     template: "templates/gateway-passthrough-cr.yml.j2"
     wait: yes
     wait_timeout: 120
 
-- name: "install : Set facts for Virtual Service"
+- name: "create gateway : Set facts for Virtual Service"
   set_fact:
     route: "{{ route_reference.metadata.name | regex_replace('^'+mas_instance+'-', '') }}"
     service_name: "{{ route_reference.spec.to.name }}"
@@ -74,17 +51,13 @@
     route_path: "{{ route_reference.spec.path }}"
     route_tls: "{{ route_reference.spec.tls }}"
 
-- name: "install : Create Virtual Service for {{route}} to {{service_name}}"
+- name: "create gateway : Create Virtual Service for {{route}} to {{service_name}}"
   kubernetes.core.k8s:
     template: "templates/virtual-service.yml.j2"
     wait: yes
     wait_timeout: 120
 
-- debug: 
-    msg:
-      -  "ROIUTE TEMPLATE: {{ lookup('template','templates/route.yml.j2') }}"
-
-- name: "install : Create Route for {{route}} to gateway"
+- name: "create gateway : Create Route for {{route}} to gateway"
   kubernetes.core.k8s:
     template: "templates/route.yml.j2"
     wait: yes
