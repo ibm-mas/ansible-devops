@@ -869,7 +869,7 @@ Sets the size of deployment.
 #### mas_ws_facilities_app_om_upgrade_mode
 **Note**:
 - **WARNING** Application upgrades can overwrite your custom changes. Do not select Automatic if you have customized your application.
-- Currently supported `Maximo Real Estate and Facilities` release versions are: `9.2.x`
+- Currently supported `Maximo Real Estate and Facilities` release versions are: `9.2.x` and above
 
 Sets the Application Object Migration Mode.
 
@@ -956,6 +956,7 @@ Indicates whether a custom FACILITIES.properties file is being used. When set to
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_CUSTOM_PROPERTIES`
 - Default: `false`
+- Currently supported `Maximo Real Estate and Facilities` release versions are: `9.2.x` and above
 
 #### mas_ws_facilities_properties_file_local
 Path to the custom FACILITIES.properties file in the workspace. This file will be read and used to create a secret in the Facilities namespace. **This parameter is only used when `mas_ws_facilities_custom_properties` is set to `true`.**
@@ -963,6 +964,7 @@ Path to the custom FACILITIES.properties file in the workspace. This file will b
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_PROPERTIES_FILE_LOCAL`
 - Default: None
+- Currently supported `Maximo Real Estate and Facilities` release versions are: `9.2.x` and above
 - For reference, please refer to the file located at ansible-devops/docs/samples/FACILITIES.properties
 
 #### mas_ws_facilities_properties_secret_name
@@ -971,6 +973,7 @@ Name of the secret that will be created in the `mas-<instanceId>-facilities` nam
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_PROPERTIES_SECRET_NAME`
 - Default: `custom-facilities-properties`
+- Currently supported `Maximo Real Estate and Facilities` release versions are: `9.2.x` and above
 
 ### Facilities Database Settings
 
