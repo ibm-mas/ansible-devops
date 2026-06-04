@@ -1,0 +1,29 @@
+---
+# Monitor Pre-Processing Tasks
+# This file handles Monitor-specific configuration before CR creation
+
+# 1. Load default storage class information
+# -----------------------------------------------------------------------------
+- name: "monitor : Load default storage classes"
+  include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
+
+# 2. Auto-detect storage class if not provided by user
+# -----------------------------------------------------------------------------
+- name: "monitor : Set storage class from user input or auto-detect"
+  when: mas_app_settings_monitor_pvc_storage_class is not defined or mas_app_settings_monitor_pvc_storage_class == ''
+  set_fact:
+    mas_app_settings_monitor_pvc_storage_class: "{{ defaultStorageClasses.rwx }}"
+
+- name: "monitor : Debug storage configuration"
+  debug:
+    msg:
+      - "Monitor Storage Configuration:"
+      - "  Storage Class .......... {{ mas_app_settings_monitor_pvc_storage_class }}"
+      - "  Storage Size ........... {{ mas_app_settings_monitor_pvc_size }}"
+      - "  Source ................. {{ 'User-specified' if (lookup('env', 'MAS_APP_SETTINGS_MONITOR_PVC_STORAGE_CLASS') != '') else 'Auto-detected' }}"
+
+# 3. Load pod templates
+# -----------------------------------------------------------------------------
+- name: "monitor : Load default pod templates"
+  include_tasks: "{{ role_path }}/../../common_tasks/pod_templates.yml"
+
