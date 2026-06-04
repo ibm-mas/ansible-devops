@@ -280,6 +280,23 @@ Defines the URL routing strategy for MAS applications and services.
 
 **Note**: Choose carefully as this cannot be changed after installation. Subdomain routing is recommended for production environments.
 
+#### mas_manual_route_mgmt
+Enables manual route management mode, disabling automatic route generation.
+
+- **Optional**
+- Environment Variable: `MAS_MANUAL_ROUTE_MGMT`
+- Default: `false`
+
+**Purpose**: Allows you to disable automatic routes creation and management if alternative routing is required.
+
+**When to use**:
+- Use `false` (default) for MAS to automatically manage routes.
+- Use `true` to manage routes in an alternative way. 
+
+**Valid values**: `true`, `false`
+
+**Impact**: When `true`, you must manually create and manage all routes required by MAS.
+
 #### mas_trust_default_cas
 Controls whether default system Certificate Authorities are included in MAS trust stores.
 
@@ -356,6 +373,28 @@ Name of the cert-manager ClusterIssuer to use for automatic certificate generati
 - Works with `mas_certificate_duration` and `mas_certificate_renew_before`
 
 **Note**: Ensure the ClusterIssuer is created and functional before installing MAS. Test certificate generation with a test Certificate resource first.
+
+#### mas_issuer_kind
+Specifies the issuer kind to configure for MAS certificates.
+
+- **Optional**
+- Environment Variable: `mas_issuer_kind`
+- Default: `ClusterIssuer` for MAS 9.2+
+
+**Purpose**: Controls the value written to `spec.settings.issuerKind` in the MAS Suite custom resource. This determines whether MAS certificates use a namespace-scoped `Issuer` or a cluster-scoped `ClusterIssuer`.
+
+**When to use**:
+- Use `Issuer` in any permission mode: `cluster`, `namespaced`, or `minimal`
+- Use `ClusterIssuer` only when MAS is installed in `cluster` permission mode
+
+
+**Valid values**: `Issuer`, `ClusterIssuer`
+
+**Impact**:
+- `Issuer`: certificate references remain namespace-scoped and can be used in all permission modes
+- `ClusterIssuer`: certificate references use a cluster-scoped issuer and should only be used with `cluster` permission mode
+
+*Note**: Choose an issuer kind that matches the permission mode. `Issuer` is universally valid across all permission modes, while `ClusterIssuer` is restricted to `cluster` mode.
 
 #### mas_certificate_duration
 Specifies the validity period for MAS certificates.

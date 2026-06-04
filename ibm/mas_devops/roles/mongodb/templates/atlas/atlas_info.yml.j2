@@ -1,0 +1,19 @@
+config:
+  configDb: admin
+{% if atlas_auth_mechanism is defined and atlas_auth_mechanism != '' %}
+  authMechanism: {{ atlas_auth_mechanism }}
+{% endif %}
+  retryWrites: false
+{% if atlas_cluster_nodes is defined and atlas_cluster_nodes | length > 0 %}
+  hosts:
+{% endif %}
+{% for node in atlas_cluster_nodes %}
+  - host: {{ node.host }}
+    port: {{ node.port }}
+{% endfor %}
+  certificate:
+{% for pair in atlas_ca_cert_pairs %}
+    - alias: {{ pair.alias }}
+      crt: |
+{{ pair.content | indent(8, first=True) }}
+{% endfor %}

@@ -1,5 +1,10 @@
 ---
 edge_cert_routes:
+{% if mas_routing_mode is defined and mas_routing_mode == 'path' %}
+{% if edge_certs_core or edge_certs_all or edge_certs_health or edge_certs_manage or edge_certs_monitor or edge_certs_predict or edge_certs_visualinspection or edge_certs_optimizer or edge_certs_assist or edge_certs_arcgis or edge_certs_aibroker or edge_certs_reportdb or edge_certs_facilities or edge_certs_appconfig %}
+  - "{{mas_domain}}"
+{% endif %}
+{% else %}
 {% if edge_certs_core or edge_certs_all %}
   - "{{mas_domain}}"
   - sls.{{mas_domain}}
@@ -20,16 +25,6 @@ edge_cert_routes:
   - {{ mas_workspace_id }}-jms.health.{{mas_domain}}
   - maxinst.health.{{mas_domain}}
 {% endif %}
-{% if edge_certs_iot | bool or edge_certs_all | bool %}
-  - iot.{{mas_domain}}
-  - {{ mas_workspace_id }}.iot.{{mas_domain}}
-  - messaging.iot.{{mas_domain}}
-  - {{ mas_workspace_id }}.messaging.iot.{{mas_domain}}
-  - edgeconfig.iot.{{mas_domain}}
-  - {{ mas_workspace_id }}.edgeconfig.iot.{{mas_domain}}
-  - edgeconfigapi.iot.{{mas_domain}}
-  - {{ mas_workspace_id }}.edgeconfigapi.iot.{{mas_domain}}
-{% endif %}
 {% if edge_certs_manage | bool or edge_certs_all | bool %}
   - manage.{{mas_domain}}
   - {{ mas_workspace_id }}.manage.{{mas_domain}}
@@ -47,6 +42,8 @@ edge_cert_routes:
   - admin.monitor.{{mas_domain}}
   - api.monitor.{{mas_domain}}
   - {{ mas_workspace_id }}.api.monitor.{{mas_domain}}
+  - edgeconfigapi.monitor.{{mas_domain}}
+  - {{ mas_workspace_id }}.edgeconfigapi.monitor.{{mas_domain}}
 {% endif %}
 {% if edge_certs_predict | bool or edge_certs_all | bool %}
   - predict.{{mas_domain}}
@@ -98,4 +95,20 @@ edge_cert_routes:
   -  wfagent.{{ mas_workspace_id }}.facilities.{{mas_domain}}
   -  wffutureagent.{{ mas_workspace_id }}.facilities.{{mas_domain}}
   -  wfnotificationagent.{{ mas_workspace_id }}.facilities.{{mas_domain}}
+{% endif %}
+{% if edge_certs_appconfig | bool or edge_certs_all | bool %}
+  - appconfig.{{mas_domain}}
+{% endif %}
+{% endif %}
+{% if edge_certs_iot | bool or edge_certs_all | bool %}
+  - messaging.iot.{{mas_domain}}
+  - {{ mas_workspace_id }}.messaging.iot.{{mas_domain}}
+{% if mas_version_lt_92 %}
+  - iot.{{mas_domain}}
+  - {{ mas_workspace_id }}.iot.{{mas_domain}}
+  - edgeconfig.iot.{{mas_domain}}
+  - {{ mas_workspace_id }}.edgeconfig.iot.{{mas_domain}}
+  - edgeconfigapi.iot.{{mas_domain}}
+  - {{ mas_workspace_id }}.edgeconfigapi.iot.{{mas_domain}}
+{% endif %}
 {% endif %}

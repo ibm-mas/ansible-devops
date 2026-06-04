@@ -1,0 +1,305 @@
+---
+# Restore Single PVC Data
+# =============================================================================
+# This task restores persistent volume data from a tar.gz archive to a PVC
+# using a dummy pod. It deletes specific directories before restoring.
+
+- name: "Display PVC restore information"
+  debug:
+    msg:
+      - "Processing PVC {{ pvc_index + 1 }}/{{ total_pvcs }}"
+      - "PVC name: {{ pvc_name }}"
+
+# 1. Extract component name and determine workload type
+# -----------------------------------------------------------------------------
+- name: "Set fact: Extract component name from PVC"
+  set_fact:
+    # Extract component name based on PVC naming pattern
+    # Pattern 1: {instance}-{workspace}-{component}-userfiles -> extract component
+    # Pattern 2: userfiles-{instance}-{workspace}-{component} -> extract component
+    pvc_component: >-
+      {%- if pvc_name.startswith('userfiles-') -%}
+        {{ pvc_name.split('-')[3:] | join('-') }}
+      {%- else -%}
+        {{ pvc_name.split('-')[2] }}
+      {%- endif -%}
+
+- name: "Set fact: Determine workload type"
+  set_fact:
+    # StatefulSet components end with -N (e.g., appserver-0)
+    # Deployments do not have numeric suffix (e.g., wfagent)
+    is_statefulset: "{{ pvc_component | regex_search('-[0-9]+$') is not none | bool }}"
+    workload_type: "{{ 'StatefulSet' if (pvc_component | regex_search('-[0-9]+$') is not none) else 'Deployment' }}"
+
+- name: "Display component information"
+  debug:
+    msg:
+      - "Component name: {{ pvc_component }}"
+      - "Workload type: {{ workload_type }}"
+
+# 2. Set archive details
+# -----------------------------------------------------------------------------
+- name: "Set fact: archive details"
+  set_fact:
+    archive_name: "{{ pvc_name }}.tar.gz"
+    archive_path: "{{ facilities_backup_path }}/data/{{ pvc_name }}.tar.gz"
+    pod_name: "{{ mas_instance_id }}-facilities-restore-{{ pvc_name }}"
+
+# 2. Verify backup archive exists
+# -----------------------------------------------------------------------------
+- name: "Verify backup archive exists"
+  stat:
+    path: "{{ archive_path }}"
+  register: archive_stat
+
+- name: "Fail if backup archive not found"
+  fail:
+    msg: "Backup archive not found: {{ archive_path }}"
+  when: not archive_stat.stat.exists
+
+- name: "Display archive information"
+  debug:
+    msg:
+      - "Archive size: {{ (archive_stat.stat.size / 1024 / 1024) | round(2) }} MB"
+      - "Archive location: {{ archive_path }}"
+
+# 3. Copy tar.gz archive to pod
+# -----------------------------------------------------------------------------
+- name: "Copy tar.gz archive to pod"
+  shell: |
+    oc cp --retries=50 {{ archive_path }} {{ mas_app_namespace }}/{{ pod_name }}:/tmp/{{ archive_name }} -c restore-container
+  register: copy_result
+  failed_when: false
+
+- name: "Check copy result"
+  debug:
+    msg:
+      - "Copy return code: {{ copy_result.rc }}"
+      - "{{ 'Success' if copy_result.rc == 0 else 'Failed' }}"
+
+- name: "Fail if copy failed"
+  fail:
+    msg: "Failed to copy tar archive to pod for {{ pvc_name }}: {{ copy_result.stderr | default('Unknown error') }}"
+  when: copy_result.rc != 0
+
+# 4. Delete configs and userfiles directories
+# -----------------------------------------------------------------------------
+# For StatefulSet (appserver-0): configs in /mnt/pvc/<pvcname> (without 'userfiles-' prefix)
+# For Deployment: configs in /mnt/pvc/<pvc_component>
+- name: "Set fact: Determine config directory path"
+  set_fact:
+    config_dir_path: >-
+      {%- if is_statefulset -%}
+        /mnt/pvc/configs/{{ pvc_name | regex_replace('^userfiles-', '') }}
+      {%- else -%}
+        /mnt/pvc/configs/{{ pvc_component }}
+      {%- endif -%}
+
+- name: "Display directory paths"
+  debug:
+    msg:
+      - "Config directory: {{ config_dir_path }}"
+      - "Workload type: {{ workload_type }}"
+
+- name: "Capture ownership using config directory"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: >
+      sh -c "find {{ config_dir_path }} -type f | head -1 | xargs stat -c '%u:%g' 2>/dev/null || echo '1000:1000'"
+  register: config_ownership_result
+  failed_when: false
+
+- name: "Set fact: ownership"
+  set_fact:
+    dir_uid_gid: "{{ config_ownership_result.stdout | trim }}"
+
+- name: "Display config directory ownership"
+  debug:
+    msg: "Config directory ownership (UID:GID): {{ dir_uid_gid }}"
+
+- name: "Delete configs directory contents"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: >
+      sh -c "rm -rf {{ config_dir_path }}/* {{ config_dir_path }}/.[!.]* 2>/dev/null || true"
+  register: delete_config_result
+  failed_when: false
+
+- name: "Display config deletion result"
+  debug:
+    msg: "Deleted contents of {{ config_dir_path }}"
+
+- name: "Delete userfiles directory contents"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: >
+      sh -c "rm -rf /mnt/pvc/userfiles/* /mnt/pvc/userfiles/.[!.]* 2>/dev/null || true"
+  register: delete_userfiles_result
+  failed_when: false
+
+- name: "Display userfiles deletion result"
+  debug:
+    msg: "Deleted contents of userfiles"
+
+# 5. Extract tar.gz archive in the pod
+# -----------------------------------------------------------------------------
+- name: "Extract tar.gz archive in pod"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: "tar -pxzf /tmp/{{ archive_name }} -C /mnt/pvc"
+  register: extract_result
+  failed_when: false
+
+- name: "Check extract result"
+  debug:
+    msg:
+      - "Extract return code: {{ extract_result.rc }}"
+      - "{{ 'Success' if extract_result.rc == 0 else 'Failed' }}"
+
+- name: "Fail if extract failed"
+  fail:
+    msg: "Failed to extract tar archive for {{ pvc_name }}: {{ extract_result.stderr | default('Unknown error') }}"
+  when: extract_result.rc != 0
+
+# 6. Move extracted data to correct locations
+# -----------------------------------------------------------------------------
+- name: "Copy config files from extracted location to config directory"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: >
+      sh -c "if [ -d /mnt/pvc/home/wiotp/config ]; then
+        cp -r /mnt/pvc/home/wiotp/config/* {{ config_dir_path }}/ 2>/dev/null || true;
+        echo 'Config files copied';
+      else
+        echo 'No config directory found in extracted data';
+      fi"
+  register: copy_config_result
+  failed_when: false
+
+- name: "Display config copy result"
+  debug:
+    msg: "{{ copy_config_result.stdout_lines | default(['No output']) }}"
+
+- name: "Restore ownership on config directory"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: >
+      sh -c "chown -R {{ dir_uid_gid }} {{ config_dir_path }} && echo 'Ownership restored to {{ dir_uid_gid }}'"
+  register: restore_ownership_result
+  failed_when: false
+
+- name: "Display ownership restoration result"
+  debug:
+    msg: "{{ restore_ownership_result.stdout_lines | default(['No output']) }}"
+
+- name: "Copy userfiles from extracted location to userfiles directory"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: >
+      sh -c "if [ -d /mnt/pvc/home/wiotp/userfiles ]; then
+        cp -r /mnt/pvc/home/wiotp/userfiles/* /mnt/pvc/userfiles/ 2>/dev/null || true;
+        echo 'Userfiles copied';
+      else
+        echo 'No userfiles directory found in extracted data';
+      fi"
+  register: copy_userfiles_result
+  failed_when: false
+
+- name: "Display userfiles copy result"
+  debug:
+    msg: "{{ copy_userfiles_result.stdout_lines | default(['No output']) }}"
+
+- name: "Restore ownership on userfiles directory"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: >
+      sh -c "chown -R {{ dir_uid_gid }} /mnt/pvc/userfiles && echo 'Ownership restored to {{ dir_uid_gid }}'"
+  register: restore_userfiles_ownership_result
+  failed_when: false
+
+- name: "Display ownership restoration result"
+  debug:
+    msg: "{{ restore_userfiles_ownership_result.stdout_lines | default(['No output']) }}"
+
+- name: "Delete temporary home directory"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: >
+      sh -c "rm -rf /mnt/pvc/home && echo 'Temporary home directory deleted'"
+  register: delete_home_result
+  failed_when: false
+
+- name: "Display home directory deletion result"
+  debug:
+    msg: "{{ delete_home_result.stdout_lines | default(['No output']) }}"
+
+# 7. Clean up tar.gz archive from pod
+# -----------------------------------------------------------------------------
+- name: "Remove tar.gz archive from pod"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: rm -f /tmp/{{ archive_name }}
+  register: cleanup_result
+  failed_when: false
+
+# 8. Verify restore was successful
+# -----------------------------------------------------------------------------
+- name: "Verify config data was restored"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: >
+      sh -c "ls -la {{ config_dir_path }} 2>/dev/null | head -20"
+  register: verify_config_result
+  failed_when: false
+
+- name: "Display restored config data verification"
+  debug:
+    msg:
+      - "Restored config data in {{ config_dir_path }}:"
+      - "{{ verify_config_result.stdout_lines | default(['No output']) }}"
+  when: verify_config_result.rc == 0
+
+- name: "Verify userfiles data was restored"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ mas_app_namespace }}"
+    pod: "{{ pod_name }}"
+    container: restore-container
+    command: >
+      sh -c "ls -la /mnt/pvc/userfiles 2>/dev/null | head -20"
+  register: verify_userfiles_result
+  failed_when: false
+
+- name: "Display restored userfiles data verification"
+  debug:
+    msg:
+      - "Restored userfiles data in /mnt/pvc/userfiles:"
+      - "{{ verify_userfiles_result.stdout_lines | default(['No output']) }}"
+  when: verify_userfiles_result.rc == 0
+
+- name: "PVC restore completed"
+  debug:
+    msg:
+      - "Successfully restored PVC: {{ pvc_name }}"
+      - "Pod: {{ pod_name }}"
