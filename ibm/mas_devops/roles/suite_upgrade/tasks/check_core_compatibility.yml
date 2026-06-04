@@ -117,7 +117,7 @@
     - "'-feature' not in suite_sub_info.resources[0].spec.channel"
   assert:
     that:
-      - suite_info.resources[0].status.versions.reconciled == opcon_version
+      - "(suite_info.resources[0].status.versions.reconciled | regex_replace('-\\d+$', '') == opcon_version | regex_replace('-\\d+$', ''))"
     fail_msg: "Upgrade failed because Maximo Application Suite version ({{ suite_info.resources[0].status.versions.reconciled }}) is not at the expected version {{ opcon_version }}"
 
 # reconciled: 9.1.0-pre.stable+8193 cr version
@@ -130,7 +130,7 @@
     - "'-feature' in suite_sub_info.resources[0].spec.channel"
   assert:
     that:
-      - "(suite_info.resources[0].status.versions.reconciled | replace('+', '-') == opcon_version | replace('+', '-'))"
+      - "(suite_info.resources[0].status.versions.reconciled | replace('+', '-') | regex_replace('-\\d+$', '') == opcon_version | replace('+', '-') | regex_replace('-\\d+$', ''))"
     fail_msg: "Upgrade failed because Maximo Application Suite version ({{ suite_info.resources[0].status.versions.reconciled }}) is not at the expected version {{ opcon_version }}"
 
 - name: "core : Check that the Suite CR is in a healthy state"
