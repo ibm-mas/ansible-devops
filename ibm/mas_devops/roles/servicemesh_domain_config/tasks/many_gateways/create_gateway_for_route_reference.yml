@@ -1,7 +1,7 @@
 ---
 # 1. Create Gateway deployment, service etc
 # -----------------------------------------------------------------------------
-- name: "expand the route reference data"
+- name: "Expand the route reference data"
   set_fact:
     route_reference : "{{ routeref_configmap.data['route.yml'] | from_yaml }}"
 
@@ -12,13 +12,11 @@
 
 - name: "determine gateway name"
   set_fact:
-    # gateway_name: "gateway-{{ routeref_configmap.metadata.name | regex_replace('^routeref-','')}}"
     gateway_name: "gateway-{{ route_reference.metadata.name }}"
 
 - debug: 
     msg:
       - "gateway_name ..... {{ gateway_name }}"
-
 
 - name: "install : Set facts for Virtual Service"
   set_fact:
@@ -44,15 +42,6 @@
   loop: "{{ route_tls | dict2items }}"
   when: item.value is string
 
-# - name: Fix newlines for all tls certificate fields
-#   set_fact:
-#     fixed_tls: >-
-#       {{
-#         route_tls | dict2items |
-#         map('combine', {'value': item.value | replace('\\n', '\n') if 'CERTIFICATE' in (item.value | string) else item.value}) |
-#         items2dict
-#       }}
-
 - debug: 
     msg:
       - "fixed_tls ..... {{ fixed_tls }}"      
@@ -61,7 +50,7 @@
   kubernetes.core.k8s:
     template: "templates/gateway-deployment.yml.j2"
     wait: yes
-    wait_timeout: 120
+    wait_timeout: 300
 
 - name: "install : Create Service Mesh Gateway Service"
   kubernetes.core.k8s:
