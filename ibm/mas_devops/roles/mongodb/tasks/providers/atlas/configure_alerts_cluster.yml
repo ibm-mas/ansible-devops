@@ -1,0 +1,137 @@
+---
+# MongoDB Atlas Provider - Configure Cluster-Level Alert Monitoring
+# Alerts that require cluster matchers (CLUSTER_NAME)
+# Must be configured after cluster is created and ready
+
+- name: "Configure Atlas cluster-level alert monitoring"
+  when: atlas_enable_alerts | bool
+  block:
+    - name: "Display cluster-level alert configuration"
+      debug:
+        msg:
+          - "=========================================="
+          - "Atlas Cluster-Level Alert Configuration"
+          - "=========================================="
+          - "Cluster Name: {{ atlas_cluster_name }}"
+          - "Cluster Health Alerts: {{ atlas_enable_cluster_health_alerts }}"
+          - "Performance Alerts: {{ atlas_enable_performance_alerts }}"
+          - "=========================================="
+
+    # Optional: Cluster Health Alerts (require CLUSTER_NAME matcher)
+    - name: "Configure cluster health alerts"
+      when: atlas_enable_cluster_health_alerts | bool
+      block:
+        - name: "Create replication lag alert"
+          uri:
+            url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
+            method: POST
+            user: "{{ atlas_public_key }}"
+            password: "{{ atlas_private_key }}"
+            force_basic_auth: false
+            body:
+              eventTypeName: "REPLICATION_OPLOG_WINDOW_RUNNING_OUT"
+              enabled: true
+              threshold:
+                operator: "LESS_THAN"
+                threshold: 1
+                units: "HOURS"
+              matchers:
+                - fieldName: "CLUSTER_NAME"
+                  operator: "EQUALS"
+                  value: "{{ atlas_cluster_name }}"
+              notifications: "{{ atlas_email_notifications }}"
+            body_format: json
+            status_code: [200, 201]
+            timeout: "{{ atlas_api_timeout }}"
+          register: alert_replication_lag
+
+        - name: "Create primary elected alert"
+          uri:
+            url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
+            method: POST
+            user: "{{ atlas_public_key }}"
+            password: "{{ atlas_private_key }}"
+            force_basic_auth: false
+            body:
+              eventTypeName: "PRIMARY_ELECTED"
+              enabled: true
+              matchers:
+                - fieldName: "CLUSTER_NAME"
+                  operator: "EQUALS"
+                  value: "{{ atlas_cluster_name }}"
+              notifications: "{{ atlas_email_notifications }}"
+            body_format: json
+            status_code: [200, 201]
+            timeout: "{{ atlas_api_timeout }}"
+          register: alert_primary_elected
+
+        - name: "Create no primary alert"
+          uri:
+            url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
+            method: POST
+            user: "{{ atlas_public_key }}"
+            password: "{{ atlas_private_key }}"
+            force_basic_auth: false
+            body:
+              eventTypeName: "NO_PRIMARY"
+              enabled: true
+              matchers:
+                - fieldName: "CLUSTER_NAME"
+                  operator: "EQUALS"
+                  value: "{{ atlas_cluster_name }}"
+              notifications: "{{ atlas_email_notifications }}"
+            body_format: json
+            status_code: [200, 201]
+            timeout: "{{ atlas_api_timeout }}"
+          register: alert_no_primary
+
+        - name: "Create cluster mongos missing alert"
+          uri:
+            url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
+            method: POST
+            user: "{{ atlas_public_key }}"
+            password: "{{ atlas_private_key }}"
+            force_basic_auth: false
+            body:
+              eventTypeName: "CLUSTER_MONGOS_IS_MISSING"
+              enabled: true
+              matchers:
+                - fieldName: "CLUSTER_NAME"
+                  operator: "EQUALS"
+                  value: "{{ atlas_cluster_name }}"
+              notifications: "{{ atlas_email_notifications }}"
+            body_format: json
+            status_code: [200, 201]
+            timeout: "{{ atlas_api_timeout }}"
+          register: alert_mongos_missing
+
+    - name: "Cluster-level alerts configured successfully"
+      debug:
+        msg:
+          - "=========================================="
+          - "Cluster-Level Alert Monitoring Status"
+          - "=========================================="
+          - "Status: Successfully Configured"
+          - "Cluster Name: {{ atlas_cluster_name }}"
+          - "Cluster Health Alerts: {{ 'Enabled' if atlas_enable_cluster_health_alerts else 'Disabled' }}"
+          - "=========================================="
+
+  rescue:
+    - name: "Display cluster-level alert configuration error details"
+      debug:
+        msg:
+          - "=========================================="
+          - "Cluster-Level Alert Configuration Error"
+          - "=========================================="
+          - "Failed to configure cluster-level alerts"
+          - "Common causes:"
+          - "1. Cluster not yet ready"
+          - "2. Invalid cluster name"
+          - "3. Alert already exists (not an error, can be ignored)"
+          - "=========================================="
+          - "Error details:"
+          - "{{ ansible_failed_result | default('No error details available') }}"
+
+    - name: "Fail after displaying cluster-level alert configuration errors"
+      fail:
+        msg: "Cluster-level alert configuration failed. See error details above."

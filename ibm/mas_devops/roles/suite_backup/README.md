@@ -7,6 +7,9 @@ This role supports backing up MAS Core namespace resources and supporting resour
 in other namespaces; supports creating on-demand full backups.
 
 !!! important
+
+    Supported only for MAS 9.1.x.
+
     Backup can only be restored to an instance with the same MAS instance ID.
 
 

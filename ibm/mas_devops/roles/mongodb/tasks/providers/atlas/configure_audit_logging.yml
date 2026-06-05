@@ -1,0 +1,104 @@
+---
+# MongoDB Atlas Provider - Configure Audit Logging
+# Enable audit logging for compliance and security monitoring
+# Captures authentication events, authorization failures, and database operations
+# Required for FedRAMP, HIPAA, and other regulatory compliance
+
+- name: "Configure Atlas audit logging"
+  when: atlas_audit_enabled | bool
+  block:
+    - name: "Check if audit logging is already configured"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/auditLog"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: false
+        status_code: [200, 404]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_audit_check
+      retries: 3
+      delay: 5
+      failed_when: false
+
+    - name: "Prepare audit logging configuration"
+      set_fact:
+        atlas_audit_config:
+          auditAuthorizationSuccess: "{{ atlas_audit_authorization_success | bool }}"
+          auditFilter: "{{ atlas_audit_filter }}"
+          enabled: true
+
+    - name: "Display audit logging configuration"
+      debug:
+        msg:
+          - "=========================================="
+          - "Atlas Audit Logging Configuration"
+          - "=========================================="
+          - "Enabled: true"
+          - "Audit Filter: {{ atlas_audit_filter }}"
+          - "Audit Authorization Success: {{ atlas_audit_authorization_success }}"
+          - "=========================================="
+
+    - name: "Enable/update audit logging via Atlas API"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/auditLog"
+        method: PATCH
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: false
+        body: "{{ atlas_audit_config | to_json }}"
+        body_format: json
+        status_code: [200, 202]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_audit_enable
+      retries: 3
+      delay: 5
+
+    - name: "Wait for audit configuration to be applied"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/auditLog"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: false
+        status_code: [200]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_audit_verify
+      until: >
+        atlas_audit_verify.json.enabled == atlas_audit_enabled and
+        atlas_audit_verify.json.auditAuthorizationSuccess == atlas_audit_authorization_success and
+        atlas_audit_verify.json.auditFilter == atlas_audit_filter
+      retries: 12
+      delay: 10
+
+    - name: "Audit logging configured successfully"
+      debug:
+        msg:
+          - "=========================================="
+          - "Audit Logging Status"
+          - "=========================================="
+          - "Status: Successfully Configured"
+          - "Project ID: {{ atlas_project_id }}"
+          - "Audit Filter: {{ atlas_audit_filter }}"
+          - "Authorization Success Logging: {{ atlas_audit_authorization_success }}"
+          - "=========================================="
+
+  rescue:
+    - name: "Display audit logging error details"
+      debug:
+        msg:
+          - "=========================================="
+          - "Failed to configure Atlas audit logging"
+          - "=========================================="
+          - "Project ID: {{ atlas_project_id }}"
+          - "=========================================="
+          - "Common issues:"
+          - "1. Insufficient permissions on Atlas API key"
+          - "2. Project does not exist"
+          - "3. Invalid audit filter JSON format"
+          - "=========================================="
+
+    - name: "Fail with helpful error message"
+      fail:
+        msg: "Failed to configure Atlas audit logging. See debug output above for troubleshooting steps."
+

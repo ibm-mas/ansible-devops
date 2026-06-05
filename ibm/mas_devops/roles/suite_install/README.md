@@ -379,7 +379,7 @@ Specifies the issuer kind to configure for MAS certificates.
 
 - **Optional**
 - Environment Variable: `mas_issuer_kind`
-- Default: None
+- Default: `ClusterIssuer` for MAS 9.2+
 
 **Purpose**: Controls the value written to `spec.settings.issuerKind` in the MAS Suite custom resource. This determines whether MAS certificates use a namespace-scoped `Issuer` or a cluster-scoped `ClusterIssuer`.
 
