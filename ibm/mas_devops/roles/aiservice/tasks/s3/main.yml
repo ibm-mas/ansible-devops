@@ -10,7 +10,7 @@
     kind: ConfigMap
     name: km-tenants
     namespace: openshift-storage
-  register: _tenants_bucket_configmap
+  register: tenants_bucket_configmap
 
 - name: "Get km-templates bucket ConfigMap from ODF"
   when: create_ceph_buckets | default(false) | bool
@@ -19,7 +19,7 @@
     kind: ConfigMap
     name: km-templates
     namespace: openshift-storage
-  register: _templates_bucket_configmap
+  register: templates_bucket_configmap
 
 - name: "Get noobaa-admin credentials for ODF bucket access"
   when: create_ceph_buckets | default(false) | bool
@@ -28,19 +28,19 @@
     kind: Secret
     name: noobaa-admin
     namespace: openshift-storage
-  register: _noobaa_admin_secret
+  register: noobaa_admin_secret
 
 - name: "Override bucket names and credentials with ODF values"
   when:
     - create_ceph_buckets | default(false) | bool
-    - _tenants_bucket_configmap.resources | length > 0
-    - _templates_bucket_configmap.resources | length > 0
-    - _noobaa_admin_secret.resources | length > 0
+    - tenants_bucket_configmap.resources | length > 0
+    - templates_bucket_configmap.resources | length > 0
+    - noobaa_admin_secret.resources | length > 0
   set_fact:
-    aiservice_s3_tenants_bucket: "{{ _tenants_bucket_configmap.resources[0].data.BUCKET_NAME }}"
-    aiservice_s3_templates_bucket: "{{ _templates_bucket_configmap.resources[0].data.BUCKET_NAME }}"
-    aiservice_s3_accesskey: "{{ _noobaa_admin_secret.resources[0].data.AWS_ACCESS_KEY_ID | b64decode }}"
-    aiservice_s3_secretkey: "{{ _noobaa_admin_secret.resources[0].data.AWS_SECRET_ACCESS_KEY | b64decode }}"
+    aiservice_s3_tenants_bucket: "{{ tenants_bucket_configmap.resources[0].data.BUCKET_NAME }}"
+    aiservice_s3_templates_bucket: "{{ templates_bucket_configmap.resources[0].data.BUCKET_NAME }}"
+    aiservice_s3_accesskey: "{{ noobaa_admin_secret.resources[0].data.AWS_ACCESS_KEY_ID | b64decode }}"
+    aiservice_s3_secretkey: "{{ noobaa_admin_secret.resources[0].data.AWS_SECRET_ACCESS_KEY | b64decode }}"
     cos_bucket_needs_ca_cert: true
 
 - name: "Debug: ODF bucket configuration"
