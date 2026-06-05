@@ -1,0 +1,281 @@
+---
+# MongoDB Atlas Provider - Configure PrivateLink
+# Sets up AWS PrivateLink connection between Atlas and AWS VPC
+
+# 1. Validate required variables
+# -----------------------------------------------------------------------------
+- name: "Validate PrivateLink configuration"
+  assert:
+    that:
+      - atlas_vpc_id is defined and atlas_vpc_id != ""
+      - atlas_aws_region is defined and atlas_aws_region != ""
+      - atlas_project_id is defined and atlas_project_id != ""
+      - atlas_subnet_ids is defined
+      - atlas_rosa_cidr_ranges is defined
+    fail_msg: "PrivateLink requires atlas_vpc_id, atlas_aws_region, atlas_project_id, atlas_subnet_ids, and atlas_rosa_cidr_ranges"
+
+# 2. Parse subnet IDs and CIDR ranges
+# -----------------------------------------------------------------------------
+- name: "Parse subnet IDs"
+  set_fact:
+    atlas_subnet_ids_list: "{{ atlas_subnet_ids if atlas_subnet_ids is iterable and atlas_subnet_ids is not string else (atlas_subnet_ids.split(',') if atlas_subnet_ids is string else atlas_subnet_ids | from_json) }}"
+
+- name: "Parse ROSA CIDR ranges"
+  set_fact:
+    atlas_rosa_cidr_list: "{{ atlas_rosa_cidr_ranges if atlas_rosa_cidr_ranges is iterable and atlas_rosa_cidr_ranges is not string else (atlas_rosa_cidr_ranges.split(',') if atlas_rosa_cidr_ranges is string else atlas_rosa_cidr_ranges | from_json) }}"
+
+- name: "Validate parsed configuration"
+  assert:
+    that:
+      - atlas_subnet_ids_list | length > 0
+      - atlas_rosa_cidr_list | length > 0
+    fail_msg: "At least one subnet ID and one ROSA CIDR range must be provided"
+
+- name: "Display PrivateLink configuration"
+  debug:
+    msg:
+      - "Subnet IDs: {{ atlas_subnet_ids_list | join(', ') }}"
+      - "ROSA CIDR ranges: {{ atlas_rosa_cidr_list | join(', ') }}"
+
+# 3. Create Atlas Private Endpoint
+# -----------------------------------------------------------------------------
+- name: "Check if Atlas private endpoint already exists"
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/privateEndpoint/AWS/endpointService"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    status_code: [200, 404]
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_privatelink_check
+
+- name: "Convert region to Atlas format (e.g., us-east-1 -> US_EAST_1)"
+  when: atlas_privatelink_check.status == 200
+  set_fact:
+    atlas_region_name: "{{ atlas_aws_region | upper | replace('-', '_') }}"
+
+- name: "Find existing private endpoint for region"
+  when: atlas_privatelink_check.status == 200
+  set_fact:
+    atlas_existing_endpoint: "{{ atlas_privatelink_check.json | selectattr('regionName', 'equalto', atlas_region_name) | list | first | default(none) }}"
+
+- name: "Create Atlas private endpoint if not exists"
+  when: atlas_privatelink_check.status == 404 or (atlas_privatelink_check.status == 200 and atlas_existing_endpoint is none)
+  block:
+    - name: "Convert region to Atlas format for PrivateLink"
+      set_fact:
+        atlas_privatelink_region_name: "{{ atlas_aws_region | upper | replace('-', '_') }}"
+
+    - name: "Create Atlas private endpoint"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/privateEndpoint/endpointService"
+        method: POST
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        body:
+          providerName: "AWS"
+          region: "{{ atlas_aws_region }}"
+        body_format: json
+        status_code: [201]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_privatelink_create
+
+    - name: "Set private endpoint ID"
+      set_fact:
+        atlas_private_endpoint_id: "{{ atlas_privatelink_create.json.id }}"
+
+    - name: "Wait for endpoint service name to be available"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/privateEndpoint/AWS/endpointService/{{ atlas_private_endpoint_id }}"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: 200
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_privatelink_wait
+      retries: 30
+      delay: 10
+      until: >
+        atlas_privatelink_wait.json.endpointServiceName is defined and
+        atlas_privatelink_wait.json.endpointServiceName is not none and
+        atlas_privatelink_wait.json.endpointServiceName != ""
+
+    - name: "Set endpoint service name"
+      set_fact:
+        atlas_endpoint_service_name: "{{ atlas_privatelink_wait.json.endpointServiceName }}"
+
+    - name: "Private endpoint created"
+      debug:
+        msg:
+          - "Atlas private endpoint created"
+          - "Endpoint ID: {{ atlas_private_endpoint_id }}"
+          - "Service Name: {{ atlas_endpoint_service_name }}"
+
+- name: "Use existing Atlas private endpoint"
+  when: atlas_privatelink_check.status == 200 and atlas_existing_endpoint is not none
+  block:
+    - name: "Set private endpoint details from existing"
+      set_fact:
+        atlas_private_endpoint_id: "{{ atlas_existing_endpoint.id }}"
+        atlas_endpoint_service_name: "{{ atlas_existing_endpoint.endpointServiceName }}"
+
+    - name: "Using existing private endpoint"
+      debug:
+        msg:
+          - "Using existing Atlas private endpoint"
+          - "Endpoint ID: {{ atlas_private_endpoint_id }}"
+          - "Service Name: {{ atlas_endpoint_service_name }}"
+
+# 4. Create AWS VPC Endpoint
+# -----------------------------------------------------------------------------
+- name: "Check if AWS VPC endpoint already exists"
+  shell: |
+    aws ec2 describe-vpc-endpoints \
+      --region "{{ atlas_aws_region }}" \
+      --filters "Name=vpc-id,Values={{ atlas_vpc_id }}" "Name=service-name,Values={{ atlas_endpoint_service_name }}" \
+      --query 'VpcEndpoints[0].VpcEndpointId' \
+      --output text
+  register: aws_vpce_check
+  changed_when: false
+  failed_when: false
+
+- name: "Create AWS VPC endpoint if not exists"
+  when: aws_vpce_check.stdout == "" or aws_vpce_check.stdout == "None"
+  block:
+    - name: "Create security group for VPC endpoint"
+      shell: |
+        aws ec2 create-security-group \
+          --region "{{ atlas_aws_region }}" \
+          --group-name "{{ atlas_project_name }}-mongodb-atlas-vpce-sg" \
+          --description "Security group for MongoDB Atlas VPC endpoint for project {{ atlas_project_name }}" \
+          --vpc-id "{{ atlas_vpc_id }}" \
+          --output json
+      register: atlas_sg_create
+      failed_when: false
+
+    - name: "Parse security group ID"
+      set_fact:
+        atlas_vpce_sg_id: "{{ (atlas_sg_create.stdout | from_json).GroupId if atlas_sg_create.rc == 0 else '' }}"
+
+    - name: "Get existing security group if creation failed"
+      when: atlas_vpce_sg_id == ""
+      shell: |
+        aws ec2 describe-security-groups \
+          --region "{{ atlas_aws_region }}" \
+          --filters "Name=group-name,Values={{ atlas_project_name }}-mongodb-atlas-vpce-sg" "Name=vpc-id,Values={{ atlas_vpc_id }}" \
+          --query 'SecurityGroups[0].GroupId' \
+          --output text
+      register: atlas_sg_existing
+      changed_when: false
+
+    - name: "Set security group ID from existing"
+      when: atlas_vpce_sg_id == ""
+      set_fact:
+        atlas_vpce_sg_id: "{{ atlas_sg_existing.stdout }}"
+
+    - name: "Add ingress rules to security group for each ROSA CIDR"
+      shell: |
+        aws ec2 authorize-security-group-ingress \
+          --region "{{ atlas_aws_region }}" \
+          --group-id "{{ atlas_vpce_sg_id }}" \
+          --protocol tcp \
+          --port 1024-65535 \
+          --cidr "{{ item }}" \
+          --output json
+      loop: "{{ atlas_rosa_cidr_list }}"
+      register: atlas_sg_rules
+      failed_when: false
+      changed_when: atlas_sg_rules.rc == 0
+
+    - name: "Create AWS VPC endpoint"
+      shell: |
+        aws ec2 create-vpc-endpoint \
+          --region "{{ atlas_aws_region }}" \
+          --vpc-id "{{ atlas_vpc_id }}" \
+          --service-name "{{ atlas_endpoint_service_name }}" \
+          --vpc-endpoint-type Interface \
+          --subnet-ids {{ atlas_subnet_ids_list | join(' ') }} \
+          --security-group-ids "{{ atlas_vpce_sg_id }}" \
+          --no-private-dns-enabled \
+          --output json
+      register: aws_vpce_create
+
+    - name: "Parse VPC endpoint ID"
+      set_fact:
+        aws_vpc_endpoint_id: "{{ (aws_vpce_create.stdout | from_json).VpcEndpoint.VpcEndpointId }}"
+
+    - name: "AWS VPC endpoint created"
+      debug:
+        msg:
+          - "AWS VPC endpoint created"
+          - "VPC Endpoint ID: {{ aws_vpc_endpoint_id }}"
+          - "Security Group ID: {{ atlas_vpce_sg_id }}"
+          - "Subnets: {{ atlas_subnet_ids_list | length }}"
+          - "ROSA CIDR rules: {{ atlas_rosa_cidr_list | length }}"
+
+- name: "Use existing AWS VPC endpoint"
+  when: aws_vpce_check.stdout != "" and aws_vpce_check.stdout != "None"
+  set_fact:
+    aws_vpc_endpoint_id: "{{ aws_vpce_check.stdout }}"
+
+# 5. Link AWS VPC Endpoint to Atlas Private Endpoint
+# -----------------------------------------------------------------------------
+- name: "Check if VPC endpoint is already linked"
+  set_fact:
+    vpc_endpoint_already_linked: "{{ aws_vpc_endpoint_id in (atlas_existing_endpoint.interfaceEndpoints | default([])) }}"
+  when: atlas_existing_endpoint is defined and atlas_existing_endpoint is not none
+
+- name: "Link AWS VPC endpoint to Atlas private endpoint"
+  when: not (vpc_endpoint_already_linked | default(false) | bool)
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/privateEndpoint/AWS/endpointService/{{ atlas_private_endpoint_id }}/endpoint"
+    method: POST
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    body:
+      id: "{{ aws_vpc_endpoint_id }}"
+    body_format: json
+    status_code: [200, 201]
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_privatelink_link
+
+- name: "VPC endpoint link status"
+  debug:
+    msg:
+      - "{{ 'VPC endpoint already linked' if (vpc_endpoint_already_linked | default(false) | bool) else 'VPC endpoint linked successfully' }}"
+      - "Link response status: {{ atlas_privatelink_link.status | default('N/A - already linked') }}"
+
+# 6. Wait for private endpoint to be available
+# -----------------------------------------------------------------------------
+- name: "Wait for private endpoint to be available"
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/privateEndpoint/AWS/endpointService/{{ atlas_private_endpoint_id }}"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    status_code: 200
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_privatelink_status
+  retries: 60
+  delay: 10
+  until: atlas_privatelink_status.json.status == "AVAILABLE"
+
+- name: "PrivateLink configuration complete"
+  debug:
+    msg:
+      - "=========================================="
+      - "MongoDB Atlas PrivateLink Configured"
+      - "=========================================="
+      - "Atlas Private Endpoint ID: {{ atlas_private_endpoint_id }}"
+      - "AWS VPC Endpoint ID: {{ aws_vpc_endpoint_id }}"
+      - "Status: {{ atlas_privatelink_status.json.status }}"
+      - "Region: {{ atlas_aws_region }}"
+      - "VPC ID: {{ atlas_vpc_id }}"
+      - "Subnets: {{ atlas_subnet_ids_list | length }}"
+      - "ROSA CIDR ranges: {{ atlas_rosa_cidr_list | length }}"
+      - "=========================================="
