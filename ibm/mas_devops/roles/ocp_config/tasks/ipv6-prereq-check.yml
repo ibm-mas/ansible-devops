@@ -1,0 +1,36 @@
+---
+
+- name: Get worker nodes
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Node
+    label_selectors:
+      - node-role.kubernetes.io/worker
+  register: worker_nodes
+
+- name: Initialize missing IPv6 node list
+  ansible.builtin.set_fact:
+    workers_missing_ipv6: []
+
+- name: Find workers missing IPv6
+  ansible.builtin.set_fact:
+    workers_missing_ipv6: "{{ workers_missing_ipv6 + [item.metadata.name] }}"
+  loop: "{{ worker_nodes.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  when: >
+    (
+      item.metadata.annotations['k8s.ovn.org/node-primary-ifaddr']
+      | default('{}')
+      | from_json
+    ).ipv6 is not defined
+
+- name: Verify all workers have IPv6 configured
+  ansible.builtin.assert:
+    that:
+      - workers_missing_ipv6 | length == 0
+    fail_msg: >-
+      IPv6 is missing on worker nodes:
+      {{ workers_missing_ipv6 | join(', ') }}
+    success_msg: >-
+      IPv6 is configured on all worker nodes.
