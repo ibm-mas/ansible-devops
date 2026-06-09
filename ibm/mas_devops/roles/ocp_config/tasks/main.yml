@@ -93,3 +93,16 @@
   delay: 10
   when:
     - ocp_enable_ipv6 == true
+
+# 9. Verify all workers have IPv6 configured
+- name: Verify all workers have IPv6 configured
+  shell: |
+    oc get nodes -l node-role.kubernetes.io/worker -o json | \
+    jq -e '
+    .items[]
+    | .metadata.annotations["k8s.ovn.org/node-primary-ifaddr"]
+    | fromjson
+    | select(.ipv6 != null)'
+  changed_when: false
+  when:
+    - ocp_enable_ipv6 == true
