@@ -1,0 +1,42 @@
+apiVersion: v1
+metadata:
+  name: {{ cluster_name }}
+baseDomain: {{ ipi_base_domain }}
+compute:
+- name: worker
+  platform:
+    {{ ipi_platform }}:
+      type: {{ ipi_compute_type }}
+  replicas: {{ ipi_compute_replicas }}
+controlPlane:
+  name: master
+  platform:
+    {{ ipi_platform }}:
+      type: {{ ipi_controlplane_type }}
+{% if ipi_rootvolume_size is defined and ipi_rootvolume_size != "" %}
+      rootVolume:
+        size: {{ ipi_rootvolume_size }}
+{% endif %}
+  replicas: {{ ipi_controlplane_replicas }}
+networking:
+  clusterNetwork:
+  - cidr: fd01::/48
+    hostPrefix: 64
+  machineNetwork:
+  - cidr: fd02::/64
+  networkType: OVNKubernetes
+  serviceNetwork:
+  - fd03::/112
+platform:
+  {{ ipi_platform }}:
+    region: {{ ipi_region }}
+{% if ipi_platform == "gcp" %}
+    projectID: {{ipi_gcp_projectid}}
+{% endif %}
+fips: {{ ocp_fips_enabled }}
+publish: External
+pullSecret: '{{ lookup('file', ipi_pull_secret_file) | regex_replace('\'', '"') }}'
+{% if sshKey != "" %}
+sshKey: |
+  {{sshKey}}
+{% endif %}
