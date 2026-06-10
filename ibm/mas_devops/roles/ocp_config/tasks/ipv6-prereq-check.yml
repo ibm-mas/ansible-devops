@@ -21,45 +21,59 @@
       - op: add
         path: /spec/serviceNetwork/-
         value: fd02::/112
-  register: _dualstackNetworkAddr
   when:
     - "'fd01::/48' not in (_network.result.spec.clusterNetwork | map(attribute='cidr') | list)"
 
-# 2. Wait for network operator to reconcile after dual-stack changes
-- name: "Wait for network operator to complete dual-stack reconciliation"
-  kubernetes.core.k8s_info:
-    api_version: operator.openshift.io/v1
-    kind: Network
-    name: cluster
-  register: _network_status
-  until:
-    - _network_status.resources[0].status.conditions is defined
-    - _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Progressing') | map(attribute='status') | first == 'False'
-    - _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | map(attribute='status') | first == 'True'
-  retries: 60
-  delay: 20
-
-- name: "Debug network operator status"
-  debug:
-    msg: "Network operator - Progressing: {{ _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Progressing') | map(attribute='status') | first }}, Available: {{ _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | map(attribute='status') | first }}"
-  when:
-    - _network_status is defined
-    - _network_status is failed
-    
-# 3. Wait for all nodes to report network ready
-- name: "Wait for all nodes to report network ready"
+# 2. Wait for all nodes to report network ready
+- name: Wait for all nodes to be Ready, Schedulable and Network Ready
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Node
   register: _nodes
+  no_log: true
   until:
     - _nodes is succeeded
     - _nodes.resources is defined
-    - _nodes.resources | selectattr('status.conditions', 'defined') | map(attribute='status.conditions') | flatten | selectattr('type', 'equalto', 'NetworkUnavailable') | map(attribute='status') | select('equalto', 'True') | list | length == 0
+
+    # No node is unschedulable
+    - >
+      _nodes.resources
+      | selectattr('spec.unschedulable', 'defined')
+      | selectattr('spec.unschedulable', 'equalto', true)
+      | list
+      | length == 0
+
+    # All nodes are Ready=True
+    - >
+      _nodes.resources
+      | rejectattr(
+          'status.conditions',
+          'undefined'
+        )
+      | map(attribute='status.conditions')
+      | flatten
+      | selectattr('type', 'equalto', 'Ready')
+      | selectattr('status', 'equalto', 'True')
+      | list
+      | length
+      ==
+      _nodes.resources | length
+
+    # No node has NetworkUnavailable=True
+    - >
+      _nodes.resources
+      | map(attribute='status.conditions')
+      | flatten
+      | selectattr('type', 'equalto', 'NetworkUnavailable')
+      | selectattr('status', 'equalto', 'True')
+      | list
+      | length == 0
+
   retries: 60
   delay: 10
+  changed_when: false
 
-# 4. Approve pending node CSRs
+# 3. Approve pending node CSRs
 - name: Get pending node CSRs
   ansible.builtin.shell: |
     oc get csr -o json | jq -r '
@@ -76,14 +90,36 @@
   loop: "{{ pending_node_csrs.stdout_lines }}"
   when: pending_node_csrs.stdout_lines | length > 0
   
-# 5. Verify all workers have IPv6 configured
+# 4. Wait for network operator to reconcile after dual-stack changes
+- name: "Wait for network operator to complete dual-stack reconciliation"
+  kubernetes.core.k8s_info:
+    api_version: operator.openshift.io/v1
+    kind: Network
+    name: cluster
+  register: _network_status
+  no_log: true
+  until:
+    - _network_status.resources[0].status.conditions is defined
+    - _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Progressing') | map(attribute='status') | first == 'False'
+    - _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | map(attribute='status') | first == 'True'
+  retries: 60
+  delay: 10
+
+- name: "Debug network operator status"
+  debug:
+    msg: "Network operator - Progressing: {{ _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Progressing') | map(attribute='status') | first }}, Available: {{ _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | map(attribute='status') | first }}"
+  when:
+    - _network_status is defined
+    - _network_status is failed
     
+# 5. Verify all workers have IPv6 configured
 - name: Get worker nodes
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Node
     label_selectors:
       - node-role.kubernetes.io/worker
+  no_log: true
   register: worker_nodes
 
 - name: Initialize missing IPv6 node list
@@ -91,6 +127,7 @@
     workers_missing_ipv6: []
 
 - name: Find workers missing IPv6
+  no_log: true
   ansible.builtin.set_fact:
     workers_missing_ipv6: "{{ workers_missing_ipv6 + [item.metadata.name] }}"
   loop: "{{ worker_nodes.resources }}"
@@ -113,4 +150,4 @@
   register: ipv6_check
   until: ipv6_check is succeeded
   retries: 20
-  delay: 20
+  delay: 30
