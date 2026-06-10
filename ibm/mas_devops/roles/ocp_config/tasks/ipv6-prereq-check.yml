@@ -25,7 +25,28 @@
   when:
     - "'fd01::/48' not in (_network.result.spec.clusterNetwork | map(attribute='cidr') | list)"
 
-# 2. Wait for all nodes to report network ready
+# 2. Wait for network operator to reconcile after dual-stack changes
+- name: "Wait for network operator to complete dual-stack reconciliation"
+  kubernetes.core.k8s_info:
+    api_version: operator.openshift.io/v1
+    kind: Network
+    name: cluster
+  register: _network_status
+  until:
+    - _network_status.resources[0].status.conditions is defined
+    - _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Progressing') | map(attribute='status') | first == 'False'
+    - _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | map(attribute='status') | first == 'True'
+  retries: 60
+  delay: 20
+
+- name: "Debug network operator status"
+  debug:
+    msg: "Network operator - Progressing: {{ _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Progressing') | map(attribute='status') | first }}, Available: {{ _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | map(attribute='status') | first }}"
+  when:
+    - _network_status is defined
+    - _network_status is failed
+    
+# 3. Wait for all nodes to report network ready
 - name: "Wait for all nodes to report network ready"
   kubernetes.core.k8s_info:
     api_version: v1
@@ -38,7 +59,7 @@
   retries: 60
   delay: 10
 
-# 3. Approve pending node CSRs
+# 4. Approve pending node CSRs
 - name: Get pending node CSRs
   ansible.builtin.shell: |
     oc get csr -o json | jq -r '
@@ -55,26 +76,6 @@
   loop: "{{ pending_node_csrs.stdout_lines }}"
   when: pending_node_csrs.stdout_lines | length > 0
   
-# 4. Wait for network operator to reconcile after dual-stack changes
-- name: "Wait for network operator to complete dual-stack reconciliation"
-  kubernetes.core.k8s_info:
-    api_version: operator.openshift.io/v1
-    kind: Network
-    name: cluster
-  register: _network_status
-  until:
-    - _network_status.resources[0].status.conditions is defined
-    - _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Progressing') | map(attribute='status') | first == 'False'
-    - _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | map(attribute='status') | first == 'True'
-  retries: 60
-  delay: 10
-
-- name: "Debug network operator status"
-  debug:
-    msg: "Network operator - Progressing: {{ _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Progressing') | map(attribute='status') | first }}, Available: {{ _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | map(attribute='status') | first }}"
-  when:
-    - _network_status is defined
-    - _network_status is failed
 # 5. Verify all workers have IPv6 configured
     
 - name: Get worker nodes
@@ -112,4 +113,4 @@
   register: ipv6_check
   until: ipv6_check is succeeded
   retries: 20
-  delay: 30
+  delay: 20
