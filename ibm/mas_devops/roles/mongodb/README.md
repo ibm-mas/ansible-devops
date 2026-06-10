@@ -1,9 +1,12 @@
 # mongodb
 
-This role currently supports provisioning of mongodb in three different providers:
+This role currently supports provisioning of mongodb in four different providers:
  - community
  - aws (documentdb)
  - ibm
+ - atlas (MongoDB Atlas)
+**Important Notice**
+Support for the **atlas (MongoDB Atlas)** provider is currently in **Proof of Concept (PoC)** stage. It is intended for **testing and development purposes only** and **is not recommended for production deployments** at this time.
 
 If the selected provider is `community` then the [MongoDB Community Kubernetes Operator](https://github.com/mongodb/mongodb-kubernetes-operator) will be configured and deployed into the specified namespace. By default a three member MongoDB replica set will be created.  The cluster will bind six PVCs, these provide persistence for the data and system logs across the three nodes.  Currently there is no support built-in for customizing the cluster beyond this configuration.
 
@@ -14,15 +17,67 @@ If the selected provider is `community` then the [MongoDB Community Kubernetes O
 
 
 ## Prerequisites
+
+### General Prerequisites
 To run this role with providers as `ibm` or `aws` you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
-Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role when provider is either `ibm` or `aws`.
+Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role when provider is either `ibm` or `aws` or `atlas`.
 
 To run the `docdb_secret_rotate` MONGODB_ACTION when the provider is `aws` you must have already installed the [Mongo Shell](https://www.mongodb.com/docs/mongodb-shell/install/).
 
 This role will install a GrafanaDashboard used for monitoring the MongoDB instance when the provided is `community` and you have run the [grafana role](https://ibm-mas.github.io/ansible-devops/roles/grafana/) previously. If you did not run the [grafana role](https://ibm-mas.github.io/ansible-devops/roles/grafana/) then the GrafanaDashboard won't be installed.
 
+### MongoDB Atlas Prerequisites
+When using `mongodb_provider=atlas`, you must complete the following prerequisites:
 
-## Role Variables
+#### 1. Create AWS Secrets Manager Secret (Required)
+Create a secret in AWS Secrets Manager to store your Atlas API credentials. The secret must follow this naming convention:
+
+**Secret Name**: `<atlas_account_id>/mongodb-atlas`
+
+Where `<atlas_account_id>` is your AWS account ID (e.g., `123456789012/mongodb-atlas`).
+
+**Secret Format**: The secret must contain a JSON object with these exact field names:
+```json
+{
+  "mongodb_atlas_api_pub_key": "your-atlas-public-key",
+  "mongodb_atlas_api_pri_key": "your-atlas-private-key"
+}
+```
+
+**How to create the secret**:
+```bash
+# Replace 123456789012 with your AWS account ID
+export ACCOUNT_ID="123456789012"
+export SECRET_NAME="${ACCOUNT_ID}/mongodb-atlas"
+
+# Create the secret with Atlas API credentials
+aws secretsmanager create-secret \
+  --name "${SECRET_NAME}" \
+  --description "MongoDB Atlas API credentials for account ${ACCOUNT_ID}" \
+  --secret-string '{"mongodb_atlas_api_pub_key":"YOUR_PUBLIC_KEY","mongodb_atlas_api_pri_key":"YOUR_PRIVATE_KEY"}' \
+  --region us-east-1
+
+# Or update an existing secret
+aws secretsmanager put-secret-value \
+  --secret-id "${SECRET_NAME}" \
+  --secret-string '{"mongodb_atlas_api_pub_key":"YOUR_PUBLIC_KEY","mongodb_atlas_api_pri_key":"YOUR_PRIVATE_KEY"}' \
+  --region us-east-1
+```
+
+**Note**: The field names must be exactly `mongodb_atlas_api_pub_key` and `mongodb_atlas_api_pri_key` as shown above.
+
+#### 2. Add IP Address to Atlas API Access List
+Add your IP address to the Atlas API Access List before running this role:
+
+1. Log in to [MongoDB Atlas Console](https://cloud.mongodb.com)
+2. Navigate to your Organization → Access Manager → API Keys
+3. Select your API key
+4. Click "Edit" and add your current IP address to the Access List
+
+**Note**: The role cannot automatically add IP addresses to the Atlas API Access List. If your IP is not whitelisted, API calls will fail with `403 IP_ADDRESS_NOT_ON_ACCESS_LIST` error.
+
+
+## Role Variables - General
 
 ### Common Variables
 
@@ -82,22 +137,26 @@ Selects which MongoDB deployment option to use for MAS database requirements.
 - Use `community` for self-managed deployments on OpenShift with full control
 - Use `ibm` for managed IBM Cloud Databases for MongoDB service
 - Use `aws` for managed AWS DocumentDB service (MongoDB-compatible)
+- Use `atlas` for managed MongoDB Atlas service (fully managed cloud database)
 - Consider operational expertise, cloud platform, and management preferences
 
 **Valid values**:
 - `community` - MongoDB Community Edition Operator (self-managed on OpenShift)
 - `ibm` - IBM Cloud Databases for MongoDB (managed service)
 - `aws` - AWS DocumentDB (managed service, MongoDB-compatible)
+- `atlas` - MongoDB Atlas
 
 **Impact**:
 - `community`: Requires cluster storage, manual backup management, and operational overhead
 - `ibm`: Requires IBM Cloud account, API key, and incurs IBM Cloud service charges
 - `aws`: Requires AWS account, VPC configuration, and incurs AWS service charges
+- `atlas`: Requires AWS account, AWS IAM permissions, and incurs AWS service charges
 
 **Related variables**:
 - When `community`: Requires `mongodb_storage_class` and related storage/resource variables
 - When `ibm`: Requires `ibmcloud_apikey`, `ibm_mongo_region`, `ibm_mongo_resourcegroup`
 - When `aws`: Requires `aws_access_key_id`, `aws_secret_access_key`, `vpc_id`, `docdb_*` variables
+- When `atlas`: Requires `aws_access_key_id`, `aws_secret_access_key`, `atlas_account_id` (secret name is automatically derived as `<atlas_account_id>/mongodb-atlas`)
 - Affects which `mongodb_action` values are supported
 
 **Note**: Provider cannot be changed after initial deployment. Migration between providers requires backup and restore procedures.
@@ -115,22 +174,21 @@ Specifies which operation to perform on the MongoDB instance.
 - Use `install` for initial deployment or updates
 - Use `uninstall` to remove MongoDB instance (use with caution)
 - Use `backup` to create MongoDB backups (community/ibm only)
-- Use `restore` to restore from backup (community/ibm only)
+- Use `restore` to restore from backup (community/ibm/atlas only)
 - Use `docdb_secret_rotate` to rotate DocumentDB credentials (aws only)
 - Use `destroy-data` to delete all data from MongoDB (aws only)
 - Use `create-mongo-service-credentials` to generate service credentials (ibm only)
 
 **Valid values** (provider-specific):
-- **community**: `install`, `uninstall`, `backup`, `restore`
+- **community**: `install`, `uninstall`, `backup`, `backup-database`, `restore`, `restore-database`
 - **aws**: `install`, `uninstall`, `docdb_secret_rotate`, `destroy-data`
 - **ibm**: `install`, `uninstall`, `backup`, `restore`, `create-mongo-service-credentials`
+- **atlas**: `install`, `uninstall`, `restore`, `restore-database`
 
 **Impact**: The action determines what the role will do. Destructive actions like `uninstall` and `destroy-data` will permanently delete data. Backup/restore actions require additional variables to be set.
 
 **Related variables**:
 - `mongodb_provider` determines which actions are available
-- Backup actions require `masbr_*` variables
-- Restore actions require `masbr_restore_from_version`
 - AWS secret rotation requires `docdb_*` credential variables
 
 **Note**: Always backup data before performing destructive operations. Some actions are irreversible.
@@ -172,7 +230,7 @@ Specifies the MongoDB version to deploy.
 - Use for testing compatibility with newer MongoDB versions
 - Never use to downgrade an existing MongoDB instance
 
-**Valid values**: `7.0.12`, `7.0.22`, `7.0.23`, `8.0.13`, `8.0.17` (check MAS compatibility matrix for supported versions)
+**Valid values**: `7.0.12`, `7.0.22`, `7.0.23`, `8.0.13`, `8.0.17`, `8.0.20`  (check MAS compatibility matrix for supported versions)
 
 **Impact**: Determines MongoDB feature set, performance characteristics, and compatibility. Changing versions may require data migration or compatibility testing.
 
@@ -550,194 +608,359 @@ Confirmation flag to upgrade MongoDB from version 7 to version 8.
 - Environment Variable: `MONGODB_V8_UPGRADE`
 - Default Value: `false`
 
-**Purpose**: Acts as a safety confirmation to prevent accidental MongoDB major version upgrades from version 7 to 8.
+Role Variables - Backup and Restore (CE Operator)
+-------------------------------------------------------------------------------
 
-**When to use**:
-- Set to `true` only when intentionally upgrading from MongoDB 7 to version 8
-- Must be explicitly set to perform the upgrade
-- Leave as `false` for all other operations
+### mongodb_action
+For backup and restore operations, set `mongodb_action` to one of the following:
+- `backup`: Create a backup of MongoDB databases and instance resources
+- `backup-database`: Create a backup of MongoDB databases only
+- `restore`: Restore both MongoDB instance resources and databases from a backup (full restore)
+- `restore-database`: Restore only MongoDB databases from a backup to an existing instance (database-only restore)
 
-**Valid values**: `true`, `false`
+- Environment Variable: `MONGODB_ACTION`
+- Default Value: `install`
 
-**Impact**: When `true` and `mongodb_version` is set to an 8.x version, triggers MongoDB upgrade from 7.x to 8.x. This is a one-way operation that cannot be reversed without restoring from backup.
+**Action Details:**
+- **backup**: Creates a complete backup including database data and Kubernetes resources (secrets, certificates, CRs)
+- **backup-database**: Creates a complete backup including database data only
+- **restore**: Performs a full restore by recreating the MongoDB instance from backup resources and then restoring database data
+- **restore-database**: Restores only the database data to an already running MongoDB instance without touching instance resources
 
-**Related variables**:
-- `mongodb_version`: Must be set to an 8.x version for upgrade to proceed
-- Other upgrade flags: `mongodb_v5_upgrade`, `mongodb_v6_upgrade`, `mongodb_v7_upgrade`
+### mas_backup_dir
+**Required for backup/restore operations**. Local directory path where backup files will be stored or read from.
 
-**Note**: **Always backup before upgrading**. Test upgrades in non-production environments first. Review MongoDB 8.0 release notes for breaking changes.
+- Environment Variable: `MAS_BACKUP_DIR`
+- Default Value: None
+- Example: `/tmp/masbr`
 
-#### masbr_confirm_cluster
-Enables cluster confirmation prompt before executing backup or restore operations.
+### mongodb_backup_version
+**Required for restore operations**. The backup version timestamp to restore from. This is automatically generated during backup in the format `YYYYMMDD-HHMMSS`.
 
-- **Optional**
-- Environment Variable: `MASBR_CONFIRM_CLUSTER`
-- Default: `false`
+- Environment Variable: `MONGODB_BACKUP_VERSION`
+- Default Value: YYYYMMDD-HHMMSS
+- Example: `20251212-021316`
 
-**Purpose**: Provides a safety check to confirm you're connected to the correct cluster before performing backup or restore operations, preventing accidental operations on wrong clusters.
+### mongodb_instance_name
+The name of the MongoDB instance to backup.
 
-**When to use**:
-- Set to `true` in environments with multiple clusters to prevent mistakes
-- Set to `true` for production environments as an additional safety measure
-- Leave as `false` for automated pipelines where confirmation isn't possible
+- Environment Variable: `MONGODB_INSTANCE_NAME`
+- Default Value: `mas-mongo-ce`
 
-**Valid values**: `true`, `false`
+### override_storageclass
+Controls whether to override storage class for the MongoDB instance during restore.
+Set to `true` to override the storage class with `MONGODB_STORAGE_CLASS` value or cluster's default storageclass.
 
-**Impact**: When `true`, the role will prompt for confirmation of the cluster before proceeding with backup/restore. This adds a manual step but prevents costly mistakes.
+- Environment Variable: `OVERRIDE_STORAGECLASS`
+- Default Value: `false`
 
-**Related variables**: Used with `mongodb_action` when set to `backup` or `restore`.
+### mas_app_id
+Optional. Specific MAS application ID for targeted backup/restore operations.
 
-#### masbr_copy_timeout_sec
-Timeout in seconds for backup/restore file transfer operations.
+- Environment Variable: `MAS_APP_ID`
+- Default Value: None
 
-- **Optional**
-- Environment Variable: `MASBR_COPY_TIMEOUT_SEC`
-- Default: `43200` (12 hours)
 
-**Purpose**: Sets the maximum time allowed for copying backup files to/from storage. Prevents operations from hanging indefinitely on slow networks or large datasets.
+Backup and Restore Operations
+-------------------------------------------------------------------------------
 
-**When to use**:
-- Increase for very large databases or slow network connections
-- Decrease for smaller databases to fail faster on issues
-- Use default (12 hours) for most deployments
+This section provides comprehensive information about MongoDB backup and restore operations for the Community Edition (CE) operator.
 
-**Valid values**: Positive integer representing seconds (e.g., `3600` = 1 hour, `43200` = 12 hours, `86400` = 24 hours)
+### Action Comparison
 
-**Impact**: Operations exceeding this timeout will fail. Setting too low causes failures on legitimate long-running transfers. Setting too high delays detection of stuck operations.
+| Action | Purpose | Instance Resources | Database Data | Prerequisites | Use Case |
+|--------|---------|-------------------|---------------|---------------|----------|
+| `backup` | Create backup | Yes | Yes | Running MongoDB instance | Regular backups, disaster recovery preparation |
+| `backup-database` | Database-only backup | No | Yes | Running MongoDB instance | Regular backups, disaster recovery preparation |
+| `restore` | Full restore | Yes (recreates instance) | Yes | Backup with instance resources | Disaster recovery, cluster migration, complete restoration |
+| `restore-database` | Database-only restore | No (preserves existing) | Yes | Running MongoDB instance with matching version | Data recovery, selective restore, testing |
 
-**Related variables**: Used with `mongodb_action` when set to `backup` or `restore`.
+### Backup Process
 
-**Note**: Consider database size and network speed when setting timeout. Monitor actual transfer times to optimize this value.
+The MongoDB backup operation creates a backup of your MongoDB instance and databases associated with your MAS instance:
 
-#### masbr_job_timezone
-Time zone for scheduled backup job execution.
+1. **Database Backup**: Uses `mongodump` to export databases with filter `"^(mas|iot|sls|ibm-sls)(_|-)({{ mas_instance_id }}|sls)(_|-)(?!.*monitor$)"` to match databases like `mas-<instance-id>-<app-id>` or `iot-<instance-id>-<app-id>` or `ibm-sls_sls_licensing` or `sls-<instance-id>_sls_licensing`.
+2. **Instance Resources** : Backs up Kubernetes resources including:
+   - CustomResourceDefinition (CRD)
+   - MongoDBCommunity Custom Resource (CR)
+   - Secrets (TLS certificates, credentials)
+   - Certificate resources
+   - Issuer resources
+   - Mongodb operator deployment
+   - service monitoring
+   - grafana dashboards
 
-- **Optional**
-- Environment Variable: `MASBR_JOB_TIMEZONE`
-- Default: None (uses UTC)
+**Backup Directory Structure:**
+```
+/tmp/masbr/
+└── backup-<YYYYMMDD-HHMMSS>-mongoce/
+    ├── data/
+    │   ├── mongodump-<YYYYMMDD-HHMMSS>.tar.gz
+    │   └── mongodb-info.yaml
+    └── resources/
+        ├── mongodbcommunitys/
+        ├── secrets/
+        ├── certificates/
+        └── issuers/
+        └── {kind}s/
+```
 
-**Purpose**: Specifies the time zone for scheduled backup CronJobs, ensuring backups run at the intended local time rather than UTC.
+### Restore Process
 
-**When to use**:
-- Set when scheduling backups to run at specific local times
-- Use for compliance with backup windows in specific time zones
-- Leave unset to use UTC (recommended for global deployments)
+The MongoDB role supports two types of restore operations:
 
-**Valid values**: Any valid [tz database time zone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) (e.g., `America/New_York`, `Europe/London`, `Asia/Tokyo`)
+#### 1. Full Restore (`restore` action)
+Performs a complete restoration of both the MongoDB instance and its databases:
 
-**Impact**: Affects when scheduled backups execute. Incorrect time zone can cause backups to run during business hours or miss backup windows.
+**Steps:**
+1. Validates backup files and required variables
+2. Restores the namespace (Project)
+3. Restores Secrets and ConfigMaps
+4. Restores CustomResourceDefinitions (CRDs)
+5. Restores RBAC resources (ServiceAccount, Role, RoleBinding)
+6. Configures anyuid permissions for MongoDB service accounts
+7. Restores the MongoDB Operator Deployment
+8. Waits for MongoDB operator to be ready
+9. Restores Certificate Manager resources (Issuer, Certificate)
+10. Restores the MongoDBCommunity Custom Resource (Overrides storageclass if flag is set)
+11. Waits for MongoDB StatefulSets to be ready
+12. Restores ServiceMonitor and GrafanaDashboard resources
+13. Restores database data using `mongorestore`
 
-**Related variables**:
-- `masbr_backup_schedule`: Defines the cron schedule
-- Only applies when `masbr_backup_schedule` is set
+**When to use:**
+- Disaster recovery scenarios
+- Migrating MongoDB to a new cluster
+- Recreating a deleted MongoDB instance
+- Setting up a new environment from backup
 
-**Note**: When not set, CronJobs use UTC time zone. Consider daylight saving time changes when scheduling backups.
+**Requirements:**
+- `mas_instance_id`: MAS instance identifier
+- `mas_backup_dir`: Directory containing the backup
+- `mongodb_backup_version`: Timestamp of the backup to restore
+- `override_storageclass`: Set to `true` to override storage class during instance restore
 
-#### masbr_storage_local_folder
-Local filesystem path where backup files will be stored or retrieved from.
+#### 2. Database-Only Restore (`restore-database` action)
+Restores only the database data to an existing MongoDB instance:
 
-- **Required** when `mongodb_action` is `backup` or `restore`
-- Environment Variable: `MASBR_STORAGE_LOCAL_FOLDER`
-- Default: None
+**Steps:**
+1. Validates backup files and required variables
+2. Verifies existing MongoDB installation is running
+3. Checks MongoDB version compatibility
+4. Restores database data using `mongorestore`
 
-**Purpose**: Specifies the directory for storing MongoDB backup files. This location must have sufficient space and appropriate permissions for backup operations.
+**When to use:**
+- Restoring data to an existing MongoDB instance
+- Recovering from data corruption without recreating the instance
+- Selective database restoration
+- Testing data restoration without affecting instance configuration
 
-**When to use**:
-- Always required for backup and restore operations
-- Use a path with adequate storage space for full database backups
-- Consider using network-attached storage for backup retention
-- Ensure path is accessible and has proper permissions
+**Requirements:**
+- `mas_instance_id`: MAS instance identifier
+- `mas_backup_dir`: Directory containing the backup
+- `mongodb_backup_version`: Timestamp of the backup to restore
+- `mongodb_namespace`: Namespace where MongoDB is running
+- `mongodb_instance_name`: Name of the existing MongoDB instance
+- MongoDB instance must already be running and accessible
 
-**Valid values**: Any valid local filesystem path (e.g., `/backup/mongodb`, `/mnt/nfs/backups`, `/tmp/masbr`)
+### Important Considerations
 
-**Impact**: Backup files are written to this location. Insufficient space causes backup failures. Path must be accessible during restore operations.
+**Version Compatibility:**
+- Target MongoDB version must match the backup version exactly
+- Version upgrades should be performed separately, not during restore
+- The restore process validates version compatibility before proceeding
+- For `restore-database` action, the existing MongoDB instance must be running the same version as the backup
 
-**Related variables**:
-- `masbr_backup_type`: Determines if full or incremental backups are stored here
-- `masbr_restore_from_version`: Specifies which backup version to restore from this location
+**Storage Requirements:**
+- Ensure sufficient storage in the backup directory
+- Plan for at least 2x the database size for backup storage
+- Backup directory structure: `/tmp/masbr/backup-<YYYYMMDD-HHMMSS>-mongoce/`
+- Monitor disk space during backup operations
 
-**Note**: Ensure adequate disk space (at least 2x database size for full backups). Implement backup retention policies to manage storage usage.
+**Security:**
+- Backup files contain sensitive data and credentials
+- Secure backup directory with appropriate permissions (chmod 700 recommended)
+- Consider encrypting backups for long-term storage
+- Backup includes TLS certificates and admin credentials
+- Restrict access to backup files to authorized personnel only
 
-#### masbr_backup_type
-Type of backup to create: full or incremental.
+**Performance:**
+- Backup operations may impact MongoDB performance
+- Schedule backups during low-usage periods
+- Monitor resource utilization during backup/restore
+- Large databases may take significant time to backup/restore
+- Network bandwidth may affect backup/restore speed
 
-- **Optional**
-- Environment Variable: `MASBR_BACKUP_TYPE`
-- Default: `full`
+**Restore Action Differences:**
+- **`restore` action**: Recreates the entire MongoDB instance from scratch, including all Kubernetes resources and restores database
+- **`restore-database` action**: Only restores database data to an existing instance, preserving current configuration
 
-**Purpose**: Determines whether to create a complete database backup or an incremental backup containing only changes since the last full backup. Incremental backups save time and storage.
+### Backup and Restore Best Practices
 
-**When to use**:
-- Use `full` for initial backups or periodic complete backups
-- Use `incr` for frequent backups between full backups to save time and space
-- Implement a strategy like weekly full + daily incremental backups
+1. **Regular Backups**: Schedule automated backups at regular intervals
+2. **Test Restores**: Periodically test restore procedures in non-production environments
+3. **Monitor Operations**: Implement monitoring and alerting for backup failures
+4. **Backup Validation**: Verify backup integrity after completion
+5. **Retention Policy**: Implement and document backup retention policies
+6. **Disaster Recovery**: Include MongoDB backup/restore in your DR plan
 
-**Valid values**: `full`, `incr`
+### Backup and Restore Issues
 
-**Impact**:
-- `full`: Creates complete backup, takes longer, uses more storage
-- `incr`: Creates incremental backup, faster, uses less storage, requires base full backup
+**Backup Failures:**
 
-**Related variables**:
-- `masbr_backup_from_version`: Required when `incr` is used to specify base full backup
-- `mongodb_action`: Must be set to `backup`
+- **Permission Errors**: Verify backup role and user creation succeeded. Check MongoDB pod logs with `oc logs -n mongoce <pod-name> -c mongod`
+- **Disk Space Issues**: Ensure sufficient space in backup directory. Clean up old backups if needed like `/tmp/<mongodb_backup_version>`. Check with `df -h`. 
+- **Pod Access Issues**: Verify pod is running and accessible. Check network connectivity to the cluster
 
-**Note**: Incremental backups require a full backup as base. Restore operations may need to apply multiple incremental backups sequentially.
+**Restore Failures:**
 
-#### masbr_backup_from_version
-Timestamp of the full backup to use as base for incremental backup.
+- **Version Mismatch**: Ensure target MongoDB version matches backup version. Deploy correct version before restoring
+- **Authentication Errors**: Verify admin credentials are correct. Check MongoDB health status
+- **Missing Backup Files**: Verify backup directory path and version. Ensure backup completed successfully
+- **Data Inconsistency**: Verify backup integrity. Check restore logs for errors. Consider re-running restore
 
-- **Optional**
-- Environment Variable: `MASBR_BACKUP_FROM_VERSION`
-- Default: None (automatically uses latest full backup)
+**General Issues:**
 
-**Purpose**: Specifies which full backup serves as the base for an incremental backup. This links the incremental backup to a specific full backup version.
+- **Pods Not Starting After Restore**: Check pod events with `oc describe pod -n mongoce <pod-name>`. Verify PVCs are bound. Check resource limits and node capacity
+- **Connection Issues**: Verify network policies and service configurations. Check certificate validity
 
-**When to use**:
-- Set when creating incremental backups and you want to specify a particular full backup
-- Leave unset to automatically use the most recent full backup
-- Only valid when `masbr_backup_type=incr`
+Example Playbooks
+-------------------------------------------------------------------------------
 
-**Valid values**: Timestamp in format `YYYYMMDDHHMMSS` (e.g., `20240621021316`)
+### Install (CE Operator)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_storage_class: ibmc-block-gold
+    mas_instance_id: masinst1
+    mas_config_dir: ~/masconfig
+  roles:
+    - ibm.mas_devops.mongodb
+```
 
-**Impact**: Incremental backup will contain only changes since the specified full backup. Incorrect version can cause backup chain issues.
+### Backup (CE Operator)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_backup_dir: /tmp/masbr
+    mongodb_action: backup
+  roles:
+    - ibm.mas_devops.mongodb
+```
 
-**Related variables**:
-- `masbr_backup_type`: Must be set to `incr`
-- `masbr_storage_local_folder`: Location where full backup exists
+### Backup with Instance Resources (CE Operator)
+Create a complete backup including both database data and instance resources (secrets, certificates, issuers).
 
-**Note**: If not specified, role automatically finds the latest full backup. Ensure the specified full backup exists in the storage location.
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_backup_dir: /tmp/masbr
+    mongodb_action: backup
+  roles:
+    - ibm.mas_devops.mongodb
+```
 
-#### masbr_backup_schedule
-Cron expression for scheduling automated backups.
+### Backup Database (CE Operator)
+Create a backup of database data.
 
-- **Optional**
-- Environment Variable: `MASBR_BACKUP_SCHEDULE`
-- Default: None (creates on-demand backup)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_backup_dir: /tmp/masbr
+    mongodb_action: backup-database
+  roles:
+    - ibm.mas_devops.mongodb
+```
 
-**Purpose**: Defines when automated backups should run using standard cron syntax. Enables regular, unattended backup operations.
+### Restore Database (CE Operator)
+Restore MongoDB databases from a backup to an existing MongoDB instance without recreating the instance resources.
 
-**When to use**:
-- Set to schedule regular automated backups (e.g., daily, weekly)
-- Leave unset for manual, on-demand backups
-- Consider backup windows and system load when scheduling
+**Use Case**: This action is ideal when you need to restore database data to an already running MongoDB instance, such as recovering from data corruption or restoring specific databases.
 
-**Valid values**: Standard [cron expression](https://en.wikipedia.org/wiki/Cron) (e.g., `0 2 * * *` for daily at 2 AM, `0 2 * * 0` for weekly on Sunday at 2 AM)
+**Prerequisites**:
+- MongoDB instance must already be installed and running
+- MongoDB version must match the backup version
+- Backup files must be available in the specified backup directory
 
-**Impact**: When set, creates a Kubernetes CronJob that automatically runs backups on schedule. Without this, backups only run when role is manually executed.
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_action: restore-database
+    mas_instance_id: masinst1
+    mongodb_backup_version: 20251212-021316
+    mas_backup_dir: /tmp/masbr
+    mongodb_namespace: mongoce
+    mongodb_instance_name: mas-mongo-ce
+  roles:
+    - ibm.mas_devops.mongodb
+```
 
-**Related variables**:
-- `masbr_job_timezone`: Specifies time zone for schedule
-- `masbr_backup_type`: Determines if scheduled backups are full or incremental
+**What this does**:
+1. Validates that the backup exists at the specified location
+2. Verifies the MongoDB instance is running in the specified namespace
+3. Checks version compatibility between backup and running instance
+4. Restores database data using `mongorestore` command
+5. Preserves all existing instance configuration and resources
 
-**Note**: Test cron expressions before deploying. Consider backup duration when scheduling to avoid overlapping backup jobs.
+**Note**: This action does NOT restore instance resources (secrets, certificates, CRs). Use the `restore` action for full instance restoration.
 
-#### masbr_restore_from_version
-Timestamp of the backup version to restore.
+### Full Restore (CE Operator)
+Perform a complete restoration of MongoDB instance including all Kubernetes resources and database data from a backup.
 
-- **Required** when `mongodb_action=restore`
-- Environment Variable: `MASBR_RESTORE_FROM_VERSION`
-- Default: None
+**Use Case**: This action is ideal for disaster recovery scenarios where you need to recreate the entire MongoDB instance from scratch, including all configuration, secrets, certificates, and data.
+
+**Prerequisites**:
+- Backup files must be available in the specified backup directory
+- Backup must include instance resources (secrets, certificates, CRs)
+- Target cluster must have cert-manager installed
+- Sufficient storage and resources available
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_action: restore
+    mas_instance_id: masinst1
+    mongodb_backup_version: 20251212-021316
+    mas_backup_dir: /tmp/masbr
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
+**What this does**:
+1. Validates backup files and required variables
+2. Restores namespace, secrets, and ConfigMaps
+3. Restores CRDs and RBAC resources
+4. Restores MongoDB Operator deployment
+5. Restores Certificate Manager resources
+6. Restores MongoDBCommunity Custom Resource
+7. Waits for MongoDB instance to be fully operational
+8. Restores database data using `mongorestore`
+
+**Note**: This is a complete restoration that recreates the MongoDB instance from scratch. Use `restore-database` action if you only need to restore data to an existing instance.
+
+### Install from Backup (CE Operator)
+Deploy a new MongoDB instance using configuration from a backup and restore data from a backup. This is useful for disaster recovery or migrating MongoDB to a new cluster.
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_action: install
+    mas_instance_id: masinst1
+    mongodb_backup_version: 20251212-021316
+    mas_backup_dir: /tmp/masbr
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
 
 **Purpose**: Specifies which backup version to restore from. This allows point-in-time recovery to a specific backup.
 
@@ -752,13 +975,11 @@ Timestamp of the backup version to restore.
 
 **Related variables**:
 - `mongodb_action`: Must be set to `restore`
-- `masbr_storage_local_folder`: Location where backup exists
 
 **Note**: **Verify backup version before restoring**. List available backups in storage location first. Restore is destructive and cannot be undone without another backup.
 
 
-Role Variables - IBM Cloud
--------------------------------------------------------------------------------
+## Role Variables - IBM Cloud
 #### ibm_mongo_name
 Name for the IBM Cloud Databases for MongoDB instance.
 
@@ -947,8 +1168,9 @@ IBM Cloud service plan for MongoDB instance.
 #### ibm_mongo_service
 IBM Cloud service type identifier for MongoDB.
 
-- **Read-only**
-- Value: `databases-for-mongodb`
+- **Required** (Read-only constant)
+- Environment Variable: None (internal constant)
+- Default Value: `databases-for-mongodb`
 
 **Purpose**: Identifies the IBM Cloud service type. This is a fixed value used internally by the role.
 
@@ -1155,8 +1377,7 @@ Name for the MongoDB service when restoring from backup.
 **Note**: Using a different name allows side-by-side comparison of restored and current instances before switching over.
 
 
-Role Variables - AWS DocumentDB
--------------------------------------------------------------------------------
+## Role Variables - AWS DocumentDB
 
 #### aws_access_key_id
 AWS account access key ID for authentication.
@@ -1284,6 +1505,7 @@ Name for the AWS DocumentDB cluster.
 Name for the DocumentDB subnet group.
 
 - **Optional**
+- Environment Variable: `DOCDB_SUBNET_GROUP_NAME`
 - Default Value: `docdb-{{ docdb_cluster_name }}`
 
 **Purpose**: Specifies the name for the DocumentDB subnet group that defines which subnets the cluster can use. The role creates this subnet group automatically.
@@ -1306,6 +1528,7 @@ Name for the DocumentDB subnet group.
 Name for the DocumentDB security group.
 
 - **Optional**
+- Environment Variable: `DOCDB_SECURITY_GROUP_NAME`
 - Default Value: `docdb-{{ docdb_cluster_name }}`
 
 **Purpose**: Specifies the name for the security group that controls network access to the DocumentDB cluster. The role creates this security group automatically.
@@ -1329,6 +1552,7 @@ Name for the DocumentDB security group.
 Name of the Kubernetes secret containing DocumentDB admin credentials.
 
 - **Optional**
+- Environment Variable: `DOCDB_ADMIN_CREDENTIALS_SECRET_NAME`
 - Default Value: `{{ docdb_cluster_name }}-admin-credentials`
 
 **Purpose**: Specifies the Kubernetes secret name where DocumentDB administrator credentials are stored. This secret is created automatically by the role.
@@ -1747,7 +1971,6 @@ DocumentDB master username for administrative operations.
 **Note**: This should match the master username set during DocumentDB cluster creation.
 
 AWS DocumentDB destroy-data action Variables
-----------------------------------
 ### mas_instance_id
 The specified MAS instance ID
 
@@ -1782,6 +2005,1077 @@ Mongo Certificates, please refer to the below example playbook section for detai
 - Default Value: None
 
 
+## Role Variables - MongoDB Atlas
+
+### Overview
+
+The MongoDB Atlas provider automates the complete lifecycle of Atlas cluster provisioning, including:
+
+1. **Project Creation**: Creates or verifies an Atlas project within your organization
+2. **Backup Compliance Policy**: Configures automated backup policies with compliance settings
+3. **Cluster Provisioning**: Creates a MongoDB cluster with specified configuration
+4. **Database Users**: Creates instance-specific database users with scoped permissions
+5. **Secret Management**: Stores connection information in AWS Secrets Manager
+   - **Cluster-level secret**: `<account_id>/<cluster_name>/mongo` (empty credentials for cluster metadata)
+   - **Instance-level secrets**: `<account_id>/<cluster_name>/<instance_id>/mongo` (with user credentials)
+
+### Atlas Project Configuration
+
+#### atlas_org_id
+MongoDB Atlas organization ID where the project will be created.
+
+- **Required** when creating a new project (when `atlas_project_id` is not provided)
+- Environment Variable: `ATLAS_ORG_ID`
+- Default Value: None
+
+**Purpose**: Identifies the Atlas organization that will contain the project. Required for project creation.
+
+**When to use**: Required when `atlas_project_name` is provided but `atlas_project_id` is not.
+
+**Valid values**: 24-character hexadecimal string (e.g., `507f1f77bcf86cd799439011`)
+
+**Impact**: Determines which organization owns the project and its billing.
+
+**How to find**: Atlas Console → Organization Settings → Organization ID
+
+#### atlas_project_name
+Name for the Atlas project to create or find.
+
+- **Required** when `atlas_project_id` is not provided
+- Environment Variable: `ATLAS_PROJECT_NAME`
+- Default Value: None
+
+**Purpose**: Name of the Atlas project. If a project with this name exists in the organization, it will be used; otherwise, a new project will be created.
+
+**When to use**: Use instead of `atlas_project_id` when you want the role to find or create a project by name.
+
+**Valid values**: Alphanumeric string with spaces, hyphens, and underscores allowed
+
+**Impact**: Determines the project name in Atlas console and API operations.
+
+**Related variables**: Requires `atlas_org_id` when creating a new project. Alternative to `atlas_project_id`.
+
+#### atlas_project_id
+MongoDB Atlas project ID where the cluster will be created.
+
+- **Required** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_PROJECT_ID`
+- Default Value: None
+
+**Purpose**: Identifies the Atlas project (organization) that will contain the MongoDB cluster. All Atlas resources are organized under projects.
+
+**When to use**: Always required for Atlas deployments (except restore-database). Obtain from Atlas console under Project Settings.
+
+**Valid values**: 24-character hexadecimal string (e.g., `507f1f77bcf86cd799439011`)
+
+**Impact**: Determines billing, access control, and resource organization for the cluster.
+
+#### atlas_account_id
+AWS account ID used to construct the AWS Secrets Manager secret name for Atlas API credentials.
+
+- **Required** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_ACCOUNT_ID`
+- Default Value: None
+
+**Purpose**: Used to construct the AWS Secrets Manager secret name in the format `<atlas_account_id>/mongodb-atlas`. This secret must contain the Atlas API credentials.
+
+**When to use**: Always required for Atlas operations. The secret must be created as a prerequisite (see Prerequisites section).
+
+**Valid values**: AWS account ID (12-digit number, e.g., `123456789012`)
+
+**Impact**: Determines which AWS Secrets Manager secret is used to retrieve Atlas API credentials. The role will fail if the secret does not exist or cannot be accessed.
+
+**Related variables**: Used with `aws_region` to locate the secret in AWS Secrets Manager.
+
+**Note**: The secret `<atlas_account_id>/mongodb-atlas` must be created before running this role. See Prerequisites section for secret creation instructions.
+
+#### aws_region
+AWS region where the Atlas credentials secret is stored.
+
+- **Optional** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_AWS_SECRET_REGION`
+- Default Value: `us-east-1`
+
+**Purpose**: Specifies which AWS region to query for the Atlas API credentials secret.
+
+**When to use**: Set when using `atlas_aws_secret_name` and secret is not in us-east-1.
+
+**Valid values**: Valid AWS region name (e.g., `us-east-1`, `eu-west-1`)
+
+**Impact**: Determines which AWS region is queried for the secret.
+
+**Related variables**: Only used when `atlas_aws_secret_name` is set.
+
+#### atlas_cluster_name
+Name of the MongoDB Atlas cluster to create or manage.
+
+- **Required** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_CLUSTER_NAME`
+- Default Value: None
+
+**Purpose**: Identifies the Atlas cluster within the project. Used for all cluster operations.
+
+**When to use**: Always required for Atlas deployments.
+
+**Valid values**: Alphanumeric string, 1-64 characters, can include hyphens
+
+**Impact**: Cluster name appears in Atlas console and connection strings.
+
+**Note**: Cannot be changed after cluster creation.
+
+#### atlas_cluster_provider
+Cloud provider where the Atlas cluster will be deployed.
+
+- **Required** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_CLUSTER_PROVIDER`
+- Default Value: `AWS`
+
+**Purpose**: Specifies which cloud infrastructure provider hosts the Atlas cluster.
+
+**When to use**: Always required for Atlas deployments.
+
+**Valid values**: `AWS`
+
+**Impact**: Determines available regions, instance sizes, and pricing.
+
+**Note**: VPC peering is only supported when using `AWS` as the cloud provider.
+
+**Related variables**: Must be compatible with `atlas_cluster_region`.
+
+#### atlas_cluster_region
+Cloud provider region where the Atlas cluster will be deployed.
+
+- **Required** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_CLUSTER_REGION`
+- Default Value: None
+
+**Purpose**: Specifies the geographic region for cluster deployment, affecting latency and data residency.
+
+**When to use**: Always required for Atlas deployments. Choose region closest to your application.
+
+**Valid values**: Atlas region codes (e.g., `US_EAST_1`, `EU_WEST_1`, `AP_SOUTHEAST_1`)
+
+**Impact**: Affects latency, data residency compliance, and availability zones.
+
+**Related variables**: Must be valid for the selected `atlas_cluster_provider`.
+
+**Note**: Use Atlas region format (underscores), not AWS format (hyphens).
+
+#### atlas_cluster_size
+Atlas cluster tier/instance size.
+
+- **Required** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_CLUSTER_SIZE`
+- Default Value: None
+
+**Purpose**: Determines cluster compute and memory resources, affecting performance and cost.
+
+**When to use**: Always required for Atlas deployments. Choose based on workload requirements.
+
+**Valid values**: `M10`, `M20`, `M30`, `M40`, `M50`, `M60`, `M80`, `M140`, `M200`, `M300`, `M400`, `M700`
+
+**Impact**: Affects cluster performance, storage capacity, and hourly cost. M10 is minimum for production.
+
+**Note**: M0/M2/M5 free/shared tiers not supported. Cannot be decreased, only increased.
+
+#### atlas_mongodb_version
+MongoDB version to deploy in Atlas cluster.
+
+- **Optional** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_MONGODB_VERSION`
+- Default Value: `6.0`
+
+**Purpose**: Specifies MongoDB version for the cluster.
+
+**When to use**: Override default when specific version is required.
+
+**Valid values**: `6.0`, `7.0`, `8.0` (check Atlas for currently supported versions)
+
+**Impact**: Determines available MongoDB features and compatibility.
+
+**Note**: Version upgrades are supported but downgrades are not.
+
+#### atlas_backup_enabled
+Enable automated backups for the Atlas cluster.
+
+- **Optional** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_BACKUP_ENABLED`
+- Default Value: `false`
+
+**Purpose**: Controls whether Atlas creates automated backups of the cluster.
+
+**When to use**: Enable for production clusters. Disable only for temporary/test clusters.
+
+**Valid values**: `true`, `false`
+
+**Impact**: When enabled, Atlas creates continuous backups with point-in-time recovery. Affects cluster cost.
+
+**Note**: Highly recommended for production deployments.
+
+**Related variables**: Required to be `true` when `atlas_backup_compliance_enabled` is enabled.
+### Atlas Audit Logging Configuration
+
+MongoDB Atlas Auditing captures database operations for compliance and security monitoring. It records authentication events, authorization failures, and database operations, which is required for FedRAMP, HIPAA, and other regulatory compliance.
+
+#### atlas_audit_enabled
+Enable audit logging for the Atlas project.
+
+- **Optional** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_AUDIT_ENABLED`
+- Default Value: `false`
+
+**Purpose**: Enables audit logging to capture database operations, authentication events, and authorization failures for compliance and security monitoring.
+
+**When to use**: Enable for production and staging environments requiring regulatory compliance (FedRAMP, HIPAA, SOC 2, PCI-DSS) or security monitoring.
+
+**Valid values**: `true`, `false`
+
+**Impact**: 
+- Captures audit events based on the configured filter
+- May impact cluster performance depending on filter complexity
+- Generates audit logs that can be accessed via Atlas UI or API
+- Additional costs may apply based on log volume
+
+**Note**: Audit logging is configured at the project level and applies to all clusters in the project.
+
+**Related variables**: `atlas_audit_filter`, `atlas_audit_authorization_success`
+
+#### atlas_audit_filter
+JSON filter for audit events to capture.
+
+- **Optional** when `atlas_audit_enabled=true`
+- Environment Variable: `ATLAS_AUDIT_FILTER`
+- Default Value: `{}` (captures all events)
+
+**Purpose**: Defines which database operations and events should be captured in audit logs.
+
+**Valid values**: Valid JSON string representing MongoDB audit filter
+
+**Common filter examples**:
+- All events (default): `{}`
+- Authentication only: `{"atype": "authenticate"}`
+- Failed operations: `{"result": {"$ne": 0}}`
+- Specific database: `{"param.ns": {"$regex": "^mydb\\."}}`
+- Admin database operations: `{"param.db": "admin"}`
+
+**Compliance use cases**:
+- **SOC 2**: Track all authentication and authorization events
+- **HIPAA**: Monitor access to protected health information
+- **PCI-DSS**: Log all access to cardholder data
+- **FedRAMP**: Comprehensive audit trail of all database operations
+
+**Impact**: More specific filters reduce log volume and performance impact.
+
+**Note**: Filter syntax follows MongoDB query language. Invalid JSON will cause configuration to fail.
+
+#### atlas_audit_authorization_success
+Log successful authorization events.
+
+- **Optional** when `atlas_audit_enabled=true`
+- Environment Variable: `ATLAS_AUDIT_AUTHORIZATION_SUCCESS`
+- Default Value: `false`
+
+**Purpose**: Controls whether successful authorization events are logged in addition to failures.
+
+**Valid values**: `true`, `false`
+
+**When to use**: 
+- Set to `true` for comprehensive audit trails required by strict compliance frameworks
+- Set to `false` to reduce log volume by only capturing authorization failures
+
+**Impact**: 
+- `true`: Increases log volume significantly as all successful operations are logged
+
+### Atlas Alert Monitoring Configuration
+
+MongoDB Atlas Alert Monitoring provides proactive notifications for cluster health, performance, and security events. Alerts help identify and resolve issues before they impact users.
+
+**Note**: Alerts are configured per cluster using matchers to target the specific cluster name (`atlas_cluster_name`). Each alert configuration includes a matcher that ensures it only applies to the specified cluster.
+
+#### Alert Categories
+
+**Basic Alerts (Always Enabled)**:
+When `atlas_enable_alerts=true`, the following alerts are automatically configured:
+- CPU usage (warning and critical thresholds)
+- Memory usage (warning and critical thresholds)
+- Connection count (warning and critical thresholds)
+
+**Optional Alerts (Require Explicit Enablement)**:
+- Cluster health alerts (`atlas_enable_cluster_health_alerts`)
+- Additional performance alerts - query performance (`atlas_enable_performance_alerts`)
+
+#### atlas_enable_alerts
+Enable alert monitoring for the Atlas cluster.
+
+- **Optional** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_ENABLE_ALERTS`
+- Default Value: `false`
+
+**Purpose**: Enables basic alert monitoring (CPU, memory, connections) with email notifications. Additional alert categories can be enabled separately.
+
+**When to use**: Enable for production and staging environments to receive proactive notifications about potential issues.
+
+**Valid values**: `true`, `false`
+
+**Impact**:
+- Automatically configures 6 basic alerts (CPU, memory, connections - warning and critical)
+- Sends email notifications when thresholds are exceeded
+- Helps prevent downtime by alerting before critical issues occur
+
+**Note**: Requires `atlas_alert_notification_emails` to be configured with at least one email address.
+
+**Related variables**: `atlas_alert_notification_emails`, `atlas_enable_cluster_health_alerts`, `atlas_enable_performance_alerts`
+
+#### atlas_alert_notification_emails
+List of email addresses to receive alert notifications.
+
+- **Required** when `atlas_enable_alerts=true`
+- Environment Variable: `ATLAS_ALERT_NOTIFICATION_EMAILS`
+- Default Value: `[]`
+
+**Purpose**: Specifies email addresses that will receive alert notifications via OCM (Operations Center Manager).
+
+**Valid values**: Comma-separated list of valid email addresses or JSON array
+
+**Examples**:
+- Comma-separated: `ocm-team@example.com,monitoring@example.com`
+- JSON array: `["ocm-team@example.com", "monitoring@example.com"]`
+
+**Impact**: All specified email addresses will receive notifications for all configured alerts.
+
+**Important**: Use OCM (Operations Center Manager) email addresses only. Do not configure generic or personal email addresses. OCM emails are integrated with incident management systems and ensure proper alert routing and escalation.
+
+**Note**: At least one OCM email address is required when alerts are enabled.
+
+#### atlas_enable_cluster_health_alerts
+Enable alerts for cluster health issues.
+
+- **Optional** when `atlas_enable_alerts=true`
+- Environment Variable: `ATLAS_ENABLE_CLUSTER_HEALTH_ALERTS`
+- Default Value: `false`
+
+**Purpose**: Enables alerts for cluster health events including replication lag, primary election, and node failures.
+
+**Valid values**: `true`, `false`
+
+**Alert types configured**:
+- Replication oplog window running out (< 1 hour)
+- Primary elected (replica set election)
+- No primary available
+- Cluster mongos missing
+
+**When to use**: Enable for production and staging environments to monitor cluster stability.
+
+#### atlas_enable_performance_alerts
+Enable alerts for performance issues.
+
+- **Optional** when `atlas_enable_alerts=true`
+- Environment Variable: `ATLAS_ENABLE_PERFORMANCE_ALERTS`
+- Default Value: `false`
+
+**Purpose**: Enables alerts for performance metrics including CPU, memory, disk, and connection usage.
+
+**Valid values**: `true`, `false`
+
+**Alert types configured**:
+- CPU usage (warning and critical thresholds)
+- Memory usage (warning and critical thresholds)
+- Disk usage
+- Connection count (warning and critical thresholds)
+- Query performance (scanned objects per returned)
+
+**When to use**: Enable for production and staging environments to monitor resource utilization.
+
+**Related variables**: `atlas_alert_cpu_thresholds`, `atlas_alert_memory_thresholds`, `atlas_alert_connection_thresholds`
+
+#### atlas_enable_security_alerts
+Enable alerts for security events.
+
+- **Optional** when `atlas_enable_alerts=true`
+- Environment Variable: `ATLAS_ENABLE_SECURITY_ALERTS`
+- Default Value: `false`
+
+**Purpose**: Enables alerts for security-related events including authentication failures and configuration changes.
+
+**Valid values**: `true`, `false`
+
+**Alert types configured**:
+- Too many unhealthy connections
+- Users without multi-factor authentication
+
+**When to use**: Enable for all environments to monitor security posture.
+
+#### atlas_alert_cpu_thresholds
+CPU utilization percentage thresholds for WARNING and CRITICAL alerts.
+
+- **Optional** when `atlas_enable_performance_alerts=true`
+- Environment Variable: `ATLAS_ALERT_CPU_THRESHOLDS`
+- Default Value: `[70, 80]`
+
+**Purpose**: Defines CPU usage thresholds as an array `[warning, critical]`. Warning alert triggers at first value, critical at second.
+
+**Valid values**: JSON array of two integers between 0-100
+
+**Impact**: Lower values trigger alerts earlier. Critical threshold should be higher than warning for proper escalation.
+
+**Example**:
+```bash
+export ATLAS_ALERT_CPU_THRESHOLDS='[70, 80]'
+```
+
+#### atlas_alert_memory_thresholds
+Memory utilization percentage thresholds for WARNING and CRITICAL alerts.
+
+- **Optional** when `atlas_enable_performance_alerts=true`
+- Environment Variable: `ATLAS_ALERT_MEMORY_THRESHOLDS`
+- Default Value: `[70, 80]`
+
+**Purpose**: Defines memory usage thresholds as an array `[warning, critical]`. Warning alert triggers at first value, critical at second.
+
+**Valid values**: JSON array of two integers between 0-100
+
+**Impact**: Memory exhaustion can cause performance degradation and OOM errors.
+
+**Example**:
+```bash
+export ATLAS_ALERT_MEMORY_THRESHOLDS='[70, 80]'
+```
+
+#### atlas_alert_connection_thresholds
+Connection count thresholds as percentage of maximum for WARNING and CRITICAL alerts.
+
+- **Optional** when `atlas_enable_performance_alerts=true`
+- Environment Variable: `ATLAS_ALERT_CONNECTION_THRESHOLDS`
+- Default Value: `[70, 80]`
+
+**Purpose**: Defines connection usage thresholds as an array `[warning, critical]`. Warning alert triggers at first value, critical at second.
+
+**Valid values**: JSON array of two integers between 0-100
+
+**Impact**: Connection exhaustion can prevent new connections and cause application failures.
+
+**Example**:
+```bash
+export ATLAS_ALERT_CONNECTION_THRESHOLDS='[70, 80]'
+```
+
+#### atlas_alert_interval_min
+Interval in minutes for metric threshold alert evaluation.
+
+- **Optional**
+- Environment Variable: `ATLAS_ALERT_INTERVAL_MIN`
+- Default Value: `5`
+
+**Purpose**: Defines how frequently Atlas evaluates metric thresholds for all performance alerts (CPU, memory, connections, query performance). This applies to all `OUTSIDE_METRIC_THRESHOLD` alert types.
+
+**Valid values**: Positive integer (minutes)
+
+**Impact**:
+- Lower values (e.g., 1-5 minutes) provide faster detection but may increase alert noise
+- Higher values (e.g., 10-15 minutes) reduce noise but delay detection
+- Affects all metric threshold alerts uniformly
+
+**Note**: This is a required parameter for MongoDB Atlas metric threshold alerts. The default of 5 minutes balances responsiveness with stability.
+
+- `false`: Only logs authorization failures, reducing log volume
+
+**Note**: Most compliance frameworks require logging of both successful and failed authorization attempts.
+
+
+### Atlas Backup Compliance Policy Configuration
+
+The backup compliance policy enforces backup retention and protection rules at the project level. When enabled, it applies to all clusters in the project.
+
+#### atlas_backup_compliance_enabled
+Enable backup compliance policy for the Atlas project.
+
+- **Optional** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_BACKUP_COMPLIANCE_ENABLED`
+- Default Value: `false`
+
+**Purpose**: Enables backup compliance policy with configurable retention schedules and protection settings.
+
+**When to use**: Enable for production environments requiring regulatory compliance or strict backup retention policies.
+
+**Valid values**: `true`, `false`
+
+**Impact**: Enforces backup retention policies, prevents unauthorized backup deletion, and enables compliance features.
+
+**Note**: Requires `atlas_backup_enabled: true` on the cluster. Once enabled, compliance policy cannot be disabled without contacting Atlas support.
+
+**Related variables**: Requires multiple `atlas_compliance_*` variables for configuration.
+
+#### atlas_compliance_authorized_email
+Email address of the authorized user for compliance policy changes.
+
+- **Required** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_AUTHORIZED_EMAIL`
+- Default Value: `admin@example.com`
+
+**Purpose**: Identifies the user authorized to make changes to the backup compliance policy.
+
+**Valid values**: Valid email address
+
+**Impact**: Used for audit trail and authorization of compliance policy changes.
+
+#### atlas_compliance_authorized_first_name
+First name of the authorized user for compliance policy changes.
+
+- **Required** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_AUTHORIZED_FIRST_NAME`
+- Default Value: `Admin`
+
+**Purpose**: First name of the authorized user for compliance policy.
+
+**Valid values**: String
+
+#### atlas_compliance_authorized_last_name
+Last name of the authorized user for compliance policy changes.
+
+- **Required** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_AUTHORIZED_LAST_NAME`
+- Default Value: `User`
+
+**Purpose**: Last name of the authorized user for compliance policy.
+
+**Valid values**: String
+
+#### atlas_compliance_copy_protection
+Enable copy protection for backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_COPY_PROTECTION`
+- Default Value: `false`
+
+**Purpose**: Prevents copying of backup snapshots to other regions or projects.
+
+**Valid values**: `true`, `false`
+
+**Impact**: When enabled, backups cannot be copied outside the configured region.
+
+#### atlas_compliance_encryption_at_rest
+Enable encryption at rest for backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_ENCRYPTION_AT_REST`
+- Default Value: `false`
+
+**Purpose**: Ensures all backup snapshots are encrypted at rest.
+
+**Valid values**: `true`, `false`
+
+**Impact**: Adds encryption layer to backup storage.
+
+#### atlas_compliance_pit_enabled
+Enable point-in-time restore for compliance backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_PIT_ENABLED`
+- Default Value: `false`
+
+**Purpose**: Enables continuous backup with point-in-time recovery capability.
+
+**Valid values**: `true`, `false`
+
+**Impact**: Allows restore to any point in time within the retention window. Increases backup storage costs.
+
+#### atlas_compliance_restore_window_days
+Number of days for the restore window.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_RESTORE_WINDOW_DAYS`
+- Default Value: `7`
+
+**Purpose**: Defines how many days of continuous backup history are maintained for point-in-time restore.
+
+**Valid values**: Integer (1-365)
+
+**Impact**: Determines the maximum age of data that can be restored.
+
+#### atlas_compliance_hourly_frequency_interval
+Frequency interval for hourly backups (in hours).
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_HOURLY_FREQUENCY_INTERVAL`
+- Default Value: `6`
+
+**Purpose**: How often hourly snapshots are taken.
+
+**Valid values**: Integer (1, 2, 4, 6, 8, 12)
+
+**Impact**: More frequent backups provide finer recovery granularity but increase storage costs.
+
+#### atlas_compliance_hourly_retention_unit
+Retention unit for hourly backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_HOURLY_RETENTION_UNIT`
+- Default Value: `days`
+
+**Purpose**: Unit of time for hourly backup retention.
+
+**Valid values**: `days`, `weeks`, `months`
+
+#### atlas_compliance_hourly_retention_value
+Retention value for hourly backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_HOURLY_RETENTION_VALUE`
+- Default Value: `7`
+
+**Purpose**: How long to retain hourly backups.
+
+**Valid values**: Integer (1-365 for days, 1-52 for weeks, 1-36 for months)
+
+**Impact**: Longer retention increases storage costs.
+
+#### atlas_compliance_daily_frequency_interval
+Frequency interval for daily backups (in days).
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_DAILY_FREQUENCY_INTERVAL`
+- Default Value: `1`
+
+**Purpose**: How often daily snapshots are taken.
+
+**Valid values**: Integer (1-365)
+
+#### atlas_compliance_daily_retention_unit
+Retention unit for daily backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_DAILY_RETENTION_UNIT`
+- Default Value: `days`
+
+**Purpose**: Unit of time for daily backup retention.
+
+**Valid values**: `days`, `weeks`, `months`
+
+#### atlas_compliance_daily_retention_value
+Retention value for daily backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_DAILY_RETENTION_VALUE`
+- Default Value: `7`
+
+**Purpose**: How long to retain daily backups.
+
+**Valid values**: Integer (1-365 for days, 1-52 for weeks, 1-36 for months)
+
+#### atlas_compliance_weekly_frequency_interval
+Frequency interval for weekly backups (in weeks).
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_WEEKLY_FREQUENCY_INTERVAL`
+- Default Value: `1`
+
+**Purpose**: How often weekly snapshots are taken.
+
+**Valid values**: Integer (1-52)
+
+#### atlas_compliance_weekly_retention_unit
+Retention unit for weekly backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_WEEKLY_RETENTION_UNIT`
+- Default Value: `weeks`
+
+**Purpose**: Unit of time for weekly backup retention.
+
+**Valid values**: `weeks`, `months`, `years`
+
+#### atlas_compliance_weekly_retention_value
+Retention value for weekly backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_WEEKLY_RETENTION_VALUE`
+- Default Value: `4`
+
+**Purpose**: How long to retain weekly backups.
+
+**Valid values**: Integer (1-52 for weeks, 1-36 for months, 1-10 for years)
+
+#### atlas_compliance_monthly_frequency_interval
+Frequency interval for monthly backups (in months).
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_MONTHLY_FREQUENCY_INTERVAL`
+- Default Value: `1`
+
+**Purpose**: How often monthly snapshots are taken.
+
+**Valid values**: Integer (1-12)
+
+#### atlas_compliance_monthly_retention_unit
+Retention unit for monthly backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_MONTHLY_RETENTION_UNIT`
+- Default Value: `months`
+
+**Purpose**: Unit of time for monthly backup retention.
+
+**Valid values**: `months`, `years`
+
+#### atlas_compliance_monthly_retention_value
+Retention value for monthly backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_MONTHLY_RETENTION_VALUE`
+- Default Value: `12`
+
+**Purpose**: How long to retain monthly backups.
+
+**Valid values**: Integer (1-36 for months, 1-10 for years)
+
+#### atlas_compliance_yearly_frequency_interval
+Frequency interval for yearly backups (in years).
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_YEARLY_FREQUENCY_INTERVAL`
+- Default Value: `1`
+
+**Purpose**: How often yearly snapshots are taken.
+
+**Valid values**: Integer (1-10)
+
+#### atlas_compliance_yearly_retention_unit
+Retention unit for yearly backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_YEARLY_RETENTION_UNIT`
+- Default Value: `years`
+
+**Purpose**: Unit of time for yearly backup retention.
+
+**Valid values**: `years`
+
+#### atlas_compliance_yearly_retention_value
+Retention value for yearly backups.
+
+- **Optional** when `atlas_backup_compliance_enabled=true`
+- Environment Variable: `ATLAS_COMPLIANCE_YEARLY_RETENTION_VALUE`
+- Default Value: `1`
+
+**Purpose**: How long to retain yearly backups.
+
+**Valid values**: Integer (1-10)
+
+**Impact**: Longer retention increases storage costs significantly.
+
+### Atlas Database Users Configuration
+
+#### atlas_mas_instances
+List of MAS instance names for creating instance-specific database users.
+
+- **Optional** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_MAS_INSTANCES`
+- Default Value: `[]`
+
+**Purpose**: Defines MAS instances that will use this cluster. Each instance gets a dedicated database user with scoped permissions.
+
+**When to use**: Provide when deploying Atlas cluster for multiple MAS instances.
+
+**Valid values**: List of instance names or comma-separated string (e.g., `["inst1", "inst2"]` or `"inst1,inst2"`)
+
+**Impact**: Creates one database user per instance with username format `<instance_name>-user`.
+
+**Related variables**: Used with `atlas_store_credentials_in_secret` to create instance-level secrets.
+
+#### atlas_database_users
+Multi-user database configuration for Atlas cluster.
+
+- **Optional** when `mongodb_provider=atlas` (alternative to `atlas_db_username`/`atlas_db_password`)
+- Environment Variable: Not supported (use playbook vars)
+- Default Value: None
+
+**Purpose**: Defines multiple database users with different roles and permissions. Recommended approach for production.
+
+**When to use**: Use for production deployments requiring multiple users with different access levels.
+
+**Valid values**: Dictionary of user configurations with username, auth_database_name, and roles
+
+**Impact**: Creates multiple database users with auto-generated passwords stored in Atlas.
+
+**Related variables**: Alternative to legacy `atlas_db_username`/`atlas_db_password`.
+
+**Example**:
+```yaml
+atlas_database_users:
+  user1:
+    username: "app_user"
+    auth_database_name: "admin"
+    roles:
+      - database_name: "admin"
+        role_name: "readWriteAnyDatabase"
+```
+
+#### atlas_db_username
+Legacy single database user username.
+
+- **Optional** when `mongodb_provider=atlas` (alternative to `atlas_database_users`)
+- Environment Variable: `ATLAS_DB_USERNAME`
+- Default Value: None
+
+**Purpose**: Creates a single database user for Atlas cluster. Legacy approach.
+
+**When to use**: Use for simple deployments with single user. Consider `atlas_database_users` for production.
+
+**Valid values**: Valid MongoDB username string
+
+**Impact**: Creates one database user with specified credentials.
+
+**Related variables**: Must be used with `atlas_db_password`. Alternative: use `atlas_database_users`.
+
+#### atlas_db_password
+Legacy single database user password.
+
+- **Optional** when `mongodb_provider=atlas` (alternative to `atlas_database_users`)
+- Environment Variable: `ATLAS_DB_PASSWORD`
+- Default Value: None
+
+**Purpose**: Password for the single database user. Legacy approach.
+
+**When to use**: Use with `atlas_db_username` for simple deployments.
+
+**Valid values**: Strong password string
+
+**Impact**: Sets password for the database user.
+
+**Related variables**: Must be used with `atlas_db_username`. Alternative: use `atlas_database_users`.
+
+**Note**: Store securely. Never commit to version control.
+
+### Atlas Secret Management Configuration
+
+#### atlas_account_id
+AWS account ID for secret naming convention.
+
+- **Required** when `atlas_store_credentials_in_secret=true`
+- Environment Variable: `ATLAS_ACCOUNT_ID`
+- Default Value: None
+
+**Purpose**: Used to construct secret names in the format `<account_id>/<cluster_name>/mongo` and `<account_id>/<cluster_name>/<instance_id>/mongo`.
+
+**When to use**: Required when storing credentials in AWS Secrets Manager.
+
+**Valid values**: 12-digit AWS account ID
+
+**Impact**: Determines the secret naming structure in AWS Secrets Manager.
+
+**Related variables**: Used with `atlas_store_credentials_in_secret`.
+
+#### atlas_store_credentials_in_secret
+Store Atlas connection information in AWS Secrets Manager.
+
+- **Optional** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_STORE_CREDENTIALS_IN_SECRET`
+- Default Value: `false`
+
+**Purpose**: Automatically stores Atlas connection details in AWS Secrets Manager after provisioning. Creates two types of secrets:
+- **Cluster-level secret**: `<account_id>/<cluster_name>/mongo` - Contains cluster metadata (hosts, port, CA certificates) with empty username/password
+- **Instance-level secrets**: `<account_id>/<cluster_name>/<instance_id>/mongo` - Contains instance-specific credentials (username, password) plus cluster metadata
+
+**When to use**: Enable for production deployments to centralize credential management and enable MAS to retrieve connection information.
+
+**Valid values**: `true`, `false`
+
+**Impact**: Creates/updates AWS Secrets Manager secrets with connection information. Requires AWS CLI configured with appropriate IAM permissions.
+
+**Related variables**: Requires `atlas_account_id`, `atlas_cluster_name`, and `atlas_aws_region`. Works with `atlas_mas_instances` to create instance-level secrets.
+
+**Secret Structure**:
+```json
+{
+  "info": "# YAML content with hosts, port, CA certificates",
+  "username": "instance-user",
+  "password": "generated-password"
+}
+```
+
+**Note**: The cluster-level secret has empty `username` and `password` fields (or `docdb_username`/`docdb_password` for compatibility), while instance-level secrets contain actual credentials.
+
+### Atlas VPC/PrivateLink Configuration
+
+#### atlas_vpc_id
+AWS VPC ID for VPC peering with Atlas.
+
+- **Optional** when `mongodb_provider=atlas` and `atlas_cluster_provider=AWS` and configuring VPC peering
+- Environment Variable: `ATLAS_VPC_ID`
+- Default Value: None
+
+**Purpose**: AWS VPC ID for establishing VPC peering connection with Atlas cluster.
+
+**When to use**: Required when configuring VPC peering for private connectivity. VPC peering is only supported for AWS deployments.
+
+**Valid values**: Valid AWS VPC ID (e.g., `vpc-0123456789abcdef0`)
+
+**Impact**: Enables private network connectivity between AWS VPC and Atlas cluster.
+
+**Related variables**: Used with `atlas_aws_region`, `atlas_aws_route_table_ids` or `atlas_aws_subnet_ids`.
+
+#### atlas_aws_region
+AWS region for VPC peering configuration.
+
+- **Optional** when `mongodb_provider=atlas` and `atlas_cluster_provider=AWS` and configuring VPC peering
+- Environment Variable: `ATLAS_AWS_REGION`
+- Default Value: None
+
+**Purpose**: AWS region where VPC peering will be configured.
+
+**When to use**: Required when configuring VPC peering. VPC peering is only supported for AWS deployments.
+
+**Valid values**: Atlas region format (e.g., `US_EAST_1`, `EU_WEST_1`)
+
+**Impact**: Must match the region of the AWS VPC.
+
+**Related variables**: Used with `atlas_vpc_id` for VPC peering.
+
+**Note**: Use Atlas region format (underscores), not AWS format (hyphens).
+
+#### atlas_aws_route_table_ids
+AWS route table IDs for VPC peering routes.
+
+- **Optional** when `mongodb_provider=atlas` and `atlas_cluster_provider=AWS` and configuring VPC peering
+- Environment Variable: `ATLAS_AWS_ROUTE_TABLE_IDS`
+- Default Value: None
+
+**Purpose**: List of AWS route table IDs where Atlas CIDR routes will be added.
+
+**When to use**: Provide when manually specifying route tables for VPC peering. VPC peering is only supported for AWS deployments.
+
+**Valid values**: List of route table IDs or comma-separated string
+
+**Impact**: Routes to Atlas CIDR block added to these route tables.
+
+**Related variables**: Alternative to `atlas_aws_subnet_ids` (which auto-discovers route tables).
+
+#### atlas_aws_subnet_ids
+AWS subnet IDs for auto-discovering route tables.
+
+- **Optional** when `mongodb_provider=atlas` and `atlas_cluster_provider=AWS` and configuring VPC peering
+- Environment Variable: `ATLAS_AWS_SUBNET_IDS`
+- Default Value: None
+
+**Purpose**: List of AWS subnet IDs used to automatically discover associated route tables.
+
+**When to use**: Provide when you want automatic route table discovery instead of manual specification. VPC peering is only supported for AWS deployments.
+
+**Valid values**: List of subnet IDs or comma-separated string
+
+**Impact**: Route tables associated with these subnets are automatically discovered and configured.
+
+**Related variables**: Alternative to `atlas_aws_route_table_ids` (manual specification).
+
+### Important Note: Atlas Restore Functionality
+
+**Why Manual Restore Options Are Provided:**
+
+MongoDB Atlas provides a fully managed backup service with automated backups, point-in-time recovery, and easy restore capabilities through the Atlas console and API. **For normal backup and restore operations, you should use the Atlas managed backup service.**
+
+However, this role includes manual restore functionality for **data migration from AWS DocumentDB scenarios only**.
+
+**Recommendation**:
+- **For production backup/restore**: Use Atlas managed backup service (enabled by default with `atlas_backup_enabled: true`)
+- **For data migration**: Use the manual restore-database options provided here
+
+#### atlas_mongodb_host
+MongoDB Atlas cluster hostname for restore connection.
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore|restore-database`
+- Environment Variable: `ATLAS_MONGODB_HOST`
+- Default Value: None
+
+**Purpose**: Specifies the Atlas cluster hostname to connect for restore operation.
+
+**When to use**: Required when restoring MongoDB data to Atlas cluster.
+
+**Valid values**: Atlas cluster hostname (e.g., `cluster0.abc123.mongodb.net`)
+
+**Impact**: Used to build MongoDB connection URI for mongorestore command.
+
+**Related variables**: Used with `atlas_mongodb_username` and `atlas_mongodb_password`.
+
+**Note**: Use the SRV hostname format without `mongodb+srv://` prefix.
+
+#### atlas_mongodb_username
+MongoDB database username for restore connection.
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore|restore-database`
+- Environment Variable: `ATLAS_MONGODB_USERNAME`
+- Default Value: None
+
+**Purpose**: Database username with write permissions for restore operation.
+
+**When to use**: Required when restoring MongoDB data to Atlas cluster.
+
+**Valid values**: Valid MongoDB username with appropriate permissions
+
+**Impact**: Used for authentication during mongorestore operation.
+
+**Related variables**: Used with `atlas_mongodb_host` and `atlas_mongodb_password`.
+
+**Note**: User must have readWriteAnyDatabase or equivalent permissions.
+
+#### atlas_mongodb_password
+MongoDB database password for restore connection.
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore|restore-database`
+- Environment Variable: `ATLAS_MONGODB_PASSWORD`
+- Default Value: None
+
+**Purpose**: Database password for authentication during restore.
+
+**When to use**: Required when restoring MongoDB data to Atlas cluster.
+
+**Valid values**: Valid password for the specified username
+
+**Impact**: Used for authentication during mongorestore operation.
+
+**Related variables**: Used with `atlas_mongodb_host` and `atlas_mongodb_username`.
+
+**Note**: Store securely. Never commit to version control.
+
+#### atlas_backup_archive_path
+Local path to the MongoDB backup archive file (.tar.gz).
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore|restore-database`
+- Environment Variable: `ATLAS_BACKUP_ARCHIVE_PATH`
+- Default Value: None
+
+**Purpose**: Specifies the local filesystem path to the backup archive containing MongoDB data dumps.
+
+**When to use**: Required when restoring MongoDB data from local backup files to Atlas cluster (typically for data migration scenarios).
+
+**Valid values**: Valid local filesystem path to a .tar.gz file (e.g., `/path/to/mongodb-backup-20240621.tar.gz`)
+
+**Impact**: The role will extract this archive and restore the data to the Atlas cluster.
+
+**Related variables**: Used with `atlas_index_file_path`, `atlas_mongodb_host`, `atlas_mongodb_username`, and `atlas_mongodb_password`.
+
+**Note**: This is for the `restore-database` action which uses local files, not the `restore` action which downloads from S3.
+
+#### atlas_index_file_path
+Local path to the MongoDB index backup JSON file.
+
+- **Required** when `mongodb_provider=atlas` and `mongodb_action=restore|restore-database`
+- Environment Variable: `ATLAS_INDEX_FILE_PATH`
+- Default Value: None
+
+**Purpose**: Specifies the local filesystem path to the JSON file containing MongoDB index definitions.
+
+**When to use**: Required when restoring MongoDB data from local backup files to Atlas cluster (typically for data migration scenarios).
+
+**Valid values**: Valid local filesystem path to a JSON file (e.g., `/path/to/mongodb-indexes-20240621.json`)
+
+**Impact**: The role will read this file and recreate indexes after data restore.
+
+**Related variables**: Used with `atlas_backup_archive_path` for the restore-database operation.
+
+**Note**: File must be valid JSON containing index definitions for each database and collection. This is for the `restore-database` action which uses local files, not the `restore` action which downloads from S3.
+
+
+
 
 ## Example Playbook
 
@@ -1797,31 +3091,6 @@ Mongo Certificates, please refer to the below example playbook section for detai
     - ibm.mas_devops.mongodb
 ```
 
-### Backup (CE Operator)
-```yaml
-- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    mongodb_action: backup
-    mas_instance_id: masinst1
-    masbr_storage_local_folder: /tmp/masbr
-  roles:
-    - ibm.mas_devops.mongodb
-```
-
-### Restore (CE Operator)
-```yaml
-- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    mongodb_action: restore
-    mas_instance_id: masinst1
-    masbr_restore_from_version: 20240621021316
-    masbr_storage_local_folder: /tmp/masbr
-  roles:
-    - ibm.mas_devops.mongodb
-```
-
 ### Install (IBM Cloud)
 ```yaml
 - hosts: localhost
@@ -1832,6 +3101,87 @@ Mongo Certificates, please refer to the below example playbook section for detai
     mongodb_provider: ibm
     ibmcloud_apikey: apikey****
     ibmcloud_resource_group: mas-test
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
+### Install (MongoDB Atlas)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_provider: atlas
+    mongodb_action: install
+    
+    # Project configuration (creates project if it doesn't exist)
+    atlas_org_id: "507f1f77bcf86cd799439011"
+    atlas_project_name: "MAS Production"
+    
+    # Cluster configuration
+    atlas_cluster_name: "mas-cluster"
+    atlas_cluster_provider: "AWS"
+    atlas_aws_region: "US_EAST_1"
+    atlas_cluster_size: "M10"
+    atlas_mongodb_version: "7.0"
+    
+    # Backup configuration
+    atlas_backup_enabled: true
+    atlas_backup_compliance_enabled: true
+    atlas_compliance_authorized_email: "admin@example.com"
+    atlas_compliance_authorized_first_name: "Admin"
+    atlas_compliance_authorized_last_name: "User"
+    
+    # Audit logging configuration
+    atlas_audit_enabled: true
+    atlas_audit_filter: '{"atype": "authenticate"}'
+    atlas_audit_authorization_success: false
+    
+    # Alert monitoring configuration
+    # Basic alerts (CPU, memory, connections) are automatically enabled
+    atlas_enable_alerts: true
+    atlas_alert_notification_emails: "ocm-team@example.com,monitoring@example.com"
+    
+    # Optional: Enable additional alert categories
+    atlas_enable_cluster_health_alerts: true
+    atlas_enable_performance_alerts: true  # Disk and query performance
+    
+    # MAS instances (creates dedicated users for each)
+    atlas_mas_instances: "inst1,inst2,inst3"
+    
+    # PrivateLink configuration
+    atlas_privatelink_enabled: true
+    atlas_vpc_id: "vpc-0123456789abcdef0"
+    atlas_subnet_ids: "subnet-111,subnet-222,subnet-333"
+    atlas_rosa_cidr_ranges: "10.0.0.0/16"
+    
+    # Secret management
+    atlas_store_credentials_in_secret: true
+    atlas_account_id: "123456789012"
+    
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
+### Install (MongoDB Atlas - Minimal Configuration)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_provider: atlas
+    
+    # AWS account ID (used to retrieve credentials from AWS Secrets Manager)
+    # Secret name will be: <atlas_account_id>/mongodb-atlas
+    atlas_account_id: "123456789012"
+    aws_region: "us-east-1"
+    
+    # Use existing project
+    atlas_project_id: "507f1f77bcf86cd799439011"
+    
+    # Cluster configuration
+    atlas_cluster_name: "mas-dev-cluster"
+    atlas_aws_region: "US_EAST_1"
+    atlas_cluster_size: "M10"
+    
   roles:
     - ibm.mas_devops.mongodb
 ```
@@ -1883,6 +3233,82 @@ Mongo Certificates, please refer to the below example playbook section for detai
   roles:
     - ibm.mas_devops.mongodb
 ```
+
+### Restore (MongoDB Atlas)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_provider: atlas
+    mongodb_action: restore-database
+    atlas_backup_archive_path: /path/to/mongodb-backup-20240621.tar.gz
+    atlas_index_file_path: /path/to/mongodb-indexes-20240621.json
+    atlas_mongodb_host: cluster0.abc123.mongodb.net
+    atlas_mongodb_username: admin
+    atlas_mongodb_password: "{{ lookup('env', 'ATLAS_DB_PASSWORD') }}"
+  roles:
+    - ibm.mas_devops.mongodb
+```
+```
+
+### Backup (AWS DocumentDB)
+
+This example demonstrates how to backup an AWS DocumentDB cluster. The backup creates two files:
+- `mongodb-backup.tar.gz` - Compressed database backup
+- `collection-indexes.json` - Collection indexes for restore
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_provider: aws
+    mongodb_action: backup-database
+    docdb_cluster_name: massre-mas-cluster-8-mongo.cluster-cvwxreialrtj.us-east-1.docdb.amazonaws.com
+    docdb_master_username: masinst_inst04
+    docdb_master_password: "{{ lookup('env', 'DOCDB_MASTER_PASSWORD') }}"
+    docdb_port: 27017
+    aws_region: us-east-1
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
+**Command Line Example:**
+```bash
+ansible-playbook ibm/mas_devops/playbooks/docdb_backup_simple.yml \
+  -e "docdb_cluster_name=massre-mas-cluster-8-mongo.cluster-cvwxreialrtj.us-east-1.docdb.amazonaws.com" \
+  -e "docdb_master_username=masinst_inst04" \
+  -e "docdb_master_password=fn9Uh5wZ4KsZy4OZ0OXx" \
+  -e "aws_region=us-east-1" \
+  -e "mongodb_provider=aws" \
+  -e "mongodb_action=backup-database" \
+  -e "docdb_port=27017"
+```
+
+**Backup Output:**
+The backup process creates the following files in `/tmp/docdb-backup-<timestamp>/`:
+- `mongodb-backup.tar.gz` - Full database backup (compressed)
+- `collection-indexes.json` - Collection indexes metadata
+
+**Important Notes:**
+- The backup does NOT upload to S3 automatically 
+- Both files are created locally in the backup directory
+- Temporary files (logs, scripts, CA certificates) are automatically cleaned up after backup
+- The backup uses `mongodump` with TLS/SSL connection to DocumentDB
+- Collection indexes are extracted separately for easier restore operations
+
+**Required Variables:**
+- `docdb_cluster_name` - DocumentDB cluster endpoint
+- `docdb_master_username` - Admin username
+- `docdb_master_password` - Admin password (use environment variable or vault)
+- `aws_region` - AWS region where DocumentDB is deployed
+- `mongodb_provider` - Must be set to `aws`
+- `mongodb_action` - Must be set to `backup-database` or `backup`
+
+**Optional Variables:**
+- `docdb_port` - DocumentDB port (default: 27017)
+- `docdb_backup_dir` - Custom backup directory (default: `/tmp/docdb-backup-<timestamp>`)
+- `docdb_ca_cert_url` - Custom CA certificate URL (default: AWS global bundle)
+
 
 ### AWS DocumentDb destroy-data action
 

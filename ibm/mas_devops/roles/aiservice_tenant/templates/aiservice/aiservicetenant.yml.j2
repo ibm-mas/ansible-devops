@@ -3,7 +3,11 @@ apiVersion: aiservice.ibm.com/v1
 kind: AIServiceTenant
 metadata:
     name: "{{ tenantNamespace }}"
+{% if aiservice_channel.startswith("9.1.") or (not requires_namespaced_tenant_operator) %}
     namespace: "{{ aiservice_namespace }}"
+{% else %}
+    namespace: "{{ tenantNamespace }}"
+{% endif %}
     annotations:
         ansible.sdk.operatorframework.io/verbosity: "{{ aiservice_operator_log_level }}"
     labels:
@@ -28,9 +32,11 @@ spec:
             secretName: "{{ aiservice_sls_secret }}"
             ca: "{{ slscfg.ca | b64encode  }}"
         rsl:
-            url: {{ rsl_url }}
-            orgId: {{ rsl_org_id }}
-            secretName: {{ aiservice_rsl_secret }}
+{% if rsl_ca_crt is defined and rsl_ca_crt | length > 0 %}
+            ca: "{{ rsl_ca_crt | b64encode }}"
+{% else %}
+            ca: ""
+{% endif %}
         watsonxai:
             url: "{{ aiservice_watsonxai_url }}"
             secretName: "{{ aiservice_watsonxai_secret }}"
@@ -49,3 +55,14 @@ spec:
                 type: {{ tenant_entitlement_type }}
                 startDate: {{ tenant_entitlement_start_date }}
                 endDate: {{ tenant_entitlement_end_date }}
+{% if scheduling_config is defined and scheduling_config != {} %}
+        scheduling:
+{% if scheduling_config.pipeline is defined and scheduling_config.pipeline != {} %}
+            pipeline:
+                {{ scheduling_config.pipeline | to_nice_yaml(indent=2) | indent(16) }}
+{% endif %}
+{% if scheduling_config.predictor is defined and scheduling_config.predictor != {} %}
+            predictor:
+                {{ scheduling_config.predictor | to_nice_yaml(indent=2) | indent(16) }}
+{% endif %}
+{% endif %}

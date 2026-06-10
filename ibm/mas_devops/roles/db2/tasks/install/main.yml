@@ -32,8 +32,6 @@
 - name: "Debug - MAS"
   debug:
     msg:
-      - "MAS Instance ID ........................ {{ mas_instance_id }}"
-      - "MAS Config directory ................... {{ mas_config_dir }}"
       - "MAS Instance ID ........................ {{ mas_instance_id | default('<undefined>', true) }}"
       - "MAS Workspace ID ....................... {{ mas_workspace_id | default('<undefined>', true) }}"
       - "MAS Application ID ..................... {{ mas_application_id | default('<undefined>', true) }}"
@@ -83,6 +81,8 @@
       - "Backup ................................. {{ db2_backup_storage_class }} - {{ db2_backup_storage_size }} @ {{ db2_backup_storage_accessmode }}"
       - "Logs ................................... {{ db2_logs_storage_class }} - {{ db2_logs_storage_size }} @ {{ db2_logs_storage_accessmode }}"
       - "Temp ................................... {{ db2_temp_storage_class }} - {{ db2_temp_storage_size }} @ {{ db2_temp_storage_accessmode }}"
+      - "Archive Logs ............................{{ db2_archivelogs_storage_class }} - {{ db2_archivelogs_storage_size }} @ {{ db2_archivelogs_storage_accessmode }}"
+      - "Audit Logs ..............................{{ db2_audit_logs_storage_class }} - {{ db2_audit_logs_storage_size }} @ {{ db2_audit_logs_storage_accessmode }}"
 
 # Lookup db2 operator group
 - name: "Check if operator group is present in {{ db2_namespace }} namespace already"
@@ -137,13 +137,13 @@
     db2_channel: "{{ rotate_db2_channel[ansible_date_time['weekday']] }}"
   vars:
     rotate_db2_channel:
-      Monday: "v110509.0"
-      Tuesday: "v120101.0"
+      Monday: "v120104.0"
+      Tuesday: "v120104.0"
       Wednesday: "v110509.0"
-      Thursday: "v120101.0"
-      Friday: "v120101.0"
-      Saturday: "v120101.0"
-      Sunday: "v120101.0"
+      Thursday: "v120104.0"
+      Friday: "v120104.0"
+      Saturday: "v110509.0"
+      Sunday: "v120104.0"
 
 - name: "Debug DB2 channel after rotation"
   when: db2_channel is defined and db2_channel != ""
@@ -361,6 +361,11 @@
       set_fact:
         db2_releases_content: "{{ db2_release_info.resources[0].data.json | from_json }}"
 
+    - name: Debug DB2 Available versions
+      ansible.builtin.debug:
+        msg:
+          - "Available versions .................... {{ db2_releases_content.databases.db2u.keys() | list }}"
+
     - name: Extract major version from channel
       set_fact:
         db2_major_version: "{{ db2_channel | regex_replace('^v(\\d{2})(\\d+).*', '\\1') }}"
@@ -386,14 +391,6 @@
 
   when: db2_version is not defined or db2_version == ""
 
-- name: Debug DB2 channel and determined version
-  when: not (db2_use_helm_operator | default(false) | bool)
-  ansible.builtin.debug:
-    msg:
-      - "DB2 Channel ........................... {{ db2_channel }}"
-      - "DB2 Version (determined) .............. {{ db2_version }}"
-      - "Available versions .................... {{ db2_releases_content.databases.db2u.keys() | list }}"
-
 # 11. Fail if required parameters are not set
 # -----------------------------------------------------------------------------
 - name: "Verify db2_channel and db2_version set"
@@ -411,112 +408,113 @@
       - "Db2 Channel ............................ {{ db2_channel }}"
       - "Db2 Version ............................ {{ db2_version }}"
 
-# 12. Lookup db2 instance to see if it exists already
+# 11a. Read and encode license file if provided
 # -----------------------------------------------------------------------------
-- name: "See if db2u instance already exists (Db2uInstance)"
-  when: db2_use_helm_operator | default(false) | bool
-  kubernetes.core.k8s_info:
-    api_version: db2u.databases.ibm.com/v1
-    name: "{{ db2_instance_name | lower }}"
-    namespace: "{{db2_namespace}}"
-    kind: Db2uInstance
-  register: initial_db2_instance_lookup
+- name: "Read and encode Db2 license file"
+  when:
+    - db2_license_file is defined
+    - db2_license_file != ""
+  block:
+    - name: "Check if license file exists"
+      ansible.builtin.stat:
+        path: "{{ db2_license_file }}"
+      register: license_file_stat
 
-- name: "See if db2u instance already exists (Db2uCluster)"
-  when: not (db2_use_helm_operator | default(false) | bool)
+    - name: "Fail if license file path provided but file does not exist"
+      ansible.builtin.fail:
+        msg: "License file not found at: {{ db2_license_file }}"
+      when: not license_file_stat.stat.exists
+
+    - name: "Read license file content"
+      ansible.builtin.slurp:
+        src: "{{ db2_license_file }}"
+      register: license_file_content
+
+    - name: "Set encoded license fact"
+      ansible.builtin.set_fact:
+        db2_license_encoded: "{{ license_file_content.content }}"
+
+    - name: "Debug license file information"
+      ansible.builtin.debug:
+        msg:
+          - "License file path ...................... {{ db2_license_file }}"
+          - "License file exists .................... {{ license_file_stat.stat.exists }}"
+          - "License encoded (first 50 chars) ....... {{ db2_license_encoded[:50] }}..."
+
+# 12. Display deprecation notice for Db2uCluster
+# -----------------------------------------------------------------------------
+- name: "Notice of deprecation of Db2uCluster"
+  when: db2u_kind == "db2ucluster"
+  ansible.builtin.debug:
+    msg:
+      - "Deprecation Notice: The Db2uCluster resource is deprecated (replaced by Db2uInstance)."
+      - "This Ansible collection will retain support for Db2uCluster until it's eventual EOL."
+
+# 13. Detect existing Db2uCluster deployment
+# -----------------------------------------------------------------------------
+- name: "Detect existing Db2uCluster CR"
   kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ db2_instance_name | lower }}"
-    namespace: "{{db2_namespace}}"
+    namespace: "{{ db2_namespace }}"
     kind: Db2uCluster
   register: initial_db2_cluster_lookup
 
-# 13. Read LDAP searcher password from secret if LDAP is configured (helm operator only)
+# 14. Strict validation: Ensure DB2U_KIND matches existing deployment
 # -----------------------------------------------------------------------------
-- name: "Read LDAP searcher password from secret"
+- name: "Set detected deployment type"
+  set_fact:
+    detected_db2u_kind: "{{ 'db2ucluster' if (initial_db2_cluster_lookup.resources is defined and initial_db2_cluster_lookup.resources | length == 1) else 'db2uinstance' }}"
+
+- name: "Debug deployment type information"
+  ansible.builtin.debug:
+    msg:
+      - "Requested DB2U_KIND .................... {{ db2u_kind }}"
+      - "Detected deployment type ............... {{ detected_db2u_kind }}"
+      - "Existing Db2uCluster found ............. {{ (initial_db2_cluster_lookup.resources is defined and initial_db2_cluster_lookup.resources | length == 1) | string }}"
+
+- name: "Validate DB2U_KIND matches existing deployment (strict mode)"
   when:
-    - db2_use_helm_operator | default(false) | bool
-    - db2_ldap_configmap is defined
-    - db2_ldap_configmap != ""
-    - db2_ldap_searcher_password_secret is defined
-    - db2_ldap_searcher_password_secret != ""
-  block:
-    - name: "Lookup LDAP searcher password secret"
-      kubernetes.core.k8s_info:
-        api_version: v1
-        kind: Secret
-        name: "{{ db2_ldap_searcher_password_secret }}"
-        namespace: "{{ db2_namespace }}"
-      register: _ldap_searcher_secret
-      failed_when:
-        - _ldap_searcher_secret.resources is not defined or (_ldap_searcher_secret.resources | length == 0)
+    - initial_db2_cluster_lookup.resources is defined
+    - initial_db2_cluster_lookup.resources | length == 1
+  assert:
+    that:
+      - db2u_kind == detected_db2u_kind
+    fail_msg: |
+      DB2U_KIND MISMATCH DETECTED!
 
-    - name: "Extract LDAP searcher password from secret"
-      set_fact:
-        db2_ldap_searcher_password: "{{ _ldap_searcher_secret.resources[0].data[db2_ldap_searcher_password_key] | b64decode }}"
-      when:
-        - _ldap_searcher_secret.resources is defined
-        - _ldap_searcher_secret.resources | length > 0
-        - _ldap_searcher_secret.resources[0].data is defined
-        - _ldap_searcher_secret.resources[0].data[db2_ldap_searcher_password_key] is defined
+      Requested DB2U_KIND: {{ db2u_kind }}
+      Existing deployment: {{ detected_db2u_kind }}
+      Instance name:       {{ db2_instance_name }}
+      Namespace:           {{ db2_namespace }}
 
-# 14. Create a Db2 instance
+      ERROR: Cannot change deployment type for existing Db2 instance.
+
+      RESOLUTION:
+      - To manage existing Db2uCluster: Set DB2U_KIND=db2ucluster
+      - To deploy new Db2uInstance: Use a different instance name
+
+# 15. Deploy Db2uCluster (for existing or explicitly requested deployments)
 # -----------------------------------------------------------------------------
-- name: "Create db2 instance (Db2uInstance)"
-  when: db2_use_helm_operator | default(false) | bool
-  kubernetes.core.k8s:
-    apply: yes
-    template: "templates/db2uinstance.yml.j2"
+- name: "Deploy Db2uCluster"
+  include_tasks: tasks/db2ucluster.yml
+  when: db2u_kind == "db2ucluster"
 
-- name: "Create db2 instance (Db2uCluster)"
-  when: not (db2_use_helm_operator | default(false) | bool)
-  kubernetes.core.k8s:
-    apply: yes
-    template: "templates/db2ucluster.yml.j2"
+# 16. Deploy Db2uInstance (recommended for new deployments)
+# -----------------------------------------------------------------------------
+- name: "Deploy Db2uInstance"
+  include_tasks: tasks/db2uinstance.yml
+  when: db2u_kind == "db2uinstance"
 
+# 17. Set db2 instance timezone
+# -----------------------------------------------------------------------------
 - name: "Set db2 instance timezone"
   include_tasks: "tasks/install/setup_timezone.yml"
   when:
     - db2_timezone is defined
     - db2_timezone != ""
 
-# 14. Wait for the cluster/instance to be ready
-# -----------------------------------------------------------------------------
-- name: "Wait for db2u instance to be ready (Db2uInstance - 5m delay)"
-  when: db2_use_helm_operator | default(false) | bool
-  kubernetes.core.k8s_info:
-    api_version: db2u.databases.ibm.com/v1
-    name: "{{ db2_instance_name | lower }}"
-    namespace: "{{db2_namespace}}"
-    kind: Db2uInstance
-  register: db2_instance_lookup
-  until:
-    - db2_instance_lookup.resources is defined
-    - db2_instance_lookup.resources | length == 1
-    - db2_instance_lookup.resources[0].status is defined
-    - db2_instance_lookup.resources[0].status.state is defined
-    - db2_instance_lookup.resources[0].status.state == "Ready"
-  retries: 24 # Approximately 2 hours before we give up
-  delay: 300 # 5 minutes (TODO: make this configurable)
-
-- name: "Wait for db2u cluster to be ready (Db2uCluster - 5m delay)"
-  when: not (db2_use_helm_operator | default(false) | bool)
-  kubernetes.core.k8s_info:
-    api_version: db2u.databases.ibm.com/v1
-    name: "{{ db2_instance_name | lower }}"
-    namespace: "{{db2_namespace}}"
-    kind: Db2uCluster
-  register: db2_cluster_lookup
-  until:
-    - db2_cluster_lookup.resources is defined
-    - db2_cluster_lookup.resources | length == 1
-    - db2_cluster_lookup.resources[0].status is defined
-    - db2_cluster_lookup.resources[0].status.state is defined
-    - db2_cluster_lookup.resources[0].status.state == "Ready"
-  retries: 24 # Approximately 2 hours before we give up
-  delay: 300 # 5 minutes
-
-# 15. Configure a public route for Db2
+# 18. Configure a public route for Db2
 # -----------------------------------------------------------------------------
 - name: Lookup db2u Engn Service
   kubernetes.core.k8s_info:
@@ -582,7 +580,7 @@
     state: absent
 
 
-## 16. create an LDAP user if db2_ldap_username specified
+## 19. create an LDAP user if db2_ldap_username specified
 # -----------------------------------------------------------------------------
 - name: Create LDAP user if username and password is provided
   include_tasks: tasks/install/create_ldap_user.yml
@@ -593,12 +591,13 @@
     - db2_ldap_password != ""
     - db2_rotate_password == false
 
-- debug:
+- name: "Debug - LDAP Configuration"
+  debug:
     msg:
-      - "{{db2_ldap_username}}"
-      - "{{db2_rotate_password}}"
+      - "LDAP Username .......................... {{ db2_ldap_username | default('<undefined>', true) }}"
+      - "Rotate Password ........................ {{ db2_rotate_password | ternary('*********', '<undefined>') }}"
 
-# 17. Rotate db2 ldap password
+# 20. Rotate db2 ldap password
 # -----------------------------------------------------------------------------
 - name: Rotate Db2 LDAP password if db2_rotate_password is True and username is provided
   include_tasks: tasks/install/rotate_ldap_user_password.yml
@@ -607,27 +606,7 @@
     - db2_ldap_username != ""
     - db2_rotate_password == true
 
-# 18. Wait for the statefulset to be ready
-# -----------------------------------------------------------------------------
-- name: "Wait for Db2 Stateful set to be ready"
-  when: not (db2_use_helm_operator | default(false) | bool)
-  kubernetes.core.k8s_info:
-    api_version: apps/v1
-    kind: StatefulSet
-    name: "c-{{ db2_instance_name | lower }}-db2u"
-    namespace: "{{ db2_namespace }}"
-  register: db2_sts
-  until:
-    - db2_sts.resources is defined
-    - db2_sts.resources | length > 0
-    - db2_sts.resources[0].status is defined
-    - db2_sts.resources[0].status.replicas is defined
-    - db2_sts.resources[0].status.readyReplicas is defined
-    - db2_sts.resources[0].status.readyReplicas == db2_sts.resources[0].status.replicas
-  retries: 20 # approx 10 minutes before we give up
-  delay: 30 # seconds
-
-# 19. Generate a JdbcCfg for MAS configuration
+# 21. Generate a JdbcCfg for MAS configuration
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/install/suite_jdbccfg.yml
   when:

@@ -66,8 +66,9 @@ class TestVerifySubscriptions:
         assert result['message'] == "All Subscriptions are at the latest known operator version"
         assert len(result['atLatest']) == 2
         assert len(result['notAtLatest']) == 0
-        assert 'openshift-operators/ibm-mas-operator = AtLatestKnown' in result['atLatest']
-        assert 'openshift-operators/ibm-sls-operator = AtLatestKnown' in result['atLatest']
+        # Check that the subscriptions are in atLatest with approval information
+        assert any('openshift-operators/ibm-mas-operator = AtLatestKnown' in item for item in result['atLatest'])
+        assert any('openshift-operators/ibm-sls-operator = AtLatestKnown' in item for item in result['atLatest'])
 
     def test_subscriptions_at_latest_after_retry(self, action_module, mock_display):
         """Test when Subscriptions reach latest after retry."""
@@ -303,5 +304,89 @@ class TestVerifySubscriptions:
             with patch('verify_subscriptions.time.sleep'):
                 with pytest.raises(AnsibleError, match="One or more subscriptions did not update"):
                     action_module.run()
+    def test_upgrade_pending_with_manual_approval_is_valid(self, action_module, mock_display):
+        """Test that UpgradePending state with Manual approval is considered valid."""
+        # Arrange
+        action_module._task.args = {
+            'host': 'https://api.example.com',
+            'api_key': 'test-key',
+            'retries': 1,
+            'delay': 1
+        }
+
+        # Create subscription with UpgradePending and Manual approval
+        mock_sub1 = Mock()
+        mock_sub1.metadata.namespace = 'openshift-operators'
+        mock_sub1.metadata.name = 'ibm-mas-operator'
+        mock_sub1.status.state = 'UpgradePending'
+        mock_sub1.spec.installPlanApproval = 'Manual'
+
+        # Create subscription with AtLatestKnown
+        mock_sub2 = Mock()
+        mock_sub2.metadata.namespace = 'openshift-operators'
+        mock_sub2.metadata.name = 'ibm-sls-operator'
+        mock_sub2.status.state = 'AtLatestKnown'
+        mock_sub2.spec.installPlanApproval = 'Automatic'
+
+        mock_subs = Mock()
+        mock_subs.items = [mock_sub1, mock_sub2]
+
+        mock_sub_resource = Mock()
+        mock_sub_resource.get.return_value = mock_subs
+
+        mock_resources = Mock()
+        mock_resources.get.return_value = mock_sub_resource
+
+        mock_client = Mock()
+        mock_client.resources = mock_resources
+
+        # Act
+        with patch('verify_subscriptions.get_api_client', return_value=mock_client):
+            result = action_module.run()
+
+        # Assert
+        assert result['failed'] is False
+        assert result['changed'] is False
+        assert result['message'] == "All Subscriptions are at the latest known operator version"
+        assert len(result['atLatest']) == 2
+        assert len(result['notAtLatest']) == 0
+        assert 'openshift-operators/ibm-mas-operator = UpgradePending (approval: Manual)' in result['atLatest']
+        assert 'openshift-operators/ibm-sls-operator = AtLatestKnown (approval: Automatic)' in result['atLatest']
+
+    def test_upgrade_pending_with_automatic_approval_is_invalid(self, action_module, mock_display):
+        """Test that UpgradePending state with Automatic approval is NOT considered valid."""
+        # Arrange
+        action_module._task.args = {
+            'host': 'https://api.example.com',
+            'api_key': 'test-key',
+            'retries': 1,
+            'delay': 1
+        }
+
+        # Create subscription with UpgradePending and Automatic approval (should fail)
+        mock_sub = Mock()
+        mock_sub.metadata.namespace = 'openshift-operators'
+        mock_sub.metadata.name = 'ibm-mas-operator'
+        mock_sub.status.state = 'UpgradePending'
+        mock_sub.spec.installPlanApproval = 'Automatic'
+
+        mock_subs = Mock()
+        mock_subs.items = [mock_sub]
+
+        mock_sub_resource = Mock()
+        mock_sub_resource.get.return_value = mock_subs
+
+        mock_resources = Mock()
+        mock_resources.get.return_value = mock_sub_resource
+
+        mock_client = Mock()
+        mock_client.resources = mock_resources
+
+        # Act & Assert
+        with patch('verify_subscriptions.get_api_client', return_value=mock_client):
+            with patch('verify_subscriptions.time.sleep'):
+                with pytest.raises(AnsibleError, match="One or more subscriptions did not update"):
+                    action_module.run()
+
 
 # Made with Bob

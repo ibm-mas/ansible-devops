@@ -1,0 +1,126 @@
+---
+# Backup Manage Persistent Volumes
+# =============================================================================
+# This task backs up Manage persistent volume data by:
+# 1. Reading persistentVolumes from ManageWorkspace CR
+# 2. Finding the UI or ALL server bundle pod
+# 3. Creating tar.gz archives of each mount path
+# 4. Storing them in the backup data folder
+
+# 1. Check if ManageWorkspace has persistent volumes configured
+# -----------------------------------------------------------------------------
+- name: "Check if ManageWorkspace has persistent volumes"
+  set_fact:
+    manage_persistent_volumes: "{{ manage_workspace_cr.resources[0].spec.settings.deployment.persistentVolumes | default([]) }}"
+
+- name: "Display persistent volumes configuration"
+  debug:
+    msg:
+      - "Persistent volumes found: {{ manage_persistent_volumes | length }}"
+      - "{{ manage_persistent_volumes | to_nice_yaml }}"
+
+# 2. Only proceed if persistent volumes are configured
+# -----------------------------------------------------------------------------
+- name: "Backup Manage persistent volumes"
+  when: manage_persistent_volumes | length > 0
+  block:
+    # Find the server bundle pod (UI, ALL, or maxinst as fallback)
+    # -------------------------------------------------------------------------
+    - name: "Find UI server bundle pod"
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: "{{ mas_app_namespace }}"
+        label_selectors:
+          - mas.ibm.com/appType=serverBundle
+          - mas.ibm.com/appTypeName=ui
+          - mas.ibm.com/workspaceId={{ mas_workspace_id }}
+      register: ui_pod_output
+
+    - name: "Find ALL server bundle pod"
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: "{{ mas_app_namespace }}"
+        label_selectors:
+          - mas.ibm.com/appType=serverBundle
+          - mas.ibm.com/appTypeName=all
+          - mas.ibm.com/workspaceId={{ mas_workspace_id }}
+      register: all_pod_output
+      when: ui_pod_output.resources | length == 0
+
+    - name: "Find maxinst pod as fallback"
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: "{{ mas_app_namespace }}"
+        label_selectors:
+          - mas.ibm.com/appType=maxinstudb
+          - mas.ibm.com/workspaceId={{ mas_workspace_id }}
+      register: maxinst_pod_output
+      when:
+        - ui_pod_output.resources | length == 0
+        - (all_pod_output.resources is not defined or all_pod_output.resources | length == 0)
+
+    # Determine which pod to use
+    # -------------------------------------------------------------------------
+    - name: "Set fact: server bundle pod to use"
+      set_fact:
+        server_bundle_pod: >-
+          {{
+            ui_pod_output.resources[0] if ui_pod_output.resources | length > 0
+            else (all_pod_output.resources[0] if (all_pod_output.resources is defined and all_pod_output.resources | length > 0)
+            else (maxinst_pod_output.resources[0] if (maxinst_pod_output is defined and maxinst_pod_output.resources is defined and maxinst_pod_output.resources | length > 0)
+            else None))
+          }}
+        server_bundle_type: >-
+          {{
+            'ui' if ui_pod_output.resources | length > 0
+            else ('all' if (all_pod_output.resources is defined and all_pod_output.resources | length > 0)
+            else ('maxinst' if (maxinst_pod_output is defined and maxinst_pod_output.resources is defined and maxinst_pod_output.resources | length > 0)
+            else 'none'))
+          }}
+
+    - name: "Fail if no suitable pod found"
+      fail:
+        msg: "No UI, ALL server bundle, or maxinst pod found for workspace {{ mas_workspace_id }}"
+      when: server_bundle_pod is none or server_bundle_pod == None
+
+    - name: "Display server bundle pod information"
+      debug:
+        msg:
+          - "Server bundle type: {{ server_bundle_type }}"
+          - "Pod name: {{ server_bundle_pod.metadata.name }}"
+          - "Container: {{ server_bundle_pod.spec.containers[0].name }}"
+
+    # Create data backup directory
+    # -------------------------------------------------------------------------
+    - name: "Set fact: PV backup data path"
+      set_fact:
+        manage_pv_data_path: "{{ manage_backup_path }}/data"
+
+    - name: "Create PV backup data directory"
+      file:
+        path: "{{ manage_pv_data_path }}"
+        state: directory
+        mode: '0755'
+
+    # Backup each persistent volume
+    # -------------------------------------------------------------------------
+    - name: "Backup each persistent volume"
+      include_tasks: "{{ role_path }}/tasks/manage/backup-single-pv.yml"
+      loop: "{{ manage_persistent_volumes }}"
+      loop_control:
+        loop_var: pv_item
+        index_var: pv_index
+
+    - name: "Display PV backup completion"
+      debug:
+        msg:
+          - "Manage PV backup completed"
+          - "Persistent volumes backed up: {{ manage_persistent_volumes | length }}"
+          - "Backup location: {{ manage_pv_data_path }}"
+
+# 3. Skip message if no persistent volumes configured
+# -----------------------------------------------------------------------------
+- name: "Skip PV backup message"
+  debug:
+    msg: "Skipping Manage PV backup - no persistent volumes configured in ManageWorkspace CR"
+  when: manage_persistent_volumes | length == 0

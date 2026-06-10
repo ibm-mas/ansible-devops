@@ -1,0 +1,23 @@
+---
+# aiservice_rhoai/tasks/install/detect-odh.yml
+# =============================================================================
+# Detect if ODH is installed and needs to be migrated
+
+- name: "RHOAI Install : Get ODH subscription"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: opendatahub-operator
+    namespace: openshift-operators
+  register: odh_subscription
+
+- name: "RHOAI Install : Set ODH detection flag"
+  set_fact:
+    odh_installed: "{{ odh_subscription.resources | length > 0 }}"
+
+- name: "RHOAI Install : Display ODH detection result"
+  debug:
+    msg:
+      - "ODH Detection Result:"
+      - "  ODH installed: {{ odh_installed }}"
+      - "  {% if odh_installed %}Migration will be performed before RHOAI installation{% else %}Fresh RHOAI installation will proceed{% endif %}"

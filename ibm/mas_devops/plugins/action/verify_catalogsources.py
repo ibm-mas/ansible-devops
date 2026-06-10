@@ -8,53 +8,65 @@ from ansible.utils.display import Display
 
 import time
 
+
 class ActionModule(ActionBase):
     def run(self, tmp=None, task_vars=None):
         super(ActionModule, self).run(tmp, task_vars)
         display = Display()
 
         # Initialize DynamicClient and grab the task args
-        host = self._task.args.get('host', None)
-        api_key = self._task.args.get('api_key', None)
+        host = self._task.args.get("host", None)
+        api_key = self._task.args.get("api_key", None)
 
         dynClient = get_api_client(api_key=api_key, host=host)
-        retries = self._task.args['retries']
-        delay = self._task.args['delay']
+        retries = self._task.args["retries"]
+        delay = self._task.args["delay"]
 
         display.v(f"Checking CatalogSources are ready ({retries} retries with a {delay} second delay)")
-        catalogSources = dynClient.resources.get(api_version="operators.coreos.com/v1alpha1", kind='CatalogSource')
+        catalogSources = dynClient.resources.get(api_version="operators.coreos.com/v1alpha1", kind="CatalogSource")
 
         allReady = False
         attempts = 0
         while attempts < retries and not allReady:
-          catalogs = catalogSources.get()
-          attempts += 1
-          allReadyThisLoop = True
-          ready = []
-          notReady = []
+            catalogs = catalogSources.get()
+            attempts += 1
+            allReadyThisLoop = True
+            ready = []
+            notReady = []
 
-          for catalogSource in catalogs.items:
-            message = f"{catalogSource.metadata.namespace}/{catalogSource.metadata.name} = {catalogSource.status.connectionState.lastObservedState}"
-            display.v(f"* {message}")
-            if catalogSource.status.connectionState.lastObservedState != "READY":
-              allReadyThisLoop = False
-              notReady.append(message)
+            for catalogSource in catalogs.items:
+                # Check if status fields exist before accessing them
+                if not hasattr(catalogSource, "status") or catalogSource.status is None:
+                    message = f"{catalogSource.metadata.namespace}/{catalogSource.metadata.name} = <status not initialized>"
+                    display.v(f"* {message}")
+                    allReadyThisLoop = False
+                    notReady.append(message)
+                elif not hasattr(catalogSource.status, "connectionState") or catalogSource.status.connectionState is None:
+                    message = f"{catalogSource.metadata.namespace}/{catalogSource.metadata.name} = <connectionState not initialized>"
+                    display.v(f"* {message}")
+                    allReadyThisLoop = False
+                    notReady.append(message)
+                elif not hasattr(catalogSource.status.connectionState, "lastObservedState") or catalogSource.status.connectionState.lastObservedState is None:
+                    message = f"{catalogSource.metadata.namespace}/{catalogSource.metadata.name} = <lastObservedState not initialized>"
+                    display.v(f"* {message}")
+                    allReadyThisLoop = False
+                    notReady.append(message)
+                else:
+                    message = f"{catalogSource.metadata.namespace}/{catalogSource.metadata.name} = {catalogSource.status.connectionState.lastObservedState}"
+                    display.v(f"* {message}")
+                    if catalogSource.status.connectionState.lastObservedState != "READY":
+                        allReadyThisLoop = False
+                        notReady.append(message)
+                    else:
+                        ready.append(message)
+
+            if allReadyThisLoop:
+                allReady = True
             else:
-              ready.append(message)
-
-          if allReadyThisLoop:
-            allReady = True
-          else:
-            display.v(f"Delaying {delay} seconds before next check")
-            time.sleep(delay)
+                display.v(f"Delaying {delay} seconds before next check")
+                time.sleep(delay)
 
         if allReady:
-          return dict(
-            message="All CatalogSources are ready",
-            failed=False,
-            changed=False,
-            ready=ready,
-            notReady=notReady
-          )
+            return dict(message="All CatalogSources are ready", failed=False, changed=False, ready=ready, notReady=notReady)
         else:
-          raise AnsibleError(f"Error: One or more CatalogSources are not ready")
+            raise AnsibleError("Error: One or more CatalogSources are not ready")

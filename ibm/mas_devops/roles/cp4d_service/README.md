@@ -1,5 +1,4 @@
-cp4d_service
-===============================================================================
+# cp4d_service
 Install or upgrade a chosen CloudPak for Data service.  Currently supported Cloud Pak for Data release versions supported are:
 
   - 5.1.3
@@ -10,7 +9,6 @@ The role will automatically install the corresponding CPD service operator chann
 For more information about the specific CPD services channels and versions associated to a particular Cloud Pak for Data release can be found [here](https://github.ibm.com/PrivateCloud/olm-utils/tree/master/ansible-play/config-vars).
 
 Services Supported
--------------------------------------------------------------------------------
 These services can be deployed and configured using this role:
 
 - [Watson Studio](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=services-watson-studio) required by [Predict](https://www.ibm.com/docs/en/mas-cd/mhmpmh-and-p-u/continuous-delivery)
@@ -20,7 +18,6 @@ These services can be deployed and configured using this role:
 
 
 Upgrade
--------------------------------------------------------------------------------
 This role also supports seamlessly CPD services minor version upgrades, as well as patch version upgrades.  All you need to do is to define `cpd_product_version` variable to the version you target to upgrade and run this role for a particular CPD service.  It's important that before you upgrade CPD services, the CPD Control Plane/Zen is also upgraded to the same release version.
 
 For more information about IBM Cloud Pak for Data upgrade process, refer to the [CPD official documentation](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=upgrading).
@@ -32,6 +29,8 @@ For more information about IBM Cloud Pak for Data upgrade process, refer to the 
 !!! warning
     The reconcile of many CP4D resources will be marked as Failed multiple times during initial installation, these are **misleading status updates**, the install is just really slow and the operators can not properly handle this.  For example, if you are watching the install of CCS you will see that each **rabbitmq-ha** pod takes 10-15 minutes to start up and it looks like there is a problem because the pod log will just stop at a certain point.  If you see something like this as the last message in the pod log `WAL: ra_log_wal init, open tbls: ra_log_open_mem_tables, closed tbls: ra_log_closed_mem_tables` be assured that there's nothing wrong, it's just there's a long delay between that message and the next (`starting system coordination`) being logged.
 
+
+## Role Variables - General
 
 ### Watson Studio
 Subscriptions related to Watson Studio:
@@ -255,8 +254,7 @@ deployment.apps/cognos-analytics-cognos-analytics-addon                      1/1
 ```
 
 
-Role Variables - Installation
------------------------------
+## Role Variables - Installation
 ### cpd_service_name
 Name of the service to install, supported values are: `wsl`, `wml`, `spark`, and `ca`
 
@@ -325,8 +323,7 @@ For more information, refer to [Managing resources](https://www.ibm.com/docs/en/
 - Environment Variable: `CPD_SERVICE_SCALE_CONFIG`
 - Default Value: `small`
 
-Role Variables - Watson Studio
-------------------------------
+## Role Variables - Watson Studio
 ### cpd_wsl_project_name
 Stores the CP4D Watson Studio Project name that can be used to configure HP Utilities application in MAS.
 
@@ -342,8 +339,7 @@ Optional - Stores the CP4D Watson Studio Project description that can be used to
 - Default Value: `Watson Studio Project for Maximo Application Suite`
 
 
-Role Variables - MAS Configuration Generation
----------------------------------------------
+## Role Variables - MAS Configuration Generation
 ### mas_instance_id
 The instance ID of Maximo Application Suite that a generated configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a resource template.
 
@@ -359,12 +355,10 @@ Local directory to save the generated resource definition.  This can be used to 
 - Default Value: None
 
 
-Example Playbook
-----------------
+## Example Playbook
 
 ### Install Watson Studio on CPD 5.1.3
 ```yaml
----
 - hosts: localhost
   any_errors_fatal: true
   vars:
@@ -377,7 +371,6 @@ Example Playbook
 
 ### Install Watson Studio on CPD 5.2.0
 ```yaml
----
 - hosts: localhost
   any_errors_fatal: true
   vars:
@@ -388,7 +381,6 @@ Example Playbook
     - ibm.mas_devops.cp4d_service
 ```
 
-License
--------
+## License
 
 EPL-2.0

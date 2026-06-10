@@ -16,7 +16,6 @@
       - "Must start with a lowercase letter"
       - "Must end with a lowercase letter or a number"
 
-
 # 2. Set facts for mas_annotations_dict, HyperscalerFormat, HyperscalerChannel
 # -----------------------------------------------------------------------------
 - name: "Set facts : mas_annotations_dict"
@@ -55,7 +54,6 @@
       - "Hyperscaler Format ..................... {{ input_hyperscalerFormat | default('<undefined>', true) }}"
       - "mas_annotations_dict ................... {{ mas_annotations_dict }}"
 
-
 # 3. Validate annotations: Check for Hyperscaler flag partially set
 # -----------------------------------------------------------------------------
 - name: "Check for Hyperscaler flag partially set"
@@ -66,7 +64,6 @@
       - (input_hyperscalerProvider is undefined and input_hyperscalerChannel is undefined and input_hyperscalerFormat is undefined) or (input_hyperscalerProvider is defined and input_hyperscalerChannel is defined )
     fail_msg: "Assertion Failed! Invalid HyperScalerFlag combination in {{mas_annotations}} "
     success_msg: "Assertion Passed!  Valid HyperScalerFlag combination in {{mas_annotations}} "
-
 
 # 4. Validate annotations: Check if mas_annotations has valid allowed values
 # -----------------------------------------------------------------------------
@@ -81,7 +78,6 @@
     success_msg: "Assertion Passed!  Annotation {{item.key}}={{item.value}} is valid "
   with_dict:
     - "{{  mas_annotations_dict  }}"
-
 
 # 5. Check if mas_annotations value has invalid combinations
 # -----------------------------------------------------------------------------
@@ -99,7 +95,6 @@
   with_dict:
     - "{{  mas_annotations_dict  }}"
 
-
 # 6. Check if hyperscalerFormat is set to saas incase if hyperscalerTier is set with valid values
 # -----------------------------------------------------------------------------
 - name: "Fail if hyperscalerTier is set with valid value but hyperscalerFormat is other than saas"
@@ -112,7 +107,6 @@
     success_msg: "Assertion Passed!  Annotation {{item.key}}={{item.value}} is valid as mas.ibm.com/hyperscalerFormat is set to {{input_hyperscalerFormat}}"
   with_dict:
     - "{{  mas_annotations_dict  }}"
-
 
 # 7. Load PodTemplates configuration
 # -----------------------------------------------------------------------------
@@ -130,7 +124,6 @@
     config_files:
       - "ibm-data-dictionary-assetdatadictionary.yml"
 
-
 # 8. Set up the domain name for MAS
 # -----------------------------------------------------------------------------
 - name: "Get cluster subdomain"
@@ -145,8 +138,17 @@
   set_fact:
     mas_domain: "{{ mas_instance_id }}.{{ _cluster_subdomain.resources[0].spec.domain }}"
 
+# 9. Set default issuer kind for MAS 9.2+ if not already set
+# -----------------------------------------------------------------------------
+- name: "Set default issuer kind to 'ClusterIssuer' for MAS 9.2+ if it's not defined"
+  when:
+    - mas_issuer_kind is not defined or mas_issuer_kind == ""
+    - mas_channel is defined and mas_channel != ""
+    - mas_channel.split('.')[:2] | join('.') is version('9.2', '>=')
+  set_fact:
+    mas_issuer_kind: "ClusterIssuer"
 
-# 9. Determine version of cert-manager in use on the cluster
+# 10. Determine version of cert-manager in use on the cluster
 # -----------------------------------------------------------------------------
 # if cert_manager_cluster_resource_namespace is not set then
 # run 'detect_cert_manager' task to set it as this will be needed to be set in Suite CR
@@ -154,8 +156,7 @@
   include_tasks: "{{ role_path }}/../../common_tasks/detect_cert_manager.yml"
   when: cert_manager_cluster_resource_namespace is not defined or cert_manager_cluster_resource_namespace == ''
 
-
-# 10. Provide debug information
+# 11. Provide debug information
 # -----------------------------------------------------------------------------
 - name: "Configure namespace"
   set_fact:
@@ -173,10 +174,11 @@
       - "MAS ICR cpopen content ........ {{ mas_icr_cpopen }}"
       - "Cert Manager namespace ........ {{ cert_manager_cluster_resource_namespace }}"
       - "MAS Cluster Issuer ............ {{ mas_cluster_issuer }}"
-      - "IPv6 Enabled .................. {{ enable_ipv6 }}"
+      - "MAS Issuer Kind ............... {{ mas_issuer_kind | default('<not set>', true) }}"
+      - "MAS Routing Mode .............. {{ mas_routing_mode | default('<not set>', true) }}"
+      - "IPv6 Enabled .................. {{ ocp_enable_ipv6 }}"
 
-
-# 11. Create entitlement secret and install the operator
+# 12. Create entitlement secret and install the operator
 # -----------------------------------------------------------------------------
 - name: "Create IBM Entitlement Key"
   ibm.mas_devops.update_ibm_entitlement:
@@ -187,6 +189,17 @@
     artifactory_password: "{{ artifactory_token }}"
     namespace_kyverno_label: "audit"
 
+- name: "Set namespace Service Mesh annotation"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: "{{ mas_namespace }}"
+    apply: yes
+    definition:
+      metadata:
+        labels:
+          istio-injection: "{{ mas_use_service_mesh | ternary ('enabled', 'disabled') }}"
+
 - name: "Create ibm-mas Subscription"
   ibm.mas_devops.apply_subscription:
     namespace: "{{ mas_namespace }}"
@@ -195,16 +208,14 @@
     catalog_source: "{{ mas_catalog_source }}"
   register: subscription
 
-
-# 12. Wait until the Suite CRD is available
+# 13. Wait until the Suite CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the Suite CRD is available"
   include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
   vars:
     crd_name: suites.core.mas.ibm.com
 
-
-# 13. Before we install the suite create the optional filebeat and superuser secrets
+# 14. Before we install the suite create the optional filebeat and superuser secrets
 # -----------------------------------------------------------------------------
 # Note that this will have no effect on older version of MAS, but will do no harm
 - name: Configure Filebeat for Logstash
@@ -223,8 +234,7 @@
     namespace: "{{ mas_namespace }}"
     template: templates/secret-superuser.yml.j2
 
-
-# 14. Suite installation
+# 15. Suite installation
 # -----------------------------------------------------------------------------
 - name: Create suite.ibm.com/v1 CR
   vars:
@@ -239,8 +249,7 @@
   debug:
     msg: "{{ suiteResult }}"
 
-
-# 15. Set up OCP ConsoleLink for MAS Admin Dashboard
+# 16. Set up OCP ConsoleLink for MAS Admin Dashboard
 # -----------------------------------------------------------------------------
 - name: Create ConsoleLink for MAS Admin Dashbord
   kubernetes.core.k8s:

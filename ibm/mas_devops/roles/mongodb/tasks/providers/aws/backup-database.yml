@@ -1,0 +1,153 @@
+---
+# AWS DocumentDB Backup
+# =============================================================================
+
+# 1. Validate required variables
+# -----------------------------------------------------------------------------
+- name: "Validate required variables"
+  assert:
+    that:
+      - docdb_cluster_name is defined and docdb_cluster_name != ''
+      - docdb_master_username is defined and docdb_master_username != ''
+      - docdb_master_password is defined and docdb_master_password != ''
+      - aws_region is defined and aws_region != ''
+    fail_msg: "Missing required variables"
+
+# 2. Set default values
+# -----------------------------------------------------------------------------
+- name: "Set default values"
+  set_fact:
+    docdb_port: "{{ docdb_port | default('27017') }}"
+    docdb_backup_dir: "{{ docdb_backup_dir | default('/tmp/docdb-backup-' + lookup('pipe', 'date +%Y%m%d-%H%M%S')) }}"
+    docdb_ca_cert_url: "{{ docdb_ca_cert_url | default('https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem') }}"
+
+- name: "Set connection variables"
+  set_fact:
+    mongodb_admin_user: "{{ docdb_master_username }}"
+    mongodb_admin_password: "{{ docdb_master_password }}"
+    mongodb_host: "{{ docdb_cluster_name }}:{{ docdb_port }}"
+    docdb_ca_cert_path: "{{ docdb_backup_dir }}/ca/global-bundle.pem"
+
+# 3. Display configuration
+# -----------------------------------------------------------------------------
+- name: "Display backup configuration"
+  debug:
+    msg:
+      - "=========================================="
+      - "AWS DocumentDB Backup Configuration"
+      - "=========================================="
+      - "Cluster: {{ docdb_cluster_name }}"
+      - "Port: {{ docdb_port }}"
+      - "Region: {{ aws_region }}"
+      - "Backup Directory: {{ docdb_backup_dir }}"
+      - "=========================================="
+
+# 4. Setup directories and download CA certificate
+# -----------------------------------------------------------------------------
+- name: "Create backup directories"
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ docdb_backup_dir }}"
+    - "{{ docdb_backup_dir }}/ca"
+    - "{{ docdb_backup_dir }}/scripts"
+
+- name: "Download AWS DocumentDB CA certificate"
+  get_url:
+    url: "{{ docdb_ca_cert_url }}"
+    dest: "{{ docdb_ca_cert_path }}"
+    mode: '0644'
+
+# 5. Generate backup scripts
+# -----------------------------------------------------------------------------
+- name: "Generate backup script"
+  template:
+    src: "aws/docdb-backup.sh.j2"
+    dest: "{{ docdb_backup_dir }}/scripts/backup.sh"
+    mode: '0755'
+
+- name: "Generate index extraction script"
+  template:
+    src: "aws/docdb-extract-indexes.sh.j2"
+    dest: "{{ docdb_backup_dir }}/scripts/extract-indexes.sh"
+    mode: '0755'
+
+# 6. Execute backup
+# -----------------------------------------------------------------------------
+- name: "Execute backup script"
+  shell: "{{ docdb_backup_dir }}/scripts/backup.sh"
+  register: backup_result
+  ignore_errors: yes
+
+- name: "Display backup output"
+  debug:
+    var: backup_result.stdout_lines
+
+- name: "Check if backup archive was created"
+  stat:
+    path: "{{ docdb_backup_dir }}/mongodb-backup.tar.gz"
+  register: backup_archive_check
+
+- name: "Fail if no backup archive"
+  fail:
+    msg: "Backup archive was not created. Check output for errors."
+  when: not backup_archive_check.stat.exists
+
+# 7. Extract indexes (optional - continue even if fails)
+# -----------------------------------------------------------------------------
+- name: "Extract collection indexes"
+  shell: "{{ docdb_backup_dir }}/scripts/extract-indexes.sh"
+  register: index_result
+  ignore_errors: yes
+  when: backup_archive_check.stat.exists
+
+- name: "Display index extraction output"
+  debug:
+    var: index_result.stdout_lines
+  when: index_result is defined
+
+- name: "Cleanup temporary files after index extraction"
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ docdb_backup_dir }}/logs"
+    - "{{ docdb_backup_dir }}/scripts"
+    - "{{ docdb_backup_dir }}/ca"
+  ignore_errors: yes
+
+# 8. Verify index file was created
+# -----------------------------------------------------------------------------
+- name: "Check if index file exists"
+  stat:
+    path: "{{ docdb_backup_dir }}/collection-indexes.json"
+  register: index_file_check
+
+- name: "Fail if index file was not created"
+  fail:
+    msg: "Index file was not created. Index extraction may have failed."
+  when: not index_file_check.stat.exists
+
+# 9. Display completion summary
+# -----------------------------------------------------------------------------
+- name: "Get backup file size"
+  stat:
+    path: "{{ docdb_backup_dir }}/mongodb-backup.tar.gz"
+  register: backup_file_stat
+
+- name: "Display completion summary"
+  debug:
+    msg:
+      - "=========================================="
+      - "Backup Completed Successfully"
+      - "=========================================="
+      - "Backup Directory: {{ docdb_backup_dir }}"
+      - "----------------------------------------"
+      - "Files Created:"
+      - "  1. mongodb-backup.tar.gz ({{ (backup_file_stat.stat.size / 1024 / 1024) | round(2) }} MB)"
+      - "  2. collection-indexes.json {{ '(Created)' if index_file_check.stat.exists else '(Not created)' }}"
+      - "=========================================="
+      - "NOTE: Temporary files cleaned up"
+      - "=========================================="

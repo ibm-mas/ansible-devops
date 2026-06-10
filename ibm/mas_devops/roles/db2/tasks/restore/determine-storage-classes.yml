@@ -1,0 +1,43 @@
+---
+# 1. Lookup storage class availabiity
+# -----------------------------------------------------------------------------
+- name: "determine-storage-classes : Load default storage class information"
+  include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
+
+# 2. RWO Storage (Required)
+# -----------------------------------------------------------------------------
+- name: Default RWO Storage for ROKS if not set by user (ReadWriteOnce)
+  when:
+    - custom_storage_class_rwo is not defined or custom_storage_class_rwo == ""
+    - defaultStorageClasses.success
+  vars:
+  set_fact:
+    custom_storage_class_rwo: "{{ defaultStorageClasses.rwo }}"
+
+- name: Assert that a RWO storage class has been defined
+  assert:
+    that: custom_storage_class_rwo is defined and custom_storage_class_rwo != ""
+    fail_msg: "custom_storage_class_rwo must be defined"
+
+# 3. RWX Storage (Required)
+# -----------------------------------------------------------------------------
+- name: Default RWX Storage for ROKS if not set by user (ReadWriteMany)
+  when:
+    - custom_storage_class_rwx is not defined or custom_storage_class_rwx == ""
+    - defaultStorageClasses.success
+  set_fact:
+    custom_storage_class_rwx: "{{ defaultStorageClasses.rwx }}"
+
+- name: Assert that a meta storage class has been defined
+  assert:
+    that: custom_storage_class_rwx is defined and custom_storage_class_rwx != ""
+    fail_msg: "custom_storage_class_rwx must be defined"
+
+
+# Get Storage from DB2 CR
+- name: Override storage class names in the db2 spec.storage
+  set_fact:
+    _db2_storages: "{{ db2ucluster_cr_cfg.spec.storage | ibm.mas_devops.set_storage_classes_names(custom_storage_class_rwo, custom_storage_class_rwx) }}"
+  when:
+    - custom_storage_class_rwo is defined
+    - custom_storage_class_rwx is defined
