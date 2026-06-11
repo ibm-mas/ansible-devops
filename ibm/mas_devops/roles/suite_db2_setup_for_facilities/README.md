@@ -237,6 +237,22 @@ Force Db2 configuration with restart.
 
 **Note**: **CRITICAL** - Setting to `true` will restart the Db2 instance, causing downtime for all applications using the database. Schedule during maintenance windows. For production systems, coordinate with stakeholders. For new instances, this is safe as no applications are using the database yet.
 
+#### db2_facilities_timezone
+Server timezone for the Facilities DB2 instance.
+
+- **Optional**
+- Environment Variable: `DB2_FACILITIES_TIMEZONE`
+- Default: `UTC`
+
+**Purpose**: Sets the timezone used by the Db2 server for timestamp operations and scheduling. This affects how Db2 interprets and stores timestamp data.
+
+**When to use**:
+- Use default (`UTC`) for globally distributed systems
+- Set to local timezone when all users are in the same timezone
+- Must match MAS Facilities Server timezone
+
+**Valid values**: Valid timezone codes (e.g., `GMT`, `EST`, `PST`, `CET`, `UTC`)
+
 ## Example Playbook
 
 ```yaml
