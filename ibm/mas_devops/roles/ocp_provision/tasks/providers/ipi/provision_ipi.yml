@@ -148,6 +148,9 @@
     dest: "{{ ipi_config_dir }}/install-config.yaml"
     mode: '644'
 
+- name: "ipi : Debug generated install-config.yaml content"
+  debug:
+    msg: "{{ lookup('file', ipi_config_dir + '/install-config.yaml') }}"
 
 # 5. Create Cluster
 # -----------------------------------------------------------------------------
@@ -157,6 +160,14 @@
   until: ipi_create_cluster_completion.rc == 0
   retries: 60
   delay: 60 # 1 minute
+
+- name: "ipi : Debug cluster creation failure details"
+  debug:
+    msg:
+      - "Return Code: {{ ipi_create_cluster_completion.rc }}"
+      - "STDOUT: {{ ipi_create_cluster_completion.stdout }}"
+      - "STDERR: {{ ipi_create_cluster_completion.stderr }}"
+  when: ipi_create_cluster_completion.rc != 0
 
 - name: "ipi : Debug final cluster state"
   debug:
