@@ -35,20 +35,7 @@
   retries: 60  # 10 minutes
   delay: 10
 
-# 2. Delete IBM Licensing Operator Subscription
-# -----------------------------------------------------------------------------
-- name: "Delete IBM Licensing Operator Subscription"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    namespace: "{{ cpd_cs_control_namespace }}"
-    name: ibm-licensing-operator-app
-    wait: true
-    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
-  ignore_errors: true
-
-# 3. Delete CommonService CR
+# 2. Delete CommonService CR
 # -----------------------------------------------------------------------------
 - name: "Check if CommonService CR exists"
   kubernetes.core.k8s_info:
@@ -81,20 +68,7 @@
   retries: 60  # 10 minutes
   delay: 10
 
-# 4. Delete CPFS Operator Subscription
-# -----------------------------------------------------------------------------
-- name: "Delete CPFS Operator Subscription"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    namespace: "{{ cpd_operators_namespace }}"
-    name: ibm-common-service-operator
-    wait: true
-    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
-  ignore_errors: true
-
-# 5. Delete NamespaceScope CR
+# 3. Delete NamespaceScope CR
 # -----------------------------------------------------------------------------
 - name: "Check if NamespaceScope CR exists"
   kubernetes.core.k8s_info:
@@ -126,32 +100,6 @@
   until: namespacescope_status.resources | length == 0
   retries: 60  # 10 minutes
   delay: 10
-
-# 6. Delete NamespaceScope Operator Subscription
-# -----------------------------------------------------------------------------
-- name: "Delete NamespaceScope Operator Subscription"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    namespace: "{{ cpd_operators_namespace }}"
-    name: ibm-namespace-scope-operator
-    wait: true
-    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
-  ignore_errors: true
-
-# 7. Delete ODLM Operator Subscription
-# -----------------------------------------------------------------------------
-- name: "Delete ODLM Operator Subscription"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    namespace: "{{ cpd_operators_namespace }}"
-    name: operand-deployment-lifecycle-manager-app
-    wait: true
-    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
-  ignore_errors: true
 
 - name: "CP4D Prerequisites uninstalled successfully"
   debug:

@@ -24,38 +24,13 @@
 
 # 2. Delete Service Custom Resources
 # -----------------------------------------------------------------------------
-- name: "Delete {{ item }} Custom Resource"
-  when: item in installed_services
-  kubernetes.core.k8s:
-    state: absent
-    api_version: "{{ cpd_service_info[item].cr_api_version }}"
-    kind: "{{ cpd_service_info[item].cr_kind }}"
-    namespace: "{{ cpd_instance_namespace }}"
-    name: "{{ cpd_service_info[item].cr_name }}"
-    wait: true
-    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+- name: "Delete Service Custom Resource"
+  include_tasks: "delete-service-custom-resource.yml"
   loop: "{{ cpd_supported_services }}"
   loop_control:
-    loop_var: item
+    loop_var: cpd_service
 
-# 3. Wait for Service CRs to be deleted
-# -----------------------------------------------------------------------------
-- name: "Wait for {{ item }} CR to be deleted"
-  when: item in installed_services
-  kubernetes.core.k8s_info:
-    api_version: "{{ cpd_service_info[item].cr_api_version }}"
-    kind: "{{ cpd_service_info[item].cr_kind }}"
-    namespace: "{{ cpd_instance_namespace }}"
-    name: "{{ cpd_service_info[item].cr_name }}"
-  register: service_cr_status
-  until: service_cr_status.resources | length == 0
-  retries: 60  # 10 minutes (60 * 10s)
-  delay: 10
-  loop: "{{ cpd_supported_services }}"
-  loop_control:
-    loop_var: item
-
-# 4. Delete Common Core Services (CCS) CR
+# 3. Delete Common Core Services (CCS) CR
 # -----------------------------------------------------------------------------
 - name: "Check if CCS CR exists"
   kubernetes.core.k8s_info:
@@ -88,7 +63,7 @@
   retries: 60  # 10 minutes
   delay: 10
 
-# 5. Delete DataRefinery CR
+# 4. Delete DataRefinery CR
 # -----------------------------------------------------------------------------
 - name: "Check if DataRefinery CR exists"
   kubernetes.core.k8s_info:
@@ -121,7 +96,7 @@
   retries: 60  # 10 minutes
   delay: 10
 
-# 6. Delete Service Operator Subscriptions
+# 5. Delete Service Operator Subscriptions
 # -----------------------------------------------------------------------------
 - name: "Delete {{ item }} Operator Subscription"
   when: item in installed_services
@@ -138,7 +113,7 @@
     loop_var: item
   ignore_errors: true
 
-# 7. Delete Service Dependency Subscriptions
+# 6. Delete Service Dependency Subscriptions
 # -----------------------------------------------------------------------------
 - name: "Delete CCS Operator Subscription"
   kubernetes.core.k8s:
@@ -173,7 +148,7 @@
     wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
   ignore_errors: true
 
-# 8. Delete Elasticsearch/OpenSearch Operator Subscription
+# 7. Delete Elasticsearch/OpenSearch Operator Subscription
 # -----------------------------------------------------------------------------
 - name: "Delete Elasticsearch Operator Subscription"
   kubernetes.core.k8s:

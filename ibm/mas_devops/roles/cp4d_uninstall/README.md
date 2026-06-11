@@ -14,9 +14,14 @@ The role follows a specific order to ensure clean uninstallation:
 1. **Services** - Watson Studio, Watson Machine Learning, Spark, Cognos Analytics, CCS, DataRefinery
 2. **Platform** - ZenService and Ibmcpd custom resources
 3. **Prerequisites** - CPFS, NamespaceScope, IBM Licensing
-4. **Catalog Sources** - CP4D-specific catalog sources and ConfigMaps
-5. **PVCs** - Persistent Volume Claims (optional, disabled by default)
-6. **Namespaces** - All CP4D-related namespaces (optional, enabled by default)
+4. **OperandRequests** - All OperandRequests from operators and instance namespaces
+5. **OperandRegistry** - All OperandRegistry resources from operators namespace
+6. **OperandConfig** - All OperandConfig resources from operators namespace
+7. **Subscriptions** - All remaining operator subscriptions
+8. **CSVs** - All ClusterServiceVersions
+9. **Catalog Sources** - CP4D-specific catalog sources and ConfigMaps
+10. **PVCs** - Persistent Volume Claims (optional, disabled by default)
+11. **Namespaces** - All CP4D-related namespaces (optional, enabled by default)
 
 ## Role Variables
 
@@ -284,8 +289,11 @@ ansible-playbook ibm.mas_devops.run_role
 ### What Gets Removed
 - All CP4D service custom resources (Watson Studio, WML, Spark, Cognos)
 - CP4D platform custom resources (ZenService, Ibmcpd)
-- All operator subscriptions and CSVs
 - CPFS, NamespaceScope, and IBM Licensing
+- All OperandRequests from operators and instance namespaces
+- All OperandRegistry resources from operators namespace
+- All OperandConfig resources from operators namespace
+- All operator subscriptions and CSVs
 - Custom catalog sources (if enabled)
 - PVCs (if enabled)
 - Namespaces (if enabled)
