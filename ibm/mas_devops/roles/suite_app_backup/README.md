@@ -67,22 +67,13 @@ Optional custom version identifier for the backup. If not specified, defaults to
 - Default: Auto-generated timestamp
 - Example: `20240315-143022` or `v1.0-prod`
 
-### mas_app_backup_manage_include_pvc
-Controls whether persistent volume data should be backed up for Manage application. When set to `false`, only namespace resources (CRs, secrets, subscriptions) are backed up, and PVC data is skipped.
+### mas_app_backup_include_pvc
+Controls whether persistent volume data should be backed up for application. When set to `false`, only namespace resources (CRs, secrets, subscriptions) are backed up, and PVC data is skipped.
 
 - Optional
-- Environment Variable: `MAS_APP_BACKUP_MANAGE_INCLUDE_PVC`
+- Environment Variable: `MAS_APP_BACKUP_INCLUDE_PVC`
 - Default: `true`
 - Valid Values: `true`, `false`
-
-### mas_app_backup_facilities_include_pvc
-Controls whether persistent volume data should be backed up for Facilities application. When set to `false`, only namespace resources (CRs, secrets, subscriptions) are backed up, and PVC data is skipped.
-
-- Optional
-- Environment Variable: `MAS_APP_BACKUP_FACILITIES_INCLUDE_PVC`
-- Default: `true`
-- Valid Values: `true`, `false`
-
 
 What Gets Backed Up
 -------------------------------------------------------------------------------
@@ -268,7 +259,7 @@ Backup only Manage namespace resources, skipping persistent volume data:
     mas_workspace_id: ws1
     mas_app_id: manage
     mas_backup_dir: /backup/mas
-    mas_app_backup_manage_include_pvc: false
+    mas_app_backup_include_pvc: false
   roles:
     - ibm.mas_devops.suite_app_backup
 ```
@@ -284,7 +275,7 @@ Backup only Facilities namespace resources, skipping persistent volume data:
     mas_workspace_id: ws1
     mas_app_id: facilities
     mas_backup_dir: /backup/mas
-    mas_app_backup_facilities_include_pvc: false
+    mas_app_backup_include_pvc: false
   roles:
     - ibm.mas_devops.suite_app_backup
 ```

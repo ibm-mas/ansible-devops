@@ -118,22 +118,13 @@ Custom storage class to use for PVCs with ReadWriteOnce (RWO) access mode when `
 - Default: Empty (uses default storage class)
 - Example: `ocs-storagecluster-ceph-rbd`
 
-### mas_app_restore_manage_include_pvc
-Control whether to restore persistent volume data for Manage application. When set to `false`, only namespace resources (CRs, secrets, subscriptions) will be restored, and PVC data restore will be skipped.
+### mas_app_restore_include_pvc
+Control whether to restore persistent volume data for application. When set to `false`, only namespace resources (CRs, secrets, subscriptions) will be restored, and PVC data restore will be skipped.
 
 - Optional
-- Environment Variable: `MAS_APP_RESTORE_MANAGE_INCLUDE_PVC`
+- Environment Variable: `mas_app_restore_include_pvc`
 - Default: `true`
 - Valid Values: `true`, `false`
-
-### mas_app_restore_facilities_include_pvc
-Control whether to restore persistent volume data for Facilities application. When set to `false`, only namespace resources (CRs, secrets, subscriptions) will be restored, and PVC data restore will be skipped.
-
-- Optional
-- Environment Variable: `MAS_APP_RESTORE_FACILITIES_INCLUDE_PVC`
-- Default: `true`
-- Valid Values: `true`, `false`
-
 
 What Gets Restored
 -------------------------------------------------------------------------------
@@ -481,7 +472,7 @@ Restore only namespace resources without restoring persistent volume data:
     mas_backup_dir: /backup/mas
     mas_app_backup_version: "20240315-143022"
     # Skip PVC restore
-    mas_app_restore_manage_include_pvc: false
+    mas_app_restore_include_pvc: false
   roles:
     - ibm.mas_devops.suite_app_restore
 ```
@@ -499,7 +490,7 @@ Restore Facilities namespace resources without restoring persistent volume data:
     mas_backup_dir: /backup/mas
     mas_app_backup_version: "20240315-143022"
     # Skip PVC restore
-    mas_app_restore_facilities_include_pvc: false
+    mas_app_restore_include_pvc: false
   roles:
     - ibm.mas_devops.suite_app_restore
 ```
