@@ -47,9 +47,15 @@
 # -----------------------------------------------------------------------------
 # OperatorCondition names are in the format {packageName}.{packageVersion}
 # We want to strip off the "v" prefix from the version while we do this
+# Added this temp check because facilities has version in format 9.1.12-pre.maint91xdev-29259
 - name: "upgrade : Lookup operator version for {{ mas_app_fqn }}"
   set_fact:
-    updated_opcon_version: "{{ updated_opcon.resources[0].metadata.name.split('.v')[1] | ibm.mas_devops.format_pre_version_with_buildid }}"
+    updated_opcon_version: >-
+      {%- if mas_app_id == 'facilities' -%}
+        {{ updated_opcon.resources[0].metadata.name.split('.v')[1] | regex_replace('-[0-9]+$', '') }}
+      {%- else -%}
+        {{ updated_opcon.resources[0].metadata.name.split('.v')[1] | ibm.mas_devops.format_pre_version_with_buildid }}
+      {%- endif -%}
 
 - name: "upgrade : Debug Operator Version"
   debug:
