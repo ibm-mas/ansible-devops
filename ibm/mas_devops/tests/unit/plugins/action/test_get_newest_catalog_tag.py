@@ -93,7 +93,7 @@ class TestGetNewestCatalogTag:
             action_module.run()
 
     def test_result_format(self, action_module):
-        """Test that result has expected format (vX-YYMMDD-arch)"""
+        """Test that result has expected format (vX-YYMMDD-arch or special tags like vX-at-upgrade-arch)"""
         # Arrange
         action_module._task.args = {'arch': 'amd64'}
 
@@ -103,11 +103,12 @@ class TestGetNewestCatalogTag:
         # Assert - verify format
         assert result['result'] is not None
         tag = result['result']
-        # Should be in format like "v9-260129-amd64"
+        # Should be in format like "v9-260129-amd64" or special tags like "v9-at-upgrade-amd64"
         assert tag.startswith('v')
         assert '-' in tag
         parts = tag.split('-')
-        assert len(parts) == 3  # v9, date, arch
-        assert parts[2] == 'amd64'
+        # Standard format has 3 parts (v9, date, arch), special tags may have more
+        assert len(parts) >= 3  # At least v9, identifier(s), arch
+        assert parts[-1] == 'amd64'  # Last part should always be the architecture
 
 # Made with Bob
