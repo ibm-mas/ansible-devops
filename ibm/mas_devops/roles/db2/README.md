@@ -343,14 +343,14 @@ Server timezone for the Db2 instance.
 
 - **Optional**
 - Environment Variable: `DB2_TIMEZONE`
-- Default: `GMT`
+
+**Note**: when not set, Db2 engine sets UTC by default.
 
 **Purpose**: Sets the timezone used by the Db2 server for timestamp operations and scheduling. This affects how Db2 interprets and stores timestamp data.
 
 **When to use**:
-- Use default (`GMT`) for globally distributed systems
 - Set to local timezone when all users are in the same timezone
-- Must match MAS Manage timezone if using Manage with this database
+- Must match MAS Application's timezone if using Manage/Facilities with this database
 
 **Valid values**: Valid timezone codes (e.g., `GMT`, `EST`, `PST`, `CET`, `UTC`)
 
