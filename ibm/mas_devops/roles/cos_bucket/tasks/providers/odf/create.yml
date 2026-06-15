@@ -1,0 +1,148 @@
+---
+# 1. Validate required parameters
+# -----------------------------------------------------------------------------
+- name: "odf/create : Fail if bucket name is not provided"
+  assert:
+    that:
+      - cos_bucket_name is defined
+      - cos_bucket_name != ""
+    fail_msg: "cos_bucket_name is required for bucket provisioning"
+
+# 2. Check if OCS/ODF is installed
+# -----------------------------------------------------------------------------
+- name: "odf/create : Check if OCS StorageCluster exists"
+  kubernetes.core.k8s_info:
+    api_version: ocs.openshift.io/v1
+    kind: StorageCluster
+    namespace: "{{ odf_bucket_namespace }}"
+  register: storage_cluster
+
+- name: "odf/create : Verify OCS is ready"
+  assert:
+    that:
+      - storage_cluster.resources | length > 0
+      - storage_cluster.resources[0].status.phase == 'Ready'
+    fail_msg: "OCS/ODF StorageCluster is not ready. Please install OCS/ODF first."
+
+- name: "odf/create : OCS cluster status"
+  debug:
+    msg: "OCS StorageCluster is ready: {{ storage_cluster.resources[0].metadata.name }}"
+
+# 3. Check if ObjectBucketClaim already exists
+# -----------------------------------------------------------------------------
+- name: "odf/create : Check if bucket already exists"
+  kubernetes.core.k8s_info:
+    api_version: objectbucket.io/v1alpha1
+    kind: ObjectBucketClaim
+    name: "{{ cos_bucket_name }}"
+    namespace: "{{ odf_bucket_namespace }}"
+  register: existing_obc
+
+- name: "odf/create : Bucket already exists"
+  when: existing_obc.resources | length > 0
+  debug:
+    msg: "ObjectBucketClaim '{{ cos_bucket_name }}' already exists with status: {{ existing_obc.resources[0].status.phase | default('Unknown') }}"
+
+# 4. Create ObjectBucketClaim
+# -----------------------------------------------------------------------------
+- name: "odf/create : Create ObjectBucketClaim"
+  when: existing_obc.resources | length == 0
+  kubernetes.core.k8s:
+    state: present
+    template: "templates/odf/objectbucketclaim.yml.j2"
+
+- name: "odf/create : Wait for ObjectBucketClaim to be bound (30s delay)"
+  kubernetes.core.k8s_info:
+    api_version: objectbucket.io/v1alpha1
+    kind: ObjectBucketClaim
+    name: "{{ cos_bucket_name }}"
+    namespace: "{{ odf_bucket_namespace }}"
+  register: obc_status
+  until:
+    - obc_status.resources | length > 0
+    - obc_status.resources[0].status.phase is defined
+    - obc_status.resources[0].status.phase == "Bound"
+  retries: 20  # 10 minutes total
+  delay: 30
+
+# 5. Get bucket details from ConfigMap
+# -----------------------------------------------------------------------------
+- name: "odf/create : Get bucket ConfigMap"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: "{{ cos_bucket_name }}"
+    namespace: "{{ odf_bucket_namespace }}"
+  register: bucket_configmap
+
+- name: "odf/create : Get bucket Secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ cos_bucket_name }}"
+    namespace: "{{ odf_bucket_namespace }}"
+  register: bucket_secret
+
+# 6. Set bucket facts and flag for certificate configuration
+# -----------------------------------------------------------------------------
+- name: "odf/create : Set bucket facts"
+  when:
+    - bucket_configmap.resources | length > 0
+    - bucket_secret.resources | length > 0
+  set_fact:
+    cos_bucket_actual_name: "{{ bucket_configmap.resources[0].data.BUCKET_NAME }}"
+    cos_bucket_host: "{{ bucket_configmap.resources[0].data.BUCKET_HOST }}"
+    cos_bucket_port: "{{ bucket_configmap.resources[0].data.BUCKET_PORT }}"
+    cos_bucket_region: "{{ bucket_configmap.resources[0].data.BUCKET_REGION | default('s3') }}"
+    cos_access_key_id: "{{ bucket_secret.resources[0].data.AWS_ACCESS_KEY_ID | b64decode }}"
+    cos_secret_access_key: "{{ bucket_secret.resources[0].data.AWS_SECRET_ACCESS_KEY | b64decode }}"
+    cos_bucket_needs_ca_cert: true
+    cos_bucket_ssl: true
+
+# 7. Get or create route for external access
+# -----------------------------------------------------------------------------
+- name: "odf/create : Get cluster subdomain"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: cluster_ingress
+
+- name: "odf/create : Set route hostname"
+  set_fact:
+    cos_bucket_route_host: "{{ odf_bucket_route_name }}.{{ cluster_ingress.resources[0].spec.domain }}"
+
+- name: "odf/create : Check if route exists"
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: "{{ odf_bucket_route_name }}"
+    namespace: "{{ odf_bucket_namespace }}"
+  register: existing_route
+
+- name: "odf/create : Create route for external access"
+  when: existing_route.resources | length == 0
+  kubernetes.core.k8s:
+    state: present
+    template: "templates/odf/route.yml.j2"
+
+# 8. Display bucket information
+# -----------------------------------------------------------------------------
+- name: "odf/create : Bucket provisioning complete"
+  debug:
+    msg:
+      - "=========================================="
+      - "ODF Bucket Provisioning Complete"
+      - "=========================================="
+      - "Bucket Claim Name ........... {{ cos_bucket_name }}"
+      - "Actual Bucket Name .......... {{ cos_bucket_actual_name }}"
+      - "Bucket Host (Internal) ...... {{ cos_bucket_host }}"
+      - "Bucket Port ................. {{ cos_bucket_port }}"
+      - "Bucket Region ............... {{ cos_bucket_region | default('N/A') }}"
+      - "External Route .............. https://{{ cos_bucket_route_host }}"
+      - "Access Key ID ............... {{ cos_access_key_id }}"
+      - "Secret Access Key ........... {{ cos_secret_access_key[:10] }}..."
+      - "=========================================="
+      - "Use these credentials to access the bucket via S3 API"
+      - "=========================================="
+

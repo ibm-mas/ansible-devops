@@ -25,21 +25,31 @@ spec:
       url: "{{ jdbccfg.url }}"
       secretName: "{{ aiservice_jdbc_secret }}"
       ca: "{{ jdbccfg.ca | b64encode }}"
-      useAwsDb2: {{ use_aws_db2 }}
+      useAwsDb2: {{ use_aws_db2 | lower }}
+{% if create_ceph_buckets is defined and create_ceph_buckets | bool %}
+    s3:
+      url: "{{ aiservice_s3_url }}"
+      region: "{{ aiservice_s3_region }}"
+      bucketPrefix: ""
+      templatesBucket: "{{ aiservice_s3_templates_bucket }}"
+      tenantsBucket: "{{ aiservice_s3_tenants_bucket }}"
+      secretName: "{{ aiservice_s3_secret }}"
+{% else %}
     s3:
       url: "{{ aiservice_s3_url }}"
       region: "{{ aiservice_s3_region }}"
       bucketPrefix: "{{ aiservice_s3_bucket_prefix }}"
-      templatesBucket: {{ aiservice_s3_templates_bucket }}
-      tenantsBucket: {{ aiservice_s3_tenants_bucket }}
+      templatesBucket: "{{ aiservice_s3_templates_bucket }}"
+      tenantsBucket: "{{ aiservice_s3_tenants_bucket }}"
       secretName: "{{ aiservice_s3_secret }}"
+{% endif %}
     domain: "{{ aiservice_domain }}"
     modelId:
       uniqueLength: "15"
-      prefix: {{ aiservice_s3_bucket_prefix }}
+      prefix: "{{ aiservice_s3_bucket_prefix }}"
     environmentType: "{{ environment_type }}"
     storageClassName: "{{ aiservice_storage_class }}"
-    inSaasEnv: {{ aiservice_saas }}
+    inSaasEnv: {{ aiservice_saas | lower }}
     icr:
       cp: "{{ mas_icr_cp }}"
       cpopen: "{{ mas_icr_cpopen }}"
@@ -50,3 +60,4 @@ spec:
       ipFamilyPolicy: "SingleStack"
       ipFamilies: ["IPv6"]
 {% endif %}
+
