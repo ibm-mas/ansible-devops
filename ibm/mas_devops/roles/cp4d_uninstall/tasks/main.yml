@@ -1,0 +1,99 @@
+---
+
+# 1. Validate inputs and provide debug information
+# -----------------------------------------------------------------------------
+- name: "Debug: CP4D Uninstall Configuration"
+  debug:
+    msg:
+      - "CP4D Operators Namespace .............. {{ cpd_operators_namespace }}"
+      - "CP4D Instance Namespace ............... {{ cpd_instance_namespace }}"
+      - "CP4D CS Control Namespace ............. {{ cpd_cs_control_namespace }}"
+      - "CP4D CPFS Namespace ................... {{ cpd_cpfs_namespace }}"
+      - "CP4D Licensing Namespace .............. {{ cpd_ibm_licensing_namespace }}"
+      - "Delete PVCs ........................... {{ cpd_uninstall_delete_pvcs }}"
+      - "Delete Namespaces ..................... {{ cpd_uninstall_delete_namespaces }}"
+      - "Delete Catalog Sources ................ {{ cpd_uninstall_delete_catalog_sources }}"
+      - "Wait Timeout .......................... {{ cpd_uninstall_wait_timeout }}s"
+
+- name: "Warning: Destructive operation"
+  debug:
+    msg:
+      - "WARNING: This will uninstall Cloud Pak for Data and all its services"
+      - "WARNING: This operation cannot be undone"
+      - "WARNING: PVC deletion is {{ cpd_uninstall_delete_pvcs | ternary('ENABLED - All data will be permanently deleted', 'DISABLED - Data will be preserved') }}"
+
+# 2. Check if CP4D instance namespace exists
+# -----------------------------------------------------------------------------
+- name: "Check if CP4D instance namespace exists"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ cpd_instance_namespace }}"
+  register: cpd_instance_ns_info
+
+- name: "Set fact: CP4D is installed"
+  set_fact:
+    cpd_is_installed: "{{ cpd_instance_ns_info.resources | length > 0 }}"
+
+- name: "Info: CP4D installation status"
+  debug:
+    msg: "{{ cpd_is_installed | ternary('CP4D is installed - proceeding with uninstall', 'CP4D is not installed - nothing to uninstall') }}"
+
+# 3. Uninstall CP4D Services
+# -----------------------------------------------------------------------------
+- name: "Uninstall CP4D Services"
+  when: cpd_is_installed
+  include_tasks: "uninstall-services.yml"
+
+# 4. Uninstall CP4D Platform
+# -----------------------------------------------------------------------------
+- name: "Uninstall CP4D Platform"
+  when: cpd_is_installed
+  include_tasks: "uninstall-platform.yml"
+
+# 5. Uninstall CP4D Prerequisites
+# -----------------------------------------------------------------------------
+- name: "Uninstall CP4D Prerequisites"
+  when: cpd_is_installed
+  include_tasks: "uninstall-prerequisites.yml"
+
+# 6. Cleanup Catalog Sources and ConfigMaps
+# -----------------------------------------------------------------------------
+- name: "Cleanup Catalog Sources and ConfigMaps"
+  when:
+    - cpd_is_installed
+    - cpd_uninstall_delete_catalog_sources
+  include_tasks: "cleanup-catalog-sources.yml"
+
+# 7. Delete PVCs (if requested)
+# -----------------------------------------------------------------------------
+- name: "Delete PVCs"
+  when:
+    - cpd_is_installed
+    - cpd_uninstall_delete_pvcs
+  include_tasks: "cleanup-pvcs.yml"
+
+# 8. Delete Namespaces (if requested)
+# -----------------------------------------------------------------------------
+- name: "Delete Namespaces"
+  when:
+    - cpd_is_installed
+    - cpd_uninstall_delete_namespaces
+  include_tasks: "cleanup-namespaces.yml"
+
+# 9. Final Summary
+# -----------------------------------------------------------------------------
+- name: "CP4D Uninstall Complete"
+  debug:
+    msg:
+      - "=========================================="
+      - "CP4D Uninstall Complete"
+      - "=========================================="
+      - "Services uninstalled: {{ cpd_is_installed | ternary('Yes', 'N/A - Not installed') }}"
+      - "Platform uninstalled: {{ cpd_is_installed | ternary('Yes', 'N/A - Not installed') }}"
+      - "Prerequisites uninstalled: {{ cpd_is_installed | ternary('Yes', 'N/A - Not installed') }}"
+      - "PVCs deleted: {{ (cpd_is_installed and cpd_uninstall_delete_pvcs) | ternary('Yes', 'No') }}"
+      - "Namespaces deleted: {{ (cpd_is_installed and cpd_uninstall_delete_namespaces) | ternary('Yes', 'No') }}"
+      - "=========================================="
+
+# Made with Bob

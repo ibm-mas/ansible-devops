@@ -1,0 +1,87 @@
+---
+# Cleanup Catalog Sources and ConfigMaps
+# This task file removes CP4D-specific catalog sources and configuration maps
+
+# 1. Delete CP4D Platform Catalog Source
+# -----------------------------------------------------------------------------
+- name: "Delete CP4D Platform Catalog Source"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: CatalogSource
+    namespace: "{{ cpd_operators_namespace }}"
+    name: cpd-platform
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+  ignore_errors: true
+
+# 2. Delete OpenCloud Operators Catalog Source
+# -----------------------------------------------------------------------------
+- name: "Delete OpenCloud Operators Catalog Source"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: CatalogSource
+    namespace: "{{ cpd_operators_namespace }}"
+    name: opencloud-operators
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+  ignore_errors: true
+
+# 3. Delete Zen Operator Catalog Source
+# -----------------------------------------------------------------------------
+- name: "Delete Zen Operator Catalog Source"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: CatalogSource
+    namespace: "{{ cpd_operators_namespace }}"
+    name: ibm-zen-operator-catalog
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+  ignore_errors: true
+
+# 4. Delete common-service-maps ConfigMap
+# -----------------------------------------------------------------------------
+- name: "Delete common-service-maps ConfigMap"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: ConfigMap
+    namespace: kube-public
+    name: common-service-maps
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+  ignore_errors: true
+
+# 5. Delete common-service-maps backup ConfigMap
+# -----------------------------------------------------------------------------
+- name: "Delete common-service-maps backup ConfigMap"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: ConfigMap
+    namespace: kube-public
+    name: common-service-maps-backup
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+  ignore_errors: true
+
+# 6. Delete olm-utils-cm ConfigMap
+# -----------------------------------------------------------------------------
+- name: "Delete olm-utils-cm ConfigMap"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: ConfigMap
+    namespace: "{{ cpd_instance_namespace }}"
+    name: olm-utils-cm
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+  ignore_errors: true
+
+- name: "Catalog sources and ConfigMaps cleaned up successfully"
+  debug:
+    msg: "CP4D catalog sources and configuration maps have been removed"
+
+# Made with Bob
