@@ -43,13 +43,15 @@
 # has no Route (no domain field in CR), then there is a delay until the operator reconciles
 # and updates the url field in the configmap. Hence, we should not take the value from
 # the configmap as it may still hold the old value (service url instead of domain).
+# If the user has explicitly provided sls_url (e.g. an external SLS instance) then we must
+# honour it and skip both the domain-based derivation and the configmap lookup/assertion.
 - name: Set sls_url when sls_domain is defined
-  when: sls_domain is defined and sls_domain != ""
+  when: sls_domain is defined and sls_domain != "" and (sls_url is not defined or sls_url == "")
   ansible.builtin.set_fact:
     sls_url: "https://{{sls_instance_name}}.{{sls_namespace}}.{{sls_domain}}"
 
 - name: "Assert that SLS url has been provided"
-  when: sls_domain is not defined or sls_domain == ""
+  when: (sls_domain is not defined or sls_domain == "") and (sls_url is not defined or sls_url == "")
   ansible.builtin.assert:
     that:
       - _sls_suite_registration.resources[0].data['url'] is defined
@@ -57,7 +59,7 @@
     fail_msg: "url is not defined in sls-suite-registration configmap"
 
 - name: Set sls_url from sls-suite-registration ConfigMap
-  when: sls_domain is not defined or sls_domain == ""
+  when: (sls_domain is not defined or sls_domain == "") and (sls_url is not defined or sls_url == "")
   ansible.builtin.set_fact:
     sls_url: "{{ _sls_suite_registration.resources[0].data['url'] }}"
 
