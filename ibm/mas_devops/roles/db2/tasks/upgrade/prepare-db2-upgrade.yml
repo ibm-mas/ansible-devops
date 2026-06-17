@@ -9,6 +9,11 @@
         name: db2u-operator
         namespace: "{{ ibm_common_services_namespace }}"
       register: db2u_manifest_info
+      until:
+        - db2u_manifest_info.resources is defined
+        - db2u_manifest_info.resources | length > 0
+      retries: 10 # Approximately 5 minutes before we give up
+      delay: 30
 
     - name: Set db2u-operator update channel to latest default channel if not provided
       set_fact:
