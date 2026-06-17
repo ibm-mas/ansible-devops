@@ -8,8 +8,8 @@
   kubernetes.core.k8s_info:
     api_version: zen.cpd.ibm.com/v1
     kind: ZenService
-    namespace: "{{ cpd_instance_namespace }}"
     name: "{{ zen_cr_name }}"
+    namespace: "{{ cpd_instance_namespace }}"
   register: zen_cr_lookup
 
 - name: "Delete ZenService Custom Resource"
@@ -81,32 +81,6 @@
   until: ibmcpd_status.resources | length == 0
   retries: 120  # 20 minutes
   delay: 10
-
-# 4. Delete CP4D Platform Operator Subscription
-# -----------------------------------------------------------------------------
-- name: "Delete CP4D Platform Operator Subscription"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    namespace: "{{ cpd_operators_namespace }}"
-    name: cpd-operator
-    wait: true
-    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
-  ignore_errors: true
-
-# 5. Delete Zen Operator Subscription
-# -----------------------------------------------------------------------------
-- name: "Delete Zen Operator Subscription"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    namespace: "{{ cpd_operators_namespace }}"
-    name: ibm-zen-operator
-    wait: true
-    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
-  ignore_errors: true
 
 - name: "CP4D Platform uninstalled successfully"
   debug:

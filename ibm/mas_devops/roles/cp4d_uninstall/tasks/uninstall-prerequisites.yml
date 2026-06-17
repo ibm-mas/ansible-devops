@@ -68,39 +68,6 @@
   retries: 60  # 10 minutes
   delay: 10
 
-# 3. Delete NamespaceScope CR
-# -----------------------------------------------------------------------------
-- name: "Check if NamespaceScope CR exists"
-  kubernetes.core.k8s_info:
-    api_version: operator.ibm.com/v1
-    kind: NamespaceScope
-    namespace: "{{ cpd_operators_namespace }}"
-    name: common-service
-  register: namespacescope_cr_lookup
-
-- name: "Delete NamespaceScope Custom Resource"
-  when: namespacescope_cr_lookup.resources | length > 0
-  kubernetes.core.k8s:
-    state: absent
-    api_version: operator.ibm.com/v1
-    kind: NamespaceScope
-    namespace: "{{ cpd_operators_namespace }}"
-    name: common-service
-    wait: true
-    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
-
-- name: "Wait for NamespaceScope CR to be deleted"
-  when: namespacescope_cr_lookup.resources | length > 0
-  kubernetes.core.k8s_info:
-    api_version: operator.ibm.com/v1
-    kind: NamespaceScope
-    namespace: "{{ cpd_operators_namespace }}"
-    name: common-service
-  register: namespacescope_status
-  until: namespacescope_status.resources | length == 0
-  retries: 60  # 10 minutes
-  delay: 10
-
 - name: "CP4D Prerequisites uninstalled successfully"
   debug:
     msg: "CP4D Prerequisites (CPFS, NamespaceScope, Licensing) have been uninstalled"

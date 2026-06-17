@@ -14,14 +14,12 @@ The role follows a specific order to ensure clean uninstallation:
 1. **Services** - Watson Studio, Watson Machine Learning, Spark, Cognos Analytics, CCS, DataRefinery
 2. **Platform** - ZenService and Ibmcpd custom resources
 3. **Prerequisites** - CPFS, NamespaceScope, IBM Licensing
-4. **OperandRequests** - All OperandRequests from operators and instance namespaces
-5. **OperandRegistry** - All OperandRegistry resources from operators namespace
-6. **OperandConfig** - All OperandConfig resources from operators namespace
-7. **Subscriptions** - All remaining operator subscriptions
-8. **CSVs** - All ClusterServiceVersions
-9. **Catalog Sources** - CP4D-specific catalog sources and ConfigMaps
-10. **PVCs** - Persistent Volume Claims (optional, disabled by default)
-11. **Namespaces** - All CP4D-related namespaces (optional, enabled by default)
+4. **ODLM Cleanup** - OperandRequest, OperandConfig, and OperandRegistry resources in both instance and operators namespaces
+5. **Subscriptions** - All remaining operator subscriptions
+6. **CSVs** - All ClusterServiceVersions
+7. **Catalog Sources** - CP4D-specific catalog sources and ConfigMaps
+8. **PVCs** - Persistent Volume Claims (optional, disabled by default)
+9. **Namespaces** - All CP4D-related namespaces (optional, enabled by default)
 
 ## Role Variables
 
@@ -107,6 +105,44 @@ Namespace for IBM Licensing.
 **Valid values**: Valid Kubernetes namespace name
 
 **Impact**: The role will remove IBM Licensing resources from this namespace.
+
+### cpd_platform_cr_name
+Name of the CP4D platform custom resource.
+
+- **Optional**
+- Environment Variable: `CPD_PLATFORM_CR_NAME`
+- Default: `ibmcpd-cr`
+
+**Purpose**: Specifies the name of the Ibmcpd custom resource that represents the CP4D platform installation.
+
+**When to use**: Use default unless you customized the platform CR name during CP4D installation.
+
+**Valid values**: Valid Kubernetes resource name
+
+**Impact**: The role will delete the Ibmcpd custom resource with this name during platform uninstallation.
+
+**Related variables**: `zen_cr_name`, `cpd_instance_namespace`
+
+**Note**: Must match the CR name used during CP4D installation.
+
+### zen_cr_name
+Name of the ZenService custom resource.
+
+- **Optional**
+- Environment Variable: `ZEN_CR_NAME`
+- Default: `lite-cr`
+
+**Purpose**: Specifies the name of the ZenService custom resource that manages the CP4D control plane.
+
+**When to use**: Use default unless you customized the Zen CR name during CP4D installation.
+
+**Valid values**: Valid Kubernetes resource name
+
+**Impact**: The role will delete the ZenService custom resource with this name during platform uninstallation.
+
+**Related variables**: `cpd_platform_cr_name`, `cpd_instance_namespace`
+
+**Note**: Must match the CR name used during CP4D installation.
 
 ### cpd_uninstall_delete_pvcs
 Delete PersistentVolumeClaims (WARNING: Permanently deletes all data).
@@ -290,9 +326,6 @@ ansible-playbook ibm.mas_devops.run_role
 - All CP4D service custom resources (Watson Studio, WML, Spark, Cognos)
 - CP4D platform custom resources (ZenService, Ibmcpd)
 - CPFS, NamespaceScope, and IBM Licensing
-- All OperandRequests from operators and instance namespaces
-- All OperandRegistry resources from operators namespace
-- All OperandConfig resources from operators namespace
 - All operator subscriptions and CSVs
 - Custom catalog sources (if enabled)
 - PVCs (if enabled)

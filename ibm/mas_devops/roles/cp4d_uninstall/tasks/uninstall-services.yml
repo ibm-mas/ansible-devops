@@ -25,7 +25,13 @@
 # 2. Delete Service Custom Resources
 # -----------------------------------------------------------------------------
 - name: "Delete Service Custom Resource"
+  when: cpd_service in installed_services
   include_tasks: "delete-service-custom-resource.yml"
+  vars:
+    service_api_version: "{{ cpd_service_info[cpd_service].cr_api_version }}"
+    service_cr_kind: "{{ cpd_service_info[cpd_service].cr_kind }}"
+    service_namespace: "{{ cpd_instance_namespace }}"
+    service_name: "{{ cpd_service_info[cpd_service].cr_name }}"
   loop: "{{ cpd_supported_services }}"
   loop_control:
     loop_var: cpd_service
@@ -34,17 +40,18 @@
 # -----------------------------------------------------------------------------
 - name: "Check if CCS CR exists"
   kubernetes.core.k8s_info:
-    api_version: ccs.cpd.ibm.com/v1
+    api_version: ccs.cpd.ibm.com/v1beta1
     kind: CCS
     namespace: "{{ cpd_instance_namespace }}"
     name: ccs-cr
   register: ccs_cr_lookup
 
+
 - name: "Delete CCS Custom Resource"
   when: ccs_cr_lookup.resources | length > 0
   kubernetes.core.k8s:
     state: absent
-    api_version: ccs.cpd.ibm.com/v1
+    api_version: ccs.cpd.ibm.com/v1beta1
     kind: CCS
     namespace: "{{ cpd_instance_namespace }}"
     name: ccs-cr
@@ -54,7 +61,7 @@
 - name: "Wait for CCS CR to be deleted"
   when: ccs_cr_lookup.resources | length > 0
   kubernetes.core.k8s_info:
-    api_version: ccs.cpd.ibm.com/v1
+    api_version: ccs.cpd.ibm.com/v1beta1
     kind: CCS
     namespace: "{{ cpd_instance_namespace }}"
     name: ccs-cr
@@ -96,81 +103,6 @@
   retries: 60  # 10 minutes
   delay: 10
 
-# 5. Delete Service Operator Subscriptions
-# -----------------------------------------------------------------------------
-- name: "Delete {{ item }} Operator Subscription"
-  when: item in installed_services
-  kubernetes.core.k8s:
-    state: absent
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    namespace: "{{ cpd_operators_namespace }}"
-    name: "{{ cpd_service_info[item].subscription_name }}"
-    wait: true
-    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
-  loop: "{{ cpd_supported_services }}"
-  loop_control:
-    loop_var: item
-  ignore_errors: true
-
-# 6. Delete Service Dependency Subscriptions
-# -----------------------------------------------------------------------------
-- name: "Delete CCS Operator Subscription"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    namespace: "{{ cpd_operators_namespace }}"
-    name: ibm-cpd-ccs
-    wait: true
-    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
-  ignore_errors: true
-
-- name: "Delete DataRefinery Operator Subscription"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    namespace: "{{ cpd_operators_namespace }}"
-    name: ibm-cpd-datarefinery
-    wait: true
-    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
-  ignore_errors: true
-
-- name: "Delete WS Runtimes Operator Subscription"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    namespace: "{{ cpd_operators_namespace }}"
-    name: ibm-cpd-ws-runtimes
-    wait: true
-    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
-  ignore_errors: true
-
-# 7. Delete Elasticsearch/OpenSearch Operator Subscription
-# -----------------------------------------------------------------------------
-- name: "Delete Elasticsearch Operator Subscription"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    namespace: "{{ cpd_operators_namespace }}"
-    name: ibm-elasticsearch-operator
-    wait: true
-    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
-  ignore_errors: true
-
-- name: "Delete OpenSearch Operator Subscription"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    namespace: "{{ cpd_operators_namespace }}"
-    name: ibm-opensearch-operator
-    wait: true
-    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
-  ignore_errors: true
 
 - name: "CP4D Services uninstalled successfully"
   debug:

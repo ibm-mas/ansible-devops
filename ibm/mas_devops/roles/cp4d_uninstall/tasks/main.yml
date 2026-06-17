@@ -39,79 +39,100 @@
   debug:
     msg: "{{ cpd_is_installed | ternary('CP4D is installed - proceeding with uninstall', 'CP4D is not installed - nothing to uninstall') }}"
 
-# 3. Uninstall CP4D Services
+# 3. Uninstall CP4D (only if installed)
 # -----------------------------------------------------------------------------
-- name: "Uninstall CP4D Services"
+- name: "Uninstall CP4D"
   when: cpd_is_installed
-  include_tasks: "uninstall-services.yml"
+  block:
+    # 3.1. Uninstall CP4D Services
+    # ---------------------------------------------------------------------------
+    - name: "Uninstall CP4D Services"
+      include_tasks: "uninstall-services.yml"
 
-# 4. Uninstall CP4D Platform
-# -----------------------------------------------------------------------------
-- name: "Uninstall CP4D Platform"
-  when: cpd_is_installed
-  include_tasks: "uninstall-platform.yml"
+    # 3.2. Uninstall CP4D Platform
+    # ---------------------------------------------------------------------------
+    - name: "Uninstall CP4D Platform"
+      include_tasks: "uninstall-platform.yml"
 
-# 5. Uninstall CP4D Prerequisites
-# -----------------------------------------------------------------------------
-- name: "Uninstall CP4D Prerequisites"
-  when: cpd_is_installed
-  include_tasks: "uninstall-prerequisites.yml"
+    # 3.4. Uninstall CP4D Prerequisites
+    # ---------------------------------------------------------------------------
+    - name: "Uninstall CP4D Prerequisites"
+      include_tasks: "uninstall-prerequisites.yml"
 
-# 6. Cleanup OperandRequests
-# -----------------------------------------------------------------------------
-- name: "Cleanup OperandRequests"
-  when: cpd_is_installed
-  include_tasks: "cleanup-operandrequests.yml"
+    # 3.3. Uninstall ODLM CRs in cpd_operators_namespace
+    # ---------------------------------------------------------------------------
+    - name: "Uninstall CP4D Services on {{ cpd_instance_namespace }}"
+      vars:
+        operands_namespace: "{{ cpd_instance_namespace }}"
+      include_tasks: "uninstall-operands.yml"
+    
+    - name: "Uninstall CP4D Services in {{ cpd_operators_namespace }}"
+      vars:
+        operands_namespace: "{{ cpd_operators_namespace }}"
+      include_tasks: "uninstall-operands.yml"
 
-# 7. Cleanup OperandRegistry
-# -----------------------------------------------------------------------------
-- name: "Cleanup OperandRegistry"
-  when: cpd_is_installed
-  include_tasks: "cleanup-operandregistry.yml"
+    # 3.4. Delete NamespaceScope CR
+    # -----------------------------------------------------------------------------
+    - name: "Check if NamespaceScope CR exists"
+      kubernetes.core.k8s_info:
+        api_version: operator.ibm.com/v1
+        kind: NamespaceScope
+        namespace: "{{ cpd_operators_namespace }}"
+        name: common-service
+      register: namespacescope_cr_lookup
 
-# 8. Cleanup OperandConfig
-# -----------------------------------------------------------------------------
-- name: "Cleanup OperandConfig"
-  when: cpd_is_installed
-  include_tasks: "cleanup-operandconfig.yml"
+    - name: "Delete NamespaceScope Custom Resource"
+      when: namespacescope_cr_lookup.resources | length > 0
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operator.ibm.com/v1
+        kind: NamespaceScope
+        namespace: "{{ cpd_operators_namespace }}"
+        name: common-service
+        wait: true
+        wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
 
-# 9. Cleanup Subscriptions
-# -----------------------------------------------------------------------------
-- name: "Cleanup Subscriptions"
-  when: cpd_is_installed
-  include_tasks: "cleanup-subscriptions.yml"
+    - name: "Wait for NamespaceScope CR to be deleted"
+      when: namespacescope_cr_lookup.resources | length > 0
+      kubernetes.core.k8s_info:
+        api_version: operator.ibm.com/v1
+        kind: NamespaceScope
+        namespace: "{{ cpd_operators_namespace }}"
+        name: common-service
+      register: namespacescope_status
+      until: namespacescope_status.resources | length == 0
+      retries: 60  # 10 minutes
+      delay: 10
 
-# 10. Cleanup ClusterServiceVersions (CSVs)
-# -----------------------------------------------------------------------------
-- name: "Cleanup ClusterServiceVersions"
-  when: cpd_is_installed
-  include_tasks: "cleanup-csvs.yml"
+    # 3.5. Cleanup Subscriptions
+    # ---------------------------------------------------------------------------
+    - name: "Cleanup Subscriptions"
+      include_tasks: "cleanup-subscriptions.yml"
 
-# 11. Cleanup Catalog Sources and ConfigMaps
-# -----------------------------------------------------------------------------
-- name: "Cleanup Catalog Sources and ConfigMaps"
-  when:
-    - cpd_is_installed
-    - cpd_uninstall_delete_catalog_sources
-  include_tasks: "cleanup-catalog-sources.yml"
+    # 3.6. Cleanup ClusterServiceVersions (CSVs)
+    # ---------------------------------------------------------------------------
+    - name: "Cleanup ClusterServiceVersions"
+      include_tasks: "cleanup-csvs.yml"
 
-# 12. Delete PVCs (if requested)
-# -----------------------------------------------------------------------------
-- name: "Delete PVCs"
-  when:
-    - cpd_is_installed
-    - cpd_uninstall_delete_pvcs
-  include_tasks: "cleanup-pvcs.yml"
+    # 3.7. Cleanup Catalog Sources and ConfigMaps
+    # ---------------------------------------------------------------------------
+    - name: "Cleanup Catalog Sources and ConfigMaps"
+      when: cpd_uninstall_delete_catalog_sources
+      include_tasks: "cleanup-catalog-sources.yml"
 
-# 13. Delete Namespaces (if requested)
-# -----------------------------------------------------------------------------
-- name: "Delete Namespaces"
-  when:
-    - cpd_is_installed
-    - cpd_uninstall_delete_namespaces
-  include_tasks: "cleanup-namespaces.yml"
+    # 3.8. Delete PVCs (if requested)
+    # ---------------------------------------------------------------------------
+    - name: "Delete PVCs"
+      when: cpd_uninstall_delete_pvcs
+      include_tasks: "cleanup-pvcs.yml"
 
-# 14. Final Summary
+    # 3.9. Delete Namespaces (if requested)
+    # ---------------------------------------------------------------------------
+    - name: "Delete Namespaces"
+      when: cpd_uninstall_delete_namespaces
+      include_tasks: "cleanup-namespaces.yml"
+
+# 4. Final Summary
 # -----------------------------------------------------------------------------
 - name: "CP4D Uninstall Complete"
   debug:
