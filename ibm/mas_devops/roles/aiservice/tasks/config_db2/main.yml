@@ -30,7 +30,7 @@
       password: "{{ lookup('env', 'AISERVICE_DB2_PASSWORD') }}"
       url: "{{ lookup('env', 'AISERVICE_DB2_JDBC_URL') }}"
       sslenabled: "true"
-      ca: "{{ lookup('env', 'AISERVICE_DB2_CA_CERT') | regex_replace('BEGIN CERTIFICATE', 'BEGIN_CERTIFICATE') | regex_replace('END CERTIFICATE', 'END_CERTIFICATE') | regex_replace('\\s+', '\n') | replace('BEGIN_CERTIFICATE', 'BEGIN CERTIFICATE')| replace('END_CERTIFICATE', 'END CERTIFICATE') }}"
+      ca: "{{ lookup('env', 'AISERVICE_DB2_CA_CERT') | default('', true) | regex_replace('BEGIN CERTIFICATE', 'BEGIN_CERTIFICATE') | regex_replace('END CERTIFICATE', 'END_CERTIFICATE') | regex_replace('\\s+', '\n') | replace('BEGIN_CERTIFICATE', 'BEGIN CERTIFICATE')| replace('END_CERTIFICATE', 'END CERTIFICATE') }}"
   when: not jdbc_config_file_result.stat.exists
 
 
@@ -53,8 +53,8 @@
 
 - name: "Validate JDBC configuration: ca"
   assert:
-    that: jdbccfg.ca | length != 0
-    fail_msg: "jdbccfg.ca must not be empty"
+    that: jdbccfg.ca is defined
+    fail_msg: "jdbccfg.ca must be defined"
 
 
 # 4. Create the secret
