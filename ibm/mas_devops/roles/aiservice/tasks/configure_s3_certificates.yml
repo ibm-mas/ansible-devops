@@ -70,24 +70,28 @@
         - set_env_result.rc != 0
         - "'already set' not in set_env_result.stderr"
 
-    - name: "Wait for km-controller pod to restart and become ready"
-      when: mount_ca_result.changed or set_env_result.changed
+    - name: "Wait for km-controller deployment to be ready"
+      when: (mount_ca_result is defined and mount_ca_result.changed) or (set_env_result is defined and set_env_result.changed)
       kubernetes.core.k8s_info:
-        api_version: v1
-        kind: Pod
+        api_version: apps/v1
+        kind: Deployment
         namespace: "{{ aiservice_namespace }}"
-        label_selectors:
-          - "app={{ aiservice_instance_id }}-km-controller"
-      register: km_pod_check
+        name: "{{ aiservice_instance_id }}-km-controller"
+      register: km_deployment_check
       until:
-        - km_pod_check.resources | length > 0
-        - km_pod_check.resources[0].status.phase == "Running"
-        - km_pod_check.resources[0].status.containerStatuses is defined
-        - km_pod_check.resources[0].status.containerStatuses | length > 0
-        - km_pod_check.resources[0].status.containerStatuses[0].ready | default(false)
-      retries: 30
+        - km_deployment_check.resources is defined
+        - km_deployment_check.resources | length > 0
+        - km_deployment_check.resources[0].status is defined
+        - km_deployment_check.resources[0].status.replicas is defined
+        - km_deployment_check.resources[0].status.replicas | int > 0
+        - km_deployment_check.resources[0].status.updatedReplicas is defined
+        - km_deployment_check.resources[0].status.updatedReplicas == km_deployment_check.resources[0].status.replicas
+        - km_deployment_check.resources[0].status.readyReplicas is defined
+        - km_deployment_check.resources[0].status.readyReplicas == km_deployment_check.resources[0].status.replicas
+        - km_deployment_check.resources[0].status.availableReplicas is defined
+        - km_deployment_check.resources[0].status.availableReplicas == km_deployment_check.resources[0].status.replicas
+      retries: 60
       delay: 10
-      ignore_errors: true
 
     - name: "Certificate configuration complete for km-controller"
       debug:
@@ -151,21 +155,25 @@
         - set_env_result_store.rc != 0
         - "'already set' not in set_env_result_store.stderr"
 
-    - name: "Wait for km-store pod to restart and become ready"
-      when: mount_ca_result_store.changed or set_env_result_store.changed
+    - name: "Wait for km-store deployment to be ready"
+      when: (mount_ca_result_store is defined and mount_ca_result_store.changed) or (set_env_result_store is defined and set_env_result_store.changed)
       kubernetes.core.k8s_info:
-        api_version: v1
-        kind: Pod
+        api_version: apps/v1
+        kind: Deployment
         namespace: "{{ aiservice_namespace }}"
-        label_selectors:
-          - "app={{ aiservice_instance_id }}-km-store"
-      register: km_store_pod_check
+        name: "{{ aiservice_instance_id }}-km-store"
+      register: km_store_deployment_check
       until:
-        - km_store_pod_check.resources | length > 0
-        - km_store_pod_check.resources[0].status.phase == "Running"
-        - km_store_pod_check.resources[0].status.containerStatuses is defined
-        - km_store_pod_check.resources[0].status.containerStatuses | length > 0
-        - km_store_pod_check.resources[0].status.containerStatuses[0].ready | default(false)
+        - km_store_deployment_check.resources is defined
+        - km_store_deployment_check.resources | length > 0
+        - km_store_deployment_check.resources[0].status is defined
+        - km_store_deployment_check.resources[0].status.conditions is defined
+        - km_store_deployment_check.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | selectattr('status', 'equalto', 'True') | list | length > 0
+        - km_store_deployment_check.resources[0].status.updatedReplicas is defined
+        - km_store_deployment_check.resources[0].status.replicas is defined
+        - km_store_deployment_check.resources[0].status.updatedReplicas == km_store_deployment_check.resources[0].status.replicas
+        - km_store_deployment_check.resources[0].status.readyReplicas is defined
+        - km_store_deployment_check.resources[0].status.readyReplicas == km_store_deployment_check.resources[0].status.replicas
       retries: 30
       delay: 10
       ignore_errors: true
