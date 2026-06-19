@@ -24,6 +24,10 @@
   when:
     - "'fd01::/48' not in (_network.result.spec.clusterNetwork | map(attribute='cidr') | list)"
 
+- name: Pause for 5 minutes
+    ansible.builtin.pause:
+      seconds: 300
+
 # 2. Wait for all nodes to report network ready
 - name: Wait for all nodes to be Ready, Schedulable and Network Ready
   kubernetes.core.k8s_info:
@@ -148,3 +152,12 @@
   until: ipv6_check is succeeded
   retries: 20
   delay: 30
+
+  - name: Wait until all cluster operators are Available=True, Progressing=False, Degraded=False
+  ansible.builtin.shell: |
+    oc get clusteroperators --no-headers | \
+    awk '$3 != "False" || $4 != "False" || $5 != "False" {exit 1}'
+  register: co_status
+  retries: 40
+  delay: 30
+  until: co_status.rc == 0
