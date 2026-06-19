@@ -1,0 +1,86 @@
+---
+# Helm Installation Path for CPD Services
+# This is the main entry point for Helm-based installations
+
+- name: "Setup Helm repository"
+  include_tasks: "setup-helm-repo.yml"
+
+- name: "Create IBM entitlement secrets"
+  block:
+    - name: "Create IBM entitlement secret in operator namespace"
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ ibm_entitlement_key_secret }}"
+            namespace: "{{ cpd_operators_namespace }}"
+          type: kubernetes.io/dockerconfigjson
+          data:
+            .dockerconfigjson: "{{ dockerconfig | to_json | b64encode }}"
+      vars:
+        dockerconfig:
+          auths:
+            cp.icr.io:
+              username: cp
+              password: "{{ ibm_entitlement_key }}"
+
+    - name: "Create IBM entitlement secret in instance namespace"
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ ibm_entitlement_key_secret }}"
+            namespace: "{{ cpd_instance_namespace }}"
+          type: kubernetes.io/dockerconfigjson
+          data:
+            .dockerconfigjson: "{{ dockerconfig | to_json | b64encode }}"
+      vars:
+        dockerconfig:
+          auths:
+            cp.icr.io:
+              username: cp
+              password: "{{ ibm_entitlement_key }}"
+
+- name: "Get component metadata"
+  set_fact:
+    component_assembly: "{{ cpd_service_info[cpd_service_name].assembly_name }}"
+    component_info: "{{ cpd_service_info[cpd_service_name] }}"
+
+- name: "Install component dependencies"
+  when:
+    - component_info.helm_dependencies is defined
+    - component_info.helm_dependencies | length > 0
+  block:
+    - name: "Install dependency: {{ dep_item.name }}"
+      include_tasks: "install-component.yml"
+      loop: "{{ component_info.helm_dependencies }}"
+      loop_control:
+        loop_var: dep_item
+      vars:
+        component_name: "{{ dep_item.name }}"
+        component_info: "{{ dep_item }}"
+    
+    # Wait for CCS if it's in the dependencies
+    - name: "Wait for CCS to be ready"
+      when: component_info.helm_dependencies | selectattr('name', 'equalto', 'ccs') | list | length > 0
+      include_tasks: "../wait/wait-ccs.yml"
+
+- name: "Install main component: {{ cpd_service_name }}"
+  include_tasks: "install-component.yml"
+  vars:
+    component_name: "{{ cpd_service_name }}"
+    component_info: "{{ cpd_service_info[cpd_service_name] }}"
+
+- name: "Wait for {{ cpd_service_name }} to be ready"
+  include_tasks: "../wait/wait-{{ cpd_service_name }}.yml"
+
+- name: "Helm installation complete"
+  debug:
+    msg:
+      - "✓ {{ cpd_service_name }} installed successfully via Helm"
+      - "Installation method: Helm"
+      - "CPD version: {{ cpd_product_version }}"

@@ -1,260 +1,62 @@
 ---
-# 1. Create olm-utils-cm config maps
+# Installation Router - Determines whether to use OLM or Helm installation
+# Based on component support matrix and user preference
+
+# 1. Load component support matrix
 # -----------------------------------------------------------------------------
-# These contains the version info for all CPD related services and dependencies
-# This will be used by the CPD operators to automatically set the target versions
-# to be installed/upgraded
-- name: "Create olm-utils-cm config map for Cloud Pak for Data release {{ cpd_product_version }}"
-  kubernetes.core.k8s:
-    apply: yes
-    template: "{{ role_path }}/../cp4d/templates/config_maps/olm-utils-cm-{{ cpd_product_version }}.yml.j2"
+- name: "Load component support matrix"
+  include_vars: "{{ role_path }}/vars/component-support.yml"
 
-- name: "Lookup olm-utils-cm config map to map versioning matrix for Cloud Pak for Data services release {{ cpd_product_version }}"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    name: "olm-utils-cm"
-    kind: ConfigMap
-    namespace: "{{ cpd_instance_namespace }}"
-  register: cpd_cm_info
-
-- set_fact:
-    cpd_components_meta: "{{ cpd_cm_info.resources[0].data.release_components_meta | from_yaml }}"
-    cpd_assembly_name: "{{ cpd_service_info[cpd_service_name].assembly_name }}"
-    cpd_service_package_name: "{{ cpd_service_info[cpd_service_name].package_name }}"
-    cpd_service_csv_name: "{{ cpd_service_info[cpd_service_name].csv_name }}"
-    cpd_service_kind: "{{ cpd_service_info[cpd_service_name].crd_kind }}"
-    cpd_service_cr_name: "{{ cpd_service_info[cpd_service_name].cr_name }}"
-    cpd_service_api_version: "{{ cpd_service_info[cpd_service_name].api_version }}"
-
-- name: "Set {{ cpd_service_name }} versions for cr, csv and sub_channel"
-  set_fact:
-    cpd_service_cr_version: "{{ cpd_components_meta[cpd_assembly_name].cr_version }}"
-    cpd_service_csv_version: "{{ cpd_components_meta[cpd_assembly_name].csv_version }}"
-    cpd_service_channel: "{{ cpd_components_meta[cpd_assembly_name].sub_channel | default(cpd_service_info[cpd_service_name].sub_channel, true) }}" # search sub_channel in olm-utils-cm, if does not exist then use the default
-
-# Debug upgrade or new install
-- name: "Lookup existing {{ cpd_service_kind }} CR named '{{ cpd_service_cr_name }}'"
-  kubernetes.core.k8s_info:
-    api_version: "{{ cpd_service_api_version }}"
-    name: "{{ cpd_service_cr_name }}"
-    namespace: "{{ cpd_instance_namespace }}"
-    kind: "{{ cpd_service_kind }}"
-  register: existing_cpd_service_lookup
-
-- debug:
-    var: existing_cpd_service_lookup
-
-# This is needed to understand existing and target versions for the upgrade
-- name: Set existing '{{ cpd_service_cr_name }}' version if needed
-  when:
-    - existing_cpd_service_lookup.resources is defined
-    - existing_cpd_service_lookup.resources | length > 0
-    - existing_cpd_service_lookup.resources[0].spec.version is defined
-    - existing_cpd_service_lookup.resources[0].spec.version != ""
-  set_fact:
-    existing_cpd_service_cr_version: "{{ existing_cpd_service_lookup.resources[0].spec.version }}"
-    existing_cpd_service_minor_version: "{{ existing_cpd_service_lookup.resources[0].spec.version | regex_search('(?<=)(.*)(?=..)') }}"
-
-- name: "Debug existing {{ cpd_service_name }} installed version"
-  when: existing_cpd_service_cr_version is defined
-  debug:
-    var: existing_cpd_service_cr_version
-
-- name: Check if this is a new install or upgrade
-  set_fact:
-    is_cpd_service_upgrade: "{{ (existing_cpd_service_cr_version is defined and existing_cpd_service_cr_version is version(cpd_service_cr_version, '<')) | ternary(true, false) | bool }}"
-
-
-# 2. Load default storage classes and debug
+# 2. Determine installation method
 # -----------------------------------------------------------------------------
-- name: "Determine storage classes"
-  include_tasks: "determine-storage-classes.yml"
+- name: "Get component support information"
+  set_fact:
+    component_support: "{{ component_support_matrix[cpd_service_name] | default({}) }}"
 
-- name: "Debug: Cloud Pak for Data service '{{ cpd_service_name }}' - version {{ cpd_product_version }} : Debug information"
+- name: "Determine installation method for {{ cpd_service_name }}"
+  set_fact:
+    resolved_install_method: >-
+      {%- if cpd_install_method == 'helm' -%}
+        {%- if component_support.support_helm | default(false) -%}
+          helm
+        {%- else -%}
+          {{ fail('Component ' + cpd_service_name + ' does not support Helm installation') }}
+        {%- endif -%}
+      {%- elif cpd_install_method == 'olm' -%}
+        {%- if component_support.support_olm | default(false) -%}
+          olm
+        {%- else -%}
+          {{ fail('Component ' + cpd_service_name + ' does not support OLM installation') }}
+        {%- endif -%}
+      {%- else -%}
+        {%- if component_support.required_method is defined -%}
+          {{ component_support.required_method }}
+        {%- elif component_support.support_olm | default(false) -%}
+          olm
+        {%- elif component_support.support_helm | default(false) -%}
+          helm
+        {%- else -%}
+          {{ fail('Component ' + cpd_service_name + ' has no supported installation method') }}
+        {%- endif -%}
+      {%- endif -%}
+
+- name: "Installation method selected for {{ cpd_service_name }}"
   debug:
     msg:
-      - "CPD Operator Namespace ................. {{ cpd_operators_namespace }}"
-      - "CPD Instance Namespace ................. {{ cpd_instance_namespace }}"
-      - "CPD Service Name ....................... {{ cpd_service_name }}"
-      - "CPD Service File storage class ......... {{ cpd_service_storage_class }}"
-      - "CPD Service Block storage class ........ {{ cpd_service_block_storage_class | default('N/A', true) }}"
-      - "CPD Service Action ..................... {{ (is_cpd_service_upgrade) | ternary('Upgrading from version '+existing_cpd_service_cr_version | default('N/A', true), 'New Install') }}"
-      - "CPD Service Version .................... {{ cpd_service_cr_version }}"
-      - "CPD Service Subscription channel ....... {{ cpd_service_channel }}"
-      - "CPD Service CSV name ................... {{ cpd_service_csv_name }}"
-      - "CPD Service CSV version ................ {{ cpd_service_csv_version }}"
+      - "Component: {{ cpd_service_name }}"
+      - "User preference: {{ cpd_install_method }}"
+      - "Selected method: {{ resolved_install_method }}"
+      - "Support OLM: {{ component_support.support_olm | default(false) }}"
+      - "Support Helm: {{ component_support.support_helm | default(false) }}"
 
-
-# 3. Run Pre-req task
+# 3. Route to appropriate installation method
 # -----------------------------------------------------------------------------
-# Only Watson Discovery has special pre-reqs currently (EDB Postgress in CPD 4.5 and 4.6)
-- name: Run Install Prereqs
-  when:
-    - cpd_service_name is in ['wd', 'spss']
-  include_tasks: "prereqs/prereqs-{{ cpd_service_name }}.yml"
+- name: "Install {{ cpd_service_name }} via OLM"
+  when: resolved_install_method == 'olm'
+  include_tasks: "olm/install-olm.yml"
 
+- name: "Install {{ cpd_service_name }} via Helm"
+  when: resolved_install_method == 'helm'
+  include_tasks: "helm/install-helm.yml"
 
-# 4. Install Operand Configs and Operand Registries
-# -----------------------------------------------------------------------------
-# If it's CPD 4.6, only Watson Studio, Watson Discovery and Cognos Analytics requires these operand configs to be applied via this automation.
-# If it's CPD 4.5, only Watson Studio and Watson Discovery requires these operand configs to be applied via this automation.
-# If it's CPD 4.0.x, no need to apply operand configs at all, as these will be automatically be set while installing services requiring it.
-- name: Install Operand Configs and Operand Registries
-  kubernetes.core.k8s:
-    apply: yes
-    template: "templates/operand_config/cpd_dependencies.yml.j2"
-  when: cpd_service_name is in ['wd', 'wsl', 'ca', 'spss']
-
-# Pre-create Cloud Pak for Data service accounts including ibm-entitlement-key in imagePullSecrets
-# -----------------------------------------------------------------------------
-- name: Pre-create Cloud Pak for Data service accounts including ibm-entitlement-key in imagePullSecrets
-  include_tasks: "tasks/create-cpd-service-accounts.yml"
-  when: not skip_ibm_entitlement_injection
-
-# TODO: Add code to check if existing sub cvs is different from the olm-utils, if so then delete sub otherwise skip sub deletion
-# Clean up old ibm-common-service operator
-- name: "Clean up existing CP4D Service 'cpd-{{ cpd_service_name }}-operator' csv from {{ cpd_operators_namespace }}"
-  vars:
-    operator_name: "{{ cpd_service_package_name }}"
-    operator_namespace: "{{ cpd_operators_namespace }}"
-    operator_expected_csv: "{{ cpd_service_package_name }}.v{{ cpd_service_csv_version }}"
-  include_tasks: "{{ role_path }}/../cp4d/tasks/prereqs/uninstall-operator.yml"
-
-
-# 5. Install CP4D Service Subscriptions
-# -----------------------------------------------------------------------------
-- name: "Create CP4D Service Subscription"
-  ibm.mas_devops.apply_subscription:
-    namespace: "{{ cpd_operators_namespace }}"
-    package_name: "{{ cpd_service_package_name }}"
-    package_channel: "{{ cpd_service_channel }}"
-    catalog_source: "{{ cpd_service_info[cpd_service_name].catalog_source }}"
-  register: subscription
-
-# Install dependency subscriptions for services requiring CCS
-# (Watson Studio, Watson Machine Learning, Cognos Analytics)
-- name: "Create CCS Subscription"
-  when: cpd_service_name is in cpd_services_requiring_ccs
-  ibm.mas_devops.apply_subscription:
-    namespace: "{{ cpd_operators_namespace }}"
-    package_name: "ibm-cpd-ccs"
-    package_channel: "{{ cpd_components_meta.ccs.sub_channel }}"
-    catalog_source: "ibm-operator-catalog"
-
-- name: "Create DataRefinery Subscription"
-  when: cpd_service_name is in cpd_services_requiring_ccs
-  ibm.mas_devops.apply_subscription:
-    namespace: "{{ cpd_operators_namespace }}"
-    package_name: "ibm-cpd-datarefinery"
-    package_channel: "{{ cpd_components_meta.datarefinery.sub_channel }}"
-    catalog_source: "ibm-operator-catalog"
-
-- name: "Create WS Runtimes Subscription"
-  when: cpd_service_name is in cpd_services_requiring_ccs
-  ibm.mas_devops.apply_subscription:
-    namespace: "{{ cpd_operators_namespace }}"
-    package_name: "ibm-cpd-ws-runtimes"
-    package_channel: "{{ cpd_components_meta.ws_runtimes.sub_channel }}"
-    catalog_source: "ibm-operator-catalog"
-
-# Install Elasticsearch subscription for specific services
-- name: "Create Elasticsearch Subscription"
-  when: cpd_service_name is in ['wsl','wml','ca']
-  ibm.mas_devops.apply_subscription:
-    namespace: "{{ cpd_operators_namespace }}"
-    package_name: "ibm-elasticsearch-operator"
-    package_channel: "{{ cpd_components_meta.opencontent_elasticsearch.sub_channel }}"
-    catalog_source: "ibm-operator-catalog"
-
-
-# 6. Wait until the Service CRD is available
-# -----------------------------------------------------------------------------
-- name: "Wait until the {{ cpd_service_info[cpd_service_name].crd_name }} CRD is available"
-  kubernetes.core.k8s_info:
-    api_version: apiextensions.k8s.io/v1
-    name: "{{ cpd_service_info[cpd_service_name].crd_name }}"
-    kind: CustomResourceDefinition
-    wait: yes
-    wait_sleep: 10
-    wait_timeout: 300 # 5 mins until we give up waiting for the CRD to get into the expected state
-    wait_condition:
-      type: NamesAccepted
-      status: "True"
-  register: service_crd_info
-  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
-  delay: 5 # seconds
-  until:
-    - service_crd_info.resources is defined
-    - service_crd_info.resources | length > 0
-
-
-# 7. Install CP4D Service CRs
-# -----------------------------------------------------------------------------
-- name: "Install Service CR"
-  kubernetes.core.k8s:
-    apply: yes
-    template: "templates/services/{{ cpd_service_name }}.yml.j2"
-
-# This is just a validation step to prevent the "wait tasks" to run before it gives enough time for the new cpd service operator version
-# to start reconciling in case of an upgrade, otherwise it might not have given enough time for it to process the new version to be upgrade
-# while its status' cr might still show 'completed'.
-# With this, we ensure the new cpd service csv version operator is up and running with the new cr version before we check the cpd cr status
-- name: "Wait CPD services subscription installedCSV version at {{ expected_installed_csv }}"
-  vars:
-    expected_installed_csv: "{{ cpd_service_info[cpd_service_name].csv_name }}.v{{ cpd_service_csv_version }}"
-  kubernetes.core.k8s_info:
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    namespace: "{{ cpd_operators_namespace }}"
-    name: "{{ cpd_service_package_name }}"
-    label_selectors:
-      - "operators.coreos.com/{{ cpd_service_package_name }}.{{ cpd_operators_namespace }}"
-  register: cpd_sub_info
-  retries: 20
-  delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
-  until:
-    - cpd_sub_info.resources is defined
-    - cpd_sub_info.resources | length > 0
-    - cpd_sub_info.resources[0].status is defined
-    - cpd_sub_info.resources[0].status.installedCSV is defined
-    - cpd_sub_info.resources[0].status.installedCSV == expected_installed_csv
-
-# some service operators like wd takes quite some time to start reconciling the upgrade and set cr status to in progress
-# so adding a wait to let operator have enough time to set the proper cr status, this entire install/upgrade process will take much more than 5 minutes anyway...
-- name: "Pause for 5 minutes before checking cpd service {{ cpd_service_name }} cr status..."
-  pause:
-    minutes: 5
-
-# 8. Wait for CP4D Service to be ready
-# -----------------------------------------------------------------------------
-- name: "Wait for the service to be ready"
-  include_tasks: "wait/wait-{{ cpd_service_name }}.yml"
-
-
-# 9. Provide CP4D dashboard URL
-# -----------------------------------------------------------------------------
-- name: "Lookup admin credentials if they haven't been provided already"
-  include_tasks: "{{ role_path }}/../cp4d/tasks/lookup-admin-credentials.yml"
-
-
-# 10. Debug Cloud Pak for Data installation details
-# -----------------------------------------------------------------------------
-- name: "Debug : Cloud Pak for Data {{ cpd_product_version }} details"
-  debug:
-    msg:
-      - "CP4D Dashboard ......................... {{ cpd_admin_url }}"
-      - "CP4D Admin Username .................... {{ cpd_admin_username }}"
-      - "CP4D Admin Password .................... {{ cpd_admin_password_text }}"
-      - "CP4D Service Installed ................. {{ cpd_service_name }}"
-
-
-# 11. Generate MAS Config
-# -----------------------------------------------------------------------------
-# Only Watson Studio and Watson Discovery generate a configuration in config
-# folder for later usage
-- name: Generate MAS Config into {{ mas_config_dir }} folder
-  when:
-    - mas_instance_id is defined and mas_instance_id != ""
-    - mas_config_dir is defined and mas_config_dir != ""
-    - cpd_service_name is in ['wsl','wd']
-  include_tasks: "gencfg/gencfg-{{ cpd_service_name }}.yml"
+# Made with Bob
