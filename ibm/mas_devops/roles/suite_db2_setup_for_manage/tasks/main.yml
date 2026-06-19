@@ -76,14 +76,14 @@
 # the setup, however this file will be lost after pod restarts.
 - name: Run setupdb to prepare Db2 for use with Maximo TPAE
   shell: |
-    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc '/tmp/setupdb.sh | tee /tmp/setupdb.log' db2inst1
+    oc exec -n {{db2_namespace}} {{db2_pod_name}} -c db2u -- bash -l -c '/tmp/setupdb.sh | tee /tmp/setupdb.log'
   register: prepare_cmds_status
   ignore_errors: true
   retries: 10
   delay: 30 # seconds
   until:
     - prepare_cmds_status.rc == 0  ## Always going to be zero in this case, but let's check anyway.
-    - prepare_cmds_status.stdout | regex_search('DBstatus-Success', multiline=True)
+    - prepare_cmds_status.stdout | regex_search('DBstatus-Success', multiline=True) | length > 0
 
 - name: "Print setupdb.sh return code"
   when: prepare_cmds_status.rc is defined
@@ -92,7 +92,8 @@
       - "SetupDB return code (rc) .......................... {{ prepare_cmds_status.rc }}"
       - "SetupDB Registered Status  ........................ {{ prepare_cmds_status }}"
 
-- name: "Database setup debug information"
+- name: "
+  when: prepare_cmds_status.stdout is defined
   debug:
     msg:
       - "Result (stdout) ........................ {{ prepare_cmds_status.stdout }}"
@@ -103,11 +104,70 @@
     that:
       - prepare_cmds_status.rc is defined
       - prepare_cmds_status.rc == 0
-      - prepare_cmds_status.stdout | regex_search('DBstatus-Success', multiline=True)
+      - prepare_cmds_status.stdout | regex_search('DBstatus-Success', multiline=True) | length > 0
     fail_msg: "setupdb.sh failed for Manage Maxinst -  tablespace or bufferpools may not have been created"
     success_msg: "Manage DB setup ran successfully"
 
 
-# 4. Execute DB2 config enforcement
+# 4. Grant DB2 roles (temporary workaround for pre-release next-gen DB2U Helm chart)
+# -----------------------------------------------------------------------------
+# This is only needed when using the Helm-based DB2 operator
+- name: Create grantroles script in local /tmp
+  when: db2_use_helm_operator | default(false) | bool
+  ansible.builtin.template:
+    src: grantroles.sh.j2
+    dest: /tmp/grantroles.sh
+    mode: '777'
+
+- name: Copy the grantroles script into the db2u pod
+  when: db2_use_helm_operator | default(false) | bool
+  shell: "oc cp /tmp/grantroles.sh {{ db2_namespace }}/{{ db2_pod_name }}:/tmp/grantroles.sh -c db2u"
+  register: copy_grantroles_result
+  retries: 10
+  delay: 30 # seconds
+  until: copy_grantroles_result.rc == 0
+
+- name: Run grantroles to grant DB2 roles
+  when: db2_use_helm_operator | default(false) | bool
+  shell: |
+    oc exec -n {{db2_namespace}} {{db2_pod_name}} -c db2u -- bash -l -c '/tmp/grantroles.sh | tee /tmp/grantroles.log'
+  register: grantroles_status
+  ignore_errors: true
+  retries: 10
+  delay: 30 # seconds
+  until:
+    - grantroles_status.rc == 0
+    - grantroles_status.stdout | regex_search('DBstatus-Success', multiline=True) | length > 0
+
+- name: "Print grantroles.sh return code"
+  when:
+    - db2_use_helm_operator | default(false) | bool
+    - grantroles_status.rc is defined
+  debug:
+    msg:
+      - "GrantRoles return code (rc) .......................... {{ grantroles_status.rc }}"
+      - "GrantRoles Registered Status  ........................ {{ grantroles_status }}"
+
+- name: "Role grants debug information"
+  when:
+    - db2_use_helm_operator | default(false) | bool
+    - grantroles_status.stdout is defined
+  debug:
+    msg:
+      - "Result (stdout) ........................ {{ grantroles_status.stdout }}"
+      - "result (stderr) ........................ {{ grantroles_status.stderr }}"
+
+- name: Assert that DB2 roles were granted successfully
+  when: db2_use_helm_operator | default(false) | bool
+  assert:
+    that:
+      - grantroles_status.rc is defined
+      - grantroles_status.rc == 0
+      - grantroles_status.stdout | regex_search('DBstatus-Success', multiline=True) | length > 0
+    fail_msg: "grantroles.sh failed - DB2 roles may not have been granted"
+    success_msg: "DB2 roles granted successfully"
+
+
+# 5. Execute DB2 config enforcement
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/db2_dbconfig.yml
