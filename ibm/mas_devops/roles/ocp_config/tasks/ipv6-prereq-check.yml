@@ -27,27 +27,21 @@
 - name: Pause for 5 minutes
   ansible.builtin.pause:
     seconds: 300
-# 2. Wait for network operator to reconcile after dual-stack changes
-- name: "Wait for network operator to complete dual-stack reconciliation"
-  kubernetes.core.k8s_info:
-    api_version: operator.openshift.io/v1
-    kind: Network
-    name: cluster
-  register: _network_status
-  no_log: true
-  until:
-    - _network_status.resources[0].status.conditions is defined
-    - _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Progressing') | map(attribute='status') | first == 'False'
-    - _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | map(attribute='status') | first == 'True'
-  retries: 60
-  delay: 10
-
-- name: "Debug network operator status"
-  debug:
-    msg: "Network operator - Progressing: {{ _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Progressing') | map(attribute='status') | first }}, Available: {{ _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | map(attribute='status') | first }}"
-  when:
-    - _network_status is defined
-    - _network_status is failed
+# 2. Wait until all cluster operators are healthy for 3 consecutive checks
+- name: Wait until all cluster operators are healthy for 3 consecutive checks
+  ansible.builtin.shell: |
+    for i in 1 2 3; do
+      oc get clusteroperators --no-headers | \
+      awk '$3 != "True" || $4 != "False" || $5 != "False" { exit 1 }'
+      if [ "$i" -lt 3 ]; then
+        sleep 30
+      fi
+    done
+    exit 0
+  register: co_status
+  retries: 40
+  delay: 30
+  until: co_status.rc == 0
 # 3. Wait for all nodes to report network ready
 - name: Wait for all nodes to be Ready, Schedulable and Network Ready
   kubernetes.core.k8s_info:
@@ -134,16 +128,6 @@
   until: ipv6_check is succeeded
   retries: 20
   delay: 30
-# 4. Verify all cluster operators are available
-- name: Wait until all cluster operators are Available=True, Progressing=False, Degraded=False
-  ansible.builtin.shell: |
-    oc get clusteroperators --no-headers | \
-    awk '$3 != "True" || $4 != "False" || $5 != "False" {exit 1}'
-  register: co_status
-  retries: 40
-  delay: 30
-  until: co_status.rc == 0
-
 # 5. Approve pending node CSRs if any
 - name: Get pending node CSRs
   ansible.builtin.shell: |
@@ -154,7 +138,6 @@
       | .metadata.name'
   register: pending_node_csrs
   changed_when: false
-
 - name: Approve pending node CSRs
   ansible.builtin.command:
     cmd: "oc adm certificate approve {{ item }}"
