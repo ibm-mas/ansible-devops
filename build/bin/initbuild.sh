@@ -11,7 +11,7 @@ pip install --quiet pyyaml yamllint
 VERSION_FILE=$GITHUB_WORKSPACE/.version
 
 if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-  echo "Note: non-branch build for '${GITHUB_REF_TYPE}/${GITHUB_REF_NAME}'"
+  echo "Non-branch build for '${GITHUB_REF_TYPE}/${GITHUB_REF_NAME}'"
   TAG_BASED_RELEASE=true
 
   SEMVER_XYZ="(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
@@ -26,7 +26,7 @@ if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
 
   echo "${GITHUB_REF_NAME}" > $VERSION_FILE
 elif [[ "${GITHUB_REF_TYPE}" == "branch" ]]; then
-  echo "Note: branch build for'${GITHUB_REF_TYPE}/${GITHUB_REF_NAME}'"
+  echo "Branch build for '${GITHUB_REF_TYPE}/${GITHUB_REF_NAME}'"
   # Finds the most recent tag that is reachable from a commit. If the tag points
   # to the commit, then only the tag is shown. Otherwise, it suffixes the tag name with the number
   # of additional commits on top of the tagged object and the abbreviated object name of the most
@@ -89,6 +89,7 @@ elif [[ "${GITHUB_REF_TYPE}" == "branch" ]]; then
   fi
 else
   echo "Unknown GITHUB_REF_TYPE: ${GITHUB_REF_TYPE}"
+  exit 1
 fi
 
 
