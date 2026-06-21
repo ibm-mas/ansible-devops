@@ -273,7 +273,7 @@ export MAS_APP_SETTINGS_CUSTOM_PVC_SIZE=20Gi
 export MAS_APP_SETTINGS_CUSTOM_MOUNT_PATH=/MyOwnDir
 export MAS_APP_SETTINGS_CUSTOM_PV_FILE_PATH=/my-path/manage-pv.yml
 
-ROLE_NAME='suite_manage_pvc_config' ansible-playbook ansible-devops/playbooks/run_role.yml
+ROLE_NAME='suite_manage_pvc_config' ansible-playbook ibm.mas_devops.run_role
 ```
 
 ## License
