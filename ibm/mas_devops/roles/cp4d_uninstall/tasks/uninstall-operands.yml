@@ -1,0 +1,66 @@
+---
+# Uninstall CP4D Operands
+# This task file removes all Operands services in the correct order
+
+# 1. Delete installed OperandRequest
+# -----------------------------------------------------------------------------
+- name: "Detect installed OperandRequest"
+  kubernetes.core.k8s_info:
+    api_version: "operator.ibm.com/v1alpha1"
+    kind: "OperandRequest"
+    namespace: "{{ operands_namespace }}"
+  register: operandrequest_detection
+
+- name: "Delete OperandRequest Custom Resources"
+  when: operandrequest_detection.resources | length > 0
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operator.ibm.com/v1alpha1
+    kind: OperandRequest
+    namespace: "{{ operands_namespace }}"
+    name: "{{ item.metadata.name }}"
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+  loop: "{{ operandrequest_detection.resources }}"
+
+# 2. Delete installed OperandConfig
+# -----------------------------------------------------------------------------
+- name: "Detect installed OperandConfig"
+  kubernetes.core.k8s_info:
+    api_version: "operator.ibm.com/v1alpha1"
+    kind: "OperandConfig"
+    namespace: "{{ operands_namespace }}"
+  register: operandconfig_detection
+
+- name: "Delete OperandConfig Custom Resources"
+  when: operandconfig_detection.resources | length > 0
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operator.ibm.com/v1alpha1
+    kind: OperandConfig
+    namespace: "{{ operands_namespace }}"
+    name: "{{ item.metadata.name }}"
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+  loop: "{{ operandconfig_detection.resources }}"
+
+# 3. Delete installed OperandRequest
+# -----------------------------------------------------------------------------
+- name: "Detect installed OperandRegistry"
+  kubernetes.core.k8s_info:
+    api_version: "operator.ibm.com/v1alpha1"
+    kind: "OperandRegistry"
+    namespace: "{{ operands_namespace }}"
+  register: operandregistry_detection
+
+- name: "Delete OperandRegistry Custom Resources"
+  when: operandregistry_detection.resources | length > 0
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operator.ibm.com/v1alpha1
+    kind: OperandRegistry
+    namespace: "{{ operands_namespace }}"
+    name: "{{ item.metadata.name }}"
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+  loop: "{{ operandregistry_detection.resources }}"
