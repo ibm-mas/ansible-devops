@@ -2,7 +2,36 @@
 # Cleanup CP4D ClusterServiceVersions (CSVs)
 # This task file removes all remaining CP4D-related CSVs
 
-# 1. Get all CSVs in operators namespace
+# 1. Get all CSVs in CS control namespace
+# -----------------------------------------------------------------------------
+- name: "Get all CSVs in {{ cpd_cs_control_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ cpd_cs_control_namespace }}"
+  register: cs_csvs
+
+- name: "Debug: Found CS CSVs"
+  debug:
+    msg: "Found {{ cs_csvs.resources | length }} CSV(s) in {{ cpd_cs_control_namespace }}"
+
+# 2. Delete all CS CSVs
+# -----------------------------------------------------------------------------
+- name: "Delete CSVs from {{ cpd_cs_control_namespace }}"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ cpd_cs_control_namespace }}"
+    name: "{{ item.metadata.name }}"
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+  loop: "{{ cs_csvs.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  when: cs_csvs.resources | length > 0
+
+# 3. Get all CSVs in operators namespace
 # -----------------------------------------------------------------------------
 - name: "Get all CSVs in {{ cpd_operators_namespace }}"
   kubernetes.core.k8s_info:
@@ -15,7 +44,7 @@
   debug:
     msg: "Found {{ all_csvs.resources | length }} CSV(s) in {{ cpd_operators_namespace }}"
 
-# 2. Delete all CSVs
+# 4. Delete all CSVs
 # -----------------------------------------------------------------------------
 - name: "Delete CSVs from {{ cpd_operators_namespace }}"
   kubernetes.core.k8s:
@@ -31,34 +60,6 @@
     label: "{{ item.metadata.name }}"
   when: all_csvs.resources | length > 0
 
-# 3. Get all CSVs in CS control namespace
-# -----------------------------------------------------------------------------
-- name: "Get all CSVs in {{ cpd_cs_control_namespace }}"
-  kubernetes.core.k8s_info:
-    api_version: operators.coreos.com/v1alpha1
-    kind: ClusterServiceVersion
-    namespace: "{{ cpd_cs_control_namespace }}"
-  register: cs_csvs
-
-- name: "Debug: Found CS CSVs"
-  debug:
-    msg: "Found {{ cs_csvs.resources | length }} CSV(s) in {{ cpd_cs_control_namespace }}"
-
-# 4. Delete all CS CSVs
-# -----------------------------------------------------------------------------
-- name: "Delete CSVs from {{ cpd_cs_control_namespace }}"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: operators.coreos.com/v1alpha1
-    kind: ClusterServiceVersion
-    namespace: "{{ cpd_cs_control_namespace }}"
-    name: "{{ item.metadata.name }}"
-    wait: true
-    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
-  loop: "{{ cs_csvs.resources }}"
-  loop_control:
-    label: "{{ item.metadata.name }}"
-  when: cs_csvs.resources | length > 0
 
 # Wait for deletion confirmation
 # -----------------------------------------------------------------------------

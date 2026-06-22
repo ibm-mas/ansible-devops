@@ -70,6 +70,51 @@
   retries: 60  # 10 minutes
   delay: 10
 
+- name: Check if Catalog API Licensing Request OperandRequest exists
+  kubernetes.core.k8s_info:
+    api_version: operator.ibm.com/v1alpha1
+    kind: OperandRequest
+    namespace: "{{ cpd_instance_namespace }}"
+    name: catalog-api-ibm-licensing-request
+  register: catalog_api_lookup
+
+- name: Delete Catalog API OperandRequest
+  when: catalog_api_lookup.resources | length > 0
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operator.ibm.com/v1alpha1
+    kind: OperandRequest
+    namespace: "{{ cpd_instance_namespace }}"
+    name: catalog-api-ibm-licensing-request
+  ignore_errors: true
+
+- name: "Wait for Catalog API OperandRequest to be deleted"
+  when: catalog_api_lookup.resources | length > 0
+  kubernetes.core.k8s_info:
+    api_version: operator.ibm.com/v1alpha1
+    kind: OperandRequest
+    namespace: "{{ cpd_instance_namespace }}"
+    name: catalog-api-ibm-licensing-request
+  register: catalog_api_status
+  until: catalog_api_status.resources | length == 0
+  retries: 60  # 10 minutes
+  delay: 10
+  ignore_errors: true
+
+- name: Remove finalizer from Catalog API OperandRequest if stuck in deletion
+  when: 
+    - catalog_api_lookup.resources | length > 0
+    - catalog_api_lookup.resources[0].metadata.deletionTimestamp is defined
+  kubernetes.core.k8s:
+    state: patched
+    api_version: operator.ibm.com/v1alpha1
+    kind: OperandRequest
+    namespace: "{{ cpd_instance_namespace }}"
+    name: catalog-api-ibm-licensing-request
+    definition:
+      metadata:
+        finalizers: []
+
 # 4. Delete DataRefinery CR
 # -----------------------------------------------------------------------------
 - name: "Check if DataRefinery CR exists"

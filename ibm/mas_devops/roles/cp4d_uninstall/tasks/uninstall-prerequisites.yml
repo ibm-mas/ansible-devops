@@ -1,6 +1,6 @@
 ---
 # Uninstall CP4D Prerequisites
-# This task file removes CPFS, NamespaceScope, and IBM Licensing
+# This task file removes CPFS and IBM Licensing
 
 # 1. Delete IBM Licensing CR
 # -----------------------------------------------------------------------------
@@ -41,6 +41,37 @@
   kubernetes.core.k8s_info:
     api_version: operator.ibm.com/v3
     kind: CommonService
+    namespace: "{{ cpd_instance_namespace }}"
+    name: common-service
+  register: commonservice_cr_lookup
+
+- name: "Delete CommonService Custom Resource"
+  when: commonservice_cr_lookup.resources | length > 0
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operator.ibm.com/v3
+    kind: CommonService
+    namespace: "{{ cpd_instance_namespace }}"
+    name: common-service
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+
+- name: "Wait for CommonService CR to be deleted"
+  when: commonservice_cr_lookup.resources | length > 0
+  kubernetes.core.k8s_info:
+    api_version: operator.ibm.com/v3
+    kind: CommonService
+    namespace: "{{ cpd_instance_namespace }}"
+    name: common-service
+  register: commonservice_status
+  until: commonservice_status.resources | length == 0
+  retries: 60  # 10 minutes
+  delay: 10
+
+- name: "Check if CommonService CR exists"
+  kubernetes.core.k8s_info:
+    api_version: operator.ibm.com/v3
+    kind: CommonService
     namespace: "{{ cpd_operators_namespace }}"
     name: common-service
   register: commonservice_cr_lookup
@@ -70,6 +101,6 @@
 
 - name: "CP4D Prerequisites uninstalled successfully"
   debug:
-    msg: "CP4D Prerequisites (CPFS, NamespaceScope, Licensing) have been uninstalled"
+    msg: "CP4D Prerequisites (CPFS, Licensing) have been uninstalled"
 
 # Made with Bob
