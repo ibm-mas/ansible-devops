@@ -7,7 +7,11 @@
 
 - name: "create gateway : Determine gateway name"
   set_fact:
-    gateway_name: "gateway-{{ route_reference.metadata.name }}"
+    route: "{{ ns_suffix }}-{{ route_reference.metadata.name | regex_replace('^'+mas_instance+'-', '') }}"
+
+- name: "create gateway : Determine gateway name"
+  set_fact:
+    gateway_name: "gateway-{{ route }}"
 
 - debug:
     msg:
@@ -15,12 +19,11 @@
 
 - name: "create gateway : Set facts for Virtual Service"
   set_fact:
-    route: "{{ route_reference.metadata.name | regex_replace('^'+mas_instance+'-', '') }}"
     service_name: "{{ route_reference.spec.to.name }}"
-    service_namespace: "{{ route_reference.metadata.namespace }}"
+    service_namespace: "{{ route_reference.metadata.namespace | default( targetNamespace )}}"
     gateway_service: "{{ gateway_name }}"
     route_host: "{{ route_reference.spec.host }}"
-    route_path: "{{ route_reference.spec.path }}"
+    route_path: "{{ route_reference.spec.path | default('')}}"
     route_tls: "{{ route_reference.spec.tls }}"
 
 - name: "create gateway : Create Service Mesh Gateway Deployment"
@@ -40,16 +43,6 @@
     template: "templates/gateway-passthrough-cr.yml.j2"
     wait: yes
     wait_timeout: 120
-
-- name: "create gateway : Set facts for Virtual Service"
-  set_fact:
-    route: "{{ route_reference.metadata.name | regex_replace('^'+mas_instance+'-', '') }}"
-    service_name: "{{ route_reference.spec.to.name }}"
-    service_namespace: "{{ route_reference.metadata.namespace }}"
-    gateway_service: "{{ gateway_name }}"
-    route_host: "{{ route_reference.spec.host }}"
-    route_path: "{{ route_reference.spec.path }}"
-    route_tls: "{{ route_reference.spec.tls }}"
 
 - name: "create gateway : Create Virtual Service for {{route}} to {{service_name}}"
   kubernetes.core.k8s:
