@@ -7,38 +7,112 @@
 - name: "Load component support matrix"
   include_vars: "{{ role_path }}/vars/component-support.yml"
 
-# 2. Determine installation method
+# 2. Determine storage classes (if not already set by parent cp4d role)
+# -----------------------------------------------------------------------------
+- name: "Load default storage class information"
+  include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
+
+- name: "Set default File Storage if not set"
+  when:
+    - defaultStorageClasses.success
+    - cpd_primary_storage_class is not defined or cpd_primary_storage_class == ""
+  set_fact:
+    cpd_primary_storage_class: "{{ defaultStorageClasses.rwx }}"
+
+- name: "Set default Block Storage if not set"
+  when:
+    - defaultStorageClasses.success
+    - cpd_metadata_storage_class is not defined or cpd_metadata_storage_class == ""
+  set_fact:
+    cpd_metadata_storage_class: "{{ defaultStorageClasses.rwo }}"
+
+- name: "Assert that primary storage class has been defined (RWX)"
+  assert:
+    that: cpd_primary_storage_class is defined and cpd_primary_storage_class != ""
+    fail_msg: "cpd_primary_storage_class must be defined (set CPD_PRIMARY_STORAGE_CLASS or CPD_SERVICE_STORAGE_CLASS)"
+
+- name: "Assert that metadata storage class has been defined (RWO)"
+  assert:
+    that: cpd_metadata_storage_class is defined and cpd_metadata_storage_class != ""
+    fail_msg: "cpd_metadata_storage_class must be defined (set CPD_METADATA_STORAGE_CLASS or CPD_SERVICE_BLOCK_STORAGE_CLASS)"
+
+# Map to the variables expected by wait-ccs.yml for backward compatibility
+- name: "Set storage class variables for service tasks"
+  set_fact:
+    cpd_service_storage_class: "{{ cpd_primary_storage_class }}"
+    cpd_service_block_storage_class: "{{ cpd_metadata_storage_class }}"
+
+- name: "Debug CP4D storage class configuration"
+  debug:
+    msg:
+      - "Primary Storage class (RWX) ............ {{ cpd_primary_storage_class }}"
+      - "Metadata Storage class (RWO) ........... {{ cpd_metadata_storage_class }}"
+      - "Service Storage class .................. {{ cpd_service_storage_class }}"
+      - "Service Block Storage class ............ {{ cpd_service_block_storage_class }}"
+
+# 3. Get component support information
 # -----------------------------------------------------------------------------
 - name: "Get component support information"
   set_fact:
     component_support: "{{ component_support_matrix[cpd_service_name] | default({}) }}"
 
-- name: "Determine installation method for {{ cpd_service_name }}"
-  set_fact:
-    resolved_install_method: >-
-      {%- if cpd_install_method == 'helm' -%}
-        {%- if component_support.support_helm | default(false) -%}
-          helm
-        {%- else -%}
-          {{ fail('Component ' + cpd_service_name + ' does not support Helm installation') }}
-        {%- endif -%}
-      {%- elif cpd_install_method == 'olm' -%}
-        {%- if component_support.support_olm | default(false) -%}
-          olm
-        {%- else -%}
-          {{ fail('Component ' + cpd_service_name + ' does not support OLM installation') }}
-        {%- endif -%}
-      {%- else -%}
-        {%- if component_support.required_method is defined -%}
-          {{ component_support.required_method }}
-        {%- elif component_support.support_olm | default(false) -%}
-          olm
-        {%- elif component_support.support_helm | default(false) -%}
-          helm
-        {%- else -%}
-          {{ fail('Component ' + cpd_service_name + ' has no supported installation method') }}
-        {%- endif -%}
-      {%- endif -%}
+# 3. Validate component is supported
+# -----------------------------------------------------------------------------
+- name: "Check if component {{ cpd_service_name }} is defined in support matrix"
+  assert:
+    that:
+      - component_support | length > 0
+    fail_msg: "Component '{{ cpd_service_name }}' is not defined in component support matrix"
+
+# 4. Determine installation method based on user preference and component support
+# -----------------------------------------------------------------------------
+- name: "Determine installation method - User requested Helm"
+  when: cpd_install_method == 'helm'
+  block:
+    - name: "Validate Helm support for {{ cpd_service_name }}"
+      assert:
+        that:
+          - component_support.support_helm | default(false)
+        fail_msg: "Component '{{ cpd_service_name }}' does not support Helm installation"
+
+    - name: "Set installation method to Helm"
+      set_fact:
+        resolved_install_method: "helm"
+
+- name: "Determine installation method - User requested OLM"
+  when: cpd_install_method == 'olm'
+  block:
+    - name: "Validate OLM support for {{ cpd_service_name }}"
+      assert:
+        that:
+          - component_support.support_olm | default(false)
+        fail_msg: "Component '{{ cpd_service_name }}' does not support OLM installation"
+
+    - name: "Set installation method to OLM"
+      set_fact:
+        resolved_install_method: "olm"
+
+- name: "Determine installation method - Auto-detect"
+  when: cpd_install_method == 'auto'
+  block:
+    - name: "Auto-detect installation method for {{ cpd_service_name }}"
+      set_fact:
+        resolved_install_method: >-
+          {%- if component_support.required_method is defined -%}
+            {{ component_support.required_method }}
+          {%- elif component_support.support_olm | default(false) -%}
+            olm
+          {%- elif component_support.support_helm | default(false) -%}
+            helm
+          {%- else -%}
+            unsupported
+          {%- endif -%}
+
+    - name: "Validate auto-detected method"
+      assert:
+        that:
+          - resolved_install_method != 'unsupported'
+        fail_msg: "Component '{{ cpd_service_name }}' has no supported installation method"
 
 - name: "Installation method selected for {{ cpd_service_name }}"
   debug:
@@ -49,7 +123,7 @@
       - "Support OLM: {{ component_support.support_olm | default(false) }}"
       - "Support Helm: {{ component_support.support_helm | default(false) }}"
 
-# 3. Route to appropriate installation method
+# 5. Route to appropriate installation method
 # -----------------------------------------------------------------------------
 - name: "Install {{ cpd_service_name }} via OLM"
   when: resolved_install_method == 'olm'

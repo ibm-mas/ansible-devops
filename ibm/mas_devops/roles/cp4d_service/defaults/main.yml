@@ -30,6 +30,12 @@ cpd_helm_wait_delay: 30
 # CP4D Admin User credential used to call CP4D APIs, if not specified, the script will look these up
 cpd_admin_username: "{{ lookup('env', 'CPD_ADMIN_USERNAME') }}"
 cpd_admin_password: "{{ lookup('env', 'CPD_ADMIN_PASSWORD') }}"
+
+# IBM Entitlement Key Configuration
+# These variables are defined in the parent cp4d role, but we need them here
+# to support standalone execution of cp4d_service role (especially for Helm installations)
+ibm_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
+cpd_entitlement_key: "{{ lookup('env', 'CPD_ENTITLEMENT_KEY') | default(ibm_entitlement_key, true) }}"
 ibm_entitlement_key_secret: ibm-entitlement-key
 skip_ibm_entitlement_injection: "{{ lookup('env', 'SKIP_IBM_ENTITLEMENT_INJECTION') | default('false', true) | bool }}"
 
@@ -75,8 +81,10 @@ zen_cr_name: "lite-cr"
 cpd_service_name: "{{ lookup('env', 'CPD_SERVICE_NAME') }}"
 
 # The storage class to use for this CP4D service
-cpd_service_storage_class: "{{ lookup('env', 'CPD_SERVICE_STORAGE_CLASS') }}"
-cpd_service_block_storage_class: "{{ lookup('env', 'CPD_SERVICE_BLOCK_STORAGE_CLASS') }}"
+# Support both standalone execution (CPD_SERVICE_*) and parent role execution (cpd_primary_*)
+# When called from cp4d role, cpd_primary_storage_class and cpd_metadata_storage_class are already set as facts
+cpd_service_storage_class: "{{ lookup('env', 'CPD_SERVICE_STORAGE_CLASS') | default(lookup('env', 'CPD_PRIMARY_STORAGE_CLASS'), true) }}"
+cpd_service_block_storage_class: "{{ lookup('env', 'CPD_SERVICE_BLOCK_STORAGE_CLASS') | default(lookup('env', 'CPD_METADATA_STORAGE_CLASS'), true) }}"
 
 cpd_services_requiring_ccs:
   - "wsl"
@@ -140,29 +148,34 @@ cpd_service_info:
     crd_name: ws.ws.cpd.ibm.com
     cr_name: ws-cr
     # Helm-specific metadata (CPD 5.3.1+)
-    helm_chart_name: ibm-cpd-ws
-    helm_cluster_chart: ibm-cpd-ws-cluster-scoped
+    helm_chart_name: ws
+    helm_cluster_chart: ws-cluster-scoped
+    case_version: "12.1.0"
     helm_dependencies:
       - name: opensearch
         assembly_name: opencontent_opensearch
-        helm_chart_name: ibm-opensearch
-        helm_cluster_chart: ibm-opensearch-cluster-scoped
-        crd_name: opensearches.opensearch.opencontent.ibm.com
+        helm_chart_name: opencontent-opensearch
+        helm_cluster_chart: opencontent-opensearch-cluster-scoped
+        crd_name: clusters.opensearch.cloudpackopen.ibm.com
+        case_version: "1.2.0"
       - name: ccs
         assembly_name: ccs
-        helm_chart_name: ibm-cpd-ccs
-        helm_cluster_chart: ibm-cpd-ccs-cluster-scoped
+        helm_chart_name: ccs
+        helm_cluster_chart: ccs-cluster-scoped
         crd_name: ccs.ccs.cpd.ibm.com
+        case_version: "12.1.0"
       - name: datarefinery
         assembly_name: datarefinery
-        helm_chart_name: ibm-cpd-datarefinery
-        helm_cluster_chart: ibm-cpd-datarefinery-cluster-scoped
-        crd_name: datarefineries.datarefinery.cpd.ibm.com
+        helm_chart_name: datarefinery
+        helm_cluster_chart: datarefinery-cluster-scoped
+        crd_name: datarefinery.datarefinery.cpd.ibm.com
+        case_version: "12.1.0"
       - name: ws_runtimes
         assembly_name: ws_runtimes
-        helm_chart_name: ibm-cpd-ws-runtimes
-        helm_cluster_chart: ibm-cpd-ws-runtimes-cluster-scoped
+        helm_chart_name: ws-runtimes
+        helm_cluster_chart: ws-runtimes-cluster-scoped
         crd_name: notebookruntimes.ws.cpd.ibm.com
+        case_version: "12.1.0"
 
   # Cognos Analytics
   ca:
