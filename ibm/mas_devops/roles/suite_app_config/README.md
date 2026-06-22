@@ -1037,6 +1037,100 @@ Sets the size of the Log PVC. Defaults to 50 Gigabytes.
 - Environment Variable: `MAS_FACILITIES_STORAGE_USERFILES_SIZE`
 - Default: `50`
 
+### Facilities Agents Deployment Flexibility Settings
+Agents Deployment Flexibility enables you to override the default agent deployment strategy defined by the size attribute. This feature is activated when at least one of the following 13 agent deployment properties is set to a valid, non-empty value. Once activated, any properties that are empty or contain invalid values will be interpreted as it was equal to `shared`.
+
+#### mas_ws_facilities_dataconnectagent_deploymentmode
+Allow to define if the `dataconnectagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_DATACONNECTAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+
+#### mas_ws_facilities_extendedformulaagent_deploymentmode
+Allow to define if the `extendedformulaagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_EXTENDEDFORMULAAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+
+#### mas_ws_facilities_formularecalcagent_deploymentmode
+Allow to define if the `formularecalcagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_FORMULARECALCAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+
+#### mas_ws_facilities_incomingmailagent_deploymentmode
+Allow to define if the `incomingmailagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_INCOMINGMAILAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+
+#### mas_ws_facilities_objectmigrationagent_deploymentmode
+Allow to define if the `objectmigrationagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_OBJECTMIGRATIONAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+
+#### mas_ws_facilities_objectpublishagent_deploymentmode
+Allow to define if the `objectpublishagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_OBJECTPUBLISHAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+
+#### mas_ws_facilities_maintenanceagent_deploymentmode
+Allow to define if the `maintenanceagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_MAINTENANCEAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+
+#### mas_ws_facilities_reportqueueagent_deploymentmode
+Allow to define if the `reportqueueagent` agent is activated in a the shared `multiagents` POD or in a dedicated POD. The `reportqueueagent` agent cannot be disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_REPORTQUEUEAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated` and `shared`
+
+#### mas_ws_facilities_wfagent_deploymentmode
+Allow to define if the `wfagent` agent is activated in a the shared `multiagents` POD or in a dedicated POD. The `wfagent` agent cannot be disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_WFAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated` and `shared`
+
+#### mas_ws_facilities_wffutureagent_deploymentmode
+Allow to define if the `wffutureagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_WFFUTUREAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+
+#### mas_ws_facilities_wfnotificationagent_deploymentmode
+Allow to define if the `wfnotificationagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_WFNOTIFICATIONAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+
+#### mas_ws_facilities_reservesmtpagent_deploymentmode
+Allow to define if the `reservesmtpagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_RESERVESMTPAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+
+#### mas_ws_facilities_scheduleragent_deploymentmode
+Allow to define if the `scheduleragent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_SCHEDULERAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+
 ## Example Playbook
 
 ```yaml
