@@ -328,10 +328,36 @@
       retries: 12
       delay: 10
 
-    # Step 8: Configure audit log integration with S3 using logIntegrations API
+    # Step 8: Check for existing log integrations
+    - name: "List existing log integrations"
+      uri:
+        url: "https://cloud.mongodb.com/api/atlas/v2/groups/{{ atlas_project_id }}/logIntegrations"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: false
+        headers:
+          Accept: "application/vnd.atlas.2025-03-12+json"
+        status_code: [200]
+        timeout: "{{ atlas_api_timeout }}"
+      register: existing_log_integrations
+      retries: 3
+      delay: 5
+
+    - name: "Extract existing S3 log export configuration"
+      set_fact:
+        existing_s3_export: "{{ existing_log_integrations.json.results | selectattr('type', 'equalto', 'S3_LOG_EXPORT') | list | first | default(none) }}"
+
+    - name: "Check if configuration needs update"
+      when: existing_s3_export is not none and existing_s3_export != none
+      set_fact:
+        config_needs_update: "{{ existing_s3_export.bucketName != atlas_s3_audit_bucket_name or existing_s3_export.iamRoleId != atlas_role_id or existing_s3_export.prefixPath != atlas_s3_audit_bucket_prefix or ('MONGOD_AUDIT' not in existing_s3_export.logTypes) or ('MONGOS_AUDIT' not in existing_s3_export.logTypes) }}"
+
+    # Step 9: Configure audit log integration with S3 (only if not exists)
     # Note: Using Atlas Admin API v2 for log integrations
     # Log types: MONGOD_AUDIT for mongod audit logs, MONGOS_AUDIT for mongos audit logs
-    - name: "Configure audit log integration with S3"
+    - name: "Create new S3 log export integration"
+      when: existing_s3_export is none or existing_s3_export == none
       uri:
         url: "https://cloud.mongodb.com/api/atlas/v2/groups/{{ atlas_project_id }}/logIntegrations"
         method: POST
@@ -355,6 +381,43 @@
       register: atlas_s3_integration_result
       retries: 3
       delay: 5
+
+    - name: "Update existing S3 log export integration"
+      when:
+        - existing_s3_export is not none
+        - existing_s3_export != none
+        - config_needs_update | default(false)
+      uri:
+        url: "https://cloud.mongodb.com/api/atlas/v2/groups/{{ atlas_project_id }}/logIntegrations/{{ existing_s3_export.id }}"
+        method: PUT
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: false
+        headers:
+          Content-Type: "application/json"
+          Accept: "application/vnd.atlas.2025-03-12+json"
+        body:
+          logTypes:
+            - "MONGOD_AUDIT"
+            - "MONGOS_AUDIT"
+          type: "S3_LOG_EXPORT"
+          bucketName: "{{ atlas_s3_audit_bucket_name }}"
+          iamRoleId: "{{ atlas_role_id }}"
+          prefixPath: "{{ atlas_s3_audit_bucket_prefix }}"
+        body_format: json
+        status_code: [200]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_s3_integration_update
+      retries: 3
+      delay: 5
+
+    - name: "S3 log export configuration unchanged"
+      when:
+        - existing_s3_export is not none
+        - existing_s3_export != none
+        - not (config_needs_update | default(false))
+      debug:
+        msg: "S3 log export integration already configured correctly for project {{ atlas_project_id }}"
 
     - name: "S3 audit log integration configured successfully"
       debug:
