@@ -68,6 +68,10 @@
     - name: "Create CCS CR after Helm install"
       when: component_info.helm_dependencies | selectattr('name', 'equalto', 'ccs') | list | length > 0
       block:
+        - name: "Get CCS dependency info"
+          set_fact:
+            ccs_dependency: "{{ component_info.helm_dependencies | selectattr('name', 'equalto', 'ccs') | first }}"
+
         - name: "Create CCS Custom Resource"
           kubernetes.core.k8s:
             state: present
@@ -82,7 +86,7 @@
                   app.kubernetes.io/managed-by: Ansible
                   app.kubernetes.io/name: ccs
               spec:
-                version: "{{ cpd_product_version }}"
+                version: "{{ ccs_dependency.case_version }}"
                 license:
                   accept: true
                   license: Enterprise
