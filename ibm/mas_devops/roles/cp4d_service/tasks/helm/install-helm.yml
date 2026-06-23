@@ -64,10 +64,36 @@
         component_name: "{{ dep_item.name }}"
         dep_component_info: "{{ dep_item }}"
 
-    # Wait for CCS if it's in the dependencies
-    - name: "Wait for CCS to be ready"
+    # Create CCS CR if CCS is in the dependencies
+    - name: "Create CCS CR after Helm install"
       when: component_info.helm_dependencies | selectattr('name', 'equalto', 'ccs') | list | length > 0
-      include_tasks: "../wait/wait-ccs.yml"
+      block:
+        - name: "Create CCS Custom Resource"
+          kubernetes.core.k8s:
+            state: present
+            definition:
+              apiVersion: ccs.cpd.ibm.com/v1beta1
+              kind: CCS
+              metadata:
+                name: ccs-cr
+                namespace: "{{ cpd_instance_namespace }}"
+                labels:
+                  app.kubernetes.io/instance: ccs-cr
+                  app.kubernetes.io/managed-by: Ansible
+                  app.kubernetes.io/name: ccs
+              spec:
+                version: "{{ cpd_product_version }}"
+                license:
+                  accept: true
+                  license: Enterprise
+                storageClass: "{{ cpd_service_storage_class }}"
+                blockStorageClass: "{{ cpd_service_block_storage_class }}"
+                fileStorageClass: "{{ cpd_service_storage_class }}"
+                imagePullSecret: "{{ ibm_entitlement_key_secret }}"
+                scaleConfig: "{{ cpd_service_scale_config }}"
+
+        - name: "Wait for CCS to be ready"
+          include_tasks: "../wait/wait-ccs.yml"
 
 # Install main component operator and CR via Helm
 # The Helm chart includes the CR template (03-cr.yaml), so Helm will create it automatically
