@@ -108,6 +108,48 @@ cpd_wsl_project_storage_guid: "{{ 1000 | random | to_uuid | lower }}"
 
 # CPD Service Information
 # ---------------------------------------------------------------------------------------------------------------------
+# Shared Helm dependency definitions (used by multiple components)
+cpd_helm_common_dependencies:
+  opensearch: &opensearch_dependency
+    name: opensearch
+    assembly_name: opencontent_opensearch
+    helm_chart_name: opencontent-opensearch
+    helm_cluster_chart: opencontent-opensearch-cluster-scoped
+    crd_name: clusters.opensearch.cloudpackopen.ibm.com
+    case_version: "1.2.0"
+  
+  ccs: &ccs_dependency
+    name: ccs
+    assembly_name: ccs
+    helm_chart_name: ccs
+    helm_cluster_chart: ccs-cluster-scoped
+    crd_name: ccs.ccs.cpd.ibm.com
+    case_version: "12.1.0"
+  
+  datarefinery: &datarefinery_dependency
+    name: datarefinery
+    assembly_name: datarefinery
+    helm_chart_name: datarefinery
+    helm_cluster_chart: datarefinery-cluster-scoped
+    crd_name: datarefinery.datarefinery.cpd.ibm.com
+    case_version: "12.1.0"
+  
+  ws_runtimes: &ws_runtimes_dependency
+    name: ws_runtimes
+    assembly_name: ws_runtimes
+    helm_chart_name: ws-runtimes
+    helm_cluster_chart: ws-runtimes-cluster-scoped
+    crd_name: notebookruntimes.ws.cpd.ibm.com
+    case_version: "12.1.0"
+  
+  ibm_redis_cp: &ibm_redis_cp_dependency
+    name: ibm_redis_cp
+    assembly_name: ibm_redis_cp
+    helm_chart_name: ibm-redis-cp
+    helm_cluster_chart: ibm-redis-cp-cluster-scoped
+    crd_name: rediscps.redis.ibm.com
+    case_version: "1.3.1"
+
 cpd_service_info:
   # Watson Machine Learning
   # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=learning-installing
@@ -121,6 +163,14 @@ cpd_service_info:
     crd_kind: WmlBase
     crd_name: wmlbases.wml.cpd.ibm.com
     cr_name: wml-cr
+    # Helm-specific metadata (CPD 5.3.1+)
+    helm_chart_name: wml
+    helm_cluster_chart: wml-cluster-scoped
+    case_version: "12.1.0"
+    helm_dependencies:
+      - *opensearch_dependency
+      - *ccs_dependency
+      - *ibm_redis_cp_dependency
 
   # Analytics Engine Powered by Apache Spark
   # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=spark-installing
@@ -134,6 +184,11 @@ cpd_service_info:
     crd_kind: AnalyticsEngine
     crd_name: analyticsengines.ae.cpd.ibm.com
     cr_name: analyticsengine-sample
+    # Helm-specific metadata (CPD 5.3.1+)
+    helm_chart_name: analyticsengine
+    helm_cluster_chart: analyticsengine-cluster-scoped
+    case_version: "12.1.0"
+    helm_dependencies: []  # No dependencies
 
   # Watson Studio
   # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=ws-installing
@@ -152,30 +207,10 @@ cpd_service_info:
     helm_cluster_chart: ws-cluster-scoped
     case_version: "12.1.0"
     helm_dependencies:
-      - name: opensearch
-        assembly_name: opencontent_opensearch
-        helm_chart_name: opencontent-opensearch
-        helm_cluster_chart: opencontent-opensearch-cluster-scoped
-        crd_name: clusters.opensearch.cloudpackopen.ibm.com
-        case_version: "1.2.0"
-      - name: ccs
-        assembly_name: ccs
-        helm_chart_name: ccs
-        helm_cluster_chart: ccs-cluster-scoped
-        crd_name: ccs.ccs.cpd.ibm.com
-        case_version: "12.1.0"
-      - name: datarefinery
-        assembly_name: datarefinery
-        helm_chart_name: datarefinery
-        helm_cluster_chart: datarefinery-cluster-scoped
-        crd_name: datarefinery.datarefinery.cpd.ibm.com
-        case_version: "12.1.0"
-      - name: ws_runtimes
-        assembly_name: ws_runtimes
-        helm_chart_name: ws-runtimes
-        helm_cluster_chart: ws-runtimes-cluster-scoped
-        crd_name: notebookruntimes.ws.cpd.ibm.com
-        case_version: "12.1.0"
+      - *opensearch_dependency
+      - *ccs_dependency
+      - *datarefinery_dependency
+      - *ws_runtimes_dependency
 
   # Cognos Analytics
   ca:
@@ -192,3 +227,10 @@ cpd_service_info:
     api_version: ca.cpd.ibm.com/v1
     component_dependencies:
       - ccs
+    # Helm-specific metadata (CPD 5.3.1+)
+    helm_chart_name: cognos-analytics
+    helm_cluster_chart: cognos-analytics-cluster-scoped
+    case_version: "29.1.0"
+    helm_dependencies:
+      - *opensearch_dependency
+      - *ccs_dependency
