@@ -59,6 +59,10 @@
 
         - name: "Restore Manage persistent volumes"
           include_tasks: "{{ role_path }}/tasks/manage/restore-pv.yml"
+          when: mas_app_restore_include_pvc | bool
+
+        - name: "Restore Manage Workspace"
+          include_tasks: "{{ role_path }}/tasks/manage/restore-workspace.yml"
 
         - name: "Manage restore completed successfully"
           debug:
@@ -69,6 +73,7 @@
               - "Instance ID: {{ mas_instance_id }}"
               - "Backup Version: {{ mas_app_backup_version }}"
               - "Restored from: {{ manage_backup_path }}"
+              - "PVC Restore: {{ 'Included' if mas_app_restore_include_pvc | bool else 'Skipped' }}"
               - "=========================================="
 
     # Facilities restore
@@ -79,8 +84,12 @@
         - name: "Restore Facilities namespace resources"
           include_tasks: "{{ role_path }}/tasks/facilities/restore-namespace.yml"
 
+        - name: "Restore Facilities Workspace"
+          include_tasks: "{{ role_path }}/tasks/facilities/restore-workspace.yml"
+
         - name: "Restore Facilities persistent volumes"
           include_tasks: "{{ role_path }}/tasks/facilities/restore-pv.yml"
+          when: mas_app_restore_include_pvc | bool
 
         - name: "Facilities restore completed successfully"
           debug:
@@ -91,6 +100,7 @@
               - "Instance ID: {{ mas_instance_id }}"
               - "Backup Version: {{ mas_app_backup_version }}"
               - "Restored from: {{ facilities_backup_path }}"
+              - "PVC Restore: {{ 'Included' if mas_app_restore_include_pvc | bool else 'Skipped' }}"
               - "=========================================="
 
     # Unsupported app
