@@ -1,0 +1,407 @@
+---
+# MongoDB Atlas Provider - Configure S3 Audit Log Export
+# Export audit logs to AWS S3 for long-term retention and compliance
+# Requires audit logging to be enabled first
+
+- name: "Configure Atlas S3 audit log export"
+  when:
+    - atlas_s3_audit_export_enabled | bool
+    - atlas_audit_enabled | bool
+  block:
+    - name: "Validate S3 audit export configuration"
+      assert:
+        that:
+          - atlas_project_id is defined
+          - atlas_project_id != ""
+          - atlas_project_name is defined
+          - atlas_project_name != ""
+        fail_msg: |
+          S3 audit export requires:
+          - atlas_project_id: MongoDB Atlas project ID
+          - atlas_project_name: MongoDB Atlas project name
+
+    - name: "Generate S3 bucket name from project name"
+      set_fact:
+        atlas_s3_audit_bucket_name: "{{ (atlas_project_name | lower | regex_replace('[^a-z0-9]+', '-') | regex_replace('^-+|-+$', '') | regex_replace('-+', '-')) }}-atlas-audit-logs"
+      when: atlas_s3_audit_bucket_name is not defined or atlas_s3_audit_bucket_name == ""
+
+    - name: "Display S3 audit export configuration"
+      debug:
+        msg:
+          - "=========================================="
+          - "Atlas S3 Audit Log Export Configuration"
+          - "=========================================="
+          - "Project ID: {{ atlas_project_id }}"
+          - "S3 Bucket: {{ atlas_s3_audit_bucket_name }}"
+          - "S3 Prefix: {{ atlas_s3_audit_bucket_prefix }}"
+          - "Retention Days: {{ atlas_s3_audit_log_retention_days }}"
+          - "Versioning Enabled: {{ atlas_s3_audit_bucket_enable_versioning }}"
+          - "Glacier Transition Days: {{ atlas_s3_audit_glacier_transition_days }}"
+          - "=========================================="
+
+    # Step 1: Create S3 bucket
+    - name: "Create S3 bucket for audit logs"
+      command: >
+        aws s3api create-bucket \
+          --bucket {{ atlas_s3_audit_bucket_name }} \
+          --region {{ atlas_aws_region }} \
+          {% if atlas_aws_region != "us-east-1" %}
+          --create-bucket-configuration LocationConstraint={{ atlas_aws_region }}
+          {% endif %}
+      register: s3_bucket_creation
+      failed_when: s3_bucket_creation.rc > 0 and ('BucketAlreadyOwnedByYou' not in s3_bucket_creation.stderr)
+
+    # Step 2: Enable versioning (if requested)
+    - name: "Enable S3 bucket versioning"
+      when: atlas_s3_audit_bucket_enable_versioning | bool
+      command: >
+        aws s3api put-bucket-versioning \
+          --bucket {{ atlas_s3_audit_bucket_name }} \
+          --versioning-configuration Status=Enabled
+      register: s3_versioning
+      failed_when: "s3_versioning.rc > 1"
+
+    # Step 3: Enable encryption
+    - name: "Enable S3 bucket encryption"
+      shell: |
+        aws s3api put-bucket-encryption \
+          --bucket {{ atlas_s3_audit_bucket_name }} \
+          --server-side-encryption-configuration '{
+            "Rules": [{
+              "ApplyServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256"
+              },
+              "BucketKeyEnabled": true
+            }]
+          }'
+      register: s3_encryption
+      failed_when: "s3_encryption.rc > 1"
+
+    # Step 4: Block public access
+    - name: "Block public access to S3 bucket"
+      shell: |
+        aws s3api put-public-access-block \
+          --bucket {{ atlas_s3_audit_bucket_name }} \
+          --public-access-block-configuration \
+            BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+      register: s3_public_access
+      failed_when: "s3_public_access.rc > 1"
+
+    # Step 5: Configure lifecycle policy with versioning
+    - name: "Configure S3 lifecycle policy (with versioning)"
+      when: atlas_s3_audit_bucket_enable_versioning | bool
+      shell: |
+        aws s3api put-bucket-lifecycle-configuration \
+          --bucket {{ atlas_s3_audit_bucket_name }} \
+          --lifecycle-configuration '{
+            "Rules": [{
+              "ID": "audit-log-retention",
+              "Status": "Enabled",
+              "Filter": {},
+              "Transitions": [{
+                "Days": {{ atlas_s3_audit_glacier_transition_days }},
+                "StorageClass": "GLACIER"
+              }],
+              "Expiration": {
+                "Days": {{ atlas_s3_audit_log_retention_days }}
+              },
+              "NoncurrentVersionExpiration": {
+                "NoncurrentDays": {{ atlas_s3_audit_noncurrent_version_retention_days }}
+              }
+            }]
+          }'
+      register: s3_lifecycle
+      failed_when: "s3_lifecycle.rc > 1"
+
+    # Step 6: Configure lifecycle policy without versioning
+    - name: "Configure S3 lifecycle policy (without versioning)"
+      when: not (atlas_s3_audit_bucket_enable_versioning | bool)
+      shell: |
+        aws s3api put-bucket-lifecycle-configuration \
+          --bucket {{ atlas_s3_audit_bucket_name }} \
+          --lifecycle-configuration '{
+            "Rules": [{
+              "ID": "audit-log-retention",
+              "Status": "Enabled",
+              "Filter": {},
+              "Transitions": [{
+                "Days": {{ atlas_s3_audit_glacier_transition_days }},
+                "StorageClass": "GLACIER"
+              }],
+              "Expiration": {
+                "Days": {{ atlas_s3_audit_log_retention_days }}
+              }
+            }]
+          }'
+      register: s3_lifecycle
+      failed_when: "s3_lifecycle.rc > 1"
+
+    # Step 7: Tag the bucket
+    - name: "Tag S3 bucket"
+      shell: |
+        aws s3api put-bucket-tagging \
+          --bucket {{ atlas_s3_audit_bucket_name }} \
+          --tagging 'TagSet=[
+            {Key=Name,Value={{ atlas_s3_audit_bucket_name }}},
+            {Key=Purpose,Value="MongoDB Atlas Audit Logs"},
+            {Key=ManagedBy,Value=Ansible}
+          ]'
+      register: s3_tagging
+      failed_when: "s3_tagging.rc > 1"
+
+    # Step 4: Set up cloud provider access in Atlas (temporary, will be authorized later)
+    - name: "Set up MongoDB Atlas cloud provider access for S3"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/cloudProviderAccess"
+        method: POST
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: false
+        body:
+          providerName: "AWS"
+        body_format: json
+        status_code: [200, 201]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_cloud_access_setup
+      retries: 3
+      delay: 5
+
+    - name: "Extract Atlas AWS account ARN and external ID"
+      set_fact:
+        atlas_aws_account_arn: "{{ atlas_cloud_access_setup.json.atlasAWSAccountArn }}"
+        atlas_external_id: "{{ atlas_cloud_access_setup.json.atlasAssumedRoleExternalId }}"
+        atlas_role_id: "{{ atlas_cloud_access_setup.json.roleId }}"
+
+    # Step 5: Create IAM role for MongoDB Atlas
+    - name: "Set IAM role name"
+      set_fact:
+        atlas_iam_role_name: "{{ atlas_project_name | regex_replace('[^a-zA-Z0-9-_]', '-') }}-audit-logs-mongodb"
+
+    - name: "Create IAM role for MongoDB Atlas audit log export"
+      shell: |
+        aws iam create-role \
+          --role-name {{ atlas_iam_role_name }} \
+          --description "IAM role for MongoDB Atlas to write audit logs to S3" \
+          --assume-role-policy-document '{
+            "Version": "2012-10-17",
+            "Statement": [{
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "{{ atlas_aws_account_arn }}"
+              },
+              "Action": "sts:AssumeRole",
+              "Condition": {
+                "StringEquals": {
+                  "sts:ExternalId": "{{ atlas_external_id }}"
+                }
+              }
+            }]
+          }' \
+          --tags Key=Name,Value={{ atlas_iam_role_name }} \
+                 Key=Purpose,Value="MongoDB Atlas Audit Log Export" \
+                 Key=ManagedBy,Value=Ansible
+      register: iam_role_creation
+      failed_when: iam_role_creation.rc > 0 and ('EntityAlreadyExists' not in iam_role_creation.stderr)
+
+    - name: "Get IAM role ARN"
+      shell: |
+        aws iam get-role --role-name {{ atlas_iam_role_name }} --query 'Role.Arn' --output text
+      register: iam_role_arn_result
+      changed_when: false
+
+    - name: "Set IAM role ARN fact"
+      set_fact:
+        atlas_iam_role_arn: "{{ iam_role_arn_result.stdout }}"
+
+    # Step 6: Attach S3 write policy to IAM role
+    - name: "Attach S3 write policy to IAM role"
+      shell: |
+        aws iam put-role-policy \
+          --role-name {{ atlas_iam_role_name }} \
+          --policy-name {{ atlas_project_name | regex_replace('[^a-zA-Z0-9-_]', '-') }}-mongodb-atlas-s3-write \
+          --policy-document '{
+            "Version": "2012-10-17",
+            "Statement": [{
+              "Effect": "Allow",
+              "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:ListBucket",
+                "s3:GetBucketLocation"
+              ],
+              "Resource": [
+                "arn:aws:s3:::{{ atlas_s3_audit_bucket_name }}",
+                "arn:aws:s3:::{{ atlas_s3_audit_bucket_name }}/*"
+              ]
+            }]
+          }'
+      register: iam_policy_attachment
+      failed_when: "iam_policy_attachment.rc > 1"
+
+    # Step 7: List all cloud provider access roles to find if IAM ARN is already authorized
+    - name: "List all MongoDB Atlas cloud provider access roles"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/cloudProviderAccess"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: false
+        status_code: [200]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_all_cloud_access
+      retries: 3
+      delay: 5
+
+    - name: "Find existing authorized role for this IAM ARN"
+      set_fact:
+        existing_authorized_role: "{{ atlas_all_cloud_access.json.awsIamRoles | selectattr('iamAssumedRoleArn', 'defined') | selectattr('iamAssumedRoleArn', 'equalto', atlas_iam_role_arn) | list | first | default(none) }}"
+
+    - name: "Use existing authorized role ID if found"
+      when: existing_authorized_role is not none and existing_authorized_role != none
+      set_fact:
+        atlas_role_id: "{{ existing_authorized_role.roleId }}"
+        atlas_iam_already_authorized: true
+
+    - name: "Check current role authorization status"
+      when: existing_authorized_role is none or existing_authorized_role == none
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/cloudProviderAccess/{{ atlas_role_id }}"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: false
+        status_code: [200]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_cloud_access_check
+      retries: 3
+      delay: 5
+
+    - name: "Set authorization status for current role"
+      when: existing_authorized_role is none or existing_authorized_role == none
+      set_fact:
+        atlas_iam_already_authorized: "{{ atlas_cloud_access_check.json.authorizedDate is defined and atlas_cloud_access_check.json.authorizedDate != '' and atlas_cloud_access_check.json.authorizedDate != none }}"
+
+    # Step 8: Authorize the IAM role in MongoDB Atlas (if not already authorized)
+    - name: "Authorize IAM role in MongoDB Atlas"
+      when: not atlas_iam_already_authorized
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/cloudProviderAccess/{{ atlas_role_id }}"
+        method: PATCH
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: false
+        body:
+          providerName: "AWS"
+          iamAssumedRoleArn: "{{ atlas_iam_role_arn }}"
+        body_format: json
+        status_code: [200, 409]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_cloud_access_auth
+      failed_when:
+        - atlas_cloud_access_auth.status == 409
+        - atlas_cloud_access_auth.json.errorCode is defined
+        - atlas_cloud_access_auth.json.errorCode != "DUPLICATE_IAM_ASSUMED_ROLE_ARN"
+      retries: 3
+      delay: 5
+
+    - name: "IAM role already authorized - skipping"
+      when: atlas_iam_already_authorized
+      debug:
+        msg: "IAM role {{ atlas_iam_role_arn }} is already authorized in MongoDB Atlas"
+
+    # Step 7.5: Wait for IAM role authorization to complete
+    - name: "Wait for IAM role authorization to be fully processed"
+      when: not atlas_iam_already_authorized
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/cloudProviderAccess/{{ atlas_role_id }}"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: false
+        status_code: [200]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_role_status
+      until: >
+        atlas_role_status.json is defined and
+        atlas_role_status.json.authorizedDate is defined and
+        atlas_role_status.json.authorizedDate != null
+      retries: 12
+      delay: 10
+
+    # Step 8: Configure audit log integration with S3 using logIntegrations API
+    # Note: Using Atlas Admin API v2 for log integrations
+    # Log types: MONGOD_AUDIT for mongod audit logs, MONGOS_AUDIT for mongos audit logs
+    - name: "Configure audit log integration with S3"
+      uri:
+        url: "https://cloud.mongodb.com/api/atlas/v2/groups/{{ atlas_project_id }}/logIntegrations"
+        method: POST
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: false
+        headers:
+          Content-Type: "application/json"
+          Accept: "application/vnd.atlas.2025-03-12+json"
+        body:
+          logTypes:
+            - "MONGOD_AUDIT"
+            - "MONGOS_AUDIT"
+          type: "S3_LOG_EXPORT"
+          bucketName: "{{ atlas_s3_audit_bucket_name }}"
+          iamRoleId: "{{ atlas_role_id }}"
+          prefixPath: "{{ atlas_s3_audit_bucket_prefix }}"
+        body_format: json
+        status_code: [200, 201]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_s3_integration_result
+      retries: 3
+      delay: 5
+
+    - name: "S3 audit log integration configured successfully"
+      debug:
+        msg:
+          - "=========================================="
+          - "S3 Audit Log Integration Status"
+          - "=========================================="
+          - "Status: Successfully Configured"
+          - "Project ID: {{ atlas_project_id }}"
+          - "S3 Bucket: {{ atlas_s3_audit_bucket_name }}"
+          - "S3 Region: {{ atlas_aws_region }}"
+          - "IAM Role: {{ atlas_iam_role_arn }}"
+          - "Integration Type: AWS_S3"
+          - "=========================================="
+
+  rescue:
+    - name: "Display S3 audit export error details"
+      debug:
+        msg:
+          - "=========================================="
+          - "Failed to configure S3 audit log export"
+          - "=========================================="
+          - "Project ID: {{ atlas_project_id }}"
+          - "S3 Bucket: {{ atlas_s3_audit_bucket_name }}"
+          - "=========================================="
+          - "Common issues:"
+          - "1. Insufficient AWS IAM permissions (need s3:*, iam:CreateRole, iam:AttachRolePolicy)"
+          - "2. S3 bucket name already exists in another AWS account"
+          - "3. Atlas API key lacks project owner permissions"
+          - "4. Audit logging not enabled (atlas_audit_enabled must be true)"
+          - "=========================================="
+
+    - name: "Fail with helpful error message"
+      fail:
+        msg: "Failed to configure S3 audit log export. See debug output above for troubleshooting steps."
+
+- name: "Skip S3 audit export - audit logging not enabled"
+  when:
+    - atlas_s3_audit_export_enabled | bool
+    - not (atlas_audit_enabled | bool)
+  debug:
+    msg:
+      - "=========================================="
+      - "S3 Audit Export Skipped"
+      - "=========================================="
+      - "S3 audit export requires audit logging to be enabled first."
+      - "Set atlas_audit_enabled=true to enable audit logging."
+      - "=========================================="
+
+# Made with Bob
