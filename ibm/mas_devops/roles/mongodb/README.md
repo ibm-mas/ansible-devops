@@ -2354,7 +2354,7 @@ Enable alerts for cluster health issues.
 - Environment Variable: `ATLAS_ENABLE_CLUSTER_HEALTH_ALERTS`
 - Default Value: `false`
 
-**Purpose**: Enables alerts for cluster health events including replication lag, primary election, and node failures.
+**Purpose**: Enables alerts for cluster health events including replication lag, low op log window, primary election, and node failures.
 
 **Valid values**: `true`, `false`
 
