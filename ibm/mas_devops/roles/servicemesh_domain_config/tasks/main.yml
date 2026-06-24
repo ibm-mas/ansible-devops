@@ -1,10 +1,26 @@
 ---
+# 8. Set up the domain name for MAS
+# -----------------------------------------------------------------------------
+- name: "Get cluster subdomain"
+  when: mas_domain == ""
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: _cluster_subdomain
+
+- name: "Configure domain if not set"
+  when: mas_domain == ""
+  set_fact:
+    mas_domain: "{{ mas_instance }}.{{ _cluster_subdomain.resources[0].spec.domain }}"
+
 - name: "Service Mesh Domain Config : Debug properties"
   debug:
     msg:
       - "MAS Suite Domain ......................... {{ mas_domain }}"
       - "MAS Suite Instance ....................... {{ mas_instance }}"
       - "Service Mesh Ingress namespace ........... {{ servicemesh_gateway_namespace }}"
+      - "MAS App Id ............................... {{ mas_app_id }}"
       - "Gateway Strategy ......................... {{ gateway_strategy }}"
 
 - name: "Create Gateway Namespace"
@@ -12,10 +28,19 @@
     apply: yes
     template: "templates/namespace.yml.j2"
 
-# Process the different application namespaces..
+# Process a specific application namespace.
 # -----------------------------------------------------------------------------
-- name: "Get Config Maps in {{mas_instance}} namespaces"
+- name: "Get Config Maps in mas-{{ mas_instance }}-{{ mas_app_id }} namespace"
   include_tasks: "tasks/create_gateways_per_namespace.yml"
+  when: mas_app_id != ""
+  vars: 
+    ns_suffix: "{{ mas_app_id }}"
+
+# Process the different application namespaces.
+# -----------------------------------------------------------------------------
+- name: "Get Config Maps in mas-{{ mas_instance }}-* namespaces"
+  include_tasks: "tasks/create_gateways_per_namespace.yml"
+  when: mas_app_id == ""
   loop:
     - core
     - facilities
