@@ -7,7 +7,7 @@
 
 - name: "create gateway : Determine gateway name"
   set_fact:
-    route: "{{ ns_suffix }}-{{ route_reference.metadata.name | regex_replace('^'+mas_instance+'-', '') }}"
+    route: "{{ ns_suffix }}-{{ route_reference.metadata.name | regex_replace(mas_instance+'-', '') }}"
 
 - name: "create gateway : Determine gateway name"
   set_fact:
@@ -25,6 +25,38 @@
     route_host: "{{ route_reference.spec.host }}"
     route_path: "{{ route_reference.spec.path | default('')}}"
     route_tls: "{{ route_reference.spec.tls }}"
+    target_port_name: "{{ route_reference.spec.port.targetPort }}"
+    port_number: 443
+    target_port_number: 8443 
+
+- set_fact:
+    port_number: 8883
+    target_port_number: 8883
+  when: target_port_name == "mqtts"
+
+- set_fact:
+    port_number: 3000
+    target_port_number: 3000
+  when: target_port_name == 3000
+
+# collaborateext 
+- set_fact:
+    port_number: 3000
+    target_port_number: 3000
+  when: target_port_name == "http"
+
+- debug:
+    msg:
+      - "service_name ........... {{ service_name }}"
+      - "service_namespace ...... {{ service_namespace }}"
+      - "gateway_service ........ {{ gateway_service }}"
+      - "route_host ............. {{ route_host }}"
+      - "route_path ............. {{ route_path }}"
+      - "route_tls.termination .. {{ route_tls.termination }}"
+      - "gateway_name ........... {{ gateway_name }}"
+      - "target_port_name ....... {{ target_port_name }}"
+      - "port_number ............ {{ port_number }}"
+      - "target_port_number ..... {{ target_port_number }}"
 
 - name: "create gateway : Create Service Mesh Gateway Deployment"
   kubernetes.core.k8s:
@@ -51,7 +83,15 @@
     wait_timeout: 120
 
 - name: "create gateway : Create Route for {{route}} to gateway"
+  when: service_name == "collaboratecollaborateext-service"
   kubernetes.core.k8s:
-    template: "templates/route.yml.j2"
+    template: "templates/route_reencrypt_collaborate.yml.j2"
+    wait: yes
+    wait_timeout: 120
+
+- name: "create gateway : Create Route for {{route}} to gateway"
+  when: service_name != "collaboratecollaborateext-service"
+  kubernetes.core.k8s:
+    template: "templates/route_{{route_tls.termination}}.yml.j2"
     wait: yes
     wait_timeout: 120
