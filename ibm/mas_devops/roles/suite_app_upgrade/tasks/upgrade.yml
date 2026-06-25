@@ -127,11 +127,11 @@
     label_selectors:
       - mas.ibm.com/instanceId={{ mas_instance_id }}
       - mas.ibm.com/applicationId={{ mas_app_id }}
-  retries: 45 # about 90 minutes
+  retries: 60 # about 90 minutes
   delay: 120 # 2 minutes
   until:
-    - facilities_ws_cr_lookup.resources is defined
-    - facilities_ws_cr_lookup.status.versions.reconciled == updated_opcon_version
+    - facilities_ws_cr_lookup.resources | length > 0
+    - facilities_ws_cr_lookup.resources[0].status.versions.reconciled == updated_opcon_version
     - facilities_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('in', ['Ready']) | list | length == facilities_ws_cr_lookup.resources | length
     - facilities_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('in', ['Successful']) | list | length == facilities_ws_cr_lookup.resources | length
   when:
