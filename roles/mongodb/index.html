@@ -2576,6 +2576,108 @@ Set to <code>true</code> to override the storage class with <code>MONGODB_STORAG
 - Set to <code>false</code> to reduce log volume by only capturing authorization failures</p>
 <p><strong>Impact</strong>: 
 - <code>true</code>: Increases log volume significantly as all successful operations are logged</p>
+<h3 id="atlas-s3-audit-log-export-configuration">Atlas S3 Audit Log Export Configuration<a class="headerlink" href="#atlas-s3-audit-log-export-configuration" title="Permanent link">¤</a></h3>
+<p>MongoDB Atlas can export audit logs to AWS S3 for long-term retention and compliance using the <strong>Log Integrations API</strong>. This provides a cost-effective way to store audit logs beyond Atlas's retention period and enables integration with external log analysis tools.</p>
+<p><strong>How it works</strong>:
+- Uses MongoDB Atlas <strong>Log Integrations API</strong> (<code>/api/atlas/v2/groups/{groupId}/logIntegrations</code>)
+- Exports both <code>MONGOD_AUDIT</code> and <code>MONGOS_AUDIT</code> log types
+- Automatically creates and configures all required AWS infrastructure
+- Fully idempotent - can be run multiple times safely</p>
+<p><strong>Prerequisites</strong>:
+- <code>atlas_audit_enabled</code> must be set to <code>true</code>
+- AWS credentials configured (via AWS CLI or environment variables)
+- Sufficient AWS IAM permissions to create S3 buckets and IAM roles</p>
+<h4 id="atlas_s3_audit_export_enabled">atlas_s3_audit_export_enabled<a class="headerlink" href="#atlas_s3_audit_export_enabled" title="Permanent link">¤</a></h4>
+<p>Enable export of audit logs to AWS S3.</p>
+<ul>
+<li><strong>Optional</strong> when <code>mongodb_provider=atlas</code></li>
+<li>Environment Variable: <code>ATLAS_S3_AUDIT_EXPORT_ENABLED</code></li>
+<li>Default Value: <code>false</code></li>
+</ul>
+<p><strong>Purpose</strong>: Automatically exports MongoDB Atlas audit logs to an AWS S3 bucket for long-term retention and compliance.</p>
+<p><strong>When to use</strong>: Enable for production and staging environments requiring:
+- Long-term audit log retention (beyond Atlas's retention period)
+- Compliance requirements for audit log archival
+- Cost-effective storage of historical audit data</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- Creates an S3 bucket with encryption (bucket name auto-generated from project name)
+- Enables S3 bucket versioning only if <code>atlas_s3_audit_bucket_enable_versioning=true</code>
+- Sets up IAM role for MongoDB Atlas with cross-account access
+- Configures cloud provider access in Atlas
+- Creates log integration using Atlas Log Integrations API
+- Applies lifecycle policies for cost optimization (Glacier transition, retention)</p>
+<p><strong>Note</strong>: Requires <code>atlas_audit_enabled=true</code>. The S3 bucket name is automatically generated from the Atlas project name (e.g., <code>atlas-enterprise-poc-atlas-audit-logs</code>). All AWS resources are created automatically by this role.</p>
+<p><strong>Related variables</strong>: <code>atlas_s3_audit_bucket_prefix</code>, <code>atlas_s3_audit_log_retention_days</code></p>
+<p><strong>Note</strong>: The S3 bucket name is automatically generated from the Atlas project name as <code>&lt;project-name&gt;-atlas-audit-logs</code> (with special characters replaced by hyphens and converted to lowercase).</p>
+<h4 id="atlas_s3_audit_bucket_prefix">atlas_s3_audit_bucket_prefix<a class="headerlink" href="#atlas_s3_audit_bucket_prefix" title="Permanent link">¤</a></h4>
+<p>Prefix (folder path) within the S3 bucket.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_s3_audit_export_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_S3_AUDIT_BUCKET_PREFIX</code></li>
+<li>Default Value: <code>mongodb-atlas-audit-logs</code></li>
+</ul>
+<p><strong>Purpose</strong>: Organizes audit logs within the S3 bucket using a prefix path.</p>
+<p><strong>Valid values</strong>: Valid S3 object key prefix</p>
+<p><strong>Impact</strong>: Logs will be stored at: <code>s3://&lt;bucket_name&gt;/&lt;prefix&gt;/&lt;project_id&gt;/...</code></p>
+<p><strong>Examples</strong>: 
+- <code>audit-logs/mongodb</code>
+- <code>compliance/atlas-audit</code>
+- <code>logs/production/mongodb</code></p>
+<h4 id="atlas_s3_audit_log_retention_days">atlas_s3_audit_log_retention_days<a class="headerlink" href="#atlas_s3_audit_log_retention_days" title="Permanent link">¤</a></h4>
+<p>Number of days to retain audit logs in S3.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_s3_audit_export_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_S3_AUDIT_LOG_RETENTION_DAYS</code></li>
+<li>Default Value: <code>365</code></li>
+</ul>
+<p><strong>Purpose</strong>: Configures automatic deletion of audit logs after the specified retention period.</p>
+<p><strong>Valid values</strong>: Positive integer (days)</p>
+<p><strong>Impact</strong>: 
+- Creates S3 lifecycle policy to delete logs after retention period
+- Logs transition to Glacier storage after <code>atlas_s3_audit_glacier_transition_days</code>
+- Helps manage storage costs while meeting compliance requirements</p>
+<p><strong>Common retention periods</strong>:
+- 365 days (1 year) - Default</p>
+<h4 id="atlas_s3_audit_bucket_enable_versioning">atlas_s3_audit_bucket_enable_versioning<a class="headerlink" href="#atlas_s3_audit_bucket_enable_versioning" title="Permanent link">¤</a></h4>
+<p>Enable S3 bucket versioning for audit logs.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_s3_audit_export_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_S3_AUDIT_BUCKET_ENABLE_VERSIONING</code></li>
+<li>Default Value: <code>false</code></li>
+</ul>
+<p><strong>Purpose</strong>: Enables S3 versioning to protect against accidental deletion or modification of audit logs.</p>
+<p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
+<p><strong>Impact</strong>:
+- When <code>true</code>: All versions of objects are retained, increasing storage costs
+- Noncurrent versions are deleted after <code>atlas_s3_audit_noncurrent_version_retention_days</code>
+- Total retention = <code>atlas_s3_audit_log_retention_days</code> + <code>atlas_s3_audit_noncurrent_version_retention_days</code></p>
+<p><strong>When to use</strong>: Enable for strict compliance requirements that mandate immutable audit logs.</p>
+<h4 id="atlas_s3_audit_glacier_transition_days">atlas_s3_audit_glacier_transition_days<a class="headerlink" href="#atlas_s3_audit_glacier_transition_days" title="Permanent link">¤</a></h4>
+<p>Days before transitioning logs to Glacier storage.</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_s3_audit_export_enabled=true</code></li>
+<li>Environment Variable: <code>ATLAS_S3_AUDIT_GLACIER_TRANSITION_DAYS</code></li>
+<li>Default Value: <code>90</code></li>
+</ul>
+<p><strong>Purpose</strong>: Reduces storage costs by transitioning older audit logs to Glacier storage class.</p>
+<p><strong>Valid values</strong>: Integer &gt;= 30 (AWS requirement)</p>
+<p><strong>Impact</strong>: 
+- Logs remain in Standard storage for faster access during this period
+- After transition, retrieval times increase but costs decrease significantly
+- Must be less than <code>atlas_s3_audit_log_retention_days</code></p>
+<p><strong>Common values</strong>: 30, 60, 90, 180 days</p>
+<h4 id="atlas_s3_audit_noncurrent_version_retention_days">atlas_s3_audit_noncurrent_version_retention_days<a class="headerlink" href="#atlas_s3_audit_noncurrent_version_retention_days" title="Permanent link">¤</a></h4>
+<p>Days to retain noncurrent versions (when versioning enabled).</p>
+<ul>
+<li><strong>Optional</strong> when <code>atlas_s3_audit_bucket_enable_versioning=true</code></li>
+<li>Environment Variable: <code>ATLAS_S3_AUDIT_NONCURRENT_VERSION_RETENTION_DAYS</code></li>
+<li>Default Value: <code>30</code></li>
+</ul>
+<p><strong>Purpose</strong>: Controls how long previous versions of audit logs are retained after a new version is created.</p>
+<p><strong>Valid values</strong>: Positive integer (days)</p>
+<p><strong>Impact</strong>: Only applies when versioning is enabled. Extends total retention time.</p>
+<p><strong>Example</strong>: If retention is 365 days and noncurrent retention is 30 days, audit logs could be stored for up to 395 days total.</p>
 <h3 id="atlas-alert-monitoring-configuration">Atlas Alert Monitoring Configuration<a class="headerlink" href="#atlas-alert-monitoring-configuration" title="Permanent link">¤</a></h3>
 <p>MongoDB Atlas Alert Monitoring provides proactive notifications for cluster health, performance, and security events. Alerts help identify and resolve issues before they impact users.</p>
 <p><strong>Note</strong>: Alerts are configured per cluster using matchers to target the specific cluster name (<code>atlas_cluster_name</code>). Each alert configuration includes a matcher that ensures it only applies to the specified cluster.</p>
@@ -3919,6 +4021,11 @@ ansible-playbook ibm.mas_devops.run_role
                       <li class="md-toc__item">
                         <a href="#atlas-audit-logging-configuration" class="md-toc__link" data-md-level="2">
                           Atlas Audit Logging Configuration
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#atlas-s3-audit-log-export-configuration" class="md-toc__link" data-md-level="2">
+                          Atlas S3 Audit Log Export Configuration
                         </a>
                       </li>
                       <li class="md-toc__item">
