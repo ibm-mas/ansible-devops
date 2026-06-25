@@ -195,8 +195,22 @@ atlas_compliance_yearly_retention_value: "{{ lookup('env', 'ATLAS_COMPLIANCE_YEA
 # MongoDB Atlas Auditing captures database operations for compliance and security
 # Required for FedRAMP, HIPAA, and other regulatory compliance
 atlas_audit_enabled: "{{ (lookup('env', 'ATLAS_AUDIT_ENABLED') | default('false', True)) | bool }}"
-atlas_audit_filter: "{{ lookup('env', 'ATLAS_AUDIT_FILTER') | default('{\"$or\":[{\"atype\":\"authenticate\"},{\"atype\":\"logout\"},{\"atype\":\"authCheck\",\"result\":{\"$ne\":0}},{\"atype\":\"authCheck\",\"param.command\":{\"$in\":[\"aggregate\",\"count\",\"distinct\",\"group\",\"mapReduce\",\"geoNear\",\"geoSearch\",\"eval\",\"find\",\"getLastError\",\"getMore\",\"getPrevError\",\"parallelCollectionScan\",\"delete\",\"findAndModify\",\"insert\",\"update\",\"resetError\",\"bulkWrite\"]}},{\"atype\":{\"$in\":[\"createCollection\",\"createDatabase\",\"createIndex\",\"renameCollection\",\"dropCollection\",\"dropDatabase\",\"dropIndex\",\"createUser\",\"dropUser\",\"dropAllUsersFromDatabase\",\"updateUser\",\"grantRolesToUser\",\"revokeRolesFromUser\",\"createRole\",\"updateRole\",\"dropRole\",\"dropAllRolesFromDatabase\",\"grantRolesToRole\",\"revokeRolesFromRole\",\"grantPrivilegesToRole\",\"revokePrivilegesFromRole\",\"directAuthMutation\",\"enableSharding\",\"shardCollection\",\"addShard\",\"removeShard\",\"shutdown\",\"applicationMessage\",\"replSetReconfig\",\"setClusterParameter\",\"fsync\",\"restoreBackup\"]}}]}', True) }}"
-atlas_audit_authorization_success: "{{ (lookup('env', 'ATLAS_AUDIT_AUTHORIZATION_SUCCESS') | default('false', True)) | bool }}"
+# Custom audit filter (JSON string). If not provided, a default comprehensive filter will be generated
+# that excludes MAS instance users (from atlas_mas_instances) from audit logs while capturing:
+# - Authentication events (authenticate, logout)
+# - Authorization failures
+# - Critical database operations (DDL, DML, user/role management)
+atlas_audit_filter: "{{ lookup('env', 'ATLAS_AUDIT_FILTER') | default('', True) }}"
+atlas_audit_authorization_success: "{{ (lookup('env', 'ATLAS_AUDIT_AUTHORIZATION_SUCCESS') | default('true', True)) | bool }}"
+
+# Atlas S3 Audit Log Export Configuration
+# Export MongoDB Atlas audit logs to AWS S3 for long-term retention and compliance
+atlas_s3_audit_export_enabled: "{{ (lookup('env', 'ATLAS_S3_AUDIT_EXPORT_ENABLED') | default('false', True)) | bool }}"
+atlas_s3_audit_bucket_prefix: "{{ lookup('env', 'ATLAS_S3_AUDIT_BUCKET_PREFIX') | default('mongodb-atlas-audit-logs', True) }}"
+atlas_s3_audit_log_retention_days: "{{ lookup('env', 'ATLAS_S3_AUDIT_LOG_RETENTION_DAYS') | default(365, True) | int }}"
+atlas_s3_audit_bucket_enable_versioning: "{{ (lookup('env', 'ATLAS_S3_AUDIT_BUCKET_ENABLE_VERSIONING') | default('false', True)) | bool }}"
+atlas_s3_audit_glacier_transition_days: "{{ lookup('env', 'ATLAS_S3_AUDIT_GLACIER_TRANSITION_DAYS') | default(90, True) | int }}"
+atlas_s3_audit_noncurrent_version_retention_days: "{{ lookup('env', 'ATLAS_S3_AUDIT_NONCURRENT_VERSION_RETENTION_DAYS') | default(30, True) | int }}"
 
 # Atlas Alert Monitoring Configuration
 # Provides proactive notifications for cluster health, performance, and security events
