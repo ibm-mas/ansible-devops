@@ -25,20 +25,39 @@
 
 # 2. Create Secret
 # -----------------------------------------------------------------------------
-- name: "cloudflare : Install Cloudflare API token secret"
+# For MAS: Create in cert-manager namespace (used by ClusterIssuer)
+# For AI Service: Create in AI Service namespace (used by namespace-scoped Issuer)
+- name: "cloudflare : Install Cloudflare API token secret (MAS mode)"
   kubernetes.core.k8s:
+    namespace: "{{ cert_manager_namespace }}"
     template: templates/cloudflare/secret.yml.j2
+  when: not is_aiservice_mode
+
+- name: "cloudflare : Install Cloudflare API token secret (AI Service mode)"
+  kubernetes.core.k8s:
+    namespace: "{{ instance_namespace }}"
+    template: templates/cloudflare/secret.yml.j2
+  when: is_aiservice_mode
 
 
-# 3. Create ClusterIssuer
+# 3. Create Issuers (ClusterIssuer for MAS, Issuer for AI Service)
 # -----------------------------------------------------------------------------
-- name: "cloudflare : Install Cloudflare production ClusterIssuer"
+- name: "cloudflare : Install Cloudflare ClusterIssuers (MAS mode)"
   kubernetes.core.k8s:
-    template: templates/cloudflare/clusterissuer-prod.yml.j2
+    template: "{{ item }}"
+  with_items:
+    - templates/cloudflare/clusterissuer-prod.yml.j2
+    - templates/cloudflare/clusterissuer-staging.yml.j2
+  when: not is_aiservice_mode
 
-- name: "cloudflare : Install Cloudflare staging ClusterIssuer"
+- name: "cloudflare : Install Cloudflare Issuers (AI Service mode)"
   kubernetes.core.k8s:
-    template: templates/cloudflare/clusterissuer-staging.yml.j2
+    namespace: "{{ instance_namespace }}"
+    template: "{{ item }}"
+  with_items:
+    - templates/cloudflare/issuer-prod.yml.j2
+    - templates/cloudflare/issuer-staging.yml.j2
+  when: is_aiservice_mode
 
 
 # 4. Lookup the OCP ingress for DNS entries

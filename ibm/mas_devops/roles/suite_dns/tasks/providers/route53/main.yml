@@ -64,10 +64,18 @@
     - route53_subdomain is defined
     - route53_subdomain != ''
 
-# 6. Create AWS Route 53 cluster issuer
+# 6. Create AWS Route 53 Issuer (ClusterIssuer for MAS, Issuer for AI Service)
 # -----------------------------------------------------------------------------
-- name: "aws-route53 : Create AWS Route 53 cluster issuer: {{ route53_prod_issuer_name }}"
+- name: "aws-route53 : Create AWS Route 53 ClusterIssuer (MAS mode): {{ route53_prod_issuer_name }}"
   kubernetes.core.k8s:
     namespace: "ibm-common-services"
     state: present
     template: templates/route53/clusterissuer.yml.j2
+  when: not is_aiservice_mode
+
+- name: "aws-route53 : Create AWS Route 53 Issuer (AI Service mode): {{ route53_prod_issuer_name }}"
+  kubernetes.core.k8s:
+    namespace: "{{ instance_namespace }}"
+    state: present
+    template: templates/route53/issuer.yml.j2
+  when: is_aiservice_mode
