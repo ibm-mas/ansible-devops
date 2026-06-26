@@ -1,4 +1,67 @@
 ---
+# Auto-detect and fetch ODF bucket names and credentials
+# ODF appends UUIDs to bucket names, and each bucket has unique credentials
+# We use noobaa-admin credentials which have access to all buckets
+# -----------------------------------------------------------------------------
+- name: "Check if ODF km-tenants bucket exists"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: km-tenants
+    namespace: openshift-storage
+  register: tenants_bucket_configmap
+  failed_when: false
+
+- name: "Check if ODF km-templates bucket exists"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: km-templates
+    namespace: openshift-storage
+  register: templates_bucket_configmap
+  failed_when: false
+
+- name: "Set ODF bucket detection flag"
+  set_fact:
+    use_odf_buckets: "{{ (tenants_bucket_configmap.resources | default([]) | length > 0) and (templates_bucket_configmap.resources | default([]) | length > 0) }}"
+
+- name: "Debug: ODF bucket detection"
+  debug:
+    msg:
+      - "ODF buckets detected ............... {{ use_odf_buckets }}"
+      - "km-tenants exists .................. {{ tenants_bucket_configmap.resources | default([]) | length > 0 }}"
+      - "km-templates exists ................ {{ templates_bucket_configmap.resources | default([]) | length > 0 }}"
+
+- name: "Get ODF bucket configuration"
+  when: use_odf_buckets
+  block:
+    - name: "Get noobaa-admin credentials for ODF bucket access"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        name: noobaa-admin
+        namespace: openshift-storage
+      register: noobaa_admin_secret
+
+    - name: "Override bucket names and credentials with ODF values"
+      when:
+        - tenants_bucket_configmap.resources | length > 0
+        - templates_bucket_configmap.resources | length > 0
+        - noobaa_admin_secret.resources | length > 0
+      set_fact:
+        aiservice_s3_tenants_bucket: "{{ tenants_bucket_configmap.resources[0].data.BUCKET_NAME }}"
+        aiservice_s3_templates_bucket: "{{ templates_bucket_configmap.resources[0].data.BUCKET_NAME }}"
+        aiservice_s3_accesskey: "{{ noobaa_admin_secret.resources[0].data.AWS_ACCESS_KEY_ID | b64decode }}"
+        aiservice_s3_secretkey: "{{ noobaa_admin_secret.resources[0].data.AWS_SECRET_ACCESS_KEY | b64decode }}"
+        cos_bucket_needs_ca_cert: true
+
+    - name: "Debug: ODF bucket configuration"
+      debug:
+        msg:
+          - "Tenants bucket (ODF actual) ........ {{ aiservice_s3_tenants_bucket }}"
+          - "Templates bucket (ODF actual) ...... {{ aiservice_s3_templates_bucket }}"
+          - "Using noobaa-admin credentials for bucket access"
+
 - name: "Create secret for S3 credentials"
   kubernetes.core.k8s:
     apply: yes

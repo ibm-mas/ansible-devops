@@ -1,0 +1,215 @@
+---
+# 1. Check if ODF/OCS is installed and determine deployment type
+# ----------------------------------------------------------------------------
+- name: "Get OCS/ODF StorageCluster"
+  kubernetes.core.k8s_info:
+    api_version: ocs.openshift.io/v1
+    kind: StorageCluster
+    namespace: "openshift-storage"
+  register: SCluster
+
+- name: "Determine ODF deployment type"
+  when: SCluster.resources | length > 0
+  set_fact:
+    ocsavailable: "{{ SCluster.resources[0].status.phase == 'Ready' }}"
+    is_external_odf: "{{ SCluster.resources[0].spec.externalStorage.enable | default(false) }}"
+
+- name: "Fail if OCS Cluster is not ready"
+  assert:
+    that: ocsavailable is defined and ocsavailable | bool
+    fail_msg: "OCS/ODF Cluster is not ready, please install OCS/ODF first."
+
+- name: "ODF cluster configuration"
+  debug:
+    msg:
+      - "=========================================="
+      - "ODF Cluster Configuration"
+      - "=========================================="
+      - "OCS/ODF Cluster available ......... {{ ocsavailable }}"
+      - "External ODF (client mode) ........ {{ is_external_odf | default(false) }}"
+      - "Object storage provider ........... {{ 'NooBaa' if (is_external_odf | default(false)) else 'Ceph RGW' }}"
+      - "=========================================="
+
+# 2. Create Ceph RGW object store (only for full ODF, not external)
+# -----------------------------------------------------------------------------
+- name: "ocs/objectstorage : Create CephObjectStore in ODF Cluster"
+  when:
+    - ocsavailable is defined and ocsavailable | bool
+    - not (is_external_odf | default(false))
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/ocs/object.yaml"
+
+- name: "Wait for CephObjectStore to be ready (60s delay)"
+  when:
+    - ocsavailable is defined and ocsavailable | bool
+    - not (is_external_odf | default(false))
+  kubernetes.core.k8s_info:
+    api_version: ceph.rook.io/v1
+    name: object
+    namespace: "openshift-storage"
+    kind: CephObjectStore
+  register: cephobjectstore_result
+  until: cephobjectstore_result.resources[0].status.phase is defined and cephobjectstore_result.resources[0].status.phase == "Ready"
+  retries: 20 # Approximately 20 minutes before we give up
+  delay: 60 # 1 minute
+
+# 3. Create Ceph RGW object user (only for full ODF, not external)
+# -----------------------------------------------------------------------------
+- name: "ocs/objectstorage : Create CephObjectStoreUser"
+  when:
+    - ocsavailable is defined and ocsavailable | bool
+    - not (is_external_odf | default(false))
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/ocs/objectuser.yaml"
+
+- name: "Wait for CephObjectStoreUser to be ready (60s delay)"
+  when:
+    - ocsavailable is defined and ocsavailable | bool
+    - not (is_external_odf | default(false))
+  kubernetes.core.k8s_info:
+    api_version: ceph.rook.io/v1
+    name: object
+    namespace: "openshift-storage"
+    kind: CephObjectStoreUser
+  register: cephobjectuser_result
+  until: cephobjectuser_result.resources[0].status.phase is defined and cephobjectuser_result.resources[0].status.phase == "Ready"
+  retries: 10 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+# 4. Set up domain and route for Ceph RGW (only for full ODF)
+# -----------------------------------------------------------------------------
+- name: "ocs/objectstorage : Get cluster subdomain"
+  when:
+    - ocsavailable is defined and ocsavailable | bool
+    - not (is_external_odf | default(false))
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: _cluster_subdomain
+
+- name: "ocs/objectstorage : Configure RGW domain"
+  when:
+    - ocsavailable is defined and ocsavailable | bool
+    - not (is_external_odf | default(false))
+  set_fact:
+    cos_domain: "rgw-openshift-storage.{{ _cluster_subdomain.resources[0].spec.domain }}"
+
+# 5. Create route for Ceph RGW (only for full ODF)
+# -----------------------------------------------------------------------------
+- name: "ocs/objectstorage : Create RGW route"
+  when:
+    - ocsavailable is defined and ocsavailable | bool
+    - not (is_external_odf | default(false))
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/ocs/rgw.yaml"
+
+# 6. Get credentials - Ceph RGW for full ODF, NooBaa for external ODF
+# -----------------------------------------------------------------------------
+- name: "ocs/objectstorage : Lookup Ceph RGW user secret"
+  when:
+    - ocsavailable is defined and ocsavailable | bool
+    - not (is_external_odf | default(false))
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "rook-ceph-object-user-object-object"
+    namespace: "openshift-storage"
+  register: objectuserSecret
+
+- name: "ocs/objectstorage : Lookup NooBaa admin secret (external ODF)"
+  when:
+    - ocsavailable is defined and ocsavailable | bool
+    - is_external_odf | default(false)
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "noobaa-admin"
+    namespace: "openshift-storage"
+  register: noobaa_admin_secret
+
+- name: "ocs/objectstorage : Get NooBaa service (external ODF)"
+  when:
+    - ocsavailable is defined and ocsavailable | bool
+    - is_external_odf | default(false)
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Service
+    name: "s3"
+    namespace: "openshift-storage"
+  register: noobaa_s3_service
+
+# 7. Get TLS certificate
+# -----------------------------------------------------------------------------
+- name: "ocs/objectstorage : Lookup the default cluster ingress secret"
+  include_tasks: "{{ role_path }}/../../common_tasks/get_ingress_cert.yml"
+
+- name: "ocs/objectstorage : Set COS cert variable"
+  set_fact:
+    ocscos_tls_crt: "{{ cluster_ingress_tls_crt }}"
+
+- set_fact:
+    ocscos_certs: "{{ lookup('ansible.builtin.template', 'templates/ocs/ocs-certs.yml.j2') }}"
+  when:
+    - ocscos_tls_crt is defined
+    - ocscos_tls_crt | length > 0
+
+# 8. Set COS connection details based on deployment type
+# -----------------------------------------------------------------------------
+- name: "ocs/objectstorage : Set Ceph RGW credentials (full ODF)"
+  when:
+    - ocsavailable is defined and ocsavailable | bool
+    - not (is_external_odf | default(false))
+    - objectuserSecret.resources | length != 0
+  set_fact:
+    ocscos_url: "https://{{ cos_domain }}"
+    ocscos_username: "{{ objectuserSecret.resources[0]['data']['AccessKey'] | b64decode }}"
+    ocscos_password: "{{ objectuserSecret.resources[0]['data']['SecretKey'] | b64decode }}"
+
+- name: "ocs/objectstorage : Set NooBaa credentials (external ODF)"
+  when:
+    - ocsavailable is defined and ocsavailable | bool
+    - is_external_odf | default(false)
+    - noobaa_admin_secret.resources | length != 0
+    - noobaa_s3_service.resources | length != 0
+  set_fact:
+    ocscos_url: "https://{{ noobaa_s3_service.resources[0].spec.clusterIP }}:443"
+    ocscos_username: "{{ noobaa_admin_secret.resources[0].data.AWS_ACCESS_KEY_ID | b64decode }}"
+    ocscos_password: "{{ noobaa_admin_secret.resources[0].data.AWS_SECRET_ACCESS_KEY | b64decode }}"
+
+# 9. Display configuration
+# -----------------------------------------------------------------------------
+- name: "ocs/objectstorage : Debug information"
+  block:
+    - name: Display COS configuration
+      debug:
+        msg:
+          - "=========================================="
+          - "Object Storage Configuration"
+          - "=========================================="
+          - "Provider ........................ {{ 'NooBaa (External ODF)' if (is_external_odf | default(false)) else 'Ceph RGW (Full ODF)' }}"
+          - "COS URL ......................... {{ ocscos_url }}"
+          - "Access Key ...................... {{ ocscos_username }}"
+          - "Secret Key ...................... {{ ocscos_password[:10] }}..."
+          - "=========================================="
+  rescue:
+    - name: Fail if COS info not available
+      fail:
+        msg: "Failed to retrieve COS credentials. Check ODF installation."
+
+# 9. Write ObjectStorageCfg to disk
+# -----------------------------------------------------------------------------
+- name: "ocs/objectstorage : Copy objectstorageCfg to filesytem"
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  ansible.builtin.template:
+    src: ocs/objectstoragecfg.yml.j2
+    dest: "{{ mas_config_dir }}/cos-ocs-system.yml"
+    mode: "664"
+

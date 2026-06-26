@@ -1,0 +1,189 @@
+---
+# Configure S3 CA certificate trust for Ceph/ODF
+# Only runs when cos_bucket_needs_ca_cert is set (from ODF bucket creation)
+# This ensures km-controller and km-store can trust the OpenShift Service CA for internal S3 endpoints
+
+- name: "Configure S3 CA certificate for km-controller"
+  when:
+    - cos_bucket_needs_ca_cert is defined
+    - cos_bucket_needs_ca_cert | bool
+  block:
+    - name: "Debug: Certificate configuration triggered"
+      debug:
+        msg: "Configuring S3 CA certificate for km-controller (cos_bucket_needs_ca_cert={{ cos_bucket_needs_ca_cert }})"
+
+    - name: "Wait for km-controller deployment to exist"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ aiservice_instance_id }}-km-controller"
+        namespace: "{{ aiservice_namespace }}"
+      register: km_controller_check
+      until: km_controller_check.resources | length > 0
+      retries: 60
+      delay: 10
+
+    - name: "Verify openshift-service-ca.crt ConfigMap exists in aiservice namespace"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: ConfigMap
+        name: openshift-service-ca.crt
+        namespace: "{{ aiservice_namespace }}"
+      register: service_ca_check
+      until: service_ca_check.resources | length > 0
+      retries: 10
+      delay: 5
+
+    - name: "Check if service-ca volume already exists"
+      set_fact:
+        service_ca_volume_exists: "{{ km_controller_check.resources[0].spec.template.spec.volumes | selectattr('name', 'equalto', 'service-ca') | list | length > 0 }}"
+
+    - name: "Mount OpenShift Service CA certificate"
+      when: not service_ca_volume_exists
+      shell: |
+        oc set volume deployment/{{ aiservice_instance_id }}-km-controller \
+          -n {{ aiservice_namespace }} \
+          --add \
+          --name=service-ca \
+          --type=configmap \
+          --configmap-name=openshift-service-ca.crt \
+          --mount-path=/etc/pki/ca-trust/source/anchors
+      register: mount_ca_result
+      changed_when: "'updated' in mount_ca_result.stdout"
+      failed_when:
+        - mount_ca_result.rc != 0
+        - "'already exists' not in mount_ca_result.stderr"
+
+    - name: "Check if NODE_EXTRA_CA_CERTS already set"
+      set_fact:
+        node_ca_env_exists: "{{ km_controller_check.resources[0].spec.template.spec.containers[0].env | selectattr('name', 'equalto', 'NODE_EXTRA_CA_CERTS') | list | length > 0 }}"
+
+    - name: "Configure Node.js to trust OpenShift Service CA"
+      when: not node_ca_env_exists
+      shell: |
+        oc set env deployment/{{ aiservice_instance_id }}-km-controller \
+          -n {{ aiservice_namespace }} \
+          NODE_EXTRA_CA_CERTS=/etc/pki/ca-trust/source/anchors/service-ca.crt
+      register: set_env_result
+      changed_when: "'updated' in set_env_result.stdout"
+      failed_when:
+        - set_env_result.rc != 0
+        - "'already set' not in set_env_result.stderr"
+
+    - name: "Wait for km-controller deployment to be ready"
+      when: (mount_ca_result is defined and mount_ca_result.changed) or (set_env_result is defined and set_env_result.changed)
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ aiservice_namespace }}"
+        name: "{{ aiservice_instance_id }}-km-controller"
+      register: km_deployment_check
+      until:
+        - km_deployment_check.resources is defined
+        - km_deployment_check.resources | length > 0
+        - km_deployment_check.resources[0].status is defined
+        - km_deployment_check.resources[0].status.replicas is defined
+        - km_deployment_check.resources[0].status.replicas | int > 0
+        - km_deployment_check.resources[0].status.updatedReplicas is defined
+        - km_deployment_check.resources[0].status.updatedReplicas == km_deployment_check.resources[0].status.replicas
+        - km_deployment_check.resources[0].status.readyReplicas is defined
+        - km_deployment_check.resources[0].status.readyReplicas == km_deployment_check.resources[0].status.replicas
+        - km_deployment_check.resources[0].status.availableReplicas is defined
+        - km_deployment_check.resources[0].status.availableReplicas == km_deployment_check.resources[0].status.replicas
+      retries: 60
+      delay: 10
+
+    - name: "Certificate configuration complete for km-controller"
+      debug:
+        msg: "S3 CA certificate trust configured for km-controller"
+
+- name: "Configure S3 CA certificate for km-store"
+  when:
+    - cos_bucket_needs_ca_cert is defined
+    - cos_bucket_needs_ca_cert | bool
+  block:
+    - name: "Debug: Certificate configuration triggered for km-store"
+      debug:
+        msg: "Configuring S3 CA certificate for km-store (cos_bucket_needs_ca_cert={{ cos_bucket_needs_ca_cert }})"
+
+    - name: "Wait for km-store deployment to exist"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ aiservice_instance_id }}-km-store"
+        namespace: "{{ aiservice_namespace }}"
+      register: km_store_check
+      until: km_store_check.resources | length > 0
+      retries: 60
+      delay: 10
+
+    - name: "Check if service-ca volume already exists in km-store"
+      set_fact:
+        service_ca_volume_exists_store: "{{ km_store_check.resources[0].spec.template.spec.volumes | default([]) | selectattr('name', 'equalto', 'service-ca') | list | length > 0 }}"
+
+    - name: "Mount OpenShift Service CA certificate to km-store"
+      when: not service_ca_volume_exists_store
+      shell: |
+        oc set volume deployment/{{ aiservice_instance_id }}-km-store \
+          -n {{ aiservice_namespace }} \
+          --add \
+          --name=service-ca \
+          --type=configmap \
+          --configmap-name=openshift-service-ca.crt \
+          --mount-path=/etc/pki/ca-trust/source/anchors
+      register: mount_ca_result_store
+      changed_when: "'updated' in mount_ca_result_store.stdout"
+      failed_when:
+        - mount_ca_result_store.rc != 0
+        - "'already exists' not in mount_ca_result_store.stderr"
+
+    - name: "Check if SSL certificate environment variables already set in km-store"
+      set_fact:
+        ssl_cert_env_exists_store: "{{ km_store_check.resources[0].spec.template.spec.containers[0].env | default([]) | selectattr('name', 'in', ['REQUESTS_CA_BUNDLE', 'SSL_CERT_FILE', 'CURL_CA_BUNDLE']) | list | length > 0 }}"
+
+    - name: "Configure Python/SSL to trust OpenShift Service CA in km-store"
+      when: not ssl_cert_env_exists_store
+      shell: |
+        oc set env deployment/{{ aiservice_instance_id }}-km-store \
+          -n {{ aiservice_namespace }} \
+          REQUESTS_CA_BUNDLE=/etc/pki/ca-trust/source/anchors/service-ca.crt \
+          SSL_CERT_FILE=/etc/pki/ca-trust/source/anchors/service-ca.crt \
+          CURL_CA_BUNDLE=/etc/pki/ca-trust/source/anchors/service-ca.crt
+      register: set_env_result_store
+      changed_when: "'updated' in set_env_result_store.stdout"
+      failed_when:
+        - set_env_result_store.rc != 0
+        - "'already set' not in set_env_result_store.stderr"
+
+    - name: "Wait for km-store deployment to be ready"
+      when: (mount_ca_result_store is defined and mount_ca_result_store.changed) or (set_env_result_store is defined and set_env_result_store.changed)
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ aiservice_namespace }}"
+        name: "{{ aiservice_instance_id }}-km-store"
+      register: km_store_deployment_check
+      until:
+        - km_store_deployment_check.resources is defined
+        - km_store_deployment_check.resources | length > 0
+        - km_store_deployment_check.resources[0].status is defined
+        - km_store_deployment_check.resources[0].status.conditions is defined
+        - km_store_deployment_check.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | selectattr('status', 'equalto', 'True') | list | length > 0
+        - km_store_deployment_check.resources[0].status.updatedReplicas is defined
+        - km_store_deployment_check.resources[0].status.replicas is defined
+        - km_store_deployment_check.resources[0].status.updatedReplicas == km_store_deployment_check.resources[0].status.replicas
+        - km_store_deployment_check.resources[0].status.readyReplicas is defined
+        - km_store_deployment_check.resources[0].status.readyReplicas == km_store_deployment_check.resources[0].status.replicas
+      retries: 30
+      delay: 10
+      ignore_errors: true
+
+    - name: "Certificate configuration complete for km-store"
+      debug:
+        msg: "S3 CA certificate trust configured for km-store"
+
+- name: "Skip certificate configuration"
+  when:
+    - cos_bucket_needs_ca_cert is not defined or not (cos_bucket_needs_ca_cert | bool)
+  debug:
+    msg: "Skipping S3 certificate configuration (cos_bucket_needs_ca_cert not set or false)"
