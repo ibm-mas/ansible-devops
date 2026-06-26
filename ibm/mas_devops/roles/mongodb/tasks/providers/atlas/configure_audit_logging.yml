@@ -7,6 +7,27 @@
 - name: "Configure Atlas audit logging"
   when: atlas_audit_enabled | bool
   block:
+    - name: "Parse atlas_mas_instances into list"
+      set_fact:
+        atlas_mas_instances_parsed: "{{ atlas_mas_instances if atlas_mas_instances is iterable and atlas_mas_instances is not string else (atlas_mas_instances.split(',') if atlas_mas_instances is string and atlas_mas_instances != '' else []) }}"
+
+    - name: "Build database usernames list (clustername-instancename)"
+      set_fact:
+        atlas_mas_db_users_list: "{{ atlas_mas_instances_parsed | map('regex_replace', '^(.*)$', atlas_cluster_name ~ '-\\1') | list }}"
+
+    - name: "Check if custom audit filter is provided"
+      set_fact:
+        atlas_audit_filter_is_custom: "{{ atlas_audit_filter | length > 0 }}"
+
+    - name: "Generate default audit filter from template"
+      set_fact:
+        atlas_default_audit_filter: "{{ lookup('template', 'atlas/audit-filter.json.j2') | from_json | to_json }}"
+      when: not atlas_audit_filter_is_custom
+
+    - name: "Determine audit filter to use"
+      set_fact:
+        atlas_audit_filter_to_use: "{{ atlas_audit_filter if atlas_audit_filter_is_custom else atlas_default_audit_filter }}"
+
     - name: "Check if audit logging is already configured"
       uri:
         url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/auditLog"
@@ -25,7 +46,7 @@
       set_fact:
         atlas_audit_config:
           auditAuthorizationSuccess: "{{ atlas_audit_authorization_success | bool }}"
-          auditFilter: "{{ atlas_audit_filter }}"
+          auditFilter: "{{ atlas_audit_filter_to_use }}"
           enabled: true
 
     - name: "Display audit logging configuration"
@@ -35,7 +56,8 @@
           - "Atlas Audit Logging Configuration"
           - "=========================================="
           - "Enabled: true"
-          - "Audit Filter: {{ atlas_audit_filter }}"
+          - "Filter Type: {{ 'Custom' if atlas_audit_filter_is_custom else 'Default (excludes MAS instance users)' }}"
+          - "MAS DB Users Excluded: {{ atlas_mas_db_users_list | join(', ') if not atlas_audit_filter_is_custom and atlas_mas_db_users_list | length > 0 else 'None' }}"
           - "Audit Authorization Success: {{ atlas_audit_authorization_success }}"
           - "=========================================="
 
@@ -67,7 +89,7 @@
       until: >
         atlas_audit_verify.json.enabled == atlas_audit_enabled and
         atlas_audit_verify.json.auditAuthorizationSuccess == atlas_audit_authorization_success and
-        atlas_audit_verify.json.auditFilter == atlas_audit_filter
+        atlas_audit_verify.json.auditFilter == atlas_audit_filter_to_use
       retries: 12
       delay: 10
 
@@ -79,7 +101,7 @@
           - "=========================================="
           - "Status: Successfully Configured"
           - "Project ID: {{ atlas_project_id }}"
-          - "Audit Filter: {{ atlas_audit_filter }}"
+          - "Filter Type: {{ 'Custom' if atlas_audit_filter_is_custom else 'Default' }}"
           - "Authorization Success Logging: {{ atlas_audit_authorization_success }}"
           - "=========================================="
 
