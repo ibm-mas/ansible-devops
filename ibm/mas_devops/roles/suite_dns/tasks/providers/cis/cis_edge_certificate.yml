@@ -58,7 +58,7 @@
   set_fact:
     hasDedicated: "{{ dedicated_list | length > 0 }}"
 
-- name: "cis : Lookup the dedicated certificate id"
+- name: "cis : Lookup the dedicated certificate id (first certificate for backward compatibility)"
   set_fact:
     dedicatedId: "{{ dedicated_list[0].id }}"
   when:
@@ -68,7 +68,8 @@
   debug:
     msg:
       - "hasDedicated: {{ hasDedicated }}"
-      - "dedicatedId: {{ dedicatedId | default('N/A', True )}}"
+      - "Total certificates found: {{ dedicated_list | length }}"
+      - "First certificate ID: {{ dedicatedId | default('N/A', True )}}"
 
 - name: "Pause for 2 minutes before continuing..."
   pause:
@@ -89,11 +90,23 @@
       debug:
         msg: '{{ edge_cert_output }}'
 
-- name: "cis : Delete Existent Advanced Edge Certificate, if set to override or we need to reorder"
+- name: "cis : Delete ALL existing advanced edge certificates for this instance"
   ansible.builtin.shell: |
-    ibmcloud cis certificate-delete {{ _cis_domain_id }}  {{ dedicatedId }} -i "{{ cis_service_name }}" -f
+    ibmcloud cis certificate-delete {{ _cis_domain_id }} {{ item.id }} -i "{{ cis_service_name }}" -f
+  loop: "{{ dedicated_list }}"
   when: hasDedicated and (override_edge_certs or (edge_cert_output is defined and edge_cert_output["reorder"]))
-  register: _deleted_certificate
+  register: _deleted_certificates
+
+- name: "cis : Log deleted certificates count"
+  debug:
+    msg: "Deleted {{ _deleted_certificates.results | selectattr('changed', 'equalto', true) | list | length }} certificate(s)"
+  when: hasDedicated and (override_edge_certs or (edge_cert_output is defined and edge_cert_output["reorder"]))
+
+- name: "cis : Set deletion flag for certificate ordering logic"
+  set_fact:
+    _deleted_certificate:
+      changed: "{{ (_deleted_certificates.results | selectattr('changed', 'equalto', true) | list | length) > 0 }}"
+  when: hasDedicated and (override_edge_certs or (edge_cert_output is defined and edge_cert_output["reorder"]))
 
 - name: "Pause for 2 minutes before continuing..."
   pause:
