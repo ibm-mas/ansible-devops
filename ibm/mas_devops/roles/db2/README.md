@@ -124,7 +124,7 @@ Specifies which operation to perform on the Db2 database.
 - `override_storageclass`: In Restore, controls whether storage classes are overridden
 - `mas_instance_id`, `mas_config_dir`: Optional for migration; when provided, updates MAS JdbcCfg
 
-**Note**: **WARNING** - When using `upgrade`, ALL Db2 instances in the specified namespace will be upgraded. Plan accordingly and ensure `db2_version` matches the operator channel. When using `db2u-migration`, the Db2uCluster must be v12.x and the original Db2uCluster CR will remain after migration (not automatically deleted).
+**Note**: **WARNING** - When using `upgrade`, ALL Db2 instances in the specified namespace will be upgraded. Plan accordingly and ensure `db2_version` matches the operator channel. When using `db2u-migration`, the Db2uCluster must be v12.x and the original Db2uCluster CR will be deleted after migration.
 
 #### db2_namespace
 OpenShift namespace where Db2 operator and instances will be deployed.

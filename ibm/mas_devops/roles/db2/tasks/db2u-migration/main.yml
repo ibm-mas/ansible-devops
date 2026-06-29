@@ -10,8 +10,23 @@
 # - Db2uCluster must be v12.x (migration will fail otherwise)
 # - No Db2uInstance with the same name should exist
 #
-# Note: The Db2uCluster CR remains after migration and is not automatically deleted.
 # =============================================================================
+
+# 0. Verify db2u_migrate is installed
+# -----------------------------------------------------------------------------
+- name: "Check if db2u_migrate is installed"
+  ansible.builtin.command:
+    cmd: "which db2u_migrate"
+  register: _db2u_migrate_check
+  changed_when: false
+  failed_when: false
+
+- name: "Fail if db2u_migrate is not installed"
+  ansible.builtin.fail:
+    msg: |
+      The 'db2u_migrate' CLI tool was not found on this machine.
+      Please install it before running this migration.
+  when: _db2u_migrate_check.rc != 0
 
 # 1. Validate namespace exists
 # -----------------------------------------------------------------------------
@@ -45,7 +60,7 @@
     msg: |
       Db2uCluster '{{ db2_instance_name }}' does not exist in namespace '{{ db2_namespace }}'.
       Cannot proceed with migration.
-      
+
       Available Db2uClusters in namespace:
       {{ _all_clusters.resources | map(attribute='metadata.name') | list | join(', ') if _all_clusters.resources | length > 0 else 'None' }}
   when:
@@ -70,13 +85,13 @@
   ansible.builtin.fail:
     msg: |
       Migration requires Db2uCluster to be v12.x
-      
+
       Current version: {{ _db2_cluster_version }}
-      Required: v12.x (e.g., 12.0.0, 12.1.0)
-      
+      Required: v12.x (e.g., 12.0.0, s12.1.4.0)
+
       Please upgrade your Db2uCluster to v12 before attempting migration.
   when:
-    - not (_db2_cluster_version is match('^12\..*') or _db2_cluster_version == '12')
+    - not (_db2_cluster_version is match('^[^\d]*12[\.\d]*$'))
 
 # 4. Check for existing Db2uInstance conflict
 # -----------------------------------------------------------------------------
@@ -93,7 +108,7 @@
     msg: |
       Db2uInstance '{{ db2_instance_name }}' already exists in namespace '{{ db2_namespace }}'.
       Migration cannot proceed as it would conflict with the existing instance.
-      
+
       If you want to re-migrate, please delete the existing Db2uInstance first:
       oc delete db2uinstance {{ db2_instance_name | lower }} -n {{ db2_namespace }}
   when:
@@ -113,8 +128,6 @@
       - "Namespace: {{ db2_namespace }}"
       - "Version: {{ _db2_cluster_version }}"
       - ""
-      - "IMPORTANT: The Db2uCluster CR will remain after migration."
-      - "You may manually delete it after verifying the migration succeeded."
       - "=========================================="
 
 # 6. Execute db2u_migrate command
@@ -162,7 +175,7 @@
   ansible.builtin.fail:
     msg: |
       Migration failed: Db2uInstance '{{ db2_instance_name }}' was not created.
-      
+
       The db2u_migrate command completed, but the Db2uInstance resource was not found.
       Please check the migration command output above for details.
   when:
@@ -216,9 +229,6 @@
       - "Db2uEngine is Ready"
       - "Namespace: {{ db2_namespace }}"
       - ""
-      - "REMINDER: The original Db2uCluster '{{ db2_instance_name }}' still exists."
-      - "After verifying the migration, you may optionally delete it:"
-      - "  oc delete db2ucluster {{ db2_instance_name | lower }} -n {{ db2_namespace }}"
       - "=========================================="
 
 # 11. Update MAS JdbcCfg (if requested)
@@ -239,5 +249,3 @@
           - "JdbcCfg has been generated for the migrated instance"
           - "Location: {{ mas_config_dir }}/jdbc-{{ db2_instance_name | lower }}-{{ db2_namespace }}.yml"
           - "Apply the configuration to update MAS if needed"
-
-# Made with Bob
