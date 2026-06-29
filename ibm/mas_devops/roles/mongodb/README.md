@@ -2286,6 +2286,140 @@ Log successful authorization events.
 **Impact**: 
 - `true`: Increases log volume significantly as all successful operations are logged
 
+### Atlas S3 Audit Log Export Configuration
+
+MongoDB Atlas can export audit logs to AWS S3 for long-term retention and compliance using the **Log Integrations API**. This provides a cost-effective way to store audit logs beyond Atlas's retention period and enables integration with external log analysis tools.
+
+**How it works**:
+- Uses MongoDB Atlas **Log Integrations API** (`/api/atlas/v2/groups/{groupId}/logIntegrations`)
+- Exports both `MONGOD_AUDIT` and `MONGOS_AUDIT` log types
+- Automatically creates and configures all required AWS infrastructure
+- Fully idempotent - can be run multiple times safely
+
+**Prerequisites**:
+- `atlas_audit_enabled` must be set to `true`
+- AWS credentials configured (via AWS CLI or environment variables)
+- Sufficient AWS IAM permissions to create S3 buckets and IAM roles
+
+#### atlas_s3_audit_export_enabled
+Enable export of audit logs to AWS S3.
+
+- **Optional** when `mongodb_provider=atlas`
+- Environment Variable: `ATLAS_S3_AUDIT_EXPORT_ENABLED`
+- Default Value: `false`
+
+**Purpose**: Automatically exports MongoDB Atlas audit logs to an AWS S3 bucket for long-term retention and compliance.
+
+**When to use**: Enable for production and staging environments requiring:
+- Long-term audit log retention (beyond Atlas's retention period)
+- Compliance requirements for audit log archival
+- Cost-effective storage of historical audit data
+
+**Valid values**: `true`, `false`
+
+**Impact**:
+- Creates an S3 bucket with encryption (bucket name auto-generated from project name)
+- Enables S3 bucket versioning only if `atlas_s3_audit_bucket_enable_versioning=true`
+- Sets up IAM role for MongoDB Atlas with cross-account access
+- Configures cloud provider access in Atlas
+- Creates log integration using Atlas Log Integrations API
+- Applies lifecycle policies for cost optimization (Glacier transition, retention)
+
+**Note**: Requires `atlas_audit_enabled=true`. The S3 bucket name is automatically generated from the Atlas project name (e.g., `atlas-enterprise-poc-atlas-audit-logs`). All AWS resources are created automatically by this role.
+
+**Related variables**: `atlas_s3_audit_bucket_prefix`, `atlas_s3_audit_log_retention_days`
+
+**Note**: The S3 bucket name is automatically generated from the Atlas project name as `<project-name>-atlas-audit-logs` (with special characters replaced by hyphens and converted to lowercase).
+
+#### atlas_s3_audit_bucket_prefix
+Prefix (folder path) within the S3 bucket.
+
+- **Optional** when `atlas_s3_audit_export_enabled=true`
+- Environment Variable: `ATLAS_S3_AUDIT_BUCKET_PREFIX`
+- Default Value: `mongodb-atlas-audit-logs`
+
+**Purpose**: Organizes audit logs within the S3 bucket using a prefix path.
+
+**Valid values**: Valid S3 object key prefix
+
+**Impact**: Logs will be stored at: `s3://<bucket_name>/<prefix>/<project_id>/...`
+
+**Examples**: 
+- `audit-logs/mongodb`
+- `compliance/atlas-audit`
+- `logs/production/mongodb`
+
+#### atlas_s3_audit_log_retention_days
+Number of days to retain audit logs in S3.
+
+- **Optional** when `atlas_s3_audit_export_enabled=true`
+- Environment Variable: `ATLAS_S3_AUDIT_LOG_RETENTION_DAYS`
+- Default Value: `365`
+
+**Purpose**: Configures automatic deletion of audit logs after the specified retention period.
+
+**Valid values**: Positive integer (days)
+
+**Impact**: 
+- Creates S3 lifecycle policy to delete logs after retention period
+- Logs transition to Glacier storage after `atlas_s3_audit_glacier_transition_days`
+- Helps manage storage costs while meeting compliance requirements
+
+**Common retention periods**:
+- 365 days (1 year) - Default
+
+#### atlas_s3_audit_bucket_enable_versioning
+Enable S3 bucket versioning for audit logs.
+
+- **Optional** when `atlas_s3_audit_export_enabled=true`
+- Environment Variable: `ATLAS_S3_AUDIT_BUCKET_ENABLE_VERSIONING`
+- Default Value: `false`
+
+**Purpose**: Enables S3 versioning to protect against accidental deletion or modification of audit logs.
+
+**Valid values**: `true`, `false`
+
+**Impact**:
+- When `true`: All versions of objects are retained, increasing storage costs
+- Noncurrent versions are deleted after `atlas_s3_audit_noncurrent_version_retention_days`
+- Total retention = `atlas_s3_audit_log_retention_days` + `atlas_s3_audit_noncurrent_version_retention_days`
+
+**When to use**: Enable for strict compliance requirements that mandate immutable audit logs.
+
+#### atlas_s3_audit_glacier_transition_days
+Days before transitioning logs to Glacier storage.
+
+- **Optional** when `atlas_s3_audit_export_enabled=true`
+- Environment Variable: `ATLAS_S3_AUDIT_GLACIER_TRANSITION_DAYS`
+- Default Value: `90`
+
+**Purpose**: Reduces storage costs by transitioning older audit logs to Glacier storage class.
+
+**Valid values**: Integer >= 30 (AWS requirement)
+
+**Impact**: 
+- Logs remain in Standard storage for faster access during this period
+- After transition, retrieval times increase but costs decrease significantly
+- Must be less than `atlas_s3_audit_log_retention_days`
+
+**Common values**: 30, 60, 90, 180 days
+
+#### atlas_s3_audit_noncurrent_version_retention_days
+Days to retain noncurrent versions (when versioning enabled).
+
+- **Optional** when `atlas_s3_audit_bucket_enable_versioning=true`
+- Environment Variable: `ATLAS_S3_AUDIT_NONCURRENT_VERSION_RETENTION_DAYS`
+- Default Value: `30`
+
+**Purpose**: Controls how long previous versions of audit logs are retained after a new version is created.
+
+**Valid values**: Positive integer (days)
+
+**Impact**: Only applies when versioning is enabled. Extends total retention time.
+
+**Example**: If retention is 365 days and noncurrent retention is 30 days, audit logs could be stored for up to 395 days total.
+
+
 ### Atlas Alert Monitoring Configuration
 
 MongoDB Atlas Alert Monitoring provides proactive notifications for cluster health, performance, and security events. Alerts help identify and resolve issues before they impact users.

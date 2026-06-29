@@ -11,7 +11,8 @@
 
 - name: "cis: use managed_rulesets"
   ansible.builtin.shell: |
-    ibmcloud cis waf-packages {{ (_cis_domains_result.stdout | from_json)[0].id}}
+    ibmcloud cis waf-packages {{ (_cis_domains_result.stdout | from_json)[0].id}} \
+    -i "{{ cis_service_name }}"
   failed_when: false
   register: error_output
 
@@ -34,11 +35,16 @@
     - name: "cis: list of managed ruleset rules to disable"
       ansible.builtin.include_vars: vars/managed_ruleset_rules_to_disable.yml
 
-    - name: "cis: get Cloudflare Managed Ruleset ruleset_id"
+    - name: "cis: get CIS Managed Ruleset ruleset_id"
       ansible.builtin.shell: |
         ibmcloud cis managed-waf rulesets {{ (_cis_domains_result.stdout | from_json)[0].id }} \
-        -i "{{ cis_service_name }}" --output json | jq -r '.[] | select(.name == "Cloudflare Managed Ruleset") | .id'
+        -i "{{ cis_service_name }}" --output json | jq -r '.[] | select(.name == "CIS Managed Ruleset") | .id'
       register: _cis_ruleset_result
+
+    - name: "cis: validate CIS Managed Ruleset ID was found"
+      ansible.builtin.fail:
+        msg: "CIS Managed Ruleset ID not found. Ensure the ruleset exists in the CIS instance."
+      when: _cis_ruleset_result.stdout | trim | length == 0
 
     - name: "cis: get deployed rule id for CIS Managed Ruleset id"
       ansible.builtin.shell: |
