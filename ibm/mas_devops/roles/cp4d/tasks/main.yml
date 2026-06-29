@@ -83,94 +83,50 @@
 - name: "Determine storage classes"
   include_tasks: "tasks/determine-storage-classes.yml"
 
-# Determine installation method (OLM vs Helm)
-# -----------------------------------------------------------------------------
-- name: "Load component support matrix"
-  include_vars: "{{ role_path }}/vars/component-support.yml"
-
-- name: "Determine installation method based on user preference and CPD version"
-  set_fact:
-    resolved_install_method: >-
-      {%- if cpd_install_method == 'helm' -%}
-        helm
-      {%- elif cpd_install_method == 'olm' -%}
-        olm
-      {%- else -%}
-        {%- if cpd_product_version is version('5.3.0', '>=') -%}
-          helm
-        {%- else -%}
-          olm
-        {%- endif -%}
-      {%- endif -%}
-
-- name: "Installation method selected"
-  debug:
-    msg:
-      - "CPD Version: {{ cpd_product_version }}"
-      - "User preference: {{ cpd_install_method }}"
-      - "Selected method: {{ resolved_install_method }}"
-
 # Authorizing a user to act as an IBM Cloud Pak for Data instance administrator
 # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=data-authorizing-instance-administrator
 # -----------------------------------------------------------------------------
 - name: "Grant permissions to {{ cpd_admin_login_sa }} service account in Cloud Pak For Data namespaces"
   include_tasks: "tasks/authorize-user-cpd-admin.yml"
 
-# Route to appropriate installation method
+# CPD 4.8 and above only: Install specific catalog sources
 # -----------------------------------------------------------------------------
-- name: "Install CPD Platform via OLM"
-  when: resolved_install_method == 'olm'
-  block:
-    # CPD 4.8 and above only: Install specific catalog sources
-    # -----------------------------------------------------------------------------
-    # We need to install specific catalog sources
-    # for Cloud Pak for Data (cpd-platform), Foundational Services and NamespaceScope (opencloud-operators)
-    - include_tasks: "tasks/create-catalog-sources.yml"
+# We need to install specific catalog sources
+# for Cloud Pak for Data (cpd-platform), Foundational Services and NamespaceScope (opencloud-operators)
+- include_tasks: "tasks/create-catalog-sources.yml"
 
-    # Install NamespaceScope
-    # -----------------------------------------------------------------------------
-    - include_tasks: "tasks/prereqs/install-ibm-namespace-scope.yml"
+# Install NamespaceScope
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/prereqs/install-ibm-namespace-scope.yml"
 
-    # Install IBM Licensing
-    # -----------------------------------------------------------------------------
-    - include_tasks: "tasks/prereqs/install-ibm-licensing.yml"
+# Install IBM Licensing
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/prereqs/install-ibm-licensing.yml"
 
-    # Install Cloud Pak Foundational Services
-    # -----------------------------------------------------------------------------
-    - include_tasks: "tasks/olm/install-cpfs.yml"
-      when:
-        - cpfs_installed_version is not defined or cpfs_installed_version != cpfs_version
+# Install Cloud Pak Foundational Services
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/prereqs/install-cpfs.yml"
+  when:
+    - cpfs_installed_version is not defined or cpfs_installed_version != cpfs_version
 
-    # Install Cloud Pak for Data subscription/operator
-    # -----------------------------------------------------------------------------
-    - name: "Create Cloud Pak for Data Subscription"
-      include_tasks: "tasks/olm/create-subscriptions.yml"
+# Install Cloud Pak for Data subscription/operator
+# -----------------------------------------------------------------------------
+- name: "Create Cloud Pak for Data Subscription"
+  include_tasks: "tasks/create-subscriptions.yml"
 
-    # At this stage:
-    # - The two namespaces (ibm-cpd and ibm-cpd-operators) will be created
-    # - OperatorGroup will have been created in the ibm-cpd-operators namespace
-    # - Cloud Pak for Data Platform Operator (cpd-platform-operator-manager) will be installed in ibm-cpd-operators namespace
-    # - IBM Cloud Pak Foundational Services (ibm-common-service-operator) will be installed in ibm-cpd-operators namespace
-    # - IBM NamespaceScope Operator (ibm-namespace-scope-operator) will be installed in ibm-cpd-operators namespace
-    # - A NamespaceScope will have been created in the ibm-cpd-operators namespace
-    # - Nothing will exist in the ibm-cpd namespace yet except the entitlement key we just created
+# At this stage:
+# - The two namespaces (ibm-cpd and ibm-cpd-operators) will be created
+# - OperatorGroup will have been created in the ibm-cpd-operators namespace
+# - Cloud Pak for Data Platform Operator (cpd-platform-operator-manager) will be installed in ibm-cpd-operators namespace
+# - IBM Cloud Pak Foundational Services (ibm-common-service-operator) will be installed in ibm-cpd-operators namespace
+# - IBM NamespaceScope Operator (ibm-namespace-scope-operator) will be installed in ibm-cpd-operators namespace
+# - A NamespaceScope will have been created in the ibm-cpd-operators namespace
+# - Nothing will exist in the ibm-cpd namespace yet except the entitlement key we just created
 
-    # Install Cloud Pak for Data instance
-    # -----------------------------------------------------------------------------
-    - name: "Install Cloud Pak For Data"
-      include_tasks: "tasks/olm/install-cp4d.yml"
-
-- name: "Install CPD Platform via Helm"
-  when: resolved_install_method == 'helm'
-  block:
-    # Install platform components (CPFS, Zen, CPD Platform) via Helm
-    # -----------------------------------------------------------------------------
-    - include_tasks: "tasks/helm/install-helm.yml"
-
-    # Install Cloud Pak for Data instance (create Ibmcpd CR)
-    # -----------------------------------------------------------------------------
-    - name: "Install Cloud Pak For Data instance"
-      include_tasks: "tasks/olm/install-cp4d.yml"
+# Install Cloud Pak for Data instance
+# -----------------------------------------------------------------------------
+- name: "Install Cloud Pak For Data"
+  include_tasks: "tasks/install-cp4d.yml"
 
 # Debug Cloud Pak for Data installation details
 # -----------------------------------------------------------------------------

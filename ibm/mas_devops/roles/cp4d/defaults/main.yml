@@ -5,19 +5,6 @@ cpd_metadata_storage_class: "{{ lookup('env', 'CPD_METADATA_STORAGE_CLASS') }}"
 cpd_scale_config: "{{ lookup('env', 'CPD_SCALE_CONFIG') | default('medium', true) }}"
 cpd_iam_integration: false # this is implicitly defaulted to false in cpd 4.6, but needs to be explicitly set in cpd 4.8
 
-# ------ Installation Method Selection --------------------------------------------------------------------------------
-# Auto-detect based on CPD version, or explicitly set
-cpd_install_method: "{{ lookup('env', 'CPD_INSTALL_METHOD') | default('auto', true) }}"
-# Options: 'auto', 'olm', 'helm'
-# - auto: Automatically choose based on CPD version (5.3.1+ uses Helm, older uses OLM)
-# - olm: Force OLM installation (for CPD 5.2.0 and earlier)
-# - helm: Force Helm installation (for CPD 5.3.1+)
-
-# ------ Helm Configuration (only used when install_method = 'helm') --------------------------------------------------
-cpd_helm_repo_url: "{{ lookup('env', 'CPD_HELM_REPO_URL') | default('https://raw.githubusercontent.com/IBM/charts/master/repo/ibm-helm', true) }}"
-cpd_helm_repo_name: "ibm-charts"
-cpd_helm_timeout: "30m"
-
 # ------ CPD entitlement ----------------------------------------------------------------------------------------------
 cpd_entitlement_username: "{{ lookup('env', 'CPD_ENTITLEMENT_USERNAME') | default('cp', true) }}"
 ibm_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
@@ -88,47 +75,3 @@ cpfs_catalog_source_namespace: "{{ cpd_operators_namespace }}"
 
 cpd_ibm_licensing_catalog_source_name: ibm-operator-catalog
 cpd_ibm_licensing_catalog_source_namespace: openshift-marketplace
-
-# ------ Component Metadata for Helm Installation (CPD 5.3.1+) -------------------------------------------------------
-# Note: case_version values are set from olm-utils-cm ConfigMap in create-olm-utils.yml
-# Verified Helm charts exist in IBM public repo:
-# - ibm-common-service-operator (4.17.0)
-# - zen (6.4.x)
-# - cpd-platform (5.4.x)
-cpd_component_info:
-  cpfs:
-    name: cpfs
-    assembly_name: ibm-common-service-operator
-    helm_chart_name: ibm-common-service-operator
-    helm_cluster_chart: ibm-common-service-operator-cluster-scoped
-    crd_name: commonservices.operator.ibm.com
-    cr_kind: CommonService
-    api_version: operator.ibm.com/v3
-    case_version: "{{ cpfs_case_version }}"
-    operator_namespace: "{{ cpd_operators_namespace }}"
-    
-  zen:
-    name: zen
-    assembly_name: zen
-    helm_chart_name: zen
-    helm_cluster_chart: zen-cluster-scoped
-    crd_name: zenservices.zen.cpd.ibm.com
-    cr_kind: ZenService
-    api_version: zen.cpd.ibm.com/v1
-    case_version: "{{ zen_case_version }}"
-    operator_namespace: "{{ cpd_operators_namespace }}"
-    instance_namespace: "{{ cpd_instance_namespace }}"
-    cr_name: "{{ zen_cr_name }}"
-    
-  cpd_platform:
-    name: cpd-platform
-    assembly_name: cpd-platform
-    helm_chart_name: cpd-platform
-    helm_cluster_chart: cpd-platform-cluster-scoped
-    crd_name: ibmcpds.cpd.ibm.com
-    cr_kind: Ibmcpd
-    api_version: cpd.ibm.com/v1
-    case_version: "{{ cpd_case_version }}"
-    operator_namespace: "{{ cpd_operators_namespace }}"
-    instance_namespace: "{{ cpd_instance_namespace }}"
-    cr_name: "{{ cpd_platform_cr_name }}"
