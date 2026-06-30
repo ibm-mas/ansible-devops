@@ -25,36 +25,6 @@
 - include_tasks: update-operatorhub.yml
   when: ocp_operatorhub_disable_redhat_sources
 
-# 5. For IPv6 testing, lookup network
-- name: Lookup network for IPv6 testing
-  kubernetes.core.k8s:
-    api_version: config.openshift.io/v1
-    kind: Network
-    name: "cluster"
-  when:
-    - ocp_enable_ipv6 == true
-  register: _network
-
-- name: "fyre : Debug network"
-  debug:
-    var: _network
-
-# 6. For IPv6 testing, enable dual stack networking
-- name: "Enable dual stack networking"
-  kubernetes.core.k8s_json_patch:
-    kind: Network
-    name: "cluster"
-    api_version: config.openshift.io/v1
-    patch:
-      - op: add
-        path: /spec/clusterNetwork/-
-        value:
-          cidr: fd01::/48
-          hostPrefix: 64
-      - op: add
-        path: /spec/serviceNetwork/-
-        value: fd02::/112
-  register: _dualstackNetworkAddr
-  when:
-    - ocp_enable_ipv6 == true
-    - "'fd01::/48' not in (_network.result.spec.clusterNetwork | map(attribute='cidr') | list)"
+# 5. For enable dual stack networking and IPv6 configuration checks
+- include_tasks: ipv6-prereq-check.yml
+  when: ocp_enable_ipv6
