@@ -64,6 +64,46 @@
       - component_support | length > 0
     fail_msg: "Component '{{ cpd_service_name }}' is not defined in component support matrix"
 
+# 3.1. Override installation method based on CPD version
+# -----------------------------------------------------------------------------
+# For CPD 5.3.1 and above: Use Helm (if supported)
+# For CPD 5.2.0 and below: Use OLM (if supported)
+- name: "Debug CPD version before override"
+  debug:
+    msg:
+      - "CPD Version: {{ cpd_product_version | default('NOT SET') }}"
+      - "Component: {{ cpd_service_name }}"
+      - "Original required_method: {{ component_support.required_method | default('not set') }}"
+      - "Support OLM: {{ component_support.support_olm | default(false) }}"
+      - "Support Helm: {{ component_support.support_helm | default(false) }}"
+
+- name: "Override installation method based on CPD version"
+  when: cpd_product_version is defined and cpd_product_version != ""
+  set_fact:
+    component_support: >-
+      {%- set support = component_support | default({}) -%}
+      {%- if cpd_product_version is version('5.3.1', '>=') -%}
+        {%- if support.support_helm | default(false) -%}
+          {{ support | combine({'required_method': 'helm'}) }}
+        {%- else -%}
+          {{ support }}
+        {%- endif -%}
+      {%- else -%}
+        {%- if support.support_olm | default(false) -%}
+          {{ support | combine({'required_method': 'olm'}) }}
+        {%- else -%}
+          {{ support }}
+        {%- endif -%}
+      {%- endif -%}
+
+- name: "Debug version-based installation method (after override)"
+  debug:
+    msg:
+      - "CPD Version: {{ cpd_product_version | default('NOT SET') }}"
+      - "Component: {{ cpd_service_name }}"
+      - "Required method (after version check): {{ component_support.required_method | default('not set') }}"
+      - "Version comparison (>= 5.3.1): {{ cpd_product_version is version('5.3.1', '>=') }}"
+
 # 4. Determine installation method based on user preference and component support
 # -----------------------------------------------------------------------------
 - name: "Determine installation method - User requested Helm"
