@@ -91,18 +91,10 @@
   retries: 30
   delay: 10
 
-# Install namespace-scoped chart (Operator, CR) using helm install
-# This allows Helm to manage the CR lifecycle and track the release
-- name: "Check if {{ component_name }} Helm release exists"
-  command: >
-    helm list -n {{ cpd_instance_namespace }}
-    --filter {{ component_name | replace('_', '-') }}
-    --output json
-  register: helm_release_check
-  changed_when: false
-  failed_when: false
-
-- name: "Install {{ component_name }} namespace-scoped chart with Helm"
+# Install namespace-scoped chart (Operator, CR) using helm upgrade --install
+# This command is idempotent and handles both new installations and upgrades
+# Eliminates race conditions when multiple components share dependencies
+- name: "Install/Upgrade {{ component_name }} namespace-scoped chart with Helm"
   command: >
     helm upgrade --install {{ component_name | replace('_', '-') }}
     {{ cpd_helm_repo_name }}/{{ comp_chart_name }}
@@ -113,19 +105,7 @@
     --wait
     --timeout {{ cpd_helm_timeout }}
   register: ns_install
-  when: (helm_release_check.stdout | from_json | length) == 0
-
-- name: "Upgrade {{ component_name }} namespace-scoped chart with Helm"
-  command: >
-    helm upgrade {{ component_name | replace('_', '-') }}
-    {{ cpd_helm_repo_name }}/{{ comp_chart_name }}
-    --version {{ chart_version }}
-    -f /tmp/{{ component_name }}-helm-values.yaml
-    --namespace {{ cpd_instance_namespace }}
-    --wait
-    --timeout {{ cpd_helm_timeout }}
-  register: ns_upgrade
-  when: (helm_release_check.stdout | from_json | length) > 0
+  changed_when: "'has been upgraded' in ns_install.stdout or 'has been installed' in ns_install.stdout"
 
 - name: "{{ component_name }} Helm charts installed"
   debug:
