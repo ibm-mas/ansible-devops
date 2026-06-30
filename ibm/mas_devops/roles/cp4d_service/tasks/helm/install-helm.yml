@@ -166,14 +166,36 @@
     - component_info.helm_dependencies is defined
     - component_info.helm_dependencies | length > 0
   block:
+    - name: "Check existing Helm releases"
+      command: helm list -n {{ cpd_instance_namespace }} --output json
+      register: existing_releases
+      changed_when: false
+      failed_when: false
+
+    - name: "Parse existing release names"
+      set_fact:
+        installed_releases: "{{ (existing_releases.stdout | from_json | map(attribute='name') | list) if existing_releases.rc == 0 else [] }}"
+
+    - name: "Filter dependencies that need installation"
+      set_fact:
+        dependencies_to_install: "{{ component_info.helm_dependencies | rejectattr('name', 'in', installed_releases) | list }}"
+
+    - name: "Debug: Dependencies status"
+      debug:
+        msg:
+          - "Total dependencies: {{ component_info.helm_dependencies | length }}"
+          - "Already installed: {{ component_info.helm_dependencies | selectattr('name', 'in', installed_releases) | map(attribute='name') | list }}"
+          - "To be installed: {{ dependencies_to_install | map(attribute='name') | list }}"
+
     - name: "Install dependency components"
       include_tasks: "install-component.yml"
-      loop: "{{ component_info.helm_dependencies }}"
+      loop: "{{ dependencies_to_install }}"
       loop_control:
         loop_var: dep_item
       vars:
         component_name: "{{ dep_item.name }}"
         dep_component_info: "{{ dep_item }}"
+      when: dependencies_to_install | length > 0
 
     # Create CCS CR if CCS is in the dependencies
     - name: "Create CCS CR after Helm install"
