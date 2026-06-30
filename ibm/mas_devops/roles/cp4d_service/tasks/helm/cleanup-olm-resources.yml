@@ -1,0 +1,144 @@
+---
+# Patch OLM-managed resources for Helm adoption
+# This is needed when upgrading from CPD 5.2.0 (OLM) to 5.3.1+ (Helm)
+# Instead of deleting resources, we add Helm labels so Helm can adopt them
+
+- name: "Load OLM resource mappings"
+  include_vars: "{{ role_path }}/vars/olm-resource-mappings.yml"
+
+- name: "Check if component {{ component_name }} has OLM resources"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ServiceAccount
+    name: "{{ olm_sa_name }}"
+    namespace: "{{ cpd_operators_namespace }}"
+  register: olm_sa_check
+  vars:
+    olm_sa_name: "{{ component_olm_sa_mapping[component_name] | default('') }}"
+  when: component_name in component_olm_sa_mapping
+  failed_when: false
+
+- name: "Patch OLM resources for Helm adoption - {{ component_name }}"
+  when:
+    - olm_sa_check.resources is defined
+    - olm_sa_check.resources | length > 0
+  block:
+    - name: "Found existing OLM installation for {{ component_name }}"
+      debug:
+        msg:
+          - "Detected OLM-managed resources for {{ component_name }}"
+          - "ServiceAccount: {{ olm_sa_name }}"
+          - "Namespace: {{ cpd_operators_namespace }}"
+          - "Will patch resources with Helm labels for adoption"
+      vars:
+        olm_sa_name: "{{ component_olm_sa_mapping[component_name] }}"
+
+    # Delete OLM-specific resources (Subscription, CSV)
+    - name: "Delete OLM Subscription for {{ component_name }}"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: Subscription
+        name: "{{ olm_subscription_name }}"
+        namespace: "{{ cpd_operators_namespace }}"
+      vars:
+        olm_subscription_name: "{{ component_olm_subscription_mapping[component_name] | default(component_name + '-subscription') }}"
+      failed_when: false
+
+    - name: "Delete OLM ClusterServiceVersion for {{ component_name }}"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: ClusterServiceVersion
+        namespace: "{{ cpd_operators_namespace }}"
+        label_selectors:
+          - "operators.coreos.com/{{ component_olm_package_mapping[component_name] | default(component_name) }}.{{ cpd_operators_namespace }}"
+      failed_when: false
+
+    # Patch Deployment with Helm labels
+    - name: "Add Helm labels to Deployment for {{ component_name }}"
+      command: >
+        oc label deployment {{ deployment_name }}
+        -n {{ cpd_operators_namespace }}
+        app.kubernetes.io/managed-by=Helm
+        meta.helm.sh/release-name={{ component_name | replace('_', '-') }}
+        meta.helm.sh/release-namespace={{ cpd_instance_namespace }}
+        --overwrite
+      vars:
+        deployment_name: "{{ component_olm_deployment_mapping[component_name] | default(olm_sa_name) }}"
+        olm_sa_name: "{{ component_olm_sa_mapping[component_name] }}"
+      failed_when: false
+
+    - name: "Add Helm annotations to Deployment for {{ component_name }}"
+      command: >
+        oc annotate deployment {{ deployment_name }}
+        -n {{ cpd_operators_namespace }}
+        meta.helm.sh/release-name={{ component_name | replace('_', '-') }}
+        meta.helm.sh/release-namespace={{ cpd_instance_namespace }}
+        --overwrite
+      vars:
+        deployment_name: "{{ component_olm_deployment_mapping[component_name] | default(olm_sa_name) }}"
+        olm_sa_name: "{{ component_olm_sa_mapping[component_name] }}"
+      failed_when: false
+
+    # Patch ServiceAccount with Helm labels
+    - name: "Add Helm labels to ServiceAccount for {{ component_name }}"
+      command: >
+        oc label sa {{ olm_sa_name }}
+        -n {{ cpd_operators_namespace }}
+        app.kubernetes.io/managed-by=Helm
+        meta.helm.sh/release-name={{ component_name | replace('_', '-') }}
+        meta.helm.sh/release-namespace={{ cpd_instance_namespace }}
+        --overwrite
+      vars:
+        olm_sa_name: "{{ component_olm_sa_mapping[component_name] }}"
+      failed_when: false
+
+    - name: "Add Helm annotations to ServiceAccount for {{ component_name }}"
+      command: >
+        oc annotate sa {{ olm_sa_name }}
+        -n {{ cpd_operators_namespace }}
+        meta.helm.sh/release-name={{ component_name | replace('_', '-') }}
+        meta.helm.sh/release-namespace={{ cpd_instance_namespace }}
+        --overwrite
+      vars:
+        olm_sa_name: "{{ component_olm_sa_mapping[component_name] }}"
+      failed_when: false
+
+    - name: "OLM to Helm migration complete for {{ component_name }}"
+      debug:
+        msg: "✓ Resources patched with Helm labels, ready for Helm adoption"
+
+- name: "No OLM resources found for {{ component_name }}"
+  when:
+    - olm_sa_check.resources is not defined or olm_sa_check.resources | length == 0
+  debug:
+    msg: "No existing OLM installation detected, proceeding with Helm installation"
+
+# Delete component CRs so Helm can recreate them with correct version
+# Only deletes CRs explicitly listed in component_cr_mapping
+- name: "Delete component CRs for {{ component_name }}"
+  when: component_name in component_cr_mapping
+  block:
+    - name: "Remove finalizers from {{ item.kind }} CRs"
+      shell: |
+        {% if item.name == 'all' %}
+        for cr in $(oc get {{ item.kind }} -n {{ cpd_instance_namespace }} -o name 2>/dev/null || true); do
+          oc patch $cr -n {{ cpd_instance_namespace }} --type=json -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+        done
+        {% else %}
+        oc patch {{ item.kind }} {{ item.name }} -n {{ cpd_instance_namespace }} --type=json -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+        {% endif %}
+      loop: "{{ component_cr_mapping[component_name] }}"
+      failed_when: false
+
+    - name: "Delete {{ item.kind }} CRs"
+      shell: |
+        {% if item.name == 'all' %}
+        oc delete {{ item.kind }} --all -n {{ cpd_instance_namespace }} --ignore-not-found=true --wait=false
+        {% else %}
+        oc delete {{ item.kind }} {{ item.name }} -n {{ cpd_instance_namespace }} --ignore-not-found=true --wait=false
+        {% endif %}
+      loop: "{{ component_cr_mapping[component_name] }}"
+      failed_when: false
+      
