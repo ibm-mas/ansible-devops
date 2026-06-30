@@ -450,6 +450,7 @@ Namespace for the IBM Secrets Manager SecretStore (namespace-scoped).
     ibm_sm_api_key: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
   roles:
     - ibm.mas_devops.eso
+```
 
 ### Delete IBM Secrets Manager ClusterSecretStore
 
@@ -491,7 +492,88 @@ Namespace for the IBM Secrets Manager SecretStore (namespace-scoped).
   roles:
     - ibm.mas_devops.eso
 ```
+
+### ExternalSecret: Arbitrary Secret (IBM Secrets Manager)
+
+Arbitrary secrets contain a single text value stored in the `payload` field.
+
+```yaml
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: example-arbitrary-secret
+  namespace: default
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: ibm-secrets-manager
+    kind: ClusterSecretStore  # Use 'SecretStore' for namespace-specific store
+  target:
+    name: my-arbitrary-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: API_KEY  # Key name in the Kubernetes Secret
+      remoteRef:
+        # Use the secret ID (recommended) or secret name
+        key: YOUR-SECRET-ID-OR-NAME
 ```
+
+### ExternalSecret: Key-Value Secret (individual keys)
+
+Key-value secrets contain multiple key-value pairs. Prefix the secret ID with `kv/` and use `property` to select individual keys.
+
+```yaml
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: example-kv-secret
+  namespace: default
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: ibm-secrets-manager
+    kind: ClusterSecretStore  # Use 'SecretStore' for namespace-specific store
+  target:
+    name: my-kv-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: USERNAME
+      remoteRef:
+        key: "kv/YOUR-SECRET-ID"
+        property: "username"
+    - secretKey: PASSWORD
+      remoteRef:
+        key: "kv/YOUR-SECRET-ID"
+        property: "password"
+```
+
+### ExternalSecret: Key-Value Secret (fetch all keys at once)
+
+Use `dataFrom.extract` to pull every key from a key-value secret in one operation.
+
+```yaml
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: example-kv-all-keys
+  namespace: default
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: ibm-secrets-manager
+    kind: ClusterSecretStore
+  target:
+    name: my-kv-secret-all
+    creationPolicy: Owner
+  dataFrom:
+    - extract:
+        key: "kv/YOUR-SECRET-ID"
+```
+
+> **Notes:**
+> - Always prefix key-value secret IDs with `kv/` (e.g. `"kv/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"`)
+> - Secret IDs (UUIDs) are more reliable than secret names
+> - Use `data` + `property` to fetch specific keys; use `dataFrom.extract` to fetch all keys at once
 
 ## Prerequisites
 
