@@ -271,6 +271,54 @@
       retries: 30 # ~15 minutes
       delay: 30
 
+    - name: "Debug DB2 operator deployment readiness"
+      debug:
+        msg:
+          - "DB2 operator deployment found ........ {{ operator_deployment.resources | length if operator_deployment.resources is defined else 0 }}"
+          - "DB2 operator ready replicas ........... {{ operator_deployment.resources[0].status.readyReplicas | default(0) if (operator_deployment.resources is defined and operator_deployment.resources | length > 0 and operator_deployment.resources[0].status is defined) else 0 }}"
+          - "DB2 operator desired replicas ......... {{ operator_deployment.resources[0].status.replicas | default(0) if (operator_deployment.resources is defined and operator_deployment.resources | length > 0 and operator_deployment.resources[0].status is defined) else 0 }}"
+
+    - name: "Wait for DB2 operator webhook service to exist"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Service
+        name: "db2-database-operator-webhook-service"
+        namespace: "{{ db2_namespace }}"
+      register: db2_operator_webhook_service
+      until:
+        - db2_operator_webhook_service.resources is defined
+        - db2_operator_webhook_service.resources | length > 0
+      retries: 30 # ~15 minutes
+      delay: 10
+
+    - name: "Debug DB2 operator webhook service"
+      debug:
+        msg:
+          - "Webhook service found ................ {{ db2_operator_webhook_service.resources | length if db2_operator_webhook_service.resources is defined else 0 }}"
+          - "Webhook service name ................. {{ db2_operator_webhook_service.resources[0].metadata.name | default('<missing>') if (db2_operator_webhook_service.resources is defined and db2_operator_webhook_service.resources | length > 0) else '<missing>' }}"
+          - "Webhook service namespace ............ {{ db2_operator_webhook_service.resources[0].metadata.namespace | default('<missing>') if (db2_operator_webhook_service.resources is defined and db2_operator_webhook_service.resources | length > 0) else '<missing>' }}"
+
+    - name: "Wait for DB2 operator webhook endpoints to exist"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Endpoints
+        name: "db2-database-operator-webhook-service"
+        namespace: "{{ db2_namespace }}"
+      register: db2_operator_webhook_endpoints
+      until:
+        - db2_operator_webhook_endpoints.resources is defined
+        - db2_operator_webhook_endpoints.resources | length > 0
+        - db2_operator_webhook_endpoints.resources[0].subsets is defined
+        - db2_operator_webhook_endpoints.resources[0].subsets | length > 0
+      retries: 30 # ~15 minutes
+      delay: 10
+
+    - name: "Debug DB2 operator webhook endpoints"
+      debug:
+        msg:
+          - "Webhook endpoints found .............. {{ db2_operator_webhook_endpoints.resources | length if db2_operator_webhook_endpoints.resources is defined else 0 }}"
+          - "Webhook endpoint subsets ............. {{ db2_operator_webhook_endpoints.resources[0].subsets | length if (db2_operator_webhook_endpoints.resources is defined and db2_operator_webhook_endpoints.resources | length > 0 and db2_operator_webhook_endpoints.resources[0].subsets is defined) else 0 }}"
+
 - name: "Install DB2 Operator - Subscription-based method"
   when: not (db2_use_helm_operator | default(false) | bool)
   block:
