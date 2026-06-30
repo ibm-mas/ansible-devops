@@ -270,6 +270,48 @@ Db2 engine version to use for installation or upgrade.
 
 **Note**: Supported versions are listed in the `db2u-release` configmap in `ibm-common-services` namespace. Ensure the version matches your operator channel. When upgrading, all instances in the namespace are upgraded together.
 
+#### db2_license_file
+Path to the Db2 v12 license file on the local filesystem.
+
+- **Required** when upgrading from Db2 v11 to v12
+- **Optional** for new Db2 installations
+- Environment Variable: `DB2_LICENSE_FILE`
+- Default: None
+
+**Purpose**: Provides the Db2 Warehouse license to apply to the instance. Without a valid license, Db2 v12 operates under a 30-day trial license. When the trial expires, the database becomes unavailable — this is especially critical for production systems.
+
+**When to use**:
+- **Required** when `db2_action=upgrade` and upgrading from v11 to v12 (`db2_v12_upgrade=true`)
+- Optional for new installations (Db2 will use trial license if not provided)
+- IBM may refer to this file by different names: "Db2 Warehouse license", "Db2 activation key", `db2wh.lic`, or `db2ese.lic` — see the [Upgrading Db2 from v11 to v12](#upgrading-db2-from-v11-to-v12) section for an example of the expected file format
+
+**Valid values**: Absolute path to a valid Db2 license file (`.lic` format)
+
+**Related variables**:
+- `db2_v12_upgrade`: Must be `true` alongside this variable for v12 upgrades
+- `db2_channel`: Must target a v12 channel (e.g., `v12.0.0-cn1`)
+
+**Example**: `/path/to/db2wh.lic`
+
+#### db2_v12_upgrade
+Explicit opt-in flag required to authorize a major version upgrade from Db2 v11 to v12.
+
+- **Required** when upgrading from Db2 v11 to v12
+- Environment Variable: `DB2_V12_UPGRADE`
+- Default: `false`
+
+**Purpose**: Acts as a safety gate to prevent accidental major version upgrades. Upgrading from Db2 v11 to v12 is a significant, irreversible operation that requires explicit user consent. This flag, combined with `db2_license_file`, ensures the upgrade is intentional and properly licensed.
+
+**When to use**:
+- Set to `true` only when you intend to upgrade from Db2 v11 to v12
+- Must be combined with `db2_license_file` — the upgrade will fail if the license file is not provided, to prevent a silent downgrade to a 30-day trial license
+
+**Valid values**: `true`, `false`
+
+**Related variables**:
+- `db2_license_file`: Required alongside this flag for v12 upgrades
+- `db2_channel`: Must target a v12 channel (e.g., `v12.0.0-cn1`)
+
 #### db2_type
 Db2 instance type optimized for specific workload patterns.
 
@@ -301,14 +343,14 @@ Server timezone for the Db2 instance.
 
 - **Optional**
 - Environment Variable: `DB2_TIMEZONE`
-- Default: `GMT`
+
+**Note**: when not set, Db2 engine sets UTC by default.
 
 **Purpose**: Sets the timezone used by the Db2 server for timestamp operations and scheduling. This affects how Db2 interprets and stores timestamp data.
 
 **When to use**:
-- Use default (`GMT`) for globally distributed systems
 - Set to local timezone when all users are in the same timezone
-- Must match MAS Manage timezone if using Manage with this database
+- Must match MAS Application's timezone if using Manage/Facilities with this database
 
 **Valid values**: Valid timezone codes (e.g., `GMT`, `EST`, `PST`, `CET`, `UTC`)
 
@@ -494,7 +536,7 @@ Rotates the password for an **existing** Db2 LDAP user.
 **Note**: When enabled, the auto-generated password is stored securely in Kubernetes secrets and MAS configuration.
 
 ### Storage Variables
-We recommend reviewing the Db2 documentation about the certified storage options for Db2 on Red Hat OpenShift. Please ensure your storage class meets the specified deployment requirements for Db2. [https://www.ibm.com/docs/en/db2/11.5?topic=storage-certified-options](https://www.ibm.com/docs/en/db2/11.5?topic=storage-certified-options)
+We recommend reviewing the Db2 documentation about the certified storage options for Db2 on Red Hat OpenShift. Please ensure your storage class meets the specified deployment requirements for [Db2uInstance](https://www.ibm.com/docs/en/db2/11.5.x?topic=resource-deploying-db2-using-db2uinstance-custom) and for [Db2uCluster](https://www.ibm.com/docs/en/db2/11.5.x?topic=resource-deploying-db2-using-db2ucluster-custom).
 
 #### db2_meta_storage_class
 Storage class for Db2 metadata storage (must support ReadWriteMany).
@@ -738,7 +780,7 @@ The access mode for the storage.
 - Default: `ReadWriteOnce`
 
 #### db2_temp_storage_class
-Storage class used for temporary data. This must support ReadWriteMany(RWX) access mode.
+Storage class used for temporary data. This must support ReadWriteOnce(RWO) access mode.
 
 - **Optional**
 - Environment Variable: `DB2_TEMP_STORAGE_CLASS`
@@ -760,7 +802,7 @@ The access mode for the storage. This must support ReadWriteOnce(RWO) access mod
 
 ### Resource Request Variables
 ### db2_audit_logs_storage_class
-Storage class used for audit logs. This must support ReadWriteMany(RWX) access mode.
+Storage class used for audit logs. This must support ReadWriteOnce(RWO) access mode.
 
 - Optional
 - Environment Variable: `DB2_AUDIT_LOGS_STORAGE_CLASS`
@@ -781,11 +823,11 @@ The access mode for the storage. This must support ReadWriteOnce(RWO) access mod
 - Default: `ReadWriteOnce`
 
 ### db2_archivelogs_storage_class
-Storage class used for archive logs. This must support ReadWriteMany(RWX) access mode.
+Storage class used for archive logs. This must support ReadWriteMany(RWX) access mode for `Db2uInstance` and ReadWriteOnce(RWO) access mode for `Db2uCluster`.
 
 - Optional
 - Environment Variable: `DB2_ARCHIVELOGS_STORAGE_CLASS`
-- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster. Set to `None` will drop the tempts storage on Db2uInstace CR.
+- Default: Defaults to `ibmc-block-gold` or `ibmc-file-gold` if the storage class is available in the cluster. Set to `None` will drop the tempts storage on Db2uInstace CR.
 
 ### db2_archivelogs_storage_size
 Size of audit logs persistent volume.
@@ -795,54 +837,11 @@ Size of audit logs persistent volume.
 - Default: `10Gi`
 
 ### db2_archivelogs_storage_accessmode
-The access mode for the storage. This must support ReadWriteOnce(RWO) access mode.
+The access mode for the storage. This must support ReadWriteMany(RWX) access mode for `Db2uInstance` and ReadWriteOnce(RWO) access mode for `Db2uCluster`.
 
 - Optional
 - Environment Variable: `DB2_ARCHIVELOGS_STORAGE_ACCESSMODE`
-- Default: `ReadWriteOnce`
-
-### db2_audit_logs_storage_class
-Storage class used for audit logs. This must support ReadWriteMany(RWX) access mode.
-
-- Optional
-- Environment Variable: `DB2_AUDIT_LOGS_STORAGE_CLASS`
-- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster. Set to `None` will drop the tempts storage on Db2uInstace CR.
-
-### db2_audit_logs_storage_size
-Size of audit logs persistent volume.
-
-- Optional
-- Environment Variable: `DB2_AUDIT_LOGS_STORAGE_SIZE`
-- Default: `10Gi`
-
-### db2_audit_logs_storage_accessmode
-The access mode for the storage. This must support ReadWriteOnce(RWO) access mode.
-
-- Optional
-- Environment Variable: `DB2_AUDIT_LOGS_STORAGE_ACCESSMODE`
-- Default: `ReadWriteOnce`
-
-### db2_archivelogs_storage_class
-Storage class used for archive logs. This must support ReadWriteMany(RWX) access mode.
-
-- Optional
-- Environment Variable: `DB2_ARCHIVELOGS_STORAGE_CLASS`
-- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster. Set to `None` will drop the tempts storage on Db2uInstace CR.
-
-### db2_archivelogs_storage_size
-Size of audit logs persistent volume.
-
-- Optional
-- Environment Variable: `DB2_ARCHIVELOGS_STORAGE_SIZE`
-- Default: `10Gi`
-
-### db2_archivelogs_storage_accessmode
-The access mode for the storage. This must support ReadWriteOnce(RWO) access mode.
-
-- Optional
-- Environment Variable: `DB2_ARCHIVELOGS_STORAGE_ACCESSMODE`
-- Default: `ReadWriteOnce`
-
+- Default: Dynamically set according with kind of Db2 (`Db2uInstance` or `Db2uCluster`)
 
 Role Variables - Resource Requests
 -----------------------------------------------------------------------------------------------------------------
@@ -1785,6 +1784,82 @@ If you encounter issues not covered in this troubleshooting guide:
 4. **Test connectivity**: Verify network access to storage (S3 or PVC)
 5. **Check resources**: Ensure adequate CPU, memory, and storage are available
 6. **Open an issue**: Report problems at the project repository with logs and configuration details
+
+Upgrading Db2 from v11 to v12
+-------------------------------------------------------------------------------
+
+Upgrading from Db2 v11 to v12 is a major version change that requires explicit opt-in and a valid Db2 Warehouse license. Without a license, Db2 v12 will operate under a 30-day trial license — **this will cause your production system to go offline after expiry**.
+
+### Prerequisites
+
+- A valid Db2 Warehouse license file (`.lic` format) — see [Db2 v12 License File Format](#db2-v12-license-file-format) below
+- The `db2_v12_upgrade` flag set to `true`
+- A v12 target channel (e.g., `v12.0.0-cn1`)
+
+### Required Variables
+
+| Variable | Environment Variable | Description |
+|---|---|---|
+| `db2_v12_upgrade` | `DB2_V12_UPGRADE` | Must be `true` to authorize the upgrade |
+| `db2_license_file` | `DB2_LICENSE_FILE` | Path to the Db2 v12 license file |
+| `db2_channel` | `DB2_CHANNEL` | Target v12 channel (e.g., `v12.0.0-cn1`) |
+| `db2_namespace` | `DB2_NAMESPACE` | Namespace containing the Db2 instances to upgrade |
+
+### Example Usage
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    db2_action: upgrade
+    db2_namespace: db2u
+    db2_channel: v12.0.0-cn1
+    db2_v12_upgrade: true
+    db2_license_file: /path/to/db2wh.lic
+  roles:
+    - ibm.mas_devops.db2
+```
+
+Or using environment variables:
+
+```bash
+export DB2_ACTION=upgrade
+export DB2_NAMESPACE=db2u
+export DB2_CHANNEL=v12.0.0-cn1
+export DB2_V12_UPGRADE=true
+export DB2_LICENSE_FILE=/path/to/db2wh.lic
+ansible-playbook ibm.mas_devops.oneclick_upgrade_db2
+```
+
+### Db2 v12 License File Format
+
+IBM distributes the Db2 Warehouse license under several names — you may have received it as `db2wh.lic`, `db2ese.lic`, `db2aese.lic`, or simply as an "activation key" or "entitlement file". The file is a plain-text file with the following structure:
+
+```
+[LicenseCertificate]
+CheckSum=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+TimeStamp=YYYY-MM-DD HH:MM:SS
+PasswordVersion=5
+VendorName=IBM Corporation
+VendorPassword=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+ProductName=IBM Db2 Warehouse
+ProductID=5765-F41
+ProductVersion=12.0
+ProductAnnotation=
+LicenseType=Permanent
+...
+```
+
+!!! note
+    This is a sample structure only — not a real license. Use it to verify that the file you have from IBM matches this format. The file should contain `[LicenseCertificate]` as the first line and include `ProductName=IBM Db2 Warehouse` or similar. If your file looks significantly different, you may have the wrong entitlement file.
+
+### What Happens Without a License
+
+If `db2_license_file` is not provided when upgrading to v12, the role will **fail immediately** with a clear error message. This is intentional — it prevents a silent downgrade from a full production license to a 30-day trial license, which would cause your database to go offline after the trial period expires.
+
+!!! note
+    New installations (`db2_action=install`) do not require a license file. Only upgrades from v11 to v12 enforce this requirement.
+
 
 License
 -------------------------------------------------------------------------------

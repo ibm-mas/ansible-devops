@@ -11,19 +11,21 @@
 # If migration is not needed then proceed with simply upgrading the tenant operator
 - when: not is_migration_needed
   block:
-    - name: Find all subscriptions for ibm-aiservice-tenant
+    - name: Get all subscriptions
       kubernetes.core.k8s_info:
         api_version: operators.coreos.com/v1alpha1
         kind: Subscription
-        name: ibm-aiservice-tenant
-        label_selectors:
-          - "aiservice.ibm.com/instanceId = {{ aiservice_instance_id }}"
-      register: aiservice_tenant_sub_info
+      register: all_subscriptions
       no_log: true
 
-    - name: Set target resources
+    - name: Filter subscriptions named ibm-aiservice-tenant
       ansible.builtin.set_fact:
-        tenant_subscriptions: "{{ aiservice_tenant_sub_info.resources }}"
+        tenant_subscriptions: >-
+          {{
+            all_subscriptions.resources
+            | selectattr('metadata.name', 'equalto', 'ibm-aiservice-tenant')
+            | list
+          }}
 
     - name: Display subscription info
       ansible.builtin.debug:

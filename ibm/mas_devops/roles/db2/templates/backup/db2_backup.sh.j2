@@ -25,9 +25,13 @@ function stopDBConnections()
 			echo "INFO: Database ${databaseName} does not exist. Proceeding with restore"
 		elif echo "$connect_status" | grep -q "SQL30081N"; then
 			echo "ERROR: Network error while connecting to database ${databaseName}"
+			### remove locks before exiting
+			rm -f /db2u/tmp/.pause_probe
 			exit 1
 		elif echo "$connect_status" | grep -q "SQL1119N"; then
 			echo "ERROR: $connect_status"
+			### remove locks before exiting
+			rm -f /db2u/tmp/.pause_probe
 			exit 1
 		else
 			echo "INFO: $connect_status. Proceeding with restore"
@@ -131,7 +135,9 @@ BACKUP_PATH={{ full_backup_path }}
 DB2_BACKUP_VERSION={{ db2_backup_version }}
 
 ###  only for disk, DISK_BACKUP_BASE=/mnt/backup/{{ db2_backup_version }} where tar is stored
+{% if backup_vendor == 'disk' %}
 DISK_BACKUP_BASE={{ base_backup_path }}
+{% endif %}
 
 # Finding the db2 Instance owner
 INSTOWNER=`/usr/local/bin/db2greg -dump | grep -ae "I," | grep -v "/das," | awk -F ',' '{print $4}' `
@@ -217,6 +223,10 @@ if [ ${BACKUP_TYPE} = 'online' ] ; then
 	BACKUP_CMD=$(db2 -v backup db $DATABASE on all dbpartitionnums online to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting)
 elif [ ${BACKUP_TYPE} = 'offline' ] ; then
 	echo "INFO: Performing full offline backup of database ${DATABASE}..."
+
+	echo ""
+	echo "INFO: Pausing Probes.."
+	touch /db2u/tmp/.pause_probe
 	
 	stopDBConnections $DATABASE
 
@@ -225,6 +235,10 @@ elif [ ${BACKUP_TYPE} = 'offline' ] ; then
 	BACKUP_CMD=$(db2 -v backup db $DATABASE on all dbpartitionnums to $BACKUP_PATH compress UTIL_IMPACT_PRIORITY 50 without prompting)
 
 	startDB $DATABASE
+
+	echo ""
+	echo "INFO: Resuming Probes.."
+	rm -f /db2u/tmp/.pause_probe
 
 else
 	echo "ERROR: Invalid backup type: ${BACKUP_TYPE}"

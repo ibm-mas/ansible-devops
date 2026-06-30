@@ -1,0 +1,297 @@
+---
+# Restore Facilities Namespace Resources
+# =============================================================================
+# This task restores Facilities namespace resources following these steps:
+# 1. Restore kubernetes resources until FacilitiesApp CR
+# 2. Check if FacilitiesWorkspace CR is deployed
+# 3. If deployed, scale down the workspace
+# 4. Continue with FacilitiesWorkspace CR restore
+# 5. Wait for Facilities deployment to be activated
+
+# 1. Verify required variables
+# -----------------------------------------------------------------------------
+- name: "Verify required variables for Facilities restore"
+  ibm.mas_devops.verify_backup_restore_vars:
+    component: facilities
+    action: restore
+    mas_instance_id: "{{ mas_instance_id }}"
+    mas_backup_dir: "{{ mas_backup_dir }}"
+    mas_app_backup_version: "{{ mas_app_backup_version }}"
+
+# 2. Set backup path
+# -----------------------------------------------------------------------------
+- name: "Set fact: Facilities backup base directory path"
+  set_fact:
+    facilities_backup_path: "{{ mas_backup_dir }}/backup-{{ mas_app_backup_version }}-app-facilities"
+    facilities_resources_backup_path: "{{ mas_backup_dir }}/backup-{{ mas_app_backup_version }}-app-facilities/resources"
+
+- name: "Verify backup directory exists"
+  stat:
+    path: "{{ facilities_resources_backup_path }}"
+  register: backup_dir_stat
+
+- name: "Fail if backup directory does not exist"
+  fail:
+    msg: "Backup directory not found: {{ facilities_resources_backup_path }}"
+  when: not backup_dir_stat.stat.exists or not backup_dir_stat.stat.isdir
+
+# 2.1. Verify cert-manager exists
+# -----------------------------------------------------------------------------
+- name: Detect Certificate Manager installation
+  include_tasks: "{{ role_path }}/../../common_tasks/detect_cert_manager.yml"
+
+# 3. Set Facilities namespace and workspace CR name
+# -----------------------------------------------------------------------------
+- name: "Set fact: Facilities namespace"
+  set_fact:
+    mas_app_namespace: "mas-{{ mas_instance_id }}-facilities"
+
+- name: Get files from {{ facilities_resources_backup_path }}/facilitiesworkspaces directory
+  set_fact:
+    instance_files: "{{ lookup('fileglob', '{{ facilities_resources_backup_path }}/facilitiesworkspaces/*', wantlist=True) }}"
+
+- name: Assert exactly one FacilitiesWorkspace CR exists
+  assert:
+    that:
+      - instance_files | length == 1
+    fail_msg: "FacilitiesWorkspace Directory must contain exactly one file"
+
+- name: Set fact FacilitiesWorkspace cr
+  set_fact:
+    workspace_backup_cr: "{{ lookup('file', '{{ instance_files[0] }}') | from_yaml }}"
+
+- name: "Set fact: Facilities workspace CR name"
+  set_fact:
+    facilities_workspace_cr_name: "{{ workspace_backup_cr.metadata.name}}"
+
+# 3.1. Determine storage class override settings
+# ---------------------------------------------------------------------
+- name: "Determine storage class override settings"
+  include_tasks: "{{ role_path }}/tasks/facilities/determine-storage-class-override.yml"
+
+# 4. Restore resources until FacilitiesApp CR (excluding FacilitiesWorkspace)
+# -----------------------------------------------------------------------------
+- name: "Display restore phase 1 information"
+  debug:
+    msg:
+      - "=========================================="
+      - "Phase 1: Restore resources Project, Secrets, Configmaps, Subscription, Certificates and FacilitiesApp CR"
+      - "=========================================="
+      - "Namespace: {{ mas_app_namespace }}"
+      - "Backup path: {{ facilities_backup_path }}"
+
+# Step 1: Restore Projects first
+- name: "Restore Projects"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ facilities_backup_path }}"
+    resource_kinds:
+      - Project
+    replace_resource: false
+  register: projects_result
+
+- name: "Display Projects restore results"
+  debug:
+    msg: >-
+      Projects: {{ projects_result.created_count }} created,
+      {{ projects_result.updated_count }} updated,
+      {{ projects_result.skipped_count }} skipped,
+      {{ projects_result.failed_count }} failed
+
+# Step 2: Restore Secrets and ConfigMaps
+- name: "Restore Secrets and ConfigMaps"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ facilities_backup_path }}"
+    resource_kinds:
+      - Secret
+      - ConfigMap
+  register: secrets_configmaps_result
+  when: projects_result.success
+
+- name: "Display Secrets and ConfigMaps restore results"
+  debug:
+    msg: >-
+      Secrets and ConfigMaps: {{ secrets_configmaps_result.created_count }} created,
+      {{ secrets_configmaps_result.updated_count }} updated,
+      {{ secrets_configmaps_result.skipped_count }} skipped,
+      {{ secrets_configmaps_result.failed_count }} failed
+  when: projects_result.success
+
+# Step 3: Restore OperatorGroups and Subscriptions
+- name: "Restore OperatorGroups"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ facilities_backup_path }}"
+    resource_kinds:
+      - OperatorGroup
+  register: operatorgroups_result
+  when: projects_result.success
+
+- name: "Display OperatorGroups restore results"
+  debug:
+    msg: >-
+      OperatorGroups: {{ operatorgroups_result.created_count }} created,
+      {{ operatorgroups_result.updated_count }} updated,
+      {{ operatorgroups_result.skipped_count }} skipped,
+      {{ operatorgroups_result.failed_count }} failed
+  when: projects_result.success
+
+- name: "Restore Subscriptions"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ facilities_backup_path }}"
+    resource_kinds:
+      - Subscription
+  register: subscriptions_result
+  when: projects_result.success
+
+- name: "Display Subscriptions restore results"
+  debug:
+    msg: >-
+      Subscriptions: {{ subscriptions_result.created_count }} created,
+      {{ subscriptions_result.updated_count }} updated,
+      {{ subscriptions_result.skipped_count }} skipped,
+      {{ subscriptions_result.failed_count }} failed
+  when: projects_result.success
+
+# Wait until the FacilitiesApps CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the FacilitiesApps CRD is available"
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: "facilitiesapps.apps.mas.ibm.com"
+
+# Step 4: Restore Certificate resources
+- name: "Restore Certificate resources"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ facilities_backup_path }}"
+    resource_kinds:
+      - Certificate
+  register: certmanager_result
+  when: projects_result.success
+
+- name: "Display Certificates restore results"
+  debug:
+    msg: >-
+      Certificate Manager resources: {{ certmanager_result.created_count }} created,
+      {{ certmanager_result.updated_count }} updated,
+      {{ certmanager_result.skipped_count }} skipped,
+      {{ certmanager_result.failed_count }} failed
+  when: projects_result.success
+
+- name: "Restore FacilitiesApp CR"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ facilities_backup_path }}"
+    resource_kinds:
+      - FacilitiesApp
+  register: cr_result
+
+- name: "Display FacilitiesApp CR restore results"
+  debug:
+    msg: >-
+      Facilities App resource: {{ cr_result.created_count }} created,
+      {{ cr_result.updated_count }} updated,
+      {{ cr_result.skipped_count }} skipped,
+      {{ cr_result.failed_count }} failed
+
+# Calculate Phase 1 results
+# -----------------------------------------------------------------------------
+- name: "Calculate Phase 1 restore results"
+  set_fact:
+    total_created: >-
+      {{
+        (projects_result.created_count | default(0)) +
+        (secrets_configmaps_result.created_count | default(0)) +
+        (operatorgroups_result.created_count | default(0)) +
+        (subscriptions_result.created_count | default(0)) +
+        (certmanager_result.created_count | default(0)) +
+        (cr_result.created_count | default(0))
+      }}
+    total_updated: >-
+      {{
+        (projects_result.updated_count | default(0)) +
+        (secrets_configmaps_result.updated_count | default(0)) +
+        (operatorgroups_result.updated_count | default(0)) +
+        (subscriptions_result.updated_count | default(0)) +
+        (certmanager_result.updated_count | default(0)) +
+        (cr_result.updated_count | default(0))
+      }}
+    total_skipped: >-
+      {{
+        (projects_result.skipped_count | default(0)) +
+        (secrets_configmaps_result.skipped_count | default(0)) +
+        (operatorgroups_result.skipped_count | default(0)) +
+        (subscriptions_result.skipped_count | default(0)) +
+        (certmanager_result.skipped_count | default(0)) +
+        (cr_result.skipped_count | default(0))
+      }}
+    total_failed: >-
+      {{
+        (projects_result.failed_count | default(0)) +
+        (secrets_configmaps_result.failed_count | default(0)) +
+        (operatorgroups_result.failed_count | default(0)) +
+        (subscriptions_result.failed_count | default(0)) +
+        (certmanager_result.failed_count | default(0)) +
+        (cr_result.failed_count | default(0))
+      }}
+
+- name: "Display Phase 1 restore results"
+  debug:
+    msg:
+      - >-
+        Phase 1 Restore completed{{ ' with failures' if total_failed | int > 0
+        else ' successfully' }}
+      - "Total resources created: {{ total_created }}"
+      - "Total resources updated: {{ total_updated }}"
+      - "Total resources skipped: {{ total_skipped }}"
+      - "Total resources failed: {{ total_failed }}"
+
+# Fail task if any errors occurred
+# -----------------------------------------------------------------------------
+- name: "Collect Phase 1 failed resources"
+  set_fact:
+    all_failed_resources: >-
+      {{
+        (projects_result.failed_resources | default([])) +
+        (secrets_configmaps_result.failed_resources | default([])) +
+        (operatorgroups_result.failed_resources | default([])) +
+        (subscriptions_result.failed_resources | default([])) +
+        (certmanager_result.failed_resources | default([])) +
+        (cr_result.failed_resources | default([]))
+      }}
+
+- name: "Display failed resources"
+  debug:
+    msg:
+      - "Failed resources:"
+      - "{{ all_failed_resources | to_nice_yaml }}"
+  when: total_failed | int > 0
+
+- name: "Fail if phase 1 restore had errors"
+  fail:
+    msg: |
+      Restore failed for {{ total_failed }} resource(s):
+      {% for resource in all_failed_resources %}
+      - {{ resource.description }}: {{ resource.error }}
+      {% endfor %}
+  when: total_failed | int > 0
+
+# 5. Wait for FacilitiesApp CR to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for FacilitiesApp CR to be ready"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: FacilitiesApp
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_app_namespace }}"
+  register: facilities_app_cr
+  retries: 15
+  delay: 60
+  until:
+    - facilities_app_cr.resources is defined
+    - facilities_app_cr.resources | length > 0
+    - facilities_app_cr.resources[0].status is defined
+    - facilities_app_cr.resources[0].status.conditions is defined
+    - facilities_app_cr.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | list | length > 0
+    - (facilities_app_cr.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | first).status == 'True'
+
+- name: "FacilitiesApp CR is ready"
+  debug:
+    msg: "FacilitiesApp CR {{ mas_instance_id }} is ready"

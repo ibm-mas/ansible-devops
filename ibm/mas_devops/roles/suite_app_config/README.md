@@ -201,7 +201,7 @@ JDBC binding scope for the workspace.
 
 **Valid values**: `system`, `application`, `workspace`, `workspace-application`
 
-**Impact**: 
+**Impact**:
 - `system`: Uses system-level JDBC configuration (shared across all workspaces)
 - `application`: Uses application-level JDBC configuration
 - `workspace`: Uses workspace-specific JDBC configuration
@@ -287,7 +287,7 @@ Workload size for Predict containers (Predict only).
 
 **Valid values**: `developer`, `small`, `medium`, `large`
 
-**Impact**: 
+**Impact**:
 - `developer`: 1 replica (no high availability)
 - `small`: 2 replicas (basic high availability)
 - `medium`: 3 replicas (enhanced high availability)
@@ -678,6 +678,26 @@ Provide the persistent volume storage access-mode to be used for doclinks/attach
 - Environment Variable: `MAS_APP_SETTINGS_DOCLINKS_PVC_ACCESSMODE`
 - Default: `ReadWriteMany`
 
+### Kafka Image Processor (Civil Component)
+
+The following properties can be defined to configure the persistent volume for the Kafka Image Processor component when the Civil Infrastructure component is enabled.
+
+**Important:** As of Manage 9.2, these properties are **required** when the Civil Infrastructure component is enabled. They are not supported in earlier releases. The role automatically detects the Manage version and only includes these settings when Manage >= 9.2.
+
+#### mas_manage_kafkaimageprocessor_pvc_storageclass
+Provide the persistent volume storage class to be used for Kafka Image Processor configuration. The PVC will be created with `ReadWriteMany` access mode as it must be shared between Manage/Civil and KafkaImageProcessor deployments.
+
+- **Optional** (automatically included when Civil component is enabled in Manage 9.2+)
+- Environment Variable: `MAS_MANAGE_KAFKAIMAGEPROCESSOR_PVC_STORAGECLASS`
+- Default: None - If not set, a default storage class will be auto-defined according to your cluster's available storage classes
+
+#### mas_manage_kafkaimageprocessor_pvc_size
+Provide the persistent volume claim size to be used for Kafka Image Processor configuration.
+
+- **Optional** (automatically included when Civil component is enabled in Manage 9.2+)
+- Environment Variable: `MAS_MANAGE_KAFKAIMAGEPROCESSOR_PVC_SIZE`
+- Default: `10Gi`
+
 ### BIM (Building Information Models)
 
 The following properties can be defined to customize the persistent volumes for the Building Information Models setup for Manage.
@@ -847,9 +867,9 @@ Sets the size of deployment.
 - Default: `small` Available options are `small`, `medium` and `large`
 
 #### mas_ws_facilities_app_om_upgrade_mode
-**Note**: 
-- **WARNING** Application upgrades can overwrite your custom changes. Do not select Automatic if you have customized your application. 
-- Currently supported `Maximo Real Estate and Facilities` release versions are: `9.2.x`
+**Note**:
+- **WARNING** Application upgrades can overwrite your custom changes. Do not select Automatic if you have customized your application.
+- Currently supported `Maximo Real Estate and Facilities` release versions are: `9.2.x` and above
 
 Sets the Application Object Migration Mode.
 
@@ -888,6 +908,12 @@ data:
 type: Opaque
 EOF
 ```
+#### mas_ws_facilities_server_timezone
+Sets the Facilies application servers timezone. You should set this property only if your Facilities database is running with a timezone other from UTC. If you are creating your Facilities database using `db2` role, you must set `DB2_TIMEZONE` property to the same value while provisioning the corresponding DB2 instance.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_SERVER_TIMEZONE`
+- Default: `UTC`
 
 #### mas_ws_facilities_vault_secret_name
 Provide the name of the secret which contains a password to the vault with AES Encryption key. By default, this secret will be generated automatically.
@@ -923,6 +949,31 @@ export MAS_FACILITIES_DWFAGENTS='[{"name":"dwfa1","members":[{"name": "u1", "cla
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_DWFAGENTS`
 - Default: `[]`
+
+#### mas_ws_facilities_custom_properties
+Indicates whether a custom FACILITIES.properties file is being used. When set to `true`, the role will create a secret from the provided file. When set to `false` or not provided, the operator will use its default FACILITIES.properties configuration.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_CUSTOM_PROPERTIES`
+- Default: `false`
+- Currently supported `Maximo Real Estate and Facilities` release versions are: `9.2.x` and above
+
+#### mas_ws_facilities_properties_file_local
+Path to the custom FACILITIES.properties file in the workspace. This file will be read and used to create a secret in the Facilities namespace. **This parameter is only used when `mas_ws_facilities_custom_properties` is set to `true`.**
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_PROPERTIES_FILE_LOCAL`
+- Default: None
+- Currently supported `Maximo Real Estate and Facilities` release versions are: `9.2.x` and above
+- For reference, please refer to the file located at ansible-devops/docs/samples/FACILITIES.properties
+
+#### mas_ws_facilities_properties_secret_name
+Name of the secret that will be created in the `mas-<instanceId>-facilities` namespace containing the custom FACILITIES.properties file. **This parameter is only used when a custom properties file is provided.** If not specified, defaults to `custom-facilities-properties`.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_PROPERTIES_SECRET_NAME`
+- Default: `custom-facilities-properties`
+- Currently supported `Maximo Real Estate and Facilities` release versions are: `9.2.x` and above
 
 ### Facilities Database Settings
 
@@ -985,6 +1036,100 @@ Sets the size of the Log PVC. Defaults to 50 Gigabytes.
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_STORAGE_USERFILES_SIZE`
 - Default: `50`
+
+### Facilities Agents Deployment Flexibility Settings
+Agents Deployment Flexibility enables you to override the default agent deployment strategy defined by the size attribute. This feature is activated when at least one of the following 13 agent deployment properties is set to a valid, non-empty value. Once activated, any properties that are empty or contain invalid values will be interpreted as it was equal to `shared`.
+
+#### mas_ws_facilities_dataconnectagent_deploymentmode
+Allow to define if the `dataconnectagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_DATACONNECTAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+
+#### mas_ws_facilities_extendedformulaagent_deploymentmode
+Allow to define if the `extendedformulaagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_EXTENDEDFORMULAAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+
+#### mas_ws_facilities_formularecalcagent_deploymentmode
+Allow to define if the `formularecalcagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_FORMULARECALCAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+
+#### mas_ws_facilities_incomingmailagent_deploymentmode
+Allow to define if the `incomingmailagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_INCOMINGMAILAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+
+#### mas_ws_facilities_objectmigrationagent_deploymentmode
+Allow to define if the `objectmigrationagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_OBJECTMIGRATIONAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+
+#### mas_ws_facilities_objectpublishagent_deploymentmode
+Allow to define if the `objectpublishagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_OBJECTPUBLISHAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+
+#### mas_ws_facilities_maintenanceagent_deploymentmode
+Allow to define if the `maintenanceagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_MAINTENANCEAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+
+#### mas_ws_facilities_reportqueueagent_deploymentmode
+Allow to define if the `reportqueueagent` agent is activated in a the shared `multiagents` POD or in a dedicated POD. The `reportqueueagent` agent cannot be disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_REPORTQUEUEAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated` and `shared`
+
+#### mas_ws_facilities_wfagent_deploymentmode
+Allow to define if the `wfagent` agent is activated in a the shared `multiagents` POD or in a dedicated POD. The `wfagent` agent cannot be disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_WFAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated` and `shared`
+
+#### mas_ws_facilities_wffutureagent_deploymentmode
+Allow to define if the `wffutureagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_WFFUTUREAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+
+#### mas_ws_facilities_wfnotificationagent_deploymentmode
+Allow to define if the `wfnotificationagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_WFNOTIFICATIONAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+
+#### mas_ws_facilities_reservesmtpagent_deploymentmode
+Allow to define if the `reservesmtpagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_RESERVESMTPAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+
+#### mas_ws_facilities_scheduleragent_deploymentmode
+Allow to define if the `scheduleragent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+- **Optional**
+- Environment Variable: `MAS_FACILITIES_SCHEDULERAGENT_DEPLOYMENTMODE`
+- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
 
 ## Example Playbook
 
