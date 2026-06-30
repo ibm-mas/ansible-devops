@@ -58,6 +58,26 @@ If you are managing the Red Hat Operator Catalogs yourself the content therein m
 
 
 ## Role Variables - General
+### cluster_type
+Cluster type for ImageDigestMirrorSet configuration.
+
+- **Optional**
+- Environment Variable: `CLUSTER_TYPE`
+- Default: `default`
+
+**Purpose**: Specifies which cluster type to configure.
+
+**When to use**:
+- Use default (`default`) for any non HCP cluster
+- Use rosa_hcp for ROSA HCP cluster
+
+**Valid values**: `default`, `rosa_hcp`
+
+**Related variables**:
+- `cluster_name`: The name of the rosa hcp cluster.
+
+**Note**: To setup idms for ROSA_HCP you first need to run ocp_config role to configure allowed registries.
+
 ### product_family
 Product family for ImageDigestMirrorSet configuration.
 
@@ -352,6 +372,44 @@ Enable parallel node updates during MachineConfig application.
 - `registry_private_ca_file`: CA certificate that triggers MachineConfig updates
 
 **Note**: **WARNING** - Only enable during initial setup when nodes are lightly loaded. In production, leave as `false` to ensure workload availability during node updates. MachineConfig changes cause node reboots.
+
+## Role Variables - ROSA HCP
+
+### cluster_name
+The cluster name of the rosa hcp cluster.
+
+- **Required**
+- Environment Variable: `CLUSTER_NAME`
+
+**Purpose**: Needed for targetting the rosa hcp cluster via the rosa cli.
+
+**When to use**:
+- When running ocp_idms role for rosa_hcp cluster type.
+
+### ocp_idms_working_dir
+Temporary working directory to generate the idms yamls to be applied to the cluster.
+
+- **Optional**
+- Environment Variable: `OCP_IDMS_WORKING_DIR`
+- Default: `/tmp`
+
+**Purpose**: We are extracting the idms from the yml.j2 files so that we can loop over and apply them individually to the cluster.
+
+**When to use**:
+- When running ocp_idms role for rosa_hcp cluster type.
+
+**Note**: Ensure you have read and write access to the directory.
+
+### rosa_token
+Rosa login token for the rosa cli.
+
+- **Required**
+- Environment Variable: `ROSA_TOKEN`
+
+**Purpose**: Authenticates the rosa cli to the rosa cluster.
+
+**When to use**:
+- When running ocp_idms role for rosa_hcp cluster type.
 
 ## Example Playbook
 
