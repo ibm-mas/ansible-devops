@@ -375,6 +375,8 @@ Enable parallel node updates during MachineConfig application.
 
 ## Role Variables - ROSA HCP
 
+**Note**: Ensure you have rosa cli `1.2.61` or greater installed.
+
 ### cluster_name
 The cluster name of the rosa hcp cluster.
 
