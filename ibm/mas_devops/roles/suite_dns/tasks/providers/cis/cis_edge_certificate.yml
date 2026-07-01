@@ -13,7 +13,7 @@
 
 - name: "cis : Define default CIS service name"
   set_fact:
-    cis_service_name: "{{ _cluster_details_result.resources[0].data.cluster_name }}-cis-{{mas_instance_id}}"
+    cis_service_name: "{{ _cluster_details_result.resources[0].data.cluster_name }}-cis-{{instance_id}}"
   when:
     - cis_service_name is not defined or cis_service_name == ''
 
@@ -46,9 +46,9 @@
     ibmcloud cis certificates {{ _cis_domain_id }} -i "{{ cis_service_name }}" -o json
   register: _cis_certificates
 
-- name: "cis : exclude certs not for {{ mas_instance_id }}"
+- name: "cis : exclude certs not for {{ instance_id }}"
   set_fact:
-    dedicated_list: "{{ _cis_certificates.stdout | from_json | selectattr('hosts','search',mas_instance_id) }}"
+    dedicated_list: "{{ _cis_certificates.stdout | from_json | selectattr('hosts','search',instance_id) }}"
 
 - name: "cis : exclude certs non advanced certificates"
   set_fact:
@@ -82,7 +82,7 @@
         cis_crn: "{{ cis_crn }}"
         ibmcloud_apikey: "{{ cis_apikey }}"
         edge_cert_entries: "{{ edge_cert_routes }}"
-        mas_instance_id: "{{ mas_instance_id }}"
+        instance_id: "{{ instance_id }}"
       register: edge_cert_output
 
     - name: "cis : dump output"
