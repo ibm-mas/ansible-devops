@@ -120,6 +120,26 @@
 - name: "Delete component CRs for {{ component_name }}"
   when: component_name in component_cr_mapping
   block:
+    - name: "Protect PVCs from cascade deletion"
+      shell: |
+        echo "Protecting PVCs from cascade deletion..."
+        # Remove ownerReferences from all PVCs to prevent cascade deletion when CR is deleted
+        for pvc in $(oc get pvc -n {{ cpd_instance_namespace }} -o json | jq -r '.items[] | select(.metadata.ownerReferences != null) | .metadata.name'); do
+          echo "  Removing ownerReferences from PVC: $pvc"
+          oc patch pvc $pvc -n {{ cpd_instance_namespace }} --type=json -p='[{"op": "remove", "path": "/metadata/ownerReferences"}]' 2>/dev/null || true
+        done
+      failed_when: false
+
+    - name: "Rescue PVCs stuck in deletion"
+      shell: |
+        echo "Checking for PVCs stuck in deletion..."
+        # If PVC already has deletionTimestamp, remove finalizer to cancel deletion
+        for pvc in $(oc get pvc -n {{ cpd_instance_namespace }} -o json | jq -r '.items[] | select(.metadata.deletionTimestamp != null) | .metadata.name'); do
+          echo "  Rescuing stuck PVC: $pvc"
+          oc patch pvc $pvc -n {{ cpd_instance_namespace }} --type=json -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+        done
+      failed_when: false
+
     - name: "Remove finalizers from {{ item.kind }} CRs"
       shell: |
         {% if item.name == 'all' %}
