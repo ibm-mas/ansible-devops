@@ -501,11 +501,13 @@
 # 12. Display deprecation notice for Db2uCluster
 # -----------------------------------------------------------------------------
 - name: "Notice of deprecation of Db2uCluster"
-  when: db2u_kind == "db2ucluster"
-  ansible.builtin.debug:
-    msg:
-      - "Deprecation Notice: The Db2uCluster resource is deprecated (replaced by Db2uInstance)."
-      - "This Ansible collection will retain support for Db2uCluster until it's eventual EOL."
+  when: not (db2_use_helm_operator | default(false) | bool)
+  block:
+    - name: Deprecation Notice: The Db2uCluster
+      ansible.builtin.debug:
+        msg:
+          - "Deprecation Notice: The Db2uCluster resource is deprecated (replaced by Db2uInstance)."
+          - "This Ansible collection will retain support for Db2uCluster until it's eventual EOL."
 
 # 13. Lookup db2 instance to see if it exists already
 # -----------------------------------------------------------------------------
@@ -559,10 +561,12 @@
 # 14. Strict validation: Ensure DB2U_KIND matches existing deployment
 # -----------------------------------------------------------------------------
 - name: "Set detected deployment type"
+  when: not (db2_use_helm_operator | default(false) | bool)
   set_fact:
     detected_db2u_kind: "{{ 'db2ucluster' if (initial_db2_cluster_lookup.resources is defined and initial_db2_cluster_lookup.resources | length == 1) else 'db2uinstance' }}"
 
 - name: "Debug deployment type information"
+  when: not (db2_use_helm_operator | default(false) | bool)
   ansible.builtin.debug:
     msg:
       - "Requested DB2U_KIND .................... {{ db2u_kind }}"
@@ -571,6 +575,7 @@
 
 - name: "Validate DB2U_KIND matches existing deployment (strict mode)"
   when:
+    - not (db2_use_helm_operator | default(false) | bool)
     - initial_db2_cluster_lookup.resources is defined
     - initial_db2_cluster_lookup.resources | length == 1
   assert:
@@ -590,19 +595,18 @@
       - To manage existing Db2uCluster: Set DB2U_KIND=db2ucluster
       - To deploy new Db2uInstance: Use a different instance name
 
-# 15. Deploy Db2uCluster (for existing or explicitly requested deployments)
-# -----------------------------------------------------------------------------
-- name: "Deploy Db2uCluster"
-  include_tasks: tasks/db2ucluster.yml
-  when: db2u_kind == "db2ucluster"
-
-# 16. Deploy Db2uInstance (recommended for new deployments)
-# -----------------------------------------------------------------------------
 - name: "Create db2 instance (Db2uInstance)"
   when: db2_use_helm_operator | default(false) | bool
   kubernetes.core.k8s:
     apply: yes
     template: "templates/db2uinstance.yml.j2"
+
+- name: "Create db2 instance (Db2uCluster)"
+  when: not (db2_use_helm_operator | default(false) | bool)
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/db2ucluster.yml.j2"
+
 
 # 17. Set db2 instance timezone
 # -----------------------------------------------------------------------------
