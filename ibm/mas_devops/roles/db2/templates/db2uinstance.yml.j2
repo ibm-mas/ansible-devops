@@ -13,17 +13,51 @@ metadata:
 {% endfor %}
 {% endif %}
 spec:
+{% if db2_image is defined and db2_image != "" %}
   imageRegistryOverride: true
   image: "{{ db2_image | default('cp.stg.icr.io/cp/db2u/db2u.db2wh:12.1.3.0-761-amd64') }}"
-  license:
-    accept: true
-  nodes: {{ db2_num_pods  }}
+{% endif %}
+  nodes: {{ db2_num_pods }}
+{% if db2_affinity_key != "" and db2_affinity_value != "" %}
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: "{{ db2_affinity_key }}"
+            operator: In
+            values:
+            - "{{ db2_affinity_value }}"
+{% endif %}
+{% if db2_tolerate_key != "" and db2_tolerate_value != "" and db2_tolerate_effect != "" %}
+  tolerations:
+  - effect: "{{ db2_tolerate_effect }}"
+    key: "{{ db2_tolerate_key }}"
+    operator: Equal
+    value: "{{ db2_tolerate_value }}"
+{% endif %}
+  account:
+    securityConfig:
+      privilegedSysctlInit: true
+    imagePullSecrets:
+      - ibm-registry
+{% if db2_addons_audit_config is defined and db2_addons_audit_config != "" %}
+  addOns:
+    audit:
+{{ db2_addons_audit_config | to_yaml | indent(6) }}
+{% endif %}
+  version: "{{ db2_version }}"
   environment:
-    dbType: {{ db2_type | default('db2wh') }}
+    dbType: "{{ db2_type | default('db2wh') }}"
     databases:
-      - name: {{ db2_dbname }}
-    partitionConfig:
-      total: {{ db2_mln_count }}
+      - name: "{{ db2_dbname }}"
+{% if db2_database_db_config is defined and db2_database_db_config != "" %}
+        dbConfig:
+          {{ db2_database_db_config }}
+{% endif %}
+        settings:
+          dftTableOrg: "{{ db2_table_org }}"
+{% if db2_image is defined and db2_image != "" %}
     ssl:
       fromVolumeSource:
         secret:
@@ -35,6 +69,12 @@ spec:
               path: tls.key
             - key: ca.crt
               path: ca.crt
+{% else %}
+    ssl:
+      secretName: "db2u-certificate-{{ db2_instance_name }}"
+      certLabel: "CN=db2u"
+      allowSslOnly: true
+{% endif %}
 {% if db2_ldap_configmap is defined and db2_ldap_configmap != "" %}
     authentication:
       ldap:
@@ -47,6 +87,26 @@ spec:
         searcherPassword:
           value: {{ db2_ldap_searcher_password }}
         userGroup: {{ db2_ldap_user_group }}
+{% endif %}
+    instance:
+{% if db2_instance_registry is defined and db2_instance_registry != "" %}
+      registry:
+        {{ db2_instance_registry }}
+{% endif %}
+{% if db2_instance_dbm_config is defined and db2_instance_dbm_config != "" %}
+      dbmConfig:
+        {{ db2_instance_dbm_config }}
+{% endif %}
+    partitionConfig:
+      total: {{ db2_mln_count }}
+  license:
+    accept: true
+{% if db2_license_encoded is defined and db2_license_encoded != "" %}
+    value: "{{ db2_license_encoded }}"
+{% endif %}
+{% if db2_timezone is defined and db2_timezone != "" %}
+  advOpts:
+    timezone: "{{ db2_timezone }}"
 {% endif %}
   podTemplate:
     db2u:
@@ -73,11 +133,17 @@ spec:
           requests:
             cpu: "{{ db2_cpu_requests }}"
             memory: "{{ db2_memory_requests }}"
+{% if db2_ephemeral_storage_requests is defined and db2_ephemeral_storage_requests != "" %}
             ephemeral-storage: "{{ db2_ephemeral_storage_requests }}"
+{% endif %}
           limits:
             cpu: "{{ db2_cpu_limits }}"
             memory: "{{ db2_memory_limits }}"
+{% if db2_ephemeral_storage_limits is defined and db2_ephemeral_storage_limits != "" %}
+            ephemeral-storage: "{{ db2_ephemeral_storage_limits }}"
+{% elif db2_ephemeral_storage_requests is defined and db2_ephemeral_storage_requests != "" %}
             ephemeral-storage: "{{ db2_ephemeral_storage_requests }}"
+{% endif %}
   storage:
     - name: meta
       type: create
