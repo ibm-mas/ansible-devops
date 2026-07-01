@@ -69,12 +69,12 @@ Cluster type for ImageDigestMirrorSet configuration.
 **When to use**:
 - Use rosa-hcp (`rosa-hcp`)for ROSA HCP cluster
 
-**Valid values**: `rosa_hcp`
+**Valid values**: `rosa-hcp`
 
 **Related variables**:
 - `cluster_name`: The name of the rosa hcp cluster.
 
-**Note**: To setup idms for ROSA_HCP you first need to run ocp_config role to configure allowed registries.
+**Note**: To setup idms for ROSA HCP you first need to run ocp_config role to configure allowed registries.
 
 ### product_family
 Product family for ImageDigestMirrorSet configuration.
@@ -384,7 +384,7 @@ The cluster name of the rosa hcp cluster.
 **Purpose**: Needed for targetting the rosa hcp cluster via the rosa cli.
 
 **When to use**:
-- When running ocp_idms role for rosa_hcp cluster type.
+- When running ocp_idms role for rosa-hcp cluster type.
 
 ### ocp_idms_working_dir
 Temporary working directory to generate the idms yamls to be applied to the cluster.
@@ -396,7 +396,7 @@ Temporary working directory to generate the idms yamls to be applied to the clus
 **Purpose**: We are extracting the idms from the yml.j2 files so that we can loop over and apply them individually to the cluster.
 
 **When to use**:
-- When running ocp_idms role for rosa_hcp cluster type.
+- When running ocp_idms role for rosa-hcp cluster type.
 
 **Note**: Ensure you have read and write access to the directory.
 
@@ -409,7 +409,7 @@ Rosa login token for the rosa cli.
 **Purpose**: Authenticates the rosa cli to the rosa cluster.
 
 **When to use**:
-- When running ocp_idms role for rosa_hcp cluster type.
+- When running ocp_idms role for rosa-hcp cluster type.
 
 ## Example Playbook
 

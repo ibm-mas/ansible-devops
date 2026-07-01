@@ -42,22 +42,15 @@ The deployment model of OpenShift.
 
 - **Optional**
 - Environment Variable: `CLUSTER_TYPE`
-- Default Value: `default`
 
 **Purpose**: Specifies the deployment model of OpenShift to run model specific tasks.
 
-**When to use**: Currently only used for `rosa_hcp`.
+**When to use**: Currently only used for `rosa-hcp`.
 
 **Valid values**:
-- `default`  - Currently not in use
-- `rosa_hcp` - AWS ROSA HCP
+- `rosa-hcp` - AWS ROSA HCP
 
 **Impact**: Runs tasks specific to the deployment model.
-
-**Related variables**: None
-
-**Notes**:
-- Most OpenShift clusters use only the `default` deployment model
 
 ### cluster_name
 The name of the OpenShift cluster.
@@ -68,7 +61,7 @@ The name of the OpenShift cluster.
 
 **Purpose**: Specifies the name of the OpenShift cluster.
 
-**When to use**: Currently only used for `rosa_hcp`.
+**When to use**: Currently only used for `rosa-hcp`.
 
 **Impact**: Runs tasks against cluster name.
 
@@ -462,7 +455,7 @@ The path to the additional trusted CAs.
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    cluster_type: "rosa_hcp"
+    cluster_type: "rosa-hcp"
     cluster_name: "rosa-dev-cluster"
     ocp_update_allowed_registries: True
     ocp_allowed_registries:
