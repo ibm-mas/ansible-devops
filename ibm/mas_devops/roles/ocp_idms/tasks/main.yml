@@ -14,7 +14,14 @@
 
 # 2. Setup OCP IDMS
 # -----------------------------------------------------------------------------
-- name: Run the specified action
-  ansible.builtin.include_tasks: "tasks/{{ cluster_type }}/main.yml"
+# Run special case for rosa-hcp
+- name: Run ocp_idms for rosa-hcp
+  ansible.builtin.include_tasks: "tasks/rosa-hcp/main.yml"
   when:
-    - cluster_type in ["default", "rosa_hcp"]
+    - cluster_type is defined 
+    - cluster_type == "rosa_hcp"
+
+# Run default
+- name: Run ocp_idms
+  ansible.builtin.include_tasks: "tasks/default/main.yml"
+  when: cluster_type in not defined or (cluster_type is defined and cluster_type != "rosa_hcp")

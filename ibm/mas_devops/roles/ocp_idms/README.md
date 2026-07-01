@@ -63,15 +63,13 @@ Cluster type for ImageDigestMirrorSet configuration.
 
 - **Optional**
 - Environment Variable: `CLUSTER_TYPE`
-- Default: `default`
 
-**Purpose**: Specifies which cluster type to configure.
+**Purpose**: Currently only used with ROSA HCP cluster.
 
 **When to use**:
-- Use default (`default`) for any non HCP cluster
-- Use rosa_hcp for ROSA HCP cluster
+- Use rosa-hcp (`rosa-hcp`)for ROSA HCP cluster
 
-**Valid values**: `default`, `rosa_hcp`
+**Valid values**: `rosa_hcp`
 
 **Related variables**:
 - `cluster_name`: The name of the rosa hcp cluster.
