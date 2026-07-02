@@ -11,9 +11,31 @@
     kind: ConfigMap
   register: _cluster_details_result
 
+- name: "cis: Lookup for cluster-config-v1 Config Map"
+  when: _cluster_details_result.resources | length == 0
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: cluster-config-v1
+    namespace: kube-system
+    kind: ConfigMap
+  register: _cluster_config_result
+
+- name: "cis: Set cluster name"
+  set_fact:
+    cluster_name: >-
+      {{ (_cluster_details_result.resources | length > 0)
+         | ternary(
+             _cluster_details_result.resources[0].data.cluster_name,
+             _cluster_config_result.resources[0].data['install-config'] | from_yaml | json_query('metadata.name')
+           ) }}
+
+- name: "cis: debug cluster name"
+  debug:
+    var: cluster_name
+
 - name: "cis : Define default CIS service name"
   set_fact:
-    cis_service_name: "{{ _cluster_details_result.resources[0].data.cluster_name }}-cis-{{instance_id}}"
+    cis_service_name: "{{ cluster_name }}-cis-{{instance_id}}"
   when:
     - cis_service_name is not defined or cis_service_name == ''
 
