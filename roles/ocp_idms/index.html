@@ -746,9 +746,13 @@
     <cds-select id="breadcrumbs-toc" inline="" placeholder="..." oninput="changeAnchor(this.value)">
     
     
+      <cds-select-item value="#hosted-control-planes">Hosted Control Planes</cds-select-item>
+    
       <cds-select-item value="#role-variables-general">Role Variables - General</cds-select-item>
     
       <cds-select-item value="#role-variables-target-registry">Role Variables - Target Registry</cds-select-item>
+    
+      <cds-select-item value="#role-variables-rosa-hcp">Role Variables - ROSA HCP</cds-select-item>
     
       <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
     
@@ -818,7 +822,35 @@ All content from the subset of the Red Hat operator catalogs supported by <a hre
 <p>A content source policy for this content is only configured when <strong>setup_redhat_catalogs</strong> is set to <code>True</code>.</p>
 </div>
 <p>If you are managing the Red Hat Operator Catalogs yourself the content therein may well be different depending how you have configured mirroring.</p>
+<h2 id="hosted-control-planes">Hosted Control Planes<a class="headerlink" href="#hosted-control-planes" title="Permanent link">¤</a></h2>
+<p>When working with hosted control planes such as <strong>ROSA with HCP</strong>, management of the IDMS requires a specialized process because access to critical resources is restricted via standard Kubernetes resources. This collection has specific support for ROSA with HCP.</p>
+<p>Before running this role, use the <code>ocp_config</code> role to:</p>
+<ul>
+<li>Add the image registry to allowed registries on the cluster</li>
+<li>Add the image registry's CA as an additional trusted CA</li>
+</ul>
+<p>Running this role will then:</p>
+<ul>
+<li>Add each IDMS individually using the <code>rosa</code> cli commands</li>
+</ul>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Note that on ROSA with HCP there is no way to access <code>MachinePoolConfigs</code> to figure out the state of the nodes (e.g. whether it is <code>updating</code>). Therefore, we cannot reliably determine when (or if) the changes have been successfully applied.  This is a limitation of the ROSA with HCP implementation; we recommend to wait up to an hour after running this role for the changes to be applied across all workers on a large cluster and contact ROSA support if the IDMS does not apply successfully.</p>
+</div>
 <h2 id="role-variables-general">Role Variables - General<a class="headerlink" href="#role-variables-general" title="Permanent link">¤</a></h2>
+<h3 id="cluster_type">cluster_type<a class="headerlink" href="#cluster_type" title="Permanent link">¤</a></h3>
+<p>Cluster type for ImageDigestMirrorSet configuration.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>CLUSTER_TYPE</code></li>
+</ul>
+<p><strong>Purpose</strong>: Currently only used with ROSA HCP cluster.</p>
+<p><strong>When to use</strong>:
+- Use rosa-hcp (<code>rosa-hcp</code>)for ROSA HCP cluster</p>
+<p><strong>Valid values</strong>: <code>rosa-hcp</code></p>
+<p><strong>Related variables</strong>:
+- <code>cluster_name</code>: The name of the rosa hcp cluster.</p>
+<p><strong>Note</strong>: To setup idms for ROSA HCP you first need to run ocp_config role to configure allowed registries.</p>
 <h3 id="product_family">product_family<a class="headerlink" href="#product_family" title="Permanent link">¤</a></h3>
 <p>Product family for ImageDigestMirrorSet configuration.</p>
 <ul>
@@ -1041,6 +1073,37 @@ All content from the subset of the Red Hat operator catalogs supported by <a hre
 <p><strong>Related variables</strong>:
 - <code>registry_private_ca_file</code>: CA certificate that triggers MachineConfig updates</p>
 <p><strong>Note</strong>: <strong>WARNING</strong> - Only enable during initial setup when nodes are lightly loaded. In production, leave as <code>false</code> to ensure workload availability during node updates. MachineConfig changes cause node reboots.</p>
+<h2 id="role-variables-rosa-hcp">Role Variables - ROSA HCP<a class="headerlink" href="#role-variables-rosa-hcp" title="Permanent link">¤</a></h2>
+<p><strong>Note</strong>: Ensure you have rosa cli <code>1.2.61</code> or greater installed.</p>
+<h3 id="cluster_name">cluster_name<a class="headerlink" href="#cluster_name" title="Permanent link">¤</a></h3>
+<p>The cluster name of the rosa hcp cluster.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>CLUSTER_NAME</code></li>
+</ul>
+<p><strong>Purpose</strong>: Needed for targetting the rosa hcp cluster via the rosa cli.</p>
+<p><strong>When to use</strong>:
+- When running ocp_idms role for rosa-hcp cluster type.</p>
+<h3 id="ocp_idms_working_dir">ocp_idms_working_dir<a class="headerlink" href="#ocp_idms_working_dir" title="Permanent link">¤</a></h3>
+<p>Temporary working directory to generate the idms yamls to be applied to the cluster.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>OCP_IDMS_WORKING_DIR</code></li>
+<li>Default: <code>/tmp</code></li>
+</ul>
+<p><strong>Purpose</strong>: We are extracting the idms from the yml.j2 files so that we can loop over and apply them individually to the cluster.</p>
+<p><strong>When to use</strong>:
+- When running ocp_idms role for rosa-hcp cluster type.</p>
+<p><strong>Note</strong>: Ensure you have read and write access to the directory.</p>
+<h3 id="rosa_token">rosa_token<a class="headerlink" href="#rosa_token" title="Permanent link">¤</a></h3>
+<p>Rosa login token for the rosa cli.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>ROSA_TOKEN</code></li>
+</ul>
+<p><strong>Purpose</strong>: Authenticates the rosa cli to the rosa cluster.</p>
+<p><strong>When to use</strong>:
+- When running ocp_idms role for rosa-hcp cluster type.</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   vars:
@@ -1100,10 +1163,20 @@ All content from the subset of the Red Hat operator catalogs supported by <a hre
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
               <li class="md-toc__item">
+                <a href="#hosted-control-planes" class="md-toc__link" data-md-level="1">
+                  Hosted Control Planes
+                </a>
+              </li>
+              <li class="md-toc__item">
                 <a href="#role-variables-general" class="md-toc__link" data-md-level="1">
                   Role Variables - General
                 </a>
                   <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#cluster_type" class="md-toc__link" data-md-level="2">
+                          cluster_type
+                        </a>
+                      </li>
                       <li class="md-toc__item">
                         <a href="#product_family" class="md-toc__link" data-md-level="2">
                           product_family
@@ -1169,6 +1242,28 @@ All content from the subset of the Red Hat operator catalogs supported by <a hre
                       <li class="md-toc__item">
                         <a href="#machine_config_multiupdate" class="md-toc__link" data-md-level="2">
                           machine_config_multiupdate
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#role-variables-rosa-hcp" class="md-toc__link" data-md-level="1">
+                  Role Variables - ROSA HCP
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#cluster_name" class="md-toc__link" data-md-level="2">
+                          cluster_name
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#ocp_idms_working_dir" class="md-toc__link" data-md-level="2">
+                          ocp_idms_working_dir
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#rosa_token" class="md-toc__link" data-md-level="2">
+                          rosa_token
                         </a>
                       </li>
                   </ul>

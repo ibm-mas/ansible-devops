@@ -748,11 +748,15 @@
     
       <cds-select-item value="#role-variables-api-server">Role Variables - API Server</cds-select-item>
     
-      <cds-select-item value="#role-variables-general">Role Variables - General</cds-select-item>
-    
       <cds-select-item value="#role-variables-ingress-controller">Role Variables - Ingress Controller</cds-select-item>
     
       <cds-select-item value="#role-variables-operatorhub">Role Variables - OperatorHub</cds-select-item>
+    
+      <cds-select-item value="#role-variables-rosa-hcp-settings">Role Variables - ROSA-HCP Settings</cds-select-item>
+    
+      <cds-select-item value="#role-variables-allowed-registries">Role Variables - Allowed Registries</cds-select-item>
+    
+      <cds-select-item value="#role-variables-additional-trusted-ca">Role Variables - Additional Trusted CA</cds-select-item>
     
       <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
     
@@ -800,7 +804,6 @@
 <li><code>redhat-operators</code></li>
 </ul>
 <h2 id="role-variables-api-server">Role Variables - API Server<a class="headerlink" href="#role-variables-api-server" title="Permanent link">¤</a></h2>
-<h2 id="role-variables-general">Role Variables - General<a class="headerlink" href="#role-variables-general" title="Permanent link">¤</a></h2>
 <h3 id="ocp_update_ciphers_for_semeru">ocp_update_ciphers_for_semeru<a class="headerlink" href="#ocp_update_ciphers_for_semeru" title="Permanent link">¤</a></h3>
 <p>Enable custom TLS cipher configuration for IBM Java Semeru FIPS mode compatibility.</p>
 <ul>
@@ -986,7 +989,142 @@
 <li><code>fyre_site</code>: Should be <code>rtp</code> when this is <code>true</code></li>
 </ul>
 <p><strong>Note</strong>: Only required for Fyre RTP site. SVL and other sites use IPv4.</p>
+<h2 id="role-variables-rosa-hcp-settings">Role Variables - ROSA-HCP Settings<a class="headerlink" href="#role-variables-rosa-hcp-settings" title="Permanent link">¤</a></h2>
+<h3 id="cluster_type">cluster_type<a class="headerlink" href="#cluster_type" title="Permanent link">¤</a></h3>
+<p>The deployment model of OpenShift.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>CLUSTER_TYPE</code></li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the deployment model of OpenShift to run model specific tasks.</p>
+<p><strong>When to use</strong>: Currently only used for <code>rosa-hcp</code>.</p>
+<p><strong>Valid values</strong>:
+- <code>rosa-hcp</code> - AWS ROSA HCP</p>
+<p><strong>Impact</strong>: Runs tasks specific to the deployment model.</p>
+<h3 id="cluster_name">cluster_name<a class="headerlink" href="#cluster_name" title="Permanent link">¤</a></h3>
+<p>The name of the OpenShift cluster.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>CLUSTER_NAME</code></li>
+<li>Default Value: Not set</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the name of the OpenShift cluster.</p>
+<p><strong>When to use</strong>: Currently only used for <code>rosa-hcp</code>.</p>
+<p><strong>Impact</strong>: Runs tasks against cluster name.</p>
+<p><strong>Related variables</strong>: None</p>
+<p><strong>Notes</strong>:
+- This is used as the target cluster for when using rosa cli commands.</p>
+<h3 id="rosa_token">rosa_token<a class="headerlink" href="#rosa_token" title="Permanent link">¤</a></h3>
+<p>Rosa login token for the rosa cli.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>ROSA_TOKEN</code></li>
+</ul>
+<p><strong>Purpose</strong>: Authenticates the rosa cli to the rosa cluster.</p>
+<p><strong>When to use</strong>:
+- When running ocp_idms role for rosa-hcp cluster type.</p>
+<h2 id="role-variables-allowed-registries">Role Variables - Allowed Registries<a class="headerlink" href="#role-variables-allowed-registries" title="Permanent link">¤</a></h2>
+<h3 id="ocp_update_allowed_registries">ocp_update_allowed_registries<a class="headerlink" href="#ocp_update_allowed_registries" title="Permanent link">¤</a></h3>
+<p>Update allowed registries in the cluster.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>OCP_UPDATE_ALLOWED_REGISTRIES</code></li>
+<li>Default: <code>false</code></li>
+</ul>
+<p><strong>Purpose</strong>: Restricting access to only registries in the allowed registries list.</p>
+<p><strong>When to use</strong>: Required for air-gapped/disconnected environments.</p>
+<p><strong>Valid values</strong>:
+- <code>true</code> - Update allowed registries
+- <code>false</code> - Leave allowed registries unchanged</p>
+<p><strong>Impact</strong>: When <code>true</code>, updates the allowed registries to the list provided via <code>ocp_allowed_registries</code>, <code>ocp_add_mas_registries</code> and/or <code>ocp_add_rh_registries</code>. All other registries not defined will be blocked.</p>
+<p><strong>Notes</strong>:
+- <strong>Important</strong>: Currently works with ROSA HCP only
+- <strong>Important</strong>: Setting to <code>false</code> does NOT remove allowed registries list
+- Required for disconnected/air-gapped MAS installations
+- ROSA HCP automatically adds RH required registries: <code>'image-registry.openshift-image-registry.svc:5000'</code>, <code>quay.io</code>, and <code>registry.redhat.io</code></p>
+<h3 id="ocp_allowed_registries">ocp_allowed_registries<a class="headerlink" href="#ocp_allowed_registries" title="Permanent link">¤</a></h3>
+<p>List of allowed registries to be added to the cluster.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>OCP_ALLOWED_REGISTRIES</code></li>
+<li>Default: <code>[]</code></li>
+</ul>
+<p><strong>Purpose</strong>: Providing allowed registries beyond what is defined by MAS and RedHat.</p>
+<p><strong>When to use</strong>: Required for air-gapped/disconnected environments. Provide the domain to your own image registry or registries.</p>
+<p><strong>Impact</strong>: Pods in the cluster can pull images from the list of registries defined.</p>
+<p><strong>Notes</strong>:
+- <strong>Important</strong>: Currently works with ROSA HCP only
+- <strong>Important</strong>: Setting to <code>[]</code> does NOT remove allowed registries list
+- Required for disconnected/air-gapped MAS installations when using custom image registry</p>
+<h3 id="ocp_add_mas_registries">ocp_add_mas_registries<a class="headerlink" href="#ocp_add_mas_registries" title="Permanent link">¤</a></h3>
+<p>Adds MAS specific registries on top of what is defined in <code>ocp_allowed_registries</code>.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>OCP_ADD_MAS_REGISTRIES</code></li>
+<li>Default: <code>true</code></li>
+</ul>
+<p><strong>Purpose</strong>: Restricting access to only registries in the allowed registries list.</p>
+<p><strong>When to use</strong>: Required for air-gapped/disconnected environments.</p>
+<p><strong>Valid values</strong>:
+- <code>true</code> - Add MAS registries to <code>ocp_allowed_registries</code>
+- <code>false</code> - Leave <code>ocp_allowed_registries</code> unchanged</p>
+<p><strong>Impact</strong>: When <code>true</code>, appends the <code>ocp_allowed_registries</code> list with <code>icr.io</code>, <code>cp.icr.io</code>, <code>quay.io</code>, and <code>gcr.io</code></p>
+<p><strong>Notes</strong>:
+- <strong>Important</strong>: Currently works with ROSA HCP only
+- Required for disconnected/air-gapped MAS installations in ROSA HCP</p>
+<h3 id="ocp_add_rh_registries">ocp_add_rh_registries<a class="headerlink" href="#ocp_add_rh_registries" title="Permanent link">¤</a></h3>
+<p>Adds RedHat specific registries on top of what is defined in <code>ocp_allowed_registries</code>.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>OCP_ADD_RH_REGISTRIES</code></li>
+<li>Default: <code>true</code></li>
+</ul>
+<p><strong>Purpose</strong>: Restricting access to only registries in the allowed registries list.</p>
+<p><strong>When to use</strong>: Required for air-gapped/disconnected environments.</p>
+<p><strong>Valid values</strong>:
+- <code>true</code> - Add RedHat registries to <code>ocp_allowed_registries</code>
+- <code>false</code> - Leave <code>ocp_allowed_registries</code> unchanged</p>
+<p><strong>Impact</strong>: When <code>true</code>, appends the <code>ocp_allowed_registries</code> list with <code>icr.io</code>, <code>registry.redhat.io</code>, <code>registry.connect.redhat.com</code>, <code>ghcr.io</code>, <code>docker.io</code>, <code>nvcr.io</code>, and <code>gcr.io</code></p>
+<p><strong>Notes</strong>:
+- <strong>Important</strong>: Currently works with ROSA HCP only
+- Required for disconnected/air-gapped MAS installations in ROSA HCP</p>
+<h2 id="role-variables-additional-trusted-ca">Role Variables - Additional Trusted CA<a class="headerlink" href="#role-variables-additional-trusted-ca" title="Permanent link">¤</a></h2>
+<h3 id="ocp_update_additional_trusted_ca">ocp_update_additional_trusted_ca<a class="headerlink" href="#ocp_update_additional_trusted_ca" title="Permanent link">¤</a></h3>
+<p>Update additional trusted CAs in the cluster.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>OCP_UPDATE_ADDITIONAL_TRUSTED_CA</code></li>
+<li>Default: <code>false</code></li>
+</ul>
+<p><strong>Purpose</strong>: Adding the CAs of the image registries to be used for air-gapped/disconnected environments so that the cluster can trust them.</p>
+<p><strong>When to use</strong>: Required for air-gapped/disconnected environments.</p>
+<p><strong>Valid values</strong>:
+- <code>true</code> - Update additional trusted CAs
+- <code>false</code> - Leave additional trusted CAs unchanged</p>
+<p><strong>Impact</strong>: When <code>true</code>, adds or removes additional trusted CAs in the cluster.</p>
+<p><strong>Related variables</strong>: None</p>
+<p><strong>Notes</strong>:
+- <strong>Important</strong>: Currently works with ROSA HCP only
+- <strong>Important</strong>: Setting to <code>false</code> does NOT remove additional trusted CAs
+- Required for disconnected/air-gapped MAS installations.
+- If <code>ocp_additional_trusted_ca_dir</code> has no files in it then an empty json will be generated and uploaded to the cluster which will remove all additional trusted CAs from the cluster</p>
+<h3 id="ocp_additional_trusted_ca_dir">ocp_additional_trusted_ca_dir<a class="headerlink" href="#ocp_additional_trusted_ca_dir" title="Permanent link">¤</a></h3>
+<p>The path to the additional trusted CAs.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>OCP_ADDITIONAL_TRUSTED_CA_DIR</code></li>
+<li>Default: <code>/tmp</code></li>
+</ul>
+<p><strong>Purpose</strong>: Directory containing additional trusted CAs to be configured in the cluster.</p>
+<p><strong>When to use</strong>: Required for trusting image registries when setting up air-gapped/disconnected environments.</p>
+<p><strong>Related variables</strong>: <code>ocp_update_additional_trusted_ca</code> (must be <code>true</code>)</p>
+<p><strong>Notes</strong>:
+- <strong>Important</strong>: Currently works with ROSA HCP only
+- <strong>Important</strong>: CA file names must match the registry URL and end with <code>.crt</code> e.g., <code>ibm.com.crt</code>
+- You can have none, one or more CAs in the directory
+- A JSON file named <code>additional_trusted_ca.json</code> is created in the same path and then deleted at the end</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
+<h3 id="example-playbook_1">Example Playbook<a class="headerlink" href="#example-playbook_1" title="Permanent link">¤</a></h3>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
@@ -998,6 +1136,23 @@
     ocp_ingress_controller_name: default
     ocp_operatorhub_disable_redhat_sources: True
     ocp_enable_ipv6: True
+  roles:
+    - ibm.mas_devops.ocp_config
+</code></pre>
+<h3 id="setting-additional-trusted-ca-and-allowed-registries-in-rosa-hcp">Setting Additional Trusted CA and Allowed Registries in Rosa HCP<a class="headerlink" href="#setting-additional-trusted-ca-and-allowed-registries-in-rosa-hcp" title="Permanent link">¤</a></h3>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    cluster_type: "rosa-hcp"
+    cluster_name: "rosa-dev-cluster"
+    ocp_update_allowed_registries: True
+    ocp_allowed_registries:
+        - ibm.com
+        - mas.io
+    ocp_add_mas_registries: True
+    ocp_add_rh_registries: True
+    ocp_update_additional_trusted_ca: True
+    ocp_additional_trusted_ca_dir: /mnt/home/additional_trusted_ca
   roles:
     - ibm.mas_devops.ocp_config
 </code></pre>
@@ -1047,11 +1202,6 @@
               <li class="md-toc__item">
                 <a href="#role-variables-api-server" class="md-toc__link" data-md-level="1">
                   Role Variables - API Server
-                </a>
-              </li>
-              <li class="md-toc__item">
-                <a href="#role-variables-general" class="md-toc__link" data-md-level="1">
-                  Role Variables - General
                 </a>
                   <ul class="md-toc__list">
                       <li class="md-toc__item">
@@ -1111,9 +1261,87 @@
                   </ul>
               </li>
               <li class="md-toc__item">
+                <a href="#role-variables-rosa-hcp-settings" class="md-toc__link" data-md-level="1">
+                  Role Variables - ROSA-HCP Settings
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#cluster_type" class="md-toc__link" data-md-level="2">
+                          cluster_type
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#cluster_name" class="md-toc__link" data-md-level="2">
+                          cluster_name
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#rosa_token" class="md-toc__link" data-md-level="2">
+                          rosa_token
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#role-variables-allowed-registries" class="md-toc__link" data-md-level="1">
+                  Role Variables - Allowed Registries
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#ocp_update_allowed_registries" class="md-toc__link" data-md-level="2">
+                          ocp_update_allowed_registries
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#ocp_allowed_registries" class="md-toc__link" data-md-level="2">
+                          ocp_allowed_registries
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#ocp_add_mas_registries" class="md-toc__link" data-md-level="2">
+                          ocp_add_mas_registries
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#ocp_add_rh_registries" class="md-toc__link" data-md-level="2">
+                          ocp_add_rh_registries
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#role-variables-additional-trusted-ca" class="md-toc__link" data-md-level="1">
+                  Role Variables - Additional Trusted CA
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#ocp_update_additional_trusted_ca" class="md-toc__link" data-md-level="2">
+                          ocp_update_additional_trusted_ca
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#ocp_additional_trusted_ca_dir" class="md-toc__link" data-md-level="2">
+                          ocp_additional_trusted_ca_dir
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
                 <a href="#example-playbook" class="md-toc__link" data-md-level="1">
                   Example Playbook
                 </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#example-playbook_1" class="md-toc__link" data-md-level="2">
+                          Example Playbook
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#setting-additional-trusted-ca-and-allowed-registries-in-rosa-hcp" class="md-toc__link" data-md-level="2">
+                          Setting Additional Trusted CA and Allowed Registries in Rosa HCP
+                        </a>
+                      </li>
+                  </ul>
               </li>
               <li class="md-toc__item">
                 <a href="#license" class="md-toc__link" data-md-level="1">
