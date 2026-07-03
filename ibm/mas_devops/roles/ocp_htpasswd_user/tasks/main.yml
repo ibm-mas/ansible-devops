@@ -1,0 +1,191 @@
+---
+
+# 0. Check prerequisites
+# -----------------------------------------------------------------------------
+- name: "ocp_htpasswd_user : Check htpasswd binary is available"
+  command: which htpasswd
+  changed_when: false
+  failed_when: false
+  register: _htpasswd_which
+
+- name: "ocp_htpasswd_user : Fail if htpasswd is not installed"
+  assert:
+    that: _htpasswd_which.rc == 0
+    fail_msg: >-
+      The 'htpasswd' binary was not found. Install the 'httpd-tools' package
+      (dnf install httpd-tools) in the Ansible execution environment and re-run.
+
+
+# 1. Validate inputs
+# -----------------------------------------------------------------------------
+- name: "ocp_htpasswd_user : Validate ocp_htpasswd_username is set"
+  assert:
+    that:
+      - ocp_htpasswd_username is defined
+      - ocp_htpasswd_username | length > 0
+    fail_msg: >-
+      ocp_htpasswd_username is required. Set OCP_HTPASSWD_USERNAME or pass
+      ocp_htpasswd_username directly.
+
+- name: "ocp_htpasswd_user : Validate ocp_htpasswd_password is set"
+  assert:
+    that:
+      - ocp_htpasswd_password is defined
+      - ocp_htpasswd_password | length > 0
+    fail_msg: >-
+      ocp_htpasswd_password is required. Set OCP_HTPASSWD_PASSWORD or pass
+      ocp_htpasswd_password directly. The value is used only to derive a bcrypt
+      hash and is never written to the cluster.
+
+
+# 2. Debug configuration
+# -----------------------------------------------------------------------------
+- name: "ocp_htpasswd_user : Debug configuration"
+  debug:
+    msg:
+      - "Username ................. {{ ocp_htpasswd_username }}"
+      - "Cluster role ............. {{ ocp_htpasswd_clusterrole }}"
+      - "IDP name ................. {{ ocp_htpasswd_idp_name }}"
+      - "htpasswd secret name ..... {{ ocp_htpasswd_secret_name }}"
+      - "Password provided ........ yes"
+
+
+# 3. Derive bcrypt hash using the htpasswd binary (httpd-tools)
+# -----------------------------------------------------------------------------
+- name: "ocp_htpasswd_user : Generate bcrypt hash for {{ ocp_htpasswd_username }}"
+  command: htpasswd -nbB -C 10 "{{ ocp_htpasswd_username }}" "{{ ocp_htpasswd_password }}"
+  changed_when: false
+  no_log: true
+  register: _htpasswd_cmd
+
+- name: "ocp_htpasswd_user : Extract hash from htpasswd output"
+  set_fact:
+    # htpasswd outputs "username:hash" — we only want the hash portion
+    _ocp_htpasswd_hash: "{{ _htpasswd_cmd.stdout.split(':', 1)[1] }}"
+  no_log: true
+
+
+# 4. Read the existing htpasswd Secret (if it exists)
+# -----------------------------------------------------------------------------
+- name: "ocp_htpasswd_user : Read existing htpasswd Secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ ocp_htpasswd_secret_name }}"
+    namespace: openshift-config
+  register: _existing_htpasswd_secret
+
+- name: "ocp_htpasswd_user : Decode existing htpasswd file"
+  set_fact:
+    # Secret data is base64-encoded. Decode it; default to empty string if secret doesn't exist yet.
+    _existing_htpasswd_content: >-
+      {{
+        (_existing_htpasswd_secret.resources[0].data.htpasswd | default('') | b64decode)
+        if _existing_htpasswd_secret.resources | length > 0
+        else ''
+      }}
+
+
+# 5. Build the updated htpasswd file content
+# -----------------------------------------------------------------------------
+# Remove any existing line for this username (so re-runs update the hash rather
+# than appending a duplicate), then append the new entry.
+- name: "ocp_htpasswd_user : Build updated htpasswd content"
+  set_fact:
+    _updated_htpasswd_content: >-
+      {{
+        (
+          _existing_htpasswd_content.splitlines()
+          | reject('match', '^' ~ ocp_htpasswd_username ~ ':')
+          | list
+          + [ocp_htpasswd_username ~ ':' ~ _ocp_htpasswd_hash]
+        ) | join('\n') ~ '\n'
+      }}
+  no_log: true
+
+
+# 6. Apply the htpasswd Secret
+# -----------------------------------------------------------------------------
+- name: "ocp_htpasswd_user : Apply htpasswd Secret '{{ ocp_htpasswd_secret_name }}'"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{ ocp_htpasswd_secret_name }}"
+        namespace: openshift-config
+      type: Opaque
+      data:
+        htpasswd: "{{ _updated_htpasswd_content | b64encode }}"
+  no_log: true
+
+
+# 7. Read existing OAuth/cluster to preserve existing identity providers
+# -----------------------------------------------------------------------------
+- name: "ocp_htpasswd_user : Read existing OAuth cluster config"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: OAuth
+    name: cluster
+  register: _existing_oauth
+
+- name: "ocp_htpasswd_user : Build merged identity providers list"
+  vars:
+    _existing_providers: "{{ _existing_oauth.resources[0].spec.identityProviders | default([]) }}"
+    # Remove any pre-existing HTPasswd entry with the same name (idempotent re-runs)
+    _filtered_providers: "{{ _existing_providers | rejectattr('name', 'equalto', ocp_htpasswd_idp_name) | list }}"
+    _htpasswd_provider:
+      htpasswd:
+        fileData:
+          name: "{{ ocp_htpasswd_secret_name }}"
+      mappingMethod: claim
+      name: "{{ ocp_htpasswd_idp_name }}"
+      type: HTPasswd
+  set_fact:
+    _merged_identity_providers: "{{ _filtered_providers + [_htpasswd_provider] }}"
+
+
+# 8. Apply OAuth/cluster with merged identity providers
+# -----------------------------------------------------------------------------
+- name: "ocp_htpasswd_user : Apply OAuth/cluster with HTPasswd IDP"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: config.openshift.io/v1
+      kind: OAuth
+      metadata:
+        name: cluster
+      spec:
+        identityProviders: "{{ _merged_identity_providers }}"
+
+
+# 9. Create ClusterRoleBinding for the user
+# -----------------------------------------------------------------------------
+- name: "ocp_htpasswd_user : Apply ClusterRoleBinding for {{ ocp_htpasswd_username }}"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: "htpasswd-{{ ocp_htpasswd_username }}"
+      subjects:
+        - kind: User
+          apiGroup: rbac.authorization.k8s.io
+          name: "{{ ocp_htpasswd_username }}"
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: "{{ ocp_htpasswd_clusterrole }}"
+
+
+# 10. Summary
+# -----------------------------------------------------------------------------
+- name: "ocp_htpasswd_user : Setup complete"
+  debug:
+    msg:
+      - "User '{{ ocp_htpasswd_username }}' has been added to the cluster."
+      - "Identity provider '{{ ocp_htpasswd_idp_name }}' is configured."
+      - "ClusterRoleBinding htpasswd-{{ ocp_htpasswd_username }} -> {{ ocp_htpasswd_clusterrole }}"
+      - "Login: oc login <api-url> -u {{ ocp_htpasswd_username }} -p <password>"
