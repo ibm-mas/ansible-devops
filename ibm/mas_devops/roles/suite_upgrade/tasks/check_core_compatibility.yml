@@ -110,10 +110,11 @@
       - suite_info.resources | length == 1
     fail_msg: "Maximo Application Suite has not been installed in namespace {{ mas_namespace }}"
 
-- name: "core : Check that the Suite CR has been reconciled to the expected version for GA channels (Non feature)"
+- name: "core : Check that the Suite CR has been reconciled to the expected version for GA channels (Non feature/dev)"
   when:
     - suite_sub_info.resources[0].spec.channel != mas_channel
     - "'-feature' not in suite_sub_info.resources[0].spec.channel"
+    - "'-dev' not in suite_sub_info.resources[0].spec.channel"
   assert:
     that:
       - suite_info.resources[0].status.versions.reconciled == opcon_version
@@ -121,11 +122,11 @@
 
 # reconciled: 9.1.0-pre.stable+8193 cr version
 # opcon_version: 9.1.0-pre.stable-8193 operator condition
-# above versions having `+` and `-` differences in feature channel (stable build)
-- name: "core : Check that the Suite CR has been reconciled to the expected version for feature channels"
+# above versions having `+` and `-` differences in feature/dev channels (pre-release builds)
+- name: "core : Check that the Suite CR has been reconciled to the expected version for feature/dev channels"
   when:
     - suite_sub_info.resources[0].spec.channel != mas_channel
-    - "'-feature' in suite_sub_info.resources[0].spec.channel"
+    - "'-feature' in suite_sub_info.resources[0].spec.channel or '-dev' in suite_sub_info.resources[0].spec.channel"
   assert:
     that:
       - "(suite_info.resources[0].status.versions.reconciled | replace('+', '-') == opcon_version | replace('+', '-'))"

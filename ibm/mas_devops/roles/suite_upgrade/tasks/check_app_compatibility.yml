@@ -108,10 +108,11 @@
       - check_app_info.resources | length == 1
     fail_msg: "Upgrade failed, ibm-mas-{{ check_app.id }} operator has been deployed, but {{ mas_instance_id }}/{{ check_app.kind }}.{{ check_app.api_version }} has not been created in namespace {{ check_app_namespace }}"
 
-- name: "{{ check_app.id }} : Check that the Suite CR has been reconciled to the expected version for GA channels (Non feature)"
+- name: "{{ check_app.id }} : Check that the Suite CR has been reconciled to the expected version for GA channels (Non feature/dev)"
   when:
     - checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
     - "'-feature' not in checkapp_sub_info.resources[0].spec.channel"
+    - "'-dev' not in checkapp_sub_info.resources[0].spec.channel"
     - check_app_info.resources is defined
     - check_app_info.resources | length == 1
     - check_app_info.resources[0].status is defined
@@ -123,11 +124,11 @@
 
 # reconciled: 9.1.0-pre.stable+8193 cr version
 # opcon_version: 9.1.0-pre.stable-8193 operator condition
-# above versions having `+` and `-` differences in feature channel (stable build)
-- name: "{{ check_app.id }} : Check that the Suite CR has been reconciled to the expected version for feature channels"
+# above versions having `+` and `-` differences in feature/dev channels (pre-release builds)
+- name: "{{ check_app.id }} : Check that the Suite CR has been reconciled to the expected version for feature/dev channels"
   when:
     - checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
-    - "'-feature' in checkapp_sub_info.resources[0].spec.channel"
+    - "'-feature' in checkapp_sub_info.resources[0].spec.channel or '-dev' in checkapp_sub_info.resources[0].spec.channel"
     - check_app_info.resources is defined
     - check_app_info.resources | length == 1
     - check_app_info.resources[0].status is defined
