@@ -56,9 +56,20 @@ All content from the subset of the Red Hat operator catalogs supported by [mirro
 
 If you are managing the Red Hat Operator Catalogs yourself the content therein may well be different depending how you have configured mirroring.
 
+## Hosted Control Planes
+When working with hosted control planes such as **ROSA with HCP**, management of the IDMS requires a specialized process because access to critical resources is restricted via standard Kubernetes resources. This collection has specific support for ROSA with HCP.
 
-ROSA HCP
-Hosted Control Panels such as ROSA HCP require a slightly different approach because access to critical resources are restricted to us. For ROSA HCP we need to make use of the rosa cli to access these resources. Before we can even add any IDMS we first need to run the ocp_config roles to add the image registry to allowed registries on the cluster and add its CA as additional trusted CAs. We can then run the ocp_idms role which adds the IDMS individually via rosa cli (there is no way to pass in a list via rosa cli). Also, there is no way to access MachinePoolConfigs to figure out the state of the nodes (e.g. whether it is `updating`). Therefore, we cannot reliably figure out if all of our changes have been applied to the HCP. As such we just recommend to wait up to an hour after running this role.
+Before running this role, use the `ocp_config` role to:
+
+- Add the image registry to allowed registries on the cluster
+- Add the image registry's CA as an additional trusted CA
+
+Running this role will then:
+
+- Add each IDMS individually using the `rosa` cli commands
+
+!!! important
+    Note that on ROSA with HCP there is no way to access `MachinePoolConfigs` to figure out the state of the nodes (e.g. whether it is `updating`). Therefore, we cannot reliably determine when (or if) the changes have been successfully applied.  This is a limitation of the ROSA with HCP implementation; we recommend to wait up to an hour after running this role for the changes to be applied across all workers on a large cluster and contact ROSA support if the IDMS does not apply successfully.
 
 
 ## Role Variables - General
