@@ -1,0 +1,58 @@
+---
+# 1. AWS ROSA HCP
+# Login to rosa by exporting ROSA_TOKEN and running 'rosa login'
+# -----------------------------------------------------------------------------
+- name: "ROSA HCP: Update allowed registries"
+  when: cluster_type == "rosa-hcp"
+  block:
+    # 1.1 Rosa Login
+    # -----------------------------------------------------------------------------
+    - name: "ROSA HCP: Login to Rosa"
+      include_tasks: "{{ role_path }}/../../common_tasks/rosa_login.yml"
+
+    # 1.2 Check for required params
+    # -----------------------------------------------------------------------------
+    - name: "ROSA HCP: Check for required parameters"
+      assert:
+        that:
+          - cluster_name is defined and cluster_name != ""
+
+    # 1.3 Add additional registries
+    # -----------------------------------------------------------------------------
+    - name: "ROSA HCP: Add MAS registries"
+      ansible.builtin.set_fact:
+        ocp_allowed_registries: "{{ ocp_add_mas_registries | ternary((ocp_allowed_mas_registries | union(ocp_allowed_registries)), ocp_allowed_registries) }}"
+
+    - name: "ROSA HCP: Add RedHat registries"
+      ansible.builtin.set_fact:
+        ocp_allowed_registries: "{{ ocp_add_rh_registries | ternary((ocp_allowed_rh_registries | union(ocp_allowed_registries)), ocp_allowed_registries) }}"
+
+    # 1.4 Update allowed registries
+    # -----------------------------------------------------------------------------
+    # The following registries are added automatically by the HCP:
+    #   - 'image-registry.openshift-image-registry.svc:5000'
+    #   - quay.io
+    #   - registry.redhat.io
+    - name: "ROSA HCP: Update cluster config with allowed registries"
+      when: ocp_allowed_registries | length > 0
+      ansible.builtin.shell: |
+        rosa edit cluster \
+        --registry-config-allowed-registries="{{ ocp_allowed_registries | join(',') }}" \
+        --cluster="{{ cluster_name }}" \
+        -y
+      register: rosa_cli_result
+      failed_when: rosa_cli_result.rc != 0
+
+    # 1.5 Verify registries in cluster
+    # -----------------------------------------------------------------------------
+    - name: "ROSA HCP: Lookup 'cluster' Image resource"
+      kubernetes.core.k8s_info:
+        api_version: config.openshift.io/v1
+        kind: Image
+        name: cluster
+      register: cluster_image_lookup
+      until:
+        - cluster_image_lookup.resources[0].spec.registrySources.allowedRegistries is defined
+        - ocp_allowed_registries | difference(cluster_image_lookup.resources[0].spec.registrySources.allowedRegistries) | length == 0
+      retries: 5
+      delay: 10
