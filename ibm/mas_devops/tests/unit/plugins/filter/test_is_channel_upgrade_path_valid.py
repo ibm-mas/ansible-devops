@@ -119,4 +119,48 @@ class TestIsChannelUpgradePathValid:
         # Assert
         assert result is True
 
+    def test_dev_channel_valid_91dev_to_92dev(self):
+        """Test that 9.1.x-dev → 9.2.x-dev is a valid dev upgrade path."""
+        # Arrange
+        paths = {'9.1.x-dev': ['9.2.x-dev']}
+
+        # Act
+        result = is_channel_upgrade_path_valid('9.1.x-dev', '9.2.x-dev', paths)
+
+        # Assert
+        assert result is True
+
+    def test_dev_channel_valid_90xdev_to_91xdev(self):
+        """Test that 9.0.x-dev → 9.1.x-dev is a valid dev upgrade path."""
+        # Arrange
+        paths = {'9.0.x-dev': ['9.1.x-dev']}
+
+        # Act
+        result = is_channel_upgrade_path_valid('9.0.x-dev', '9.1.x-dev', paths)
+
+        # Assert
+        assert result is True
+
+    def test_dev_channel_invalid_91dev_to_90xdev(self):
+        """Test that downgrade 9.1.x-dev → 9.0.x-dev is not valid."""
+        # Arrange
+        paths = {'9.1.x-dev': ['9.2.x-dev']}
+
+        # Act
+        result = is_channel_upgrade_path_valid('9.1.x-dev', '9.0.x-dev', paths)
+
+        # Assert
+        assert result is False
+
+    def test_dev_channel_invalid_cross_stream(self):
+        """Test that dev → non-dev cross-stream upgrade is not valid."""
+        # Arrange
+        paths = {'9.1.x-dev': ['9.2.x-dev']}
+
+        # Act
+        result = is_channel_upgrade_path_valid('9.1.x-dev', '9.2.x', paths)
+
+        # Assert
+        assert result is False
+
 # Made with Bob

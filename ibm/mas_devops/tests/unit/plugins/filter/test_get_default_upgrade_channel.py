@@ -105,4 +105,35 @@ class TestGetDefaultUpgradeChannel:
         # Assert
         assert result is None
 
+    def test_dev_channel_90xdev_to_91xdev(self):
+        """Test that default upgrade channel from 9.0.x-dev is 9.1.x-dev."""
+        # Arrange
+        paths = {'9.0.x-dev': ['9.1.x-dev', '9.2.x-dev']}
+
+        # Act
+        result = get_default_upgrade_channel('9.0.x-dev', paths)
+
+        # Assert
+        assert result == '9.1.x-dev'
+
+    def test_dev_channel_91xdev_to_92xdev(self):
+        """Test that default upgrade channel from 9.1.x-dev is 9.2.x-dev."""
+        # Arrange
+        paths = {'9.1.x-dev': ['9.2.x-dev']}
+
+        # Act
+        result = get_default_upgrade_channel('9.1.x-dev', paths)
+
+        # Assert
+        assert result == '9.2.x-dev'
+
+    def test_dev_channel_unknown_raises_key_error(self):
+        """Test that unknown dev channel raises KeyError."""
+        # Arrange
+        paths = {'9.1.x-dev': ['9.2.x-dev']}
+
+        # Act & Assert
+        with pytest.raises(KeyError):
+            get_default_upgrade_channel('9.0.x-dev', paths)
+
 # Made with Bob
