@@ -34,43 +34,6 @@ This role configures:
   - `redhat-operators`
 
 
-
-## Role Variables - General
-
-### cluster_type
-The deployment model of OpenShift.
-
-- **Optional**
-- Environment Variable: `CLUSTER_TYPE`
-
-**Purpose**: Specifies the deployment model of OpenShift to run model specific tasks.
-
-**When to use**: Currently only used for `rosa-hcp`.
-
-**Valid values**:
-- `rosa-hcp` - AWS ROSA HCP
-
-**Impact**: Runs tasks specific to the deployment model.
-
-### cluster_name
-The name of the OpenShift cluster.
-
-- **Optional**
-- Environment Variable: `CLUSTER_NAME`
-- Default Value: Not set
-
-**Purpose**: Specifies the name of the OpenShift cluster.
-
-**When to use**: Currently only used for `rosa-hcp`.
-
-**Impact**: Runs tasks against cluster name.
-
-**Related variables**: None
-
-**Notes**:
-- This is used as the target cluster for when using rosa cli commands.
-
-
 ## Role Variables - API Server
 
 ### ocp_update_ciphers_for_semeru
@@ -294,6 +257,52 @@ Enable IPv6 for Fyre RTP site.
 
 **Note**: Only required for Fyre RTP site. SVL and other sites use IPv4.
 
+
+## Role Variables - ROSA-HCP Settings
+
+### cluster_type
+The deployment model of OpenShift.
+
+- **Optional**
+- Environment Variable: `CLUSTER_TYPE`
+
+**Purpose**: Specifies the deployment model of OpenShift to run model specific tasks.
+
+**When to use**: Currently only used for `rosa-hcp`.
+
+**Valid values**:
+- `rosa-hcp` - AWS ROSA HCP
+
+**Impact**: Runs tasks specific to the deployment model.
+
+### cluster_name
+The name of the OpenShift cluster.
+
+- **Optional**
+- Environment Variable: `CLUSTER_NAME`
+- Default Value: Not set
+
+**Purpose**: Specifies the name of the OpenShift cluster.
+
+**When to use**: Currently only used for `rosa-hcp`.
+
+**Impact**: Runs tasks against cluster name.
+
+**Related variables**: None
+
+**Notes**:
+- This is used as the target cluster for when using rosa cli commands.
+
+### rosa_token
+Rosa login token for the rosa cli.
+
+- **Required**
+- Environment Variable: `ROSA_TOKEN`
+
+**Purpose**: Authenticates the rosa cli to the rosa cluster.
+
+**When to use**:
+- When running ocp_idms role for rosa-hcp cluster type.
 
 ## Role Variables - Allowed Registries
 
