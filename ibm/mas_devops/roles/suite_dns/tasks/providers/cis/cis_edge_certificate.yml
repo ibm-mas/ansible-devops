@@ -58,11 +58,12 @@
   set_fact:
     hasDedicated: "{{ dedicated_list | length > 0 }}"
 
-- name: "cis : Lookup the dedicated certificate id (first certificate for backward compatibility)"
+- name: "cis : Lookup the dedicated certificate id (first non-dro certificate for backward compatibility)"
   set_fact:
-    dedicatedId: "{{ dedicated_list[0].id }}"
+    dedicatedId: "{{ (dedicated_list | rejectattr('hosts', 'search', '^dro\\.') | list)[0].id }}"
   when:
     - hasDedicated
+    - dedicated_list | rejectattr('hosts', 'search', '^dro\\.') | list | length > 0
 
 - name: Debug dedicated certificates
   debug:
@@ -93,7 +94,7 @@
 - name: "cis : Delete ALL existing advanced edge certificates for this instance"
   ansible.builtin.shell: |
     ibmcloud cis certificate-delete {{ _cis_domain_id }} {{ item.id }} -i "{{ cis_service_name }}" -f
-  loop: "{{ dedicated_list }}"
+  loop: "{{ dedicated_list | rejectattr('hosts', 'search', '^dro\\.') | list }}"
   when: hasDedicated and (override_edge_certs or (edge_cert_output is defined and edge_cert_output["reorder"]))
   register: _deleted_certificates
 
