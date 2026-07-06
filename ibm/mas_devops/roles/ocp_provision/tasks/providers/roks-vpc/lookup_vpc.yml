@@ -1,0 +1,34 @@
+---
+# Resolve roks_vpc_id from roks_vpc_name if not provided directly.
+# Also extracts ibmcloud_region from the VPC's CRN so downstream tasks
+# (ibmcloud is subnets, etc.) can target the correct region without the
+# caller needing to set ibmcloud_region explicitly.
+# Sets facts: roks_vpc_id, ibmcloud_region (if not already set)
+
+- name: "roks-vpc/lookup-vpc : Look up VPC by name"
+  when: roks_vpc_id is not defined or roks_vpc_id == ""
+  shell: |
+    ibmcloud is vpcs --resource-group-name {{ ibmcloud_resourcegroup }} --output json
+  register: vpc_list_raw
+
+- name: "roks-vpc/lookup-vpc : Set roks_vpc_id and ibmcloud_region from name lookup"
+  when: roks_vpc_id is not defined or roks_vpc_id == ""
+  vars:
+    matched: "{{ vpc_list_raw.stdout | from_json | selectattr('name', 'equalto', roks_vpc_name) | list | first | default({}) }}"
+    # VPC CRN format: crn:v1:bluemix:public:is:<REGION>:a/<account>::vpc:<id>
+    # Field 5 (0-indexed) is the region.
+    crn_region: "{{ matched.crn | default('') | split(':') | list | nth(5) | default('') }}"
+  set_fact:
+    roks_vpc_id: "{{ matched.id }}"
+    ibmcloud_region: "{{ ibmcloud_region if (ibmcloud_region is defined and ibmcloud_region != '') else crn_region }}"
+
+- name: "roks-vpc/lookup-vpc : Fail if VPC name could not be resolved"
+  when: roks_vpc_id is not defined or roks_vpc_id == ""
+  fail:
+    msg: "No VPC named '{{ roks_vpc_name }}' found in resource group '{{ ibmcloud_resourcegroup }}'"
+
+- name: "roks-vpc/lookup-vpc : Debug resolved VPC ID and region"
+  debug:
+    msg:
+      - "Using VPC ID: {{ roks_vpc_id }}"
+      - "Using IBM Cloud region: {{ ibmcloud_region }}"
