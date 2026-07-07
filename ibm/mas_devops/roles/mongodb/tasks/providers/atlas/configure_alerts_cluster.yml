@@ -21,7 +21,7 @@
     - name: "Configure cluster health alerts"
       when: atlas_enable_cluster_health_alerts | bool
       block:
-        - name: "Create replication lag alert"
+        - name: "Create oplog window low alert"
           uri:
             url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
             method: POST
@@ -33,13 +33,42 @@
               enabled: true
               threshold:
                 operator: "LESS_THAN"
-                threshold: 1
-                units: "HOURS"
+                threshold: "{{ atlas_alert_oplog_window_threshold_minutes }}"
+                units: "MINUTES"
               matchers:
                 - fieldName: "CLUSTER_NAME"
                   operator: "EQUALS"
                   value: "{{ atlas_cluster_name }}"
               notifications: "{{ atlas_email_notifications }}"
+            body_format: json
+            status_code: [200, 201]
+            timeout: "{{ atlas_api_timeout }}"
+          register: alert_oplog_window
+
+        - name: "Create replication lag notifications with required delay"
+          set_fact:
+            atlas_replication_lag_notifications: >-
+              {{
+                atlas_email_notifications | map('combine', {'delayMin': 1}) | list
+              }}
+
+        - name: "Create replication lag alert"
+          uri:
+            url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
+            method: POST
+            user: "{{ atlas_public_key }}"
+            password: "{{ atlas_private_key }}"
+            force_basic_auth: false
+            body:
+              eventTypeName: "OUTSIDE_METRIC_THRESHOLD"
+              enabled: true
+              metricThreshold:
+                metricName: "OPLOG_SLAVE_LAG_MASTER_TIME"
+                operator: "GREATER_THAN"
+                threshold: "{{ atlas_alert_replication_lag_threshold }}"
+                units: "SECONDS"
+                mode: "AVERAGE"
+              notifications: "{{ atlas_replication_lag_notifications }}"
             body_format: json
             status_code: [200, 201]
             timeout: "{{ atlas_api_timeout }}"
