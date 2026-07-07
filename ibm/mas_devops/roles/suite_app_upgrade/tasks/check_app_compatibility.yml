@@ -129,11 +129,39 @@
       - app_cr_lookup.resources | length == 1
     fail_msg: "Upgrade failed because {{ mas_instance_id }}/{{ app_info[mas_app_id].kind }}.{{ app_info[mas_app_id].api_version }} does not exist in namespace {{ mas_app_namespace }}"
 
-- name: "{{ mas_app_id }} : Check that the Application CR has been reconciled to the expected version"
-  when: app_sub_info.resources[0].spec.channel != mas_app_upgrade_target_channel
+- name: "{{ mas_app_id }} : Check that the Application CR has been reconciled to the expected version for GA and dev channels (Non feature)"
+  when:
+    - app_sub_info.resources[0].spec.channel != mas_app_upgrade_target_channel
+    - "'-feature' not in app_sub_info.resources[0].spec.channel"
+    - app_cr_lookup.resources is defined
+    - app_cr_lookup.resources | length == 1
+    - app_cr_lookup.resources[0].status is defined
+    - app_cr_lookup.resources[0].status.versions is defined
   assert:
     that:
-      - app_cr_lookup.resources[0].status.versions.reconciled == opcon_version
+      - >-
+        (
+          app_cr_lookup.resources[0].status.versions.reconciled == opcon_version
+        ) or (
+          '-dev' in app_sub_info.resources[0].spec.channel and
+          opcon_version.startswith(app_cr_lookup.resources[0].status.versions.reconciled ~ '-')
+        )
+    fail_msg: "Upgrade failed because {{ mas_instance_id }}/{{ app_info[mas_app_id].kind }}.{{ app_info[mas_app_id].api_version }} version ({{ app_cr_lookup.resources[0].status.versions.reconciled }}) is not at the expected version {{ opcon_version }}"
+
+# reconciled: 9.1.0-pre.stable+8193 cr version
+# opcon_version: 9.1.0-pre.stable-8193 operator condition
+# above versions having `+` and `-` differences in feature channel (stable build)
+- name: "{{ mas_app_id }} : Check that the Application CR has been reconciled to the expected version for feature channels"
+  when:
+    - app_sub_info.resources[0].spec.channel != mas_app_upgrade_target_channel
+    - "'-feature' in app_sub_info.resources[0].spec.channel"
+    - app_cr_lookup.resources is defined
+    - app_cr_lookup.resources | length == 1
+    - app_cr_lookup.resources[0].status is defined
+    - app_cr_lookup.resources[0].status.versions is defined
+  assert:
+    that:
+      - "(app_cr_lookup.resources[0].status.versions.reconciled | replace('+', '-') == opcon_version | replace('+', '-'))"
     fail_msg: "Upgrade failed because {{ mas_instance_id }}/{{ app_info[mas_app_id].kind }}.{{ app_info[mas_app_id].api_version }} version ({{ app_cr_lookup.resources[0].status.versions.reconciled }}) is not at the expected version {{ opcon_version }}"
 
 - name: "{{ mas_app_id }} : Check that the Application CR is in a healthy state"
