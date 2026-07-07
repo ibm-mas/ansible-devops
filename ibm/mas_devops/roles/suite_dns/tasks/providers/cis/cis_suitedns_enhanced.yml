@@ -49,7 +49,7 @@
     - name: "cis: get deployed rule id for CIS Managed Ruleset id"
       ansible.builtin.shell: |
         ibmcloud cis managed-waf deployments {{ (_cis_domains_result.stdout | from_json)[0].id }} \
-        -i "{{ cis_service_name }}" --output json | jq -r --arg target_id {{ _cis_ruleset_result.stdout }} '.rules[] | select(.action_parameters.id == $target_id) | .id'
+        -i "{{ cis_service_name }}" --output json | jq -r --arg target_id {{ _cis_ruleset_result.stdout }} '(.rules // [])[] | select(.action_parameters.id == $target_id) | .id'
       register: _cis_rule_id_result
 
     - name: "cis: add CIS Managed Ruleset to WAF when WAF rule does not exist"
@@ -61,7 +61,7 @@
     - name: "cis: get deployed rule id for CIS Managed Ruleset id"
       ansible.builtin.shell: |
         ibmcloud cis managed-waf deployments {{ (_cis_domains_result.stdout | from_json)[0].id }} \
-        -i "{{ cis_service_name }}" --output json | jq -r --arg target_id "{{ _cis_ruleset_result.stdout }}" '.rules[] | select(.action_parameters.id == $target_id) | .id'
+        -i "{{ cis_service_name }}" --output json | jq -r --arg target_id "{{ _cis_ruleset_result.stdout }}" '(.rules // [])[] | select(.action_parameters.id == $target_id) | .id'
       register: _cis_rule_id_result
 
     - name: "cis: enable CIS Default Ruleset"
