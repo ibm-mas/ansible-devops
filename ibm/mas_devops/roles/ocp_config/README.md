@@ -33,9 +33,8 @@ This role configures:
   - `community-operators`
   - `redhat-operators`
 
-## Role Variables - API Server
 
-## Role Variables - General
+## Role Variables - API Server
 
 ### ocp_update_ciphers_for_semeru
 
@@ -258,8 +257,192 @@ Enable IPv6 for Fyre RTP site.
 
 **Note**: Only required for Fyre RTP site. SVL and other sites use IPv4.
 
+
+## Role Variables - ROSA-HCP Settings
+
+### cluster_type
+The deployment model of OpenShift.
+
+- **Optional**
+- Environment Variable: `CLUSTER_TYPE`
+
+**Purpose**: Specifies the deployment model of OpenShift to run model specific tasks.
+
+**When to use**: Currently only used for `rosa-hcp`.
+
+**Valid values**:
+- `rosa-hcp` - AWS ROSA HCP
+
+**Impact**: Runs tasks specific to the deployment model.
+
+### cluster_name
+The name of the OpenShift cluster.
+
+- **Optional**
+- Environment Variable: `CLUSTER_NAME`
+- Default Value: Not set
+
+**Purpose**: Specifies the name of the OpenShift cluster.
+
+**When to use**: Currently only used for `rosa-hcp`.
+
+**Impact**: Runs tasks against cluster name.
+
+**Related variables**: None
+
+**Notes**:
+- This is used as the target cluster for when using rosa cli commands.
+
+### rosa_token
+Rosa login token for the rosa cli.
+
+- **Required**
+- Environment Variable: `ROSA_TOKEN`
+
+**Purpose**: Authenticates the rosa cli to the rosa cluster.
+
+**When to use**:
+- When running ocp_idms role for rosa-hcp cluster type.
+
+## Role Variables - Allowed Registries
+
+### ocp_update_allowed_registries
+Update allowed registries in the cluster.
+
+- Optional
+- Environment Variable: `OCP_UPDATE_ALLOWED_REGISTRIES`
+- Default: `false`
+
+**Purpose**: Restricting access to only registries in the allowed registries list.
+
+**When to use**: Required for air-gapped/disconnected environments.
+
+**Valid values**:
+- `true` - Update allowed registries
+- `false` - Leave allowed registries unchanged
+
+**Impact**: When `true`, updates the allowed registries to the list provided via `ocp_allowed_registries`, `ocp_add_mas_registries` and/or `ocp_add_rh_registries`. All other registries not defined will be blocked.
+
+**Notes**:
+- **Important**: Currently works with ROSA HCP only
+- **Important**: Setting to `false` does NOT remove allowed registries list
+- Required for disconnected/air-gapped MAS installations
+- ROSA HCP automatically adds RH required registries: `'image-registry.openshift-image-registry.svc:5000'`, `quay.io`, and `registry.redhat.io`
+
+
+### ocp_allowed_registries
+List of allowed registries to be added to the cluster.
+
+- Optional
+- Environment Variable: `OCP_ALLOWED_REGISTRIES`
+- Default: `[]`
+
+**Purpose**: Providing allowed registries beyond what is defined by MAS and RedHat.
+
+**When to use**: Required for air-gapped/disconnected environments. Provide the domain to your own image registry or registries.
+
+**Impact**: Pods in the cluster can pull images from the list of registries defined.
+
+**Notes**:
+- **Important**: Currently works with ROSA HCP only
+- **Important**: Setting to `[]` does NOT remove allowed registries list
+- Required for disconnected/air-gapped MAS installations when using custom image registry
+
+
+### ocp_add_mas_registries
+Adds MAS specific registries on top of what is defined in `ocp_allowed_registries`.
+
+- Optional
+- Environment Variable: `OCP_ADD_MAS_REGISTRIES`
+- Default: `true`
+
+**Purpose**: Restricting access to only registries in the allowed registries list.
+
+**When to use**: Required for air-gapped/disconnected environments.
+
+**Valid values**:
+- `true` - Add MAS registries to `ocp_allowed_registries`
+- `false` - Leave `ocp_allowed_registries` unchanged
+
+**Impact**: When `true`, appends the `ocp_allowed_registries` list with `icr.io`, `cp.icr.io`, `quay.io`, and `gcr.io`
+
+**Notes**:
+- **Important**: Currently works with ROSA HCP only
+- Required for disconnected/air-gapped MAS installations in ROSA HCP
+
+
+### ocp_add_rh_registries
+Adds RedHat specific registries on top of what is defined in `ocp_allowed_registries`.
+
+- Optional
+- Environment Variable: `OCP_ADD_RH_REGISTRIES`
+- Default: `true`
+
+**Purpose**: Restricting access to only registries in the allowed registries list.
+
+**When to use**: Required for air-gapped/disconnected environments.
+
+**Valid values**:
+- `true` - Add RedHat registries to `ocp_allowed_registries`
+- `false` - Leave `ocp_allowed_registries` unchanged
+
+**Impact**: When `true`, appends the `ocp_allowed_registries` list with `icr.io`, `registry.redhat.io`, `registry.connect.redhat.com`, `ghcr.io`, `docker.io`, `nvcr.io`, and `gcr.io`
+
+**Notes**:
+- **Important**: Currently works with ROSA HCP only
+- Required for disconnected/air-gapped MAS installations in ROSA HCP
+
+
+## Role Variables - Additional Trusted CA
+
+### ocp_update_additional_trusted_ca
+Update additional trusted CAs in the cluster.
+
+- Optional
+- Environment Variable: `OCP_UPDATE_ADDITIONAL_TRUSTED_CA`
+- Default: `false`
+
+**Purpose**: Adding the CAs of the image registries to be used for air-gapped/disconnected environments so that the cluster can trust them.
+
+**When to use**: Required for air-gapped/disconnected environments.
+
+**Valid values**:
+- `true` - Update additional trusted CAs
+- `false` - Leave additional trusted CAs unchanged
+
+**Impact**: When `true`, adds or removes additional trusted CAs in the cluster.
+
+**Related variables**: None
+
+**Notes**:
+- **Important**: Currently works with ROSA HCP only
+- **Important**: Setting to `false` does NOT remove additional trusted CAs
+- Required for disconnected/air-gapped MAS installations.
+- If `ocp_additional_trusted_ca_dir` has no files in it then an empty json will be generated and uploaded to the cluster which will remove all additional trusted CAs from the cluster
+
+### ocp_additional_trusted_ca_dir
+The path to the additional trusted CAs.
+
+- Optional
+- Environment Variable: `OCP_ADDITIONAL_TRUSTED_CA_DIR`
+- Default: `/tmp`
+
+**Purpose**: Directory containing additional trusted CAs to be configured in the cluster.
+
+**When to use**: Required for trusting image registries when setting up air-gapped/disconnected environments.
+
+**Related variables**: `ocp_update_additional_trusted_ca` (must be `true`)
+
+**Notes**:
+- **Important**: Currently works with ROSA HCP only
+- **Important**: CA file names must match the registry URL and end with `.crt` e.g., `ibm.com.crt`
+- You can have none, one or more CAs in the directory
+- A JSON file named `additional_trusted_ca.json` is created in the same path and then deleted at the end
+
+
 ## Example Playbook
 
+### Example Playbook
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
@@ -275,6 +458,26 @@ Enable IPv6 for Fyre RTP site.
   roles:
     - ibm.mas_devops.ocp_config
 ```
+
+### Setting Additional Trusted CA and Allowed Registries in Rosa HCP
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    cluster_type: "rosa-hcp"
+    cluster_name: "rosa-dev-cluster"
+    ocp_update_allowed_registries: True
+    ocp_allowed_registries:
+        - ibm.com
+        - mas.io
+    ocp_add_mas_registries: True
+    ocp_add_rh_registries: True
+    ocp_update_additional_trusted_ca: True
+    ocp_additional_trusted_ca_dir: /mnt/home/additional_trusted_ca
+  roles:
+    - ibm.mas_devops.ocp_config
+```
+
 
 ## License
 
