@@ -62,6 +62,23 @@
           - "Templates bucket (ODF actual) ...... {{ aiservice_s3_templates_bucket }}"
           - "Using noobaa-admin credentials for bucket access"
 
+    - name: "Read OpenShift Service CA certificate for S3"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: ConfigMap
+        name: openshift-service-ca.crt
+        namespace: "{{ aiservice_namespace }}"
+      register: service_ca_configmap
+
+    - name: "Extract and set S3 CA certificate content"
+      when: service_ca_configmap.resources | length > 0
+      set_fact:
+        aiservice_s3_ca_crt: "{{ service_ca_configmap.resources[0].data['service-ca.crt'] }}"
+
+    - name: "Debug: S3 CA certificate"
+      debug:
+        msg: "S3 CA certificate extracted ({{ aiservice_s3_ca_crt | length }} bytes)"
+
 - name: "Create secret for S3 credentials"
   kubernetes.core.k8s:
     apply: yes
