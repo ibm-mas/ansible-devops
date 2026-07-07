@@ -13,7 +13,7 @@ The role automatically installs the Node Feature Discovery (NFD) Operator as a p
 ### GPU Operator Variables
 
 #### gpu_namespace
-Namespace for NVIDIA GPU Operator installation.
+Namespace for NVIDIA_GPU Operator installation.
 
 - **Optional**
 - Environment Variable: `GPU_NAMESPACE`
