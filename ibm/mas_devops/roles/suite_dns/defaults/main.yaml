@@ -8,6 +8,12 @@ supported_dns_providers:
   - route53
 mas_manual_cert_mgmt: "{{ lookup('env', 'MAS_MANUAL_CERT_MGMT')| default('false', true) | bool }}"
 
+# Mode Detection (MAS vs AI Service)
+# -----------------------------------------------------------------------------
+# If aiservice_instance_id is defined, we're in AI Service mode
+aiservice_instance_id: "{{ lookup('env', 'AISERVICE_INSTANCE_ID') }}"
+is_aiservice_mode: "{{ aiservice_instance_id is defined and aiservice_instance_id != '' }}"
+
 # Certificate Manager
 # -----------------------------------------------------------------------------
 # If IBM Certificate Manager is installed then 'cert_manager_service_account' must be 'ibm-cert-manager-controller'
@@ -25,6 +31,17 @@ mas_domain: "{{ lookup('env', 'MAS_DOMAIN') }}"
 mas_routing_mode: "{{ lookup('env', 'MAS_ROUTING_MODE') }}"
 mas_channel: "{{ lookup('env', 'MAS_CHANNEL') }}"
 
+# AI Service Domain (when in AI Service mode)
+# -----------------------------------------------------------------------------
+aiservice_namespace: "aiservice-{{ aiservice_instance_id }}"
+aiservice_domain: "{{ lookup('env', 'AISERVICE_DOMAIN') }}"
+
+# Unified variables (set based on mode)
+# -----------------------------------------------------------------------------
+instance_id: "{{ aiservice_instance_id if is_aiservice_mode else mas_instance_id }}"
+instance_namespace: "{{ aiservice_namespace if is_aiservice_mode else mas_namespace }}"
+instance_domain: "{{ aiservice_domain if (is_aiservice_mode and aiservice_domain != '') else mas_domain }}"
+
 # Ouput Directory
 # -----------------------------------------------------------------------------
 output_dir: "{{ lookup('env', 'OUTPUT_DIR') | default('.', true)}}"
@@ -35,8 +52,8 @@ ocp_ingress: "{{ lookup('env', 'OCP_INGRESS') }}"
 
 # Cloudflare DNS Integration
 # -----------------------------------------------------------------------------
-cloudflare_prod_issuer_name: "{{ mas_instance_id }}-cloudflare-le-prod"
-cloudflare_stg_issuer_name: "{{ mas_instance_id }}-cloudflare-le-stg"
+cloudflare_prod_issuer_name: "{{ instance_id }}-cloudflare-le-prod"
+cloudflare_stg_issuer_name: "{{ instance_id }}-cloudflare-le-stg"
 
 cloudflare_email: "{{ lookup('env', 'CLOUDFLARE_EMAIL') }}"
 cloudflare_apitoken: "{{ lookup('env', 'CLOUDFLARE_APITOKEN') }}"
@@ -45,8 +62,8 @@ cloudflare_subdomain: "{{ lookup('env', 'CLOUDFLARE_SUBDOMAIN') }}"
 
 # IBM Cloud Internet Services DNS Integration
 # -----------------------------------------------------------------------------
-cis_prod_issuer_name: "{{ mas_instance_id }}-cis-le-prod"
-cis_stg_issuer_name: "{{ mas_instance_id }}-cis-le-stg"
+cis_prod_issuer_name: "{{ instance_id }}-cis-le-prod"
+cis_stg_issuer_name: "{{ instance_id }}-cis-le-stg"
 
 cis_email: "{{ lookup('env', 'CIS_EMAIL') }}"
 cis_apikey: "{{ lookup('env', 'CIS_APIKEY') }}"
@@ -63,7 +80,7 @@ cis_service_name: "{{ lookup('env', 'CIS_SERVICE_NAME')}}"
 # Update DNS entry if it already exists
 update_dns: "{{ lookup('env', 'UPDATE_DNS_ENTRIES') | default('true', true) | bool }}"
 # Force deletion of wildcard dns entries in cis
-delete_wildcards: "{{ lookup('env', 'DELETE_WILDCARDS') | default('false', true)| bool }}"
+delete_wildcards: "{{ lookup('env', 'DELETE_WILDCARDS') | default('false', true) | bool }}"
 # Override and delete any existing edge certificates in cis instance
 override_edge_certs: "{{ lookup('env', 'OVERRIDE_EDGE_CERTS') | default('true', true) | bool }}"
 
@@ -92,7 +109,7 @@ route53_caller_reference: "{{ lookup('env', 'ROUTE53_CALLER_REFERENCE') | defaul
 route53_email: "{{ lookup('env', 'ROUTE53_EMAIL') }}"
 aws_region: "{{ lookup('env', 'AWS_REGION') | default('us-east-2', True) }}"
 route53_hosted_zone_region: "{{ lookup('env', 'ROUTE53_HOSTED_ZONE_REGION') | default(aws_region, True) }}"
-route53_prod_issuer_name: "{{ mas_instance_id }}-route53-le-prod"
+route53_prod_issuer_name: "{{ instance_id }}-route53-le-prod"
 route53_cname_json_file_path_local: "{{ role_path }}/templates/route53"
 
 # CP4D Integration

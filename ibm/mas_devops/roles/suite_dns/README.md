@@ -1,8 +1,17 @@
 # suite_dns
 
-This role will manage MAS and DNS provider integration. IBM Cloud Internet Services, Cloudflare, and AWS Route 53 are the supported DNS providers. It will also create a secure route (https://cp4d.<mas_domain>) to the CP4D web client using the custom domain used in this role.
+This role manages DNS provider integration for both IBM Maximo Application Suite (MAS) and AI Service. IBM Cloud Internet Services, Cloudflare, and AWS Route 53 are the supported DNS providers. It will also create a secure route (https://cp4d.<mas_domain>) to the CP4D web client using the custom domain used in this role.
 
 **Note**: this role will take no action when `mas_manual_cert_mgmt` is set to `True`
+
+## MAS vs AI Service Mode
+
+This role automatically detects whether it's being used for MAS or AI Service based on the presence of `AISERVICE_INSTANCE_ID`:
+
+- **MAS Mode**: Uses ClusterIssuer (cluster-wide certificate issuer) and supports multiple workspaces
+- **AI Service Mode**: Uses namespace-scoped Issuer within the AI Service namespace (`aiservice-{instance_id}`)
+
+The key difference is that AI Service creates the certificate Issuer within its own namespace rather than using a shared ClusterIssuer.
 
 ## DNS Management
 
@@ -34,6 +43,60 @@ If you want to use Let's Encrypt certificates in your MAS installation you will 
     At present there is no workaround for this, so do not use the LetsEncrypt staging certificate issuer.
 
 ## Role Variables
+
+### AI Service Variables
+
+#### aiservice_instance_id
+Unique identifier for the AI Service instance requiring DNS configuration.
+
+- **Required** for AI Service mode
+- Environment Variable: `AISERVICE_INSTANCE_ID`
+- Default: None
+
+**Purpose**: Identifies which AI Service instance to configure DNS entries for. When set, the role operates in AI Service mode and creates namespace-scoped Issuers instead of ClusterIssuers.
+
+**When to use**:
+- Required for AI Service DNS configuration
+- Must match the instance ID used during AI Service installation
+- Triggers AI Service mode (namespace-scoped Issuer creation)
+
+**Valid values**: Lowercase alphanumeric string (e.g., `aiservice1`, `prod`, `dev`)
+
+**Impact**:
+- Enables AI Service mode
+- DNS entries created for AI Service namespace: `aiservice-{aiservice_instance_id}`
+- Issuer created in AI Service namespace (not ClusterIssuer)
+- Issuer name format: `{aiservice_instance_id}-{provider}-le-prod`
+
+**Related variables**:
+- `aiservice_domain`: Custom domain for AI Service (optional)
+- When set, `mas_instance_id` and `mas_workspace_id` are not required
+
+**Note**: AI Service uses namespace-scoped Issuers within the `aiservice-{instance_id}` namespace, unlike MAS which uses cluster-wide ClusterIssuers.
+
+#### aiservice_domain
+Custom domain name for accessing AI Service APIs and interfaces.
+
+- **Optional**
+- Environment Variable: `AISERVICE_DOMAIN`
+- Default: None (uses cluster default domain)
+
+**Purpose**: Defines the base domain used to construct all AI Service URLs and DNS entries. This domain must be managed by your chosen DNS provider.
+
+**When to use**:
+- Set when using a custom domain for AI Service
+- Leave unset to use the cluster's default application domain
+- Must align with DNS provider zone configuration
+
+**Valid values**: Any valid DNS domain name (e.g., `aiservice.mycompany.com`, `ai.example.org`)
+
+**Impact**: DNS entries will be created for this domain in your DNS provider. All AI Service routes will use this domain.
+
+**Related variables**:
+- Must align with DNS provider zone configuration (`cloudflare_zone`, `cis_crn`, etc.)
+- Works with `aiservice_instance_id` to create unique DNS entries
+
+**Note**: If not set, the role will use the cluster's default application domain for AI Service routes.
 
 ### General
 
@@ -674,7 +737,7 @@ If not set, then it will use same domain set for MAS instance.
 
 ## Example Playbook
 
-### CIS or Cloudflare
+### MAS with CIS or Cloudflare
 
 ```yaml
 - hosts: localhost
@@ -682,6 +745,7 @@ If not set, then it will use same domain set for MAS instance.
   vars:
     dns_provider: cis  # or cloudflare
     mas_instance_id: inst1
+    mas_workspace_id: masdev
     mas_domain: mydomain.com
     cis_crn: xxx
     cis_apikey: xxx
@@ -690,7 +754,7 @@ If not set, then it will use same domain set for MAS instance.
     - ibm.mas_devops.suite_dns
 ```
 
-### AWS Route 53
+### MAS with AWS Route 53
 
 ```yaml
 - hosts: localhost
@@ -698,12 +762,65 @@ If not set, then it will use same domain set for MAS instance.
   vars:
     dns_provider: route53
     mas_instance_id: inst1
+    mas_workspace_id: masdev
     mas_domain: inst1.mydomain.com
     aws_access_key_id: xxx
     aws_secret_access_key: xxx
     route53_hosted_zone_name: mydomain.com
     route53_hosted_zone_region: us-east-2
     route53_subdomain: inst1
+    route53_email: anyemail@test.com
+  roles:
+    - ibm.mas_devops.suite_dns
+```
+
+### AI Service with CIS
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    dns_provider: cis
+    aiservice_instance_id: aiservice1
+    aiservice_domain: aiservice.mydomain.com
+    cis_crn: xxx
+    cis_apikey: xxx
+    cis_email: xxx
+  roles:
+    - ibm.mas_devops.suite_dns
+```
+
+### AI Service with Cloudflare
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    dns_provider: cloudflare
+    aiservice_instance_id: aiservice1
+    aiservice_domain: aiservice.mydomain.com
+    cloudflare_email: xxx
+    cloudflare_apitoken: xxx
+    cloudflare_zone: mydomain.com
+    cloudflare_subdomain: aiservice
+  roles:
+    - ibm.mas_devops.suite_dns
+```
+
+### AI Service with AWS Route 53
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    dns_provider: route53
+    aiservice_instance_id: aiservice1
+    aiservice_domain: aiservice.mydomain.com
+    aws_access_key_id: xxx
+    aws_secret_access_key: xxx
+    route53_hosted_zone_name: mydomain.com
+    route53_hosted_zone_region: us-east-2
+    route53_subdomain: aiservice
     route53_email: anyemail@test.com
   roles:
     - ibm.mas_devops.suite_dns

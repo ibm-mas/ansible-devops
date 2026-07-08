@@ -15,13 +15,25 @@
       - "AWS Hosted Zone region ................................. {{ route53_hosted_zone_region }}"
       - "AWS Route53 Cluster Issuer ............................. {{ route53_prod_issuer_name }}"
 
+# 2. Set AWS policy name
+# -----------------------------------------------------------------------------
+- name: "Set AWS policy name (MAS mode)"
+  when: not is_aiservice_mode
+  ansible.builtin.set_fact:
+    aws_policy_name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-route53-policy"
+
+- name: "Set AWS policy name (AI Service mode)"
+  when: is_aiservice_mode
+  ansible.builtin.set_fact:
+    aws_policy_name: "{{ instance_id }}-route53-policy"
+
 # 3. Create IAM Policy to allow cert-manager to add records to AWS Route53
 # -----------------------------------------------------------------------------
 - name: "aws-route53 : Create AWS IAM Policy to allow cert-manager to add records"
   import_role:
     name: ibm.mas_devops.aws_policy
   vars:
-    aws_policy_name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-route53-policy"
+    aws_policy_name: "{{ aws_policy_name }}"
     aws_policy_statement:
       - Effect: Allow
         Action: route53:GetChange
@@ -64,10 +76,18 @@
     - route53_subdomain is defined
     - route53_subdomain != ''
 
-# 6. Create AWS Route 53 cluster issuer
+# 6. Create AWS Route 53 Issuer (ClusterIssuer for MAS, Issuer for AI Service)
 # -----------------------------------------------------------------------------
-- name: "aws-route53 : Create AWS Route 53 cluster issuer: {{ route53_prod_issuer_name }}"
+- name: "aws-route53 : Create AWS Route 53 ClusterIssuer (MAS mode): {{ route53_prod_issuer_name }}"
   kubernetes.core.k8s:
     namespace: "ibm-common-services"
     state: present
     template: templates/route53/clusterissuer.yml.j2
+  when: not is_aiservice_mode
+
+- name: "aws-route53 : Create AWS Route 53 Issuer (AI Service mode): {{ route53_prod_issuer_name }}"
+  kubernetes.core.k8s:
+    namespace: "{{ instance_namespace }}"
+    state: present
+    template: templates/route53/issuer.yml.j2
+  when: is_aiservice_mode
