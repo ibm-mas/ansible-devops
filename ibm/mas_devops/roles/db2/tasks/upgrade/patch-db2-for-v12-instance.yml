@@ -1,15 +1,82 @@
 ---
-# Patch STMTHEAP for a single Db2 instance
+# Patch a single Db2 instance for v12 upgrade (STMTHEAP + DBT5530N fix)
 # =============================================================================
-# This task checks and patches STMTHEAP configuration for a single instance.
-# It verifies if AUTOMATIC is already present and only patches if needed.
+# This task:
+#   1. Fixes DBT5530N `The db2ckupgrade command failed because the tablespace is not 
+#      in normal state. Tablespace: "TEMPSPACE1". State: "OFFLINE + DROP_PENDING". 
+#      Member: "0".` by creating a new tablespace TEMPSPACE2.
+#   2. Ensures STMTHEAP has the AUTOMATIC keyword required by Db2 v12.
 # =============================================================================
 
-- name: "Set instance name for STMTHEAP patching"
+- name: "Set instance name for v12 patching"
   set_fact:
     current_instance_name: "{{ db2_instance.metadata.name }}"
     current_dbconfig: "{{ db2_instance.spec.environment.database.dbConfig | default({}) }}"
 
+# -----------------------------------------------------------------------------
+# Fix DBT5530N The db2ckupgrade command failed because the tablespace is not in 
+# normal state. Tablespace: "TEMPSPACE1"
+# -----------------------------------------------------------------------------
+- name: "Fix DBT5530N for {{ current_instance_name }}"
+  block:
+    - name: "Check if TEMPSPACE1 is in OFFLINE + DROP_PENDING state for {{ current_instance_name }}"
+      kubernetes.core.k8s_exec:
+        namespace: "{{ db2_namespace }}"
+        pod: "c-{{ current_instance_name }}-db2u-0"
+        command: >
+          su - db2inst1 -c
+          "db2 -x \"SELECT TBSP_STATE FROM SYSIBMADM.TBSP_UTILIZATION WHERE TBSP_NAME = 'TEMPSPACE1'\""
+      register: tempspace1_check
+      failed_when: false
+
+    - name: "Fix tablespace for {{ current_instance_name }}"
+      when: >-
+        tempspace1_check.rc == 0 and
+        'OFFLINE' in tempspace1_check.stdout.upper() and
+        'DROP_PENDING' in tempspace1_check.stdout.upper()
+      block:
+        - name: "Retrieve IBMDEFAULTBP page size for {{ current_instance_name }}"
+          kubernetes.core.k8s_exec:
+            namespace: "{{ db2_namespace }}"
+            pod: "c-{{ current_instance_name }}-db2u-0"
+            command: >
+              su - db2inst1 -c
+              "db2 -x \"SELECT PAGESIZE FROM SYSCAT.BUFFERPOOLS WHERE BPNAME = 'IBMDEFAULTBP'\""
+          register: pagesize_result
+
+        - name: "Parse page size for {{ current_instance_name }}"
+          set_fact:
+            db2_tempspace_pagesize: "{{ pagesize_result.stdout | trim }}"
+
+        - name: "Create TEMPSPACE2 with page size {{ db2_tempspace_pagesize }} for {{ current_instance_name }}"
+          kubernetes.core.k8s_exec:
+            namespace: "{{ db2_namespace }}"
+            pod: "c-{{ current_instance_name }}-db2u-0"
+            command: >
+              su - db2inst1 -c
+              "db2 'CREATE TEMPORARY TABLESPACE TEMPSPACE2 PAGESIZE {{ db2_tempspace_pagesize }} MANAGED BY AUTOMATIC STORAGE'"
+          register: create_tempspace2_result
+
+        - name: "Drop TEMPSPACE1 for {{ current_instance_name }}"
+          kubernetes.core.k8s_exec:
+            namespace: "{{ db2_namespace }}"
+            pod: "c-{{ current_instance_name }}-db2u-0"
+            command: >
+              su - db2inst1 -c
+              "db2 'DROP TABLESPACE TEMPSPACE1'"
+          register: drop_tempspace1_result
+
+        - name: "Debug DBT5530N tablespace fix result for {{ current_instance_name }}"
+          ansible.builtin.debug:
+            msg:
+              - "Instance: {{ current_instance_name }}"
+              - "Page size: {{ db2_tempspace_pagesize }}"
+              - "Create TEMPSPACE2: {{ create_tempspace2_result.stdout | default('N/A') }}"
+              - "Drop TEMPSPACE1: {{ drop_tempspace1_result.stdout | default('N/A') }}"
+
+# -----------------------------------------------------------------------------
+# Patch STMTHEAP - add AUTOMATIC keyword required by Db2 v12
+# -----------------------------------------------------------------------------
 - name: "Debug current STMTHEAP configuration for {{ current_instance_name }}"
   ansible.builtin.debug:
     msg:
