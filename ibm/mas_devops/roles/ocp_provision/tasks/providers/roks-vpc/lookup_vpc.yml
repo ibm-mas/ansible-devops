@@ -17,9 +17,9 @@
     matched: "{{ vpc_list_raw.stdout | from_json | selectattr('name', 'equalto', roks_vpc_name) | list | first | default({}) }}"
     # VPC CRN format: crn:v1:bluemix:public:is:<REGION>:a/<account>::vpc:<id>
     # Field 5 (0-indexed) is the region.
-    crn_region: "{{ matched.crn | default('') | split(':') | list | nth(5) | default('') }}"
+    crn_region: "{{ (matched.crn | default('') | split(':'))[5] | default('') }}"
   set_fact:
-    roks_vpc_id: "{{ matched.id }}"
+    roks_vpc_id: "{{ matched.id | default('') }}"
     ibmcloud_region: "{{ ibmcloud_region if (ibmcloud_region is defined and ibmcloud_region != '') else crn_region }}"
 
 - name: "roks-vpc/lookup-vpc : Fail if VPC name could not be resolved"
