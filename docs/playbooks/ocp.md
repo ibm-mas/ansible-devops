@@ -54,7 +54,7 @@ ansible-playbook ibm.mas_devops.ocp_fyre_provision
 
 
 Deprovision
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 Refer to the [ocp_deprovision](../roles/ocp_deprovision.md) role documentation for more information.
 
 ### Deprovision on IBMCloud ROKS
