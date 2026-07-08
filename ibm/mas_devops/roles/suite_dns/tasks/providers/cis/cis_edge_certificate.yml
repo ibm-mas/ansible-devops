@@ -43,32 +43,39 @@
 
 - name: "cis : Lookup for cis certificates"
   ansible.builtin.shell: |
-    ibmcloud cis certificates {{ _cis_domain_id }} -i "{{ cis_service_name }}" -o json
+    ibmcloud cis certificates {{ _cis_domain_id }} -i "{{ cis_service_name }}" -o json --status all
   register: _cis_certificates
 
 - name: "cis : exclude certs not for {{ mas_instance_id }}"
   set_fact:
-    dedicated_list: "{{ _cis_certificates.stdout | from_json | selectattr('hosts','search',mas_instance_id) }}"
+    dedicated_list: "{{ _cis_certificates.stdout | from_json | selectattr('hosts','search','(^|\\.)' + mas_instance_id + '\\.') }}"
 
 - name: "cis : exclude certs non advanced certificates"
   set_fact:
     dedicated_list: "{{ dedicated_list | selectattr('type', 'equalto', 'advanced') }}"
 
+- name: "cis : Build non-dro certificate list (exclude certs whose first host starts with dro.)"
+  set_fact:
+    non_dro_list: "{{ dedicated_list | json_query('[?!starts_with(hosts[0], `dro.`)]') }}"
+
 - name: "cis : Verify if is there a dedicated certificate already"
   set_fact:
-    hasDedicated: "{{ dedicated_list | length > 0 }}"
+    hasDedicated: "{{ non_dro_list | length > 0 }}"
 
-- name: "cis : Lookup the dedicated certificate id"
+- name: "cis : Lookup the dedicated certificate id (first non-dro certificate for backward compatibility)"
   set_fact:
-    dedicatedId: "{{ dedicated_list[0].id }}"
+    dedicatedId: "{{ non_dro_list[0].id }}"
   when:
     - hasDedicated
+    - non_dro_list | length > 0
 
 - name: Debug dedicated certificates
   debug:
     msg:
       - "hasDedicated: {{ hasDedicated }}"
-      - "dedicatedId: {{ dedicatedId | default('N/A', True )}}"
+      - "Total certificates found: {{ dedicated_list | length }}"
+      - "Non-dro certificates found: {{ non_dro_list | length }}"
+      - "First certificate ID: {{ dedicatedId | default('N/A', True )}}"
 
 - name: "Pause for 2 minutes before continuing..."
   pause:
@@ -89,11 +96,23 @@
       debug:
         msg: '{{ edge_cert_output }}'
 
-- name: "cis : Delete Existent Advanced Edge Certificate, if set to override or we need to reorder"
+- name: "cis : Delete ALL existing advanced edge certificates for this instance"
   ansible.builtin.shell: |
-    ibmcloud cis certificate-delete {{ _cis_domain_id }}  {{ dedicatedId }} -i "{{ cis_service_name }}" -f
+    ibmcloud cis certificate-delete {{ _cis_domain_id }} {{ item.id }} -i "{{ cis_service_name }}" -f
+  loop: "{{ non_dro_list }}"
   when: hasDedicated and (override_edge_certs or (edge_cert_output is defined and edge_cert_output["reorder"]))
-  register: _deleted_certificate
+  register: _deleted_certificates
+
+- name: "cis : Log deleted certificates count"
+  debug:
+    msg: "Deleted {{ _deleted_certificates.results | selectattr('changed', 'equalto', true) | list | length }} certificate(s)"
+  when: hasDedicated and (override_edge_certs or (edge_cert_output is defined and edge_cert_output["reorder"]))
+
+- name: "cis : Set deletion flag for certificate ordering logic"
+  set_fact:
+    _deleted_certificate:
+      changed: "{{ (_deleted_certificates.results | selectattr('changed', 'equalto', true) | list | length) > 0 }}"
+  when: hasDedicated and (override_edge_certs or (edge_cert_output is defined and edge_cert_output["reorder"]))
 
 - name: "Pause for 2 minutes before continuing..."
   pause:
