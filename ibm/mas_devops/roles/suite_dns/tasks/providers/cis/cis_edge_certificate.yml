@@ -43,7 +43,7 @@
 
 - name: "cis : Lookup for cis certificates"
   ansible.builtin.shell: |
-    ibmcloud cis certificates {{ _cis_domain_id }} -i "{{ cis_service_name }}" -o json
+    ibmcloud cis certificates {{ _cis_domain_id }} -i "{{ cis_service_name }}" -o json --status all
   register: _cis_certificates
 
 - name: "cis : exclude certs not for {{ mas_instance_id }}"
@@ -54,13 +54,13 @@
   set_fact:
     dedicated_list: "{{ dedicated_list | selectattr('type', 'equalto', 'advanced') }}"
 
-- name: "cis : Verify if is there a dedicated certificate already"
-  set_fact:
-    hasDedicated: "{{ dedicated_list | length > 0 }}"
-
 - name: "cis : Build non-dro certificate list (exclude certs whose first host starts with dro.)"
   set_fact:
     non_dro_list: "{{ dedicated_list | json_query('[?!starts_with(hosts[0], `dro.`)]') }}"
+
+- name: "cis : Verify if is there a dedicated certificate already"
+  set_fact:
+    hasDedicated: "{{ non_dro_list | length > 0 }}"
 
 - name: "cis : Lookup the dedicated certificate id (first non-dro certificate for backward compatibility)"
   set_fact:
