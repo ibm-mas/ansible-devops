@@ -5,6 +5,7 @@
   ansible.builtin.stat:
     path: "{{ mas_config_dir }}/jdbc-aiservice-{{ aiservice_instance_id }}-db2u.yml"
   register: jdbc_config_file_result
+  when: install_db2 | bool
 
 - name: Read JDBC config from file
   vars:
@@ -18,20 +19,25 @@
       url: "{{ jdbc_file_cfg[1].spec.config.url }}"
       sslenabled: "true"
       ca: "{{ jdbc_file_cfg[1].spec.certificates | map(attribute='crt') | join(',') | replace(',','\n') }}"
-  when: jdbc_config_file_result.stat.exists
+  when:
+    - install_db2 | bool
+    - jdbc_config_file_result.stat.exists
 
 
 # 2. Load the configuration from environment variables
 # -----------------------------------------------------------------------------
+
 - name: Read JDBC config from environment
   ansible.builtin.set_fact:
     jdbccfg:
-      username: "{{ lookup('env', 'AISERVICE_DB2_USERNAME') }}"
-      password: "{{ lookup('env', 'AISERVICE_DB2_PASSWORD') }}"
-      url: "{{ lookup('env', 'AISERVICE_DB2_JDBC_URL') }}"
+      username: "{{ aiservice_db_username }}"
+      password: "{{ aiservice_db_password }}"
+      url: "{{ aiservice_db_jdbc_url }}"
       sslenabled: "true"
-      ca: "{{ lookup('env', 'AISERVICE_DB2_CA_CERT') | regex_replace('BEGIN CERTIFICATE', 'BEGIN_CERTIFICATE') | regex_replace('END CERTIFICATE', 'END_CERTIFICATE') | regex_replace('\\s+', '\n') | replace('BEGIN_CERTIFICATE', 'BEGIN CERTIFICATE')| replace('END_CERTIFICATE', 'END CERTIFICATE') }}"
-  when: not jdbc_config_file_result.stat.exists
+      ca: "{{ aiservice_db_ca_cert | default('', true) | regex_replace('BEGIN CERTIFICATE', 'BEGIN_CERTIFICATE') | regex_replace('END CERTIFICATE', 'END_CERTIFICATE') | regex_replace('\\s+', '\n') | replace('BEGIN_CERTIFICATE', 'BEGIN CERTIFICATE')| replace('END_CERTIFICATE', 'END CERTIFICATE') }}"
+  when: >
+    (not install_db2 | bool) or
+    (install_db2 | bool and not jdbc_config_file_result.stat.exists)
 
 
 # 3. Validate the configuration
@@ -53,8 +59,8 @@
 
 - name: "Validate JDBC configuration: ca"
   assert:
-    that: jdbccfg.ca | length != 0
-    fail_msg: "jdbccfg.ca must not be empty"
+    that: jdbccfg.ca is defined
+    fail_msg: "jdbccfg.ca must be defined"
 
 
 # 4. Create the secret
@@ -63,3 +69,4 @@
   kubernetes.core.k8s:
     apply: yes
     template: "templates/jdbc/jdbc-admin-credentials.yml.j2"
+
