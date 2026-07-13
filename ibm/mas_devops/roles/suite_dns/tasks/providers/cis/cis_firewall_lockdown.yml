@@ -1,0 +1,92 @@
+---
+# CIS Firewall Lockdown — allow_list enforcement
+# =============================================================================
+# When `allow_list` is non-empty, a CIS Lockdown rule is created that restricts
+# access to "*.{{ mas_domain }}" to only the listed IPs / CIDR ranges.
+# When `allow_list` is empty or "[]", any existing matching lockdown rules are
+# removed (cleanup / idempotency).
+#
+# Variables consumed:
+#   allow_list       - JSON array string, e.g. '["203.0.113.10","10.0.0.0/16"]'
+#                      (set via ALLOW_LIST env var; default "[]" in defaults/main.yaml)
+#   mas_domain       - MAS instance domain, e.g. "inst1.ibmmasfvt.com"
+#   cis_service_name - CIS instance name used in every `ibmcloud cis` call
+#
+# ibmcloud cis CLI must already be authenticated (login performed earlier in
+# cis_suitedns_enhanced.yml before this file is included).
+# =============================================================================
+
+# 1. Parse allow_list and derive the lockdown URL pattern
+# -----------------------------------------------------------------------------
+- name: "cis : set allow_list facts"
+  ansible.builtin.set_fact:
+    _allow_list_entries: "{{ allow_list | from_json if (allow_list is string) else allow_list }}"
+    _lockdown_url_pattern: "*.{{ mas_domain }}"
+
+- name: "cis : debug allow_list configuration"
+  ansible.builtin.debug:
+    msg:
+      - "Allow List ............... {{ _allow_list_entries }}"
+      - "Lockdown URL pattern ..... {{ _lockdown_url_pattern }}"
+      - "CIS Service Name ......... {{ cis_service_name }}"
+
+# 2. Resolve the CIS zone ID for the parent zone of mas_domain
+#    e.g. "inst1.ibmmasfvt.com" → look up zone "ibmmasfvt.com"
+# -----------------------------------------------------------------------------
+- name: "cis : resolve zone ID for {{ mas_domain }}"
+  ansible.builtin.shell: |
+    parent_zone="{{ mas_domain | regex_replace('^[^.]+\\.', '') }}"
+    ibmcloud cis domains \
+      --instance "{{ cis_service_name }}" --output json \
+      | jq -r --arg domain "${parent_zone}" '.[] | select(.name == $domain) | .id'
+  register: _lockdown_zone_id_result
+  changed_when: false
+
+- name: "cis : fail if CIS zone ID could not be resolved"
+  ansible.builtin.fail:
+    msg: >-
+      Could not resolve CIS zone ID for '{{ mas_domain | regex_replace('^[^.]+\\.', '') }}'.
+      Ensure it is a registered zone in CIS instance '{{ cis_service_name }}'.
+  when: _lockdown_zone_id_result.stdout | trim | length == 0
+
+- name: "cis : set zone ID fact"
+  ansible.builtin.set_fact:
+    _lockdown_zone_id: "{{ _lockdown_zone_id_result.stdout | trim }}"
+
+# 3. Remove any existing lockdown rules for this URL pattern (idempotency /
+#    cleanup when allow_list is removed)
+# -----------------------------------------------------------------------------
+- name: "cis : list existing lockdown rules for {{ _lockdown_url_pattern }}"
+  ansible.builtin.shell: |
+    ibmcloud cis firewall lockdowns \
+      --domain "{{ _lockdown_zone_id }}" \
+      --instance "{{ cis_service_name }}" --output json \
+      | jq -r --arg pat "{{ _lockdown_url_pattern }}" \
+        '.[] | select(.urls[] == $pat) | .id' 2>/dev/null || true
+  register: _lockdown_existing_ids_result
+  changed_when: false
+  failed_when: false
+
+- name: "cis : delete stale lockdown rule {{ item }}"
+  ansible.builtin.shell: |
+    ibmcloud cis firewall-delete "{{ item }}" \
+      --type lockdowns \
+      --domain "{{ _lockdown_zone_id }}" \
+      --instance "{{ cis_service_name }}" -f
+  loop: "{{ _lockdown_existing_ids_result.stdout_lines | select('match', '.+') | list }}"
+  when: _lockdown_existing_ids_result.stdout | trim | length > 0
+
+# 4. Create a new lockdown rule when allow_list is non-empty
+#    Plain IPs  → target "ip"
+#    CIDR ranges → target "ip_range"
+# -----------------------------------------------------------------------------
+- name: "cis : create CIS Firewall Lockdown for {{ _lockdown_url_pattern }}"
+  ansible.builtin.shell: |
+    CONFIGURATIONS=$(echo '{{ allow_list }}' | jq -c \
+      '[.[] | {"target": (if test("/") then "ip_range" else "ip" end), "value": .}]')
+    ibmcloud cis firewall-create \
+      --type lockdowns \
+      --domain "{{ _lockdown_zone_id }}" \
+      --json "{\"urls\": [\"{{ _lockdown_url_pattern }}\"], \"configurations\": ${CONFIGURATIONS}}" \
+      --instance "{{ cis_service_name }}"
+  when: _allow_list_entries | length > 0
