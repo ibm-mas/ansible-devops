@@ -48,6 +48,33 @@
     - default
     - ibm-operator-catalog
 
+# 2.5 Deploy Kyverno policy to auto-inject pull secret into OLM-generated SAs (OCP 4.22+)
+# ---------------------------------------------------------------------------------------------------------------------
+# In OCP 4.22+, OLM auto-generates a new ServiceAccount per bundle-unpack job. These SAs only
+# receive the internal OpenShift registry dockercfg and cannot pull from Artifactory. The Kyverno
+# policy intercepts every new SA with olm.managed=true at admission time and injects
+# wiotp-docker-local so ALL upcoming bundle-unpack jobs succeed without manual intervention.
+- name: "Get OCP cluster version"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: ClusterVersion
+    name: version
+  register: ocp_cluster_version
+
+- name: "Set ocp_release_version fact"
+  set_fact:
+    ocp_release_version: "{{ ocp_cluster_version.resources[0].status.desired.version | regex_search('^[0-9]+\\.[0-9]+') }}"
+
+- name: "Grant Kyverno background controller permission to patch SAs in openshift-marketplace"
+  when: ocp_release_version is version('4.22', '>=')
+  kubernetes.core.k8s:
+    template: templates/kyverno-background-sa-rbac.yaml
+
+- name: "Deploy Kyverno policy to inject Artifactory pull secret into OLM-generated SAs"
+  when: ocp_release_version is version('4.22', '>=')
+  kubernetes.core.k8s:
+    template: templates/olm-imagepullsecret-mutate-policy.yaml
+
 # 3. Install the catalog
 # ---------------------------------------------------------------------------------------------------------------------
 - name: "Create development catalog"
