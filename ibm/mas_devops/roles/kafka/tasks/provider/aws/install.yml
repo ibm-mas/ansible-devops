@@ -228,11 +228,28 @@
 
 # 9. Associate SCRAM Secret
 # -----------------------------------------------------------------------------
-- name: "Associate Scram Secret"
+- name: "Associate Scram Secret with retry for timing issues"
   shell: |
     aws kafka batch-associate-scram-secret --cluster-arn {{ msk_cluster_arn }} \
     --secret-arn-list {{ secret_arn }} --output json
   register: describe_msk_associate_secret_lookup_output
+  retries: 10
+  delay: 30
+  until: >
+    describe_msk_associate_secret_lookup_output.rc == 0 and
+    (describe_msk_associate_secret_lookup_output.stdout | from_json | json_query('UnprocessedScramSecrets') | default([]) | length == 0)
+
+- name: "Debug secret association result"
+  debug:
+    msg:
+      - "Secret association result .............. {{ describe_msk_associate_secret_lookup_output.stdout | from_json }}"
+
+- name: "Fail if secret association has unprocessed secrets"
+  assert:
+    that:
+      - describe_msk_associate_secret_lookup_output.stdout | from_json | json_query('UnprocessedScramSecrets') | default([]) | length == 0
+    fail_msg: "Failed to associate SCRAM secret after retries. Unprocessed secrets: {{ describe_msk_associate_secret_lookup_output.stdout | from_json | json_query('UnprocessedScramSecrets') }}"
+    success_msg: "SCRAM secret successfully associated with MSK cluster"
 
 # 10. Fetch bootstrap brokers endpoints
 # -----------------------------------------------------------------------------
@@ -262,11 +279,13 @@
 # 11. Fetch AWS MSK Root CA PEM file
 # -----------------------------------------------------------------------------
 - name: "WGet AWS Root CA Pem file"
-  shell: wget https://www.amazontrust.com/repository/AmazonRootCA1.pem -O awsrootca.pem
+  get_url:
+    url: https://www.amazontrust.com/repository/AmazonRootCA1.pem
+    dest: /tmp/awsrootca.pem
 
 - name: "Set AWS Root CA in awsrootca"
   set_fact:
-    awsrootca: "{{ lookup('file', 'awsrootca.pem') }}"
+    awsrootca: "{{ lookup('file', '/tmp/awsrootca.pem') }}"
 
 - name: "Debug Set AWS Root CA in awsrootca"
   debug:

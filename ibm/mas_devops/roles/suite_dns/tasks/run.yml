@@ -1,5 +1,23 @@
 ---
-# 1. Check cert-manager installation
+# 1. Parse MAS version from channel and set defaults for MAS 9.2+
+# -----------------------------------------------------------------------------
+- name: "Set default for mas_version_lt_92"
+  when: mas_version_lt_92 is not defined
+  set_fact:
+    mas_version_lt_92: true
+
+- name: "Override mas_version_lt_92 based on mas_channel if provided"
+  when: mas_channel is defined and mas_channel != ""
+  set_fact:
+    mas_version_lt_92: "{{ mas_channel.split('.')[:2] | join('.') is version('9.2', '<') }}"
+
+- name: "Debug version comparison result"
+  debug:
+    msg:
+      - "MAS Channel ......................... {{ mas_channel | default('not set') }}"
+      - "Version < 9.2 ...................... {{ mas_version_lt_92 }}"
+
+# 2. Check cert-manager installation
 # -----------------------------------------------------------------------------
 # Ensure cert manager is installed prior continuing as this role will install
 # v1alpha1.acme.cis.ibm.com apiservice which requires cert manager to be running
@@ -11,13 +29,13 @@
     msg:
       - "Certificate Manager Namespace .......... {{ cert_manager_namespace }}"
 
-# 2. Run provider task
+# 3. Run provider task
 # -----------------------------------------------------------------------------
 - name: "Run the provider specific task"
   when: dns_provider != ""
   include_tasks: tasks/providers/{{ dns_provider }}/main.yml
 
-# 3. Set custom cp4d route based on the custom cluster issuer
+# 4. Set custom cp4d route based on the custom cluster issuer
 # -----------------------------------------------------------------------------
 - block:
     - name: Check if custom CP4D route is already configured # if it is, then we skip it to avoid override

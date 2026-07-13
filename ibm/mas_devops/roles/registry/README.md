@@ -1,11 +1,9 @@
-registry
-=======
+# registry
 
 Create a Docker Registry running on RedHat OpenShift cluster.  The registry will be backed by persistant storage, and accessible via either a clusterIP or loadbalancer service. This role can also be used to delete a docker registry on a cluster for a clean start. See usage below for more information.
 
 
-Usage
---------------
+## Usage
 If you set up the registry with a **loadbalancer** service you will be able to push to the registry via the cluster's hostname, but before you can use the registry you will need to install the registry's CA certificate and restart the Docker daemon so that your client trusts the new registry:
 
 ```bash
@@ -46,7 +44,6 @@ sudo service docker restart
 ```
 
 Usage for tear-down action
---------------------------
 This role can also be used to permanently delete a mirror registry from a given cluster by setting the `registry_action` to `tear-down` and specifying the corresponding `registry_namespace`, if not using the default value.
 
 Note that the tear-down action deletes the registry completely including the PVC storage and the registry namespace. To start up the registry again, the role needs to be run again with the registry_action on default or `setup`. Images previously stored in the registry before the tear-down will no longer be available and will need to be mirrored again once the registry setup has completed. Take precaution when using this function and expect that images can no longer be accessed from the registry that has been torn down.
@@ -56,8 +53,7 @@ Note that the tear-down action deletes the registry completely including the PVC
 An appropriate time to use this tear-down function is when the registry has too many images that are not being used or when there has been a shift to support newer versions but images of older versions are clogging the registry. The tear-down function frees the disk space and allows for a new registry to be setup.
 
 
-Role Variables
---------------
+## Role Variables
 
 ### registry_action
 Action to perform with the registry deployment.
@@ -179,8 +175,7 @@ Service type for exposing the registry.
 - With clusterip, you still need to configure Docker trust for localhost:9000 (see Usage section)
 
 
-Example Playbook
-----------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -193,7 +188,6 @@ Example Playbook
     - ibm.mas_devops.registry
 ```
 
-License
--------
+## License
 
 EPL-2.0

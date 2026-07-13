@@ -1,6 +1,13 @@
-AI Service ODH
-===============================================================================
-This role provides support to deploy odh components for AI Broker Application:
+# aiservice_odh
+
+> **⚠️ DEPRECATION NOTICE**
+>
+> **Open Data Hub (ODH) support is deprecated and will be removed in a future release.**
+>
+> - **Recommended Action**: Use the [`aiservice_rhoai`](../aiservice_rhoai/README.md) role instead for new deployments
+> - **Migration Path**: Existing ODH installations will be automatically migrated to RHOAI during `mas update`
+
+This role provides support to deploy Open Data Hub (ODH) components for AI Broker Application:
 
 * Install Red Hat OpenShift Serverless Operator
 * Install Red Hat OpenShift Service Mesh Operator
@@ -8,10 +15,35 @@ This role provides support to deploy odh components for AI Broker Application:
 * Install Open Data Hub Operator
 * Create DSCInitialization instance
 * Create Data Science Cluster
-* Create Create Data Science Pipelines Application
+* Create Data Science Pipelines Application
 
-Role Variables
---------------
+## Actions
+
+This role supports multiple actions through the `odh_action` variable:
+
+- **`install`** (default): Install Open Data Hub and all dependencies
+- **`uninstall`**: Remove Open Data Hub and optionally remove Serverless/ServiceMesh operators
+
+### Action Variable
+
+**`odh_action`**
+- Optional
+- Environment Variable: `ODH_ACTION`
+- Default: `install`
+- Valid values: `install`, `uninstall`
+
+**Example:**
+```bash
+# Install ODH (default)
+export ODH_ACTION=install
+ansible-playbook playbook.yml
+
+# Uninstall ODH
+export ODH_ACTION=uninstall
+ansible-playbook playbook.yml
+```
+
+## Role Variables
 
 ### tenantName
 Tenant identifier for the Open Data Hub deployment.
@@ -174,6 +206,17 @@ Catalog source for Open Data Hub Operator.
 **Notes**:
 - ODH is available in community-operators catalog
 - For air-gapped environments, mirror the catalog and update this variable
+
+
+## Example Playbook
+
+```yaml
+- hosts: localhost
+  vars:
+    # Add required variables here
+  roles:
+    - ibm.mas_devops.aiservice_odh
+```
 
 ## License
 

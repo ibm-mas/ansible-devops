@@ -100,7 +100,6 @@ Optional environment variables
 * `AISERVICE_DB2_USERNAME` The username to use for authentication with the database
 * `AISERVICE_DB2_PASSWORD` The password to use for authentication with the database
 * `AISERVICE_DB2_JDBC_URL` The JDBC URL specifying the host and port of the database, typically in the format jdbc:db2://host:port/
-* `AISERVICE_DB2_SSL_ENABLED` A flag indicating whether to enable SSL encryption for the database connection (default value is: true)
 * `USE_AWS_DB2` A flag indicating whether to use an AWS-hosted DB2 instance (default value is: false)
 * `AISERVICE_DOMAIN` Provide custom domain (default value is: empty)
 * `AISERVICE_WATSONXAI_CA_CRT` provide WatsonX AI CA certificate
@@ -156,7 +155,7 @@ export SLS_MONGODB_CFG_FILE=${MAS_CONFIG_DIR}/mongo-mongoce.yml
 export SLS_LICENSE_ID=""
 export SLS_LICENSE_FILE=""
 export INSTALL_DB2=""
-export INSTALL_MINIO=""
+export INSTALL_MINIO="" 
 export INSTALL_MONGO=""
 export INSTALL_SLS=""
 export INSTALL_DRO=""
@@ -168,9 +167,7 @@ export AISERVICE_TENANT_S3_ENDPOINT_URL=""
 export AISERVICE_TENANT_S3_BUCKET_PREFIX=""
 export AISERVICE_TENANT_S3_ACCESS_KEY=""
 export AISERVICE_TENANT_S3_SECRET_KEY=""
-export RSL_URL=""
-export RSL_ORG_ID=""
-export RSL_TOKEN=""
+# Removed rsl_org, rsl_rl, rsl_token
 export MINIO_ROOT_PASSWORD=""
 export AISERVICE_S3_ACCESSKEY=""
 export AISERVICE_S3_SECRETKEY=${MINIO_ROOT_PASSWORD}

@@ -1,11 +1,9 @@
-cp4d_admin_pwd_update
-======================
+# cp4d_admin_pwd_update
 
 This role will update the password on an existing cp4d instance. By default it will update the password to a randomly generated new password only when the instance is still using the 'initial_admin_password' although using the 'cp4d_admin_password_force_update' variable referenced below will override this to update the password regardless of the current one being used. The new password will be added to the same yaml file that the 'initial_admin_password' was generated into - 'admin-user-details' by default.
 
 
-Role Variables
---------------
+## Role Variables
 
 ### mas_instance_id
 MAS instance identifier associated with the CP4D deployment.
@@ -141,8 +139,7 @@ Force password update regardless of current password.
 
 
 
-Example Playbook
-----------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -159,3 +156,7 @@ Example Playbook
   roles:
     - ibm.mas_devops.cp4d_admin_pwd_update
 ```
+
+## License
+
+EPL-2.0

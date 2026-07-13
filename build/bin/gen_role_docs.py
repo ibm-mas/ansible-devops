@@ -77,6 +77,8 @@ ROLES = [
     "suite_app_uninstall",
     "suite_app_upgrade",
     "suite_app_rollback",
+    "suite_app_backup",
+    "suite_app_restore",
     "suite_backup_restore",
     "suite_config",
     "suite_db2_setup_for_manage",
@@ -97,6 +99,8 @@ ROLES = [
     "suite_rollback",
     "suite_uninstall",
     "suite_verify",
+    "suite_backup",
+    "suite_restore",
     "turbonomic",
 ]
 
@@ -136,5 +140,3 @@ else:
             print(f"  ✗ Warning: {src_file} not found, skipping {role}")
 
     print(f"Role documentation generation complete!")
-
-# Made with Bob

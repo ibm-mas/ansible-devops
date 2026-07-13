@@ -5,6 +5,8 @@ mongodb_provider: "{{ lookup('env','MONGODB_PROVIDER') | default('community', Tr
 # When these are defined we will generate a MAS MongoCfg template
 mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
 mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+
+# Supported actions: install, uninstall, backup, backup-database, restore, restore-database
 mongodb_action: "{{ lookup('env', 'MONGODB_ACTION') | default('install', True) }}"
 
 # Backup mongodb databases for specified MAS application. Backup all mongodb databases if not specify this value.
@@ -117,6 +119,19 @@ docdb_master_password: "{{ lookup('env', 'DOCDB_MASTER_PASSWORD') }}"
 # Custom Labels
 custom_labels: "{{ lookup('env', 'CUSTOM_LABELS') | default(None, true) | string | ibm.mas_devops.string2dict() }}"
 
+# MongoCE backup and restore vars
+# -----------------------------------------------------------------------------
+mongodb_instance_name: "{{ lookup('env', 'MONGODB_INSTANCE_NAME') | default('mas-mongo-ce', true) }}"
+mas_backup_dir: "{{ lookup('env', 'MAS_BACKUP_DIR') }}"
+mongodb_backup_version: "{{ lookup('env', 'MONGODB_BACKUP_VERSION') }}"
+
+# set flag to true, to override storage class with cluster's default
+override_storageclass: "{{ lookup('env', 'OVERRIDE_STORAGECLASS') | default(false, true) }}"
+_mongodb_storage: "NO_OVERRIDE"
+
+# -----------------------------------------------------------------------------
+
+
 # Mongo upgrade flags
 # If identified that there's an existing Mongo that might lead to a v5 or v6 upgrade
 # the following flags must be set to confirm the upgrades otherwise the role will fail and not proceed with the upgrade.
@@ -127,6 +142,151 @@ mongodb_v8_upgrade: "{{ lookup('env', 'MONGODB_V8_UPGRADE') | default(false, tru
 
 # This matrix will define and validate the mongodb upgrade compatibility mapping version.
 # Therefore this must be updated whenever a new mongodb version is supported.
+# MongoDB Atlas vars
+# -----------------------------------------------------------------------------
+# Atlas API Configuration
+atlas_api_base_url: "{{ lookup('env', 'ATLAS_API_BASE_URL') | default('https://cloud.mongodb.com/api/atlas/v1.0', True) }}"
+atlas_api_timeout: "{{ lookup('env', 'ATLAS_API_TIMEOUT') | default(30, True) }}"
+
+# Atlas Organization and Project Configuration
+atlas_org_id: "{{ lookup('env', 'ATLAS_ORG_ID') }}"
+atlas_project_id: "{{ lookup('env', 'ATLAS_PROJECT_ID') }}"
+atlas_project_name: "{{ lookup('env', 'ATLAS_PROJECT_NAME') }}"
+atlas_cluster_name: "{{ lookup('env', 'ATLAS_CLUSTER_NAME') }}"
+atlas_account_id: "{{ lookup('env', 'ATLAS_ACCOUNT_ID') }}"
+
+# AWS Secrets Manager Configuration (required - for retrieving Atlas credentials)
+# Secret name follows the format: <atlas_account_id>/mongodb-atlas
+# Atlas API credentials are ONLY retrieved from AWS Secrets Manager
+atlas_aws_secret_name: "{{ atlas_account_id }}/mongodb-atlas"
+atlas_backup_compliance_enabled: "{{ (lookup('env', 'ATLAS_BACKUP_COMPLIANCE_ENABLED') | default('false', True)) | bool }}"
+# Atlas Backup Compliance Policy Configuration
+## Authorized user details for compliance policy changes
+atlas_compliance_authorized_email: "{{ lookup('env', 'ATLAS_COMPLIANCE_AUTHORIZED_EMAIL') | default('admin@example.com', True) }}"
+atlas_compliance_authorized_first_name: "{{ lookup('env', 'ATLAS_COMPLIANCE_AUTHORIZED_FIRST_NAME') | default('Admin', True) }}"
+atlas_compliance_authorized_last_name: "{{ lookup('env', 'ATLAS_COMPLIANCE_AUTHORIZED_LAST_NAME') | default('User', True) }}"
+## Compliance policy settings
+atlas_compliance_copy_protection: "{{ (lookup('env', 'ATLAS_COMPLIANCE_COPY_PROTECTION') | default('false', True)) | bool }}"
+atlas_compliance_encryption_at_rest: "{{ (lookup('env', 'ATLAS_COMPLIANCE_ENCRYPTION_AT_REST') | default('false', True)) | bool }}"
+atlas_compliance_pit_enabled: "{{ (lookup('env', 'ATLAS_COMPLIANCE_PIT_ENABLED') | default('false', True)) | bool }}"
+atlas_compliance_restore_window_days: "{{ lookup('env', 'ATLAS_COMPLIANCE_RESTORE_WINDOW_DAYS') | default(7, True) | int }}"
+## Scheduled backup policies - Hourly
+atlas_compliance_hourly_frequency_interval: "{{ lookup('env', 'ATLAS_COMPLIANCE_HOURLY_FREQUENCY_INTERVAL') | default(6, True) | int }}"
+atlas_compliance_hourly_retention_unit: "{{ lookup('env', 'ATLAS_COMPLIANCE_HOURLY_RETENTION_UNIT') | default('days', True) }}"
+atlas_compliance_hourly_retention_value: "{{ lookup('env', 'ATLAS_COMPLIANCE_HOURLY_RETENTION_VALUE') | default(7, True) | int }}"
+## Scheduled backup policies - Daily
+atlas_compliance_daily_frequency_interval: "{{ lookup('env', 'ATLAS_COMPLIANCE_DAILY_FREQUENCY_INTERVAL') | default(1, True) | int }}"
+atlas_compliance_daily_retention_unit: "{{ lookup('env', 'ATLAS_COMPLIANCE_DAILY_RETENTION_UNIT') | default('days', True) }}"
+atlas_compliance_daily_retention_value: "{{ lookup('env', 'ATLAS_COMPLIANCE_DAILY_RETENTION_VALUE') | default(7, True) | int }}"
+## Scheduled backup policies - Weekly
+atlas_compliance_weekly_frequency_interval: "{{ lookup('env', 'ATLAS_COMPLIANCE_WEEKLY_FREQUENCY_INTERVAL') | default(1, True) | int }}"
+atlas_compliance_weekly_retention_unit: "{{ lookup('env', 'ATLAS_COMPLIANCE_WEEKLY_RETENTION_UNIT') | default('weeks', True) }}"
+atlas_compliance_weekly_retention_value: "{{ lookup('env', 'ATLAS_COMPLIANCE_WEEKLY_RETENTION_VALUE') | default(4, True) | int }}"
+## Scheduled backup policies - Monthly
+atlas_compliance_monthly_frequency_interval: "{{ lookup('env', 'ATLAS_COMPLIANCE_MONTHLY_FREQUENCY_INTERVAL') | default(1, True) | int }}"
+atlas_compliance_monthly_retention_unit: "{{ lookup('env', 'ATLAS_COMPLIANCE_MONTHLY_RETENTION_UNIT') | default('months', True) }}"
+atlas_compliance_monthly_retention_value: "{{ lookup('env', 'ATLAS_COMPLIANCE_MONTHLY_RETENTION_VALUE') | default(12, True) | int }}"
+## Scheduled backup policies - Yearly
+atlas_compliance_yearly_frequency_interval: "{{ lookup('env', 'ATLAS_COMPLIANCE_YEARLY_FREQUENCY_INTERVAL') | default(1, True) | int }}"
+atlas_compliance_yearly_retention_unit: "{{ lookup('env', 'ATLAS_COMPLIANCE_YEARLY_RETENTION_UNIT') | default('years', True) }}"
+atlas_compliance_yearly_retention_value: "{{ lookup('env', 'ATLAS_COMPLIANCE_YEARLY_RETENTION_VALUE') | default(1, True) | int }}"
+
+# Atlas Audit Logging Configuration
+# MongoDB Atlas Auditing captures database operations for compliance and security
+# Required for FedRAMP, HIPAA, and other regulatory compliance
+atlas_audit_enabled: "{{ (lookup('env', 'ATLAS_AUDIT_ENABLED') | default('false', True)) | bool }}"
+# Custom audit filter (JSON string). If not provided, a default comprehensive filter will be generated
+# that excludes MAS instance users (from atlas_mas_instances) from audit logs while capturing:
+# - Authentication events (authenticate, logout)
+# - Authorization failures
+# - Critical database operations (DDL, DML, user/role management)
+atlas_audit_filter: "{{ lookup('env', 'ATLAS_AUDIT_FILTER') | default('', True) }}"
+atlas_audit_authorization_success: "{{ (lookup('env', 'ATLAS_AUDIT_AUTHORIZATION_SUCCESS') | default('true', True)) | bool }}"
+
+# Atlas S3 Audit Log Export Configuration
+# Export MongoDB Atlas audit logs to AWS S3 for long-term retention and compliance
+atlas_s3_audit_export_enabled: "{{ (lookup('env', 'ATLAS_S3_AUDIT_EXPORT_ENABLED') | default('false', True)) | bool }}"
+atlas_s3_audit_bucket_prefix: "{{ lookup('env', 'ATLAS_S3_AUDIT_BUCKET_PREFIX') | default('mongodb-atlas-audit-logs', True) }}"
+atlas_s3_audit_log_retention_days: "{{ lookup('env', 'ATLAS_S3_AUDIT_LOG_RETENTION_DAYS') | default(365, True) | int }}"
+atlas_s3_audit_bucket_enable_versioning: "{{ (lookup('env', 'ATLAS_S3_AUDIT_BUCKET_ENABLE_VERSIONING') | default('false', True)) | bool }}"
+atlas_s3_audit_glacier_transition_days: "{{ lookup('env', 'ATLAS_S3_AUDIT_GLACIER_TRANSITION_DAYS') | default(90, True) | int }}"
+atlas_s3_audit_noncurrent_version_retention_days: "{{ lookup('env', 'ATLAS_S3_AUDIT_NONCURRENT_VERSION_RETENTION_DAYS') | default(30, True) | int }}"
+
+# Atlas Alert Monitoring Configuration
+# Provides proactive notifications for cluster health, performance, and security events
+atlas_enable_alerts: "{{ (lookup('env', 'ATLAS_ENABLE_ALERTS') | default('false', True)) | bool }}"
+atlas_alert_notification_emails: "{{ lookup('env', 'ATLAS_ALERT_NOTIFICATION_EMAILS') | default('[]', True) }}"
+
+# Alert category toggles
+atlas_enable_cluster_health_alerts: "{{ (lookup('env', 'ATLAS_ENABLE_CLUSTER_HEALTH_ALERTS') | default('false', True)) | bool }}"
+atlas_enable_performance_alerts: "{{ (lookup('env', 'ATLAS_ENABLE_PERFORMANCE_ALERTS') | default('false', True)) | bool }}"
+
+# Performance alert thresholds
+# Format: [warning, critical]
+atlas_alert_cpu_thresholds: "{{ lookup('env', 'ATLAS_ALERT_CPU_THRESHOLDS') | default('[70, 80]', True) | from_json }}"
+atlas_alert_memory_thresholds: "{{ lookup('env', 'ATLAS_ALERT_MEMORY_THRESHOLDS') | default('[70, 80]', True) | from_json }}"
+atlas_alert_connection_thresholds: "{{ lookup('env', 'ATLAS_ALERT_CONNECTION_THRESHOLDS') | default('[70, 80]', True) | from_json }}"
+atlas_alert_replication_lag_threshold: "{{ lookup('env', 'ATLAS_ALERT_REPLICATION_LAG_THRESHOLD') | default(30, True) | int }}"
+atlas_alert_oplog_window_threshold_minutes: "{{ lookup('env', 'ATLAS_ALERT_OPLOG_WINDOW_THRESHOLD_MINUTES') | default(60, True) | int }}"
+
+# Alert interval configuration (in minutes) - applies to all metric threshold alerts
+atlas_alert_interval_min: "{{ lookup('env', 'ATLAS_ALERT_INTERVAL_MIN') | default(60, True) | int }}"
+
+# Atlas PrivateLink Configuration
+# PrivateLink provides secure, private connectivity between Atlas and AWS VPC
+atlas_privatelink_enabled: "{{ (lookup('env', 'ATLAS_PRIVATELINK_ENABLED') | default('false', True)) | bool }}"
+
+# AWS VPC Configuration for PrivateLink
+atlas_vpc_id: "{{ lookup('env', 'ATLAS_VPC_ID') }}"
+atlas_aws_region: "{{ lookup('env', 'ATLAS_AWS_REGION') }}"
+
+# AWS Subnet IDs for VPC Endpoint placement (private connectivity edge subnets)
+# Provide as list or comma-separated string
+atlas_subnet_ids: "{{ lookup('env', 'ATLAS_SUBNET_IDS') | default('[]', True) }}"
+
+# ROSA Cluster CIDR ranges for security group ingress rules
+# Provide as list or comma-separated string
+atlas_rosa_cidr_ranges: "{{ lookup('env', 'ATLAS_ROSA_CIDR_RANGES') | default('[]', True) }}"
+
+# Atlas Cluster Provisioning Configuration (for provision action)
+atlas_cluster_provider: "{{ lookup('env', 'ATLAS_CLUSTER_PROVIDER') | default('AWS', True) }}"
+atlas_cluster_size: "{{ lookup('env', 'ATLAS_CLUSTER_SIZE') }}"
+atlas_mongodb_version: "{{ lookup('env', 'ATLAS_MONGODB_VERSION') | default('7.0', True) }}"
+atlas_backup_enabled: "{{ (lookup('env', 'ATLAS_BACKUP_ENABLED') | default('false', True)) | bool }}"
+# Atlas Cluster Protection Configuration
+atlas_termination_protection_enabled: "{{ (lookup('env', 'ATLAS_TERMINATION_PROTECTION_ENABLED') | default('false', True)) | bool }}"
+atlas_retain_backups_enabled: "{{ (lookup('env', 'ATLAS_RETAIN_BACKUPS_ENABLED') | default('false', True)) | bool }}"
+atlas_pit_enabled: "{{ (lookup('env', 'ATLAS_PIT_ENABLED') | default('false', True)) | bool }}"
+
+# Atlas Cluster Autoscaling Configuration
+atlas_autoscaling_compute_enabled: "{{ (lookup('env', 'ATLAS_AUTOSCALING_COMPUTE_ENABLED') | default('false', True)) | bool }}"
+atlas_autoscaling_compute_scale_down_enabled: "{{ (lookup('env', 'ATLAS_AUTOSCALING_COMPUTE_SCALE_DOWN_ENABLED') | default('true', True)) | bool }}"
+atlas_autoscaling_compute_min_instance_size: "{{ lookup('env', 'ATLAS_AUTOSCALING_COMPUTE_MIN_INSTANCE_SIZE') }}"
+atlas_autoscaling_compute_max_instance_size: "{{ lookup('env', 'ATLAS_AUTOSCALING_COMPUTE_MAX_INSTANCE_SIZE') }}"
+atlas_autoscaling_disk_gb_enabled: "{{ (lookup('env', 'ATLAS_AUTOSCALING_DISK_GB_ENABLED') | default('false', True)) | bool }}"
+
+# Atlas MAS Instances Configuration
+# List of MAS instance names that will use this cluster
+# Each instance will get a dedicated database user with scoped permissions
+# Provide as list or comma-separated string
+atlas_mas_instances: "{{ lookup('env', 'ATLAS_MAS_INSTANCES') | default('[]', True) }}"
+
+# MongoDB authentication mechanism
+atlas_auth_mechanism: "{{ lookup('env', 'ATLAS_AUTH_MECHANISM') | default('DEFAULT', True) }}"
+
+# Atlas Credentials Storage in AWS Secrets Manager
+# Store connection information (hosts, port, username, password, CA cert) in AWS Secrets Manager
+atlas_store_credentials_in_secret: "{{ (lookup('env', 'ATLAS_STORE_CREDENTIALS_IN_SECRET') | default('false', True)) | bool }}"
+
+# Atlas Deprovision Configuration
+atlas_remove_db_users: "{{ (lookup('env', 'ATLAS_REMOVE_DB_USERS') | default('true', True)) | bool }}"
+atlas_wait_for_deletion: "{{ (lookup('env', 'ATLAS_WAIT_FOR_DELETION') | default('true', True)) | bool }}"
+
+# Delete AWS Secrets Manager secret during deprovision (default: false for safety)
+atlas_delete_secret: "{{ (lookup('env', 'ATLAS_DELETE_SECRET') | default('true', True)) | bool }}"
+# Force immediate deletion without recovery window (default: false - uses 7 day recovery window)
+atlas_force_delete_secret: "{{ (lookup('env', 'ATLAS_FORCE_DELETE_SECRET') | default('false', True)) | bool }}"
+
 # Only allow Mongo upgrades to be next compatible minor (or patch) version.
 # Example:
 # If `existing_mongo_version: 4.4.21` then the `target_mongodb_version` must be `5.0.21` or `5.0.23`.
@@ -162,23 +322,51 @@ mongo_compatible_target_version:
     - "7.0.23"
     - "8.0.13"
     - "8.0.17"
+    - "8.0.20"
   "7.0.22":
     - "7.0.22"
     - "7.0.23"
     - "8.0.13"
     - "8.0.17"
+    - "8.0.20"
   "7.0.23":
     - "7.0.23"
     - "8.0.13"
     - "8.0.17"
+    - "8.0.20"
   "8.0.13":
     - "8.0.13"
     - "8.0.17"
+    - "8.0.20"
   "8.0.17":
     - "8.0.17"
+    - "8.0.20"
+  "8.0.20":
+    - "8.0.20"
 # destroy-data vars
 # -----------------------------------------------------------------------------
 config: "{{ lookup('env', 'CONFIG') }}"
 certificates: "{{ lookup('env', 'CERTIFICATES') }}"
 mongo_username: "{{ lookup('env', 'MONGO_USERNAME') }}"
 mongo_password: "{{ lookup('env', 'MONGO_PASSWORD') }}"
+
+
+# Atlas Default configurations
+atlas_backup_archive_path: "{{ lookup('env', 'ATLAS_BACKUP_ARCHIVE_PATH') }}"
+atlas_index_file_path: "{{ lookup('env', 'ATLAS_INDEX_FILE_PATH') }}"
+atlas_mongodb_host: "{{ lookup('env', 'ATLAS_MONGODB_HOST') }}"
+atlas_mongodb_username: "{{ lookup('env', 'ATLAS_MONGODB_USERNAME') }}"
+atlas_mongodb_password: "{{ lookup('env', 'ATLAS_MONGODB_PASSWORD') }}"
+restore_temp_dir: "/tmp/mongodb-restore"
+
+# AWS DocumentDB Backup Configuration
+# -----------------------------------------------------------------------------
+docdb_backup_dir: "{{ lookup('env', 'DOCDB_BACKUP_DIR') }}"
+docdb_ca_cert_url: "{{ lookup('env', 'DOCDB_CA_CERT_URL') | default('https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem', True) }}"
+# Number of parallel jobs for backup (default: 4, increase for faster backups on powerful systems)
+docdb_parallel_jobs: "{{ lookup('env', 'DOCDB_PARALLEL_JOBS') | default(4, True) }}"
+
+# AWS DocumentDB Restore Configuration
+# -----------------------------------------------------------------------------
+cleanup_temp_files: "{{ lookup('env', 'CLEANUP_TEMP_FILES') | default(true, True) | bool }}"
+mongorestore_options: "--noOptionsRestore --noIndexRestore"

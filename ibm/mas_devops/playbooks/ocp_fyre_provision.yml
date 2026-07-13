@@ -2,7 +2,7 @@
 - hosts: localhost
   vars:
     cluster_type: fyre
-    ocp_version: "{{ lookup('env', 'OCP_VERSION') | default('4.19', True) }}"
+    ocp_version: "{{ lookup('env', 'OCP_VERSION') | default('4.21', True) }}"
 
     # Supported providers: nfs, odf, longhorn
     ocp_storage_provider: "{{ lookup('env', 'OCP_STORAGE_PROVIDER') }}"
@@ -14,6 +14,10 @@
 
     # We use "turbonomic_target_name" as a key to indicate that we want to run the turbonomic role
     turbonomic_target_name: "{{ lookup('env', 'TURBONOMIC_TARGET_NAME') }}"
+
+    # Determine if we install service mesh and kiali
+    install_service_mesh: "{{ lookup('env', 'INSTALL_SERVICE_MESH') == 'true' }}"
+    install_kiali: "{{ lookup('env', 'INSTALL_KIALI') == 'true' }}"
 
     # We update the cipher support on all installs, even though it's only technically
     # requires for FIPS clusters
@@ -52,3 +56,7 @@
     # 5. Configure optional turbonomic integration
     - role: ibm.mas_devops.turbonomic
       when: turbonomic_target_name != ""
+
+    # . Install optional service mesh
+    - role: ibm.mas_devops.servicemesh
+      when: install_service_mesh

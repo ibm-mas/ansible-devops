@@ -1,0 +1,39 @@
+---
+
+# This role will update the value of "is_migration_needed".
+- name: Migrate the tenant operator deployment if necessary
+  include_role:
+    name: ibm.mas_devops.aiservice_migration
+  vars:
+    catalog_channel: "{{ aiservice_tenant_channel }}"
+    instance_id: "{{ aiservice_instance_id }}"
+
+# If migration is not needed then proceed with simply upgrading the tenant operator
+- when: not is_migration_needed
+  block:
+    - name: Get all subscriptions
+      kubernetes.core.k8s_info:
+        api_version: operators.coreos.com/v1alpha1
+        kind: Subscription
+      register: all_subscriptions
+      no_log: true
+
+    - name: Filter subscriptions named ibm-aiservice-tenant
+      ansible.builtin.set_fact:
+        tenant_subscriptions: >-
+          {{
+            all_subscriptions.resources
+            | selectattr('metadata.name', 'equalto', 'ibm-aiservice-tenant')
+            | list
+          }}
+
+    - name: Display subscription info
+      ansible.builtin.debug:
+        msg:
+          - "Number of tenant subscriptions ............. {{ tenant_subscriptions | length }}"
+
+    - name: Upgrade tenant operator subscriptions
+      include_tasks: tenant/upgrade.yml
+      loop: "{{ tenant_subscriptions }}"
+      loop_control:
+        loop_var: tenant_subscription

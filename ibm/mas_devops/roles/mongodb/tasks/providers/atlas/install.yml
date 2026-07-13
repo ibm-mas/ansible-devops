@@ -1,0 +1,532 @@
+---
+# MongoDB Atlas Provider - Provision Task
+# This task provisions a new MongoDB Atlas cluster with database users and network configuration
+
+# 1. Validate atlas_account_id is provided
+# -----------------------------------------------------------------------------
+- name: "Fail if atlas_account_id is not provided"
+  assert:
+    that:
+      - atlas_account_id is defined
+      - atlas_account_id != ""
+    fail_msg: |
+      atlas_account_id is required for MongoDB Atlas provider.
+      Set ATLAS_ACCOUNT_ID environment variable with your AWS account ID.
+      This is used to construct the AWS Secrets Manager secret name: <atlas_account_id>/mongodb-atlas
+
+# 2. Retrieve Atlas API credentials from AWS Secrets Manager
+# -----------------------------------------------------------------------------
+- name: "Retrieve Atlas credentials from AWS Secrets Manager"
+  when:
+    - atlas_account_id is defined
+    - atlas_account_id != ""
+    - atlas_aws_region is defined
+  block:
+    - name: "Check if AWS CLI is available"
+      command: which aws
+      register: aws_cli_check
+      failed_when: false
+      changed_when: false
+
+    - name: "Fail if AWS CLI is not installed"
+      fail:
+        msg: |
+          AWS CLI is not installed or not in PATH.
+          Please install AWS CLI: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+      when: aws_cli_check.rc != 0
+
+    - name: "Verify AWS credentials are configured"
+      command: aws sts get-caller-identity
+      register: aws_identity_check
+      failed_when: false
+      changed_when: false
+      no_log: true
+
+    - name: "Fail if AWS credentials are not configured"
+      fail:
+        msg: |
+          AWS credentials are not configured or invalid.
+          Please configure AWS CLI: aws configure
+          Or set environment variables: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+      when: aws_identity_check.rc != 0
+
+    - name: "Get Atlas API credentials from AWS Secrets Manager"
+      shell: |
+        aws secretsmanager get-secret-value \
+          --secret-id "{{ atlas_aws_secret_name }}" \
+          --region "{{ atlas_aws_region }}" \
+          --query SecretString \
+          --output text
+      register: atlas_secret_output
+      failed_when: atlas_secret_output.rc != 0
+      no_log: true
+
+    - name: "Parse Atlas credentials from secret"
+      set_fact:
+        atlas_credentials: "{{ atlas_secret_output.stdout | from_json }}"
+      no_log: true
+
+    - name: "Set Atlas API credentials from AWS Secrets Manager"
+      set_fact:
+        atlas_public_key: "{{ atlas_credentials.mongodb_atlas_api_pub_key }}"
+        atlas_private_key: "{{ atlas_credentials.mongodb_atlas_api_pri_key }}"
+      no_log: true
+
+  rescue:
+    - name: "Display AWS Secrets Manager error details"
+      debug:
+        msg:
+          - "=========================================="
+          - "Failed to retrieve Atlas credentials from AWS Secrets Manager"
+          - "=========================================="
+          - "Secret Name: {{ atlas_aws_secret_name }}"
+          - "Region: {{ atlas_aws_region }}"
+          - "=========================================="
+          - "Common issues:"
+          - "1. AWS CLI not configured (run: aws configure)"
+          - "2. Secret doesn't exist in the specified region"
+          - "3. Insufficient IAM permissions (need secretsmanager:GetSecretValue)"
+          - "4. Secret name is incorrect (case-sensitive)"
+          - "=========================================="
+          - "To troubleshoot, run:"
+          - "  aws secretsmanager describe-secret --secret-id {{ atlas_aws_secret_name }} --region {{ atlas_aws_region }}"
+          - "=========================================="
+
+    - name: "Fail with helpful error message"
+      fail:
+        msg: "Failed to retrieve Atlas API credentials from AWS Secrets Manager. See debug output above for troubleshooting steps."
+
+# 2. Validate required variables
+# -----------------------------------------------------------------------------
+- name: "Fail if Atlas API credentials are not provided"
+  assert:
+    that:
+      - atlas_public_key is defined and atlas_public_key != ""
+      - atlas_private_key is defined and atlas_private_key != ""
+    fail_msg: "Atlas API credentials (atlas_public_key and atlas_private_key) are required. Provide them directly or via AWS Secrets Manager."
+
+# 3. Create or verify Atlas project
+# -----------------------------------------------------------------------------
+- name: "Create or verify Atlas project"
+  include_tasks: "providers/atlas/create_project.yml"
+
+# 5. Configure audit logging (if enabled)
+# -----------------------------------------------------------------------------
+- name: "Configure audit logging"
+  when: atlas_audit_enabled | bool
+  include_tasks: "providers/atlas/configure_audit_logging.yml"
+
+# 5a. Configure S3 audit log export (if enabled)
+# -----------------------------------------------------------------------------
+- name: "Configure S3 audit log export"
+  when: atlas_s3_audit_export_enabled | bool
+  include_tasks: "providers/atlas/configure_s3_audit_export.yml"
+
+# 6. Configure project-level alerts (if enabled) - Basic performance alerts
+# -----------------------------------------------------------------------------
+- name: "Configure project-level alert monitoring"
+  when: atlas_enable_alerts | bool
+  include_tasks: "providers/atlas/configure_alerts_project.yml"
+
+# 7. Configure PrivateLink (if enabled) - Must be done before cluster creation
+# -----------------------------------------------------------------------------
+- name: "Configure PrivateLink"
+  when:
+    - atlas_privatelink_enabled is defined
+    - atlas_privatelink_enabled | string != ""
+    - atlas_privatelink_enabled | bool
+    - atlas_vpc_id is defined
+    - atlas_vpc_id != ""
+    - atlas_aws_region is defined
+    - atlas_aws_region != ""
+    - atlas_subnet_ids is defined
+    - atlas_subnet_ids != ""
+    - atlas_rosa_cidr_ranges is defined
+    - atlas_rosa_cidr_ranges != ""
+  include_tasks: "providers/atlas/configure_privatelink.yml"
+
+- name: "Fail if Atlas cluster configuration is not provided"
+  assert:
+    that:
+      - atlas_cluster_name is defined and atlas_cluster_name != ""
+      - atlas_aws_region is defined and atlas_aws_region != ""
+      - atlas_cluster_size is defined and atlas_cluster_size != ""
+    fail_msg: "Atlas cluster configuration (name, provider, region, size) is required"
+
+# 6. Display provisioning configuration
+# -----------------------------------------------------------------------------
+- name: "MongoDB Atlas Provisioning Configuration"
+  debug:
+    msg:
+      - "=========================================="
+      - "MongoDB Atlas Cluster Provisioning"
+      - "=========================================="
+      - "Atlas Project ID ............ {{ atlas_project_id }}"
+      - "Cluster Name ................ {{ atlas_cluster_name }}"
+      - "Cloud Provider .............. {{ atlas_cluster_provider }}"
+      - "Region ...................... {{ atlas_aws_region }}"
+      - "Cluster Size ................ {{ atlas_cluster_size }}"
+      - "MongoDB Version ............. {{ atlas_mongodb_version | default('6.0') }}"
+      - "Database Username ........... {{ atlas_db_username | default('(multi-user: see atlas_database_users)') }}"
+      - "Backup Enabled .............. {{ atlas_backup_enabled | default(true) }}"
+      - "Using AWS Secrets Manager ... {{ (atlas_aws_secret_name is defined and atlas_aws_secret_name != '') | bool }}"
+      - "Multi-user mode ............. {{ (atlas_database_users is defined and atlas_database_users | length > 0) | bool }}"
+      - "=========================================="
+
+# 5. Enable backup compliance policy (if enabled)
+# -----------------------------------------------------------------------------
+- name: "Enable backup compliance policy"
+  when:
+    - atlas_backup_compliance_enabled | bool
+  block:
+    - name: "Check if backup compliance policy is already enabled"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/backupCompliancePolicy"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: [200, 404]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_compliance_check
+      retries: 3
+      delay: 5
+      failed_when: false
+
+    - name: "Determine if policy needs to be enabled"
+      set_fact:
+        atlas_compliance_needs_enable: "{{ atlas_compliance_check.status == 404 }}"
+        atlas_existing_ondemand_policy: "{{ atlas_compliance_check.json.onDemandPolicyItem | default({}) }}"
+
+    - name: "Prepare backup compliance policy body (base)"
+      when: atlas_compliance_needs_enable | bool
+      set_fact:
+        atlas_compliance_body:
+          projectId: "{{ atlas_project_id }}"
+          authorizedEmail: "{{ atlas_compliance_authorized_email }}"
+          authorizedUserFirstName: "{{ atlas_compliance_authorized_first_name }}"
+          authorizedUserLastName: "{{ atlas_compliance_authorized_last_name }}"
+          copyProtectionEnabled: "{{ atlas_compliance_copy_protection | bool }}"
+          encryptionAtRestEnabled: "{{ atlas_compliance_encryption_at_rest | bool }}"
+          pitEnabled: "{{ atlas_compliance_pit_enabled | bool }}"
+          restoreWindowDays: "{{ atlas_compliance_restore_window_days | int }}"
+          scheduledPolicyItems:
+            - frequencyInterval: "{{ atlas_compliance_hourly_frequency_interval | int }}"
+              frequencyType: "hourly"
+              retentionUnit: "{{ atlas_compliance_hourly_retention_unit }}"
+              retentionValue: "{{ atlas_compliance_hourly_retention_value | int }}"
+            - frequencyInterval: "{{ atlas_compliance_daily_frequency_interval | int }}"
+              frequencyType: "daily"
+              retentionUnit: "{{ atlas_compliance_daily_retention_unit }}"
+              retentionValue: "{{ atlas_compliance_daily_retention_value | int }}"
+            - frequencyInterval: "{{ atlas_compliance_weekly_frequency_interval | int }}"
+              frequencyType: "weekly"
+              retentionUnit: "{{ atlas_compliance_weekly_retention_unit }}"
+              retentionValue: "{{ atlas_compliance_weekly_retention_value | int }}"
+            - frequencyInterval: "{{ atlas_compliance_monthly_frequency_interval | int }}"
+              frequencyType: "monthly"
+              retentionUnit: "{{ atlas_compliance_monthly_retention_unit }}"
+              retentionValue: "{{ atlas_compliance_monthly_retention_value | int }}"
+            - frequencyInterval: "{{ atlas_compliance_yearly_frequency_interval | int }}"
+              frequencyType: "yearly"
+              retentionUnit: "{{ atlas_compliance_yearly_retention_unit }}"
+              retentionValue: "{{ atlas_compliance_yearly_retention_value | int }}"
+
+    - name: "Preserve existing onDemandPolicyItem if present"
+      when:
+        - atlas_compliance_needs_enable | bool
+        - atlas_existing_ondemand_policy | length > 0
+      set_fact:
+        atlas_compliance_body: "{{ atlas_compliance_body | combine({'onDemandPolicyItem': atlas_existing_ondemand_policy}) }}"
+
+    - name: "Debug - Show compliance policy body"
+      when: atlas_compliance_needs_enable | bool
+      debug:
+        msg: "Compliance policy body: {{ atlas_compliance_body | to_json }}"
+
+    - name: "Enable backup compliance policy with configuration"
+      when: atlas_compliance_needs_enable | bool
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/backupCompliancePolicy"
+        method: PUT
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        body: "{{ atlas_compliance_body | to_json }}"
+        body_format: json
+        status_code: [200, 201]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_compliance_enable
+
+    - name: "Debug - Show compliance enable response"
+      when: atlas_compliance_needs_enable | bool
+      debug:
+        var: atlas_compliance_enable
+
+    - name: "Verify backup compliance policy was enabled"
+      when: atlas_compliance_needs_enable | bool
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/backupCompliancePolicy"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: [200]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_compliance_verify
+
+    - name: "Backup compliance policy enabled successfully"
+      when: atlas_compliance_needs_enable | bool
+      debug:
+        msg:
+          - "=========================================="
+          - "Backup Compliance Policy Status"
+          - "=========================================="
+          - "Status: Successfully Enabled"
+          - "Configuration:"
+          - "  Authorized Email: {{ atlas_compliance_authorized_email | default('admin@example.com') }}"
+          - "  Restore Window: {{ atlas_compliance_restore_window_days | default(7) }} days"
+          - "  Copy Protection: {{ atlas_compliance_copy_protection | default(false) }}"
+          - "  Encryption at Rest: {{ atlas_compliance_encryption_at_rest | default(false) }}"
+          - "  Point-in-Time: {{ atlas_compliance_pit_enabled | default(false) }}"
+          - "  On-Demand Backups: {{ atlas_compliance_ondemand_enabled | default(false) }}"
+          - "  Project ID: {{ atlas_project_id }}"
+          - "=========================================="
+
+# 6. Check if cluster already exists
+# -----------------------------------------------------------------------------
+- name: "Check if Atlas cluster already exists"
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    status_code: [200, 404]
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_cluster_check
+  retries: 3
+  delay: 5
+
+- name: "Set cluster exists fact"
+  set_fact:
+    atlas_cluster_exists: "{{ atlas_cluster_check.status == 200 }}"
+
+# 5. Create Atlas cluster (if it doesn't exist)
+# -----------------------------------------------------------------------------
+- name: "Create MongoDB Atlas cluster"
+  when: not atlas_cluster_exists
+  block:
+    - name: "Convert AWS region to Atlas format for cluster"
+      set_fact:
+        atlas_cluster_region_name: "{{ atlas_aws_region | upper | replace('-', '_') }}"
+
+    - name: "Validate backup configuration"
+      assert:
+        that:
+          - not (atlas_pit_enabled | default(false) | bool) or (atlas_backup_enabled | default(false) | bool)
+        fail_msg: "Point-in-Time restore (pitEnabled) requires Cloud Backup to be enabled (providerBackupEnabled)"
+
+    - name: "Prepare cluster configuration (v2 API format)"
+      set_fact:
+        atlas_cluster_config:
+          name: "{{ atlas_cluster_name }}"
+          clusterType: "REPLICASET"
+          mongoDBMajorVersion: "{{ atlas_mongodb_version }}"
+          backupEnabled: "{{ atlas_backup_enabled | bool }}"
+          retainBackupsEnabled: "{{ atlas_retain_backups_enabled | default(false) | bool }}"
+          pitEnabled: "{{ atlas_pit_enabled | default(false) | bool }}"
+          terminationProtectionEnabled: "{{ atlas_termination_protection_enabled | default(false) | bool }}"
+
+    - name: "Build autoscaling configuration for v2 API"
+      block:
+        - name: "Build compute autoscaling when enabled with scale down"
+          when:
+            - atlas_autoscaling_compute_enabled | bool
+            - atlas_autoscaling_compute_scale_down_enabled | bool
+          set_fact:
+            atlas_compute_config:
+              enabled: true
+              scaleDownEnabled: true
+              minInstanceSize: "{{ atlas_autoscaling_compute_min_instance_size }}"
+              maxInstanceSize: "{{ atlas_autoscaling_compute_max_instance_size }}"
+
+        - name: "Build compute autoscaling when enabled without scale down"
+          when:
+            - atlas_autoscaling_compute_enabled | bool
+            - not (atlas_autoscaling_compute_scale_down_enabled | bool)
+          set_fact:
+            atlas_compute_config:
+              enabled: true
+              scaleDownEnabled: false
+              maxInstanceSize: "{{ atlas_autoscaling_compute_max_instance_size }}"
+
+        - name: "Build compute autoscaling when disabled"
+          when: not (atlas_autoscaling_compute_enabled | bool)
+          set_fact:
+            atlas_compute_config:
+              enabled: false
+              scaleDownEnabled: false
+
+        - name: "Build autoIndexing configuration"
+          set_fact:
+            atlas_auto_indexing_config:
+              enabled: false
+
+        - name: "Add replicationSpecs with electableSpecs and autoscaling"
+          set_fact:
+            atlas_cluster_config: "{{ atlas_cluster_config | combine({'replicationSpecs': replication_specs}) }}"
+          vars:
+            replication_specs:
+              - regionConfigs:
+                  - providerName: "{{ atlas_cluster_provider }}"
+                    regionName: "{{ atlas_cluster_region_name }}"
+                    priority: 7
+                    electableSpecs:
+                      instanceSize: "{{ atlas_cluster_size }}"
+                      nodeCount: 3
+                    autoScaling:
+                      autoIndexing: "{{ atlas_auto_indexing_config }}"
+                      compute: "{{ atlas_compute_config }}"
+                      diskGB:
+                        enabled: "{{ atlas_autoscaling_disk_gb_enabled | bool }}"
+
+    - name: "Display cluster configuration"
+      debug:
+        msg:
+          - "=========================================="
+          - "Cluster Configuration"
+          - "=========================================="
+          - "{{ atlas_cluster_config | to_nice_json }}"
+          - "=========================================="
+
+    - name: "Create cluster via Atlas API v2"
+      uri:
+        url: "{{ atlas_api_base_url | regex_replace('/v1.0$', '/v2') }}/groups/{{ atlas_project_id }}/clusters"
+        method: POST
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        headers:
+          Accept: "application/vnd.atlas.2023-11-15+json"
+        body: "{{ atlas_cluster_config | to_json }}"
+        body_format: json
+        status_code: [201]
+        timeout: "{{ atlas_api_timeout }}"
+        use_proxy: false
+      register: atlas_cluster_create
+
+    - name: "Cluster creation initiated"
+      debug:
+        msg:
+          - "Cluster creation initiated successfully"
+          - "Cluster will take 7-10 minutes to provision"
+          - "State: {{ atlas_cluster_create.json.stateName }}"
+          - "Compute autoscaling: {{ atlas_autoscaling_compute_enabled | bool }}"
+          - "Disk autoscaling: {{ atlas_autoscaling_disk_gb_enabled | bool }}"
+
+# 6. Wait for cluster to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for Atlas cluster to be ready (IDLE)"
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    status_code: 200
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_cluster_status
+  retries: 120
+  delay: 30
+  until: atlas_cluster_status.json.stateName == "IDLE"
+
+- name: "Cluster is ready"
+  debug:
+    msg:
+      - "Cluster State ............... {{ atlas_cluster_status.json.stateName }}"
+      - "MongoDB Version ............. {{ atlas_cluster_status.json.mongoDBVersion }}"
+      - "Cluster Type ................ {{ atlas_cluster_status.json.clusterType }}"
+
+# 8. Configure cluster-level alerts (if enabled) - After cluster is ready
+# -----------------------------------------------------------------------------
+- name: "Configure cluster-level alert monitoring"
+  when: atlas_enable_alerts | bool
+  include_tasks: "providers/atlas/configure_alerts_cluster.yml"
+
+# 9. Create instance-specific database users (if instances are provided)
+# -----------------------------------------------------------------------------
+- name: "Create instance-specific database users"
+  when:
+    - atlas_mas_instances is defined
+    - atlas_mas_instances != ''
+    - atlas_mas_instances != '[]'
+  block:
+    - name: "Parse MAS instances list"
+      set_fact:
+        atlas_mas_instances_parsed: "{{ atlas_mas_instances if atlas_mas_instances is iterable and atlas_mas_instances is not string else (atlas_mas_instances.split(',') if atlas_mas_instances is string else atlas_mas_instances | from_json) }}"
+        atlas_subnet_ids_list: "{{ atlas_subnet_ids if atlas_subnet_ids is iterable and atlas_subnet_ids is not string else (atlas_subnet_ids.split(',') if atlas_subnet_ids is string else atlas_subnet_ids | from_json) }}"
+
+    - name: "Create users for each instance"
+      include_tasks: "providers/atlas/create_instance_users.yml"
+      when: atlas_mas_instances_parsed | length > 0
+
+# 10. Get connection strings
+# -----------------------------------------------------------------------------
+- name: "Get Atlas cluster connection strings"
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    status_code: 200
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_connection_strings
+  retries: 30
+  delay: 10
+  until: >
+    atlas_connection_strings.status == 200 and
+    atlas_connection_strings.json.connectionStrings.privateEndpoint is defined and
+    atlas_connection_strings.json.connectionStrings.privateEndpoint | length > 0
+
+- name: "Extract private endpoint connection string"
+  set_fact:
+    atlas_privatelink_connection_string: "{{ atlas_connection_strings.json.connectionStrings.privateEndpoint[0].connectionString }}"
+
+- name: "Validate private endpoint connection string"
+  assert:
+    that:
+      - atlas_privatelink_connection_string is defined
+      - atlas_privatelink_connection_string != ""
+    fail_msg: "Private endpoint connection string not available. Ensure PrivateLink is fully configured."
+
+- name: "Using private endpoint connection string"
+  debug:
+    msg:
+      - "Using PrivateLink connection string"
+      - "Connection: {{ atlas_privatelink_connection_string }}"
+
+# 11. Create AWS Secrets Manager secrets
+# -----------------------------------------------------------------------------
+- name: "Create AWS Secrets Manager secrets"
+  when:
+    - atlas_store_credentials_in_secret | bool
+    - atlas_account_id is defined
+    - atlas_account_id != ""
+    - atlas_aws_region is defined
+  include_tasks: "providers/atlas/create_secrets.yml"
+
+# 14. Display provisioning results
+# -----------------------------------------------------------------------------
+- name: "MongoDB Atlas cluster provisioned successfully"
+  debug:
+    msg:
+      - "=========================================="
+      - "MongoDB Atlas Cluster Provisioned!"
+      - "=========================================="
+      - "Cluster Name ................ {{ atlas_cluster_name }}"
+      - "Connection String ........... {{ atlas_privatelink_connection_string }}"
+      - "Connection Type ............. PrivateLink"
+      - "Database Users .............. {{ atlas_mas_instances | length }} instance-specific users"
+      - "Cluster State ............... {{ atlas_cluster_status.json.stateName }}"

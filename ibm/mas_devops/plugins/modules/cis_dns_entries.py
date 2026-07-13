@@ -25,8 +25,20 @@ author:
 import requests
 import getpass
 import os
+import time
 from requests.exceptions import HTTPError
 from ansible.module_utils.basic import AnsibleModule
+
+
+def _request_with_retry(method, url, headers, payload, max_retries=5, backoff_base=10):
+    """Execute an HTTP request with exponential backoff retry on 429 responses."""
+    for attempt in range(max_retries):
+        response = requests.request(method, url, headers=headers, data=payload)
+        if response.status_code != 429:
+            return response
+        wait = backoff_base * (2 ** attempt)
+        time.sleep(wait)
+    return response
 
 def main():
 
@@ -197,9 +209,9 @@ def main():
                     url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/dns_records/{dnsId}"
                     # proxied = True
                     if cisProxy and 'reportdb' not in entryName and 'messaging.iot' not in entryName:
-                        payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": true \n}"    
+                        payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": true \n}"
                     else:
-                        payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": false \n}"    
+                        payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": false \n}"
 
             
                     headers = {
@@ -208,18 +220,19 @@ def main():
                     'X-Auth-User-Token': access_token
                     }
 
-                    response = requests.request("PUT", url, headers=headers, data=payload)
+                    response = _request_with_retry("PUT", url, headers=headers, payload=payload)
                     if(response.status_code == 200):
                         changed = True
-                    #     DNS record updated successfully                    
+                    else:
+                        module.fail_json(msg = f"Failed to update DNS entry '{entryName}'. Status code: {response.status_code}, Response: {response.content}")
 
             else:
                 # Adding DNS entry
                 url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/dns_records"
                 if cisProxy and 'reportdb' not in entryName and 'messaging.iot' not in entryName:
-                    payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": true \n}"    
+                    payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": true \n}"
                 else:
-                    payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": false \n}"    
+                    payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": false \n}"
 
                 headers = {
                 'Content-Type': 'application/json',
@@ -227,17 +240,18 @@ def main():
                 'X-Auth-User-Token': access_token
                 }
 
-                response = requests.request("POST", url, headers=headers, data=payload)
+                response = _request_with_retry("POST", url, headers=headers, payload=payload)
                 if(response.status_code == 200):
                     changed = True
-                    # DNS record created successfully
+                else:
+                    module.fail_json(msg = f"Failed to create DNS entry '{entryName}'. Status code: {response.status_code}, Response: {response.content}")
         
         if delete_wildcards:
             for entry in existingDNSEntries:
                 if entry.startswith('*'):
                     dnsId = existingDNSIDs[existingDNSEntries.index(entry)]
                     url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/dns_records/{dnsId}"
-                    response = requests.request("DELETE", url, headers=headers, data=payload)
+                    response = _request_with_retry("DELETE", url, headers=headers, payload=payload)
                     if(response.status_code == 200):
                         changed = True
         if cis_waf:

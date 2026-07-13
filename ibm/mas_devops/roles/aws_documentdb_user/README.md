@@ -1,5 +1,4 @@
-aws_documentdb_user
-===============================================================================
+# aws_documentdb_user
 
 Create dedicated database users in AWS DocumentDB for Maximo Application Suite instances. This role automates user creation with appropriate permissions and generates Kubernetes secrets containing the credentials for MAS MongoDB configuration.
 
@@ -11,8 +10,7 @@ AWS DocumentDB is a MongoDB-compatible database service that can serve as the sy
 - Master user credentials for DocumentDB must be available
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 
 ### mas_instance_id
 MAS instance identifier for which the DocumentDB user will be created.
@@ -248,3 +246,17 @@ Local directory where the generated Kubernetes secret YAML will be saved.
   roles:
     - ibm.mas_devops.aws_documentdb_user
 ```
+
+## Example Playbook
+
+```yaml
+- hosts: localhost
+  vars:
+    # Add required variables here
+  roles:
+    - ibm.mas_devops.aws_documentdb_user
+```
+
+## License
+
+EPL-2.0

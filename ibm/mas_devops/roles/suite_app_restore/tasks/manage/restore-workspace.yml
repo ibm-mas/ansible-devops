@@ -1,0 +1,72 @@
+---
+# Restore Manage Workspace CR
+# =============================================================================
+# This task restores Manage WorkspaceCR:
+# 1. Continue with ManageWorkspace CR restore
+# 2. Wait for Manage deployment to be activated
+
+# 1. Restore ManageWorkspace CR
+# -----------------------------------------------------------------------------
+- name: "Display restore phase 4 information"
+  debug:
+    msg:
+      - "=========================================="
+      - "Phase 4: Restore ManageWorkspace CR"
+      - "=========================================="
+
+- name: "Restore ManageWorkspace CR"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ manage_backup_path }}"
+    resource_kinds:
+      - ManageWorkspace
+    override_values:
+      ManageWorkspace:
+        - spec.settings.deployment.persistentVolumes: "{{ _manage_persistent_volumes }}"
+  register: manage_restore_phase4_result
+
+- name: "Display ManageWorkspace CR restore results"
+  debug:
+    msg: >-
+      Manage Worspace resource: {{ manage_restore_phase4_result.created_count }} created,
+      {{ manage_restore_phase4_result.updated_count }} updated,
+      {{ manage_restore_phase4_result.skipped_count }} skipped,
+      {{ manage_restore_phase4_result.failed_count }} failed
+
+- name: "Fail if ManageWorkspace CR restore had errors"
+  fail:
+    msg: "ManageWorkspace CR restore failed. See logs for details."
+  when: manage_restore_phase4_result.failed_count | int > 0
+
+# 2. Wait for Manage deployment to be activated
+# -----------------------------------------------------------------------------
+- name: "Display restore phase 5 information"
+  debug:
+    msg:
+      - "=========================================="
+      - "Phase 5: Wait for Manage Deployment"
+      - "=========================================="
+
+- name: "Wait for ManageWorkspace to be ready"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: ManageWorkspace
+    name: "{{ manage_workspace_cr_name }}"
+    namespace: "{{ mas_app_namespace }}"
+  register: workspace_ready_status
+  retries: "{{ mas_app_restore_wait_retries | int }}"
+  delay: "{{ mas_app_restore_wait_delay | int }}"
+  until:
+    - workspace_ready_status.resources is defined
+    - workspace_ready_status.resources | length > 0
+    - workspace_ready_status.resources[0].status is defined
+    - workspace_ready_status.resources[0].status.conditions is defined
+    - workspace_ready_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | list | length > 0
+    - (workspace_ready_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | first).status == 'True'
+
+- name: "ManageWorkspace is ready"
+  debug:
+    msg:
+      - "=========================================="
+      - "ManageWorkspace {{ manage_workspace_cr_name }} is ready"
+      - "Manage deployment has been activated"
+      - "=========================================="

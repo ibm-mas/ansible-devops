@@ -1,0 +1,134 @@
+---
+# MongoDB Atlas Provider - Create/Verify Atlas Project
+# Creates an Atlas project if it doesn't exist, or retrieves existing project ID
+
+# 1. Check if project ID is already provided
+# -----------------------------------------------------------------------------
+- name: "Check if project ID is provided"
+  set_fact:
+    atlas_project_id_provided: "{{ atlas_project_id is defined and atlas_project_id != '' }}"
+
+# 2. If project ID provided, verify it exists
+# -----------------------------------------------------------------------------
+- name: "Verify provided project exists"
+  when: atlas_project_id_provided | bool
+  block:
+    - name: "Get project details"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: [200, 404]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_project_check
+
+    - name: "Fail if provided project ID doesn't exist"
+      when: atlas_project_check.status == 404
+      fail:
+        msg: "Provided Atlas project ID '{{ atlas_project_id }}' does not exist"
+
+    - name: "Set project details from API response"
+      set_fact:
+        atlas_project_name: "{{ atlas_project_check.json.name }}"
+        atlas_org_id: "{{ atlas_project_check.json.orgId }}"
+
+    - name: "Project verified"
+      debug:
+        msg:
+          - "Using existing Atlas project"
+          - "Project ID: {{ atlas_project_id }}"
+          - "Project Name: {{ atlas_project_name }}"
+          - "Organization ID: {{ atlas_org_id }}"
+
+# 3. If project ID not provided, check if project exists by name
+# -----------------------------------------------------------------------------
+- name: "Find or create project by name"
+  when: not (atlas_project_id_provided | bool)
+  block:
+    - name: "Validate project name is provided"
+      assert:
+        that:
+          - atlas_project_name is defined
+          - atlas_project_name != ""
+        fail_msg: "Either atlas_project_id or atlas_project_name must be provided"
+
+    - name: "Validate organization ID is provided"
+      assert:
+        that:
+          - atlas_org_id is defined
+          - atlas_org_id != ""
+        fail_msg: "atlas_org_id is required when creating a new project"
+
+    - name: "Get all projects in organization"
+      uri:
+        url: "{{ atlas_api_base_url }}/orgs/{{ atlas_org_id }}/groups"
+        method: GET
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: no
+        status_code: 200
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_org_projects
+
+    - name: "Find project by name"
+      set_fact:
+        atlas_existing_project: "{{ atlas_org_projects.json.results | selectattr('name', 'equalto', atlas_project_name) | list | first | default(none) }}"
+
+    - name: "Use existing project if found"
+      when: atlas_existing_project is not none
+      block:
+        - name: "Set project ID from existing project"
+          set_fact:
+            atlas_project_id: "{{ atlas_existing_project.id }}"
+
+        - name: "Existing project found"
+          debug:
+            msg:
+              - "Found existing Atlas project"
+              - "Project ID: {{ atlas_project_id }}"
+              - "Project Name: {{ atlas_existing_project.name }}"
+
+    - name: "Create new project if not found"
+      when: atlas_existing_project is none
+      block:
+        - name: "Create Atlas project"
+          uri:
+            url: "{{ atlas_api_base_url }}/groups"
+            method: POST
+            user: "{{ atlas_public_key }}"
+            password: "{{ atlas_private_key }}"
+            force_basic_auth: no
+            body:
+              name: "{{ atlas_project_name }}"
+              orgId: "{{ atlas_org_id }}"
+            body_format: json
+            status_code: [201]
+            timeout: "{{ atlas_api_timeout }}"
+          register: atlas_project_create
+
+        - name: "Set project ID from created project"
+          set_fact:
+            atlas_project_id: "{{ atlas_project_create.json.id }}"
+
+        - name: "Project created"
+          debug:
+            msg:
+              - "Created new Atlas project"
+              - "Project ID: {{ atlas_project_id }}"
+              - "Project Name: {{ atlas_project_name }}"
+              - "Organization ID: {{ atlas_org_id }}"
+
+# 4. Final project summary
+# -----------------------------------------------------------------------------
+- name: "Atlas Project Configuration"
+  debug:
+    msg:
+      - "=========================================="
+      - "MongoDB Atlas Project"
+      - "=========================================="
+      - "Project ID: {{ atlas_project_id }}"
+      - "Project Name: {{ atlas_project_name | default('(from provided ID)') }}"
+      - "Organization ID: {{ atlas_org_id | default('N/A') }}"
+      - "=========================================="

@@ -1,0 +1,37 @@
+---
+# Check mongodb backup variables
+# -----------------------------------------------------------------------------
+
+- name: "Fail if require variables for Mongodb backup are not provided"
+  ibm.mas_devops.verify_backup_restore_vars:
+    mas_instance_id: "{{ mas_instance_id }}"
+    mas_backup_dir: "{{ mas_backup_dir }}"
+    mongodb_instance_name: "{{ mongodb_instance_name }}"
+    action: "backup"
+    component: "mongodb"
+
+- name: "Check if MONGODB_BACKUP_VERSION is provided, if not set to default 'YYYYMMDD-HHMMSS' format"
+  set_fact:
+    mongodb_backup_version: "{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
+  when: mongodb_backup_version is not defined or mongodb_backup_version == "" or mongodb_backup_version == "None"
+
+- name: "Set fact: Create Mongodb backup base directory path"
+  set_fact:
+    mongodb_backup_path: "{{ mas_backup_dir }}/backup-{{ mongodb_backup_version }}-mongoce"
+
+- name: "Create {{ mongodb_backup_path }} directory for Mongodb backup"
+  file:
+    path: "{{ mongodb_backup_path }}"
+    state: directory
+    mode: "0755"
+
+# Backup Mongodb database Data using mondodump
+# -------------------------------------------------------------------------
+- name: "Debug information - Mongodb database Data backup"
+  debug:
+    msg:
+      - "MongoCE namespace .......................... {{ mongodb_namespace }}"
+      - "MongoCE instance name ...................... {{ mongodb_instance_name }}"
+
+- name: "Start Database backup process."
+  include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/backup-database.yml"

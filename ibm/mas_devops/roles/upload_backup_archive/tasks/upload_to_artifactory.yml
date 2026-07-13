@@ -1,0 +1,51 @@
+---
+# Upload backup archives to Artifactory
+- name: "Validate Artifactory repository is defined"
+  ansible.builtin.fail:
+    msg: "artifactory_repository is required when uploading to Artifactory"
+  when: artifactory_repository is not defined or artifactory_repository == ''
+
+- name: "Display Artifactory upload information"
+  ansible.builtin.debug:
+    msg:
+      - "Uploading to Artifactory: {{ artifactory_url }}"
+      - "Repository: {{ artifactory_repository }}"
+      - "Number of archives: {{ backup_archives | length }}"
+
+- name: "Upload archives to Artifactory using curl"
+  ansible.builtin.command:
+    cmd: >
+      curl -X PUT
+      -u {{ artifactory_username }}:{{ artifactory_token }}
+      -T {{ item }}
+      {{ artifactory_url }}/{{ artifactory_repository }}/mas-{{ mas_instance_id }}-backups/{{ item | basename }}
+      --max-time {{ upload_timeout }}
+      --connect-timeout 60
+      --fail
+      --silent
+      --show-error
+  register: artifactory_upload_results
+  changed_when: artifactory_upload_results.rc == 0
+  failed_when: false
+  no_log: true
+  loop: "{{ backup_archives }}"
+
+- name: "Process upload results"
+  ansible.builtin.set_fact:
+    artifactory_upload_summary: "{{ artifactory_upload_summary | default([]) + [{'archive': item.item | basename, 'success': item.rc == 0, 'http_code': item.stdout | regex_search('[0-9]{3}$') if item.rc == 0 else 'N/A'}] }}"
+  loop: "{{ artifactory_upload_results.results }}"
+
+- name: "Display Artifactory upload results"
+  ansible.builtin.debug:
+    msg:
+      - "Upload summary:"
+      - "{% for result in artifactory_upload_summary %}  - {{ result.archive }}: {{ 'SUCCESS' if result.success else 'FAILED' }} (HTTP {{ result.http_code }}){% endfor %}"
+
+- name: "Check for failed uploads"
+  ansible.builtin.set_fact:
+    failed_artifactory_uploads: "{{ artifactory_upload_summary | selectattr('success', 'equalto', false) | map(attribute='archive') | list }}"
+
+- name: "Fail if any Artifactory upload failed"
+  ansible.builtin.fail:
+    msg: "Failed to upload {{ failed_artifactory_uploads | length }} archive(s) to Artifactory: {{ failed_artifactory_uploads | join(', ') }}"
+  when: failed_artifactory_uploads | length > 0

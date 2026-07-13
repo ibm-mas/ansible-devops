@@ -1,21 +1,19 @@
 ---
-- name: "Check if all RSL config values are present"
+# Process RSL CA Certificate
+# -----------------------------------------------------------------------------
+# This task handles RSL CA certificates that may come in as single-line strings
+# (with spaces instead of newlines) from CLI arguments.
+
+- name: "Process RSL CA certificate if it contains spaces (single-line format)"
   ansible.builtin.set_fact:
-    rsl_config_valid: "{{ rsl_url | length > 0 and rsl_org_id | length > 0 and rsl_token | length > 0 }}"
+    rsl_ca_crt: "{{ rsl_ca_crt | regex_replace('BEGIN CERTIFICATE', 'BEGIN_CERTIFICATE') | regex_replace('END CERTIFICATE', 'END_CERTIFICATE') | regex_replace('\\s+', '\n') | replace('BEGIN_CERTIFICATE', 'BEGIN CERTIFICATE') | replace('END_CERTIFICATE', 'END CERTIFICATE') }}"
+  when:
+    - rsl_ca_crt is defined
+    - rsl_ca_crt | length > 0
+    - '" " in rsl_ca_crt'
 
-- name: "Unset RSL Secret name"
-  ansible.builtin.set_fact:
-    aiservice_rsl_secret: ""
-  when: not rsl_config_valid
-
-- name: "Warning about RSL config being incomplete"
-  ansible.builtin.debug:
-    msg: "WARNING: RSL config is incomplete. Skipping RSL secret creation."
-  when: not rsl_config_valid
-
-- name: Create RSL secret
-  kubernetes.core.k8s:
-    state: present
-    namespace: "{{ aiservice_namespace }}"
-    template: "templates/rsl/rsl-secret.yml.j2"
-  when: rsl_config_valid
+- name: "Debug: RSL CA certificate status"
+  debug:
+    msg:
+      - "RSL CA certificate provided: {{ (rsl_ca_crt is defined and rsl_ca_crt | length > 0) | ternary('Yes', 'No') }}"
+      - "RSL CA certificate processed: {{ (rsl_ca_crt is defined and rsl_ca_crt | length > 0 and ' ' in rsl_ca_crt) | ternary('Yes (was single-line)', 'No (already multi-line or not provided)') }}"

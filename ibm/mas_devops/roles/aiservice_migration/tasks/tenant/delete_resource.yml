@@ -1,0 +1,20 @@
+- name: "Remove finalizers from {{ resource_description }}"
+  ansible.builtin.set_fact:
+    resource_without_finalizers: "{{ resource | combine({'metadata': resource.metadata | combine({'finalizers': []})}, recursive=True) }}"
+
+- name: "Update {{ resource_description }} to remove finalizers"
+  kubernetes.core.k8s:
+    state: present
+    api_version: "{{ resource.apiVersion }}"
+    namespace: "{{ namespace }}"
+    name: "{{ resource.metadata.name }}"
+    kind: "{{ resource.kind }}"
+    definition: "{{ resource_without_finalizers }}"
+
+- name: "Delete {{ resource_description }} from namespace {{ namespace }}"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: "{{ resource.apiVersion }}"
+    namespace: "{{ namespace }}"
+    name: "{{ resource.metadata.name }}"
+    kind: "{{ resource.kind }}"

@@ -1,5 +1,4 @@
-suite_app_rollback
-============
+# suite_app_rollback
 
 Roll back Maximo Application Suite applications to earlier versions when issues are encountered after upgrades. This role provides a safe rollback mechanism with built-in compatibility validation to ensure the target version is supported for rollback from the current version and compatible with the running MAS core platform.
 
@@ -8,8 +7,7 @@ Roll back Maximo Application Suite applications to earlier versions when issues 
 The role performs comprehensive validation before rollback and monitors the reconciliation process to ensure successful completion at the target version.
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 
 ### mas_instance_id
 MAS instance identifier where the application rollback will be performed.

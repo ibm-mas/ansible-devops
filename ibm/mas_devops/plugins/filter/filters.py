@@ -1,5 +1,7 @@
 import yaml
 import re
+import copy
+import datetime
 
 
 def private_vlan(vlans):
@@ -438,24 +440,72 @@ def is_channel_upgrade_path_valid(current: str, target: str, valid_paths: dict) 
     :valid_paths: A dictionary of supported upgrade paths. See ibm/mas_devops/common_vars/compatibility_matrix.yml.
     :return: True if the upgrade path is supported, False otherwise.
   """
-  valid = True
+  valid = False
+  if not target:
+    print('Error: no target upgrade channel provided')
   if current not in valid_paths.keys():
       print(f'Current channel {current} is not supported for upgrade')
-      valid = False
   elif target:
       allowed_targets = valid_paths[current]
       if isinstance(allowed_targets, str):
           if target != allowed_targets:
               print(f'Upgrading from channel {current} to {target} is not supported')
-              valid = False
+          else:
+              valid = True
       elif isinstance(allowed_targets, list):
           if target not in allowed_targets:
               print(f'Upgrading from channel {current} to {target} is not supported')
-              valid = False
+          else:
+              valid = True
       else:
           print(f'Error: channel upgrade compatibility matrix is incorrectly defined')
-          valid = False
   return valid
+
+def remove_dict_keys(data: dict, keys: list[str], deep_copy: bool = True) -> dict:
+  """
+    Deletes keys from a dictionary. This has an advantage over Ansible's ansible.utils.remove_keys filter
+    in that nested keys are given explicitly in dot notation, for example 'a.b.c'.
+    :data: The input dictionary.
+    :keys: A list of key strings in dot notation, e.g. ['a.b', 'c.d.e'].
+    :deep_copy: Set to False to modify the input dictionary in-place, otherwise a copy will be modified.
+    :return: The dictionary with keys removed.
+  """
+  if deep_copy:
+    data = copy.deepcopy(data)
+  for key in keys:
+    parts = key.split('.')
+    ref = 'data'
+    for part in parts:
+      ref += f'["{part}"]'
+    try:
+      exec(f'del {ref}')
+    except KeyError as ex:
+      print(f'Could not delete key from dictionary: {ex}')
+  return data
+
+def is_operator_upgraded_by_version(cr_reconciled_version: str, opcon_version: str, sub_installed_version: str) -> bool:
+  """
+    Checks if an operator was upgraded successfully by comparing versions. Typically we just compare the version reported as
+    reconciled in the operator's custom resource with the OperatorCondition, however, this poses a problem for certain images
+    that are not tagged with a build number but the build number is used in other places within its bundle. For example, an
+    upgraded operator might have the CR reconciled version as "9.2.0-pre.1450" (derived from its image tag) but the version
+    from the OperatorCondition resource is "9.2.0-pre.1450-5075" which includes the build number. In this case where they
+    don't match we do our best effort by also checking the version reported as installed in the Subscription.
+    :cr_reconciled_version: Version number from the "versions.reconciled" field in the CR.
+    :opcon_version: Version derived from the operator's OperatorCondition.
+    :sub_installed_version: Version derived from the Subscription's "status.installedCSV" field.
+    :return: True if the operator was successfully upgraded (at least by checking various versions)
+  """
+  upgraded = False
+  cr_reconciled_version = cr_reconciled_version.replace('+', '-')
+  opcon_version = opcon_version.replace('+', '-')
+  sub_installed_version = sub_installed_version.replace('+', '-')
+  prefix = f'{cr_reconciled_version}-'
+  if cr_reconciled_version == opcon_version:
+    upgraded = True
+  elif opcon_version.startswith(prefix) and sub_installed_version.startswith(prefix) and (opcon_version == sub_installed_version):
+      upgraded = True
+  return upgraded
 
 def get_default_upgrade_channel(current: str, valid_paths: dict) -> str:
   """
@@ -473,6 +523,66 @@ def get_default_upgrade_channel(current: str, valid_paths: dict) -> str:
   else:
       print(f'Error: channel upgrade compatibility matrix is incorrectly defined')
   return default
+
+
+def set_storage_classes_names(storage_list: list, storage_class_name_rwo: str, storage_class_name_rwx: str):
+  """
+  Iterate through the storage_list list and set the storage_class_name for each storage item based on the access mode.
+  Expects data to be
+  storage:
+  - name: meta
+    spec:
+      accessModes:
+      - ReadWriteMany
+      resources:
+        requests:
+          storage: 20Gi
+      storageClassName: nfs-client
+    type: create
+  - name: backup
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 20Gi
+      storageClassName: nfs-client
+    type: create
+  """
+
+  for storage_item in storage_list:
+    if 'spec' in storage_item and 'accessModes' in storage_item['spec'] and 'storageClassName' in storage_item['spec']: 
+      if storage_item['spec']['accessModes'][0] == 'ReadWriteMany':
+        storage_item['spec']['storageClassName'] = storage_class_name_rwx
+      else:
+        storage_item['spec']['storageClassName'] = storage_class_name_rwo
+  return storage_list
+
+def override_manage_persistent_volumes(volumes_list: list, storage_class_name_rwo: str, storage_class_name_rwx: str):
+  """
+  Iterate through the volumes_list list and set the storage_class_name for each storage item based on the access mode.
+  Expects data to be
+  storage:
+  - pvcName: manage-imagestitching
+    accessModes:
+      - ReadWriteMany
+    size: 20Gi
+    storageClassName: nfs-client
+  - pvcName: manage-2
+    accessModes:
+      - ReadWriteMany
+    size: 20Gi
+    storageClassName: nfs-client
+  """
+
+  for volume_item in volumes_list:
+    if 'accessModes' in volume_item and 'storageClassName' in volume_item:
+      if volume_item['accessModes'][0] == 'ReadWriteMany':
+        volume_item['storageClassName'] = storage_class_name_rwx
+      else:
+        volume_item['storageClassName'] = storage_class_name_rwo
+  return volumes_list
+
 
 class FilterModule(object):
   def filters(self):
@@ -497,5 +607,10 @@ class FilterModule(object):
       'get_db2_instance_name': get_db2_instance_name,
       'get_ecr_repositories': get_ecr_repositories,
       'is_channel_upgrade_path_valid': is_channel_upgrade_path_valid,
-      'get_default_upgrade_channel': get_default_upgrade_channel
+      'remove_dict_keys': remove_dict_keys,
+      'is_operator_upgraded_by_version': is_operator_upgraded_by_version,
+      'get_default_upgrade_channel': get_default_upgrade_channel,
+      'get_default_upgrade_channel': get_default_upgrade_channel,
+      'set_storage_classes_names': set_storage_classes_names,
+      'override_manage_persistent_volumes': override_manage_persistent_volumes
     }

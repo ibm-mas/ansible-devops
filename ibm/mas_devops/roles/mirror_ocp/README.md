@@ -1,5 +1,4 @@
-mirror_ocp
-===============================================================================
+# mirror_ocp
 This role supports mirroring the Red Hat Platform and **selected content from the Red Hat operator catalogs**.  Only content in the Red Hat catalogs directly used by IBM Maximo Application Suite is mirrored.
 
 Four actions are supported:
@@ -8,7 +7,9 @@ Four actions are supported:
 - `to-filesystem` Mirror content to the local filesystem
 - `from-filesystem` Mirror content from the local filesystem to your target registry
 
-Three **Catalogs** are mirrored, containing the following content:
+## Catalogs
+
+Three catalogs are mirrored, containing the following content:
 
 ### certified-operator-index
 1. gpu-operator-certified (required by ibm.mas_devops.nvidia_gpu role)
@@ -27,17 +28,34 @@ Three **Catalogs** are mirrored, containing the following content:
 4. aws-efs-csi-driver-operator (required by ibm.mas_devops.ocp_efs role)
 5. local-storage-operator (required by ibm.mas_devops.ocs role)
 6. odf-operator (required by ibm.mas_devops.ocs role)
-7. openshift-cert-manager-operator (required by ibm.mas_devops.cert_manager role)
-8. lvms-operator (not directly used, but often used in SNO environments)
+7. rook-ceph-operator (required by odf)
+8. recipe (required by odf)
+9. odf-prometheus-operator (required by odf)
+10. odf-external-snapshotter-operator (required by odf)
+11. odf-csi-addons-operator (required by odf)
+12. ocs-operator (required by odf)
+13. ocs-client-operator (required by odf)
+14. mcg-operator (required by odf)
+15. cephcsi-operator (required by odf)
+16. odf-dependencies (required by ibm.mas_devops.ocs role for OCP 4.18+)
+17. openshift-cert-manager-operator (required by ibm.mas_devops.cert_manager role)
+18. serverless-operator (required by ibm.mas_devops.aiservice_odh role, OCP 4.18+)
+19. servicemeshoperator (required by ibm.mas_devops.aiservice_odh role, OCP 4.18+)
+20. authorino-operator (required by ibm.mas_devops.aiservice_odh role, OCP 4.18+)
+21. lvms-operator (not used by any of our roles, but used in SNO installations)
 
-Requirements
--------------------------------------------------------------------------------
+### Additional Images
+The following specific images are also mirrored:
+1. registry.redhat.io/openshift-service-mesh/istio-operator-bundle (specific digest)
+2. quay.io/community-operator-pipeline-prod/opendatahub-operator:2.32.0
+3. quay.io/opendatahub/opendatahub-operator:v2.32.0
+
+## Requirements
 - `oc` tool must be installed
 - `oc-mirror` plugin must be installed
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables - General
 ### mirror_mode
 Mirroring operation mode for Red Hat content.
 
@@ -68,8 +86,7 @@ Mirroring operation mode for Red Hat content.
 **Note**: For air-gapped environments, use `to-filesystem` on a connected system, transfer files, then use `from-filesystem` on the disconnected system.
 
 
-Role Variables - Mirror Actions
--------------------------------------------------------------------------------
+## Role Variables - Mirror Actions
 ### mirror_working_dir
 Working directory for mirroring operations.
 
@@ -168,10 +185,9 @@ Path to Red Hat pull secret file.
 **Note**: Download your pull secret from the Red Hat OpenShift Console. Keep the file secure as it contains authentication credentials. The pull secret must be valid and associated with an active Red Hat account.
 
 
-Role Variables - OpenShift Version
--------------------------------------------------------------------------------
+## Role Variables - OpenShift Version
 ### ocp_release
-OpenShift release version to mirror.
+The Red Hat release you are mirroring content for, e.g. `4.21`.
 
 - **Required**
 - Environment Variable: `OCP_RELEASE`
@@ -182,9 +198,9 @@ OpenShift release version to mirror.
 **When to use**:
 - Always required for Red Hat content mirroring
 - Must match the OpenShift version in your target environment
-- Use format: `4.19`, `4.18`, `4.17`
+- Use format: `4.21`, `4.20`, `4.19`, `4.18`, `4.17`
 
-**Valid values**: OpenShift major.minor version (e.g., `4.19`, `4.18`, `4.17`, `4.16`)
+**Valid values**: OpenShift major.minor version (e.g., `4.21`, `4.20`, `4.19`, `4.18`, `4.17`, `4.16`)
 
 **Impact**: Determines which OpenShift version's images and operators are mirrored. Must match your target cluster version.
 
@@ -193,10 +209,10 @@ OpenShift release version to mirror.
 - `ocp_max_version`: Maximum patch version to mirror
 - `mirror_redhat_platform`: Whether to mirror platform images for this version
 
-**Note**: Use the major.minor version format (e.g., `4.19`), not full version (e.g., `4.19.10`). Use `ocp_min_version` and `ocp_max_version` to control patch version range.
+**Note**: Use the major.minor version format (e.g., `4.21`), not full version (e.g., `4.21.21`). Use `ocp_min_version` and `ocp_max_version` to control patch version range.
 
 ### ocp_min_version
-Minimum OpenShift patch version to mirror.
+The minimum version of the Red Hat release to mirror platform content for, e.g. `4.21.21`.
 
 - **Optional**
 - Environment Variable: `OCP_MIN_VERSION`
@@ -221,7 +237,7 @@ Minimum OpenShift patch version to mirror.
 **Note**: Only affects platform image mirroring, not operators. Use to limit mirror size when you know the specific OpenShift versions you need.
 
 ### ocp_max_version
-Maximum OpenShift patch version to mirror.
+The maximimum version of the Red Hat release to mirror platform content for, e.g. `4.21.21`.
 
 - **Optional**
 - Environment Variable: `OCP_MAX_VERSION`
@@ -246,8 +262,7 @@ Maximum OpenShift patch version to mirror.
 **Note**: Only affects platform image mirroring, not operators. Use to limit mirror size when you know the specific OpenShift versions you need.
 
 
-Role Variables - Target Registry
--------------------------------------------------------------------------------
+## Role Variables - Target Registry
 ### registry_public_host
 Target registry hostname for mirrored images.
 
@@ -416,8 +431,7 @@ Password for target registry authentication.
 **Note**: Keep passwords secure. Never commit to version control. Use environment variables or secure vaults.
 
 
-Example Playbook
--------------------------------------------------------------------------------
+## Example Playbook
 
 ```yaml
 - hosts: localhost
@@ -433,7 +447,7 @@ Example Playbook
     mirror_redhat_platform: false
     mirror_redhat_operators: true
 
-    ocp_release: 4.19
+    ocp_release: 4.21
     redhat_pullsecret: ~/pull-secret.json
 
   roles:
@@ -441,7 +455,6 @@ Example Playbook
 ```
 
 
-License
--------------------------------------------------------------------------------
+## License
 
 EPL-2.0

@@ -1,5 +1,4 @@
-configure_manage_eventstreams
-===
+# configure_manage_eventstreams
 
 This role configures manage to use IBM Cloud Eventstreams.
 
@@ -10,8 +9,7 @@ This role inserts dummy kafka password during configuration (not the actual one)
 
 
 
-Role Variables
---------------
+## Role Variables
 
 ### mas_instance_id
 
@@ -86,8 +84,7 @@ Fully Qualified Name for MAS Application
 - Environment Variable: `MAS_APP_WS_FQN`
 - Default Value: `manageworkspaces.apps.mas.ibm.com`
 
-Example Playbook
-----------------
+## Example Playbook
 Configures IBM Cloud Evenstreams service with Manage
 
 ```yaml
@@ -103,3 +100,7 @@ Configures IBM Cloud Evenstreams service with Manage
   roles:
     - ibm.mas_devops.configure_manage_cfg
 ```
+
+## License
+
+EPL-2.0

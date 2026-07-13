@@ -1,0 +1,36 @@
+---
+# Upload backup archives to S3
+- name: "Display S3 upload information"
+  ansible.builtin.debug:
+    msg:
+      - "Uploading to S3 bucket: {{ s3_bucket_name }}"
+      - "Region: {{ s3_region }}"
+      - "Number of archives: {{ backup_archives | length }}"
+
+- name: "Upload archives to S3"
+  ibm.mas_devops.upload_to_s3:
+    aws_access_key_id: "{{ aws_access_key_id }}"
+    aws_secret_access_key: "{{ aws_secret_access_key }}"
+    bucket_name: "{{ s3_bucket_name }}"
+    object_name: "mas-{{ mas_instance_id }}-backups/{{ item | basename }}"
+    file_path: "{{ item }}"
+    region_name: "{{ s3_region }}"
+    endpoint_url: "{{ s3_endpoint_url | default(omit) }}"
+  register: s3_upload_results
+  poll: 10
+  loop: "{{ backup_archives }}"
+
+- name: "Display S3 upload results"
+  ansible.builtin.debug:
+    msg: "Successfully uploaded {{ item.item | basename }} to S3 bucket {{ s3_bucket_name }}/mas-{{ mas_instance_id }}-backups"
+  when: item.success | bool
+  loop: "{{ s3_upload_results.results }}"
+
+- name: "Check for failed uploads"
+  ansible.builtin.set_fact:
+    failed_uploads: "{{ s3_upload_results.results | selectattr('success', 'equalto', false) | map(attribute='item') | list }}"
+
+- name: "Fail if any S3 upload failed"
+  ansible.builtin.fail:
+    msg: "Failed to upload {{ failed_uploads | length }} archive(s) to S3: {{ failed_uploads | map('basename') | join(', ') }}"
+  when: failed_uploads | length > 0
