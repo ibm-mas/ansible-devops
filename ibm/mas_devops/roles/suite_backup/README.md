@@ -92,7 +92,7 @@ The MAS Core backup operation captures all critical resources needed to restore 
 - **MAS Internal Resources** (internal.mas.ibm.com):
   - CoreIDP
 - **MAS Configuration Resources** (config.mas.ibm.com):
-  - AppCfg, IDPCfg, JdbcCfg, KafkaCfg, MongoCfg
+  - AppCfg, IDPCfg, JdbcCfg, KafkaCfg, McpiCfg, MongoCfg
   - ObjectStorageCfg, PushNotificationCfg, ScimCfg
   - SmtpCfg, WatsonStudioCfg
   - BasCfg (if `include_dro` is true)
@@ -145,6 +145,7 @@ The MAS Core backup operation performs the following steps:
         ├── idpcfgs/
         ├── jdbccfgs/
         ├── kafkacfgs/
+        ├── mcpicfgs/
         ├── mongocfgs/
         ├── objectstoragecfgs/
         ├── pushnotificationcfgs/
