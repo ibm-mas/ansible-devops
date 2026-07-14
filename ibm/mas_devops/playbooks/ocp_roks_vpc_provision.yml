@@ -2,10 +2,10 @@
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    cluster_type: roks
-    ocp_version: "{{ lookup('env', 'OCP_VERSION') | default('4.21_openshift', True) }}"
-    prometheus_storage_class: ibmc-block-gold
-    prometheus_alertmgr_storage_class: ibmc-file-gold-gid
+    cluster_type: roks-vpc
+    ocp_version: "{{ lookup('env', 'OCP_VERSION') | default('4.20_openshift', True) }}"
+    prometheus_storage_class: ibmc-vpc-block-10iops-tier
+    prometheus_alertmgr_storage_class: ibmc-vpc-file-1000-iops
 
     # Supported providers: longhorn
     ocp_storage_provider: "{{ lookup('env', 'OCP_STORAGE_PROVIDER') }}"
@@ -39,21 +39,17 @@
     # 2. Login to the cluster
     - role: ibm.mas_devops.ocp_login
 
-    # 3. Upgrade the cluster's image registry to 400Gb
-    - role: ibm.mas_devops.ocp_roks_upgrade_registry_storage
-      when: lookup('env', 'UPGRADE_IMAGE_REGISTRY_STORAGE') == "true"
-
-    # 4. Verify the cluster is ready to use
+    # 3. Verify the cluster is ready to use
     - role: ibm.mas_devops.ocp_verify
 
-    # 5. Configure optional storage provider
+    # 4. Configure optional storage provider
     - role: ibm.mas_devops.longhorn
       when: ocp_storage_provider == "longhorn"
 
-    # 6. Configure optional turbonomic integration
+    # 5. Configure optional turbonomic integration
     - role: ibm.mas_devops.turbonomic
       when: turbonomic_target_name != ""
 
-    # 7. Install optional service mesh
+    # 6. Install optional service mesh
     - role: ibm.mas_devops.servicemesh
       when: install_service_mesh
