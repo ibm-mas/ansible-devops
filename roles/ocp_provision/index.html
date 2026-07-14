@@ -752,6 +752,10 @@
     
       <cds-select-item value="#role-variables-roks">Role Variables - ROKS</cds-select-item>
     
+      <cds-select-item value="#role-variables-roks-vpc-setup">Role Variables - ROKS VPC Setup</cds-select-item>
+    
+      <cds-select-item value="#role-variables-roks-vpc">Role Variables - ROKS VPC</cds-select-item>
+    
       <cds-select-item value="#role-variables-rosa">Role Variables - ROSA</cds-select-item>
     
       <cds-select-item value="#role-variables-fyre">Role Variables - FYRE</cds-select-item>
@@ -790,9 +794,11 @@
 - Always required for cluster provisioning
 - Each type requires different provider-specific variables
 - Determines available features (e.g., GPU support for ROKS)</p>
-<p><strong>Valid values</strong>: <code>fyre</code>, <code>roks</code>, <code>rosa</code>, <code>ipi</code>
+<p><strong>Valid values</strong>: <code>fyre</code>, <code>roks</code>, <code>roks-vpc</code>, <code>roks-vpc-setup</code>, <code>rosa</code>, <code>ipi</code>
 - <code>fyre</code>: IBM DevIT Fyre clusters (internal development)
-- <code>roks</code>: IBM Cloud Red Hat OpenShift Kubernetes Service
+- <code>roks</code>: IBM Cloud ROKS (classic infrastructure)
+- <code>roks-vpc</code>: IBM Cloud ROKS (VPC infrastructure — modern, recommended). Requires an existing VPC.
+- <code>roks-vpc-setup</code>: Creates a VPC, subnet, and public gateway. Run this first, then use the output IDs with <code>roks-vpc</code>.
 - <code>rosa</code>: AWS Red Hat OpenShift Service on AWS
 - <code>ipi</code>: Installer-Provisioned Infrastructure (bare metal/on-premises)</p>
 <p><strong>Impact</strong>: Determines provisioning workflow and which provider-specific variables are required. Each type has different capabilities and configuration options.</p>
@@ -873,7 +879,7 @@
 - Set to <code>true</code> for MAS Visual Inspection deployments
 - Set to <code>true</code> for other GPU-intensive workloads
 - Leave as <code>false</code> (default) for standard deployments
-- Currently only supported for ROKS clusters</p>
+- Supported on <code>roks</code> (classic) and <code>roks-vpc</code> (VPC) cluster types</p>
 <p><strong>Valid values</strong>: <code>true</code>, <code>false</code></p>
 <p><strong>Impact</strong>:
 - <code>true</code>: Provisions GPU worker pool with specified number of GPU nodes
@@ -881,8 +887,9 @@
 <p><strong>Related variables</strong>:
 - <code>gpu_workerpool_name</code>: Name of GPU worker pool
 - <code>gpu_workers</code>: Number of GPU nodes to provision
-- <code>cluster_type</code>: Must be <code>roks</code> for GPU support</p>
-<p><strong>Note</strong>: GPU support is currently only available for ROKS clusters. GPU nodes use mg4c.32x384.2xp100-GPU flavor with P100 GPUs.</p>
+- <code>gpu_flavor</code>: GPU machine type — required for <code>roks-vpc</code>, hardcoded for classic <code>roks</code>
+- <code>cluster_type</code>: Supported on <code>roks</code> and <code>roks-vpc</code></p>
+<p><strong>Note</strong>: On classic ROKS (<code>roks</code>), the GPU flavor is hardcoded to <code>mg4c.32x384.2xp100</code>. On VPC ROKS (<code>roks-vpc</code>), set <code>gpu_flavor</code> explicitly (e.g., <code>gx2.8x64.v100</code>).</p>
 <h3 id="gpu_workerpool_name">gpu_workerpool_name<a class="headerlink" href="#gpu_workerpool_name" title="Permanent link">¤</a></h3>
 <p>Name for GPU worker pool.</p>
 <ul>
@@ -900,7 +907,7 @@
 <p><strong>Related variables</strong>:
 - <code>ocp_provision_gpu</code>: Must be <code>true</code> for this to apply
 - <code>gpu_workers</code>: Number of nodes in this pool
-- <code>cluster_type</code>: Must be <code>roks</code></p>
+- <code>cluster_type</code>: Supported on <code>roks</code> and <code>roks-vpc</code></p>
 <p><strong>Note</strong>: If a GPU worker pool already exists with this name, it will be modified rather than creating a duplicate. Use the existing name to avoid multiple GPU pools.</p>
 <h3 id="gpu_workers">gpu_workers<a class="headerlink" href="#gpu_workers" title="Permanent link">¤</a></h3>
 <p>Number of GPU worker nodes to provision in the cluster.</p>
@@ -909,7 +916,7 @@
 <li>Environment Variable: <code>GPU_WORKERS</code></li>
 <li>Default: <code>1</code></li>
 </ul>
-<p><strong>Purpose</strong>: Specifies how many GPU-enabled worker nodes to provision in the GPU worker pool. Each node uses mg4c.32x384.2xp100-GPU flavor with P100 GPUs.</p>
+<p><strong>Purpose</strong>: Specifies how many GPU-enabled worker nodes to provision in the GPU worker pool.</p>
 <p><strong>When to use</strong>:
 - Use default (1) for minimal GPU deployments or testing
 - Increase for production MAS Visual Inspection deployments
@@ -920,8 +927,29 @@
 <p><strong>Related variables</strong>:
 - <code>ocp_provision_gpu</code>: Must be <code>true</code> for this to apply
 - <code>gpu_workerpool_name</code>: Name of the pool containing these nodes
-- <code>cluster_type</code>: Must be <code>roks</code> for GPU support</p>
-<p><strong>Note</strong>: GPU nodes use expensive hardware (P100 GPUs). Only provision what you need. Currently only supported on ROKS clusters.</p>
+- <code>gpu_flavor</code>: Machine type for each GPU worker node
+- <code>cluster_type</code>: Supported on <code>roks</code> and <code>roks-vpc</code></p>
+<p><strong>Note</strong>: GPU nodes use expensive hardware. Only provision what you need.</p>
+<h3 id="gpu_flavor">gpu_flavor<a class="headerlink" href="#gpu_flavor" title="Permanent link">¤</a></h3>
+<p>GPU worker node machine type (VPC only).</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>GPU_FLAVOR</code></li>
+<li>Default: <code>gx2.8x64.v100</code></li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the GPU-enabled machine type for the GPU worker pool when using <code>cluster_type=roks-vpc</code>. On classic ROKS (<code>roks</code>), the GPU flavor is hardcoded to <code>mg4c.32x384.2xp100</code> and this variable is ignored.</p>
+<p><strong>When to use</strong>:
+- Set when <code>ocp_provision_gpu=true</code> and <code>cluster_type=roks-vpc</code>
+- Choose based on GPU requirement (V100 vs multi-GPU)
+- Verify flavor availability in your zone first: <code>ibmcloud oc flavors --zone &lt;zone&gt; --provider vpc-gen2 | grep gpu</code></p>
+<p><strong>Valid values</strong>: VPC GPU flavor identifier. Common options:
+- <code>gx2.8x64.v100</code> — 8 vCPU, 64 GB RAM, 1× V100 GPU (default)
+- <code>gx2.16x128.2v100</code> — 16 vCPU, 128 GB RAM, 2× V100 GPUs</p>
+<p><strong>Related variables</strong>:
+- <code>ocp_provision_gpu</code>: Must be <code>true</code> for this to apply
+- <code>gpu_workers</code>: Number of nodes using this flavor
+- <code>cluster_type</code>: Only applies to <code>roks-vpc</code></p>
+<p><strong>Note</strong>: GPU flavor availability varies by zone. Always verify availability before deploying. Classic ROKS ignores this variable.</p>
 <h2 id="role-variables-roks">Role Variables - ROKS<a class="headerlink" href="#role-variables-roks" title="Permanent link">¤</a></h2>
 <p>The following variables are only used when <code>cluster_type = roks</code>.</p>
 <h3 id="ibmcloud_apikey">ibmcloud_apikey<a class="headerlink" href="#ibmcloud_apikey" title="Permanent link">¤</a></h3>
@@ -976,6 +1004,23 @@
 <p><strong>Related variables</strong>:
 - <code>ibmcloud_apikey</code>: Must have permissions in this resource group</p>
 <p><strong>Note</strong>: The resource group must exist before provisioning. The API key must have appropriate IAM permissions in the target resource group.</p>
+<h3 id="ibmcloud_region">ibmcloud_region<a class="headerlink" href="#ibmcloud_region" title="Permanent link">¤</a></h3>
+<p>IBM Cloud region to target for VPC infrastructure commands.</p>
+<ul>
+<li><strong>Required</strong> (when <code>cluster_type=roks-vpc-setup</code>)</li>
+<li><strong>Optional</strong> (when <code>cluster_type=roks-vpc</code> — auto-derived from the VPC CRN or from <code>roks_zone</code>)</li>
+<li>Environment Variable: <code>IBMCLOUD_REGION</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the IBM Cloud region targeted when running VPC Infrastructure Service (<code>ibmcloud is</code>) commands.</p>
+<p>For <code>roks-vpc-setup</code>, this must be provided explicitly as it determines where all resources are created.</p>
+<p>For <code>roks-vpc</code>, the region is resolved automatically in this order:
+1. <code>roks_zone</code> stripped of its zone suffix (e.g. <code>eu-gb-1</code> → <code>eu-gb</code>) — applied before the VPC lookup
+2. The VPC's CRN (extracted during the VPC name lookup) — overrides the zone-derived value if different
+3. Explicitly set <code>ibmcloud_region</code> — always wins if provided</p>
+<p><strong>Valid values</strong>: Valid IBM Cloud region identifier (e.g., <code>us-south</code>, <code>eu-de</code>, <code>eu-gb</code>, <code>jp-tok</code>, <code>au-syd</code>)</p>
+<p><strong>Related variables</strong>:
+- <code>roks_zone</code>: For <code>roks-vpc</code>, region is derived from this when not set explicitly</p>
 <h3 id="roks_zone">roks_zone<a class="headerlink" href="#roks_zone" title="Permanent link">¤</a></h3>
 <p>IBM Cloud availability zone for cluster deployment.</p>
 <ul>
@@ -985,14 +1030,17 @@
 </ul>
 <p><strong>Purpose</strong>: Specifies the IBM Cloud availability zone where the ROKS cluster will be provisioned. Determines the physical location of cluster resources.</p>
 <p><strong>When to use</strong>:
-- Use default (<code>dal10</code>) for Dallas datacenter
+- Use default (<code>dal10</code>) for classic ROKS (<code>roks</code>) in Dallas
 - Change based on geographic requirements or latency needs
 - Consider data residency and compliance requirements</p>
-<p><strong>Valid values</strong>: Valid IBM Cloud zone identifier (e.g., <code>dal10</code>, <code>lon02</code>, <code>fra02</code>, <code>tok02</code>)</p>
+<p><strong>Valid values</strong>:
+- Classic format (<code>roks</code>): <code>dal10</code>, <code>lon02</code>, <code>fra02</code>, <code>tok02</code>
+- VPC format (<code>roks-vpc</code>): <code>us-south-1</code>, <code>eu-de-2</code>, <code>eu-gb-3</code>, <code>jp-tok-1</code> — always <code>&lt;region&gt;-&lt;n&gt;</code></p>
 <p><strong>Impact</strong>: Determines cluster location, which affects latency, data residency, and available services.</p>
 <p><strong>Related variables</strong>:
-- <code>roks_flavor</code>: Worker node flavors available vary by zone</p>
-<p><strong>Note</strong>: Not all zones support all worker node flavors. Verify flavor availability in your target zone. Zone selection affects network latency to your users and services.</p>
+- <code>roks_flavor</code>: Worker node flavors available vary by zone
+- <code>ibmcloud_region</code>: For <code>roks-vpc</code>, zone must be within this region (e.g. region <code>us-south</code> → zone <code>us-south-1</code>)</p>
+<p><strong>Note</strong>: Zone format differs between classic and VPC. Classic uses datacenter codes (<code>dal10</code>); VPC uses <code>&lt;region&gt;-&lt;n&gt;</code> format. Verify flavor availability in your target zone.</p>
 <h3 id="roks_flavor">roks_flavor<a class="headerlink" href="#roks_flavor" title="Permanent link">¤</a></h3>
 <p>Worker node machine type for ROKS cluster.</p>
 <ul>
@@ -1002,15 +1050,18 @@
 </ul>
 <p><strong>Purpose</strong>: Specifies the machine type (flavor) for worker nodes in the ROKS cluster. Determines CPU, memory, and local storage for each worker node.</p>
 <p><strong>When to use</strong>:
-- Use default (<code>b3c.16x64.300gb</code>) for standard MAS deployments (16 vCPU, 64GB RAM, 300GB storage)
+- Use default (<code>b3c.16x64.300gb</code>) for classic ROKS (<code>roks</code>) standard MAS deployments (16 vCPU, 64GB RAM, 300GB storage)
+- For VPC ROKS (<code>roks-vpc</code>), the default is a classic flavor and <strong>must be overridden</strong> — use a <code>bx2.*</code> series flavor
 - Increase for larger workloads or more applications
 - Decrease for development/testing environments</p>
-<p><strong>Valid values</strong>: Valid IBM Cloud worker node flavor (e.g., <code>b3c.4x16</code>, <code>b3c.16x64.300gb</code>, <code>b3c.32x128</code>)</p>
+<p><strong>Valid values</strong>:
+- Classic flavors (<code>roks</code>): <code>b3c.4x16</code>, <code>b3c.16x64.300gb</code>, <code>b3c.32x128</code>
+- VPC flavors (<code>roks-vpc</code>): <code>bx2.4x16</code>, <code>bx2.16x64</code>, <code>bx2.48x192</code> — check with <code>ibmcloud oc flavors --zone &lt;zone&gt; --provider vpc-gen2</code></p>
 <p><strong>Impact</strong>: Determines worker node capacity. Affects cluster performance and cost. Larger flavors cost more but provide more resources.</p>
 <p><strong>Related variables</strong>:
 - <code>roks_workers</code>: Number of nodes with this flavor
 - <code>roks_zone</code>: Not all flavors available in all zones</p>
-<p><strong>Note</strong>: The default flavor (16 vCPU, 64GB RAM) is suitable for most MAS deployments. Verify flavor availability in your target zone. Consider total cluster capacity (flavor × worker count).</p>
+<p><strong>Note</strong>: The default (<code>b3c.16x64.300gb</code>) is a <strong>classic</strong> flavor and will fail if used with <code>roks-vpc</code>. Always set an appropriate <code>bx2.*</code> VPC flavor when using <code>cluster_type=roks-vpc</code>.</p>
 <h3 id="roks_workers">roks_workers<a class="headerlink" href="#roks_workers" title="Permanent link">¤</a></h3>
 <p>Number of worker nodes in the ROKS cluster.</p>
 <ul>
@@ -1046,6 +1097,74 @@
 <p><strong>Related variables</strong>:
 - All other ROKS variables: Flags supplement standard configuration</p>
 <p><strong>Note</strong>: Use with caution. Incorrect flags can cause provisioning failures. Consult IBM Cloud Kubernetes Service documentation for available options.</p>
+<h2 id="role-variables-roks-vpc-setup">Role Variables - ROKS VPC Setup<a class="headerlink" href="#role-variables-roks-vpc-setup" title="Permanent link">¤</a></h2>
+<p>The following variables are only used when <code>cluster_type = roks-vpc-setup</code>.
+Run this provider first to create the VPC infrastructure, then pass the output IDs to <code>cluster_type=roks-vpc</code>.
+Also uses <code>ibmcloud_apikey</code>, <code>ibmcloud_endpoint</code>, <code>ibmcloud_resourcegroup</code>, and <code>ibmcloud_region</code>.</p>
+<p><strong>Note</strong>: Does not require <code>ocp_version</code> or <code>roks_zone</code>. Subnets are always created in all three zones of <code>ibmcloud_region</code> (<code>&lt;region&gt;-1</code>, <code>&lt;region&gt;-2</code>, <code>&lt;region&gt;-3</code>), matching the default IBM Cloud UI layout.</p>
+<p><strong>Resources created</strong> (all idempotent — existing resources with the same name are reused):
+- VPC: <code>&lt;roks_vpc_name&gt;</code>
+- Public gateways: <code>&lt;roks_vpc_name&gt;-pgw-&lt;region&gt;-1/2/3</code>
+- Subnets: <code>&lt;roks_vpc_name&gt;-subnet-&lt;region&gt;-1/2/3</code> (256 IPs each, gateway attached inline)
+- COS instance: <code>&lt;roks_vpc_name&gt;-cos</code> (Standard plan, <code>premium-global-deployment</code>)</p>
+<p><strong>Outputs</strong> printed at completion for use with <code>cluster_type=roks-vpc</code>:
+- <code>ROKS_VPC_ID</code>
+- <code>ROKS_SUBNET_ID</code> (one per zone)
+- <code>ROKS_COS_INSTANCE_CRN</code></p>
+<h3 id="roks_vpc_name">roks_vpc_name<a class="headerlink" href="#roks_vpc_name" title="Permanent link">¤</a></h3>
+<p>Name for the new VPC and its associated resources.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>ROKS_VPC_NAME</code></li>
+<li>Default: <code>cluster_name</code></li>
+</ul>
+<p><strong>Purpose</strong>: Base name applied to all created resources: VPC (<code>&lt;name&gt;</code>), subnets (<code>&lt;name&gt;-subnet-&lt;region&gt;-&lt;n&gt;</code>), public gateways (<code>&lt;name&gt;-pgw-&lt;region&gt;-&lt;n&gt;</code>), and COS instance (<code>&lt;name&gt;-cos</code>). All resources are created idempotently — existing resources with the same name are reused.</p>
+<p><strong>Valid values</strong>: String following IBM Cloud VPC naming conventions (lowercase, alphanumeric, hyphens)</p>
+<h2 id="role-variables-roks-vpc">Role Variables - ROKS VPC<a class="headerlink" href="#role-variables-roks-vpc" title="Permanent link">¤</a></h2>
+<p>The following variables are only used when <code>cluster_type = roks-vpc</code>.
+Also uses <code>ibmcloud_apikey</code>, <code>ibmcloud_endpoint</code>, <code>ibmcloud_resourcegroup</code>, <code>roks_zone</code>, <code>roks_flavor</code>, <code>roks_workers</code>, and <code>roks_flags</code>.</p>
+<p><strong>Note</strong>: <code>roks_zone</code> must use VPC zone format (e.g. <code>us-south-1</code>, <code>eu-de-2</code>).</p>
+<p><strong>Name-based lookup</strong>: Set <code>roks_vpc_name</code> to the name used during <code>roks-vpc-setup</code> and the provider will automatically resolve:
+- <code>roks_vpc_id</code> — by looking up the VPC by name
+- <code>roks_subnet_id</code> — by finding the subnet in <code>roks_vpc_id</code> that belongs to <code>roks_zone</code>
+- <code>roks_cos_instance_crn</code> — by looking up <code>&lt;roks_vpc_name&gt;-cos</code></p>
+<p>Provide any of these directly to override the corresponding lookup.</p>
+<h3 id="roks_vpc_name_1">roks_vpc_name<a class="headerlink" href="#roks_vpc_name_1" title="Permanent link">¤</a></h3>
+<p>Name of the VPC to deploy the cluster into.</p>
+<ul>
+<li><strong>Optional</strong> (if <code>roks_vpc_id</code> is provided directly)</li>
+<li>Environment Variable: <code>ROKS_VPC_NAME</code></li>
+<li>Default: <code>cluster_name</code></li>
+</ul>
+<p><strong>Purpose</strong>: Used to look up both the VPC ID and the paired COS instance (<code>&lt;name&gt;-cos</code>) automatically. Set this to the name used when running <code>cluster_type=roks-vpc-setup</code>.</p>
+<p><strong>Valid values</strong>: Name of an existing IBM Cloud VPC (e.g. <code>fvt-layer3</code>)</p>
+<h3 id="roks_vpc_id">roks_vpc_id<a class="headerlink" href="#roks_vpc_id" title="Permanent link">¤</a></h3>
+<p>IBM Cloud VPC ID — overrides the name-based lookup when provided.</p>
+<ul>
+<li><strong>Optional</strong> (if <code>roks_vpc_name</code> is provided)</li>
+<li>Environment Variable: <code>ROKS_VPC_ID</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Directly specifies the VPC ID, bypassing the name lookup. Use when the VPC was not created by <code>roks-vpc-setup</code> or when the name-based lookup is not suitable.</p>
+<p><strong>Valid values</strong>: IBM Cloud VPC ID string (e.g., <code>r006-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</code>)</p>
+<h3 id="roks_subnet_id">roks_subnet_id<a class="headerlink" href="#roks_subnet_id" title="Permanent link">¤</a></h3>
+<p>ID of the VPC subnet to place worker nodes into.</p>
+<ul>
+<li><strong>Optional</strong> (resolved automatically from <code>roks_vpc_id</code> + <code>roks_zone</code> if not provided)</li>
+<li>Environment Variable: <code>ROKS_SUBNET_ID</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Specifies the subnet within the VPC for the default worker pool. When not provided, the subnet is resolved automatically by finding the subnet in the VPC (<code>roks_vpc_id</code>) whose zone matches <code>roks_zone</code>. This works correctly when the VPC was created by <code>roks-vpc-setup</code>, which creates exactly one subnet per zone. Provide directly to override.</p>
+<p><strong>Valid values</strong>: IBM Cloud VPC subnet ID string (e.g., <code>0717-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</code>)</p>
+<h3 id="roks_cos_instance_crn">roks_cos_instance_crn<a class="headerlink" href="#roks_cos_instance_crn" title="Permanent link">¤</a></h3>
+<p>CRN of the IBM Cloud Object Storage instance — overrides the name-based lookup when provided.</p>
+<ul>
+<li><strong>Optional</strong> (resolved automatically from <code>&lt;roks_vpc_name&gt;-cos</code> if not provided)</li>
+<li>Environment Variable: <code>ROKS_COS_INSTANCE_CRN</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: VPC-based ROKS clusters store the internal OpenShift image registry in IBM Cloud Object Storage. When not provided, the CRN is looked up from the COS instance named <code>&lt;roks_vpc_name&gt;-cos</code> in the resource group. Provide directly to override.</p>
+<p><strong>Valid values</strong>: IBM Cloud COS instance CRN (e.g., <code>crn:v1:bluemix:public:cloud-object-storage:global:a/...::</code>)</p>
 <h2 id="role-variables-rosa">Role Variables - ROSA<a class="headerlink" href="#role-variables-rosa" title="Permanent link">¤</a></h2>
 <p>The following variables are only used when <code>cluster_type = rosa</code>.</p>
 <h3 id="rosa_token">rosa_token<a class="headerlink" href="#rosa_token" title="Permanent link">¤</a></h3>
@@ -1764,6 +1883,11 @@
                           gpu_workers
                         </a>
                       </li>
+                      <li class="md-toc__item">
+                        <a href="#gpu_flavor" class="md-toc__link" data-md-level="2">
+                          gpu_flavor
+                        </a>
+                      </li>
                   </ul>
               </li>
               <li class="md-toc__item">
@@ -1787,6 +1911,11 @@
                         </a>
                       </li>
                       <li class="md-toc__item">
+                        <a href="#ibmcloud_region" class="md-toc__link" data-md-level="2">
+                          ibmcloud_region
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
                         <a href="#roks_zone" class="md-toc__link" data-md-level="2">
                           roks_zone
                         </a>
@@ -1804,6 +1933,45 @@
                       <li class="md-toc__item">
                         <a href="#roks_flags" class="md-toc__link" data-md-level="2">
                           roks_flags
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#role-variables-roks-vpc-setup" class="md-toc__link" data-md-level="1">
+                  Role Variables - ROKS VPC Setup
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#roks_vpc_name" class="md-toc__link" data-md-level="2">
+                          roks_vpc_name
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#role-variables-roks-vpc" class="md-toc__link" data-md-level="1">
+                  Role Variables - ROKS VPC
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#roks_vpc_name_1" class="md-toc__link" data-md-level="2">
+                          roks_vpc_name
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#roks_vpc_id" class="md-toc__link" data-md-level="2">
+                          roks_vpc_id
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#roks_subnet_id" class="md-toc__link" data-md-level="2">
+                          roks_subnet_id
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#roks_cos_instance_crn" class="md-toc__link" data-md-level="2">
+                          roks_cos_instance_crn
                         </a>
                       </li>
                   </ul>
