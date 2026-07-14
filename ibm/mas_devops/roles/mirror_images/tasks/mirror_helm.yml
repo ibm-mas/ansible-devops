@@ -1,0 +1,121 @@
+---
+# Mirror Helm charts from the CASE bundle to the target OCI registry.
+# This file is included by main.yml after image mirroring completes.
+#
+# Charts location (populated by mirror_case_prepare):
+#   direct / to-filesystem:  ~/.ibm-pak/data/cases/<name>/<build_version>/charts/*.tgz
+#   from-filesystem:         MIRROR_WORKING_DIR/charts/<name>/<manifest_version>/*.tgz
+#
+# build_version is set as a play-level fact by mirror_case_prepare (tasks/main.yml:60)
+# and differs from manifest_version e.g. manifest_version=12.1.0 but
+# build_version=12.1.0+20260220.163654.253
+#
+# Variables inherited from mirror_images role:
+#   manifest_name, manifest_version, mirror_mode, mirror_working_dir,
+#   registry_public_url, registry_public_url_with_path,
+#   registry_username, registry_password, registry_auth, auth_file
+# Variables set by mirror_case_prepare (available as play-level facts):
+#   build_version
+
+# 1. Helm registry login (skip if no credentials configured)
+# -----------------------------------------------------------------------------
+- name: "{{ manifest_name }} : Login to Helm OCI registry"
+  when:
+    - mirror_mode in ["direct", "from-filesystem"]
+    - registry_auth != ":"
+  shell: >
+    helm registry login {{ registry_public_url }}
+    --username {{ registry_username }}
+    --password {{ registry_password }}
+    --insecure
+  no_log: true
+  register: helm_login_result
+
+- name: "{{ manifest_name }} : Fail if Helm registry login failed"
+  when:
+    - mirror_mode in ["direct", "from-filesystem"]
+    - registry_auth != ":"
+  assert:
+    that: helm_login_result.rc == 0
+    fail_msg: "helm registry login failed: {{ helm_login_result.stderr }}"
+
+# 2A. Direct mode — find charts in CASE bundle and push to registry
+# -----------------------------------------------------------------------------
+- name: "{{ manifest_name }} : Find Helm charts in CASE bundle (direct)"
+  when: mirror_mode == "direct"
+  find:
+    paths: "~/.ibm-pak/data/cases/{{ manifest_name }}/{{ build_version }}/charts"
+    patterns: "*.tgz"
+  register: helm_charts_direct
+
+- name: "{{ manifest_name }} : Mirror Helm charts (direct)"
+  when:
+    - mirror_mode == "direct"
+    - helm_charts_direct.matched > 0
+  shell: "helm push {{ item.path }} oci://{{ registry_public_url_with_path }}/charts --insecure-skip-tls-verify"
+  loop: "{{ helm_charts_direct.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  register: helm_push_direct_result
+
+- name: "{{ manifest_name }} : Debug Helm chart push (direct)"
+  when:
+    - mirror_mode == "direct"
+    - helm_charts_direct.matched > 0
+  debug:
+    msg: "{{ helm_push_direct_result.results | map(attribute='item.path') | map('basename') | list }}"
+
+# 2B. To-filesystem mode — copy charts from CASE bundle to working dir
+# -----------------------------------------------------------------------------
+- name: "{{ manifest_name }} : Find Helm charts in CASE bundle (to-filesystem)"
+  when: mirror_mode == "to-filesystem"
+  find:
+    paths: "~/.ibm-pak/data/cases/{{ manifest_name }}/{{ build_version }}/charts"
+    patterns: "*.tgz"
+  register: helm_charts_to_fs
+
+- name: "{{ manifest_name }} : Create Helm charts working directory (to-filesystem)"
+  when:
+    - mirror_mode == "to-filesystem"
+    - helm_charts_to_fs.matched > 0
+  file:
+    path: "{{ mirror_working_dir }}/charts/{{ manifest_name }}/{{ manifest_version }}"
+    state: directory
+
+- name: "{{ manifest_name }} : Copy Helm charts to working directory (to-filesystem)"
+  when:
+    - mirror_mode == "to-filesystem"
+    - helm_charts_to_fs.matched > 0
+  ansible.builtin.copy:
+    src: "{{ item.path }}"
+    dest: "{{ mirror_working_dir }}/charts/{{ manifest_name }}/{{ manifest_version }}/{{ item.path | basename }}"
+    remote_src: true
+  loop: "{{ helm_charts_to_fs.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+
+# 2C. From-filesystem mode — push charts from working dir to registry
+# -----------------------------------------------------------------------------
+- name: "{{ manifest_name }} : Find Helm charts in working directory (from-filesystem)"
+  when: mirror_mode == "from-filesystem"
+  find:
+    paths: "{{ mirror_working_dir }}/charts/{{ manifest_name }}/{{ manifest_version }}"
+    patterns: "*.tgz"
+  register: helm_charts_from_fs
+
+- name: "{{ manifest_name }} : Mirror Helm charts (from-filesystem)"
+  when:
+    - mirror_mode == "from-filesystem"
+    - helm_charts_from_fs.matched | default(0) > 0
+  shell: "helm push {{ item.path }} oci://{{ registry_public_url_with_path }}/charts --insecure-skip-tls-verify"
+  loop: "{{ helm_charts_from_fs.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  register: helm_push_from_fs_result
+
+- name: "{{ manifest_name }} : Debug Helm chart push (from-filesystem)"
+  when:
+    - mirror_mode == "from-filesystem"
+    - helm_charts_from_fs.matched | default(0) > 0
+  debug:
+    msg: "{{ helm_push_from_fs_result.results | map(attribute='item.path') | map('basename') | list }}"

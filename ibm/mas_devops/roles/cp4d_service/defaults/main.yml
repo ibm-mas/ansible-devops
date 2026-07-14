@@ -27,6 +27,22 @@ cpd_helm_timeout: "30m"
 cpd_helm_wait_retries: 60
 cpd_helm_wait_delay: 30
 
+# Airgap Helm Configuration
+# CPD_AIRGAP_HELM_REPO_URL can be set explicitly, e.g. oci://myregistry:32500/cpd531/charts
+# If not set, it is auto-derived from REGISTRY_PRIVATE_HOST / REGISTRY_PRIVATE_PORT / REGISTRY_PREFIX
+# (the same variables used by mas configure-airgap / ocp_idms role).
+# When resolved, helm repo add/update is skipped and charts are pulled directly via OCI.
+# -----------------------------------------------------------------------------
+registry_private_host: "{{ lookup('env', 'REGISTRY_PRIVATE_HOST') | default('', true) }}"
+registry_private_port: "{{ lookup('env', 'REGISTRY_PRIVATE_PORT') | default('', true) }}"
+registry_private_url: "{{ registry_private_host }}{% if registry_private_port != '' %}:{{ registry_private_port }}{% endif %}"
+registry_prefix: "{{ lookup('env', 'REGISTRY_PREFIX') | default('', true) }}"
+registry_private_url_with_path: "{{ registry_private_url }}{% if registry_prefix | length > 0 %}/{{ registry_prefix }}{% endif %}"
+cpd_airgap_helm_repo_url_derived: "{% if registry_private_host != '' %}oci://{{ registry_private_url_with_path }}/charts{% endif %}"
+
+cpd_airgap_helm_repo_url: "{{ lookup('env', 'CPD_AIRGAP_HELM_REPO_URL') | default(cpd_airgap_helm_repo_url_derived, true) }}"
+cpd_helm_airgap: "{{ cpd_airgap_helm_repo_url != '' }}"
+
 # CP4D Admin User credential used to call CP4D APIs, if not specified, the script will look these up
 cpd_admin_username: "{{ lookup('env', 'CPD_ADMIN_USERNAME') }}"
 cpd_admin_password: "{{ lookup('env', 'CPD_ADMIN_PASSWORD') }}"
