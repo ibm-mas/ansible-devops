@@ -1,0 +1,64 @@
+---
+# Create one public gateway per zone (zones 1, 2, 3).
+# Per IBM docs, gateways are created before subnets so they can be attached
+# inline during subnet creation via --pgw.
+# Depends on: roks_vpc_id (set by vpc.yml), ibmcloud_region, ibmcloud_resourcegroup, roks_vpc_name
+# Sets fact:
+#   roks_gateway_ids  - list of gateway IDs [zone-1, zone-2, zone-3]
+
+- name: "roks-vpc-setup/gateway : List existing public gateways in resource group"
+  shell: |
+    ibmcloud is public-gateways --resource-group-name {{ ibmcloud_resourcegroup }} --output json
+  register: pgw_list_raw
+
+# For each zone: create the gateway only if one does not already exist for this VPC in that zone.
+# The task is skipped (when: false) if a gateway already exists, so pgw_create_results entries
+# for existing zones will have skipped=true.
+- name: "roks-vpc-setup/gateway : Create public gateway in {{ ibmcloud_region }}-{{ item }}"
+  vars:
+    zone: "{{ ibmcloud_region }}-{{ item }}"
+    existing_pgw: >-
+      {{
+        pgw_list_raw.stdout | from_json
+        | selectattr('zone.name', 'equalto', zone)
+        | selectattr('vpc.id', 'equalto', roks_vpc_id)
+        | list | first | default({})
+      }}
+  shell: |
+    ibmcloud is public-gateway-create {{ roks_vpc_name }}-pgw-{{ ibmcloud_region }}-{{ item }} \
+      {{ roks_vpc_id }} \
+      {{ zone }} \
+      --resource-group-name {{ ibmcloud_resourcegroup }} \
+      --output json
+  when: existing_pgw.id is not defined
+  loop: [1, 2, 3]
+  register: pgw_create_results
+
+# Build roks_gateway_ids by resolving the ID for each zone:
+# - newly created gateway  → read from pgw_create_results
+# - pre-existing gateway   → read from the pre-fetched pgw_list_raw
+- name: "roks-vpc-setup/gateway : Build roks_gateway_ids list [zone-1, zone-2, zone-3]"
+  vars:
+    zone: "{{ ibmcloud_region }}-{{ item }}"
+    create_result: "{{ pgw_create_results.results[item | int - 1] }}"
+    existing_pgw: >-
+      {{
+        pgw_list_raw.stdout | from_json
+        | selectattr('zone.name', 'equalto', zone)
+        | selectattr('vpc.id', 'equalto', roks_vpc_id)
+        | list | first | default({})
+      }}
+  set_fact:
+    roks_gateway_ids: >-
+      {{
+        (roks_gateway_ids | default([])) +
+        [(create_result.stdout | from_json).id if not create_result.skipped | default(false) else existing_pgw.id]
+      }}
+  loop: [1, 2, 3]
+
+- name: "roks-vpc-setup/gateway : Debug gateway IDs"
+  debug:
+    msg:
+      - "Gateway {{ ibmcloud_region }}-1 ... {{ roks_gateway_ids[0] }}"
+      - "Gateway {{ ibmcloud_region }}-2 ... {{ roks_gateway_ids[1] }}"
+      - "Gateway {{ ibmcloud_region }}-3 ... {{ roks_gateway_ids[2] }}"
