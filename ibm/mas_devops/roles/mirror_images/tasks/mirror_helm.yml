@@ -51,9 +51,9 @@
 - name: "{{ manifest_name }} : Mirror Helm charts (direct)"
   when:
     - mirror_mode == "direct"
-    - helm_charts_direct.matched > 0
+    - helm_charts_direct.matched | default(0) > 0
   shell: "helm push {{ item.path }} oci://{{ registry_public_url_with_path }}/charts --insecure-skip-tls-verify"
-  loop: "{{ helm_charts_direct.files }}"
+  loop: "{{ helm_charts_direct.files | default([]) }}"
   loop_control:
     label: "{{ item.path | basename }}"
   register: helm_push_direct_result
@@ -61,7 +61,7 @@
 - name: "{{ manifest_name }} : Debug Helm chart push (direct)"
   when:
     - mirror_mode == "direct"
-    - helm_charts_direct.matched > 0
+    - helm_charts_direct.matched | default(0) > 0
   debug:
     msg: "{{ helm_push_direct_result.results | map(attribute='item.path') | map('basename') | list }}"
 
@@ -77,7 +77,7 @@
 - name: "{{ manifest_name }} : Create Helm charts working directory (to-filesystem)"
   when:
     - mirror_mode == "to-filesystem"
-    - helm_charts_to_fs.matched > 0
+    - helm_charts_to_fs.matched | default(0) > 0
   file:
     path: "{{ mirror_working_dir }}/charts/{{ manifest_name }}/{{ manifest_version }}"
     state: directory
@@ -85,7 +85,7 @@
 - name: "{{ manifest_name }} : Copy Helm charts to working directory (to-filesystem)"
   when:
     - mirror_mode == "to-filesystem"
-    - helm_charts_to_fs.matched > 0
+    - helm_charts_to_fs.matched | default(0) > 0
   ansible.builtin.copy:
     src: "{{ item.path }}"
     dest: "{{ mirror_working_dir }}/charts/{{ manifest_name }}/{{ manifest_version }}/{{ item.path | basename }}"
