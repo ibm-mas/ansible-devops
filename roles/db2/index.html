@@ -752,6 +752,8 @@
     
       <cds-select-item value="#role-variables-db2ucluster-database-configuration-settings">Role Variables - DB2UCluster Database Configuration Settings</cds-select-item>
     
+      <cds-select-item value="#migrating-from-db2ucluster-to-db2uinstance">Migrating from Db2uCluster to Db2uInstance</cds-select-item>
+    
       <cds-select-item value="#role-variables-mas-configuration">Role Variables - MAS Configuration</cds-select-item>
     
       <cds-select-item value="#role-variables-backup-and-restore">Role Variables - Backup and Restore</cds-select-item>
@@ -773,8 +775,8 @@
           <div class="rst-content">
             
             <h1 id="db2">db2<a class="headerlink" href="#db2" title="Permanent link">¤</a></h1>
-<p>This role creates or upgrades a Db2 instance using the Db2u Operator. When installing db2, the db2u operator will now be installed into the same namespace as the db2 instance. </p>
-<p><strong>IMPORTANT:</strong> The Db2uCluster resource is deprecated (replaced by Db2uInstance). This Ansible collection will retain support for Db2uCluster until it's eventual EOL.</p>
+<p>This role creates, upgrades, migrates, or manages Db2 instances using the Db2u Operator. When installing db2, the db2u operator will now be installed into the same namespace as the db2 instance.</p>
+<p><strong>IMPORTANT:</strong> The Db2uCluster resource is deprecated (replaced by Db2uInstance). This Ansible collection will retain support for Db2uCluster until it's eventual EOL. Use the <code>db2u-migration</code> action to migrate existing Db2uCluster deployments to Db2uInstance.</p>
 <p>If you already have db2 operator and db2 instances running in separate namespaces, this role will migrate the db2 <strong>operators</strong> (not the instances) from <code>ibm-common-services</code> to the namespace defined by <code>db2_namespace</code> property (in case of a new role execution for a db2 install or db2 upgrade). A private root CA certificate is created and is used to secure the TLS connections to the database. A Db2 Warehouse cluster will be created along with a public TLS encrypted route to allow external access to the cluster (access is via the ssl-server nodeport port on the <em>-db2u-engn-svc service). Internal access is via the </em>-db2u-engn-svc service and port 50001. Both the external route and the internal service use the same server certificate.</p>
 <p>The private root CA certificate and the server certificate are available from the <code>db2u-ca</code> and <code>db2u-certificate</code> secrets in the db2 namespace.  The default user is <code>db2inst1</code> and the password is available in the <code>instancepassword</code> secret in the same namespace.  You can examine the deployed resources in the db2 namespace. This example assumes the default namespace <code>db2u</code>:</p>
 <pre><code class="language-bash">oc -n db2u get db2uinstance
@@ -843,26 +845,30 @@ export DB2_INSTANCE_NAME=my-db
 <li>Environment Variable: <code>DB2_ACTION</code></li>
 <li>Default: <code>install</code></li>
 </ul>
-<p><strong>Purpose</strong>: Controls what action the role executes against Db2 instances. This allows the same role to handle installation, upgrades, backups, and restores of Db2 databases.</p>
+<p><strong>Purpose</strong>: Controls what action the role executes against Db2 instances. This allows the same role to handle installation, upgrades, backups, restores, and migration of Db2 databases.</p>
 <p><strong>When to use</strong>:
 - Use <code>install</code> (default) for initial Db2 deployment
 - Use <code>upgrade</code> to upgrade all Db2 instances in the namespace to a new version
 - Use <code>backup</code> to create a backup of Db2 instance and/or database
 - Use <code>restore</code> to restore a backup of db2 instance and database
-- Use <code>restore-database</code> to restore only the database to an existing Db2 instance</p>
-<p><strong>Valid values</strong>: <code>install</code>, <code>upgrade</code>, <code>backup</code>, <code>restore</code>, <code>restore-database</code></p>
+- Use <code>restore-database</code> to restore only the database to an existing Db2 instance
+- Use <code>db2u-migration</code> to migrate Db2uCluster to Db2uInstance (requires v12)</p>
+<p><strong>Valid values</strong>: <code>install</code>, <code>upgrade</code>, <code>backup</code>, <code>restore</code>, <code>restore-database</code>, <code>db2u-migration</code></p>
 <p><strong>Impact</strong>:
 - <code>install</code>: Creates new Db2 operator and instance. When <code>db2_backup_version</code> is provided, installs from backup (instance + database)
 - <code>upgrade</code>: Upgrades ALL instances in <code>db2_namespace</code> to <code>db2_version</code> (affects all instances in namespace)
 - <code>backup</code>: Creates backup of Db2 instance resources and/or database data
 - <code>restore</code>: Creates new Db2 operator and instance from the backup of Db2 instance resources and restores database data to the created instance
-- <code>restore-database</code>: Restores database to an existing running Db2 instance (does not restore instance resources)</p>
+- <code>restore-database</code>: Restores database to an existing running Db2 instance (does not restore instance resources)
+- <code>db2u-migration</code>: Migrates existing Db2uCluster to Db2uInstance using <code>db2u_migrate</code> CLI tool (namespace-scoped, requires v12)</p>
 <p><strong>Related variables</strong>:
 - <code>db2_version</code>: Required for upgrade action to specify target version
-- <code>db2_namespace</code>: All instances in this namespace are affected by upgrade
+- <code>db2_namespace</code>: All instances in this namespace are affected by upgrade; migration operates on this namespace
+- <code>db2_instance_name</code>: Required for migration to specify which Db2uCluster to migrate
 - <code>db2_backup_version</code>: Required for restore/restore-database action; optional for backup, defaults to YYYYMMDD-HHMMSS
-- <code>override_storageclass</code>: In Restore, controls whether storage classes are overridden</p>
-<p><strong>Note</strong>: <strong>WARNING</strong> - When using <code>upgrade</code>, ALL Db2 instances in the specified namespace will be upgraded. Plan accordingly and ensure <code>db2_version</code> matches the operator channel.</p>
+- <code>override_storageclass</code>: In Restore, controls whether storage classes are overridden
+- <code>mas_instance_id</code>, <code>mas_config_dir</code>: Optional for migration; when provided, updates MAS JdbcCfg</p>
+<p><strong>Note</strong>: <strong>WARNING</strong> - When using <code>upgrade</code>, ALL Db2 instances in the specified namespace will be upgraded. Plan accordingly and ensure <code>db2_version</code> matches the operator channel. When using <code>db2u-migration</code>, the Db2uCluster must be v12.x and the original Db2uCluster CR will be deleted after migration.</p>
 <h4 id="db2_namespace">db2_namespace<a class="headerlink" href="#db2_namespace" title="Permanent link">¤</a></h4>
 <p>OpenShift namespace where Db2 operator and instances will be deployed.</p>
 <ul>
@@ -1558,6 +1564,112 @@ export DB2_INSTANCE_NAME=my-db
 <li>Default: 1</li>
 </ul>
 <h3 id="db2_addons_audit_config">db2_addons_audit_config<a class="headerlink" href="#db2_addons_audit_config" title="Permanent link">¤</a></h3>
+<h2 id="migrating-from-db2ucluster-to-db2uinstance">Migrating from Db2uCluster to Db2uInstance<a class="headerlink" href="#migrating-from-db2ucluster-to-db2uinstance" title="Permanent link">¤</a></h2>
+<p>The <code>db2u-migration</code> action enables migration of existing Db2uCluster deployments to the current Db2uInstance resource type. This migration is necessary as Db2uCluster is deprecated and will reach end-of-life in future releases.</p>
+<h3 id="migration-requirements">Migration Requirements<a class="headerlink" href="#migration-requirements" title="Permanent link">¤</a></h3>
+<ul>
+<li><strong>Version</strong>: Db2uCluster must be running v12.x (migration will fail for v11 or earlier)</li>
+<li><strong>CLI Tool</strong>: The <code>db2u_migrate</code> command-line tool must be available on the machine running the Ansible role</li>
+<li><strong>Namespace</strong>: Migration is namespace-scoped; specify the namespace containing the Db2uCluster</li>
+<li><strong>No Conflicts</strong>: No Db2uInstance with the same name should exist in the namespace</li>
+</ul>
+<h3 id="migration-behavior">Migration Behavior<a class="headerlink" href="#migration-behavior" title="Permanent link">¤</a></h3>
+<ul>
+<li><strong>Non-destructive</strong>: The original Db2uCluster CR remains after migration and is not automatically deleted</li>
+<li><strong>Data Preservation</strong>: Database data and configuration are preserved during migration</li>
+<li><strong>Service Continuity</strong>: The migration creates a new Db2uInstance that maintains connectivity to the existing database</li>
+<li><strong>JdbcCfg Update</strong>: Optionally updates MAS JdbcCfg if <code>mas_instance_id</code> and <code>mas_config_dir</code> are provided</li>
+</ul>
+<h3 id="migration-process">Migration Process<a class="headerlink" href="#migration-process" title="Permanent link">¤</a></h3>
+<p>The migration action performs the following steps:</p>
+<ol>
+<li><strong>Validation</strong>:</li>
+<li>Verifies namespace exists</li>
+<li>Confirms Db2uCluster exists and is v12.x</li>
+<li>
+<p>Checks for Db2uInstance naming conflicts</p>
+</li>
+<li>
+<p><strong>Execution</strong>:</p>
+</li>
+<li>Runs <code>db2u_migrate --namespace &lt;namespace&gt; --name &lt;name&gt;</code></li>
+<li>
+<p>Monitors command output and handles errors</p>
+</li>
+<li>
+<p><strong>Verification</strong>:</p>
+</li>
+<li>Waits for Db2uInstance to reach Ready state</li>
+<li>Waits for Db2uEngine to reach Ready state</li>
+<li>
+<p>Optionally updates MAS JdbcCfg</p>
+</li>
+<li>
+<p><strong>Post-Migration</strong>:</p>
+</li>
+<li>Displays success status</li>
+<li>Reminds user that Db2uCluster still exists</li>
+<li>Provides guidance for optional cleanup</li>
+</ol>
+<h3 id="usage-example">Usage Example<a class="headerlink" href="#usage-example" title="Permanent link">¤</a></h3>
+<h4 id="basic-migration">Basic Migration<a class="headerlink" href="#basic-migration" title="Permanent link">¤</a></h4>
+<pre><code class="language-bash">export DB2_ACTION=db2u-migration
+export DB2_NAMESPACE=db2u
+export DB2_INSTANCE_NAME=db2u-db01
+
+ansible-playbook ibm.mas_devops.run_role
+</code></pre>
+<h4 id="migration-with-mas-jdbccfg-update">Migration with MAS JdbcCfg Update<a class="headerlink" href="#migration-with-mas-jdbccfg-update" title="Permanent link">¤</a></h4>
+<pre><code class="language-bash">export DB2_ACTION=db2u-migration
+export DB2_NAMESPACE=db2u
+export DB2_INSTANCE_NAME=db2u-manage
+export MAS_INSTANCE_ID=inst1
+export MAS_CONFIG_DIR=/tmp/masconfig
+
+ansible-playbook ibm.mas_devops.run_role
+</code></pre>
+<h3 id="post-migration-steps">Post-Migration Steps<a class="headerlink" href="#post-migration-steps" title="Permanent link">¤</a></h3>
+<h4 id="verify-migration-success">Verify Migration Success<a class="headerlink" href="#verify-migration-success" title="Permanent link">¤</a></h4>
+<pre><code class="language-bash"># Check Db2uInstance status
+oc get db2uinstance -n db2u
+
+# Check Db2uEngine status
+oc get db2uengine -n db2u
+
+# Verify database connectivity
+oc exec -n db2u c-db2u-db01-db2u-0 -- su - db2inst1 -c "db2 connect to BLUDB"
+</code></pre>
+<h4 id="optional-clean-up-db2ucluster">Optional: Clean Up Db2uCluster<a class="headerlink" href="#optional-clean-up-db2ucluster" title="Permanent link">¤</a></h4>
+<p>After verifying the migration succeeded and the Db2uInstance is functioning correctly, you may optionally delete the original Db2uCluster:</p>
+<pre><code class="language-bash"># Delete the Db2uCluster CR (optional)
+oc delete db2ucluster db2u-db01 -n db2u
+</code></pre>
+<p><strong>Note</strong>: Only delete the Db2uCluster after thoroughly verifying the migrated Db2uInstance is working correctly.</p>
+<h3 id="troubleshooting-migration">Troubleshooting Migration<a class="headerlink" href="#troubleshooting-migration" title="Permanent link">¤</a></h3>
+<h4 id="migration-fails-version-check">Migration Fails: Version Check<a class="headerlink" href="#migration-fails-version-check" title="Permanent link">¤</a></h4>
+<pre><code>Error: Migration requires Db2uCluster to be v12.x
+Current version: 11.5.8.0
+</code></pre>
+<p><strong>Resolution</strong>: Upgrade your Db2uCluster to v12 before attempting migration:</p>
+<pre><code class="language-bash">export DB2_ACTION=upgrade
+export DB2_VERSION=12.0.0.0
+export DB2_CHANNEL=v12.0.0-cn1
+ansible-playbook ibm.mas_devops.run_role
+</code></pre>
+<h4 id="migration-fails-db2uinstance-already-exists">Migration Fails: Db2uInstance Already Exists<a class="headerlink" href="#migration-fails-db2uinstance-already-exists" title="Permanent link">¤</a></h4>
+<pre><code>Error: Db2uInstance 'db2u-db01' already exists in namespace 'db2u'
+</code></pre>
+<p><strong>Resolution</strong>: Either delete the existing Db2uInstance or choose a different name:</p>
+<pre><code class="language-bash"># Option 1: Delete existing instance
+oc delete db2uinstance db2u-db01 -n db2u
+
+# Option 2: Use different name
+export DB2_INSTANCE_NAME=db2u-db01-migrated
+</code></pre>
+<h4 id="migration-fails-db2u_migrate-command-not-found">Migration Fails: db2u_migrate Command Not Found<a class="headerlink" href="#migration-fails-db2u_migrate-command-not-found" title="Permanent link">¤</a></h4>
+<pre><code>Error: db2u_migrate: command not found
+</code></pre>
+<p><strong>Resolution</strong>: Install the <code>db2u_migrate</code> CLI tool on the machine running the Ansible role. Contact IBM support or refer to Db2 operator documentation for installation instructions.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>'DB2_ADDONS_AUDIT_CONFIG</code></li>
@@ -2460,6 +2572,43 @@ LicenseType=Permanent
                       <li class="md-toc__item">
                         <a href="#db2_addons_audit_config" class="md-toc__link" data-md-level="2">
                           db2_addons_audit_config
+                        </a>
+                      </li>
+                  </ul>
+              </li>
+              <li class="md-toc__item">
+                <a href="#migrating-from-db2ucluster-to-db2uinstance" class="md-toc__link" data-md-level="1">
+                  Migrating from Db2uCluster to Db2uInstance
+                </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#migration-requirements" class="md-toc__link" data-md-level="2">
+                          Migration Requirements
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#migration-behavior" class="md-toc__link" data-md-level="2">
+                          Migration Behavior
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#migration-process" class="md-toc__link" data-md-level="2">
+                          Migration Process
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#usage-example" class="md-toc__link" data-md-level="2">
+                          Usage Example
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#post-migration-steps" class="md-toc__link" data-md-level="2">
+                          Post-Migration Steps
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#troubleshooting-migration" class="md-toc__link" data-md-level="2">
+                          Troubleshooting Migration
                         </a>
                       </li>
                   </ul>
