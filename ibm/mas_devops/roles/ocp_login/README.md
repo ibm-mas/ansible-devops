@@ -118,7 +118,15 @@ Authentication token for direct login.
 - `ocp_server`: Required with this variable
 - `cluster_name`/`cluster_type`: Alternative automatic lookup method
 
-**Note**: **SECURITY** - Both `ocp_server` and `ocp_token` must be provided together. Token should be kept secure and not committed to version control. This method works with any Kubernetes cluster.
+
+### ocp_skip_tls_verify
+
+Disable certificate check when logging in using `ocp_server` and `ocp_token` properties.
+
+- **Optional** (when `ocp_server` and `ocp_token` are set)
+- Environment Variable: `OCP_SKIP_TLS_VERIFY`
+- Default: `true`
+
 
 ## Role Variables - IBMCloud ROKS
 
