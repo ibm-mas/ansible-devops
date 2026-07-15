@@ -7,7 +7,33 @@
 # Each resource is checked before deletion and silently skipped if not present.
 # Safe to run on any CPD version (5.2.0 OLM or 5.3.1 Helm).
 
-# 1. Delete CRDs installed by Helm cluster-scoped charts
+# 1. Remove finalizers from stuck CR instances to unblock CRD deletion
+# -----------------------------------------------------------------------------
+# When a CRD is deleted, Kubernetes first garbage-collects all CR instances.
+# If an operator is already gone (deleted with namespace), it cannot process
+# CR finalizers, leaving CRs stuck in Terminating and blocking CRD deletion.
+# Patching out CR finalizers allows Kubernetes to remove them immediately.
+- name: "Remove finalizers from stuck CR instances to unblock CRD deletion"
+  shell: |
+    for cr in $(oc get {{ item.plural }} -n {{ cpd_instance_namespace }} \
+      -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || true); do
+      echo "Removing finalizers from {{ item.kind }}: $cr"
+      oc patch {{ item.kind }} $cr -n {{ cpd_instance_namespace }} \
+        --type=json -p='[{"op":"remove","path":"/metadata/finalizers"}]' \
+        2>/dev/null || true
+    done
+  ignore_errors: true
+  loop:
+    - { kind: DataRefinery,    plural: datarefinery }
+    - { kind: CCS,             plural: ccs }
+    - { kind: WmlBase,         plural: wmlbases }
+    - { kind: AnalyticsEngine, plural: analyticsengines }
+    - { kind: WS,              plural: ws }
+    - { kind: CAService,       plural: caservices }
+    - { kind: NotebookRuntime, plural: notebookruntimes }
+    - { kind: RedisCP,         plural: rediscps }
+
+# 2. Delete CRDs installed by Helm cluster-scoped charts
 # -----------------------------------------------------------------------------
 - name: "Delete Helm cluster-scoped CRDs"
   kubernetes.core.k8s:
@@ -27,6 +53,37 @@
     - ws.ws.cpd.ibm.com                            # ws-cluster-scoped
     - caservices.ca.cpd.ibm.com                    # cognos-analytics-cluster-scoped
 
+# 3. Remove finalizers from CRDs stuck in Terminating
+# -----------------------------------------------------------------------------
+# Safety net: if Step 1 missed any CRs (different namespace, oc get failed etc.),
+# the CRD itself may still be stuck with finalizer 'customresourcecleanup.apiextensions.k8s.io'.
+# Force-patch the CRD finalizer only when deletionTimestamp is already set.
+- name: "Remove finalizers from CRDs stuck in Terminating"
+  shell: |
+    deletion_ts=$(oc get crd {{ item }} \
+      -o jsonpath='{.metadata.deletionTimestamp}' 2>/dev/null || true)
+    if [ -n "$deletion_ts" ]; then
+      echo "CRD {{ item }} stuck in Terminating since $deletion_ts - removing finalizers"
+      oc patch crd {{ item }} \
+        --type=json -p='[{"op":"remove","path":"/metadata/finalizers"}]' \
+        2>/dev/null || true
+    fi
+  ignore_errors: true
+  loop:
+    - clusters.opensearch.cloudpackopen.ibm.com
+    - ccs.ccs.cpd.ibm.com
+    - datarefinery.datarefinery.cpd.ibm.com
+    - notebookruntimes.ws.cpd.ibm.com
+    - rediscps.redis.ibm.com
+    - wmlbases.wml.cpd.ibm.com
+    - analyticsengines.ae.cpd.ibm.com
+    - ws.ws.cpd.ibm.com
+    - caservices.ca.cpd.ibm.com
+
+# 4. Wait for CRDs to be fully deleted
+# -----------------------------------------------------------------------------
+# If CRD does not exist: resources=[] → condition true on attempt 1 → no wait.
+# If CRD is being deleted: retries every 10s up to 3 minutes.
 - name: "Wait for CRDs to be deleted"
   kubernetes.core.k8s_info:
     api_version: apiextensions.k8s.io/v1
@@ -48,9 +105,9 @@
     - ws.ws.cpd.ibm.com
     - caservices.ca.cpd.ibm.com
 
-# 2. Delete ClusterRole for OpenSearch operator
+# 5. Delete ClusterRole for OpenSearch operator
 # -----------------------------------------------------------------------------
-# Explicitly created in cp4d_service/tasks/helm/install-helm.yml
+# Explicitly created in cp4d_service/tasks/helm/install-helm.yml for CPD 5.3.1+
 # Not present in CPD 5.2.0 (OLM CSV manages it) - ignore_errors handles that
 
 - name: "Delete OpenSearch operator ClusterRole"
@@ -61,7 +118,7 @@
     name: ibm-opensearch-operator-manager-role
   ignore_errors: true
 
-# 3. Delete ClusterRoleBinding for OpenSearch operator
+# 6. Delete ClusterRoleBinding for OpenSearch operator
 # -----------------------------------------------------------------------------
 
 - name: "Delete OpenSearch operator ClusterRoleBinding"
