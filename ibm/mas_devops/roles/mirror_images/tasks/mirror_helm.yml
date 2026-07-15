@@ -1,14 +1,10 @@
 ---
 # Mirror Helm charts from the CASE bundle to the target OCI registry.
-# This file is included by main.yml after image mirroring completes.
+# This file is only included when the charts directory exists (checked in main.yml).
 #
 # Charts location (populated by mirror_case_prepare):
 #   direct / to-filesystem:  ~/.ibm-pak/data/cases/<name>/<build_version>/charts/*.tgz
 #   from-filesystem:         MIRROR_WORKING_DIR/charts/<name>/<manifest_version>/*.tgz
-#
-# build_version is set as a play-level fact by mirror_case_prepare (tasks/main.yml:60)
-# and differs from manifest_version e.g. manifest_version=12.1.0 but
-# build_version=12.1.0+20260220.163654.253
 #
 # Variables inherited from mirror_images role:
 #   manifest_name, manifest_version, mirror_mode, mirror_working_dir,
@@ -17,7 +13,7 @@
 # Variables set by mirror_case_prepare (available as play-level facts):
 #   build_version
 
-# 1. Helm registry login (skip if no credentials configured)
+# 1. Helm registry login
 # -----------------------------------------------------------------------------
 - name: "{{ manifest_name }} : Login to Helm OCI registry"
   when:
@@ -90,7 +86,7 @@
     src: "{{ item.path }}"
     dest: "{{ mirror_working_dir }}/charts/{{ manifest_name }}/{{ manifest_version }}/{{ item.path | basename }}"
     remote_src: true
-  loop: "{{ helm_charts_to_fs.files }}"
+  loop: "{{ helm_charts_to_fs.files | default([]) }}"
   loop_control:
     label: "{{ item.path | basename }}"
 
