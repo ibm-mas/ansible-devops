@@ -1,0 +1,77 @@
+---
+# Cleanup Helm Cluster-Scoped Resources
+# Removes CRDs, ClusterRole, and ClusterRoleBinding installed by CPD Helm
+# cluster-scoped charts (via: helm template | oc apply -f -).
+#
+# These resources are cluster-scoped so they survive namespace deletion.
+# Each resource is checked before deletion and silently skipped if not present.
+# Safe to run on any CPD version (5.2.0 OLM or 5.3.1 Helm).
+
+# 1. Delete CRDs installed by Helm cluster-scoped charts
+# -----------------------------------------------------------------------------
+- name: "Delete Helm cluster-scoped CRDs"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: "{{ item }}"
+  ignore_errors: true
+  loop:
+    - clusters.opensearch.cloudpackopen.ibm.com   # opencontent-opensearch-cluster-scoped
+    - ccs.ccs.cpd.ibm.com                         # ccs-cluster-scoped
+    - datarefinery.datarefinery.cpd.ibm.com        # datarefinery-cluster-scoped
+    - notebookruntimes.ws.cpd.ibm.com              # ws-runtimes-cluster-scoped
+    - rediscps.redis.ibm.com                       # ibm-redis-cp-cluster-scoped
+    - wmlbases.wml.cpd.ibm.com                     # wml-cluster-scoped
+    - analyticsengines.ae.cpd.ibm.com              # analyticsengine-cluster-scoped
+    - ws.ws.cpd.ibm.com                            # ws-cluster-scoped
+    - caservices.ca.cpd.ibm.com                    # cognos-analytics-cluster-scoped
+
+- name: "Wait for CRDs to be deleted"
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: "{{ item }}"
+  register: crd_delete_status
+  until: crd_delete_status.resources | length == 0
+  retries: 18  # 3 minutes
+  delay: 10
+  ignore_errors: true
+  loop:
+    - clusters.opensearch.cloudpackopen.ibm.com
+    - ccs.ccs.cpd.ibm.com
+    - datarefinery.datarefinery.cpd.ibm.com
+    - notebookruntimes.ws.cpd.ibm.com
+    - rediscps.redis.ibm.com
+    - wmlbases.wml.cpd.ibm.com
+    - analyticsengines.ae.cpd.ibm.com
+    - ws.ws.cpd.ibm.com
+    - caservices.ca.cpd.ibm.com
+
+# 2. Delete ClusterRole for OpenSearch operator
+# -----------------------------------------------------------------------------
+# Explicitly created in cp4d_service/tasks/helm/install-helm.yml
+# Not present in CPD 5.2.0 (OLM CSV manages it) - ignore_errors handles that
+
+- name: "Delete OpenSearch operator ClusterRole"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    name: ibm-opensearch-operator-manager-role
+  ignore_errors: true
+
+# 3. Delete ClusterRoleBinding for OpenSearch operator
+# -----------------------------------------------------------------------------
+
+- name: "Delete OpenSearch operator ClusterRoleBinding"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    name: ibm-opensearch-operator-manager-rolebinding
+  ignore_errors: true
+
+- name: "Helm cluster-scoped resources cleanup complete"
+  debug:
+    msg: "Helm cluster-scoped resources (CRDs, ClusterRole, ClusterRoleBinding) cleanup complete"
