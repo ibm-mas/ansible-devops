@@ -256,19 +256,3 @@
       assert:
         that: ocimagemirror_result.rc == 0
         fail_msg: "Image mirroring failed (see debug information above)."
-
-# 5. Mirror Helm Charts (CPD 5.2+ only)
-# Only runs when the CASE charts directory exists on disk
-# -----------------------------------------------------------------------------
-- name: "{{ manifest_name }} : Check if CASE charts directory exists"
-  stat:
-    path: "~/.ibm-pak/data/cases/{{ manifest_name }}/{{ build_version | default('') }}/charts"
-  register: helm_charts_dir
-
-- name: "{{ manifest_name }} : Mirror Helm charts"
-  when:
-    - cpd_product_version is defined
-    - cpd_product_version != ""
-    - cpd_product_version is version('5.2', '>=')
-    - helm_charts_dir.stat.exists
-  include_tasks: "{{ role_path }}/tasks/mirror_helm.yml"

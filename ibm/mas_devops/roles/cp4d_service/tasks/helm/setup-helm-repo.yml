@@ -1,13 +1,8 @@
 ---
 # Setup Helm Repository for CPD Charts
-# Online mode:  adds the IBM GitHub Helm repo and updates the index
-# Airgap mode:  skips repo add/update; logs in to the OCI registry instead
-#               (OCI registries are referenced directly, not as named repos)
+# This task adds the IBM Helm repository and updates the index
 
-# Online path
-# -----------------------------------------------------------------------------
 - name: "Add IBM Helm repository"
-  when: not cpd_helm_airgap
   command: helm repo add {{ cpd_helm_repo_name }} {{ cpd_helm_repo_url }}
   register: repo_add
   changed_when: "'already exists' not in repo_add.stderr"
@@ -16,42 +11,11 @@
     - "'already exists' not in repo_add.stderr"
 
 - name: "Update Helm repositories"
-  when: not cpd_helm_airgap
   command: helm repo update
   changed_when: true
 
 - name: "Helm repository configured"
-  when: not cpd_helm_airgap
   debug:
     msg:
       - "Helm repository: {{ cpd_helm_repo_name }}"
       - "Repository URL: {{ cpd_helm_repo_url }}"
-
-# Airgap path
-# -----------------------------------------------------------------------------
-- name: "Login to OCI Helm registry (airgap)"
-  when:
-    - cpd_helm_airgap
-    - registry_username is defined and registry_username != ""
-  shell: >
-    helm registry login {{ cpd_airgap_helm_repo_url | regex_replace('^oci://', '') }}
-    --username {{ registry_username }}
-    --password {{ registry_password }}
-    --insecure
-  no_log: true
-  register: helm_oci_login
-
-- name: "Fail if OCI registry login failed (airgap)"
-  when:
-    - cpd_helm_airgap
-    - registry_username is defined and registry_username != ""
-  assert:
-    that: helm_oci_login.rc == 0
-    fail_msg: "helm registry login failed: {{ helm_oci_login.stderr }}"
-
-- name: "Helm OCI registry configured (airgap)"
-  when: cpd_helm_airgap
-  debug:
-    msg:
-      - "Airgap mode: OCI registry"
-      - "Registry URL: {{ cpd_airgap_helm_repo_url }}"
