@@ -1,0 +1,64 @@
+---
+# Create a Cloud Object Storage instance paired with this VPC setup.
+# The COS instance backs the internal image registry for all roks-vpc clusters
+# that use this VPC. COS is a global resource (not regional).
+# Depends on: ibmcloud_resourcegroup, roks_vpc_name
+# Sets fact:
+#   roks_cos_instance_crn  - CRN of the COS instance (used as ROKS_COS_INSTANCE_CRN)
+
+- name: "roks-vpc-setup/cos : Set COS instance name"
+  set_fact:
+    roks_cos_instance_name: "{{ roks_vpc_name }}-cos"
+
+- name: "roks-vpc-setup/cos : Check if COS instance already exists"
+  shell: |
+    ibmcloud resource service-instance "{{ roks_cos_instance_name }}" \
+      -g {{ ibmcloud_resourcegroup }} \
+      --output json
+  register: cos_lookup
+  failed_when: "cos_lookup.rc > 1"
+
+- name: "roks-vpc-setup/cos : Debug COS lookup"
+  debug:
+    msg: >-
+      {% if cos_lookup.rc == 0 %}
+      COS instance '{{ roks_cos_instance_name }}' already exists, skipping creation
+      {% else %}
+      COS instance '{{ roks_cos_instance_name }}' not found, will create it
+      {% endif %}
+
+# Use -d to select 'premium-global-deployment' non-interactively,
+# avoiding the interactive prompt that appears when multiple deployments exist.
+- name: "roks-vpc-setup/cos : Create COS instance"
+  when: cos_lookup.rc == 1
+  shell: |
+    ibmcloud resource service-instance-create {{ roks_cos_instance_name }} \
+      cloud-object-storage \
+      standard \
+      global \
+      -g {{ ibmcloud_resourcegroup }} \
+      -d premium-global-deployment \
+      -f
+
+# Fetch the newly created instance to get its CRN.
+- name: "roks-vpc-setup/cos : Fetch newly created COS instance"
+  when: cos_lookup.rc == 1
+  shell: |
+    ibmcloud resource service-instance "{{ roks_cos_instance_name }}" \
+      -g {{ ibmcloud_resourcegroup }} \
+      --output json
+  register: cos_created_raw
+
+- name: "roks-vpc-setup/cos : Set roks_cos_instance_crn from newly created instance"
+  when: cos_lookup.rc == 1
+  set_fact:
+    roks_cos_instance_crn: "{{ (cos_created_raw.stdout | from_json)[0].crn }}"
+
+- name: "roks-vpc-setup/cos : Set roks_cos_instance_crn from existing instance"
+  when: cos_lookup.rc == 0
+  set_fact:
+    roks_cos_instance_crn: "{{ (cos_lookup.stdout | from_json)[0].crn }}"
+
+- name: "roks-vpc-setup/cos : Debug COS instance CRN"
+  debug:
+    msg: "Using COS instance CRN: {{ roks_cos_instance_crn }}"
