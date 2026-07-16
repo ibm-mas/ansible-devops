@@ -603,11 +603,17 @@
     apply: yes
     template: "templates/db2uinstance.yml.j2"
 
-- name: "Create db2 instance (Db2uCluster)"
-  when: not (db2_use_helm_operator | default(false) | bool)
-  kubernetes.core.k8s:
-    apply: yes
-    template: "templates/db2ucluster.yml.j2"
+- name: "Deploy Db2uInstance (subscription-based)"
+  when:
+    - not (db2_use_helm_operator | default(false) | bool)
+    - db2u_kind == "db2uinstance"
+  include_tasks: tasks/db2uinstance.yml
+
+- name: "Deploy Db2uCluster (subscription-based)"
+  when:
+    - not (db2_use_helm_operator | default(false) | bool)
+    - db2u_kind == "db2ucluster"
+  include_tasks: tasks/db2ucluster.yml
 
 
 # 17. Set db2 instance timezone
@@ -636,23 +642,6 @@
     - db2_instance_lookup.resources[0].status.state == "Ready"
   retries: 24 # Approximately 2 hours before we give up
   delay: 300 # 5 minutes (TODO: make this configurable)
-
-- name: "Wait for db2u cluster to be ready (Db2uCluster - 5m delay)"
-  when: not (db2_use_helm_operator | default(false) | bool)
-  kubernetes.core.k8s_info:
-    api_version: db2u.databases.ibm.com/v1
-    name: "{{ db2_instance_name | lower }}"
-    namespace: "{{db2_namespace}}"
-    kind: Db2uCluster
-  register: db2_cluster_lookup
-  until:
-    - db2_cluster_lookup.resources is defined
-    - db2_cluster_lookup.resources | length == 1
-    - db2_cluster_lookup.resources[0].status is defined
-    - db2_cluster_lookup.resources[0].status.state is defined
-    - db2_cluster_lookup.resources[0].status.state == "Ready"
-  retries: 24 # Approximately 2 hours before we give up
-  delay: 300 # 5 minutes
 
 # 19. Configure a public route for Db2
 # -----------------------------------------------------------------------------
