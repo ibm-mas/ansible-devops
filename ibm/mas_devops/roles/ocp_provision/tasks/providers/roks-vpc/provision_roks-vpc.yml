@@ -1,0 +1,144 @@
+---
+# 1. Failure conditions
+# -----------------------------------------------------------------------------
+- name: "roks-vpc : Fail if ibmcloud_apikey is not provided"
+  assert:
+    that: ibmcloud_apikey is defined and ibmcloud_apikey != ""
+    fail_msg: "ibmcloud_apikey property is required"
+
+# roks_vpc_id, roks_subnet_id, and roks_cos_instance_crn are optional when roks_vpc_name is set —
+# they will be resolved by looking up the VPC and its paired COS instance by name.
+- name: "roks-vpc : Fail if neither roks_vpc_id nor roks_vpc_name is provided"
+  assert:
+    that: >
+      (roks_vpc_id is defined and roks_vpc_id != "")
+      or (roks_vpc_name is defined and roks_vpc_name != "")
+    fail_msg: >
+      Either roks_vpc_id or roks_vpc_name must be provided.
+      Set roks_vpc_name to the name used when running cluster_type=roks-vpc-setup.
+
+
+# 2. Sanitize ocp_version input
+# -----------------------------------------------------------------------------
+- name: "roks-vpc : Sanitize ocp_version input"
+  set_fact:
+    ocp_version: "{{ ocp_version ~ '_openshift' if '_openshift' not in ocp_version else ocp_version }}"
+
+
+# 3. Debug Info
+# -----------------------------------------------------------------------------
+- name: "roks-vpc : Debug information"
+  debug:
+    msg:
+      - "Cluster name ................. {{ cluster_name }}"
+      - "OCP version .................. {{ ocp_version }}"
+      - "IBM Cloud API key ............ ********************"
+      - "IBM Cloud Resource Group ..... {{ ibmcloud_resourcegroup | default('<undefined>') }}"
+      - "ROKS zone .................... {{ roks_zone }}"
+      - "ROKS flavor .................. {{ roks_flavor }}"
+      - "ROKS workers ................. {{ roks_workers }}"
+      - "ROKS flags ................... {{ roks_flags }}"
+      - "ROKS VPC name ................ {{ roks_vpc_name | default('<not set, using roks_vpc_id>') }}"
+      - "ROKS VPC ID .................. {{ roks_vpc_id | default('<will be resolved by name>') }}"
+      - "ROKS Subnet ID ............... {{ roks_subnet_id | default('<will be resolved from VPC+zone>') }}"
+      - "ROKS COS Instance CRN ........ {{ roks_cos_instance_crn | default('<will be resolved by name>') }}"
+      - "GPU enabled .................. {{ ocp_provision_gpu }}"
+      - "GPU worker pool name ......... {{ gpu_workerpool_name | default('<n/a>') }}"
+      - "GPU workers .................. {{ gpu_workers | default('<n/a>') }}"
+      - "GPU flavor ................... {{ gpu_flavor | default('<n/a>') }}"
+
+
+# 4. Login
+# -----------------------------------------------------------------------------
+- name: "roks-vpc : Login to IBM Cloud"
+  shell: |
+    ibmcloud login -a "{{ ibmcloud_endpoint }}" --apikey "{{ ibmcloud_apikey }}" -q --no-region
+
+
+# 5. Switch to the target resource group
+# -----------------------------------------------------------------------------
+- name: "roks-vpc : Switch to chosen resource group"
+  when: ibmcloud_resourcegroup is defined
+  shell: |
+    ibmcloud target -g {{ ibmcloud_resourcegroup }}
+  register: rg_target
+  failed_when: "rg_target.rc > 1"
+
+
+# 6. Resolve VPC ID, subnet ID, and COS CRN (if not provided directly)
+# -----------------------------------------------------------------------------
+# lookup_vpc.yml sets ibmcloud_region from the VPC CRN when roks_vpc_name is used.
+# If roks_vpc_id was provided directly, fall back to deriving the region from roks_zone
+# (e.g. zone 'eu-gb-1' → region 'eu-gb') or from the explicitly set ibmcloud_region.
+- name: "roks-vpc : Derive ibmcloud_region from roks_zone if not already set"
+  when: ibmcloud_region is not defined or ibmcloud_region == ""
+  set_fact:
+    ibmcloud_region: "{{ roks_zone | regex_replace('-[0-9]+$', '') }}"
+
+# Target the region (derived from VPC CRN or roks_zone) before any 'ibmcloud is' commands.
+- name: "roks-vpc : Target IBM Cloud region"
+  shell: |
+    ibmcloud target -r {{ ibmcloud_region }}
+
+- include_tasks: "tasks/providers/roks-vpc/lookup_vpc.yml"
+- include_tasks: "tasks/providers/roks-vpc/lookup_subnet.yml"
+- include_tasks: "tasks/providers/roks-vpc/lookup_cos.yml"
+
+
+# 7. Create cluster
+# -----------------------------------------------------------------------------
+# https://cloud.ibm.com/docs/openshift?topic=openshift-kubernetes-service-cli#cli_cluster-create-vpc-gen2
+- name: "roks-vpc : Check if cluster already exists"
+  shell: |
+    ibmcloud oc cluster get -c {{ cluster_name }} --output json
+  register: cluster_lookup
+  failed_when: "cluster_lookup.rc > 1"
+
+- name: "roks-vpc : Debug current cluster status"
+  when: cluster_lookup.rc == 0
+  debug:
+    msg: "{{ cluster_name }} already exists, skipping cluster creation"
+
+- name: "roks-vpc : Create IBM Cloud ROKS VPC cluster"
+  when: cluster_lookup.rc == 1
+  shell: >
+    ibmcloud oc cluster create vpc-gen2 \
+      --name {{ cluster_name }} \
+      --version {{ ocp_version }} \
+      --zone {{ roks_zone }} \
+      --flavor {{ roks_flavor }} \
+      --workers {{ roks_workers }} \
+      --vpc-id {{ roks_vpc_id }} \
+      --subnet-id {{ roks_subnet_id }} \
+      --cos-instance {{ roks_cos_instance_crn }} \
+      --entitlement ocp_entitled \
+      --disable-outbound-traffic-protection \
+      {{ roks_flags }}
+
+
+# 8. Wait for cluster to be ready
+# -----------------------------------------------------------------------------
+- name: "roks-vpc : Wait until the ROKS VPC cluster is deployed"
+  shell: |
+    ibmcloud oc cluster get --cluster {{ cluster_name }} --output json
+  register: roks_cluster_completion
+  until:
+    - roks_cluster_completion.rc == 0
+    - (roks_cluster_completion.stdout | from_json).state == 'normal'
+  retries: 30
+  delay: 120  # 2 minutes
+
+- name: "roks-vpc : Debug final cluster state"
+  debug:
+    msg: "{{ roks_cluster_completion.stdout | from_json }}"
+
+
+# 9. Enable vpc-file-csi-driver addon
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/providers/roks-vpc/file_csi.yml"
+
+
+# 10. Optionally add a GPU worker pool
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/providers/roks-vpc/gpu.yml"
+  when: ocp_provision_gpu | bool
