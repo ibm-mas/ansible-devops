@@ -574,14 +574,36 @@
         case_name: ibm-wml-cpd
         case_version: "{{ mas_catalog_metadata.wml_version }}"
         exclude_images: []
-        ibmpak_skip_dependencies: false
-        casectl_resolve_charts: true
+        ibmpak_skip_dependencies: true
 
     - role: ibm.mas_devops.mirror_images
       when: mirror_wml
       vars:
         manifest_name: ibm-wml-cpd
         manifest_version: "{{ mas_catalog_metadata.wml_version }}"
+
+    # 8.1 IBM Redis CP (WML dependency)
+    # ibm-redis-cp CASE bundle ships Helm charts — mirror_images handles both
+    # images and charts in one pass.
+    # -------------------------------------------------------------------------
+    - role: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_wml
+        - mirror_mode != "from-filesystem"
+        - mas_catalog_metadata.redis_version is defined
+      vars:
+        case_name: ibm-redis-cp
+        case_version: "{{ mas_catalog_metadata.redis_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: false
+
+    - role: ibm.mas_devops.mirror_images
+      when:
+        - mirror_wml
+        - mas_catalog_metadata.redis_version is defined
+      vars:
+        manifest_name: ibm-redis-cp
+        manifest_version: "{{ mas_catalog_metadata.redis_version }}"
 
     # 9. Analytics Engine (Spark)
     # -------------------------------------------------------------------------
@@ -645,7 +667,7 @@
         case_version: "{{ mas_catalog_metadata.cognos_version }}"
         exclude_images: []
         ibmpak_skip_dependencies: false
-        casectl_resolve_charts: true
+        casectl_resolve_charts: false
 
     - role: ibm.mas_devops.mirror_images
       when: mirror_cognos
