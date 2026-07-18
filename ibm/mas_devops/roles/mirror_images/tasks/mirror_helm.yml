@@ -1,10 +1,18 @@
 ---
-# Mirror Helm charts from the CASE bundle to the target OCI registry.
-# This file is only included when the charts directory exists (checked in main.yml).
+# Mirror Helm charts to the target OCI registry.
 #
-# Charts location (populated by mirror_case_prepare):
-#   direct / to-filesystem:  ~/.ibm-pak/data/cases/<name>/<build_version>/charts/*.tgz
-#   from-filesystem:         MIRROR_WORKING_DIR/charts/<name>/<manifest_version>/*.tgz
+# Supports two chart sources:
+#   CASE bundle (default):
+#     Charts were downloaded by mirror_case_prepare into:
+#       ~/.ibm-pak/data/cases/<manifest_name>/<build_version>/charts/*.tgz
+#     Used when helm_pull_charts is NOT defined.
+#
+#   Public Helm repo pull (helm_pull_charts):
+#     Charts are not shipped in any CASE bundle and must be pulled directly
+#     from a public Helm repository before mirroring.
+#     Set helm_pull_charts (list of {name, version}) and helm_pull_repo_url.
+#     Charts are pulled into /tmp/helm-pull/<manifest_name>/ and then
+#     processed exactly like CASE bundle charts.
 #
 # Variables inherited from mirror_images role:
 #   manifest_name, manifest_version, mirror_mode, mirror_working_dir,
@@ -12,8 +20,61 @@
 #   registry_username, registry_password, registry_auth, auth_file
 # Variables set by mirror_case_prepare (available as play-level facts):
 #   build_version
+# Optional variables (for public Helm repo pull):
+#   helm_pull_charts    - list of {name, version} to pull from the public repo
+#   helm_pull_repo_url  - URL of the public Helm repo to pull from
 
-# 1. Helm registry login
+# 1. Public Helm repo pull (only when helm_pull_charts is defined)
+# -----------------------------------------------------------------------------
+- name: "{{ manifest_name }} : Add public Helm repository"
+  when:
+    - helm_pull_charts is defined
+    - mirror_mode in ["direct", "to-filesystem"]
+  command: helm repo add helm-pull-src {{ helm_pull_repo_url }}
+  register: helm_repo_add_result
+  changed_when: "'already exists' not in helm_repo_add_result.stderr"
+  failed_when:
+    - helm_repo_add_result.rc != 0
+    - "'already exists' not in helm_repo_add_result.stderr"
+
+- name: "{{ manifest_name }} : Update Helm repositories"
+  when:
+    - helm_pull_charts is defined
+    - mirror_mode in ["direct", "to-filesystem"]
+  command: helm repo update
+  changed_when: true
+
+- name: "{{ manifest_name }} : Create temp pull directory"
+  when:
+    - helm_pull_charts is defined
+    - mirror_mode in ["direct", "to-filesystem"]
+  file:
+    path: "/tmp/helm-pull/{{ manifest_name }}"
+    state: directory
+
+- name: "{{ manifest_name }} : Pull charts from public Helm repo"
+  when:
+    - helm_pull_charts is defined
+    - mirror_mode in ["direct", "to-filesystem"]
+  command: >
+    helm pull helm-pull-src/{{ item.name }}
+    --version {{ item.version }}
+    --destination /tmp/helm-pull/{{ manifest_name }}
+  loop: "{{ helm_pull_charts }}"
+  loop_control:
+    label: "{{ item.name }}-{{ item.version }}"
+
+# Resolve chart source directory:
+#   helm_pull_charts defined → /tmp/helm-pull/<manifest_name>
+#   otherwise                → ~/.ibm-pak/data/cases/<manifest_name>/<build_version>/charts
+- name: "{{ manifest_name }} : Set chart source directory"
+  set_fact:
+    _helm_chart_src_dir: >-
+      {{ '/tmp/helm-pull/' + manifest_name
+         if helm_pull_charts is defined
+         else '~/.ibm-pak/data/cases/' + manifest_name + '/' + build_version + '/charts' }}
+
+# 2. Helm registry login
 # -----------------------------------------------------------------------------
 - name: "{{ manifest_name }} : Login to Helm OCI registry"
   when:
@@ -35,12 +96,12 @@
     that: helm_login_result.rc == 0
     fail_msg: "helm registry login failed: {{ helm_login_result.stderr }}"
 
-# 2A. Direct mode — find charts in CASE bundle and push to registry
+# 3A. Direct mode — find charts and push to registry
 # -----------------------------------------------------------------------------
-- name: "{{ manifest_name }} : Find Helm charts in CASE bundle (direct)"
+- name: "{{ manifest_name }} : Find Helm charts (direct)"
   when: mirror_mode == "direct"
   find:
-    paths: "~/.ibm-pak/data/cases/{{ manifest_name }}/{{ build_version }}/charts"
+    paths: "{{ _helm_chart_src_dir }}"
     patterns: "*.tgz"
   register: helm_charts_direct
 
@@ -61,12 +122,12 @@
   debug:
     msg: "{{ helm_push_direct_result.results | map(attribute='item.path') | map('basename') | list }}"
 
-# 2B. To-filesystem mode — copy charts from CASE bundle to working dir
+# 3B. To-filesystem mode — copy charts to working dir
 # -----------------------------------------------------------------------------
-- name: "{{ manifest_name }} : Find Helm charts in CASE bundle (to-filesystem)"
+- name: "{{ manifest_name }} : Find Helm charts (to-filesystem)"
   when: mirror_mode == "to-filesystem"
   find:
-    paths: "~/.ibm-pak/data/cases/{{ manifest_name }}/{{ build_version }}/charts"
+    paths: "{{ _helm_chart_src_dir }}"
     patterns: "*.tgz"
   register: helm_charts_to_fs
 
@@ -90,7 +151,7 @@
   loop_control:
     label: "{{ item.path | basename }}"
 
-# 2C. From-filesystem mode — push charts from working dir to registry
+# 3C. From-filesystem mode — push charts from working dir to registry
 # -----------------------------------------------------------------------------
 - name: "{{ manifest_name }} : Find Helm charts in working directory (from-filesystem)"
   when: mirror_mode == "from-filesystem"
