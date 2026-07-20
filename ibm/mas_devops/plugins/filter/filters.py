@@ -379,10 +379,21 @@ def format_pre_version_with_buildid(data):
   """
   Versions in format 9.0.0-pre.stable-3757 cannot be used to compare with the version
   reconciled by application operators, which is in format 9.0.0-pre.stable+3757. This function is to
-  format version to make it comparable
+  format version to make it comparable.
+  
+  For dev channel versions like 9.1.19-29604, the build ID is stripped to match the reconciled
+  version format (9.1.19) stored in the ManageApp CR status.
   """
-  if "pre" not in data or data.count("-") < 2:
+  if "pre" not in data:
+    # For dev channel versions like 9.1.19-29604, strip the build ID
+    # to match the reconciled version format in the CR status
+    if data.count("-") == 1 and data.split("-")[1].isdigit():
+      return data.split("-")[0]
     return data
+  
+  if data.count("-") < 2:
+    return data
+  
   build_id_idx = data.rfind('-')
   return f"{data[:build_id_idx]}{(data[build_id_idx:]).replace('-', '+')}"
 
