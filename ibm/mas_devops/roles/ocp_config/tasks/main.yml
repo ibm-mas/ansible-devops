@@ -5,10 +5,12 @@
   debug:
     msg:
       - "ocp_update_ciphers_for_semeru ........... {{ ocp_update_ciphers_for_semeru }}"
-      - "ocp_ingress_update_timeouts ............ {{ ocp_ingress_update_timeouts }}"
-      - "ocp_ingress_namespace_ownership ........ {{ ocp_ingress_namespace_ownership if ocp_ingress_namespace_ownership != '' else 'Not set' }}"
-      - "ocp_ingress_controller_name ............ {{ ocp_ingress_controller_name }}"
-      - "ocp_operatorhub_disable_redhat_sources . {{ ocp_operatorhub_disable_redhat_sources }}"
+      - "ocp_ingress_update_timeouts ............. {{ ocp_ingress_update_timeouts }}"
+      - "ocp_ingress_namespace_ownership ......... {{ ocp_ingress_namespace_ownership if ocp_ingress_namespace_ownership != '' else 'Not set' }}"
+      - "ocp_ingress_controller_name ............. {{ ocp_ingress_controller_name }}"
+      - "ocp_operatorhub_disable_redhat_sources .. {{ ocp_operatorhub_disable_redhat_sources }}"
+      - "ocp_update_allowed_registries ........... {{ ocp_update_allowed_registries }}"
+      - "ocp_update_additional_trusted_ca ........ {{ ocp_update_additional_trusted_ca }}"
 
 # 2. Update API Server
 # -----------------------------------------------------------------------------
@@ -25,71 +27,16 @@
 - include_tasks: update-operatorhub.yml
   when: ocp_operatorhub_disable_redhat_sources
 
-# 5. For IPv6 testing, lookup network
-- name: Lookup network for IPv6 testing
-  kubernetes.core.k8s:
-    api_version: config.openshift.io/v1
-    kind: Network
-    name: "cluster"
-  when:
-    - ocp_enable_ipv6 == true
-  register: _network
+# 5. For enable dual stack networking and IPv6 configuration checks
+- include_tasks: ipv6-prereq-check.yml
+  when: ocp_enable_ipv6
 
-# 6. For IPv6 testing, enable dual stack networking
-- name: "Enable dual stack networking"
-  kubernetes.core.k8s_json_patch:
-    kind: Network
-    name: "cluster"
-    api_version: config.openshift.io/v1
-    patch:
-      - op: add
-        path: /spec/clusterNetwork/-
-        value:
-          cidr: fd01::/48
-          hostPrefix: 64
-      - op: add
-        path: /spec/serviceNetwork/-
-        value: fd02::/112
-  register: _dualstackNetworkAddr
-  when:
-    - ocp_enable_ipv6 == true
-    - "'fd01::/48' not in (_network.result.spec.clusterNetwork | map(attribute='cidr') | list)"
+# 6. Update allowed registries
+# -----------------------------------------------------------------------------
+- include_tasks: update-allowed-registries.yml
+  when: ocp_update_allowed_registries
 
-# 7. Wait for network operator to reconcile after dual-stack changes
-- name: "Wait for network operator to complete dual-stack reconciliation"
-  kubernetes.core.k8s_info:
-    api_version: operator.openshift.io/v1
-    kind: Network
-    name: cluster
-  register: _network_status
-  until:
-    - _network_status.resources[0].status.conditions is defined
-    - _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Progressing') | map(attribute='status') | first == 'False'
-    - _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | map(attribute='status') | first == 'True'
-  retries: 60
-  delay: 10
-  when:
-    - ocp_enable_ipv6 == true
-
-- name: "Debug network operator status"
-  debug:
-    msg: "Network operator - Progressing: {{ _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Progressing') | map(attribute='status') | first }}, Available: {{ _network_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | map(attribute='status') | first }}"
-  when:
-    - ocp_enable_ipv6 == true
-    - _network_status is defined
-    - _network_status is failed
-
-# 8. Wait for all nodes to report network ready
-- name: "Wait for all nodes to report network ready"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Node
-  register: _nodes
-  until:
-    - _nodes is succeeded
-    - _nodes.resources is defined
-    - _nodes.resources | selectattr('status.conditions', 'defined') | map(attribute='status.conditions') | flatten | selectattr('type', 'equalto', 'NetworkUnavailable') | map(attribute='status') | select('equalto', 'True') | list | length == 0
-  retries: 60
-  delay: 10
-  when:
-    - ocp_enable_ipv6 == true
+# 7. Update additional trusted CA
+# -----------------------------------------------------------------------------
+- include_tasks: update-additional-trusted-ca.yml
+  when: ocp_update_additional_trusted_ca

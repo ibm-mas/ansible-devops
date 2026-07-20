@@ -118,6 +118,13 @@ Custom storage class to use for PVCs with ReadWriteOnce (RWO) access mode when `
 - Default: Empty (uses default storage class)
 - Example: `ocs-storagecluster-ceph-rbd`
 
+### mas_app_restore_include_pvc
+Control whether to restore persistent volume data for application. When set to `false`, only namespace resources (CRs, secrets, subscriptions) will be restored, and PVC data restore will be skipped.
+
+- Optional
+- Environment Variable: `MAS_APP_RESTORE_INCLUDE_PVC`
+- Default: `true`
+- Valid Values: `true`, `false`
 
 What Gets Restored
 -------------------------------------------------------------------------------
@@ -448,6 +455,42 @@ Restore with override enabled but using cluster's default storage classes:
     # Enable storage class override without specifying custom classes
     # Will automatically use the cluster's default storage class
     override_storageclass: true
+  roles:
+    - ibm.mas_devops.suite_app_restore
+```
+
+### Restore Without PVC Data
+Restore only namespace resources without restoring persistent volume data:
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: inst1
+    mas_workspace_id: ws1
+    mas_app_id: manage
+    mas_backup_dir: /backup/mas
+    mas_app_backup_version: "20240315-143022"
+    # Skip PVC restore
+    mas_app_restore_include_pvc: false
+  roles:
+    - ibm.mas_devops.suite_app_restore
+```
+
+### Restore Facilities Without PVC Data
+Restore Facilities namespace resources without restoring persistent volume data:
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: inst1
+    mas_workspace_id: ws1
+    mas_app_id: facilities
+    mas_backup_dir: /backup/mas
+    mas_app_backup_version: "20240315-143022"
+    # Skip PVC restore
+    mas_app_restore_include_pvc: false
   roles:
     - ibm.mas_devops.suite_app_restore
 ```
