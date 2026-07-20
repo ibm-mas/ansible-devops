@@ -1,8 +1,8 @@
 # db2
 
-This role creates or upgrades a Db2 instance using the Db2u Operator. When installing db2, the db2u operator will now be installed into the same namespace as the db2 instance. 
+This role creates, upgrades, migrates, or manages Db2 instances using the Db2u Operator. When installing db2, the db2u operator will now be installed into the same namespace as the db2 instance.
 
-**IMPORTANT:** The Db2uCluster resource is deprecated (replaced by Db2uInstance). This Ansible collection will retain support for Db2uCluster until it's eventual EOL.
+**IMPORTANT:** The Db2uCluster resource is deprecated (replaced by Db2uInstance). This Ansible collection will retain support for Db2uCluster until it's eventual EOL. Use the `db2u-migration` action to migrate existing Db2uCluster deployments to Db2uInstance.
 
 If you already have db2 operator and db2 instances running in separate namespaces, this role will migrate the db2 **operators** (not the instances) from `ibm-common-services` to the namespace defined by `db2_namespace` property (in case of a new role execution for a db2 install or db2 upgrade). A private root CA certificate is created and is used to secure the TLS connections to the database. A Db2 Warehouse cluster will be created along with a public TLS encrypted route to allow external access to the cluster (access is via the ssl-server nodeport port on the *-db2u-engn-svc service). Internal access is via the *-db2u-engn-svc service and port 50001. Both the external route and the internal service use the same server certificate.
 
@@ -96,7 +96,7 @@ Specifies which operation to perform on the Db2 database.
 - Environment Variable: `DB2_ACTION`
 - Default: `install`
 
-**Purpose**: Controls what action the role executes against Db2 instances. This allows the same role to handle installation, upgrades, backups, and restores of Db2 databases.
+**Purpose**: Controls what action the role executes against Db2 instances. This allows the same role to handle installation, upgrades, backups, restores, and migration of Db2 databases.
 
 **When to use**:
 - Use `install` (default) for initial Db2 deployment
@@ -104,8 +104,9 @@ Specifies which operation to perform on the Db2 database.
 - Use `backup` to create a backup of Db2 instance and/or database
 - Use `restore` to restore a backup of db2 instance and database
 - Use `restore-database` to restore only the database to an existing Db2 instance
+- Use `db2u-migration` to migrate Db2uCluster to Db2uInstance (requires v12)
 
-**Valid values**: `install`, `upgrade`, `backup`, `restore`, `restore-database`
+**Valid values**: `install`, `upgrade`, `backup`, `restore`, `restore-database`, `db2u-migration`
 
 **Impact**:
 - `install`: Creates new Db2 operator and instance. When `db2_backup_version` is provided, installs from backup (instance + database)
@@ -113,14 +114,17 @@ Specifies which operation to perform on the Db2 database.
 - `backup`: Creates backup of Db2 instance resources and/or database data
 - `restore`: Creates new Db2 operator and instance from the backup of Db2 instance resources and restores database data to the created instance
 - `restore-database`: Restores database to an existing running Db2 instance (does not restore instance resources)
+- `db2u-migration`: Migrates existing Db2uCluster to Db2uInstance using `db2u_migrate` CLI tool (namespace-scoped, requires v12)
 
 **Related variables**:
 - `db2_version`: Required for upgrade action to specify target version
-- `db2_namespace`: All instances in this namespace are affected by upgrade
+- `db2_namespace`: All instances in this namespace are affected by upgrade; migration operates on this namespace
+- `db2_instance_name`: Required for migration to specify which Db2uCluster to migrate
 - `db2_backup_version`: Required for restore/restore-database action; optional for backup, defaults to YYYYMMDD-HHMMSS
 - `override_storageclass`: In Restore, controls whether storage classes are overridden
+- `mas_instance_id`, `mas_config_dir`: Optional for migration; when provided, updates MAS JdbcCfg
 
-**Note**: **WARNING** - When using `upgrade`, ALL Db2 instances in the specified namespace will be upgraded. Plan accordingly and ensure `db2_version` matches the operator channel.
+**Note**: **WARNING** - When using `upgrade`, ALL Db2 instances in the specified namespace will be upgraded. Plan accordingly and ensure `db2_version` matches the operator channel. When using `db2u-migration`, the Db2uCluster must be v12.x and the original Db2uCluster CR will be deleted after migration.
 
 #### db2_namespace
 OpenShift namespace where Db2 operator and instances will be deployed.
@@ -972,6 +976,127 @@ The number of Db2 pods to create in the instance. Note that `db2_num_pods` must 
 - Default: 1
 
 ### db2_addons_audit_config
+
+## Migrating from Db2uCluster to Db2uInstance
+The `db2u-migration` action enables migration of existing Db2uCluster deployments to the current Db2uInstance resource type. This migration is necessary as Db2uCluster is deprecated and will reach end-of-life in future releases.
+
+### Migration Requirements
+- **Version**: Db2uCluster must be running v12.x (migration will fail for v11 or earlier)
+- **CLI Tool**: The `db2u_migrate` command-line tool must be available on the machine running the Ansible role
+- **Namespace**: Migration is namespace-scoped; specify the namespace containing the Db2uCluster
+- **No Conflicts**: No Db2uInstance with the same name should exist in the namespace
+
+### Migration Behavior
+- **Non-destructive**: The original Db2uCluster CR remains after migration and is not automatically deleted
+- **Data Preservation**: Database data and configuration are preserved during migration
+- **Service Continuity**: The migration creates a new Db2uInstance that maintains connectivity to the existing database
+- **JdbcCfg Update**: Optionally updates MAS JdbcCfg if `mas_instance_id` and `mas_config_dir` are provided
+
+### Migration Process
+The migration action performs the following steps:
+
+1. **Validation**:
+   - Verifies namespace exists
+   - Confirms Db2uCluster exists and is v12.x
+   - Checks for Db2uInstance naming conflicts
+
+2. **Execution**:
+   - Runs `db2u_migrate --namespace <namespace> --name <name>`
+   - Monitors command output and handles errors
+
+3. **Verification**:
+   - Waits for Db2uInstance to reach Ready state
+   - Waits for Db2uEngine to reach Ready state
+   - Optionally updates MAS JdbcCfg
+
+4. **Post-Migration**:
+   - Displays success status
+   - Reminds user that Db2uCluster still exists
+   - Provides guidance for optional cleanup
+
+### Usage Example
+
+#### Basic Migration
+```bash
+export DB2_ACTION=db2u-migration
+export DB2_NAMESPACE=db2u
+export DB2_INSTANCE_NAME=db2u-db01
+
+ansible-playbook ibm.mas_devops.run_role
+```
+
+#### Migration with MAS JdbcCfg Update
+```bash
+export DB2_ACTION=db2u-migration
+export DB2_NAMESPACE=db2u
+export DB2_INSTANCE_NAME=db2u-manage
+export MAS_INSTANCE_ID=inst1
+export MAS_CONFIG_DIR=/tmp/masconfig
+
+ansible-playbook ibm.mas_devops.run_role
+```
+
+### Post-Migration Steps
+
+#### Verify Migration Success
+```bash
+# Check Db2uInstance status
+oc get db2uinstance -n db2u
+
+# Check Db2uEngine status
+oc get db2uengine -n db2u
+
+# Verify database connectivity
+oc exec -n db2u c-db2u-db01-db2u-0 -- su - db2inst1 -c "db2 connect to BLUDB"
+```
+
+#### Optional: Clean Up Db2uCluster
+After verifying the migration succeeded and the Db2uInstance is functioning correctly, you may optionally delete the original Db2uCluster:
+
+```bash
+# Delete the Db2uCluster CR (optional)
+oc delete db2ucluster db2u-db01 -n db2u
+```
+
+**Note**: Only delete the Db2uCluster after thoroughly verifying the migrated Db2uInstance is working correctly.
+
+### Troubleshooting Migration
+
+#### Migration Fails: Version Check
+```
+Error: Migration requires Db2uCluster to be v12.x
+Current version: 11.5.8.0
+```
+
+**Resolution**: Upgrade your Db2uCluster to v12 before attempting migration:
+```bash
+export DB2_ACTION=upgrade
+export DB2_VERSION=12.0.0.0
+export DB2_CHANNEL=v12.0.0-cn1
+ansible-playbook ibm.mas_devops.run_role
+```
+
+#### Migration Fails: Db2uInstance Already Exists
+```
+Error: Db2uInstance 'db2u-db01' already exists in namespace 'db2u'
+```
+
+**Resolution**: Either delete the existing Db2uInstance or choose a different name:
+```bash
+# Option 1: Delete existing instance
+oc delete db2uinstance db2u-db01 -n db2u
+
+# Option 2: Use different name
+export DB2_INSTANCE_NAME=db2u-db01-migrated
+```
+
+#### Migration Fails: db2u_migrate Command Not Found
+```
+Error: db2u_migrate: command not found
+```
+
+**Resolution**: Install the `db2u_migrate` CLI tool on the machine running the Ansible role. Contact IBM support or refer to Db2 operator documentation for installation instructions.
+
 
 - Optional
 - Environment Variable: `'DB2_ADDONS_AUDIT_CONFIG`
