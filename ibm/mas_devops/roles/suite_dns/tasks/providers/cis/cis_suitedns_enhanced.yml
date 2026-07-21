@@ -58,6 +58,42 @@
         _cis_rule_id: "{{ _cis_rule_status_result.stdout.split(' ')[0] | default('') }}"
         _cis_rule_enabled: "{{ _cis_rule_status_result.stdout.split(' ')[1] | default('false') }}"
 
+    - name: "cis: get IAM token for CIS API"
+      ansible.builtin.shell: |
+        ibmcloud iam oauth-tokens --output json | jq -r '.iam_token'
+      register: _cis_iam_token_result
+      when: _cis_rule_id | trim | length == 0
+
+    - name: "cis: create http_request_firewall_managed entry point ruleset via API"
+      ansible.builtin.shell: |
+        curl -s -X POST \
+          "https://api.cis.cloud.ibm.com/v1/{{ cis_crn }}/zones/{{ (_cis_domains_result.stdout | from_json)[0].id }}/rulesets" \
+          -H "X-Auth-User-Token: {{ _cis_iam_token_result.stdout }}" \
+          -H "Content-Type: application/json" \
+          -d '{"name":"Zone-level phase entry point","kind":"zone","description":"WAF managed rule entrypoint ruleset.","phase":"http_request_firewall_managed"}'
+      register: _cis_entrypoint_result
+      failed_when: false
+      when: _cis_rule_id | trim | length == 0
+
+    - name: "cis: debug entry point ruleset creation response"
+      ansible.builtin.debug:
+        msg: "{{ _cis_entrypoint_result.stdout | from_json }}"
+      when: _cis_rule_id | trim | length == 0
+
+    - name: "cis: print entry point ruleset details after creation"
+      ansible.builtin.shell: |
+        curl -s -X GET \
+          "https://api.cis.cloud.ibm.com/v1/{{ cis_crn }}/zones/{{ (_cis_domains_result.stdout | from_json)[0].id }}/rulesets/phases/http_request_firewall_managed/entrypoint" \
+          -H "X-Auth-User-Token: {{ _cis_iam_token_result.stdout }}" \
+          -H "Content-Type: application/json"
+      register: _cis_entrypoint_get_result
+      when: _cis_rule_id | trim | length == 0
+
+    - name: "cis: debug entry point ruleset details"
+      ansible.builtin.debug:
+        msg: "{{ _cis_entrypoint_get_result.stdout | from_json }}"
+      when: _cis_rule_id | trim | length == 0
+
     - name: "cis: add CIS Managed Ruleset to WAF when WAF rule does not exist"
       ansible.builtin.shell: |
         ibmcloud cis managed-waf deployment-add-ruleset {{ (_cis_domains_result.stdout | from_json)[0].id }} {{ _cis_ruleset_result.stdout }} \
