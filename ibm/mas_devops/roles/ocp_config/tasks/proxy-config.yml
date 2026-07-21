@@ -5,7 +5,7 @@
       apiVersion: v1
       kind: Namespace
       metadata:
-        name: "{{ namespace | default('squid-proxy') }}"
+        name: "{{ proxy_namespace | default('squid-proxy') }}"
 
 - name: Create Squid ConfigMap
   kubernetes.core.k8s:
@@ -15,7 +15,7 @@
       kind: ConfigMap
       metadata:
         name: squid-config
-        namespace: "{{ namespace | default('squid-proxy') }}"
+        namespace: "{{ proxy_namespace | default('squid-proxy') }}"
       data:
         squid.conf: |
           http_port {{ proxy_port | default(3128) }}
@@ -64,7 +64,7 @@
       kind: Deployment
       metadata:
         name: "{{ deployment_name | default('squid-proxy') }}"
-        namespace: "{{ namespace | default('squid-proxy') }}"
+        namespace: "{{ proxy_namespace | default('squid-proxy') }}"
       spec:
         replicas: "{{ replicas | default(1) }}"
         selector:
@@ -127,7 +127,7 @@
       kind: Service
       metadata:
         name: "{{ service_name | default('squid-proxy') }}"
-        namespace: "{{ namespace | default('squid-proxy') }}"
+        namespace: "{{ proxy_namespace | default('squid-proxy') }}"
       spec:
         selector:
           app: squid-proxy
@@ -142,7 +142,7 @@
   kubernetes.core.k8s_info:
     kind: Deployment
     name: "{{ deployment_name | default('squid-proxy') }}"
-    namespace: "{{ namespace | default('squid-proxy') }}"
+    namespace: "{{ proxy_namespace | default('squid-proxy') }}"
     wait: true
     wait_condition:
       type: Available
@@ -152,7 +152,7 @@
 - name: Get squid-proxy pod info
   kubernetes.core.k8s_info:
     kind: Pod
-    namespace: "{{ namespace | default('squid-proxy') }}"
+    namespace: "{{ proxy_namespace | default('squid-proxy') }}"
     label_selectors:
       - app=squid-proxy
   register: squid_pods
@@ -195,4 +195,4 @@
       spec:
         httpProxy: "http://{{ squid_pod_ip }}:{{ proxy_port | default(3128) }}"
         httpsProxy: "http://{{ squid_pod_ip }}:{{ proxy_port | default(3128) }}"
-        noProxy: "{{ cluster_network_cidrs | split(' ') | list | union(service_network_cidrs | split(' ') | list) | join(',') }},.cluster.local,.svc,docker.io,{{ oauth_url }},{{ domain_url }}"
+        noProxy: "{{ cluster_network_cidrs | split(' ') | list | union(service_network_cidrs | split(' ') | list) | join(',') }},.cluster.local,.svc,docker.io,{{ oauth_url }},{{ domain_url }},10.0.0.0/8,169.254.169.254"
