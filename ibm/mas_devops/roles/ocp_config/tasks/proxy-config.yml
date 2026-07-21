@@ -1,0 +1,198 @@
+- name: Create namespace
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ namespace | default('squid-proxy') }}"
+
+- name: Create Squid ConfigMap
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: squid-config
+        namespace: "{{ namespace | default('squid-proxy') }}"
+      data:
+        squid.conf: |
+          http_port {{ proxy_port | default(3128) }}
+
+          # Don't daemonize
+          pid_filename none
+
+          # Disable all caching
+          cache deny all
+          cache_store_log none
+          cache_mem 0 MB
+          maximum_object_size 0 KB
+
+          # Log to container stdout/stderr
+          access_log stdio:/dev/stdout
+          cache_log stdio:/dev/stderr
+          logfile_rotate 0
+
+          # Allow CONNECT to standard SSL ports
+          acl SSL_ports port 443
+          acl Safe_ports port 80
+          acl Safe_ports port 443
+          acl Safe_ports port 1025-65535
+          acl CONNECT method CONNECT
+
+          http_access deny !Safe_ports
+          http_access deny CONNECT !SSL_ports
+
+          # Allow all clients (for testing only)
+          http_access allow all
+
+          # Disable ICP/HTCP
+          icp_port 0
+
+          # No DNS preference
+          dns_v4_first off
+
+          # No cache directories
+          coredump_dir /var/spool/squid
+
+- name: Create Squid Deployment
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: "{{ deployment_name | default('squid-proxy') }}"
+        namespace: "{{ namespace | default('squid-proxy') }}"
+      spec:
+        replicas: "{{ replicas | default(1) }}"
+        selector:
+          matchLabels:
+            app: squid-proxy
+        template:
+          metadata:
+            labels:
+              app: squid-proxy
+          spec:
+            containers:
+              - name: squid
+                image: "{{ image | default('ubuntu/squid:latest') }}"
+                imagePullPolicy: IfNotPresent
+                ports:
+                  - containerPort: "{{ proxy_port | default(3128) }}"
+                volumeMounts:
+                  - name: squid-config
+                    mountPath: /etc/squid/squid.conf
+                    subPath: squid.conf
+                  - name: squid-cache
+                    mountPath: /var/spool/squid
+                  - name: squid-run
+                    mountPath: /run
+                  - name: squid-log
+                    mountPath: /var/log/squid
+                resources:
+                  requests:
+                    cpu: 100m
+                    memory: 128Mi
+                  limits:
+                    cpu: 500m
+                    memory: 512Mi
+                readinessProbe:
+                  tcpSocket:
+                    port: "{{ proxy_port | default(3128) }}"
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+                livenessProbe:
+                  tcpSocket:
+                    port: "{{ proxy_port | default(3128) }}"
+                  initialDelaySeconds: 15
+                  periodSeconds: 20
+            volumes:
+              - name: squid-config
+                configMap:
+                  name: squid-config
+              - name: squid-cache
+                emptyDir: {}
+              - name: squid-run
+                emptyDir: {}
+              - name: squid-log
+                emptyDir: {}
+
+- name: Create Squid Service
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: "{{ service_name | default('squid-proxy') }}"
+        namespace: "{{ namespace | default('squid-proxy') }}"
+      spec:
+        selector:
+          app: squid-proxy
+        ports:
+          - name: http-proxy
+            protocol: TCP
+            port: "{{ proxy_port | default(3128) }}"
+            targetPort: "{{ proxy_port | default(3128) }}"
+        type: ClusterIP
+
+- name: Wait for Squid Deployment to be ready
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    name: "{{ deployment_name | default('squid-proxy') }}"
+    namespace: "{{ namespace | default('squid-proxy') }}"
+    wait: true
+    wait_condition:
+      type: Available
+      status: "True"
+    wait_timeout: 120
+
+- name: Get squid-proxy pod info
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ namespace | default('squid-proxy') }}"
+    label_selectors:
+      - app=squid-proxy
+  register: squid_pods
+
+- name: Set squid pod IP fact
+  ansible.builtin.set_fact:
+    squid_pod_ip: "{{ squid_pods.resources[0].status.podIP }}"
+
+- name: Get cluster and service network CIDRs
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Network
+    name: cluster
+  register: cluster_network
+
+- name: Set network CIDR facts
+  ansible.builtin.set_fact:
+    cluster_network_cidrs: "{{ cluster_network.resources[0].spec.clusterNetwork | map(attribute='cidr') | join(' ') }}"
+    service_network_cidrs: "{{ cluster_network.resources[0].spec.serviceNetwork | join(' ') }}"
+
+- name: Get cluster ingress domain
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: cluster_ingress
+
+- name: Set OAuth URL and Domain URL fact
+  ansible.builtin.set_fact:
+    oauth_url: "oauth-openshift.{{ cluster_ingress.resources[0].spec.domain }}"
+    domain_url: "{{ cluster_ingress.resources[0].spec.domain }}"
+
+- name: Patch cluster proxy with squid proxy settings
+  kubernetes.core.k8s:
+    api_version: config.openshift.io/v1
+    kind: Proxy
+    name: cluster
+    state: patched
+    definition:
+      spec:
+        httpProxy: "http://{{ squid_pod_ip }}:{{ proxy_port | default(3128) }}"
+        httpsProxy: "http://{{ squid_pod_ip }}:{{ proxy_port | default(3128) }}"
+        noProxy: "{{ cluster_network_cidrs | split(' ') | list | union(service_network_cidrs | split(' ') | list) | join(',') }},.cluster.local,.svc,docker.io,{{ oauth_url }},{{ domain_url }}"

@@ -1,28 +1,4 @@
----
-# 1. For IPv6 testing, enable dual stack networking
-- name: Lookup network for IPv6 testing
-  kubernetes.core.k8s:
-    api_version: config.openshift.io/v1
-    kind: Network
-    name: "cluster"
-  register: _network
-
-- name: "Enable dual stack networking"
-  kubernetes.core.k8s_json_patch:
-    kind: Network
-    name: "cluster"
-    api_version: config.openshift.io/v1
-    patch:
-      - op: add
-        path: /spec/clusterNetwork/-
-        value:
-          cidr: fd01::/48
-          hostPrefix: 64
-      - op: add
-        path: /spec/serviceNetwork/-
-        value: fd02::/112
-  when:
-    - "'fd01::/48' not in (_network.result.spec.clusterNetwork | map(attribute='cidr') | list)"
+# 1. wait for some time as applying configuration
 
 - name: Pause for 5 minutes
   ansible.builtin.pause:
