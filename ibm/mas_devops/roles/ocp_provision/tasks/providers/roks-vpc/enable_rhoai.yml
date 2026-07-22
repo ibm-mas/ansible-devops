@@ -1,0 +1,43 @@
+---
+# Enable the openshift-ai addon and wait for it to become ready.
+# 'ibmcloud oc cluster addon ls --output json' returns a list of addon objects,
+# e.g. [{"name": "openshift-ai", "healthState": "normal", ...}, ...]
+# Depends on: cluster_name
+
+- name: "roks-vpc/enable_rhoai : Enable openshift-ai addon"
+  shell: |
+    ibmcloud oc cluster addon enable openshift-ai --cluster {{ cluster_name }}
+  register: addon_enable
+  # rc=1 with "already exists" is not a real failure — the addon is already enabled.
+  failed_when:
+    - addon_enable.rc != 0
+    - "'already exists' not in addon_enable.stderr"
+
+- name: "roks-vpc/enable_rhoai : Wait until openshift-ai addon is ready"
+  shell: |
+    ibmcloud oc cluster addon ls --cluster {{ cluster_name }} --output json
+  register: addon_status
+  vars:
+    addon: >-
+      {{
+        addon_status.stdout | from_json
+        | selectattr('name', 'equalto', 'openshift-ai')
+        | list | first | default({})
+      }}
+  until:
+    - addon_status.rc == 0
+    - addon.healthState is defined
+    - addon.healthState == 'normal'
+  retries: 30
+  delay: 60  # 1 minute
+
+- name: "roks-vpc/enable_rhoai : Debug openshift-ai addon state"
+  vars:
+    addon: >-
+      {{
+        addon_status.stdout | from_json
+        | selectattr('name', 'equalto', 'openshift-ai')
+        | list | first | default({})
+      }}
+  debug:
+    msg: "{{ addon }}"

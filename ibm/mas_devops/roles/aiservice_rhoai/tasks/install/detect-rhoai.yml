@@ -1,0 +1,23 @@
+---
+# aiservice_rhoai/tasks/install/detect-rhoai.yml
+# =============================================================================
+# Detect if RHOAI is installed
+
+- name: "RHOAI Install : Get RHOAI subscription"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: rhoai-operator
+    namespace: "{{ rhoai_namespace }}"
+  register: rhoai_subscription
+
+- name: "RHOAI Install : Set RHOAI detection flag"
+  set_fact:
+    rhoai_installed: "{{ rhoai_subscription.resources | length > 0 }}"
+
+- name: "RHOAI Install : Display RHOAI detection result"
+  debug:
+    msg:
+      - "RHOAI Detection Result:"
+      - "  RHOAI installed: {{ rhoai_installed }}"
+      - "  {% if rhoai_installed %}RHOAI is already installed.{% else %}Fresh RHOAI installation will proceed{% endif %}"
