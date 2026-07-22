@@ -13,14 +13,25 @@ spec:
     targetPort: {{ target_port_name }}
   tls:
     termination: reencrypt
+{% if route_tls.insecureEdgeTerminationPolicy is defined %} 
+    insecureEdgeTerminationPolicy: {{route_tls.insecureEdgeTerminationPolicy}}
+{% endif %}    
+{% if route_tls.certificate is defined %} 
     certificate: |
       {{route_tls.certificate | replace('\\n', '\n') | indent(6, first=False)}}
+{% endif %}
+{% if route_tls.key is defined %} 
     key: |
       {{route_tls.key | replace('\\n', '\n') | indent(6, first=False)}}
+{% endif %}
+{% if route_tls.caCertificate is defined %}      
     caCertificate: |
       {{route_tls.caCertificate | replace('\\n', '\n') | indent(6, first=False)}}
+{% endif %}
+{% if route_tls.destinationCACertificate is defined %}      
     destinationCACertificate: |
       {{route_tls.destinationCACertificate | replace('\\n', '\n') | indent(6, first=False)}}
+{% endif %}
   to:
     kind: Service
     name: {{gateway_service}}
