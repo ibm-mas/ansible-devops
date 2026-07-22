@@ -371,14 +371,16 @@
 
 # 9. Wait until the appropriate DB2 CRD is available
 # -----------------------------------------------------------------------------
-- name: "Wait until the Db2uInstance CRD is available (helm-based operator)"
-  when: db2_use_helm_operator | default(false) | bool
+- name: "Wait until the Db2uInstance CRD is available"
+  when: (db2_use_helm_operator | default(false) | bool) or (db2u_kind | default('db2ucluster') == 'db2uinstance')
   include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
   vars:
     crd_name: "db2uinstances.db2u.databases.ibm.com"
 
 - name: "Wait until the Db2uCluster CRD is available (subscription-based operator)"
-  when: not (db2_use_helm_operator | default(false) | bool)
+  when:
+    - not (db2_use_helm_operator | default(false) | bool)
+    - db2u_kind | default('db2ucluster') == 'db2ucluster'
   include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
   vars:
     crd_name: "db2uclusters.db2u.databases.ibm.com"
@@ -506,7 +508,7 @@
 # 13. Lookup db2 instance to see if it exists already
 # -----------------------------------------------------------------------------
 - name: "See if db2u instance already exists (Db2uInstance)"
-  when: db2_use_helm_operator | default(false) | bool
+  when: (db2_use_helm_operator | default(false) | bool) or (db2u_kind | default('db2ucluster') == 'db2uinstance')
   kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ db2_instance_name | lower }}"
@@ -515,7 +517,9 @@
   register: initial_db2_instance_lookup
 
 - name: "See if db2u instance already exists (Db2uCluster)"
-  when: not (db2_use_helm_operator | default(false) | bool)
+  when:
+    - not (db2_use_helm_operator | default(false) | bool)
+    - db2u_kind | default('db2ucluster') == 'db2ucluster'
   kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ db2_instance_name | lower }}"
@@ -619,7 +623,7 @@
 # 18. Wait for the cluster/instance to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for db2u instance to be ready (Db2uInstance - 5m delay)"
-  when: db2_use_helm_operator | default(false) | bool
+  when: (db2_use_helm_operator | default(false) | bool) or (db2u_kind | default('db2ucluster') == 'db2uinstance')
   kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ db2_instance_name | lower }}"
