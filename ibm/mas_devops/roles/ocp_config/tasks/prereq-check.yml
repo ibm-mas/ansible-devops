@@ -75,10 +75,11 @@
       - node-role.kubernetes.io/worker
   no_log: true
   register: worker_nodes
-
+  when: ocp_enable_ipv6
 - name: Initialize missing IPv6 node list
   ansible.builtin.set_fact:
     workers_missing_ipv6: []
+  when: ocp_enable_ipv6
 
 - name: Find workers missing IPv6
   no_log: true
@@ -88,6 +89,7 @@
   loop_control:
     label: "{{ item.metadata.name }}"
   when: >
+    ocp_enable_ipv6 and
     (
       item.metadata.annotations['k8s.ovn.org/node-primary-ifaddr']
       | default('{}')
@@ -104,6 +106,7 @@
   until: ipv6_check is succeeded
   retries: 20
   delay: 30
+  when: ocp_enable_ipv6
 # 5. Approve pending node CSRs if any
 - name: Get pending node CSRs
   ansible.builtin.shell: |
