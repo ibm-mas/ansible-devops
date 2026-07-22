@@ -31,9 +31,26 @@
 - include_tasks: ipv6-config.yml
   when: ocp_enable_ipv6
 
+- name: Check if cluster proxy is set
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Proxy
+    name: cluster
+  register: proxy_info
+
+- name: Set proxy configured fact
+  ansible.builtin.set_fact:
+    proxy_configured: >-
+      {{
+        proxy_info.resources | length > 0 and (
+          (proxy_info.resources[0].spec.httpProxy  | default('')) != '' or
+          (proxy_info.resources[0].spec.httpsProxy | default('')) != ''
+        )
+      }}
+
 # 6. To enable proxy for testing in FVT environment
 - include_tasks: proxy-config.yml
-  when: ocp_enable_proxy
+  when: ocp_enable_proxy and not proxy_configured
 
 - include_tasks: prereq-check.yml
   when: ocp_enable_ipv6 or ocp_enable_proxy
