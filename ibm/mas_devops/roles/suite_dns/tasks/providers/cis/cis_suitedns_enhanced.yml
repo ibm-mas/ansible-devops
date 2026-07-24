@@ -6,6 +6,7 @@
     ibmcloud login --apikey "{{ cis_apikey }}" -q --no-region
   retries: 10
   delay: 60 # 1 minute
+  no_log: true
 
 - include_tasks: tasks/providers/cis/cis_edge_certificate.yml
 
@@ -63,6 +64,7 @@
         ibmcloud iam oauth-tokens --output json | jq -r '.iam_token'
       register: _cis_iam_token_result
       when: _cis_rule_id | trim | length == 0
+      no_log: true
 
     - name: "cis: check if http_request_firewall_managed entry point ruleset exists"
       ansible.builtin.shell: |
@@ -73,6 +75,7 @@
       register: _cis_entrypoint_check_result
       failed_when: false
       when: _cis_rule_id | trim | length == 0
+      no_log: true
 
     - name: "cis: debug entry point ruleset check result"
       ansible.builtin.debug:
@@ -90,6 +93,7 @@
       when:
         - _cis_rule_id | trim | length == 0
         - not (_cis_entrypoint_check_result.stdout | from_json).success
+      no_log: true
 
     - name: "cis: debug entry point ruleset creation response"
       ansible.builtin.debug:
@@ -108,6 +112,7 @@
       when:
         - _cis_rule_id | trim | length == 0
         - not (_cis_entrypoint_check_result.stdout | from_json).success
+      no_log: true
 
     - name: "cis: debug entry point ruleset verification result"
       ansible.builtin.debug:
