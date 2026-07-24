@@ -55,6 +55,11 @@
     mas_domain: "{{ suite_cr_result.resources[0].spec.domain }}"
   when: mas_domain is not defined or mas_domain == ""
 
+- name: Set MAS routing mode from Suite CR
+  set_fact:
+    mas_routing_mode: "{{ suite_cr_result.resources[0].spec.settings.routingMode | default('') }}"
+  when: mas_routing_mode is not defined or mas_routing_mode == ""
+
 - name: "Run Manage image stitching post-configuration: Debug"
   debug:
     msg:
@@ -68,6 +73,7 @@
       - "Manage namespace ....................... {{ manage_namespace }}"
       - "MAS domain ............................. {{ mas_domain }}"
       - "MAS workspace CR name .................. {{ mas_ws_cr_name }}"
+      - "MAS routing mode ....................... {{ mas_routing_mode }}"
 
 - name: Retrieve Manage workspace CR
   kubernetes.core.k8s_info:
