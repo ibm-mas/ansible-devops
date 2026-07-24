@@ -16,7 +16,9 @@
     comp_crd_name: "{{ (dep_component_info | default(component_info, true)).crd_name }}"
     comp_case_version: "{{ (dep_component_info | default(component_info, true)).case_version | default('') }}"
 
+# Online: search the named helm repo for the chart version
 - name: "Search for {{ component_name }} chart version {{ comp_case_version }}"
+  when: not cpd_helm_airgap
   command: >
     helm search repo {{ cpd_helm_repo_name }}/{{ comp_chart_name }}
     {% if comp_case_version != '' %}--version {{ comp_case_version }}{% endif %}
@@ -27,12 +29,34 @@
 - name: "Extract chart version"
   set_fact:
     chart_version: "{{ (chart_search.stdout | from_json | first).version }}"
-  when: (chart_search.stdout | from_json | length) > 0
+  when:
+    - not cpd_helm_airgap
+    - (chart_search.stdout | from_json | length) > 0
 
 - name: "Fail if chart not found"
+  when:
+    - not cpd_helm_airgap
+    - (chart_search.stdout | from_json | length) == 0
   fail:
     msg: "Chart {{ comp_chart_name }} version {{ comp_case_version }} not found in repository {{ cpd_helm_repo_name }}"
-  when: (chart_search.stdout | from_json | length) == 0
+
+# Airgap: the registry may store charts with a build-stamped version such as
+# "12.1.0+20260206.151111.23" while case_version is only "12.1.0".
+# Pull Chart.yaml without specifying --version so we get the actual tag pushed
+# to the registry, then use that full version string for helm template/upgrade.
+- name: "Resolve chart version from OCI registry (airgap)"
+  when: cpd_helm_airgap
+  shell: >
+    helm show chart {{ cpd_airgap_helm_repo_url }}/{{ comp_chart_name }}
+    --insecure-skip-tls-verify 2>/dev/null
+    | grep '^version:' | awk '{print $2}' | tr -d '"'
+  register: chart_version_lookup
+  changed_when: false
+
+- name: "Set chart version from OCI registry (airgap)"
+  when: cpd_helm_airgap
+  set_fact:
+    chart_version: "{{ chart_version_lookup.stdout | trim | default(comp_case_version) }}"
 
 - name: "Component {{ component_name }} chart version"
   debug:
@@ -68,7 +92,9 @@
 # Install cluster-scoped chart (CRDs, ClusterRoles, etc.)
 # Use helm template + oc apply for cluster-scoped to avoid Helm state management issues
 - name: "Install {{ component_name }} cluster-scoped chart"
-  when: comp_cluster_chart is defined and comp_cluster_chart != ""
+  when:
+    - not cpd_helm_airgap
+    - comp_cluster_chart is defined and comp_cluster_chart != ""
   shell: |
     helm template {{ component_name | replace('_', '-') }}-cluster \
       {{ cpd_helm_repo_name }}/{{ comp_cluster_chart }} \
@@ -77,6 +103,20 @@
       --namespace {{ cpd_operators_namespace }} | \
     oc apply -f -
   register: cluster_install
+
+- name: "Install {{ component_name }} cluster-scoped chart (airgap)"
+  when:
+    - cpd_helm_airgap
+    - comp_cluster_chart is defined and comp_cluster_chart != ""
+  shell: |
+    helm template {{ component_name | replace('_', '-') }}-cluster \
+      {{ cpd_airgap_helm_repo_url }}/{{ comp_cluster_chart }} \
+      --version {{ chart_version }} \
+      -f /tmp/{{ component_name }}-helm-values.yaml \
+      --namespace {{ cpd_operators_namespace }} \
+      --insecure-skip-tls-verify | \
+    oc apply -f -
+  register: cluster_install_airgap
 
 - name: "Wait for {{ component_name }} CRD to be established"
   kubernetes.core.k8s_info:
@@ -96,6 +136,7 @@
 # Eliminates race conditions when multiple components share dependencies
 # Retries handle transient issues like "another operation in progress"
 - name: "Install/Upgrade {{ component_name }} namespace-scoped chart with Helm"
+  when: not cpd_helm_airgap
   command: >
     helm upgrade --install {{ component_name | replace('_', '-') }}
     {{ cpd_helm_repo_name }}/{{ comp_chart_name }}
@@ -105,6 +146,24 @@
     --create-namespace
     --wait
     --timeout {{ cpd_helm_timeout }}
+  register: ns_install
+  changed_when: "'has been upgraded' in ns_install.stdout or 'has been installed' in ns_install.stdout"
+  retries: 10
+  delay: 60
+  until: ns_install.rc == 0
+
+- name: "Install/Upgrade {{ component_name }} namespace-scoped chart with Helm (airgap)"
+  when: cpd_helm_airgap
+  command: >
+    helm upgrade --install {{ component_name | replace('_', '-') }}
+    {{ cpd_airgap_helm_repo_url }}/{{ comp_chart_name }}
+    --version {{ chart_version }}
+    -f /tmp/{{ component_name }}-helm-values.yaml
+    --namespace {{ cpd_instance_namespace }}
+    --create-namespace
+    --wait
+    --timeout {{ cpd_helm_timeout }}
+    --insecure-skip-tls-verify
   register: ns_install
   changed_when: "'has been upgraded' in ns_install.stdout or 'has been installed' in ns_install.stdout"
   retries: 10

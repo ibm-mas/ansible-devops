@@ -27,6 +27,18 @@ cpd_helm_timeout: "30m"
 cpd_helm_wait_retries: 60
 cpd_helm_wait_delay: 30
 
+# Airgap Helm Configuration
+# CPD_AIRGAP_HELM_REPO_URL can be set explicitly, e.g. oci://myregistry:32500/cpd531/charts
+# If not set, setup-helm-repo.yml auto-detects it at runtime by:
+#   1. Querying the cluster ImageDigestMirrorSet for mas.ibm.com/idmsRegistryHost/Port/Prefix
+#   2. Extracting credentials from openshift-config/pull-secret for that registry
+# Both are written by the ocp_idms role during configure-airgap and are always present.
+# -----------------------------------------------------------------------------
+cpd_airgap_helm_repo_url: "{{ lookup('env', 'CPD_AIRGAP_HELM_REPO_URL') | default('', true) }}"
+cpd_helm_airgap: "{{ (cpd_airgap_helm_repo_url | default('', true)) | length > 0 }}"
+registry_username: "{{ lookup('env', 'REGISTRY_USERNAME') | default('', true) }}"
+registry_password: "{{ lookup('env', 'REGISTRY_PASSWORD') | default('', true) }}"
+
 # CP4D Admin User credential used to call CP4D APIs, if not specified, the script will look these up
 cpd_admin_username: "{{ lookup('env', 'CPD_ADMIN_USERNAME') }}"
 cpd_admin_password: "{{ lookup('env', 'CPD_ADMIN_PASSWORD') }}"
