@@ -1,0 +1,1432 @@
+---
+# Source: db2-operator-standalone/charts/db2-ums-collector/charts/ibm-usage-metering/templates/serviceaccounts.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: ibm-usage-metering-operator
+    component-id: ibm-usage-metering
+  name: ibm-usage-metering-operator
+  namespace: {{ db2_namespace }}
+---
+# Source: db2-operator-standalone/charts/db2-ums-collector/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ db2_instance_name }}-db2-ums-collector
+  namespace: {{ db2_namespace }}
+  labels:
+    helm.sh/chart: db2-ums-collector-1.0.0
+    app.kubernetes.io/name: db2-ums-collector
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    app.kubernetes.io/version: "1.0.9"
+    app.kubernetes.io/managed-by: Helm
+imagePullSecrets:
+- name: ibm-registry
+---
+# Source: db2-operator-standalone/templates/rbac/instance-rbac/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: db2-instance-service-account
+  namespace: {{ db2_namespace }}
+  labels:
+    helm.sh/chart: db2-operator-standalone-1.0.0
+    app.kubernetes.io/name: db2-operator-standalone
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    component-id: db2-operator-standalone
+imagePullSecrets:
+- name: ibm-registry
+automountServiceAccountToken: true
+---
+# Source: db2-operator-standalone/templates/rbac/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: db2-database-operator-controller-manager
+  namespace: {{ db2_namespace }}
+  labels:
+    helm.sh/chart: db2-operator-standalone-1.0.0
+    app.kubernetes.io/name: db2-operator-standalone
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    component-id: db2-operator-standalone
+imagePullSecrets:
+- name: ibm-registry
+---
+# Source: db2-operator-standalone/charts/db2-ums-collector/templates/configmap-metrics.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db2-ums-metrics-config
+  namespace: {{ db2_namespace }}
+  labels:
+    helm.sh/chart: db2-ums-collector-1.0.0
+    app.kubernetes.io/name: db2-ums-collector
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    app.kubernetes.io/version: "1.0.9"
+    app.kubernetes.io/managed-by: Helm
+data:
+  metrics.yaml: |
+    metrics:
+      - name: INSTANCE_COUNT
+        enabled: true
+        frequency: 15min
+        type: cr
+        collector:
+          type: db2u_cr
+          cr_group: db2u.databases.ibm.com
+          cr_version: v1
+          cr_types:
+            - cr_plural: db2uinstances
+              mapping:
+                available_cpu: spec.podTemplate.db2u.resource.db2u.limits.cpu
+                available_memory: spec.podTemplate.db2u.resource.db2u.limits.memory
+                db2_home: /home/db2inst1/sqllib
+                db2_numnodes: spec.environment.partitionConfig.total
+                db2instance: db2inst1
+                db2level: ""
+                db2nodes: ""
+                db2ptf: ""
+                deployments_type: spec.environment.dbType
+                distros: ""
+                host: ""
+                license_type: metadata.annotations.productMetric
+                machine: ""
+                os: ""
+                osbitness: ""
+                storage_class_name: spec.storage[2].spec.storageClassName
+                version: spec.version
+            - cr_plural: db2uclusters
+              mapping:
+                available_cpu: spec.podConfig.db2u.resource.db2u.limits.cpu
+                available_memory: spec.podConfig.db2u.resource.db2u.limits.memory
+                databaseName: spec.environment.database.name
+                db2level: ""
+                deployments_type: spec.environment.dbType
+                license_type: spec.license.accept
+                size: spec.size
+                state: status.state
+                version: spec.version
+        ums:
+          mappingId: db2
+          metricType: ADOPTION
+          processing: LAST
+          productId: .metadata.annotations.productID
+          productName: .metadata.annotations.productName
+          repeat: true
+        breakdowns:
+          - groupBy:
+            - deployments_type
+            - license_type
+            - db2level
+            - version
+            - available_cpu
+            - available_memory
+            - os
+            - distros
+            - machine
+            - host
+            - db2ptf
+            - osbitness
+            - db2_home
+            - db2nodes
+            - db2_numnodes
+            - db2instance
+            - storage_class_name
+            name: INSTANCE_COUNT
+            source: metricQuantity
+      - name: DB2_CUSTOM_METRIC
+        enabled: false
+        frequency: 2min
+        type: rest
+        collector:
+          base_url: https://www.random.org
+          endpoint: /integers/?num=1&min=1&max=100&col=1&base=10&format=plain&rnd=new
+          headers:
+            User-Agent: DB2-UMS-Collector/1.0
+          method: GET
+          timeout: 30
+          type: rest_api
+        mapping:
+          metricQuantity: value
+          cr_group: db2u.databases.ibm.com
+          cr_version: v1
+          cr_types:
+            - cr_plural: db2uinstances
+              mapping:
+                available_cpu: spec.podTemplate.db2u.resource.db2u.limits.cpu
+                available_memory: spec.podTemplate.db2u.resource.db2u.limits.memory
+                db2_home: /home/db2inst1/sqllib
+                db2_numnodes: spec.environment.partitionConfig.total
+                db2instance: db2inst1
+                db2level: ""
+                db2nodes: ""
+                db2ptf: ""
+                deployments_type: spec.environment.dbType
+                distros: ""
+                host: ""
+                license_type: metadata.annotations.productMetric
+                machine: ""
+                os: ""
+                osbitness: ""
+                storage_class_name: spec.storage[2].spec.storageClassName
+                version: spec.version
+            - cr_plural: db2uclusters
+              mapping:
+                available_cpu: spec.podConfig.db2u.resource.db2u.limits.cpu
+                available_memory: spec.podConfig.db2u.resource.db2u.limits.memory
+                databaseName: spec.environment.database.name
+                db2level: ""
+                deployments_type: spec.environment.dbType
+                license_type: spec.license.accept
+                size: spec.size
+                state: status.state
+                version: spec.version
+        ums:
+          mappingId: db2
+          metricType: ADOPTION
+          processing: ADD
+          productId: .metadata.annotations.productID
+          productName: .metadata.annotations.productName
+          repeat: true
+        breakdowns:
+          - groupBy:
+            - deployments_type
+            - license_type
+            - db2level
+            - version
+            - is_containerized
+            - state
+            name: DB2_CUSTOM_METRIC
+            source: metricQuantity
+
+# Made with Bob
+---
+# Source: db2-operator-standalone/charts/db2-ums-collector/templates/configmap-state.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db2-ums-collector-state
+  namespace: {{ db2_namespace }}
+  labels:
+    helm.sh/chart: db2-ums-collector-1.0.0
+    app.kubernetes.io/name: db2-ums-collector
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    app.kubernetes.io/version: "1.0.9"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: state
+data:
+  metrics-state.yaml: |
+    last_collection_times: {}
+    collection_counts: {}
+    last_errors: {}
+---
+# Source: db2-operator-standalone/charts/db2-ums-collector/charts/ibm-usage-metering/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: ibm-usage-metering-operator
+    component-id: ibm-usage-metering
+  name: ibm-usage-metering-operator-cluster
+rules:
+  # Watch Deployments across namespaces
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - get
+      - list
+      - watch
+  # Watch IBMServiceMeterDefinition CRs across namespaces
+  - apiGroups:
+      - operator.ibm.com
+    resources:
+      - ibmservicemeterdefinitions
+    verbs:
+      - get
+      - list
+      - watch
+---
+# Source: db2-operator-standalone/charts/db2-ums-collector/charts/ibm-usage-metering/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: ibm-usage-metering-operator
+    component-id: ibm-usage-metering
+  name: ibm-usage-metering-operator-cluster
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ibm-usage-metering-operator-cluster
+subjects:
+  - kind: ServiceAccount
+    name: ibm-usage-metering-operator
+    namespace: {{ db2_namespace }}
+
+# Made with Bob
+---
+# Source: db2-operator-standalone/charts/db2-ums-collector/charts/ibm-usage-metering/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: ibm-usage-metering-operator
+    component-id: ibm-usage-metering
+  name: ibm-usage-metering-leader-election
+  namespace: {{ db2_namespace }}
+rules:
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+---
+# Source: db2-operator-standalone/charts/db2-ums-collector/charts/ibm-usage-metering/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ibm-usage-metering-operator
+  namespace: {{ db2_namespace }}
+  labels:
+    component-id: ibm-usage-metering
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+      - secrets
+      - serviceaccounts
+      - services
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - operator.ibm.com
+    resources:
+      - ibmservicemeterdefinitions
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - operator.ibm.com
+    resources:
+      - ibmusagemeterings
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - operator.ibm.com
+    resources:
+      - ibmusagemeterings/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - operator.ibm.com
+    resources:
+      - ibmusagemeterings/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - rolebindings
+      - roles
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - route.openshift.io
+    resources:
+      - routes
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+---
+# Source: db2-operator-standalone/charts/db2-ums-collector/templates/role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ db2_instance_name }}-db2-ums-collector
+  namespace: {{ db2_namespace }}
+  labels:
+    helm.sh/chart: db2-ums-collector-1.0.0
+    app.kubernetes.io/name: db2-ums-collector
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    app.kubernetes.io/version: "1.0.9"
+    app.kubernetes.io/managed-by: Helm
+rules:
+  - apiGroups:
+    - ""
+    resources:
+    - configmaps
+    verbs:
+    - get
+    - list
+    - create
+    - update
+    - patch
+  - apiGroups:
+    - operator.ibm.com
+    resources:
+    - ibmservicemeterdefinitions
+    verbs:
+    - get
+    - list
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups: ["operator.ibm.com"]
+    resources: ["ibmusagemeterings"]
+    verbs: ["get", "patch"]
+  # Required for patching the entitlement key secret to add token field
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "patch"]
+  # Always grant permissions to watch Db2 CRs in the deployment namespace
+  # This ensures the collector can monitor Db2 instances where it's deployed
+  - apiGroups: ["db2u.databases.ibm.com"]
+    resources: ["db2uclusters", "db2uinstances"]
+    verbs: ["get", "list", "watch"]
+---
+# Source: db2-operator-standalone/templates/rbac/instance-rbac/role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: db2-instance-role
+  namespace: {{ db2_namespace }}
+  labels:
+    helm.sh/chart: db2-operator-standalone-1.0.0
+    app.kubernetes.io/name: db2-operator-standalone
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    component-id: db2-operator-standalone
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - patch
+  - watch
+  - list
+  - update
+  - create
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - pods/exec
+  verbs:
+  - create
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - watch
+  - list
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - watch
+  - list
+  - get
+- apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  resourceNames:
+  - db2-database-operator-oltp-whsmp-scc-
+  - db2-database-operator-mpp-scc-
+  - db2-database-operator-non-root-scc-
+  verbs:
+  - use
+---
+# Source: db2-operator-standalone/templates/rbac/roles.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: db2-database-operator-leader-election-role
+  namespace: {{ db2_namespace }}
+  labels:
+    helm.sh/chart: db2-operator-standalone-1.0.0
+    app.kubernetes.io/name: db2-operator-standalone
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    component-id: db2-operator-standalone
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+# Source: db2-operator-standalone/templates/rbac/roles.yaml
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: db2-operator-multitenancy-role
+  namespace: {{ db2_namespace }}
+  labels:
+    helm.sh/chart: db2-operator-standalone-1.0.0
+    app.kubernetes.io/name: db2-operator-standalone
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    component-id: db2-operator-standalone
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - configmaps/finalizers
+  - persistentvolumeclaims
+  - persistentvolumeclaims/finalizers
+  - pods
+  - pods/exec
+  - pods/finalizers
+  - secrets
+  - secrets/finalizers
+  - serviceaccounts
+  - serviceaccounts/finalizers
+  - services
+  - services/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  - endpointslices/restricted
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - list
+  - watch
+- apiGroups:
+  - db2u.databases.ibm.com
+  resources:
+  - db2uengines
+  - db2uinstances
+  - db2uhas
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - db2u.databases.ibm.com
+  resources:
+  - db2uengines/finalizers
+  - db2uinstances/finalizers
+  - db2uhas/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - db2u.databases.ibm.com
+  resources:
+  - db2uengines/status
+  - db2uinstances/status
+  - db2uhas/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - db2u.databases.ibm.com
+  resources:
+  - formations/status
+  - formations
+  verbs:
+  - get
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - networkpolicies
+  - networkpolicies/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  - rolebindings/finalizers
+  - roles
+  - roles/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  resourceNames:
+  - {{ db2_namespace }}
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  resourceNames:
+  - db2-database-operator-oltp-whsmp-scc-{{ db2_namespace }}
+  - db2-database-operator-mpp-scc-{{ db2_namespace }}
+  - db2-database-operator-non-root-scc-{{ db2_namespace }}
+  verbs:
+  - use
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - patch
+  - delete
+- apiGroups:
+  - batch
+  resources:
+  - cronjobs
+  verbs:
+  - get
+  - delete
+---
+# Source: db2-operator-standalone/charts/db2-ums-collector/charts/ibm-usage-metering/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: ibm-usage-metering-operator
+    component-id: ibm-usage-metering
+  name: ibm-usage-metering-leader-election
+  namespace: {{ db2_namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ibm-usage-metering-leader-election
+subjects:
+  - kind: ServiceAccount
+    name: ibm-usage-metering-operator
+    namespace: {{ db2_namespace }}
+---
+# Source: db2-operator-standalone/charts/db2-ums-collector/charts/ibm-usage-metering/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: ibm-usage-metering-operator
+    component-id: ibm-usage-metering
+  name: ibm-usage-metering-operator
+  namespace: {{ db2_namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ibm-usage-metering-operator
+subjects:
+  - kind: ServiceAccount
+    name: ibm-usage-metering-operator
+    namespace: {{ db2_namespace }}
+---
+# Source: db2-operator-standalone/charts/db2-ums-collector/templates/rolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ db2_instance_name }}-db2-ums-collector
+  namespace: {{ db2_namespace }}
+  labels:
+    helm.sh/chart: db2-ums-collector-1.0.0
+    app.kubernetes.io/name: db2-ums-collector
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    app.kubernetes.io/version: "1.0.9"
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ db2_instance_name }}-db2-ums-collector
+subjects:
+- kind: ServiceAccount
+  name: {{ db2_instance_name }}-db2-ums-collector
+  namespace: {{ db2_namespace }}
+---
+# Source: db2-operator-standalone/templates/rbac/instance-rbac/rolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+    name: db2-instance-role-binding
+    namespace: {{ db2_namespace }}
+    labels:
+      helm.sh/chart: db2-operator-standalone-1.0.0
+      app.kubernetes.io/name: db2-operator-standalone
+      app.kubernetes.io/instance: {{ db2_instance_name }}
+      app.kubernetes.io/version: "1.0.0"
+      app.kubernetes.io/managed-by: Helm
+      component-id: db2-operator-standalone
+roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: Role
+    name: db2-instance-role
+subjects:
+- kind: ServiceAccount
+  name: db2-instance-service-account
+  namespace: {{ db2_namespace }}
+---
+# Source: db2-operator-standalone/templates/rbac/rolebindings.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: db2-database-operator-leader-election-rolebinding
+  namespace: {{ db2_namespace }}
+  labels:
+    helm.sh/chart: db2-operator-standalone-1.0.0
+    app.kubernetes.io/name: db2-operator-standalone
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    component-id: db2-operator-standalone
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: db2-database-operator-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: db2-database-operator-controller-manager
+  namespace: {{ db2_namespace }}
+---
+# Source: db2-operator-standalone/templates/rbac/rolebindings.yaml
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: db2-operator-multitenancy-rolebinding
+  namespace: {{ db2_namespace }}
+  labels:
+    helm.sh/chart: db2-operator-standalone-1.0.0
+    app.kubernetes.io/name: db2-operator-standalone
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    component-id: db2-operator-standalone
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: db2-operator-multitenancy-role
+subjects:
+- kind: ServiceAccount
+  name: db2-database-operator-controller-manager
+  namespace: {{ db2_namespace }}
+---
+# Source: db2-operator-standalone/templates/services.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: db2-database-operator-controller-manager-metrics-service
+  namespace: {{ db2_namespace }}
+  labels:
+    helm.sh/chart: db2-operator-standalone-1.0.0
+    app.kubernetes.io/name: db2-operator-standalone
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    component-id: db2-operator-standalone
+    control-plane: controller-manager
+spec:
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    app.kubernetes.io/name: db2-operator-standalone
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    control-plane: controller-manager
+---
+# Source: db2-operator-standalone/templates/services.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: db2-database-operator-webhook-service
+  namespace: {{ db2_namespace }}
+  labels:
+    helm.sh/chart: db2-operator-standalone-1.0.0
+    app.kubernetes.io/name: db2-operator-standalone
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    component-id: db2-operator-standalone
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 9443
+  selector:
+    app.kubernetes.io/name: db2-operator-standalone
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    control-plane: controller-manager
+---
+# Source: db2-operator-standalone/charts/db2-ums-collector/charts/ibm-usage-metering/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    productID: 068a62892a1e4db39641342e592daa25
+    productMetric: FREE
+    productName: IBM Cloud Platform Common Services
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: ibm-usage-metering-operator
+    control-plane: controller-manager
+    component-id: ibm-usage-metering
+  name: ibm-usage-metering-operator
+  namespace: {{ db2_namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: ibm-usage-metering-operator
+        productID: 068a62892a1e4db39641342e592daa25
+        productMetric: FREE
+        productName: IBM Cloud Platform Common Services
+      labels:
+        app.kubernetes.io/managed-by: kustomize
+        app.kubernetes.io/name: ibm-usage-metering-operator
+        control-plane: controller-manager
+        intent: projected
+    spec:
+      containers:
+        - args:
+            - --leader-elect
+            - --health-probe-bind-address=:8081
+          command:
+            - ibm-usage-metering-operator
+          env:
+            - name: OPERATOR_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: OPERAND_NAMESPACES
+              value: {{ db2_namespace }}
+            - name: IBM_USAGE_METERING_OPERAND_IMAGE
+              value: icr.io/cpopen/cpfs/ibm-usage-metering-instance@sha256:3bcf02092410e7207b9182468abaab22b0351cd1a08adacc4da0e25b9318132a
+          image: icr.io/cpopen/ibm-usage-metering-operator@sha256:3962823be6e78a7543d109820ec547c26ad71fe717d6f1e71562e9a22077d43a
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          name: ibm-usage-metering-operator
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: 500m
+              ephemeral-storage: 280Mi
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              ephemeral-storage: 50Mi
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: ibm-usage-metering-operator
+      terminationGracePeriodSeconds: 10
+      
+      imagePullSecrets:
+        - name: ibm-registry
+---
+# Source: db2-operator-standalone/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db2-database-operator-controller-manager
+  namespace: {{ db2_namespace }}
+  labels:
+    helm.sh/chart: db2-operator-standalone-1.0.0
+    app.kubernetes.io/name: db2-operator-standalone
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    component-id: db2-operator-standalone
+    control-plane: controller-manager
+    app.kubernetes.io/name: db2-operator
+  annotations:
+    kubectl.kubernetes.io/default-container: manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: db2-operator-standalone
+      app.kubernetes.io/instance: {{ db2_instance_name }}
+      control-plane: controller-manager
+  template:
+    metadata:
+      annotations:
+      labels:
+        app.kubernetes.io/name: db2-operator-standalone
+        app.kubernetes.io/instance: {{ db2_instance_name }}
+        control-plane: controller-manager
+    spec:
+      serviceAccountName: db2-database-operator-controller-manager
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: manager
+        image: "cp.stg.icr.io/cp/db2u/db2-operator:1249-x86_64"
+        imagePullPolicy: IfNotPresent
+        command:
+        - /manager
+        args:
+          - --metrics-bind-address=:8443
+          - --leader-elect
+          - --health-probe-bind-address=:8081
+        env:
+        - name: PLATFORM
+          value: "OCP"
+        - name: META_NAMESPACE
+          value: "{{ db2_namespace }}"
+        - name: ENABLE_WEBHOOKS
+          value: "true"
+        - name: WATCH_NAMESPACE
+          value: "{{ db2_namespace }}"
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - "ALL"
+            - "NET_RAW"
+            - "CAP_NET_RAW"
+          seccompProfile:
+            type: RuntimeDefault
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: webhook-server-cert
+---
+# Source: db2-operator-standalone/charts/db2-ums-collector/templates/cronjob.yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ db2_instance_name }}-db2-ums-collector
+  namespace: {{ db2_namespace }}
+  labels:
+    helm.sh/chart: db2-ums-collector-1.0.0
+    app.kubernetes.io/name: db2-ums-collector
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    app.kubernetes.io/version: "1.0.9"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 1
+      backoffLimit: 3
+      activeDeadlineSeconds: 600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: db2-ums-collector
+            app.kubernetes.io/instance: {{ db2_instance_name }}
+        spec:
+          serviceAccountName: {{ db2_instance_name }}-db2-ums-collector
+          restartPolicy: OnFailure
+          securityContext:
+            
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: collector
+            image: "cp.stg.icr.io/cp/db2u/db2-operator:1249-x86_64"
+            imagePullPolicy: IfNotPresent
+            # Explicitly specify command and args since we don't control the entrypoint
+            # The app is installed in /db2-ums-collector directory
+            command: ["python3.11"]
+            args: ["-u", "/db2-ums-collector/main.py"]
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+              readOnlyRootFilesystem: true
+            env:
+            - name: PYTHONPATH
+              value: "/db2-ums-collector"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: METRICS_CONFIG
+              value: "/config/metrics.yaml"
+            - name: UMS_CONFIG_PATH
+              value: "/ums-config/url"
+            - name: UMS_TOKEN_PATH
+              value: "/ums-token/token"
+            - name: UMS_CERT_PATH
+              value: "/ums-config/tls.crt"
+            - name: STATE_FILE
+              value: "/tmp/metrics-state.yaml"
+            - name: USE_K8S_STATE
+              value: "true"
+            - name: STATE_CONFIGMAP_NAME
+              value: "db2-ums-collector-state"
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: GENERATE_UMS_CRS
+              value: "true"
+            - name: UMS_CR_NAMESPACE
+              value: "{{ db2_namespace }}"
+            volumeMounts:
+            - name: metrics-config
+              mountPath: /config
+              readOnly: true
+            - name: ums-config
+              mountPath: /ums-config
+              readOnly: true
+            - name: ums-token
+              mountPath: /ums-token
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            resources:
+              limits:
+                cpu: 500m
+                memory: 512Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+          volumes:
+          - name: metrics-config
+            configMap:
+              name: db2-ums-metrics-config
+          - name: ums-config
+            configMap:
+              name: ibm-usage-metering-upload-config
+              # UMS ConfigMap is in the same namespace as the collector
+          - name: ums-token
+            secret:
+              secretName: ibm-usage-metering-upload-token
+              # UMS Secret is in the same namespace as the collector
+          - name: tmp
+            emptyDir: {}
+---
+# Source: db2-operator-standalone/charts/db2-ums-collector/templates/role-additional-namespaces.yaml
+# Made with Bob
+---
+# Source: db2-operator-standalone/charts/db2-ums-collector/templates/rolebinding-additional-namespaces.yaml
+# Made with Bob
+---
+# Source: db2-operator-standalone/charts/db2-ums-collector/templates/validate-secret.yaml
+# Made with Bob
+---
+# Source: db2-operator-standalone/templates/certificates/certificate.yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: db2-database-operator-serving-cert
+  namespace: {{ db2_namespace }}
+  labels:
+    helm.sh/chart: db2-operator-standalone-1.0.0
+    app.kubernetes.io/name: db2-operator-standalone
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    component-id: db2-operator-standalone
+    app.kubernetes.io/component: certificate
+    app.kubernetes.io/instance: serving-cert
+spec:
+  dnsNames:
+  - db2-database-operator-webhook-service.{{ db2_namespace }}.svc
+  - db2-database-operator-webhook-service.{{ db2_namespace }}.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: db2-database-operator-selfsigned-issuer
+  secretName: webhook-server-cert
+---
+# Source: db2-operator-standalone/charts/db2-ums-collector/charts/ibm-usage-metering/templates/cr.yaml
+apiVersion: operator.ibm.com/v1
+kind: IBMUsageMetering
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: ibm-usage-metering-operator
+    component-id: ibm-usage-metering
+  name: ibm-usage-metering-instance
+  namespace: {{ db2_namespace }}
+spec:
+  containers:
+    instance:
+      imagePullSecrets:
+      - ibm-registry
+  license:
+    accept: true
+---
+# Source: db2-operator-standalone/templates/certificates/issuer.yaml
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: db2-database-operator-selfsigned-issuer
+  namespace: {{ db2_namespace }}
+  labels:
+    helm.sh/chart: db2-operator-standalone-1.0.0
+    app.kubernetes.io/name: db2-operator-standalone
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    component-id: db2-operator-standalone
+spec:
+  selfSigned: {}
+---
+# Source: db2-operator-standalone/charts/db2-ums-collector/templates/patch-ibm-usage-metering.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ db2_instance_name }}-db2-ums-collector-patch-ums
+  namespace: {{ db2_namespace }}
+  labels:
+    helm.sh/chart: db2-ums-collector-1.0.0
+    app.kubernetes.io/name: db2-ums-collector
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    app.kubernetes.io/version: "1.0.9"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    # Run after install and after upgrade
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 120
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: db2-ums-collector
+        app.kubernetes.io/instance: {{ db2_instance_name }}
+        app.kubernetes.io/component: patch-ums
+    spec:
+      serviceAccountName: {{ db2_instance_name }}-db2-ums-collector
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: patch-ums
+          image: "cp.stg.icr.io/cp/db2u/db2-operator:1249-x86_64"
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: CR_NAME
+              value: "ibm-usage-metering-instance"
+            - name: SC_ENABLE
+              value: "true"
+            - name: SC_ENTITLEMENT_KEY_SECRET
+              value: "ibm-entitlement-key"
+            - name: SC_FREQUENCY
+              value: "0 * * * *"
+            - name: SC_SANDBOX
+              value: "true"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              echo "============================================================"
+              echo "Step 1: Patching secret ${SC_ENTITLEMENT_KEY_SECRET} to add token field"
+              echo "Namespace: ${NAMESPACE}"
+              echo "============================================================"
+
+              # Extract password from .dockerconfigjson
+              DOCKER_CONFIG=$(kubectl get secret "${SC_ENTITLEMENT_KEY_SECRET}" -n "${NAMESPACE}" -o jsonpath='{.data.\.dockerconfigjson}' | base64 -d)
+              TOKEN=$(echo "$DOCKER_CONFIG" | grep -o '"password":"[^"]*"' | cut -d'"' -f4)
+              
+              if [ -z "$TOKEN" ]; then
+                echo "ERROR: Could not extract password from .dockerconfigjson"
+                exit 1
+              fi
+
+              # Check if token field already exists
+              EXISTING_TOKEN=$(kubectl get secret "${SC_ENTITLEMENT_KEY_SECRET}" -n "${NAMESPACE}" -o jsonpath='{.data.token}' 2>/dev/null || echo "")
+              
+              if [ -n "$EXISTING_TOKEN" ]; then
+                echo "Token field already exists in secret, skipping patch"
+              else
+                echo "Adding token field to secret..."
+                TOKEN_BASE64=$(echo -n "$TOKEN" | base64 -w0)
+                kubectl patch secret "${SC_ENTITLEMENT_KEY_SECRET}" -n "${NAMESPACE}" \
+                  --type='json' \
+                  -p='[{"op":"add","path":"/data/token","value":"'$TOKEN_BASE64'"}]'
+                echo "Token field added successfully"
+              fi
+
+              echo ""
+              echo "============================================================"
+              echo "Step 2: Patching IBMUsageMetering CR: ${CR_NAME}"
+              echo "Namespace:                    ${NAMESPACE}"
+              echo "------------------------------------------------------------"
+              echo "softwareCentral.enable:              ${SC_ENABLE}"
+              echo "softwareCentral.entitlementKeySecret: ${SC_ENTITLEMENT_KEY_SECRET}"
+              echo "softwareCentral.frequency:            ${SC_FREQUENCY}"
+              echo "softwareCentral.sandbox:              ${SC_SANDBOX}"
+              echo "============================================================"
+
+              PATCH=$(printf '{"spec":{"sender":{"softwareCentral":{"anonymize":false,"enable":%s,"entitlementKeySecret":"%s","frequency":"%s","sandbox":%s}}}}' \
+                "${SC_ENABLE}" "${SC_ENTITLEMENT_KEY_SECRET}" "${SC_FREQUENCY}" "${SC_SANDBOX}")
+
+              echo "Applying patch..."
+              echo "Command: kubectl patch IBMUsageMetering ${CR_NAME} --namespace ${NAMESPACE} --type merge --patch '${PATCH}'"
+              echo ""
+              kubectl patch IBMUsageMetering "${CR_NAME}" \
+                --namespace "${NAMESPACE}" \
+                --type merge \
+                --patch "${PATCH}"
+
+              echo ""
+              echo "Patch applied successfully. Fetching updated spec.sender.softwareCentral..."
+              echo "------------------------------------------------------------"
+              kubectl get IBMUsageMetering "${CR_NAME}" \
+                --namespace "${NAMESPACE}" \
+                -o jsonpath='{.spec.sender.softwareCentral}' \
+                | tr ',' '\n' \
+                | sed 's/[{}"]//g' \
+                | sed 's/^/  /'
+              echo ""
+              echo "============================================================"
+              echo "IBMUsageMetering CR patch complete."
+              echo "============================================================"
+---
+# Source: db2-operator-standalone/templates/job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db2-operator-standalone-namespace-labeler
+  namespace: {{ db2_namespace }}
+  labels:
+    helm.sh/chart: db2-operator-standalone-1.0.0
+    app.kubernetes.io/name: db2-operator-standalone
+    app.kubernetes.io/instance: {{ db2_instance_name }}
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    component-id: db2-operator-standalone
+    app.kubernetes.io/component: namespace-labeler
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: db2-operator-standalone
+        app.kubernetes.io/instance: {{ db2_instance_name }}
+        app.kubernetes.io/component: namespace-labeler
+    spec:
+      serviceAccountName: db2-database-operator-controller-manager
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: namespace-labeler
+        image: cp.stg.icr.io/cp/db2u/db2-operator:1249-x86_64
+        command:
+        - /bin/sh
+        - -c
+        - /pre-check --label="db2u.databases.ibm.com/db2-operator-namespace={{ db2_namespace }}" --namespaces={{ db2_namespace }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - "ALL"
+            - "NET_RAW"
+            - "CAP_NET_RAW"
+          seccompProfile:
+            type: RuntimeDefault
+        resources:
+          limits:
+            cpu: 100m
+            memory: 64Mi
+          requests:
+            cpu: 10m
+            memory: 32Mi
