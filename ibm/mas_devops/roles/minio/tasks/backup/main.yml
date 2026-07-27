@@ -1,0 +1,235 @@
+---
+- name: "minio backup : Debug properties"
+  debug:
+    msg:
+      - "minio namespace ...................... {{ minio_namespace }}"
+      - "minio instance name .................. {{ minio_instance_name }}"
+      - "Backup directory ..................... {{ minio_backup_dir }}/minio-backup"
+
+- name: Validate minio deployment exists
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: "{{ minio_instance_name }}"
+    namespace: "{{ minio_namespace }}"
+  register: minio_deployment
+
+- name: Fail if minio deployment not found
+  assert:
+    that: minio_deployment.resources | length > 0
+    fail_msg: "minio deployment '{{ minio_instance_name }}' not found in namespace '{{ minio_namespace }}'"
+
+- name: Validate minio service exists
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Service
+    name: "{{ minio_instance_name }}-service"
+    namespace: "{{ minio_namespace }}"
+  register: minio_service
+
+- name: Fail if service not found
+  assert:
+    that: minio_service.resources | length > 0
+    fail_msg: "minio service '{{ minio_instance_name }}-service' not found in namespace '{{ minio_namespace }}'"
+
+- name: Create backup directory structure
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ minio_backup_dir }}"
+    - "{{ minio_backup_dir }}/minio-backup"
+    - "{{ minio_backup_dir }}/minio-backup/metadata"
+    - "{{ minio_backup_dir }}/minio-backup/objects"
+
+- name: Create mc config ConfigMap
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: minio-backup-config
+        namespace: "{{ minio_namespace }}"
+      data:
+        config.json: |
+          {
+            "version": "10",
+            "aliases": {
+              "minio": {
+                "url": "http://{{ minio_instance_name }}-service.{{ minio_namespace }}.svc.cluster.local:9000",
+                "accessKey": "{{ minio_root_user }}",
+                "secretKey": "{{ minio_root_password }}",
+                "api": "s3v4",
+                "path": "auto"
+              }
+            }
+          }
+
+- name: Delete existing backup pod if present
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Pod
+    name: minio-backup-pod
+    namespace: "{{ minio_namespace }}"
+    state: absent
+    wait: yes
+    wait_timeout: 120
+
+- name: Create backup pod
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: minio-backup-pod
+        namespace: "{{ minio_namespace }}"
+      spec:
+        securityContext:
+          fsGroup: 1000
+        initContainers:
+        - name: install-mc
+          image: "{{ ubi_image }}"
+          command: ["/bin/sh", "-c"]
+          args:
+          - |
+            curl -sL -o /shared/mc https://dl.min.io/client/mc/release/linux-amd64/mc.{{ mc_version }}
+            chmod +x /shared/mc
+          securityContext:
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+              add:
+              - CHOWN
+              - DAC_OVERRIDE
+          volumeMounts:
+          - name: shared-bin
+            mountPath: /shared
+        containers:
+        - name: mc
+          image: "{{ ubi_image }}"
+          command: ["/bin/sh", "-c"]
+          args:
+          - |
+            export PATH=/shared:$PATH
+            mkdir -p /tmp/.mc
+            cp /config/config.json /tmp/.mc/config.json
+            mkdir -p /backup/metadata /backup/objects
+            sleep 3600
+          env:
+          - name: MC_CONFIG_DIR
+            value: /tmp/.mc
+          - name: HOME
+            value: /tmp
+          securityContext:
+            runAsUser: 1000
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+          volumeMounts:
+          - name: mc-config
+            mountPath: /config
+            readOnly: true
+          - name: shared-bin
+            mountPath: /shared
+            readOnly: true
+          - name: backup
+            mountPath: /backup
+          - name: tmp
+            mountPath: /tmp
+        volumes:
+        - name: mc-config
+          configMap:
+            name: minio-backup-config
+        - name: shared-bin
+          emptyDir: {}
+        - name: backup
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        restartPolicy: Never
+
+- name: Wait for backup pod to be ready
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    name: minio-backup-pod
+    namespace: "{{ minio_namespace }}"
+  register: backup_pod
+  until:
+    - backup_pod.resources | length > 0
+    - backup_pod.resources[0].status.phase == "Running"
+  retries: 30
+  delay: 10
+
+- name: List buckets in minio
+  shell: "oc exec -n {{ minio_namespace }} minio-backup-pod -c mc -- /shared/mc ls minio"
+  register: bucket_list_raw
+
+- name: Parse bucket names
+  set_fact:
+    bucket_names: "{{ bucket_list_raw.stdout_lines | map('regex_replace', '^.*\\s+([^/]+)/$', '\\1') | select('match', '^[a-z0-9]') | list }}"
+
+- name: Export metadata and mirror objects for each bucket
+  when: bucket_names | length > 0
+  block:
+    - name: Export bucket metadata
+      shell: "oc exec -n {{ minio_namespace }} minio-backup-pod -c mc -- sh -c 'cd /backup/metadata && /shared/mc admin cluster bucket export minio/{{ item }}'"
+      loop: "{{ bucket_names }}"
+      register: metadata_export_results
+
+    - name: Mirror bucket objects
+      shell: "oc exec -n {{ minio_namespace }} minio-backup-pod -c mc -- /shared/mc mirror --preserve --overwrite minio/{{ item }} /backup/objects/{{ item }}"
+      loop: "{{ bucket_names }}"
+      register: mirror_results
+
+- name: Copy metadata from pod to local directory
+  when: bucket_names | length > 0
+  shell: "oc cp --retries=50 -c mc {{ minio_namespace }}/minio-backup-pod:/backup/metadata/minio/. {{ minio_backup_dir }}/minio-backup/metadata/"
+
+- name: Copy objects from pod to local directory
+  when: bucket_names | length > 0
+  shell: "oc cp --retries=50 -c mc {{ minio_namespace }}/minio-backup-pod:/backup/objects/. {{ minio_backup_dir }}/minio-backup/objects/"
+
+- name: Check for failures
+  set_fact:
+    failed_buckets: "{{ (metadata_export_results.results | default([]) | selectattr('rc', 'ne', 0) | map(attribute='item') | list) + (mirror_results.results | default([]) | selectattr('rc', 'ne', 0) | map(attribute='item') | list) | unique }}"
+  when: bucket_names | length > 0
+
+- name: Delete backup pod
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Pod
+    name: minio-backup-pod
+    namespace: "{{ minio_namespace }}"
+    state: absent
+    wait: yes
+    wait_timeout: 120
+
+- name: Delete mc config ConfigMap
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: ConfigMap
+    name: minio-backup-config
+    namespace: "{{ minio_namespace }}"
+    state: absent
+
+- name: Backup complete
+  debug:
+    msg:
+      - "=========================================="
+      - "minio Backup Complete"
+      - "=========================================="
+      - "Backup directory: {{ minio_backup_dir }}/minio-backup"
+      - "Buckets backed up: {{ (bucket_names | length) - (failed_buckets | default([]) | length) }}/{{ bucket_names | length }}"
+      - "Failed: {{ failed_buckets | default([]) | join(', ') if (failed_buckets | default([]) | length > 0) else 'None' }}"
+      - ""
+      - "Backup structure:"
+      - "  {{ minio_backup_dir }}/minio-backup/metadata/ - Bucket metadata ZIP files"
+      - "  {{ minio_backup_dir }}/minio-backup/objects/  - Bucket objects"
