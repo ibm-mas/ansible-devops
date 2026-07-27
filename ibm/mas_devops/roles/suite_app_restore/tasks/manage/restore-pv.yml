@@ -72,7 +72,7 @@
           apiVersion: v1
           kind: PersistentVolumeClaim
           metadata:
-            name: "{{ pv_item.pvcName }}"
+            name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-{{ pv_item.pvcName }}"
             namespace: "{{ mas_app_namespace }}"
           spec:
             accessModes: "{{ pv_item.accessModes }}"
@@ -99,7 +99,7 @@
       kubernetes.core.k8s_info:
         api_version: v1
         kind: PersistentVolumeClaim
-        name: "{{ pv_item.pvcName }}"
+        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-{{ pv_item.pvcName }}"
         namespace: "{{ mas_app_namespace }}"
       register: pvc_status
       retries: 60
@@ -138,13 +138,13 @@
         volume_mounts: |
           {% set mounts = [] %}
           {% for pv in manage_persistent_volumes %}
-          {% set _ = mounts.append({'name': pv.pvcName, 'mountPath': pv.mountPath}) %}
+          {% set _ = mounts.append({'name': mas_instance_id + '-' + mas_workspace_id + '-' + pv.pvcName, 'mountPath': pv.mountPath}) %}
           {% endfor %}
           {{ mounts }}
         volumes: |
           {% set vols = [] %}
           {% for pv in manage_persistent_volumes %}
-          {% set _ = vols.append({'name': pv.pvcName, 'persistentVolumeClaim': {'claimName': pv.pvcName}}) %}
+          {% set _ = vols.append({'name': mas_instance_id + '-' + mas_workspace_id + '-' + pv.pvcName, 'persistentVolumeClaim': {'claimName': mas_instance_id + '-' + mas_workspace_id + '-' + pv.pvcName}}) %}
           {% endfor %}
           {{ vols }}
       register: dummy_pod_created

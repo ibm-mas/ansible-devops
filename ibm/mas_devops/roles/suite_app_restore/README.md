@@ -122,7 +122,7 @@ Custom storage class to use for PVCs with ReadWriteOnce (RWO) access mode when `
 Control whether to restore persistent volume data for application. When set to `false`, only namespace resources (CRs, secrets, subscriptions) will be restored, and PVC data restore will be skipped.
 
 - Optional
-- Environment Variable: `mas_app_restore_include_pvc`
+- Environment Variable: `MAS_APP_RESTORE_INCLUDE_PVC`
 - Default: `true`
 - Valid Values: `true`, `false`
 
