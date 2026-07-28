@@ -149,17 +149,16 @@
       status: "True"
     wait_timeout: 120
 
-- name: Get squid-proxy pod info
+- name: Get Squid Service ClusterIP
   kubernetes.core.k8s_info:
-    kind: Pod
+    kind: Service
+    name: "{{ service_name | default('squid-proxy') }}"
     namespace: "{{ proxy_namespace | default('squid-proxy') }}"
-    label_selectors:
-      - app=squid-proxy
-  register: squid_pods
+  register: squid_service
 
-- name: Set squid pod IP fact
+- name: Set squid ClusterIP fact
   ansible.builtin.set_fact:
-    squid_pod_ip: "{{ squid_pods.resources[0].status.podIP }}"
+    squid_cluster_ip: "{{ squid_service.resources[0].spec.clusterIP }}"
 
 - name: Get cluster and service network CIDRs
   kubernetes.core.k8s_info:
@@ -193,6 +192,6 @@
     state: patched
     definition:
       spec:
-        httpProxy: "http://{{ squid_pod_ip }}:{{ proxy_port | default(3128) }}"
-        httpsProxy: "http://{{ squid_pod_ip }}:{{ proxy_port | default(3128) }}"
+        httpProxy: "http://{{ squid_cluster_ip }}:{{ proxy_port | default(3128) }}"
+        httpsProxy: "http://{{ squid_cluster_ip }}:{{ proxy_port | default(3128) }}"
         noProxy: "{{ cluster_network_cidrs | split(' ') | list | union(service_network_cidrs | split(' ') | list) | join(',') }},.cluster.local,.svc,docker.io,{{ oauth_url }},{{ domain_url }},10.0.0.0/8,169.254.169.254"
