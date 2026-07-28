@@ -1,0 +1,45 @@
+---
+# Detect whether the backup contains Db2uCluster or Db2uInstance
+# This sets db2_cr_type which will be used throughout restore
+
+- name: "Check if Db2uCluster CR exists in backup"
+  stat:
+    path: "{{ db2_backup_path }}/resources/db2uclusters/{{ db2_instance_name }}.yaml"
+  register: db2ucluster_check
+
+- name: "Check if Db2uInstance CR exists in backup"
+  stat:
+    path: "{{ db2_backup_path }}/resources/db2uinstances/{{ db2_instance_name }}.yaml"
+  register: db2uinstance_check
+
+- name: "Fail if neither CR type exists"
+  fail:
+    msg: "Backup must contain either Db2uCluster or Db2uInstance CR for {{ db2_instance_name }}"
+  when:
+    - not db2ucluster_check.stat.exists
+    - not db2uinstance_check.stat.exists
+
+- name: "Fail if both CR types exist"
+  fail:
+    msg: "Backup contains both Db2uCluster and Db2uInstance CRs. Only one should exist."
+  when:
+    - db2ucluster_check.stat.exists
+    - db2uinstance_check.stat.exists
+
+- name: "Set CR type to Db2uCluster"
+  set_fact:
+    db2_cr_type: "Db2uCluster"
+    db2_cr_file: "{{ db2_backup_path }}/resources/db2uclusters/{{ db2_instance_name }}.yaml"
+  when: db2ucluster_check.stat.exists
+
+- name: "Set CR type to Db2uInstance"
+  set_fact:
+    db2_cr_type: "Db2uInstance"
+    db2_cr_file: "{{ db2_backup_path }}/resources/db2uinstances/{{ db2_instance_name }}.yaml"
+  when: db2uinstance_check.stat.exists
+
+- name: "Display detected CR type"
+  debug:
+    msg:
+      - "Detected Db2 CR Type: {{ db2_cr_type }}"
+      - "CR File: {{ db2_cr_file }}"
