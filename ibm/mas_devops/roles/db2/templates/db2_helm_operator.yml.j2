@@ -9,6 +9,8 @@ metadata:
     component-id: ibm-usage-metering
   name: ibm-usage-metering-operator
   namespace: {{ db2_namespace }}
+imagePullSecrets:
+- name: ibm-registry
 ---
 # Source: db2-operator-standalone/charts/db2-ums-collector/templates/serviceaccount.yaml
 apiVersion: v1
@@ -20,7 +22,7 @@ metadata:
     helm.sh/chart: db2-ums-collector-1.0.0
     app.kubernetes.io/name: db2-ums-collector
     app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "1.0.9"
+    app.kubernetes.io/version: "1.0.0"
     app.kubernetes.io/managed-by: Helm
 imagePullSecrets:
 - name: ibm-registry
@@ -32,15 +34,15 @@ metadata:
   name: db2-instance-service-account
   namespace: {{ db2_namespace }}
   labels:
-    helm.sh/chart: db2-operator-standalone-1.0.0
+    helm.sh/chart: db2-operator-standalone-2.0.0
     app.kubernetes.io/name: db2-operator-standalone
     app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/version: "2.0.0"
     app.kubernetes.io/managed-by: Helm
     component-id: db2-operator-standalone
+automountServiceAccountToken: true
 imagePullSecrets:
 - name: ibm-registry
-automountServiceAccountToken: true
 ---
 # Source: db2-operator-standalone/templates/rbac/serviceaccount.yaml
 apiVersion: v1
@@ -49,10 +51,10 @@ metadata:
   name: db2-database-operator-controller-manager
   namespace: {{ db2_namespace }}
   labels:
-    helm.sh/chart: db2-operator-standalone-1.0.0
+    helm.sh/chart: db2-operator-standalone-2.0.0
     app.kubernetes.io/name: db2-operator-standalone
     app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/version: "2.0.0"
     app.kubernetes.io/managed-by: Helm
     component-id: db2-operator-standalone
 imagePullSecrets:
@@ -68,7 +70,7 @@ metadata:
     helm.sh/chart: db2-ums-collector-1.0.0
     app.kubernetes.io/name: db2-ums-collector
     app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "1.0.9"
+    app.kubernetes.io/version: "1.0.0"
     app.kubernetes.io/managed-by: Helm
 data:
   metrics.yaml: |
@@ -204,8 +206,6 @@ data:
             - state
             name: DB2_CUSTOM_METRIC
             source: metricQuantity
-
-# Made with Bob
 ---
 # Source: db2-operator-standalone/charts/db2-ums-collector/templates/configmap-state.yaml
 apiVersion: v1
@@ -217,7 +217,7 @@ metadata:
     helm.sh/chart: db2-ums-collector-1.0.0
     app.kubernetes.io/name: db2-ums-collector
     app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "1.0.9"
+    app.kubernetes.io/version: "1.0.0"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: state
 data:
@@ -236,7 +236,6 @@ metadata:
     component-id: ibm-usage-metering
   name: ibm-usage-metering-operator-cluster
 rules:
-  # Watch Deployments across namespaces
   - apiGroups:
       - apps
     resources:
@@ -245,7 +244,6 @@ rules:
       - get
       - list
       - watch
-  # Watch IBMServiceMeterDefinition CRs across namespaces
   - apiGroups:
       - operator.ibm.com
     resources:
@@ -272,8 +270,6 @@ subjects:
   - kind: ServiceAccount
     name: ibm-usage-metering-operator
     namespace: {{ db2_namespace }}
-
-# Made with Bob
 ---
 # Source: db2-operator-standalone/charts/db2-ums-collector/charts/ibm-usage-metering/templates/rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -412,7 +408,7 @@ metadata:
     helm.sh/chart: db2-ums-collector-1.0.0
     app.kubernetes.io/name: db2-ums-collector
     app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "1.0.9"
+    app.kubernetes.io/version: "1.0.0"
     app.kubernetes.io/managed-by: Helm
 rules:
   - apiGroups:
@@ -436,6 +432,13 @@ rules:
     - update
     - patch
     - delete
+  - apiGroups:
+    - ""
+    resources:
+    - persistentvolumeclaims
+    verbs:
+    - get
+    - list
   - apiGroups: ["operator.ibm.com"]
     resources: ["ibmusagemeterings"]
     verbs: ["get", "patch"]
@@ -456,10 +459,10 @@ metadata:
   name: db2-instance-role
   namespace: {{ db2_namespace }}
   labels:
-    helm.sh/chart: db2-operator-standalone-1.0.0
+    helm.sh/chart: db2-operator-standalone-2.0.0
     app.kubernetes.io/name: db2-operator-standalone
     app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/version: "2.0.0"
     app.kubernetes.io/managed-by: Helm
     component-id: db2-operator-standalone
 rules:
@@ -515,10 +518,10 @@ metadata:
   name: db2-database-operator-leader-election-role
   namespace: {{ db2_namespace }}
   labels:
-    helm.sh/chart: db2-operator-standalone-1.0.0
+    helm.sh/chart: db2-operator-standalone-2.0.0
     app.kubernetes.io/name: db2-operator-standalone
     app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/version: "2.0.0"
     app.kubernetes.io/managed-by: Helm
     component-id: db2-operator-standalone
 rules:
@@ -562,10 +565,10 @@ metadata:
   name: db2-operator-multitenancy-role
   namespace: {{ db2_namespace }}
   labels:
-    helm.sh/chart: db2-operator-standalone-1.0.0
+    helm.sh/chart: db2-operator-standalone-2.0.0
     app.kubernetes.io/name: db2-operator-standalone
     app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/version: "2.0.0"
     app.kubernetes.io/managed-by: Helm
     component-id: db2-operator-standalone
 rules:
@@ -756,7 +759,7 @@ metadata:
     helm.sh/chart: db2-ums-collector-1.0.0
     app.kubernetes.io/name: db2-ums-collector
     app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "1.0.9"
+    app.kubernetes.io/version: "1.0.0"
     app.kubernetes.io/managed-by: Helm
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -774,10 +777,10 @@ metadata:
     name: db2-instance-role-binding
     namespace: {{ db2_namespace }}
     labels:
-      helm.sh/chart: db2-operator-standalone-1.0.0
+      helm.sh/chart: db2-operator-standalone-2.0.0
       app.kubernetes.io/name: db2-operator-standalone
       app.kubernetes.io/instance: {{ db2_instance_name }}
-      app.kubernetes.io/version: "1.0.0"
+      app.kubernetes.io/version: "2.0.0"
       app.kubernetes.io/managed-by: Helm
       component-id: db2-operator-standalone
 roleRef:
@@ -796,10 +799,10 @@ metadata:
   name: db2-database-operator-leader-election-rolebinding
   namespace: {{ db2_namespace }}
   labels:
-    helm.sh/chart: db2-operator-standalone-1.0.0
+    helm.sh/chart: db2-operator-standalone-2.0.0
     app.kubernetes.io/name: db2-operator-standalone
     app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/version: "2.0.0"
     app.kubernetes.io/managed-by: Helm
     component-id: db2-operator-standalone
 roleRef:
@@ -819,10 +822,10 @@ metadata:
   name: db2-operator-multitenancy-rolebinding
   namespace: {{ db2_namespace }}
   labels:
-    helm.sh/chart: db2-operator-standalone-1.0.0
+    helm.sh/chart: db2-operator-standalone-2.0.0
     app.kubernetes.io/name: db2-operator-standalone
     app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/version: "2.0.0"
     app.kubernetes.io/managed-by: Helm
     component-id: db2-operator-standalone
 roleRef:
@@ -841,10 +844,10 @@ metadata:
   name: db2-database-operator-controller-manager-metrics-service
   namespace: {{ db2_namespace }}
   labels:
-    helm.sh/chart: db2-operator-standalone-1.0.0
+    helm.sh/chart: db2-operator-standalone-2.0.0
     app.kubernetes.io/name: db2-operator-standalone
     app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/version: "2.0.0"
     app.kubernetes.io/managed-by: Helm
     component-id: db2-operator-standalone
     control-plane: controller-manager
@@ -866,10 +869,10 @@ metadata:
   name: db2-database-operator-webhook-service
   namespace: {{ db2_namespace }}
   labels:
-    helm.sh/chart: db2-operator-standalone-1.0.0
+    helm.sh/chart: db2-operator-standalone-2.0.0
     app.kubernetes.io/name: db2-operator-standalone
     app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/version: "2.0.0"
     app.kubernetes.io/managed-by: Helm
     component-id: db2-operator-standalone
 spec:
@@ -929,8 +932,10 @@ spec:
             - name: OPERAND_NAMESPACES
               value: {{ db2_namespace }}
             - name: IBM_USAGE_METERING_OPERAND_IMAGE
-              value: icr.io/cpopen/cpfs/ibm-usage-metering-instance@sha256:3bcf02092410e7207b9182468abaab22b0351cd1a08adacc4da0e25b9318132a
-          image: icr.io/cpopen/ibm-usage-metering-operator@sha256:3962823be6e78a7543d109820ec547c26ad71fe717d6f1e71562e9a22077d43a
+              value: icr.io/cpopen/cpfs/ibm-usage-metering-instance@sha256:81946b523bc9671e9ab476303c8de261f1975e06db9f6aea41502b7c01408c3f
+            - name: ENABLE_ROUTES
+              value: "true"
+          image: icr.io/cpopen/ibm-usage-metering-operator@sha256:1318d9e4ebc22ea48fc1c8182e59d09fd121889a37b11b68b979cd55c0ab75c0
           livenessProbe:
             httpGet:
               path: /healthz
@@ -966,10 +971,9 @@ spec:
       securityContext:
         runAsNonRoot: true
       serviceAccountName: ibm-usage-metering-operator
-      terminationGracePeriodSeconds: 10
-      
       imagePullSecrets:
         - name: ibm-registry
+      terminationGracePeriodSeconds: 10
 ---
 # Source: db2-operator-standalone/templates/deployment.yaml
 apiVersion: apps/v1
@@ -978,14 +982,14 @@ metadata:
   name: db2-database-operator-controller-manager
   namespace: {{ db2_namespace }}
   labels:
-    helm.sh/chart: db2-operator-standalone-1.0.0
+    helm.sh/chart: db2-operator-standalone-2.0.0
     app.kubernetes.io/name: db2-operator-standalone
     app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/version: "2.0.0"
     app.kubernetes.io/managed-by: Helm
     component-id: db2-operator-standalone
     control-plane: controller-manager
-    app.kubernetes.io/name: db2-operator
+    app.kubernetes.io/name: db2-operator-standalone
   annotations:
     kubectl.kubernetes.io/default-container: manager
 spec:
@@ -1004,13 +1008,15 @@ spec:
         control-plane: controller-manager
     spec:
       serviceAccountName: db2-database-operator-controller-manager
+      imagePullSecrets:
+        - name: ibm-registry
       securityContext:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       containers:
       - name: manager
-        image: "cp.stg.icr.io/cp/db2u/db2-operator:1249-x86_64"
+        image: "icr.io/db2u/db2-operator:v2.0.0"
         imagePullPolicy: IfNotPresent
         command:
         - /manager
@@ -1028,6 +1034,7 @@ spec:
         - name: WATCH_NAMESPACE
           value: "{{ db2_namespace }}"
         securityContext:
+          readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
           capabilities:
             drop:
@@ -1080,13 +1087,13 @@ metadata:
     helm.sh/chart: db2-ums-collector-1.0.0
     app.kubernetes.io/name: db2-ums-collector
     app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "1.0.9"
+    app.kubernetes.io/version: "1.0.0"
     app.kubernetes.io/managed-by: Helm
 spec:
   schedule: "*/15 * * * *"
   concurrencyPolicy: Forbid
-  successfulJobsHistoryLimit: 3
-  failedJobsHistoryLimit: 3
+  successfulJobsHistoryLimit: 0
+  failedJobsHistoryLimit: 0
   jobTemplate:
     spec:
       ttlSecondsAfterFinished: 1
@@ -1099,6 +1106,8 @@ spec:
             app.kubernetes.io/instance: {{ db2_instance_name }}
         spec:
           serviceAccountName: {{ db2_instance_name }}-db2-ums-collector
+          imagePullSecrets:
+            - name: ibm-registry
           restartPolicy: OnFailure
           securityContext:
             
@@ -1107,17 +1116,18 @@ spec:
               type: RuntimeDefault
           containers:
           - name: collector
-            image: "cp.stg.icr.io/cp/db2u/db2-operator:1249-x86_64"
+            image: "icr.io/db2u/db2-operator:v2.0.0"
             imagePullPolicy: IfNotPresent
             # Explicitly specify command and args since we don't control the entrypoint
             # The app is installed in /db2-ums-collector directory
-            command: ["python3.11"]
+            command: ["python3.12"]
             args: ["-u", "/db2-ums-collector/main.py"]
             securityContext:
               allowPrivilegeEscalation: false
               capabilities:
                 drop:
                 - ALL
+                - CAP_NET_RAW
               readOnlyRootFilesystem: true
             env:
             - name: PYTHONPATH
@@ -1165,6 +1175,36 @@ spec:
               requests:
                 cpu: 100m
                 memory: 128Mi
+            livenessProbe:
+              exec:
+                command:
+                  - python3
+                  - --version
+              initialDelaySeconds: 10
+              periodSeconds: 30
+              timeoutSeconds: 5
+              successThreshold: 1
+              failureThreshold: 3
+            readinessProbe:
+              exec:
+                command:
+                  - python3
+                  - --version
+              initialDelaySeconds: 5
+              periodSeconds: 10
+              timeoutSeconds: 5
+              successThreshold: 1
+              failureThreshold: 3
+            startupProbe:
+              exec:
+                command:
+                  - python3
+                  - --version
+              initialDelaySeconds: 0
+              periodSeconds: 10
+              timeoutSeconds: 5
+              successThreshold: 1
+              failureThreshold: 30
           volumes:
           - name: metrics-config
             configMap:
@@ -1180,12 +1220,6 @@ spec:
           - name: tmp
             emptyDir: {}
 ---
-# Source: db2-operator-standalone/charts/db2-ums-collector/templates/role-additional-namespaces.yaml
-# Made with Bob
----
-# Source: db2-operator-standalone/charts/db2-ums-collector/templates/rolebinding-additional-namespaces.yaml
-# Made with Bob
----
 # Source: db2-operator-standalone/charts/db2-ums-collector/templates/validate-secret.yaml
 # Made with Bob
 ---
@@ -1196,10 +1230,10 @@ metadata:
   name: db2-database-operator-serving-cert
   namespace: {{ db2_namespace }}
   labels:
-    helm.sh/chart: db2-operator-standalone-1.0.0
+    helm.sh/chart: db2-operator-standalone-2.0.0
     app.kubernetes.io/name: db2-operator-standalone
     app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/version: "2.0.0"
     app.kubernetes.io/managed-by: Helm
     component-id: db2-operator-standalone
     app.kubernetes.io/component: certificate
@@ -1224,10 +1258,6 @@ metadata:
   name: ibm-usage-metering-instance
   namespace: {{ db2_namespace }}
 spec:
-  containers:
-    instance:
-      imagePullSecrets:
-      - ibm-registry
   license:
     accept: true
 ---
@@ -1238,10 +1268,10 @@ metadata:
   name: db2-database-operator-selfsigned-issuer
   namespace: {{ db2_namespace }}
   labels:
-    helm.sh/chart: db2-operator-standalone-1.0.0
+    helm.sh/chart: db2-operator-standalone-2.0.0
     app.kubernetes.io/name: db2-operator-standalone
     app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/version: "2.0.0"
     app.kubernetes.io/managed-by: Helm
     component-id: db2-operator-standalone
 spec:
@@ -1257,7 +1287,7 @@ metadata:
     helm.sh/chart: db2-ums-collector-1.0.0
     app.kubernetes.io/name: db2-ums-collector
     app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "1.0.9"
+    app.kubernetes.io/version: "1.0.0"
     app.kubernetes.io/managed-by: Helm
   annotations:
     # Run after install and after upgrade
@@ -1275,6 +1305,8 @@ spec:
         app.kubernetes.io/component: patch-ums
     spec:
       serviceAccountName: {{ db2_instance_name }}-db2-ums-collector
+      imagePullSecrets:
+        - name: ibm-registry
       restartPolicy: OnFailure
       securityContext:
         runAsNonRoot: true
@@ -1282,13 +1314,14 @@ spec:
           type: RuntimeDefault
       containers:
         - name: patch-ums
-          image: "cp.stg.icr.io/cp/db2u/db2-operator:1249-x86_64"
+          image: "icr.io/db2u/db2-operator:v2.0.0"
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
+                - CAP_NET_RAW
             readOnlyRootFilesystem: true
           env:
             - name: NAMESPACE
@@ -1302,9 +1335,42 @@ spec:
             - name: SC_ENTITLEMENT_KEY_SECRET
               value: "ibm-entitlement-key"
             - name: SC_FREQUENCY
-              value: "0 * * * *"
+              value: "@daily"
             - name: SC_SANDBOX
-              value: "true"
+              value: "false"
+          livenessProbe:
+            exec:
+              command:
+                - kubectl
+                - version
+                - --client
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - kubectl
+                - version
+                - --client
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          startupProbe:
+            exec:
+              command:
+                - kubectl
+                - version
+                - --client
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 30
           command:
             - /bin/sh
             - -c
@@ -1382,17 +1448,17 @@ metadata:
   name: db2-operator-standalone-namespace-labeler
   namespace: {{ db2_namespace }}
   labels:
-    helm.sh/chart: db2-operator-standalone-1.0.0
+    helm.sh/chart: db2-operator-standalone-2.0.0
     app.kubernetes.io/name: db2-operator-standalone
     app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/version: "2.0.0"
     app.kubernetes.io/managed-by: Helm
     component-id: db2-operator-standalone
     app.kubernetes.io/component: namespace-labeler
   annotations:
-    "helm.sh/hook": post-install
+    "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "1"
-    "helm.sh/hook-delete-policy": hook-succeeded
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
   template:
     metadata:
@@ -1402,6 +1468,8 @@ spec:
         app.kubernetes.io/component: namespace-labeler
     spec:
       serviceAccountName: db2-database-operator-controller-manager
+      imagePullSecrets:
+        - name: ibm-registry
       restartPolicy: OnFailure
       securityContext:
         runAsNonRoot: true
@@ -1409,12 +1477,13 @@ spec:
           type: RuntimeDefault
       containers:
       - name: namespace-labeler
-        image: cp.stg.icr.io/cp/db2u/db2-operator:1249-x86_64
+        image: icr.io/db2u/db2-operator:v2.0.0
         command:
         - /bin/sh
         - -c
         - /pre-check --label="db2u.databases.ibm.com/db2-operator-namespace={{ db2_namespace }}" --namespaces={{ db2_namespace }}
         securityContext:
+          readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
           capabilities:
             drop:
@@ -1430,3 +1499,36 @@ spec:
           requests:
             cpu: 10m
             memory: 32Mi
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - test -x /pre-check
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - test -x /pre-check
+          initialDelaySeconds: 2
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        startupProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - test -x /pre-check
+          initialDelaySeconds: 2
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
