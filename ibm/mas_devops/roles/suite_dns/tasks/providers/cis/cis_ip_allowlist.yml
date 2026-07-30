@@ -1,8 +1,10 @@
 ---
-# Create/update a CIS WAF custom firewall rule that blocks all traffic
+# Create/update a CIS WAF custom rule that blocks all traffic
 # except from the IPs specified in cis_allowed_ips.
 #
 # cis_allowed_ips is a comma-separated string e.g. "1.2.3.4,5.6.7.8,10.0.0.0/8"
+# It may also arrive as a bracketed list string e.g. "[1.2.3.4/32]" from
+# Helm rendering a YAML list — brackets are stripped before use.
 # If cis_allowed_ips is empty, this task is skipped entirely.
 # =============================================================================
 
@@ -15,22 +17,27 @@
   when: cis_allowed_ips | trim | length > 0
   block:
 
-    # Build the Cloudflare expression string from the comma-separated IP list
-    # e.g. "1.2.3.4,10.0.0.0/8" → (not ip.src in {1.2.3.4 10.0.0.0/8})
+    # Strip surrounding brackets if value arrived as "[1.2.3.4/32]" from Helm list rendering,
+    # then split on comma, trim each entry, rejoin with space for the WAF expression.
+    - name: "cis : normalise allowed IPs"
+      ansible.builtin.set_fact:
+        _cis_normalised_ips: "{{ cis_allowed_ips | regex_replace('(^\\[|\\]$)', '') | split(',') | map('trim') | select('match', '.+') | list }}"
+
     - name: "cis : build WAF expression for IP allowlist"
       ansible.builtin.set_fact:
-        _cis_allowlist_expression: "{{ '(not ip.src in {' + (cis_allowed_ips.split(',') | map('trim') | join(' ')) + '})' }}"
+        _cis_allowlist_expression: "{{ '(not ip.src in {' + (_cis_normalised_ips | join(' ')) + '})' }}"
 
     - name: "cis : show WAF IP allowlist expression"
       ansible.builtin.debug:
         msg:
           - "CIS Allowed IPs .......... {{ cis_allowed_ips }}"
+          - "Normalised IPs ........... {{ _cis_normalised_ips }}"
           - "WAF Expression ........... {{ _cis_allowlist_expression }}"
 
     # Check if an allowlist rule already exists (description match)
     - name: "cis : get existing custom WAF rules"
       ansible.builtin.shell: |
-        ibmcloud cis custom-rules {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+        ibmcloud cis custom-waf rules {{ (_cis_domains_result.stdout | from_json)[0].id }} \
           -i "{{ cis_service_name }}" --output json
       register: _cis_custom_rules_result
       failed_when: false
@@ -51,10 +58,10 @@
 
     - name: "cis : create WAF IP allowlist block rule (new)"
       ansible.builtin.shell: |
-        ibmcloud cis custom-rules-create {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+        ibmcloud cis custom-waf rule-create {{ (_cis_domains_result.stdout | from_json)[0].id }} \
           -i "{{ cis_service_name }}" \
           --action block \
-          --expression "{{ _cis_allowlist_expression }}" \
+          --match "{{ _cis_allowlist_expression }}" \
           --description "mas-ip-allowlist-{{ mas_instance_id }}" \
           --enabled true
       register: _cis_allowlist_create_result
@@ -65,11 +72,11 @@
 
     - name: "cis : update WAF IP allowlist block rule (existing)"
       ansible.builtin.shell: |
-        ibmcloud cis custom-rules-update {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+        ibmcloud cis custom-waf rule-update {{ (_cis_domains_result.stdout | from_json)[0].id }} \
           {{ _cis_allowlist_rule_id }} \
           -i "{{ cis_service_name }}" \
           --action block \
-          --expression "{{ _cis_allowlist_expression }}" \
+          --match "{{ _cis_allowlist_expression }}" \
           --description "mas-ip-allowlist-{{ mas_instance_id }}" \
           --enabled true
       register: _cis_allowlist_update_result
