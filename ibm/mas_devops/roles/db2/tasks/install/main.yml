@@ -130,7 +130,7 @@
   when: db2_channel is not defined or db2_channel == ""
   #when: db2_channel is not defined or db2_channel == "" or db2_version is not defined or db2_version == ""
 
-  # Rotate DB2 channel by day of the week
+  # Rotate DB2 Channel by day of the week
 - name: "Select DB2 channel based on day of the week"
   when: db2_channel is defined and db2_channel == "rotate"
   set_fact:
@@ -492,7 +492,29 @@
           - "License file exists .................... {{ license_file_stat.stat.exists }}"
           - "License encoded (first 50 chars) ....... {{ db2_license_encoded[:50] }}..."
 
-# 12. Display deprecation notice for Db2uCluster
+# 12. Rotate DB2U_KIND by day of the week
+# -----------------------------------------------------------------------------
+- name: "Select Db2u kind based on day of the week"
+  when: db2u_kind is defined and db2u_kind == "rotate"
+  set_fact:
+    db2u_kind: "{{ rotate_db2u_kind[ansible_facts['date_time']['weekday']] }}"
+  vars:
+    rotate_db2u_kind:
+      Monday: "db2uinstance"
+      Tuesday: "db2ucluster"
+      Wednesday: "db2uinstance"
+      Thursday: "db2ucluster"
+      Friday: "db2uinstance"
+      Saturday: "db2ucluster"
+      Sunday: "db2uinstance"
+
+- name: "Debug DB2U_KIND after rotation"
+  when: db2u_kind is defined and db2u_kind != ""
+  ansible.builtin.debug:
+    msg:
+      - "DB2U_KIND (after rotation check) .......... {{ db2u_kind }}"
+
+# 13. Display deprecation notice for Db2uCluster
 # -----------------------------------------------------------------------------
 - name: "Notice of deprecation of Db2uCluster"
   when:
@@ -612,7 +634,7 @@
   include_tasks: tasks/db2ucluster.yml
 
 
-# 17. Set db2 instance timezone
+# 18. Set db2 instance timezone
 # -----------------------------------------------------------------------------
 - name: "Set db2 instance timezone"
   include_tasks: "tasks/install/setup_timezone.yml"
@@ -705,7 +727,7 @@
     state: absent
 
 
-## 19. create an LDAP user if db2_ldap_username specified
+## 20. create an LDAP user if db2_ldap_username specified
 # -----------------------------------------------------------------------------
 - name: Create LDAP user if username and password is provided
   include_tasks: tasks/install/create_ldap_user.yml
@@ -722,7 +744,7 @@
       - "LDAP Username .......................... {{ db2_ldap_username | default('<undefined>', true) }}"
       - "Rotate Password ........................ {{ db2_rotate_password | ternary('*********', '<undefined>') }}"
 
-# 20. Rotate db2 ldap password
+# 21. Rotate db2 ldap password
 # -----------------------------------------------------------------------------
 - name: Rotate Db2 LDAP password if db2_rotate_password is True and username is provided
   include_tasks: tasks/install/rotate_ldap_user_password.yml
@@ -731,7 +753,7 @@
     - db2_ldap_username != ""
     - db2_rotate_password == true
 
-# 21. Generate a JdbcCfg for MAS configuration
+# 22. Generate a JdbcCfg for MAS configuration
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/install/suite_jdbccfg.yml
   when:
