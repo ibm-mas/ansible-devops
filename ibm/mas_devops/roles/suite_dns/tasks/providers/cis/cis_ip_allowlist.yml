@@ -84,23 +84,27 @@
 
     # ------------------------------------------------------------------
     # Step 2 — Build lockdown rule JSON
-    # Lockdown format: {"urls": ["*.domain.com/*"], "configurations": [{"target":"ip","value":"x.x.x.x"},...]}
-    # Only IPv4 addresses are included — lockdown API does not support IPv6.
+    # Correct CLI syntax (from sample):
+    #   ibmcloud cis firewall-create --type lockdowns --domain <zone_id>
+    #     --json '{"urls":["*.domain.com"],"configurations":[{"target":"ip","value":"1.2.3.4"}]}'
+    #     --instance <service_name>
+    # Notes:
+    #   - IPv4 only — lockdown API does not support IPv6
+    #   - IP values must be plain IPs, no CIDR suffix (strip /32 etc.)
+    #   - URLs do not need trailing /*
+    #   - JSON must be single-line (no embedded newlines)
     # ------------------------------------------------------------------
-    - name: "cis : filter IPv4-only addresses for lockdown"
+    - name: "cis : filter IPv4-only addresses for lockdown (strip CIDR suffix)"
       ansible.builtin.set_fact:
-        _cis_ipv4_ips: "{{ _cis_normalised_ips | select('match', '^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]') | list }}"
+        _cis_ipv4_ips: "{{ _cis_normalised_ips | select('match', '^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]') | map('regex_replace', '/.*$', '') | list }}"
 
     - name: "cis : build lockdown configurations list"
       ansible.builtin.set_fact:
         _cis_lockdown_configs: "{{ _cis_ipv4_ips | map('regex_replace', '^(.+)$', '{\"target\":\"ip\",\"value\":\"\\1\"}') | list | join(',') }}"
 
-    - name: "cis : build lockdown JSON payload"
+    - name: "cis : build lockdown JSON payload (single-line)"
       ansible.builtin.set_fact:
-        _cis_lockdown_json: >-
-          {"urls":["*.{{ mas_domain }}/*","{{ mas_domain }}/*"],
-           "configurations":[{{ _cis_lockdown_configs }}],
-           "description":"mas-ip-allowlist-{{ mas_instance_id }}"}
+        _cis_lockdown_json: '{"urls":["*.{{ mas_domain }}","{{ mas_domain }}"],"configurations":[{{ _cis_lockdown_configs }}],"description":"mas-ip-allowlist-{{ mas_instance_id }}"}'
 
     - name: "cis : show lockdown payload"
       ansible.builtin.debug:
@@ -115,7 +119,7 @@
       ansible.builtin.shell: |
         ibmcloud cis firewall-rules {{ (_cis_domains_result.stdout | from_json)[0].id }} \
           --type lockdowns \
-          -i "{{ cis_service_name }}" --output json
+          --instance "{{ cis_service_name }}" --output json
       register: _cis_lockdown_list_result
       failed_when: false
 
@@ -138,9 +142,10 @@
     # ------------------------------------------------------------------
     - name: "cis : create firewall lockdown rule (new)"
       ansible.builtin.shell: |
-        ibmcloud cis firewall-rule-create {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+        ibmcloud cis firewall-create \
           --type lockdowns \
-          -i "{{ cis_service_name }}" \
+          --domain {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+          --instance "{{ cis_service_name }}" \
           --json '{{ _cis_lockdown_json }}'
       register: _cis_lockdown_create_result
       retries: 5
@@ -150,10 +155,10 @@
 
     - name: "cis : update firewall lockdown rule (existing)"
       ansible.builtin.shell: |
-        ibmcloud cis firewall-rule-update {{ (_cis_domains_result.stdout | from_json)[0].id }} \
-          {{ _cis_lockdown_rule_id }} \
+        ibmcloud cis firewall-update {{ _cis_lockdown_rule_id }} \
           --type lockdowns \
-          -i "{{ cis_service_name }}" \
+          --domain {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+          --instance "{{ cis_service_name }}" \
           --json '{{ _cis_lockdown_json }}'
       register: _cis_lockdown_update_result
       retries: 5
@@ -161,6 +166,6 @@
       until: _cis_lockdown_update_result.rc == 0
       when: _cis_lockdown_rule_id | trim | length > 0
 
-    - name: "cis : show lockdown rule result"
+    - name: "Cis : show lockdown rule result"
       ansible.builtin.debug:
-        msg: "Firewall lockdown rule {{ 'created' if _cis_lockdown_rule_id | trim | length == 0 else 'updated' }} successfully for instance {{ mas_instance_id }}"
+        msg: "Firewall lockdown rule {{ 'created' if _cis_lockdown_rule_id | trim | length == 0 else 'updated' }} for instance {{ mas_instance_id }}"
