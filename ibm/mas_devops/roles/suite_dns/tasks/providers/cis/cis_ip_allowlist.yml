@@ -113,59 +113,63 @@
           - "Lockdown JSON ............ {{ _cis_lockdown_json }}"
 
     # ------------------------------------------------------------------
-    # Step 3 — Check if lockdown rule already exists
+    # Step 3 — Find ALL existing lockdown rules for this instance
     # ------------------------------------------------------------------
     - name: "cis : get existing firewall lockdown rules"
       ansible.builtin.shell: |
-        ibmcloud cis firewall-rules {{ (_cis_domains_result.stdout | from_json)[0].id }} \
-          --type lockdowns \
-          --instance "{{ cis_service_name }}" --output json
+        ibmcloud cis firewalls \
+          -t lockdowns \
+          -d {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+          -i "{{ cis_service_name }}" --output json
       register: _cis_lockdown_list_result
       failed_when: false
 
-    - name: "cis : find existing lockdown rule id"
+    - name: "cis : build list of all existing lockdown rule ids for this instance"
       ansible.builtin.set_fact:
-        _cis_lockdown_rule_id: >-
+        _cis_lockdown_all_ids: >-
           {{ (_cis_lockdown_list_result.stdout | from_json)
              | selectattr('description', 'defined')
              | selectattr('description', 'equalto', 'mas-ip-allowlist-' ~ mas_instance_id)
-             | map(attribute='id') | list | first | default('') }}
+             | map(attribute='id') | list }}
       when: _cis_lockdown_list_result.rc == 0 and _cis_lockdown_list_result.stdout | trim | length > 0
 
-    - name: "cis : set lockdown rule id to empty when none exist"
+    - name: "cis : set empty lockdown id list when none exist"
       ansible.builtin.set_fact:
-        _cis_lockdown_rule_id: ""
+        _cis_lockdown_all_ids: []
       when: _cis_lockdown_list_result.rc != 0 or _cis_lockdown_list_result.stdout | trim | length == 0
 
+    - name: "cis : show existing lockdown rule ids"
+      ansible.builtin.debug:
+        msg: "Existing lockdown rule ids for mas-ip-allowlist-{{ mas_instance_id }}: {{ _cis_lockdown_all_ids }}"
+
     # ------------------------------------------------------------------
-    # Step 4 — Create or update lockdown rule
+    # Step 4 — Delete ALL existing rules (handles duplicates), then create fresh
     # ------------------------------------------------------------------
-    - name: "cis : create firewall lockdown rule (new)"
+    - name: "cis : delete all existing lockdown rules for this instance"
+      ansible.builtin.shell: |
+        ibmcloud cis firewall-delete {{ item }} \
+          --type lockdowns \
+          -d {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+          -i "{{ cis_service_name }}" -f
+      loop: "{{ _cis_lockdown_all_ids }}"
+      when: _cis_lockdown_all_ids | length > 0
+      register: _cis_lockdown_delete_result
+      retries: 3
+      delay: 10
+      until: _cis_lockdown_delete_result.rc == 0
+
+    - name: "cis : create firewall lockdown rule"
       ansible.builtin.shell: |
         ibmcloud cis firewall-create \
           --type lockdowns \
-          --domain {{ (_cis_domains_result.stdout | from_json)[0].id }} \
-          --instance "{{ cis_service_name }}" \
+          -d {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+          -i "{{ cis_service_name }}" \
           --json '{{ _cis_lockdown_json }}'
       register: _cis_lockdown_create_result
       retries: 5
       delay: 30
       until: _cis_lockdown_create_result.rc == 0
-      when: _cis_lockdown_rule_id | trim | length == 0
 
-    - name: "cis : update firewall lockdown rule (existing)"
-      ansible.builtin.shell: |
-        ibmcloud cis firewall-update {{ _cis_lockdown_rule_id }} \
-          --type lockdowns \
-          --domain {{ (_cis_domains_result.stdout | from_json)[0].id }} \
-          --instance "{{ cis_service_name }}" \
-          --json '{{ _cis_lockdown_json }}'
-      register: _cis_lockdown_update_result
-      retries: 5
-      delay: 30
-      until: _cis_lockdown_update_result.rc == 0
-      when: _cis_lockdown_rule_id | trim | length > 0
-
-    - name: "Cis : show lockdown rule result"
+    - name: "cis : show lockdown rule result"
       ansible.builtin.debug:
-        msg: "Firewall lockdown rule {{ 'created' if _cis_lockdown_rule_id | trim | length == 0 else 'updated' }} for instance {{ mas_instance_id }}"
+        msg: "Firewall lockdown rule created for instance {{ mas_instance_id }}"
