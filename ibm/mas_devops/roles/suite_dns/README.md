@@ -790,23 +790,6 @@ If not set, then it will use same domain set for MAS instance.
     - ibm.mas_devops.suite_dns
 ```
 
-### AI Service with Cloudflare
-
-```yaml
-- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    dns_provider: cloudflare
-    aiservice_instance_id: aiservice1
-    aiservice_domain: aiservice.mydomain.com
-    cloudflare_email: xxx
-    cloudflare_apitoken: xxx
-    cloudflare_zone: mydomain.com
-    cloudflare_subdomain: aiservice
-  roles:
-    - ibm.mas_devops.suite_dns
-```
-
 ### AI Service with AWS Route 53
 
 ```yaml
