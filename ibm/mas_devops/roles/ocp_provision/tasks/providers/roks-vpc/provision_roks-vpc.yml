@@ -46,6 +46,7 @@
       - "GPU worker pool name ......... {{ gpu_workerpool_name | default('<n/a>') }}"
       - "GPU workers .................. {{ gpu_workers | default('<n/a>') }}"
       - "GPU flavor ................... {{ gpu_flavor | default('<n/a>') }}"
+      - "Storage provider ............. {{ ocp_storage_provider | default('ibmc (default)') }}"
 
 
 # 4. Login
@@ -133,9 +134,13 @@
     msg: "{{ roks_cluster_completion.stdout | from_json }}"
 
 
-# 9. Enable vpc-file-csi-driver addon
+# 9. Enable storage addon
 # -----------------------------------------------------------------------------
 - include_tasks: "tasks/providers/roks-vpc/file_csi.yml"
+  when: ocp_storage_provider | default('') != 'odf'
+
+- include_tasks: "tasks/providers/roks-vpc/odf.yml"
+  when: ocp_storage_provider | default('') == 'odf'
 
 
 # 10. Optionally add a GPU worker pool
