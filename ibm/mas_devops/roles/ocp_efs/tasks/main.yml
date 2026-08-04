@@ -45,10 +45,10 @@
 
 # 3. Add AWS credentials to OpenShift secrets
 # -----------------------------------------------------------------------------
-- name: "Create Secret"
-  kubernetes.core.k8s:
-    apply: yes
-    template: "templates/aws-secret.yml.j2"
+# Note: The cloud-credential-operator will automatically create and manage
+# the aws-efs-cloud-credentials secret in openshift-cluster-csi-drivers namespace
+# when the ClusterCSIDriver is installed. Manual secret creation is not needed
+# and can cause credential mismatch issues.
 
 
 # 4. Install AWS EFS CSI DRIVER
@@ -59,7 +59,47 @@
     template: "templates/efs-csi-driver.yml.j2"
 
 
-# 5. Create a Storage Class for aws efs
+# 5. Wait for ClusterCSIDriver and let cloud-credential-operator create secret
+# -----------------------------------------------------------------------------
+- name: "Wait for ClusterCSIDriver to be created"
+  kubernetes.core.k8s_info:
+    api_version: operator.openshift.io/v1
+    kind: ClusterCSIDriver
+    name: efs.csi.aws.com
+  register: csi_driver
+  until:
+    - csi_driver.resources is defined
+    - csi_driver.resources | length > 0
+  retries: 30
+  delay: 10
+
+- name: "Wait for cloud-credential-operator to create secret (if available)"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: aws-efs-cloud-credentials
+    namespace: openshift-cluster-csi-drivers
+  register: efs_secret_check
+  until: efs_secret_check.resources | length > 0
+  retries: 12  # Wait up to 2 minutes for cloud-credential-operator
+  delay: 10
+  ignore_errors: true
+
+- name: "Debug: Check if secret was created by cloud-credential-operator"
+  debug:
+    msg: "Secret exists: {{ efs_secret_check.resources | length > 0 }}"
+
+
+# 6. Fallback: Create secret manually if cloud-credential-operator didn't create it
+# -----------------------------------------------------------------------------
+- name: "Fallback: Create secret manually if not created by cloud-credential-operator"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/aws-secret.yml.j2"
+  when: efs_secret_check.resources | length == 0
+
+
+# 7. Create a Storage Class for aws efs
 # -----------------------------------------------------------------------------
 - name: "Create a Storage Class for aws efs"
   kubernetes.core.k8s:

@@ -1,0 +1,43 @@
+---
+# Enable the vpc-file-csi-driver addon and wait for it to become ready.
+# 'ibmcloud oc cluster addon ls --output json' returns a list of addon objects,
+# e.g. [{"name": "vpc-file-csi-driver", "healthState": "normal", ...}, ...]
+# Depends on: cluster_name
+
+- name: "roks-vpc/file-csi : Enable vpc-file-csi-driver addon"
+  shell: |
+    ibmcloud oc cluster addon enable vpc-file-csi-driver --cluster {{ cluster_name }}
+  register: addon_enable
+  # rc=1 with "already exists" is not a real failure — the addon is already enabled.
+  failed_when:
+    - addon_enable.rc != 0
+    - "'already exists' not in addon_enable.stderr"
+
+- name: "roks-vpc/file-csi : Wait until vpc-file-csi-driver addon is ready"
+  shell: |
+    ibmcloud oc cluster addon ls --cluster {{ cluster_name }} --output json
+  register: addon_status
+  vars:
+    addon: >-
+      {{
+        addon_status.stdout | from_json
+        | selectattr('name', 'equalto', 'vpc-file-csi-driver')
+        | list | first | default({})
+      }}
+  until:
+    - addon_status.rc == 0
+    - addon.healthState is defined
+    - addon.healthState == 'normal'
+  retries: 30
+  delay: 60  # 1 minute
+
+- name: "roks-vpc/file-csi : Debug vpc-file-csi-driver addon state"
+  vars:
+    addon: >-
+      {{
+        addon_status.stdout | from_json
+        | selectattr('name', 'equalto', 'vpc-file-csi-driver')
+        | list | first | default({})
+      }}
+  debug:
+    msg: "{{ addon }}"

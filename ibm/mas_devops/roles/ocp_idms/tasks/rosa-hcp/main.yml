@@ -1,0 +1,113 @@
+---
+# Configure the Cluster to pull images from the mirror
+# - Configure the Image Content Source Policy
+# - wait for nodes to restart
+
+# 1. Rosa Login
+# -----------------------------------------------------------------------------
+- name: "Login to Rosa"
+  include_tasks: "{{ role_path }}/../../common_tasks/rosa_login.yml"
+
+# 1. Params
+# -----------------------------------------------------------------------------
+- name: "Check for required parameters"
+  assert:
+    that:
+      - cluster_name is defined and cluster_name != ""
+
+- name: "Settings"
+  debug:
+    msg:
+      - "Cluster Name .............................. {{ cluster_name }}"
+      - "Registry Private Host ..................... {{ registry_private_host }}"
+      - "Registry Private Port ..................... {{ registry_private_port | default('<undefined>') }}"
+      - "Registry Private URL ...................... {{ registry_private_url }}"
+      - "Registry Prefix (IBM) ..................... {{ registry_prefix }}"
+      - "Registry (IBM) ............................ {{ registry_private_url_with_path }}"
+      - "Registry Prefix (Red Hat) ................. {{ registry_prefix_redhat }}"
+      - "Registry (Red Hat) ........................ {{ registry_private_url_with_path_redhat }}"
+
+# 2. Update default image pull secret
+# -----------------------------------------------------------------------------
+- name: "Update default image pull secret"
+  when:
+    - registry_username is defined and registry_username != ""
+    - registry_password is defined and registry_password != ""
+  vars:
+    registry_authentication: "{{ registry_auth }}"
+    registry_host: "{{ registry_private_host }}"
+  include_tasks: "tasks/rosa-hcp/update-pull-secret.yml"
+
+- name: "Update default image pull secret (dev)"
+  when:
+    - fvt_image_registry is defined and fvt_image_registry != ""
+    - artifactory_username is defined and artifactory_username != ""
+    - artifactory_token is defined and artifactory_token != ""
+  vars:
+    registry_authentication: "{{ artifactory_auth }}"
+    registry_host: "{{ fvt_image_registry }}"
+  include_tasks: "tasks/rosa-hcp/update-pull-secret.yml"
+
+# 3. IBM Maximo Operator Catalog
+# -----------------------------------------------------------------------------
+- name: "Create ImageDigestMirrorSet"
+  vars:
+    template_file: "ibm-catalog.yml.j2"
+  include_tasks:
+    file: tasks/rosa-hcp/idms.yml
+
+# 4. Red Hat Operator Catalogs
+# -----------------------------------------------------------------------------
+- name: "Setup Red Hat Operator Catalogs"
+  when: setup_redhat_catalogs
+  block:
+    - name: "Look up cluster version"
+      kubernetes.core.k8s_info:
+        api_version: config.openshift.io/v1
+        name: "version"
+        kind: ClusterVersion
+      register: version_info
+
+    - name: "Assert that we can obtain cluster version information"
+      assert:
+        that: version_info.resources[0] is defined
+        fail_msg: "Unable to determine OCP version information"
+
+    - name: "Set OCP release"
+      set_fact:
+        ocp_version: "{{ version_info.resources[0].status.desired.version }}"
+        ocp_release: "{{ version_info.resources[0].status.desired.version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
+
+    - name: "Debug OCP release"
+      debug:
+        msg:
+          - "OCP Version ............................ {{ ocp_version }}"
+          - "OCP Release ............................ {{ ocp_release }}"
+
+    - name: "Create Catalog Sources"
+      when: setup_redhat_catalogs
+      kubernetes.core.k8s:
+        apply: yes
+        template: "templates/catalogsources/{{product_family}}/redhat-catalogs.yml.j2"
+
+    - name: "Create ImageDigestMirrorSet"
+      vars:
+        template_file: "redhat-catalogs.yml.j2"
+      include_tasks:
+        file: tasks/rosa-hcp/idms.yml
+
+# 5. Red Hat Release Catalog
+# -----------------------------------------------------------------------------
+- name: "Create ImageDigestMirrorSet for OCP release"
+  when: setup_redhat_release
+  vars:
+    template_file: "redhat-release.yml.j2"
+  include_tasks:
+    file: tasks/rosa-hcp/idms.yml
+
+# 6. Wait until the nodes have applied the updates
+# We have no way of accessing MachinePoolConfigs to reliability figure this step out
+# -----------------------------------------------------------------------------
+- name: Wait for Nodes to restart
+  ansible.builtin.debug:
+    msg: "Please allow up to 60 minutes until all of the nodes have restarted and applied the IDMS changes."

@@ -1,0 +1,191 @@
+---
+# Cleanup CP4D Subscriptions
+# This task file removes all remaining CP4D-related subscriptions
+
+# 1. Delete Service Operator Subscriptions
+# -----------------------------------------------------------------------------
+- name: "Delete subscriptions from {{ cpd_operators_namespace }}"
+  when: installed_services is defined and item in installed_services
+  vars:
+    subscription_namespace: "{{ cpd_operators_namespace }}"
+    subscription_name: "{{ cpd_service_info[item].subscription_name }}"
+  include_tasks: "delete-subscriptions.yml"
+  loop: "{{ cpd_supported_services }}"
+
+- name: "Wait for pods to terminate (60s)"
+  pause:
+    seconds: 60
+
+# Wait for service subscriptions to be fully deleted
+# -----------------------------------------------------------------------------
+- name: "Wait for service subscriptions to be deleted from {{ cpd_operators_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    name: "{{ cpd_service_info[item].subscription_name }}"
+  register: subscription_check
+  until: subscription_check.resources | length == 0
+  retries: 30
+  delay: 10
+  loop: "{{ cpd_supported_services }}"
+  when: item in installed_services
+  ignore_errors: true
+
+# 2. Delete Service Dependency Subscriptions
+# -----------------------------------------------------------------------------
+- name: "Delete CCS Operator Subscription"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    name: ibm-cpd-ccs
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+  ignore_errors: true
+
+- name: "Delete DataRefinery Operator Subscription"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    name: ibm-cpd-datarefinery
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+  ignore_errors: true
+
+- name: "Delete WS Runtimes Operator Subscription"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    name: ibm-cpd-ws-runtimes
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+  ignore_errors: true
+
+# 3. Delete Elasticsearch/OpenSearch Operator Subscription
+# -----------------------------------------------------------------------------
+- name: "Delete Elasticsearch Operator Subscription"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    name: ibm-elasticsearch-operator
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+  ignore_errors: true
+
+- name: "Delete OpenSearch Operator Subscription"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    name: ibm-opensearch-operator
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+  ignore_errors: true
+
+# 4. Delete CP4D Platform Operator Subscription
+# -----------------------------------------------------------------------------
+- name: "Delete CP4D Platform Operator Subscription"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    name: cpd-operator
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+
+# 5. Delete Zen Operator Subscription
+# -----------------------------------------------------------------------------
+- name: "Delete Zen Operator Subscription"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    name: ibm-zen-operator
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+
+# 6. Get all subscriptions in operators namespace
+# -----------------------------------------------------------------------------
+- name: "Get all subscriptions in {{ cpd_operators_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+  register: all_subscriptions
+
+- name: "Debug: Found subscriptions"
+  debug:
+    msg: "Found {{ all_subscriptions.resources | length }} subscription(s) in {{ cpd_operators_namespace }}"
+
+# 7. Delete all remaining subscriptions
+# -----------------------------------------------------------------------------
+- name: "Delete subscriptions from {{ cpd_operators_namespace }}"
+  vars:
+    subscription_namespace: "{{ cpd_operators_namespace }}"
+    subscription_name: "{{ item.metadata.name }}"
+  include_tasks: "delete-subscriptions.yml"
+  loop: "{{ all_subscriptions.resources }}"
+  when: all_subscriptions.resources | length > 0
+
+# 8. Get all remaining subscriptions in CS control namespace
+# -----------------------------------------------------------------------------
+- name: "Get all subscriptions in {{ cpd_cs_control_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_cs_control_namespace }}"
+  register: cs_subscriptions
+
+- name: "Debug: Found CS subscriptions"
+  debug:
+    msg: "Found {{ cs_subscriptions.resources | length }} subscription(s) in {{ cpd_cs_control_namespace }}"
+
+# 9. Delete all CS subscriptions
+# -----------------------------------------------------------------------------
+- name: "Delete subscriptions from {{ cpd_cs_control_namespace }}"
+  vars:
+    subscription_namespace: "{{ cpd_cs_control_namespace }}"
+    subscription_name: "{{ item.metadata.name }}"
+  include_tasks: "delete-subscriptions.yml"
+  loop: "{{ cs_subscriptions.resources }}"
+  when: cs_subscriptions.resources | length > 0
+
+# 10. Wait for all subscriptions to be deleted from operators namespace
+# -----------------------------------------------------------------------------
+- name: "Wait for all subscriptions to be deleted from {{ cpd_operators_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+  register: remaining_subs
+  until: remaining_subs.resources | length == 0
+  retries: 30  # 5 minutes
+  delay: 10
+
+# 11. Wait for all subscriptions to be deleted from CS control namespace
+# -----------------------------------------------------------------------------
+- name: "Wait for all subscriptions to be deleted from {{ cpd_cs_control_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_cs_control_namespace }}"
+  register: remaining_cs_subs
+  until: remaining_cs_subs.resources | length == 0
+  retries: 30  # 5 minutes
+  delay: 10
+  ignore_errors: true
+
+- name: "CP4D Subscriptions cleanup complete"
+  debug:
+    msg: "All CP4D subscriptions have been deleted"

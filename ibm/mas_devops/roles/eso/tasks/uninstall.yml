@@ -1,0 +1,97 @@
+---
+# Uninstall External Secrets Operator
+# -----------------------------------------------------------------------------
+- name: "uninstall : Display uninstallation parameters"
+  ansible.builtin.debug:
+    msg:
+      - "Uninstalling External Secrets Operator"
+      - "Namespace: {{ eso_namespace }}"
+      - "Release: {{ eso_release_name }}"
+      - "Cleanup CRDs: {{ eso_cleanup_crds }}"
+      - "Cleanup Namespace: {{ eso_cleanup_namespace }}"
+  tags:
+    - uninstall
+    - eso
+
+- name: "uninstall : Uninstall External Secrets Operator Helm release"
+  kubernetes.core.helm:
+    name: "{{ eso_release_name }}"
+    release_namespace: "{{ eso_namespace }}"
+    state: absent
+    wait: yes
+    wait_timeout: 10m
+  tags:
+    - uninstall
+    - eso
+
+# Delete CRDs if cleanup flag is set
+# -----------------------------------------------------------------------------
+- name: "uninstall : Get all External Secrets CRDs"
+  when: eso_cleanup_crds | bool
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+  register: all_crds
+  tags:
+    - uninstall
+    - eso
+
+- name: "uninstall : Filter External Secrets CRDs"
+  when: eso_cleanup_crds | bool
+  ansible.builtin.set_fact:
+    eso_crds: "{{ all_crds.resources | selectattr('metadata.name', 'search', 'external-secrets.io$') | map(attribute='metadata.name') | list }}"
+  tags:
+    - uninstall
+    - eso
+
+- name: "uninstall : Display CRDs to be deleted"
+  when: eso_cleanup_crds | bool
+  ansible.builtin.debug:
+    msg: "Deleting {{ eso_crds | length }} External Secrets CRDs: {{ eso_crds | join(', ') }}"
+  tags:
+    - uninstall
+    - eso
+
+- name: "uninstall : Delete External Secrets CRDs"
+  when: eso_cleanup_crds | bool
+  kubernetes.core.k8s:
+    state: absent
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: "{{ item }}"
+    wait: yes
+    wait_timeout: 300
+  loop: "{{ eso_crds }}"
+  tags:
+    - uninstall
+    - eso
+
+# Delete namespace if cleanup flag is set
+# -----------------------------------------------------------------------------
+- name: "uninstall : Delete {{ eso_namespace }} namespace"
+  when: eso_cleanup_namespace | bool
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Namespace
+    name: "{{ eso_namespace }}"
+    wait: yes
+    wait_timeout: 600
+  tags:
+    - uninstall
+    - eso
+
+# Display uninstallation summary
+# -----------------------------------------------------------------------------
+- name: "uninstall : External Secrets Operator uninstallation complete"
+  ansible.builtin.debug:
+    msg:
+      - "External Secrets Operator has been successfully uninstalled"
+      - "Helm release removed: {{ eso_release_name }}"
+      - "CRDs removed: {{ eso_cleanup_crds }}"
+      - "Namespace removed: {{ eso_cleanup_namespace }}"
+  tags:
+    - uninstall
+    - eso
+
+# Made with Bob

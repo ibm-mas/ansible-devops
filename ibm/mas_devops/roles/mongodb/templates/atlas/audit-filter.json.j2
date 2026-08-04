@@ -1,0 +1,94 @@
+{
+{% if atlas_mas_db_users_list | length > 0 %}
+  "$and": [
+    {
+      "users": {
+        "$elemMatch": {
+          "$nor": [
+{% for username in atlas_mas_db_users_list %}
+            {
+              "user": "{{ username }}",
+              "db": "admin"
+            }{% if not loop.last %},{% endif %}
+{% endfor %}
+          ]
+        }
+      }
+    },
+    {
+      "$or": [
+{% else %}
+  "$or": [
+    {
+      "$or": [
+{% endif %}
+        {
+          "atype": "authCheck",
+          "param.command": {
+            "$in": [
+              "aggregate",
+              "count",
+              "distinct",
+              "group",
+              "mapReduce",
+              "geoNear",
+              "geoSearch",
+              "eval",
+              "find",
+              "getLastError",
+              "getMore",
+              "getPrevError",
+              "parallelCollectionScan",
+              "delete",
+              "findAndModify",
+              "insert",
+              "update",
+              "resetError",
+              "bulkWrite",
+              "listCollections",
+              "listDatabases",
+              "listIndexes",
+              "explain"
+            ]
+          }
+        },
+        {
+          "atype": {
+            "$in": [
+              "authenticate",
+              "logout",
+              "createCollection",
+              "createDatabase",
+              "createIndex",
+              "renameCollection",
+              "dropCollection",
+              "dropDatabase",
+              "dropIndex",
+              "createUser",
+              "dropUser",
+              "dropAllUsersFromDatabase",
+              "updateUser",
+              "grantRolesToUser",
+              "revokeRolesFromUser",
+              "createRole",
+              "updateRole",
+              "dropRole",
+              "dropAllRolesFromDatabase",
+              "grantRolesToRole",
+              "revokeRolesFromRole",
+              "grantPrivilegesToRole",
+              "revokePrivilegesFromRole",
+              "enableSharding",
+              "shardCollection",
+              "addShard",
+              "removeShard",
+              "shutdown",
+              "applicationMessage",
+              "directAuthMutation"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

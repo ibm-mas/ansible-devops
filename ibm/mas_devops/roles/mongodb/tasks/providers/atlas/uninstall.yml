@@ -2,13 +2,25 @@
 # MongoDB Atlas Provider - Deprovision Task
 # This task decommissions MongoDB Atlas cluster and cleans up associated resources
 
-# 1. Retrieve Atlas API credentials from AWS Secrets Manager (if configured)
+# 1. Validate atlas_account_id is provided
+# -----------------------------------------------------------------------------
+- name: "Fail if atlas_account_id is not provided"
+  assert:
+    that:
+      - atlas_account_id is defined
+      - atlas_account_id != ""
+    fail_msg: |
+      atlas_account_id is required for MongoDB Atlas provider.
+      Set ATLAS_ACCOUNT_ID environment variable with your AWS account ID.
+      This is used to construct the AWS Secrets Manager secret name: <atlas_account_id>/mongodb-atlas
+
+# 2. Retrieve Atlas API credentials from AWS Secrets Manager
 # -----------------------------------------------------------------------------
 - name: "Retrieve Atlas credentials from AWS Secrets Manager"
   when:
-    - atlas_aws_secret_name is defined
-    - atlas_aws_secret_name != ""
-    - atlas_aws_secret_region is defined
+    - atlas_account_id is defined
+    - atlas_account_id != ""
+    - atlas_aws_region is defined
   block:
     - name: "Check if AWS CLI is available"
       command: which aws
@@ -42,7 +54,7 @@
       shell: |
         aws secretsmanager get-secret-value \
           --secret-id "{{ atlas_aws_secret_name }}" \
-          --region "{{ atlas_aws_secret_region }}" \
+          --region "{{ atlas_aws_region }}" \
           --query SecretString \
           --output text
       register: atlas_secret_output
@@ -68,7 +80,7 @@
           - "Failed to retrieve Atlas credentials from AWS Secrets Manager"
           - "=========================================="
           - "Secret Name: {{ atlas_aws_secret_name }}"
-          - "Region: {{ atlas_aws_secret_region }}"
+          - "Region: {{ atlas_aws_region }}"
           - "=========================================="
           - "Common issues:"
           - "1. AWS CLI not configured (run: aws configure)"
@@ -77,7 +89,7 @@
           - "4. Secret name is incorrect (case-sensitive)"
           - "=========================================="
           - "To troubleshoot, run:"
-          - "  aws secretsmanager describe-secret --secret-id {{ atlas_aws_secret_name }} --region {{ atlas_aws_secret_region }}"
+          - "  aws secretsmanager describe-secret --secret-id {{ atlas_aws_secret_name }} --region {{ atlas_aws_region }}"
           - "=========================================="
 
     - name: "Fail with helpful error message"

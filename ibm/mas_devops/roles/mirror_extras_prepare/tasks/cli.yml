@@ -1,0 +1,68 @@
+---
+# Dynamic CLI mirroring - no static version files needed
+# This task generates the image list dynamically based on CLI_VERSION
+
+- name: "cli : Fail if required properties are not provided"
+  assert:
+    that:
+      - extras_version is defined and extras_version != ""
+    fail_msg: "CLI version is required"
+
+- name: "cli : Fetch CLI image digest"
+  shell: skopeo inspect --override-os linux --override-arch amd64 docker://quay.io/ibmmas/cli:{{ extras_version }} --format '{{ "{{" }}.Digest{{ "}}" }}'
+  register: cli_digest_result
+  changed_when: false
+
+- name: "cli : Set dynamic CLI image list"
+  set_fact:
+    extra_images:
+      - name: ibmmas/cli
+        registry: quay.io
+        tag: "{{ extras_version }}"
+        digest: "{{ cli_digest_result.stdout }}"
+
+- name: "cli : Debug"
+  debug:
+    msg:
+      - "Extras Name ............................ cli"
+      - "Extras Version ......................... {{ extras_version }}"
+      - "CLI Image .............................. quay.io/ibmmas/cli:{{ extras_version }}"
+      - "Registry Public Host ................... {{ registry_public_host }}"
+      - "Registry Public Port ................... {{ registry_public_port }}"
+      - "Registry Prefix ........................ {{ registry_prefix}}"
+
+# Generate mirror-manifest
+- name: "cli : Ensure manifests/to-filesystem directory exists"
+  file:
+    path: "{{ mirror_working_dir }}/manifests/to-filesystem"
+    state: directory
+    recurse: yes
+
+- name: "cli : Ensure manifests/from-filesystem directory exists"
+  file:
+    path: "{{ mirror_working_dir }}/manifests/from-filesystem"
+    state: directory
+    recurse: yes
+
+- name: "cli : Ensure manifests/direct directory exists"
+  file:
+    path: "{{ mirror_working_dir }}/manifests/direct"
+    state: directory
+    recurse: yes
+
+- name: "cli : Generate the mirror manifest (to filesystem)"
+  template:
+    src: to-filesystem.txt.j2
+    dest: "{{ mirror_working_dir }}/manifests/to-filesystem/extras_cli_{{ extras_version }}.txt"
+
+- name: "cli : Generate the mirror manifest (from filesystem)"
+  template:
+    src: from-filesystem.txt.j2
+    dest: "{{ mirror_working_dir }}/manifests/from-filesystem/extras_cli_{{ extras_version }}.txt"
+
+- name: "cli : Generate the mirror manifest (direct)"
+  template:
+    src: direct.txt.j2
+    dest: "{{ mirror_working_dir }}/manifests/direct/extras_cli_{{ extras_version }}.txt"
+
+
