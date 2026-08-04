@@ -110,13 +110,20 @@
       - suite_info.resources | length == 1
     fail_msg: "Maximo Application Suite has not been installed in namespace {{ mas_namespace }}"
 
+# For dev channels (e.g. 9.1.x-dev, 9.0.x-dev), the OperatorCondition encodes the full build ID
+# in its name (e.g. ibm-mas.v9.1.19-pre.maint91xdev-29620) but the Suite CR reconciles to the
+# base pre-release version without the trailing numeric build ID (e.g. 9.1.19-pre.maint91xdev).
+# Accept either an exact match or, on dev channels, a match after stripping the build ID suffix.
 - name: "core : Check that the Suite CR has been reconciled to the expected version for GA channels (Non feature)"
   when:
     - suite_sub_info.resources[0].spec.channel != mas_channel
     - "'-feature' not in suite_sub_info.resources[0].spec.channel"
   assert:
     that:
-      - suite_info.resources[0].status.versions.reconciled == opcon_version
+      - >-
+        suite_info.resources[0].status.versions.reconciled == opcon_version or
+        ('-dev' in suite_sub_info.resources[0].spec.channel and
+         suite_info.resources[0].status.versions.reconciled == opcon_version | regex_replace('-[0-9]+$', ''))
     fail_msg: "Upgrade failed because Maximo Application Suite version ({{ suite_info.resources[0].status.versions.reconciled }}) is not at the expected version {{ opcon_version }}"
 
 # reconciled: 9.1.0-pre.stable+8193 cr version
