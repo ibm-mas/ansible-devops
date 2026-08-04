@@ -1,686 +1,4 @@
 ---
-# Source: db2-operator-cluster-scoped/charts/ibm-usage-metering-cluster-scoped/templates/crd-ibmservicemeterdefinition.yaml
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.17.1
-  name: ibmservicemeterdefinitions.operator.ibm.com
-  labels:
-    component-id: ibm-usage-metering-cluster-scoped
-spec:
-  group: operator.ibm.com
-  names:
-    kind: IBMServiceMeterDefinition
-    listKind: IBMServiceMeterDefinitionList
-    plural: ibmservicemeterdefinitions
-    singular: ibmservicemeterdefinition
-  scope: Namespaced
-  versions:
-    - name: v1
-      schema:
-        openAPIV3Schema:
-          description: IBM Service Meter Definition is the Schema for the ibmservicemeterdefinitions API
-          properties:
-            apiVersion:
-              description: |-
-                APIVersion defines the versioned schema of this representation of an object.
-                Servers should convert recognized schemas to the latest internal value, and
-                may reject unrecognized values.
-                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-              type: string
-            kind:
-              description: |-
-                Kind is a string value representing the REST resource this object represents.
-                Servers may infer this from the endpoint the client submits requests to.
-                Cannot be updated.
-                In CamelCase.
-                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-              type: string
-            metadata:
-              type: object
-            spec:
-              description: IBMServiceMeterDefinitionSpec defines the desired state of IBMServiceMeterDefinition
-              properties:
-                breakdownDefs:
-                  description: |-
-                    Optional pivot definitions to apply to JSON payloads from the endpoints. Each definition will be used for
-                    breaking down the usage into different groups/tenants. Each definition describes a breakdown that will be
-                    added as additional one to the breakdowns provided explicitly in the JSON payloads.
-                    Defaults to null value which means no additional breakdown is computed.
-                  items:
-                    description: Pivot definition which will be used for breaking down the usage into different groups/tenants.
-                    properties:
-                      breakdownBy:
-                        description: Type of the breakdown groups/tenants provided by the pivot definition.
-                        type: object
-                        x-kubernetes-preserve-unknown-fields: true
-                      groupBy:
-                        description: |-
-                          Array of the attributes from the JSON payload to use as a (potentially multidimensional)
-                          grouping key that represents the breakdown group/tenant.
-                        items:
-                          description: |-
-                            Attribute from the JSON payload that takes part in constituting a (potentially multidimensional) grouping key
-                            that represents the breakdown group/tenant.
-                          pattern: ^.{1,255}$
-                          type: string
-                        type: array
-                      processing:
-                        description: |-
-                          Optional aggregation processing within the same breakdown group/tenant represented by the specific
-                          breakdown group/tenant. If processing is 'COUNT', then it means that the number of JSON payloads
-                          is counted for each grouping key (payloads with the same values for the grouping key will be grouped
-                          together and the amount of those payloads will be reported as the key's breakdown value). If processing is 'ADD',
-                          then it means that the values reported in the attribute specified in the source field of JSON payloads
-                          will be added up for each grouping key (payloads with the same values for the grouping key will be
-                          grouped together and the sum of the values of attribute specified in the source field will be
-                          reported as the key's breakdown value). If processing is 'MAX', then it means that the greatest value reported
-                          in the attribute specified in the source field of JSON payloads will be set for each grouping key
-                          (payloads with the same values for the grouping key will be grouped together and the greatest value will be reported
-                          as the key's breakdown value). If processing is 'LAST', then it means that the latest received value from
-                          values reported in the attribute specified in the source field of JSON payloads will be set for each grouping key
-                          (payloads with the same values for the grouping key will be grouped together and the value that was
-                          received later will be reported as the key's breakdown value). Defaults to processing selected in data section.
-                        type: string
-                      source:
-                        description: |-
-                          Attribute from the JSON payload that is being aggregated based on the grouping key that
-                          represents the breakdown group/tenant - this field is required if value of processing field is other than 'COUNT'.
-                        pattern: ^.{1,255}$
-                        type: string
-                    required:
-                      - breakdownBy
-                      - groupBy
-                    type: object
-                    x-kubernetes-preserve-unknown-fields: true
-                  type: array
-                contexts:
-                  description: |-
-                    Context metrics included in the breakdown for additional context but excluded from the calculation
-                    defined by the method field. Unlike sources, which feed into the computation of the new metric,
-                    context metrics are purely informational and not used to derive the final value.
-                  items:
-                    description: |-
-                      Context metric details to include in the metric breakdown when calculating the new metric.
-                      These fields are included purely as metadata (context) and are not used to compute derived metrics.
-                    properties:
-                      instanceId:
-                        description: |-
-                          Optional instance ID which uniquely idetifies the instance of the installed product.
-                          Defaults to the namespace in which Usage Metering Service is installed.
-                        pattern: ^[a-zA-Z0-9-]{1,255}$
-                        type: string
-                      metricName:
-                        description: |-
-                          Name of the metric to include in the metric breakdown.
-                          Defaults to the metric name defined in the data section of the CR/payload.
-                        pattern: ^.{1,255}$
-                        type: string
-                      productId:
-                        description: |-
-                          Product ID obtained by the product when going through the Readiness process, to include in the metric breakdown.
-                          Defaults to the product ID defined in the data section of the CR/payload.
-                        pattern: ^$|^[0-9a-fA-F]{1,32}$
-                        type: string
-                      productName:
-                        description: |-
-                          Product name corresponding to the productId field.
-                          Defaults to the product name defined in the data section of the CR/payload.
-                        pattern: ^.{1,255}$
-                        type: string
-                    type: object
-                    x-kubernetes-preserve-unknown-fields: true
-                  type: array
-                data:
-                  description: |-
-                    The data field provides the values received by the metering framework that will be then augmented
-                    with the static (product-defined) values coming from the CR.
-                  properties:
-                    breakdowns:
-                      description: Array of the usage metric breakdowns.
-                      items:
-                        description: Usage metric breakdown.
-                        properties:
-                          breakdownBy:
-                            description: |-
-                              Type of the breakdown groups/tenants provided in the metricBreakdown array -
-                              this field is required if metricBreakdown is provided.
-                            type: object
-                            x-kubernetes-preserve-unknown-fields: true
-                          metricBreakdown:
-                            description: Optional breakdown on certain groups/tenants.
-                            items:
-                              description: Array of breakdown quantities for certain groups/tenants.
-                              properties:
-                                group:
-                                  description: Breakdown group/tenant (potentially multidimensional) grouping key.
-                                  type: object
-                                  x-kubernetes-preserve-unknown-fields: true
-                                metricQuantity:
-                                  description: |-
-                                    Breakdown quantity for the specific group/tenant.
-                                    It needs to be provided by JSON payload if not defined in the CR and processing is not set to COUNT.
-                                  format: int64
-                                  maximum: 999999999
-                                  minimum: 0
-                                  type: integer
-                              required:
-                                - group
-                                - metricQuantity
-                              type: object
-                              x-kubernetes-preserve-unknown-fields: true
-                            type: array
-                          processing:
-                            description: |-
-                              Optional aggregation processing within the same breakdown group/tenant represented by the specific
-                              breakdown group/tenant. If processing is 'COUNT', then it means that the number of JSON payloads
-                              is counted for each grouping key (payloads with the same values for the grouping key will be grouped
-                              together and the amount of those payloads will be reported as the key's breakdown value). If processing is 'ADD',
-                              then it means that the values reported in the attribute specified in the source field of JSON payloads
-                              will be added up for each grouping key (payloads with the same values for the grouping key will be
-                              grouped together and the sum of the values of attribute specified in the source field will be
-                              reported as the key's breakdown value). If processing is 'MAX', then it means that the greatest value reported
-                              in the attribute specified in the source field of JSON payloads will be set for each grouping key
-                              (payloads with the same values for the grouping key will be grouped together and the greatest value will be reported
-                              as the key's breakdown value). If processing is 'LAST', then it means that the latest received value from
-                              values reported in the attribute specified in the source field of JSON payloads will be set for each grouping key
-                              (payloads with the same values for the grouping key will be grouped together and the value that was
-                              received later will be reported as the key's breakdown value). Defaults to processing selected in data section.
-                            type: string
-                        type: object
-                        x-kubernetes-preserve-unknown-fields: true
-                      type: array
-                    instanceId:
-                      description: |-
-                        Optional instance ID which uniquely idetifies the instance of the installed product.
-                        Defaults to the namespace in which Usage Metering Service is installed.
-                      pattern: ^[a-zA-Z0-9-]{1,255}$
-                      type: string
-                    metricDescription:
-                      description: Optional description of the metric provided in the metricName field. Defaults to metricName field.
-                      pattern: ^.{1,1000}$
-                      type: string
-                    metricName:
-                      description: |-
-                        Name of the metric, for which this payload provides the measurement.
-                        It needs to be provided by JSON payload if not defined in the CR.
-                      pattern: ^.{1,255}$
-                      type: string
-                    metricQuantity:
-                      description: |-
-                        Measured quantity of the metric provided in the metricName field.
-                        It needs to be provided by JSON payload if not defined in the CR and processing is not set to COUNT.
-                      format: int64
-                      maximum: 999999999
-                      minimum: 0
-                      type: integer
-                    metricType:
-                      description: |-
-                        Type of the metric provided in the metricName field. If type is 'ADOPTION', then it means that the
-                        metric is used ony for the purpose of tracking to what extent the product is being used which might
-                        give information about usefulness of the product If type is 'CONTRACTUAL', then it means that the
-                        metric is used for the purpose of product licensing. Defaults to 'ADOPTION'.
-                      type: string
-                    productId:
-                      description: Product ID obtained from the Readiness. It needs to be provided by JSON payload if not defined in the CR.
-                      pattern: ^$|^[0-9a-fA-F]{1,32}$
-                      type: string
-                    productName:
-                      description: Product name obtained from the Readiness. It needs to be provided by JSON payload if not defined in the CR.
-                      pattern: ^.{1,255}$
-                      type: string
-                  type: object
-                  x-kubernetes-preserve-unknown-fields: true
-                mappingId:
-                  description: |-
-                    Mapping key used for augmenting JSON payload with the static data provided by the CR.
-                    If the mappingId is provided, the payload is merged with the data defined
-                    in the CR with the corresponding mappingId (CR data takes precedence).
-                    If the (potentially modified by the CR) payload follows the specific format,
-                    then the additional processing is applied (some level of persistency is added).
-                    In any case, the raw data is passed-through to the IBM Software Central.
-                    Different mappingIds reporting the same metric for the same component should
-                    define consistent processing, otherwise the payload with processing different than already
-                    received previously will be treated as invalid and not processed.
-                    The component is identified by (instanceId, productId) pair.
-                    If mappingId is provided, then method field and sources section should not be defined.
-                    If mappingId is not provided, the metrics is not being reported by a component,
-                    but rather it's being calculated based on other metrics reported to UMS. In such case,
-                    method field and sources section needs to be specified.
-                  pattern: ^[a-zA-Z0-9_-]{1,128}$
-                  type: string
-                method:
-                  description: |-
-                    Optional method for calculating a new metric based on other metrics present in UMS.
-                    If this field is set, the mappingId field must not be provided, and the sources section must be specified.
-                    Supported methods:
-                      - "RATIO_SUM": sums all metrics referenced in the sources section, applying the specified ratios.
-                      - "RATIO_SUM_STEPWISE": performs a stepwise ratio-based summation of the referenced metrics.
-                    Defaults to "RATIO_SUM" if not specified.
-                  type: string
-                processing:
-                  description: |-
-                    Depending on the processing field the stored value is updated as follows: if processing is 'ADD',
-                    then the currently received value is added to the stored value, if processing is 'LAST',
-                    then the currently received value overrides the stored value, if processing is 'MAX',
-                    then the currently received value overrides the stored value only in case the stored value
-                    is lower and if processing is 'COUNT' then the currently received value is ignored and
-                    the stored value is incremented by one. If the value is broken down into groups/tenants, currently
-                    received value and the stored value are compared for each group/tenant independently. Defaults to 'MAX'.
-                  type: string
-                sources:
-                  description: |-
-                    The sources section define the metrics based on which to calculate the new metric according
-                    to the rules defined by the method field.
-                  items:
-                    description: Source metric details to use when calculating the new metric.
-                    properties:
-                      instanceId:
-                        description: |-
-                          Optional instance ID which uniquely idetifies the instance of the installed product.
-                          Defaults to the namespace in which Usage Metering Service is installed.
-                        pattern: ^[a-zA-Z0-9-]{1,255}$
-                        type: string
-                      metricName:
-                        description: |-
-                          Name of the metric based on which the new metric is being calculated.
-                          Defaults to the metric name defined in the data section of the CR/payload.
-                        pattern: ^.{1,255}$
-                        type: string
-                      parameters:
-                        additionalProperties:
-                          description: Parameter name used in the algorithm to calculate new metric based on the algorithm sepcified in the method field.
-                          pattern: ^.{1,255}$
-                          type: string
-                        description: Parameters needed for the algorithm used in calculation of the new metric defined by the method field.
-                        type: object
-                      productId:
-                        description: |-
-                          Product ID obtained by the product when going through the Readiness process,
-                          based on which the new metric is calculated.
-                          Defaults to the product ID defined in the data section of the CR/payload.
-                        pattern: ^$|^[0-9a-fA-F]{1,32}$
-                        type: string
-                      productName:
-                        description: |-
-                          Product name corresponding to the productId field.
-                          Defaults to the product name defined in the data section of the CR/payload.
-                        pattern: ^.{1,255}$
-                        type: string
-                    type: object
-                    x-kubernetes-preserve-unknown-fields: true
-                  type: array
-              type: object
-              x-kubernetes-preserve-unknown-fields: true
-              x-kubernetes-validations:
-                - message: cannot specify mappingId together with method or sources
-                  rule: (!has(self.mappingId) || self.mappingId == "") || ((!has(self.method) || self.method == "") && (!has(self.sources) || size(self.sources) == 0))
-                - message: must specify either mappingId or sources
-                  rule: (has(self.mappingId) && self.mappingId != "") || (has(self.sources) && size(self.sources) > 0)
-                - message: sources are required when method is specified
-                  rule: (!has(self.method) || self.method == "") || (has(self.sources) && size(self.sources) > 0)
-                - message: breakdownDefs must not be provided when mappingId is not specified
-                  rule: (has(self.mappingId) && self.mappingId != "") || (!has(self.breakdownDefs) || size(self.breakdownDefs) == 0)
-            status:
-              description: IBMServiceMeterDefinitionStatus defines the observed state of IBMServiceMeterDefinition
-              type: object
-              x-kubernetes-preserve-unknown-fields: true
-          required:
-            - spec
-          type: object
-          x-kubernetes-validations:
-            - message: please provide a valid spec section
-              rule: has(self.spec)
-      served: true
-      storage: true
-      subresources:
-        status: {}
----
-# Source: db2-operator-cluster-scoped/charts/ibm-usage-metering-cluster-scoped/templates/crd-ibmusagemetering.yaml
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.17.1
-  name: ibmusagemeterings.operator.ibm.com
-  labels:
-    component-id: ibm-usage-metering-cluster-scoped
-spec:
-  group: operator.ibm.com
-  names:
-    kind: IBMUsageMetering
-    listKind: IBMUsageMeteringList
-    plural: ibmusagemeterings
-    singular: ibmusagemetering
-  scope: Namespaced
-  versions:
-    - name: v1
-      schema:
-        openAPIV3Schema:
-          description: IBMUsageMetering is the Schema for the ibmusagemeterings API
-          properties:
-            apiVersion:
-              description: |-
-                APIVersion defines the versioned schema of this representation of an object.
-                Servers should convert recognized schemas to the latest internal value, and
-                may reject unrecognized values.
-                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-              type: string
-            kind:
-              description: |-
-                Kind is a string value representing the REST resource this object represents.
-                Servers may infer this from the endpoint the client submits requests to.
-                Cannot be updated.
-                In CamelCase.
-                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-              type: string
-            metadata:
-              type: object
-            spec:
-              description: IBMUsageMeteringSpec defines the desired state of IBMUsageMetering
-              properties:
-                clusterID:
-                  description: Unique ID of reporting cluster for this instance
-                  type: string
-                clusterName:
-                  description: |-
-                    What is the name of this reporting cluster in multi-cluster system.
-                    If not provided, CLUSTER_ID will be used as CLUSTER_NAME on the operand level
-                  type: string
-                containers:
-                  description: Operand container setup
-                  properties:
-                    instance:
-                      description: Operand deployment configuration (instance config)
-                      properties:
-                        imagePullSecrets:
-                          description: Image pull secrets used to pull an image from a private container image registry
-                          items:
-                            type: string
-                          type: array
-                        resourceRequirements:
-                          description: Resource requests and limits. Defaults are used if any of the fields is unspecified.
-                          properties:
-                            claims:
-                              description: |-
-                                Claims lists the names of resources, defined in spec.resourceClaims,
-                                that are used by this container.
-
-                                This is an alpha field and requires enabling the
-                                DynamicResourceAllocation feature gate.
-
-                                This field is immutable. It can only be set for containers.
-                              items:
-                                description: ResourceClaim references one entry in PodSpec.ResourceClaims.
-                                properties:
-                                  name:
-                                    description: |-
-                                      Name must match the name of one entry in pod.spec.resourceClaims of
-                                      the Pod where this field is used. It makes that resource available
-                                      inside a container.
-                                    type: string
-                                  request:
-                                    description: |-
-                                      Request is the name chosen for a request in the referenced claim.
-                                      If empty, everything from the claim is made available, otherwise
-                                      only the result of this request.
-                                    type: string
-                                required:
-                                  - name
-                                type: object
-                              type: array
-                              x-kubernetes-list-map-keys:
-                                - name
-                              x-kubernetes-list-type: map
-                            limits:
-                              additionalProperties:
-                                anyOf:
-                                  - type: integer
-                                  - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                x-kubernetes-int-or-string: true
-                              description: |-
-                                Limits describes the maximum amount of compute resources allowed.
-                                More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-                              type: object
-                            requests:
-                              additionalProperties:
-                                anyOf:
-                                  - type: integer
-                                  - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                x-kubernetes-int-or-string: true
-                              description: |-
-                                Requests describes the minimum amount of compute resources required.
-                                If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
-                                otherwise to an implementation-defined value. Requests cannot exceed Limits.
-                                More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-                              type: object
-                          type: object
-                      type: object
-                      x-kubernetes-preserve-unknown-fields: true
-                  type: object
-                  x-kubernetes-preserve-unknown-fields: true
-                createRBAC:
-                  description: |-
-                    CreateRBAC determines whether to create RBAC resources (ServiceAccount, Role, RoleBinding) for the operand.
-                    Defaults to true.
-                  type: boolean
-                envVariables:
-                  description: Environment variables passed directly to the operand
-                  items:
-                    description: EnvVar represents an environment variable present in a Container.
-                    properties:
-                      name:
-                        description: Name of the environment variable. Must be a C_IDENTIFIER.
-                        type: string
-                      value:
-                        description: |-
-                          Variable references $(VAR_NAME) are expanded
-                          using the previously defined environment variables in the container and
-                          any service environment variables. If a variable cannot be resolved,
-                          the reference in the input string will be unchanged. Double $$ are reduced
-                          to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e.
-                          "$$(VAR_NAME)" will produce the string literal "$(VAR_NAME)".
-                          Escaped references will never be expanded, regardless of whether the variable
-                          exists or not.
-                          Defaults to "".
-                        type: string
-                      valueFrom:
-                        description: Source for the environment variable's value. Cannot be used if value is not empty.
-                        properties:
-                          configMapKeyRef:
-                            description: Selects a key of a ConfigMap.
-                            properties:
-                              key:
-                                description: The key to select.
-                                type: string
-                              name:
-                                default: ""
-                                description: |-
-                                  Name of the referent.
-                                  This field is effectively required, but due to backwards compatibility is
-                                  allowed to be empty. Instances of this type with an empty value here are
-                                  almost certainly wrong.
-                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                type: string
-                              optional:
-                                description: Specify whether the ConfigMap or its key must be defined
-                                type: boolean
-                            required:
-                              - key
-                            type: object
-                            x-kubernetes-map-type: atomic
-                          fieldRef:
-                            description: |-
-                              Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
-                              spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.
-                            properties:
-                              apiVersion:
-                                description: Version of the schema the FieldPath is written in terms of, defaults to "v1".
-                                type: string
-                              fieldPath:
-                                description: Path of the field to select in the specified API version.
-                                type: string
-                            required:
-                              - fieldPath
-                            type: object
-                            x-kubernetes-map-type: atomic
-                          resourceFieldRef:
-                            description: |-
-                              Selects a resource of the container: only resources limits and requests
-                              (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.
-                            properties:
-                              containerName:
-                                description: 'Container name: required for volumes, optional for env vars'
-                                type: string
-                              divisor:
-                                anyOf:
-                                  - type: integer
-                                  - type: string
-                                description: Specifies the output format of the exposed resources, defaults to "1"
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                x-kubernetes-int-or-string: true
-                              resource:
-                                description: 'Required: resource to select'
-                                type: string
-                            required:
-                              - resource
-                            type: object
-                            x-kubernetes-map-type: atomic
-                          secretKeyRef:
-                            description: Selects a key of a secret in the pod's namespace
-                            properties:
-                              key:
-                                description: The key of the secret to select from.  Must be a valid secret key.
-                                type: string
-                              name:
-                                default: ""
-                                description: |-
-                                  Name of the referent.
-                                  This field is effectively required, but due to backwards compatibility is
-                                  allowed to be empty. Instances of this type with an empty value here are
-                                  almost certainly wrong.
-                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                type: string
-                              optional:
-                                description: Specify whether the Secret or its key must be defined
-                                type: boolean
-                            required:
-                              - key
-                            type: object
-                            x-kubernetes-map-type: atomic
-                        type: object
-                    required:
-                      - name
-                    type: object
-                  type: array
-                eventsRetention:
-                  description: EventsRetention defines config of the events config map cleanup functionality
-                  properties:
-                    frequency:
-                      description: Frequency defines how often should the cleanup happen, in the cron format
-                      pattern: (@(annually|yearly|monthly|weekly|daily|midnight|hourly))|((((\d+,)+\d+|(\d+(\/|-)\d+)|\d+|\*) ?){5,7})
-                      type: string
-                    period:
-                      description: Period defines the number of days to retain events in the events config map before cleanup
-                      type: integer
-                  type: object
-                  x-kubernetes-preserve-unknown-fields: true
-                license:
-                  description: License acceptance
-                  properties:
-                    accept:
-                      description: |-
-                        By installing IBM Usage Metering, you Accept the license terms for the particular IBM product
-                        for which you are deploying this component: ibm.biz/lsvc-lic.
-                      type: boolean
-                      x-kubernetes-validations:
-                        - message: 'Please accept the license terms of this component (ibm.biz/lsvc-lic) by setting a field spec.license.accept: true'
-                          rule: self == true
-                  required:
-                    - accept
-                  type: object
-                  x-kubernetes-preserve-unknown-fields: true
-                secrets:
-                  description: Secrets contains config of IBM Usage Metering secrets
-                  properties:
-                    uploadTokenSecretName:
-                      description: |-
-                        Name of the secret containing the token for IBM Usage Metering upload API. Must contain `token` field with the
-                        token string. If a non-existing secret is referenced here, the operator will create a new resource and generate
-                        a new token. If empty, a default name will be used.
-                      type: string
-                  type: object
-                  x-kubernetes-preserve-unknown-fields: true
-                sender:
-                  description: Sender contains config(s) of connection(s) to external components, such as IBM License Service Reporter
-                  properties:
-                    reporter:
-                      description: Sender configuration for IBM License Service Reporter
-                      properties:
-                        configMapName:
-                          description: Name of the configmap with IBM License Service Reporter URL and certificate
-                          type: string
-                        secretName:
-                          description: Name of the secret with IBM License Service Reporter authentication token
-                          type: string
-                      required:
-                        - configMapName
-                        - secretName
-                      type: object
-                      x-kubernetes-preserve-unknown-fields: true
-                    softwareCentral:
-                      description: Sender configuration for Software Central upload
-                      properties:
-                        anonymize:
-                          description: |-
-                            Anonymize uploads to Software Central, so that no confidential
-                            information is included in payloads. Defaults to false.
-                          type: boolean
-                        enable:
-                          description: Enable Software Central upload. Defaults to false.
-                          type: boolean
-                        entitlementKeySecret:
-                          description: Name of the secret containing IBM Entitlement Key. Required when enable is true.
-                          type: string
-                        frequency:
-                          description: Frequency for Software Central export in cron format; by default data is sent every day 5 minutes past midnight.
-                          pattern: (@(annually|yearly|monthly|weekly|daily|midnight|hourly))|((((\d+,)+\d+|(\d+(\/|-)\d+)|\d+|\*) ?){5,7})
-                          type: string
-                        sandbox:
-                          description: Route traffic to Software Central sandbox environment instead of the production one. Defaults to false.
-                          type: boolean
-                      type: object
-                      x-kubernetes-preserve-unknown-fields: true
-                  type: object
-                  x-kubernetes-preserve-unknown-fields: true
-                snapshotAdditionalProperties:
-                  additionalProperties:
-                    type: string
-                  description: Supply UMS snapshot with additional (key, value) metadata.
-                  type: object
-                version:
-                  description: CR version
-                  type: string
-              type: object
-              x-kubernetes-preserve-unknown-fields: true
-            status:
-              description: IBMUsageMeteringStatus defines the observed state of IBMUsageMetering
-              properties:
-                message:
-                  type: string
-                phase:
-                  type: string
-              type: object
-              x-kubernetes-preserve-unknown-fields: true
-          type: object
-      served: true
-      storage: true
-      subresources:
-        status: {}
----
 # Source: db2-operator-cluster-scoped/templates/00-crd-db2uengines.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -5345,9 +4663,6 @@ spec:
                           license:
                             properties:
                               accept:
-                                description: |-
-                                  By installing IBM Db2 Operator v2, you Accept the license terms for the particular IBM product
-                                  for which you are deploying this component: ibm.biz/db2-operator-v2-lic
                                 type: boolean
                               fromVolumeSource:
                                 properties:
@@ -9715,9 +9030,6 @@ spec:
               license:
                 properties:
                   accept:
-                    description: |-
-                      By installing IBM Db2 Operator v2, you Accept the license terms for the particular IBM product
-                      for which you are deploying this component: ibm.biz/db2-operator-v2-lic
                     type: boolean
                   fromVolumeSource:
                     properties:
@@ -11270,9 +10582,6 @@ spec:
                       license:
                         properties:
                           accept:
-                            description: |-
-                              By installing IBM Db2 Operator v2, you Accept the license terms for the particular IBM product
-                              for which you are deploying this component: ibm.biz/db2-operator-v2-lic
                             type: boolean
                           fromVolumeSource:
                             properties:
@@ -15087,9 +14396,6 @@ spec:
               license:
                 properties:
                   accept:
-                    description: |-
-                      By installing IBM Db2 Operator v2, you Accept the license terms for the particular IBM product
-                      for which you are deploying this component: ibm.biz/db2-operator-v2-lic
                     type: boolean
                   fromVolumeSource:
                     properties:
@@ -18022,16 +17328,16 @@ kind: MutatingWebhookConfiguration
 metadata:
   name: db2-database-operator-mutating-webhook-configuration-{{ db2_namespace }}
   labels:
-    helm.sh/chart: db2-operator-cluster-scoped-2.0.0
+    helm.sh/chart: db2-operator-cluster-scoped-1.0.0
     app.kubernetes.io/name: db2-operator-cluster-scoped
-    app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "2.0.0"
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "1.0.0"
     app.kubernetes.io/managed-by: Helm
     component-id: db2-operator-cluster-scoped
     app.kubernetes.io/component: webhook
     app.kubernetes.io/instance: mutating-webhook-configuration
     app.kubernetes.io/name: mutatingwebhookconfiguration
-    app.kubernetes.io/part-of: db2-operator-v2
+    app.kubernetes.io/part-of: db2-operator
   annotations:
     cert-manager.io/inject-ca-from: {{ db2_namespace }}/db2-database-operator-serving-cert
 webhooks:
@@ -18076,84 +17382,6 @@ webhooks:
       path: /mutate-db2u-databases-ibm-com-v1-db2uha
   failurePolicy: Fail
   name: mdb2uha-v1.kb.io
-  rules:
-  - apiGroups:
-    - db2u.databases.ibm.com
-    apiVersions:
-    - v1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - db2uhas
-  sideEffects: None
-  namespaceSelector:
-    matchExpressions:
-    - key: db2u.databases.ibm.com/db2-operator-namespace
-      operator: In
-      values:
-      - {{ db2_namespace }}
----
-# Source: db2-operator-cluster-scoped/templates/05-cluster-validating-webhook.yaml
-apiVersion: admissionregistration.k8s.io/v1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: db2-database-operator-validating-webhook-configuration-{{ db2_namespace }}
-  labels:
-    helm.sh/chart: db2-operator-cluster-scoped-2.0.0
-    app.kubernetes.io/name: db2-operator-cluster-scoped
-    app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "2.0.0"
-    app.kubernetes.io/managed-by: Helm
-    component-id: db2-operator-cluster-scoped
-    app.kubernetes.io/component: webhook
-    app.kubernetes.io/instance: validating-webhook-configuration
-    app.kubernetes.io/name: validatingwebhookconfiguration
-    app.kubernetes.io/part-of: db2-operator-v2
-  annotations:
-    cert-manager.io/inject-ca-from: {{ db2_namespace }}/db2-database-operator-serving-cert
-webhooks:
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: db2-database-operator-webhook-service
-      namespace: {{ db2_namespace }}
-      path: /validate-db2u-databases-ibm-com-v1-db2uinstance
-  failurePolicy: Fail
-  name: vdb2uinstance.kb.io
-  rules:
-  - apiGroups:
-    - db2u.databases.ibm.com
-    apiVersions:
-    - v1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - db2uinstances
-  sideEffects: None
-  namespaceSelector:
-    matchExpressions:
-    - key: db2u.databases.ibm.com/db2-operator-namespace
-      operator: In
-      values:
-      - {{ db2_namespace }}
-  matchConditions:
-    - name: 'IgnoreWebhookLabel'
-      expression: '!has(object.metadata.labels) || !("ignore-webhook" in object.metadata.labels)'
-    # I=True, V=True goes through webhook | I=False, V=True does not go through webhook | I=True,V=False goes through webhook | I=False,V=False goes through webhook
-    - name: 'HandleUplift'
-      expression: 'has(object.spec.image) || !has(object.spec.version)'
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: db2-database-operator-webhook-service
-      namespace: {{ db2_namespace }}
-      path: /validate-db2u-databases-ibm-com-v1-db2uha
-  failurePolicy: Fail
-  name: vdb2uha-v1.kb.io
   rules:
   - apiGroups:
     - db2u.databases.ibm.com
@@ -18234,10 +17462,10 @@ kind: SecurityContextConstraints
 metadata:
   name: db2-database-operator-non-root-scc-{{ db2_namespace }}
   labels:
-    helm.sh/chart: db2-operator-cluster-scoped-2.0.0
+    helm.sh/chart: db2-operator-cluster-scoped-1.0.0
     app.kubernetes.io/name: db2-operator-cluster-scoped
-    app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "2.0.0"
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "1.0.0"
     app.kubernetes.io/managed-by: Helm
     component-id: db2-operator-cluster-scoped
 allowHostDirVolumePlugin: true
@@ -18289,10 +17517,10 @@ kind: SecurityContextConstraints
 metadata:
   name:  db2-database-operator-oltp-whsmp-scc-{{ db2_namespace }}
   labels:
-    helm.sh/chart: db2-operator-cluster-scoped-2.0.0
+    helm.sh/chart: db2-operator-cluster-scoped-1.0.0
     app.kubernetes.io/name: db2-operator-cluster-scoped
-    app.kubernetes.io/instance: {{ db2_instance_name }}
-    app.kubernetes.io/version: "2.0.0"
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "1.0.0"
     app.kubernetes.io/managed-by: Helm
     component-id: db2-operator-cluster-scoped
 allowHostDirVolumePlugin: true
@@ -18338,3 +17566,81 @@ users:
 - system:serviceaccount:{{ db2_namespace }}:db2-instance-service-account
 volumes:
 - '*'
+---
+# Source: db2-operator-cluster-scoped/templates/05-cluster-validating-webhook.yaml
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: db2-database-operator-validating-webhook-configuration-{{ db2_namespace }}
+  labels:
+    helm.sh/chart: db2-operator-cluster-scoped-1.0.0
+    app.kubernetes.io/name: db2-operator-cluster-scoped
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    component-id: db2-operator-cluster-scoped
+    app.kubernetes.io/component: webhook
+    app.kubernetes.io/instance: validating-webhook-configuration
+    app.kubernetes.io/name: validatingwebhookconfiguration
+    app.kubernetes.io/part-of: db2-operator-v2
+  annotations:
+    cert-manager.io/inject-ca-from: {{ db2_namespace }}/db2-database-operator-serving-cert
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: db2-database-operator-webhook-service
+      namespace: {{ db2_namespace }}
+      path: /validate-db2u-databases-ibm-com-v1-db2uinstance
+  failurePolicy: Fail
+  name: vdb2uinstance.kb.io
+  rules:
+  - apiGroups:
+    - db2u.databases.ibm.com
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - db2uinstances
+  sideEffects: None
+  namespaceSelector:
+    matchExpressions:
+    - key: db2u.databases.ibm.com/db2-operator-namespace
+      operator: In
+      values:
+      - {{ db2_namespace }}
+  matchConditions:
+    - name: 'IgnoreWebhookLabel'
+      expression: '!has(object.metadata.labels) || !("ignore-webhook" in object.metadata.labels)'
+    # I=True, V=True goes through webhook | I=False, V=True does not go through webhook | I=True,V=False goes through webhook | I=False,V=False goes through webhook
+    - name: 'HandleUplift'
+      expression: 'has(object.spec.image) || !has(object.spec.version)'
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: db2-database-operator-webhook-service
+      namespace: {{ db2_namespace }}
+      path: /validate-db2u-databases-ibm-com-v1-db2uha
+  failurePolicy: Fail
+  name: vdb2uha-v1.kb.io
+  rules:
+  - apiGroups:
+    - db2u.databases.ibm.com
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - db2uhas
+  sideEffects: None
+  namespaceSelector:
+    matchExpressions:
+    - key: db2u.databases.ibm.com/db2-operator-namespace
+      operator: In
+      values:
+      - {{ db2_namespace }}
