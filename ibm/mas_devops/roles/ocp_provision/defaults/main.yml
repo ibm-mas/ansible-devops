@@ -12,30 +12,45 @@ default_ocp_version: 4.21
 supported_cluster_types:
   - fyre
   - roks
+  - roks-vpc
+  - roks-vpc-setup
   - rosa
   - ipi
 
-# GPU support (limited)##
+# GPU support
 # -----------------------------------------------------------------------------
-# Flag to add GPU worker node to cluster. Currently only set up for ROKS clusters
+# Flag to add a GPU worker pool to the cluster (supported on roks and roks-vpc)
 ocp_provision_gpu: "{{ lookup('env', 'OCP_PROVISION_GPU') | default('false', True) }}"
 
-# The number of GPU worker nodes to deploy. Currently only set up for ROKS clusters
+# The number of GPU worker nodes to deploy
 gpu_workers: "{{ lookup('env', 'GPU_WORKERS') | default('1', true) }}"
 
-# The name of the gpu worker pool.
+# The name of the gpu worker pool
 gpu_workerpool_name: "{{ lookup('env', 'GPU_WORKERPOOL_NAME') | default('gpu', true) }}"
+
+# VPC GPU flavor (roks-vpc only). Classic GPU flavor is hardcoded to mg4c.32x384.2xp100.
+# Common VPC GPU flavors: gx2.8x64.v100 (1x V100), gx2.16x128.2v100 (2x V100)
+gpu_flavor: "{{ lookup('env', 'GPU_FLAVOR') | default('gx2.8x64.v100', true) }}"
 
 # ROKS
 # -----------------------------------------------------------------------------
 ibmcloud_endpoint: "{{ lookup('env', 'IBMCLOUD_ENDPOINT') | default('https://cloud.ibm.com', true) }}"
 ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
 ibmcloud_resourcegroup: "{{ lookup('env', 'IBMCLOUD_RESOURCEGROUP') | default('Default', true) }}"
+ibmcloud_region: "{{ lookup('env', 'IBMCLOUD_REGION') }}"
 
 roks_zone: "{{ lookup('env', 'ROKS_ZONE') | default('dal10', true) }}"
 roks_flavor: "{{ lookup('env', 'ROKS_FLAVOR') | default('b3c.16x64.300gb', true) }}"
 roks_workers: "{{ lookup('env', 'ROKS_WORKERS') | default('3', true) }}"
 roks_flags: "{{ lookup('env', 'ROKS_FLAGS') | default('', true) }}"
+
+# ROKS VPC
+# roks_vpc_id and roks_cos_instance_crn are optional when roks_vpc_name is set —
+# the cluster provider will resolve them by looking up <roks_vpc_name> and <roks_vpc_name>-cos.
+roks_vpc_name: "{{ lookup('env', 'ROKS_VPC_NAME') | default(cluster_name, true) }}"
+roks_vpc_id: "{{ lookup('env', 'ROKS_VPC_ID') }}"
+roks_subnet_id: "{{ lookup('env', 'ROKS_SUBNET_ID') }}"
+roks_cos_instance_crn: "{{ lookup('env', 'ROKS_COS_INSTANCE_CRN') }}"
 
 # FYRE
 # -----------------------------------------------------------------------------

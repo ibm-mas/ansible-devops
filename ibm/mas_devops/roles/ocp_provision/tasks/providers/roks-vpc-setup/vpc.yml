@@ -1,0 +1,37 @@
+---
+# Create the VPC if one with the requested name does not already exist.
+# Sets fact: roks_vpc_id
+
+- name: "roks-vpc-setup/vpc : List VPCs in resource group"
+  shell: |
+    ibmcloud is vpcs --resource-group-name {{ ibmcloud_resourcegroup }} --output json
+  register: vpc_list_raw
+
+- name: "roks-vpc-setup/vpc : Find existing VPC by name"
+  set_fact:
+    existing_vpc: "{{ vpc_list_raw.stdout | from_json | selectattr('name', 'equalto', roks_vpc_name) | list | first | default({}) }}"
+
+- name: "roks-vpc-setup/vpc : Debug VPC lookup"
+  debug:
+    msg: >-
+      {% if existing_vpc.id is defined %}
+      VPC '{{ roks_vpc_name }}' already exists (id={{ existing_vpc.id }}), skipping creation
+      {% else %}
+      VPC '{{ roks_vpc_name }}' not found, will create it
+      {% endif %}
+
+- name: "roks-vpc-setup/vpc : Create VPC"
+  when: existing_vpc.id is not defined
+  shell: |
+    ibmcloud is vpc-create {{ roks_vpc_name }} \
+      --resource-group-name {{ ibmcloud_resourcegroup }} \
+      --output json
+  register: vpc_create_raw
+
+- name: "roks-vpc-setup/vpc : Set roks_vpc_id"
+  set_fact:
+    roks_vpc_id: "{{ (vpc_create_raw.stdout | from_json).id if existing_vpc.id is not defined else existing_vpc.id }}"
+
+- name: "roks-vpc-setup/vpc : Debug VPC ID"
+  debug:
+    msg: "Using VPC ID: {{ roks_vpc_id }}"
