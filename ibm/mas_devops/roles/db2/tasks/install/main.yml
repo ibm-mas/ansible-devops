@@ -615,6 +615,29 @@
       - To manage existing Db2uCluster: Set DB2U_KIND=db2ucluster
       - To deploy new Db2uInstance: Use a different instance name
 
+# 15. Patch LDAP ConfigMap with db2u-ldap-config.json (DB2 12 / Operator v2.0.0)
+# Replaces deprecated userGroup/adminGroup CRD fields with ConfigMap-based JSON approach.
+# GSS Plugin (securityPlugin: gss) + Transparent LDAP (transparentLdap: true) read this file.
+# See: https://www.ibm.com/docs/en/db2/12.1?topic=ldap-setting-up-db2-operator-version-2
+# -----------------------------------------------------------------------------
+- name: "Patch LDAP ConfigMap with db2u-ldap-config.json"
+  when:
+    - db2_use_helm_operator | default(false) | bool
+    - db2_ldap_configmap is defined
+    - db2_ldap_configmap != ""
+    - db2_ldap_config_json is defined
+    - db2_ldap_config_json != ""
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "{{ db2_ldap_configmap }}"
+        namespace: "{{ db2_namespace }}"
+      data:
+        db2u-ldap-config.json: "{{ db2_ldap_config_json }}"
+
 - name: "Create db2 instance (Db2uInstance)"
   when: db2_use_helm_operator | default(false) | bool
   kubernetes.core.k8s:
