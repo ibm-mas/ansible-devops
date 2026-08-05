@@ -89,18 +89,13 @@
     #     --json '{"urls":["*.domain.com"],"configurations":[{"target":"ip","value":"1.2.3.4"}]}'
     #     --instance <service_name>
     # Notes:
-    #   - IPv4 only — lockdown API does not support IPv6
     #   - IP values must be plain IPs, no CIDR suffix (strip /32 etc.)
     #   - URLs do not need trailing /*
     #   - JSON must be single-line (no embedded newlines)
     # ------------------------------------------------------------------
-    - name: "cis : filter IPv4-only addresses for lockdown (strip CIDR suffix)"
-      ansible.builtin.set_fact:
-        _cis_ipv4_ips: "{{ _cis_normalised_ips | select('match', '^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]') | map('regex_replace', '/.*$', '') | list }}"
-
     - name: "cis : build lockdown configurations list"
       ansible.builtin.set_fact:
-        _cis_lockdown_configs: "{{ _cis_ipv4_ips | map('regex_replace', '^(.+)$', '{\"target\":\"ip\",\"value\":\"\\1\"}') | list | join(',') }}"
+        _cis_lockdown_configs: "{{ _cis_normalised_ips | map('regex_replace', '/.*$', '') | map('regex_replace', '^(.+)$', '{\"target\":\"ip\",\"value\":\"\\1\"}') | list | join(',') }}"
 
     - name: "cis : build lockdown JSON payload (single-line)"
       ansible.builtin.set_fact:
@@ -109,7 +104,7 @@
     - name: "cis : show lockdown payload"
       ansible.builtin.debug:
         msg:
-          - "IPv4 IPs for lockdown .... {{ _cis_ipv4_ips }}"
+          - "All IPs for lockdown ..... {{ _cis_normalised_ips }}"
           - "Lockdown JSON ............ {{ _cis_lockdown_json }}"
 
     # ------------------------------------------------------------------
