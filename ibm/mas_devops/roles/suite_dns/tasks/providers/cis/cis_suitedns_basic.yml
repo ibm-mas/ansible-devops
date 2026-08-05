@@ -58,3 +58,16 @@
 - name: "cis : dump output"
   debug:
     msg: '{{ dnsoutput }}'
+
+# Apply CIS WAF custom rule from allow_list.
+# ibmcloud login is required here because this path does not invoke the
+# ibmcloud CLI before this point (it uses the Python cis_dns_entries module instead).
+- name: "cis : login to IBM Cloud for WAF custom rule"
+  ansible.builtin.shell: |
+    ibmcloud login --apikey "{{ cis_apikey }}" -q --no-region
+  retries: 10
+  delay: 60 # 1 minute
+  when: allow_list | string != "[]" and allow_list | string | length > 0
+
+- name: "cis : configure CIS WAF custom rule from allow_list"
+  ansible.builtin.include_tasks: tasks/providers/cis/cis_waf_custom_rule_lockdown.yml
