@@ -97,14 +97,20 @@
     - name: "cis : build lockdown configurations list"
       ansible.builtin.set_fact:
         _cis_lockdown_configs: >-
-          {{ _cis_normalised_ips
-             | map('regex_replace', '^([^/]+)/(.+)$', '{\"target\":\"ip_range\",\"value\":\"\\1/\\2\"}')
-             | map('regex_replace', '^([^{].*)$', '{\"target\":\"ip\",\"value\":\"\\1\"}')
-             | list | join(',') }}
+          {%- set entries = [] -%}
+          {%- for ip in _cis_normalised_ips -%}
+            {%- if '/' in ip -%}
+              {%- set _ = entries.append('{"target":"ip_range","value":"' ~ ip ~ '"}') -%}
+            {%- else -%}
+              {%- set _ = entries.append('{"target":"ip","value":"' ~ ip ~ '"}') -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ entries | join(',') }}
 
     - name: "cis : build lockdown JSON payload (single-line)"
       ansible.builtin.set_fact:
-        _cis_lockdown_json: '{"urls":["*.{{ mas_domain }}","{{ mas_domain }}"],"configurations":[{{ _cis_lockdown_configs }}],"description":"mas-ip-allowlist-{{ mas_instance_id }}"}'
+        _cis_lockdown_json: >-
+          {"urls":["*.{{ mas_domain }}","{{ mas_domain }}"],"configurations":[{{ _cis_lockdown_configs }}],"description":"mas-ip-allowlist-{{ mas_instance_id }}"}
 
     - name: "cis : show lockdown payload"
       ansible.builtin.debug:
