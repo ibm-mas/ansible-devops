@@ -1,5 +1,5 @@
 # cos_bucket
-This role extends support to create or deprovision Cloud Object Storage buckets.
+This role supports create and delete operations on Cloud Object Storage buckets across multiple providers, and restore operations for ODF/Ceph buckets.
 
 ## Role Variables - General
 ### cos_type
@@ -16,21 +16,25 @@ The Cloud Object Storage provider for bucket operations.
 **Valid values**:
 - `ibm` - IBM Cloud Object Storage buckets
 - `aws` - AWS S3 buckets
+- `odf` - OpenShift Data Foundation (Ceph/NooBaa) buckets on OpenShift
 
 **Impact**:
 - **`ibm`**: Creates buckets in IBM Cloud COS, requires IBM Cloud API key and COS instance name
 - **`aws`**: Creates buckets in AWS S3, requires AWS credentials (access key and secret key)
+- **`odf`**: Creates or restores OBC-backed buckets in the cluster using NooBaa; requires a running ODF StorageCluster
 - Determines which set of configuration variables are required
 - Affects bucket naming conventions, storage classes, and lifecycle policies
 
 **Related variables**:
 - When `cos_type=ibm`: Requires [`ibmcloud_apikey`](#ibmcloud_apikey), [`cos_instance_name`](#cos_instance_name), [`cos_bucket_storage_class`](#cos_bucket_storage_class)
 - When `cos_type=aws`: Requires AWS credentials via environment or AWS CLI configuration, [`aws_region`](#aws_region)
-- [`cos_bucket_action`](#cos_bucket_action) - Whether to create or delete the bucket
+- When `cos_type=odf`: Requires a ready ODF StorageCluster; for `restore` action also requires [`mas_config_dir`](#mas_config_dir)
+- [`cos_bucket_action`](#cos_bucket_action) - Whether to create, delete, or restore the bucket
 
 **Notes**:
 - IBM COS buckets support advanced storage classes (smart, vault, cold, flex)
 - AWS S3 buckets support versioning and encryption configurations
+- ODF buckets use `spec.bucketName` so the bucket name exactly matches the OBC name — no UUID suffix
 - Bucket names must be globally unique within each provider
 - Choose the provider that matches your COS instance location
 
@@ -41,25 +45,29 @@ The action to perform on the bucket.
 - Environment Variable: `COS_BUCKET_ACTION`
 - Default Value: `create`
 
-**Purpose**: Controls whether to create a new bucket or delete an existing one. This allows the same role to handle both lifecycle operations.
+**Purpose**: Controls which operation to perform on the bucket. This allows the same role to handle the full bucket lifecycle.
 
 **When to use**:
 - Use `create` (default) when setting up storage buckets for MAS workspaces or applications
 - Use `delete` when cleaning up buckets after workspace or application removal
+- Use `restore` (`cos_type=odf` only) when migrating data from MinIO into ODF/Ceph buckets
 
 **Valid values**:
 - `create` - Create a new bucket with specified configuration
 - `delete` - Delete an existing bucket
+- `restore` - *(ODF only)* Restore all buckets from a minio backup directory into ODF/NooBaa
 
 **Impact**:
-- **Create**: Creates bucket with specified storage class, region, and lifecycle policies
-- **Delete**: Permanently removes the bucket and potentially its contents (depending on force deletion settings)
-- Deletion is irreversible - all data in the bucket will be lost
+- **`create`**: Creates bucket with specified storage class, region, and lifecycle policies
+- **`delete`**: Permanently removes the bucket and potentially its contents (depending on force deletion settings)
+- **`restore`**: Auto-discovers all bucket directories under `{{ mas_config_dir }}/minio-backup/objects/`, creates any missing OBCs, and mirrors all objects into ODF using noobaa-admin credentials
+- Deletion is irreversible — all data in the bucket will be lost
 - For AWS, deletion behavior depends on `aws_bucket_force_deletion_flag`
 
 **Related variables**:
-- [`cos_type`](#cos_type) - Determines which provider's bucket to create/delete
-- [`cos_bucket_name`](#cos_bucket_name) or [`aws_bucket_name`](#aws_bucket_name) - Identifies which bucket to operate on
+- [`cos_type`](#cos_type) - Determines which provider's bucket to operate on
+- [`cos_bucket_name`](#cos_bucket_name) or [`aws_bucket_name`](#aws_bucket_name) - Identifies which bucket to operate on (not required for `restore` — buckets are auto-discovered)
+- [`mas_config_dir`](#mas_config_dir) - Required for `restore`; path that was used during minio backup
 - [`aws_bucket_force_deletion_flag`](#aws_bucket_force_deletion_flag) - Controls AWS deletion behavior
 
 **Notes**:
@@ -67,6 +75,7 @@ The action to perform on the bucket.
 - IBM COS bucket deletion may fail if the bucket contains objects
 - AWS bucket deletion can force-delete objects if versioning is disabled
 - Verify the bucket name before deletion to avoid removing the wrong bucket
+- The `restore` action is **only supported for `cos_type=odf`**
 
 ## Role Variables - IBM Cloud Object Storage buckets
 ### cos_bucket_name
@@ -603,7 +612,7 @@ Controls whether to force-delete bucket contents before deleting the bucket.
 
 ## Example Playbook
 
-Create the IBM Cloud Object storage bucket.
+Create an IBM Cloud Object Storage bucket.
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
@@ -617,7 +626,7 @@ Create the IBM Cloud Object storage bucket.
     - ibm.mas_devops.cos_bucket
 ```
 
-Create the AWS S3 storage bucket.
+Create an AWS S3 bucket.
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
@@ -628,6 +637,32 @@ Create the AWS S3 storage bucket.
     aws_region: us-east-2
     aws_bucket_versioning_flag: True
     aws_bucket_encryption: '{"Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]}'
+  roles:
+    - ibm.mas_devops.cos_bucket
+```
+
+Create an ODF/Ceph bucket (ObjectBucketClaim).
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    cos_type: odf
+    cos_bucket_action: create
+    cos_bucket_name: km-tenants
+  roles:
+    - ibm.mas_devops.cos_bucket
+```
+
+Restore all buckets from a minio backup into ODF/Ceph.
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    cos_type: odf
+    cos_bucket_action: restore
+    mas_config_dir: /path/to/mas-config   # same path used during minio backup
+    # Buckets are auto-discovered from: {{ mas_config_dir }}/minio-backup/objects/<bucket>/
+    # No per-bucket vars needed.
   roles:
     - ibm.mas_devops.cos_bucket
 ```
