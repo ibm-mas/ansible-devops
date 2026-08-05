@@ -30,6 +30,7 @@
   ansible.builtin.set_fact:
     _allow_list_entries: "{{ allow_list | from_json if (allow_list is string) else allow_list }}"
     _waf_rule_description: "mas-allow-list:{{ mas_domain }}"
+    _waf_new_rule_id: ""
 
 - name: "cis : debug allow_list configuration (waf custom rule)"
   ansible.builtin.debug:
@@ -92,7 +93,7 @@
 - name: "cis : create WAF custom rule for {{ mas_domain }}"
   ansible.builtin.shell: |
     # Build a space-separated list of IPs/CIDRs for the Ruleset Engine expression.
-    IP_LIST=$(echo '{{ allow_list }}' | jq -r '.[] | . ' | tr '\n' ' ' | sed 's/ *$//')
+    IP_LIST=$(echo '{{ allow_list }}' | jq -r '.[] | .' | tr '\n' ' ' | sed 's/ *$//')
 
     # Expression: block any request hitting the MAS domain that is NOT from an allowed IP.
     EXPRESSION="(http.host eq \"{{ mas_domain }}\" or http.host matches \".*\\.{{ mas_domain }}\") and not ip.src in {${IP_LIST}}"
@@ -102,5 +103,56 @@
       --expression "${EXPRESSION}" \
       --description "{{ _waf_rule_description }}" \
       --enabled true \
-      --instance "{{ cis_service_name }}"
+      --instance "{{ cis_service_name }}" \
+      --output json
+  register: _waf_create_result
   when: _allow_list_entries | length > 0
+
+# 5. Capture the new rule ID from creation output
+# -----------------------------------------------------------------------------
+- name: "cis : extract new WAF custom rule ID"
+  ansible.builtin.set_fact:
+    _waf_new_rule_id: >-
+      {{ _waf_create_result.stdout
+         | from_json
+         | json_query('result.id')
+         | default('') }}
+  when: _allow_list_entries | length > 0
+
+- name: "cis : fail if rule ID was not returned by create"
+  ansible.builtin.fail:
+    msg: >-
+      WAF custom rule creation returned no rule ID.
+      Raw output: {{ _waf_create_result.stdout }}
+  when:
+    - _allow_list_entries | length > 0
+    - _waf_new_rule_id | trim | length == 0
+
+# 6. Readiness probe — poll until the rule is active
+# -----------------------------------------------------------------------------
+- name: "cis : wait for WAF custom rule to become active"
+  ansible.builtin.shell: |
+    ibmcloud cis custom-rule "{{ _waf_zone_id }}" "{{ _waf_new_rule_id }}" \
+      --instance "{{ cis_service_name }}" --output json \
+      | jq -r '.result.enabled'
+  register: _waf_rule_active_check
+  until: _waf_rule_active_check.stdout | trim == "true"
+  retries: "{{ cis_waf_probe_retries | default(10) | int }}"
+  delay: "{{ cis_waf_probe_delay | default(30) | int }}"
+  failed_when: _waf_rule_active_check.rc != 0
+  changed_when: false
+  when:
+    - _allow_list_entries | length > 0
+    - _waf_new_rule_id | trim | length > 0
+
+- name: "cis : confirm WAF custom rule is active"
+  ansible.builtin.debug:
+    msg: "WAF custom rule {{ _waf_new_rule_id }} is active for {{ mas_domain }}"
+  when:
+    - _allow_list_entries | length > 0
+    - _waf_new_rule_id | trim | length > 0
+
+# 7. Persist provisioning status
+# -----------------------------------------------------------------------------
+- name: "cis : persist allowlist provisioning status"
+  ansible.builtin.include_tasks: tasks/providers/cis/cis_waf_status_persist.yml
