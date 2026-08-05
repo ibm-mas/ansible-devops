@@ -82,12 +82,25 @@ spec:
     authentication:
       ldap:
         enabled: true
-        fromVolumeSource:
-          configMap:
-            name: {{ db2_ldap_configmap }}
-        searcherPassword:
-          value: {{ db2_ldap_searcher_password }}
-        userGroup: {{ db2_ldap_user_group }}
+        externalLdap:
+          server: ldap-{{ db2_namespace }}.{{ db2_namespace }}.svc.cluster.local
+          port: "636"
+          type: ldap
+          sslMethod: ssl
+          domain: dc=smaasdb2,dc=world
+          userBaseDN: ou=People,dc=smaasdb2,dc=world
+          userObjectClass: posixAccount
+          userIdAttribute: uid
+          authIdAttribute: uid
+          groupBaseDN: ou=Group,dc=smaasdb2,dc=world
+          groupObjectClass: posixGroup
+          groupNameAttribute: cn
+          groupLookupMethod: SEARCH_BY_DN
+          groupLookupAttribute: memberUid
+          searcherDN: uid=dbadmin,ou=People,dc=smaasdb2,dc=world
+          searcherPassword: "{{ db2_ldap_searcher_password }}"
+          adminGroup: "{{ db2_ldap_admin_group }}"
+          userGroup: "{{ db2_ldap_user_group }}"
 {% endif %}
 {% if not (db2_use_helm_operator | default(false) | bool) %}
       secretName: "db2u-certificate-{{ db2_instance_name }}"
