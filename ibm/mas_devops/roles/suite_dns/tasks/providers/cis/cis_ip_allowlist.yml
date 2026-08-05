@@ -86,16 +86,21 @@
     # Step 2 — Build lockdown rule JSON
     # Correct CLI syntax (from sample):
     #   ibmcloud cis firewall-create --type lockdowns --domain <zone_id>
-    #     --json '{"urls":["*.domain.com"],"configurations":[{"target":"ip","value":"1.2.3.4"}]}'
+    #     --json '{"urls":["*.domain.com"],"configurations":[{"target":"ip","value":"1.2.3.4"},{"target":"ip_range","value":"2001:db8::/64"}]}'
     #     --instance <service_name>
     # Notes:
-    #   - IP values must be plain IPs, no CIDR suffix (strip /32 etc.)
+    #   - Single IPs (IPv4 or IPv6) use target "ip", value is the bare IP (no CIDR)
+    #   - CIDR ranges (e.g. IPv6 /64 subnets) use target "ip_range", value keeps the CIDR
     #   - URLs do not need trailing /*
     #   - JSON must be single-line (no embedded newlines)
     # ------------------------------------------------------------------
     - name: "cis : build lockdown configurations list"
       ansible.builtin.set_fact:
-        _cis_lockdown_configs: "{{ _cis_normalised_ips | map('regex_replace', '/.*$', '') | map('regex_replace', '^(.+)$', '{\"target\":\"ip\",\"value\":\"\\1\"}') | list | join(',') }}"
+        _cis_lockdown_configs: >-
+          {{ _cis_normalised_ips
+             | map('regex_replace', '^([^/]+)/(.+)$', '{\"target\":\"ip_range\",\"value\":\"\\1/\\2\"}')
+             | map('regex_replace', '^([^{].*)$', '{\"target\":\"ip\",\"value\":\"\\1\"}')
+             | list | join(',') }}
 
     - name: "cis : build lockdown JSON payload (single-line)"
       ansible.builtin.set_fact:
@@ -104,7 +109,7 @@
     - name: "cis : show lockdown payload"
       ansible.builtin.debug:
         msg:
-          - "All IPs for lockdown ..... {{ _cis_normalised_ips }}"
+          - "All IPs (raw) ............ {{ _cis_normalised_ips }}"
           - "Lockdown JSON ............ {{ _cis_lockdown_json }}"
 
     # ------------------------------------------------------------------
