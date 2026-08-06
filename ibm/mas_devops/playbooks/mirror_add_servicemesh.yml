@@ -1,0 +1,32 @@
+---
+- hosts: localhost
+  any_errors_fatal: true
+
+  vars:
+    catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('@@MAS_LATEST_CATALOG@@', True) }}"
+    mirror_mode: "{{ lookup('env', 'MIRROR_MODE') | default ('direct', True) }}"
+
+  pre_tasks:
+    - name: "Load Catalog Metadata"
+      ibm.mas_devops.get_catalog_info:
+        mas_catalog_version: "{{ catalog_tag }}"
+      register: mas_catalog_metadata
+
+    - name: "Check that the catalog is a known catalog"
+      assert:
+        that: mas_catalog_metadata.failed == false
+
+  roles:
+    - role: ibm.mas_devops.mirror_ocp_release
+      when: mirror_mode != "from-filesystem"
+      vars:
+        operator_name: servicemeshoperator3
+        operator_channel: "{{ mas_catalog_metadata.servicemesh_channel }}"
+        operator_starting_csv: "{{ mas_catalog_metadata.servicemesh_starting_csv }}"
+
+    - role: ibm.mas_devops.mirror_ocp_release
+      when: mirror_mode != "from-filesystem"
+      vars:
+        operator_name: kiali-ossm
+        operator_channel: "{{ mas_catalog_metadata.kiali_channel }}"
+        operator_starting_csv: "{{ mas_catalog_metadata.kiali_starting_csv }}"
