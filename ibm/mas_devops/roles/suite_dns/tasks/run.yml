@@ -29,13 +29,26 @@
     msg:
       - "Certificate Manager Namespace .......... {{ cert_manager_namespace }}"
 
-# 3. Run provider task
+# 3. Ensure namespace exists
+# -----------------------------------------------------------------------------
+- name: "Ensure namespace exists"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ instance_namespace }}"
+        labels:
+          ibm.com/kyverno: "audit"
+
+# 4. Run provider task
 # -----------------------------------------------------------------------------
 - name: "Run the provider specific task"
   when: dns_provider != ""
   include_tasks: tasks/providers/{{ dns_provider }}/main.yml
 
-# 4. Set custom cp4d route based on the custom cluster issuer
+# 5. Set custom cp4d route based on the custom cluster issuer
 # -----------------------------------------------------------------------------
 - block:
     - name: Check if custom CP4D route is already configured # if it is, then we skip it to avoid override

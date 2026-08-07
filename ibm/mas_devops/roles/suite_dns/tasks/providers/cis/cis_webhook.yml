@@ -23,12 +23,29 @@
     - templates/cis/webhook/deployment.yml.j2
     - templates/cis/webhook/apiservice.yml.j2
     - templates/cis/webhook/service.yml.j2
-    - templates/cis/webhook/cis-apikey-secret.yml.j2
     - templates/cis/webhook/cis-proxy-route.yml.j2
 
-# 2. Create the CIS ClusterIssuers
+# 2. Create CIS API Key Secret
 # =============================================================================
-- name: "cis : Create k8s resources for CIS ClusterIssuers"
+# For MAS: Create in cert-manager namespace (used by ClusterIssuer)
+# For AI Service: Create in AI Service namespace (used by namespace-scoped Issuer)
+- name: "cis : Create CIS API key secret in cert-manager namespace (MAS mode)"
+  kubernetes.core.k8s:
+    namespace: "{{ cert_manager_namespace }}"
+    state: present
+    template: templates/cis/webhook/cis-apikey-secret.yml.j2
+  when: not is_aiservice_mode
+
+- name: "cis : Create CIS API key secret in AI Service namespace (AI Service mode)"
+  kubernetes.core.k8s:
+    namespace: "{{ instance_namespace }}"
+    state: present
+    template: templates/cis/webhook/cis-apikey-secret.yml.j2
+  when: is_aiservice_mode
+
+# 3. Create the CIS Issuers (ClusterIssuer for MAS, Issuer for AI Service)
+# =============================================================================
+- name: "cis : Create CIS ClusterIssuers (MAS mode)"
   kubernetes.core.k8s:
     namespace: "{{ cert_manager_namespace }}"
     state: present
@@ -36,3 +53,14 @@
   with_items:
     - templates/cis/clusterissuer-staging.yml.j2
     - templates/cis/clusterissuer-prod.yml.j2
+  when: not is_aiservice_mode
+
+- name: "cis : Create CIS Issuers (AI Service mode)"
+  kubernetes.core.k8s:
+    namespace: "{{ instance_namespace }}"
+    state: present
+    template: "{{ item }}"
+  with_items:
+    - templates/cis/issuer-staging.yml.j2
+    - templates/cis/issuer-prod.yml.j2
+  when: is_aiservice_mode
