@@ -145,11 +145,83 @@
     apply: yes
     definition:
       spec:
-        license:
-          accept: true
         size: "{{ cpfs_size }}"
-        servicesNamespace: "{{ cpd_instance_namespace }}"
   register: result
   retries: 5 # This can fail transiently if the common service webhook is not yet ready
   delay: 12
   until: not result.failed
+
+# During upgrades, the EDB operator does not automatically update the imageName on existing
+# Cluster CRs to match the new image published in the cloud-native-postgresql-image-list
+# configmap. This causes ibm-common-service-operator to loop indefinitely waiting for the
+# image to be updated, blocking CommonService from reaching Succeeded phase.
+# We detect the postgres major version from the existing cluster and patch to the desired image.
+# -----------------------------------------------------------------------------
+- name: "Lookup common-service-db EDB Cluster"
+  when: is_cpd_upgrade | default(false)
+  kubernetes.core.k8s_info:
+    api_version: postgresql.k8s.enterprisedb.io/v1
+    kind: Cluster
+    name: common-service-db
+    namespace: "{{ cpd_operators_namespace }}"
+  register: common_service_db_lookup
+
+- when:
+    - is_cpd_upgrade | default(false)
+    - common_service_db_lookup.resources is defined
+    - common_service_db_lookup.resources | length > 0
+  block:
+    - name: "Lookup cloud-native-postgresql-image-list configmap"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: ConfigMap
+        name: cloud-native-postgresql-image-list
+        namespace: "{{ cpd_operators_namespace }}"
+      register: edb_image_list_lookup
+
+    - name: "Set EDB image facts for common-service-db"
+      vars:
+        current_image: "{{ common_service_db_lookup.resources[0].spec.imageName }}"
+        pg_major: "{{ current_image.split(':')[1].split('.')[0] }}"
+        desired_image: "{{ edb_image_list_lookup.resources[0].data['ibm-postgresql-' + pg_major + '-operand-image'] }}"
+      set_fact:
+        edb_current_image: "{{ current_image }}"
+        edb_desired_image: "{{ desired_image }}"
+        edb_pg_major: "{{ pg_major }}"
+
+    - debug:
+        msg:
+          - "common-service-db postgres major version ................. {{ edb_pg_major }}"
+          - "common-service-db current image .......................... {{ edb_current_image }}"
+          - "common-service-db desired image .......................... {{ edb_desired_image }}"
+
+    - name: "Patch common-service-db EDB Cluster to desired image"
+      when: edb_current_image != edb_desired_image
+      kubernetes.core.k8s:
+        api_version: postgresql.k8s.enterprisedb.io/v1
+        kind: Cluster
+        name: common-service-db
+        namespace: "{{ cpd_operators_namespace }}"
+        definition:
+          spec:
+            imageName: "{{ edb_desired_image }}"
+        apply: yes
+        server_side_apply:
+          field_manager: ansible
+          force_conflicts: true
+
+    - name: "Wait for common-service-db EDB Cluster to be healthy after image update (30s delay)"
+      when: edb_current_image != edb_desired_image
+      kubernetes.core.k8s_info:
+        api_version: postgresql.k8s.enterprisedb.io/v1
+        kind: Cluster
+        name: common-service-db
+        namespace: "{{ cpd_operators_namespace }}"
+      register: edb_cluster_lookup
+      until:
+        - edb_cluster_lookup.resources[0].status.phase is defined
+        - "'healthy' in edb_cluster_lookup.resources[0].status.phase"
+        - edb_cluster_lookup.resources[0].status.readyInstances is defined
+        - edb_cluster_lookup.resources[0].status.readyInstances == edb_cluster_lookup.resources[0].spec.instances
+      retries: 20 # approx 10 minutes
+      delay: 30
