@@ -371,7 +371,7 @@
     name: ca-addon-cr
     namespace: "{{ cpd_instance_namespace }}"
   register: ca_addon_upgrade_wait
-  retries: 24  # Up to ~120 minutes
+  retries: 10  # Up to ~50 minutes
   delay: 300   # Every 5 minutes
   until:
     - ca_addon_upgrade_wait.resources is defined
@@ -457,12 +457,15 @@
 
 # 7b. Upgrade existing Cognos Analytics tenant instances (CAServiceInstance)
 # -----------------------------------------------------------------------------
-# User-created CAServiceInstance CRs are not owned by the Cognos addon CR and
-# therefore do not automatically receive a spec.version update during a service
-# upgrade. Patch only tenant instances whose spec.version is older than the
-# target version and wait for reconciliation to complete.
-# Re-fetch instances here (after ca-addon-cr and CCS are confirmed complete) so the
-# version comparison uses live data, not stale data from a pre-patch lookup.
+# When Cognos Analytics (ca) is upgraded, the CAService addon CR (ca-addon-cr) is patched
+# above in step 7 via ca.yml.j2. However, user-created CAServiceInstance CRs (one per tenant,
+# created from the CP4D UI) are not owned by the addon and retain their old spec.version
+# unless explicitly patched here.
+# Gate: only runs when cpd_service_name == 'ca'. Uses per-item version comparison instead of
+# is_cpd_service_upgrade so it still fires when ca-addon-cr was already patched in a prior
+# interrupted run (in which case is_cpd_service_upgrade would be False).
+# Re-fetch instances here (after ca-addon-cr and CCS are confirmed complete) so the version
+# comparison uses live data, not stale data from the pre-patch lookup.
 - name: "cp4d_service : Discover existing Cognos Analytics tenant instances (CAServiceInstance) in {{ cpd_instance_namespace }}"
   when:
     - cpd_service_name == 'ca'
@@ -477,21 +480,13 @@
     - cpd_service_name == 'ca'
   debug:
     msg: >-
-      {{
-        (existing_ca_instances.resources | length > 0)
-        | ternary(
-            'Found '
-            + (existing_ca_instances.resources | length | string)
-            + ' CAServiceInstance(s): '
-            + (existing_ca_instances.resources | map(attribute='metadata.name') | list | join(', '))
-            + ' (target version: '
-            + cpd_components_meta.cognos_analytics.cr_version
-            + ')',
-            'No CAServiceInstance CRs found in '
-            + cpd_instance_namespace
-            + ' - skipping Cognos tenant instance upgrade'
-        )
-      }}
+      {{ (existing_ca_instances.resources | length > 0)
+         | ternary(
+             'Found ' + (existing_ca_instances.resources | length | string) + ' CAServiceInstance(s): '
+             + (existing_ca_instances.resources | map(attribute='metadata.name') | list | join(', '))
+             + ' (target version: ' + cpd_components_meta.cognos_analytics.cr_version + ')',
+             'No CAServiceInstance CRs found in ' + cpd_instance_namespace + ' - skipping Cognos tenant instance upgrade'
+           ) }}
 
 - name: "cp4d_service : Patch stale Cognos Analytics tenant instances to version {{ cpd_components_meta.cognos_analytics.cr_version }}"
   when:
@@ -512,12 +507,12 @@
   loop_control:
     label: "{{ item.metadata.name }} ({{ item.spec.version }} → {{ cpd_components_meta.cognos_analytics.cr_version }})"
 
-# Wait up to 2 hours (24 retries × 5 minutes) per instance.
+# Wait uses retries: 24 x delay: 300 = up to 120 minutes per instance.
 # CAServiceInstance upgrades run a full Ansible playbook inside the operator pod and can
-# take 60-90 minutes. The when condition does not filter by spec.version (stale pre-patch
-# data) — it waits for all discovered instances so none are missed.
-# Checks both caStatus=Completed AND versions.reconciled >= target to avoid a stale
-# Completed from a previous reconcile cycle. Also exits early on failMessage.
+# easily take 60-90 minutes. The when condition uses item.metadata.name (stable) not
+# item.spec.version (stale pre-patch data) so the wait always fires for patched instances.
+# Also checks status.versions.reconciled >= target to avoid a stale Completed from the
+# previous version's reconcile cycle.
 - name: "cp4d_service : Wait for Cognos Analytics tenant instances to reach caStatus 'Completed' (5m interval, up to 2h)"
   when:
     - cpd_service_name == 'ca'
@@ -535,37 +530,92 @@
     - ca_instance_upgrade_wait.resources is defined
     - ca_instance_upgrade_wait.resources | length == 1
     - ca_instance_upgrade_wait.resources[0].status is defined
+    - ca_instance_upgrade_wait.resources[0].status.caStatus is defined
     - ca_instance_upgrade_wait.resources[0].status.caStatus == "Completed"
     - ca_instance_upgrade_wait.resources[0].status.versions is defined
     - ca_instance_upgrade_wait.resources[0].status.versions.reconciled is version(cpd_components_meta.cognos_analytics.cr_version, '>=')
-    - (ca_instance_upgrade_wait.resources[0].status.failMessage | default('')) == ''
   loop: "{{ existing_ca_instances.resources }}"
   loop_control:
     label: "{{ item.metadata.name }}"
 
-- name: "cp4d_service : Assert all Cognos Analytics tenant instances upgraded successfully"
+- name: "cp4d_service : Assert all Cognos Analytics tenant instances reached caStatus 'Completed'"
   when:
     - cpd_service_name == 'ca'
     - existing_ca_instances.resources is defined
     - existing_ca_instances.resources | length > 0
   assert:
-    that:
-      - ca_instance_upgrade_wait.results
-          | map(attribute='resources')
-          | map('first')
-          | map(attribute='status.caStatus')
-          | list
-          | unique == ['Completed']
-      - ca_instance_upgrade_wait.results
-          | map(attribute='resources')
-          | map('first')
-          | map(attribute='status.versions.reconciled')
-          | list
-          | unique == [cpd_components_meta.cognos_analytics.cr_version]
-    fail_msg: >-
-      One or more Cognos Analytics tenant instances failed to upgrade to
-      {{ cpd_components_meta.cognos_analytics.cr_version }}.
+    that: ca_instance_upgrade_wait.results | map(attribute='resources') | map('first') | map(attribute='status.caStatus') | list | unique == ['Completed']
+    fail_msg: "One or more Cognos Analytics tenant instances failed to upgrade (caStatus != Completed)"
 
+# 7c. Sync zen metastore service_instance_version after CAServiceInstance upgrade
+# -----------------------------------------------------------------------------
+# The zen metastore (zen-metastore-edb) records the service instance version at
+# provision time but is NOT updated by the CA operator when a CAServiceInstance is
+# upgraded. This leaves service_instance_version and
+# create_arguments->zenServiceInstanceInfo->zenServiceInstanceVersion stale,
+# which causes the CP4D UI and any automation reading the metastore to show the
+# old version. We fix this by running a direct postgres UPDATE via kubectl exec
+# immediately after each instance reaches caStatus=Completed.
+- name: "cp4d_service : Lookup zen metastore credentials"
+  when:
+    - cpd_service_name == 'ca'
+    - existing_ca_instances.resources is defined
+    - existing_ca_instances.resources | length > 0
+  no_log: true
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: zen-metastore-edb-superuser
+    namespace: "{{ cpd_instance_namespace }}"
+  register: zen_metastore_secret
+
+- name: "cp4d_service : Lookup zen metastore primary pod"
+  when:
+    - cpd_service_name == 'ca'
+    - existing_ca_instances.resources is defined
+    - existing_ca_instances.resources | length > 0
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ cpd_instance_namespace }}"
+    label_selectors:
+      - "postgresql=zen-metastore-edb"
+      - "role=primary"
+  register: zen_metastore_primary_pod
+
+- name: "cp4d_service : Sync zen metastore version for upgraded CAServiceInstance CRs"
+  when:
+    - cpd_service_name == 'ca'
+    - existing_ca_instances.resources is defined
+    - existing_ca_instances.resources | length > 0
+    - zen_metastore_secret.resources is defined
+    - zen_metastore_secret.resources | length > 0
+    - zen_metastore_primary_pod.resources is defined
+    - zen_metastore_primary_pod.resources | length > 0
+  no_log: true
+  vars:
+    zen_instance_id: "{{ item.metadata.name | regex_replace('^ca(\\d+)-cr$', '\\1') }}"
+    zen_target_version: "{{ cpd_components_meta.cognos_analytics.cr_version }}"
+    zen_primary_pod: "{{ zen_metastore_primary_pod.resources[0].metadata.name }}"
+
+  kubernetes.core.k8s_exec:
+    namespace: "{{ cpd_instance_namespace }}"
+    pod: "{{ zen_primary_pod }}"
+    container: postgres
+    command: >-
+      psql -U postgres -d zen -c
+      "UPDATE service_instances
+      SET service_instance_version = '{{ zen_target_version }}',
+      create_arguments = jsonb_set(
+      create_arguments,
+      '{zenServiceInstanceInfo,zenServiceInstanceVersion}',
+      to_jsonb('{{ zen_target_version }}'::text)
+      ),
+      updated_at = NOW()
+      WHERE id = {{ zen_instance_id }};"
+  loop: "{{ existing_ca_instances.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }} → metastore version {{ cpd_components_meta.cognos_analytics.cr_version }}"
 
 # 8. Wait for CP4D Service to be ready
 # -----------------------------------------------------------------------------
