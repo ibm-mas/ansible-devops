@@ -133,6 +133,41 @@
 
 # Install dependency subscriptions for services requiring CCS
 # (Watson Studio, Watson Machine Learning, Cognos Analytics)
+# For each subscription: look up any existing sub, delete it (plus its orphaned CSV)
+# if InstallPlanMissing=True, then create fresh via apply_subscription.
+# This avoids OLM getting stuck with a stale subscription that has no InstallPlan.
+- name: "Pre-flight: lookup existing CCS subscription"
+  when: cpd_service_name is in cpd_services_requiring_ccs
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/ibm-cpd-ccs.{{ cpd_operators_namespace }}"
+  register: existing_ccs_sub
+
+- when:
+    - cpd_service_name is in cpd_services_requiring_ccs
+    - existing_ccs_sub.resources | length > 0
+    - existing_ccs_sub.resources[0].status.conditions | default([]) | selectattr('type','equalto','InstallPlanMissing') | selectattr('status','equalto','True') | list | length > 0
+  block:
+    - name: "Pre-flight: delete CCS subscription (InstallPlanMissing=True)"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: Subscription
+        name: "{{ existing_ccs_sub.resources[0].metadata.name }}"
+        namespace: "{{ cpd_operators_namespace }}"
+
+    - name: "Pre-flight: delete orphaned CCS CSV"
+      when: existing_ccs_sub.resources[0].status.installedCSV | default('') != ''
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: ClusterServiceVersion
+        name: "{{ existing_ccs_sub.resources[0].status.installedCSV }}"
+        namespace: "{{ cpd_operators_namespace }}"
+
 - name: "Create CCS Subscription"
   when: cpd_service_name is in cpd_services_requiring_ccs
   ibm.mas_devops.apply_subscription:
@@ -141,6 +176,38 @@
     package_channel: "{{ cpd_components_meta.ccs.sub_channel }}"
     catalog_source: "ibm-operator-catalog"
 
+- name: "Pre-flight: lookup existing DataRefinery subscription"
+  when: cpd_service_name is in cpd_services_requiring_ccs
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/ibm-cpd-datarefinery.{{ cpd_operators_namespace }}"
+  register: existing_datarefinery_sub
+
+- when:
+    - cpd_service_name is in cpd_services_requiring_ccs
+    - existing_datarefinery_sub.resources | length > 0
+    - existing_datarefinery_sub.resources[0].status.conditions | default([]) | selectattr('type','equalto','InstallPlanMissing') | selectattr('status','equalto','True') | list | length > 0
+  block:
+    - name: "Pre-flight: delete DataRefinery subscription (InstallPlanMissing=True)"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: Subscription
+        name: "{{ existing_datarefinery_sub.resources[0].metadata.name }}"
+        namespace: "{{ cpd_operators_namespace }}"
+
+    - name: "Pre-flight: delete orphaned DataRefinery CSV"
+      when: existing_datarefinery_sub.resources[0].status.installedCSV | default('') != ''
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: ClusterServiceVersion
+        name: "{{ existing_datarefinery_sub.resources[0].status.installedCSV }}"
+        namespace: "{{ cpd_operators_namespace }}"
+
 - name: "Create DataRefinery Subscription"
   when: cpd_service_name is in cpd_services_requiring_ccs
   ibm.mas_devops.apply_subscription:
@@ -148,6 +215,38 @@
     package_name: "ibm-cpd-datarefinery"
     package_channel: "{{ cpd_components_meta.datarefinery.sub_channel }}"
     catalog_source: "ibm-operator-catalog"
+
+- name: "Pre-flight: lookup existing WS Runtimes subscription"
+  when: cpd_service_name is in cpd_services_requiring_ccs
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/ibm-cpd-ws-runtimes.{{ cpd_operators_namespace }}"
+  register: existing_wsruntimes_sub
+
+- when:
+    - cpd_service_name is in cpd_services_requiring_ccs
+    - existing_wsruntimes_sub.resources | length > 0
+    - existing_wsruntimes_sub.resources[0].status.conditions | default([]) | selectattr('type','equalto','InstallPlanMissing') | selectattr('status','equalto','True') | list | length > 0
+  block:
+    - name: "Pre-flight: delete WS Runtimes subscription (InstallPlanMissing=True)"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: Subscription
+        name: "{{ existing_wsruntimes_sub.resources[0].metadata.name }}"
+        namespace: "{{ cpd_operators_namespace }}"
+
+    - name: "Pre-flight: delete orphaned WS Runtimes CSV"
+      when: existing_wsruntimes_sub.resources[0].status.installedCSV | default('') != ''
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: ClusterServiceVersion
+        name: "{{ existing_wsruntimes_sub.resources[0].status.installedCSV }}"
+        namespace: "{{ cpd_operators_namespace }}"
 
 - name: "Create WS Runtimes Subscription"
   when: cpd_service_name is in cpd_services_requiring_ccs
@@ -158,6 +257,38 @@
     catalog_source: "ibm-operator-catalog"
 
 # Install Elasticsearch subscription for specific services
+- name: "Pre-flight: delete Elasticsearch subscription and orphaned CSV if InstallPlanMissing=True"
+  when: cpd_service_name is in ['wsl','wml','ca']
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/ibm-elasticsearch-operator.{{ cpd_operators_namespace }}"
+  register: existing_elasticsearch_sub
+
+- when:
+    - cpd_service_name is in ['wsl','wml','ca']
+    - existing_elasticsearch_sub.resources | length > 0
+    - existing_elasticsearch_sub.resources[0].status.conditions | default([]) | selectattr('type','equalto','InstallPlanMissing') | selectattr('status','equalto','True') | list | length > 0
+  block:
+    - name: "Pre-flight: delete Elasticsearch subscription (InstallPlanMissing=True)"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: Subscription
+        name: "{{ existing_elasticsearch_sub.resources[0].metadata.name }}"
+        namespace: "{{ cpd_operators_namespace }}"
+
+    - name: "Pre-flight: delete orphaned Elasticsearch CSV"
+      when: existing_elasticsearch_sub.resources[0].status.installedCSV | default('') != ''
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: ClusterServiceVersion
+        name: "{{ existing_elasticsearch_sub.resources[0].status.installedCSV }}"
+        namespace: "{{ cpd_operators_namespace }}"
+
 - name: "Create Elasticsearch Subscription"
   when: cpd_service_name is in ['wsl','wml','ca']
   ibm.mas_devops.apply_subscription:
@@ -195,6 +326,103 @@
     apply: yes
     template: "templates/services/{{ cpd_service_name }}.yml.j2"
 
+# 7a. Explicitly patch CAService (ca-addon-cr) version on upgrade
+# -----------------------------------------------------------------------------
+# apply: yes on the template above does not reliably update spec.version on an existing
+# CAService CR because the field is owned by the operator's field manager (OpenAPI-Generator).
+# An explicit merge patch forces the version and ccs_operand_version fields to the new values
+# so the ibm-ca-operator picks up the upgrade.
+# Gate: uses per-resource version comparison (not is_cpd_service_upgrade) so this fires even
+# on re-runs where ca-addon-cr was already patched in a prior interrupted run.
+- name: "cp4d_service : Lookup current CAService/ca-addon-cr version"
+  when: cpd_service_name == 'ca'
+  kubernetes.core.k8s_info:
+    api_version: ca.cpd.ibm.com/v1
+    kind: CAService
+    name: ca-addon-cr
+    namespace: "{{ cpd_instance_namespace }}"
+  register: ca_addon_current
+
+- name: "cp4d_service : Patch Cognos Analytics addon (CAService/ca-addon-cr) to version {{ cpd_components_meta.cognos_analytics.cr_version }}"
+  when:
+    - cpd_service_name == 'ca'
+    - ca_addon_current.resources | length > 0
+    - ca_addon_current.resources[0].spec.version is version(cpd_components_meta.cognos_analytics.cr_version, '<')
+  kubernetes.core.k8s:
+    api_version: ca.cpd.ibm.com/v1
+    kind: CAService
+    name: ca-addon-cr
+    namespace: "{{ cpd_instance_namespace }}"
+    merge_type: merge
+    definition:
+      spec:
+        version: "{{ cpd_components_meta.cognos_analytics.cr_version }}"
+        ccs_operand_version: "{{ cpd_components_meta.ccs.cr_version }}"
+
+- name: "cp4d_service : Wait for Cognos Analytics addon (CAService/ca-addon-cr) to reach caAddonStatus 'Completed' and reconciled version (5m interval)"
+  when:
+    - cpd_service_name == 'ca'
+    - ca_addon_current.resources | length > 0
+    - ca_addon_current.resources[0].spec.version is version(cpd_components_meta.cognos_analytics.cr_version, '<')
+  kubernetes.core.k8s_info:
+    api_version: ca.cpd.ibm.com/v1
+    kind: CAService
+    name: ca-addon-cr
+    namespace: "{{ cpd_instance_namespace }}"
+  register: ca_addon_upgrade_wait
+  retries: 24  # Up to ~120 minutes
+  delay: 300   # Every 5 minutes
+  until:
+    - ca_addon_upgrade_wait.resources is defined
+    - ca_addon_upgrade_wait.resources | length == 1
+    - ca_addon_upgrade_wait.resources[0].status is defined
+    - ca_addon_upgrade_wait.resources[0].status.caAddonStatus is defined
+    - ca_addon_upgrade_wait.resources[0].status.caAddonStatus == "Completed"
+    - ca_addon_upgrade_wait.resources[0].status.versions is defined
+    - ca_addon_upgrade_wait.resources[0].status.versions.reconciled is version(cpd_components_meta.cognos_analytics.cr_version, '>=')
+
+- name: "cp4d_service : Assert Cognos Analytics addon (CAService/ca-addon-cr) reached caAddonStatus 'Completed'"
+  when:
+    - cpd_service_name == 'ca'
+    - ca_addon_current.resources | length > 0
+    - ca_addon_current.resources[0].spec.version is version(cpd_components_meta.cognos_analytics.cr_version, '<')
+  assert:
+    that:
+      - ca_addon_upgrade_wait.resources[0].status.caAddonStatus == "Completed"
+      - ca_addon_upgrade_wait.resources[0].status.versions.reconciled is version(cpd_components_meta.cognos_analytics.cr_version, '>=')
+    fail_msg: "Cognos Analytics addon (CAService/ca-addon-cr) failed to upgrade (caAddonStatus != Completed or reconciled version mismatch)"
+
+# 7a-post. Verify CCS is ready at target version before patching tenant instances
+# -----------------------------------------------------------------------------
+# ca-addon-cr reconcile upgrades the CCS dependency. We must confirm ccs-cr has also
+# reached ccsStatus=Completed at the target version before touching CAServiceInstance CRs,
+# otherwise the ibm-ca-operator will reject the instance upgrade with a version mismatch.
+- name: "cp4d_service : Wait for CCS (ccs-cr) to reach ccsStatus 'Completed' at version {{ cpd_components_meta.ccs.cr_version }} (5m interval)"
+  when: cpd_service_name == 'ca'
+  kubernetes.core.k8s_info:
+    api_version: ccs.cpd.ibm.com/v1beta1
+    kind: CCS
+    name: ccs-cr
+    namespace: "{{ cpd_instance_namespace }}"
+  register: ccs_readiness_wait
+  retries: 12  # Up to ~60 minutes
+  delay: 300   # Every 5 minutes
+  until:
+    - ccs_readiness_wait.resources is defined
+    - ccs_readiness_wait.resources | length == 1
+    - ccs_readiness_wait.resources[0].status is defined
+    - ccs_readiness_wait.resources[0].status.ccsStatus is defined
+    - ccs_readiness_wait.resources[0].status.ccsStatus == "Completed"
+    - ccs_readiness_wait.resources[0].spec.version is version(cpd_components_meta.ccs.cr_version, '>=')
+
+- name: "cp4d_service : Assert CCS (ccs-cr) is ready at target version {{ cpd_components_meta.ccs.cr_version }}"
+  when: cpd_service_name == 'ca'
+  assert:
+    that:
+      - ccs_readiness_wait.resources[0].status.ccsStatus == "Completed"
+      - ccs_readiness_wait.resources[0].spec.version is version(cpd_components_meta.ccs.cr_version, '>=')
+    fail_msg: "CCS (ccs-cr) is not ready at target version {{ cpd_components_meta.ccs.cr_version }} (ccsStatus={{ ccs_readiness_wait.resources[0].status.ccsStatus }}, version={{ ccs_readiness_wait.resources[0].spec.version }})"
+
 # This is just a validation step to prevent the "wait tasks" to run before it gives enough time for the new cpd service operator version
 # to start reconciling in case of an upgrade, otherwise it might not have given enough time for it to process the new version to be upgrade
 # while its status' cr might still show 'completed'.
@@ -224,6 +452,117 @@
 - name: "Pause for 5 minutes before checking cpd service {{ cpd_service_name }} cr status..."
   pause:
     minutes: 5
+
+# 7b. Upgrade existing Cognos Analytics tenant instances (CAServiceInstance)
+# -----------------------------------------------------------------------------
+# User-created CAServiceInstance CRs are not owned by the Cognos addon CR and
+# therefore do not automatically receive a spec.version update during a service
+# upgrade. Patch only tenant instances whose spec.version is older than the
+# target version and wait for reconciliation to complete.
+# Re-fetch instances here (after ca-addon-cr and CCS are confirmed complete) so the
+# version comparison uses live data, not stale data from a pre-patch lookup.
+- name: "cp4d_service : Discover existing Cognos Analytics tenant instances (CAServiceInstance) in {{ cpd_instance_namespace }}"
+  when:
+    - cpd_service_name == 'ca'
+  kubernetes.core.k8s_info:
+    api_version: ca.cpd.ibm.com/v1
+    kind: CAServiceInstance
+    namespace: "{{ cpd_instance_namespace }}"
+  register: existing_ca_instances
+
+- name: "cp4d_service : Debug - Cognos Analytics tenant instances found in {{ cpd_instance_namespace }}"
+  when:
+    - cpd_service_name == 'ca'
+  debug:
+    msg: >-
+      {{
+        (existing_ca_instances.resources | length > 0)
+        | ternary(
+            'Found '
+            + (existing_ca_instances.resources | length | string)
+            + ' CAServiceInstance(s): '
+            + (existing_ca_instances.resources | map(attribute='metadata.name') | list | join(', '))
+            + ' (target version: '
+            + cpd_components_meta.cognos_analytics.cr_version
+            + ')',
+            'No CAServiceInstance CRs found in '
+            + cpd_instance_namespace
+            + ' - skipping Cognos tenant instance upgrade'
+        )
+      }}
+
+- name: "cp4d_service : Patch stale Cognos Analytics tenant instances to version {{ cpd_components_meta.cognos_analytics.cr_version }}"
+  when:
+    - cpd_service_name == 'ca'
+    - existing_ca_instances.resources is defined
+    - existing_ca_instances.resources | length > 0
+    - item.spec.version is version(cpd_components_meta.cognos_analytics.cr_version, '<')
+  kubernetes.core.k8s:
+    api_version: ca.cpd.ibm.com/v1
+    kind: CAServiceInstance
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ cpd_instance_namespace }}"
+    merge_type: merge
+    definition:
+      spec:
+        version: "{{ cpd_components_meta.cognos_analytics.cr_version }}"
+  loop: "{{ existing_ca_instances.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }} ({{ item.spec.version }} → {{ cpd_components_meta.cognos_analytics.cr_version }})"
+
+# Wait up to 2 hours (24 retries × 5 minutes) per instance.
+# CAServiceInstance upgrades run a full Ansible playbook inside the operator pod and can
+# take 60-90 minutes. The when condition does not filter by spec.version (stale pre-patch
+# data) — it waits for all discovered instances so none are missed.
+# Checks both caStatus=Completed AND versions.reconciled >= target to avoid a stale
+# Completed from a previous reconcile cycle. Also exits early on failMessage.
+- name: "cp4d_service : Wait for Cognos Analytics tenant instances to reach caStatus 'Completed' (5m interval, up to 2h)"
+  when:
+    - cpd_service_name == 'ca'
+    - existing_ca_instances.resources is defined
+    - existing_ca_instances.resources | length > 0
+  kubernetes.core.k8s_info:
+    api_version: ca.cpd.ibm.com/v1
+    kind: CAServiceInstance
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ cpd_instance_namespace }}"
+  register: ca_instance_upgrade_wait
+  retries: 24  # Up to ~120 minutes per instance
+  delay: 300   # Every 5 minutes
+  until:
+    - ca_instance_upgrade_wait.resources is defined
+    - ca_instance_upgrade_wait.resources | length == 1
+    - ca_instance_upgrade_wait.resources[0].status is defined
+    - ca_instance_upgrade_wait.resources[0].status.caStatus == "Completed"
+    - ca_instance_upgrade_wait.resources[0].status.versions is defined
+    - ca_instance_upgrade_wait.resources[0].status.versions.reconciled is version(cpd_components_meta.cognos_analytics.cr_version, '>=')
+    - (ca_instance_upgrade_wait.resources[0].status.failMessage | default('')) == ''
+  loop: "{{ existing_ca_instances.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+
+- name: "cp4d_service : Assert all Cognos Analytics tenant instances upgraded successfully"
+  when:
+    - cpd_service_name == 'ca'
+    - existing_ca_instances.resources is defined
+    - existing_ca_instances.resources | length > 0
+  assert:
+    that:
+      - ca_instance_upgrade_wait.results
+          | map(attribute='resources')
+          | map('first')
+          | map(attribute='status.caStatus')
+          | list
+          | unique == ['Completed']
+      - ca_instance_upgrade_wait.results
+          | map(attribute='resources')
+          | map('first')
+          | map(attribute='status.versions.reconciled')
+          | list
+          | unique == [cpd_components_meta.cognos_analytics.cr_version]
+    fail_msg: >-
+      One or more Cognos Analytics tenant instances failed to upgrade to
+      {{ cpd_components_meta.cognos_analytics.cr_version }}.
 
 # 8. Wait for CP4D Service to be ready
 # -----------------------------------------------------------------------------
