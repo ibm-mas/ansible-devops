@@ -1,8 +1,81 @@
 ---
 # Setup Helm Repository for CPD Charts
-# This task adds the IBM Helm repository and updates the index
+# Online mode:  adds the IBM GitHub Helm repo and updates the index
+# Airgap mode:  skips repo add/update; logs in to the OCI registry instead
+#               (OCI registries are referenced directly, not as named repos)
+#
+# Airgap auto-detection (when CPD_AIRGAP_HELM_REPO_URL is not set explicitly):
+#   1. Query ImageDigestMirrorSet with label mas.ibm.com/idmsContent=ibm for
+#      idmsRegistryHost / idmsRegistryPort / idmsRegistryPrefix annotations
+#      (written by ocp_idms role during configure-airgap)
+#   2. Read openshift-config/pull-secret and extract credentials for that host
+#      (written by ocp_idms role during configure-airgap)
 
+# Airgap auto-detection
+# -----------------------------------------------------------------------------
+- name: "Query ImageDigestMirrorSet for airgap registry (auto-detect)"
+  when: cpd_airgap_helm_repo_url == ""
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: ImageDigestMirrorSet
+    label_selectors:
+      - "mas.ibm.com/idmsContent=ibm"
+  register: idms_lookup
+
+- name: "Derive airgap helm repo URL from IDMS annotations"
+  when:
+    - cpd_airgap_helm_repo_url == ""
+    - idms_lookup.resources is defined
+    - idms_lookup.resources | length > 0
+  vars:
+    _idms: "{{ idms_lookup.resources[0] }}"
+    _host: "{{ _idms.metadata.annotations['mas.ibm.com/idmsRegistryHost'] | default('') }}"
+    _port: "{{ _idms.metadata.annotations['mas.ibm.com/idmsRegistryPort'] | default('') }}"
+    _prefix: "{{ _idms.metadata.annotations['mas.ibm.com/idmsRegistryPrefix'] | default('') }}"
+    _url: "{{ _host }}{% if _port != '' %}:{{ _port }}{% endif %}{% if _prefix != '' %}/{{ _prefix }}{% endif %}"
+  set_fact:
+    cpd_airgap_helm_repo_url: "oci://{{ _url }}/charts"
+    _idms_registry_host: "{{ _host }}"
+
+- name: "Re-evaluate cpd_helm_airgap after auto-detection"
+  when: cpd_airgap_helm_repo_url != ""
+  set_fact:
+    cpd_helm_airgap: true
+
+- name: "Read global pull secret for airgap registry credentials"
+  when:
+    - cpd_helm_airgap
+    - registry_username == ""
+    - _idms_registry_host is defined and _idms_registry_host != ""
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: pull-secret
+    namespace: openshift-config
+  register: pull_secret_lookup
+  no_log: true
+
+- name: "Extract registry credentials from global pull secret"
+  when:
+    - cpd_helm_airgap
+    - registry_username == ""
+    - pull_secret_lookup.resources is defined
+    - pull_secret_lookup.resources | length > 0
+  vars:
+    _dockerconfig: "{{ pull_secret_lookup.resources[0].data['.dockerconfigjson'] | b64decode | from_json }}"
+    _auths: "{{ _dockerconfig.auths | default({}) }}"
+    # Find the entry whose key starts with the registry host
+    _registry_key: "{{ _auths.keys() | select('match', '^' + _idms_registry_host) | list | first | default('') }}"
+    _auth_decoded: "{{ (_auths[_registry_key].auth | default('')) | b64decode }}"
+  set_fact:
+    registry_username: "{{ _auth_decoded.split(':')[0] | default('') }}"
+    registry_password: "{{ _auth_decoded.split(':', 1)[1] | default('') }}"
+  no_log: true
+
+# Online path
+# -----------------------------------------------------------------------------
 - name: "Add IBM Helm repository"
+  when: not cpd_helm_airgap
   command: helm repo add {{ cpd_helm_repo_name }} {{ cpd_helm_repo_url }}
   register: repo_add
   changed_when: "'already exists' not in repo_add.stderr"
@@ -11,11 +84,42 @@
     - "'already exists' not in repo_add.stderr"
 
 - name: "Update Helm repositories"
+  when: not cpd_helm_airgap
   command: helm repo update
   changed_when: true
 
 - name: "Helm repository configured"
+  when: not cpd_helm_airgap
   debug:
     msg:
       - "Helm repository: {{ cpd_helm_repo_name }}"
       - "Repository URL: {{ cpd_helm_repo_url }}"
+
+# Airgap path
+# -----------------------------------------------------------------------------
+- name: "Login to OCI Helm registry (airgap)"
+  when:
+    - cpd_helm_airgap
+    - registry_username != ""
+  shell: >
+    helm registry login {{ cpd_airgap_helm_repo_url | regex_replace('^oci://', '') }}
+    --username {{ registry_username }}
+    --password {{ registry_password }}
+    --insecure
+  no_log: true
+  register: helm_oci_login
+
+- name: "Fail if OCI registry login failed (airgap)"
+  when:
+    - cpd_helm_airgap
+    - registry_username != ""
+  assert:
+    that: helm_oci_login.rc == 0
+    fail_msg: "helm registry login failed: {{ helm_oci_login.stderr }}"
+
+- name: "Helm OCI registry configured (airgap)"
+  when: cpd_helm_airgap
+  debug:
+    msg:
+      - "Airgap mode: OCI registry"
+      - "Registry URL: {{ cpd_airgap_helm_repo_url }}"

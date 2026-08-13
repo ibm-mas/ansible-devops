@@ -376,7 +376,7 @@
         case_version: "{{ mas_catalog_metadata.wsl_version }}"
         exclude_images: []
         ibmpak_skip_dependencies: false
-        casectl_resolve_charts: false
+        casectl_resolve_charts: true
 
     - role: ibm.mas_devops.mirror_images
       when:
@@ -527,6 +527,25 @@
         manifest_name: ibm-opensearch-operator
         manifest_version: "{{ mas_catalog_metadata.opensearch_version }}"
 
+    # 7.4.1 opencontent-opensearch Helm charts (not in any CASE bundle)
+    # These charts are only available from the IBM public Helm repo and must be
+    # pulled directly and pushed to the airgap OCI registry.
+    # Gated on mirror_wsl or mirror_wml as both use opensearch as a dependency.
+    # -------------------------------------------------------------------------
+    - role: ibm.mas_devops.mirror_images
+      when:
+        - mirror_wsl or mirror_wml
+        - cpd_52_or_higher
+      vars:
+        manifest_name: cpd-opensearch-helm-charts
+        manifest_version: "{{ mas_catalog_metadata.opensearch_version }}"
+        helm_pull_charts:
+          - name: opencontent-opensearch
+            version: "{{ mas_catalog_metadata.opensearch_version }}"
+          - name: opencontent-opensearch-cluster-scoped
+            version: "{{ mas_catalog_metadata.opensearch_version }}"
+        helm_pull_repo_url: "https://raw.githubusercontent.com/IBM/charts/master/repo/ibm-helm"
+
     # 7.5 IBM Watson Studio
     # -------------------------------------------------------------------------
     - role: ibm.mas_devops.mirror_case_prepare
@@ -562,6 +581,29 @@
       vars:
         manifest_name: ibm-wml-cpd
         manifest_version: "{{ mas_catalog_metadata.wml_version }}"
+
+    # 8.1 IBM Redis CP (WML dependency)
+    # ibm-redis-cp CASE bundle ships Helm charts — mirror_images handles both
+    # images and charts in one pass.
+    # -------------------------------------------------------------------------
+    - role: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_wml
+        - mirror_mode != "from-filesystem"
+        - mas_catalog_metadata.redis_version is defined
+      vars:
+        case_name: ibm-redis-cp
+        case_version: "{{ mas_catalog_metadata.redis_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: false
+
+    - role: ibm.mas_devops.mirror_images
+      when:
+        - mirror_wml
+        - mas_catalog_metadata.redis_version is defined
+      vars:
+        manifest_name: ibm-redis-cp
+        manifest_version: "{{ mas_catalog_metadata.redis_version }}"
 
     # 9. Analytics Engine (Spark)
     # -------------------------------------------------------------------------

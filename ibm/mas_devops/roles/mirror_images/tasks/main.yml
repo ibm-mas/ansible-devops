@@ -33,36 +33,45 @@
     dest: "{{ auth_file }}"
   no_log: true
 
-# 3. Modify the manifest
+# 3. Modify the manifest (skipped when helm_pull_charts is set — no manifest file exists)
 # -----------------------------------------------------------------------------
 - name: Validate that mirror_single_arch is correctly set
+  when: helm_pull_charts is not defined
   assert:
     that: mirror_single_arch in ["amd64", "ppc64le", "s390x"]
     fail_msg: "mirror_single_arch must be one of amd64, ppc64le, or s390x"
 
 - name: Set up exclusion rules for amd64
-  when: mirror_single_arch == "amd64"
+  when:
+    - helm_pull_charts is not defined
+    - mirror_single_arch == "amd64"
   set_fact:
     exclude_arch:
       - s390x
       - ppc64le
 
 - name: Set up exclusion rules for ppc64le
-  when: mirror_single_arch == "ppc64le"
+  when:
+    - helm_pull_charts is not defined
+    - mirror_single_arch == "ppc64le"
   set_fact:
     exclude_arch:
       - s390x
       - amd64
 
 - name: Set up exclusion rules for s390x
-  when: mirror_single_arch == "s390x"
+  when:
+    - helm_pull_charts is not defined
+    - mirror_single_arch == "s390x"
   set_fact:
     exclude_arch:
       - amd64
       - ppc64le
 
 - name: "Remove any container images with a tag ending in '-{arch}'"
-  when: mirror_single_arch in ["amd64", "ppc64le", "s390x"]
+  when:
+    - helm_pull_charts is not defined
+    - mirror_single_arch in ["amd64", "ppc64le", "s390x"]
   ansible.builtin.lineinfile:
     path: "{{ mirror_working_dir }}/manifests/{{ mirror_mode }}/{{ manifest_name }}_{{ manifest_version }}.txt"
     state: absent
@@ -73,7 +82,9 @@
 # Special case for Db2u
 # https://github.com/ibm-mas/ansible-devops/issues/1075
 - name: "Remove CP4D Db2u images (11.5.8.0)"
-  when: manifest_name == "ibm-db2uoperator"
+  when:
+    - helm_pull_charts is not defined
+    - manifest_name == "ibm-db2uoperator"
   ansible.builtin.lineinfile:
     path: "{{ mirror_working_dir }}/manifests/{{ mirror_mode }}/{{ manifest_name }}_{{ manifest_version }}.txt"
     state: absent
@@ -83,7 +94,9 @@
 # 4A. Execute the mirror (to filesystem)
 # -----------------------------------------------------------------------------
 - name: "{{ manifest_name }} : Mirror Images to local filesystem"
-  when: mirror_mode == "to-filesystem"
+  when:
+    - helm_pull_charts is not defined
+    - mirror_mode == "to-filesystem"
   block:
     - name: "{{ manifest_name }}: Run mirror command"
       shell: |
@@ -114,6 +127,7 @@
 # -----------------------------------------------------------------------------
 - name: "Create AWS ECR Repositories - direct mode"
   when:
+    - helm_pull_charts is not defined
     - mirror_mode == "direct"
     - registry_is_ecr == true
   block:
@@ -158,6 +172,7 @@
 # -----------------------------------------------------------------------------
 - name: "Create AWS ECR Repositories - from-filesystem mode"
   when:
+    - helm_pull_charts is not defined
     - mirror_mode == "from-filesystem"
     - registry_is_ecr == true
   block:
@@ -201,7 +216,9 @@
 # 4C. Execute the mirror (from filesystem)
 # -----------------------------------------------------------------------------
 - name: "{{ manifest_name }} : Mirror Images from local filesystem"
-  when: mirror_mode == "from-filesystem"
+  when:
+    - helm_pull_charts is not defined
+    - mirror_mode == "from-filesystem"
   block:
     - name: "{{ manifest_name }} : Run mirror command"
       shell: |
@@ -231,7 +248,9 @@
 # 4D. Execute the mirror (direct)
 # -----------------------------------------------------------------------------
 - name: "Mirror Images directly"
-  when: mirror_mode == "direct"
+  when:
+    - helm_pull_charts is not defined
+    - mirror_mode == "direct"
   block:
     - name: "{{ manifest_name }} : Run mirror command"
       shell: |
@@ -256,3 +275,21 @@
       assert:
         that: ocimagemirror_result.rc == 0
         fail_msg: "Image mirroring failed (see debug information above)."
+
+# 5. Mirror Helm Charts
+# For helm_pull_charts: always run (charts pulled from public repo).
+# For CASE bundles: only run when CPD 5.2+ and the charts directory exists.
+# -----------------------------------------------------------------------------
+- name: "{{ manifest_name }} : Check if CASE charts directory exists"
+  when: helm_pull_charts is not defined
+  stat:
+    path: "~/.ibm-pak/data/cases/{{ manifest_name }}/{{ build_version | default('') }}/charts"
+  register: helm_charts_dir
+
+- name: "{{ manifest_name }} : Mirror Helm charts"
+  when: >
+    (helm_pull_charts is defined) or
+    (cpd_product_version is defined and cpd_product_version != ""
+     and cpd_product_version is version('5.2', '>=')
+     and helm_charts_dir.stat.exists | default(false))
+  include_tasks: "{{ role_path }}/tasks/mirror_helm.yml"
