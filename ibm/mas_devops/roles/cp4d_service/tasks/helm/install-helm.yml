@@ -5,11 +5,6 @@
 - name: "Setup Helm repository"
   include_tasks: "setup-helm-repo.yml"
 
-- name: "Assert that an entitlement key has been provided"
-  assert:
-    that: cpd_entitlement_key is defined and cpd_entitlement_key != ""
-    fail_msg: "IBM_ENTITLEMENT_KEY or CPD_ENTITLEMENT_KEY must be set"
-
 - name: "Create IBM entitlement secrets"
   block:
     - name: "Create IBM entitlement secret in operator namespace"
@@ -29,7 +24,7 @@
           auths:
             cp.icr.io:
               username: cp
-              password: "{{ cpd_entitlement_key }}"
+              password: "{{ ibm_entitlement_key }}"
 
     - name: "Create IBM entitlement secret in instance namespace"
       kubernetes.core.k8s:
@@ -48,7 +43,7 @@
           auths:
             cp.icr.io:
               username: cp
-              password: "{{ cpd_entitlement_key }}"
+              password: "{{ ibm_entitlement_key }}"
 
 - name: "Get component metadata"
   set_fact:
