@@ -4,26 +4,65 @@
 # Can be configured immediately after project creation
 
 # Validate prerequisites before attempting configuration
-- name: "Validate alert notification emails are provided"
+- name: "Validate alert webhook secret name is provided"
   when: atlas_enable_alerts | bool
   assert:
     that:
-      - atlas_alert_notification_emails is defined
-      - atlas_alert_notification_emails != ""
-      - atlas_alert_notification_emails != "[]"
-    fail_msg: "At least one email address is required in atlas_alert_notification_emails when alerts are enabled"
+      - atlas_alert_webhook_secret_name is defined
+      - atlas_alert_webhook_secret_name != ""
+    fail_msg: "atlas_alert_webhook_secret_name is required when alerts are enabled. Ensure atlas_account_id is set."
 
 - name: "Configure Atlas project-level alert monitoring"
   when: atlas_enable_alerts | bool
   block:
-    - name: "Parse alert notification emails"
-      set_fact:
-        atlas_alert_emails_list: "{{ atlas_alert_notification_emails if atlas_alert_notification_emails is iterable and atlas_alert_notification_emails is not string else (atlas_alert_notification_emails.split(',') if atlas_alert_notification_emails is string else atlas_alert_notification_emails | from_json) }}"
+    # Step 1: Read webhook credentials from AWS Secrets Manager
+    - name: "Get webhook credentials from AWS Secrets Manager"
+      shell: |
+        aws secretsmanager get-secret-value \
+          --secret-id "{{ atlas_alert_webhook_secret_name }}" \
+          --region "{{ atlas_aws_region }}" \
+          --query SecretString \
+          --output text
+      register: atlas_webhook_secret_output
+      failed_when: atlas_webhook_secret_output.rc != 0
+      no_log: true
 
-    - name: "Build email notifications list"
+    - name: "Parse webhook credentials from secret"
       set_fact:
-        atlas_email_notifications: "{{ atlas_email_notifications | default([]) + [{'typeName': 'EMAIL', 'emailAddress': item, 'delayMin': 0, 'intervalMin': atlas_alert_interval_min}] }}"
-      loop: "{{ atlas_alert_emails_list }}"
+        atlas_webhook_credentials: "{{ atlas_webhook_secret_output.stdout | from_json }}"
+      no_log: true
+
+    - name: "Set webhook url and secret from AWS Secrets Manager"
+      set_fact:
+        atlas_alert_webhook_url: "{{ atlas_webhook_credentials.webhook_url }}"
+        atlas_alert_webhook_secret: "{{ atlas_webhook_credentials.webhook_secret }}"
+      no_log: true
+
+    # Step 2: Register the webhook integration with Atlas (must happen before alert configs)
+    - name: "Register webhook integration with Atlas project"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/integrations/WEBHOOK"
+        method: PUT
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: false
+        body:
+          type: "WEBHOOK"
+          url: "{{ atlas_alert_webhook_url }}"
+          secret: "{{ atlas_alert_webhook_secret }}"
+        body_format: json
+        status_code: [200, 201]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_webhook_integration
+      no_log: true
+
+    # Step 3: Build the webhook notifications list used by all alert configs
+    - name: "Build webhook notifications list"
+      set_fact:
+        atlas_webhook_notifications:
+          - typeName: "WEBHOOK"
+            delayMin: 0
+            intervalMin: "{{ atlas_alert_interval_min }}"
 
     - name: "Display project-level alert configuration"
       debug:
@@ -32,10 +71,12 @@
           - "Atlas Project-Level Alert Configuration"
           - "=========================================="
           - "Alerts Enabled: true"
-          - "Notification Emails: {{ atlas_alert_emails_list | join(', ') }}"
+          - "Notification Method: WEBHOOK (OCM)"
+          - "Webhook Secret Name: {{ atlas_alert_webhook_secret_name }}"
           - "Configuring: CPU, Memory, Connection alerts"
           - "=========================================="
 
+    # Step 4: Create alert configs — all using webhook notifications
     # Basic Performance Alerts (No cluster matcher required)
     # CPU, Memory, and Connection alerts
     - name: "Configure basic performance alerts"
@@ -56,7 +97,7 @@
                 threshold: "{{ atlas_alert_cpu_thresholds[0] }}"
                 units: "RAW"
                 mode: "AVERAGE"
-              notifications: "{{ atlas_email_notifications }}"
+              notifications: "{{ atlas_webhook_notifications }}"
             body_format: json
             status_code: [200, 201]
             timeout: "{{ atlas_api_timeout }}"
@@ -78,7 +119,7 @@
                 threshold: "{{ atlas_alert_cpu_thresholds[1] }}"
                 units: "RAW"
                 mode: "AVERAGE"
-              notifications: "{{ atlas_email_notifications }}"
+              notifications: "{{ atlas_webhook_notifications }}"
             body_format: json
             status_code: [200, 201]
             timeout: "{{ atlas_api_timeout }}"
@@ -100,7 +141,7 @@
                 threshold: "{{ atlas_alert_memory_thresholds[0] }}"
                 units: "RAW"
                 mode: "AVERAGE"
-              notifications: "{{ atlas_email_notifications }}"
+              notifications: "{{ atlas_webhook_notifications }}"
             body_format: json
             status_code: [200, 201]
             timeout: "{{ atlas_api_timeout }}"
@@ -122,7 +163,7 @@
                 threshold: "{{ atlas_alert_memory_thresholds[1] }}"
                 units: "RAW"
                 mode: "AVERAGE"
-              notifications: "{{ atlas_email_notifications }}"
+              notifications: "{{ atlas_webhook_notifications }}"
             body_format: json
             status_code: [200, 201]
             timeout: "{{ atlas_api_timeout }}"
@@ -144,7 +185,7 @@
                 threshold: "{{ atlas_alert_connection_thresholds[0] }}"
                 units: "RAW"
                 mode: "AVERAGE"
-              notifications: "{{ atlas_email_notifications }}"
+              notifications: "{{ atlas_webhook_notifications }}"
             body_format: json
             status_code: [200, 201]
             timeout: "{{ atlas_api_timeout }}"
@@ -166,7 +207,7 @@
                 threshold: "{{ atlas_alert_connection_thresholds[1] }}"
                 units: "RAW"
                 mode: "AVERAGE"
-              notifications: "{{ atlas_email_notifications }}"
+              notifications: "{{ atlas_webhook_notifications }}"
             body_format: json
             status_code: [200, 201]
             timeout: "{{ atlas_api_timeout }}"
@@ -192,7 +233,7 @@
                 threshold: 1000
                 units: "RAW"
                 mode: "AVERAGE"
-              notifications: "{{ atlas_email_notifications }}"
+              notifications: "{{ atlas_webhook_notifications }}"
             body_format: json
             status_code: [200, 201]
             timeout: "{{ atlas_api_timeout }}"
@@ -206,6 +247,7 @@
           - "=========================================="
           - "Status: Successfully Configured"
           - "Project ID: {{ atlas_project_id }}"
+          - "Notification Method: WEBHOOK (OCM)"
           - "Alerts Created: {{ '7 (CPU, Memory, Connections, Query Performance)' if atlas_enable_performance_alerts else '6 (CPU, Memory, Connections)' }}"
           - "Note: Cluster-level alerts will be configured after cluster creation"
           - "=========================================="
@@ -221,7 +263,7 @@
           - "Common causes:"
           - "1. Invalid API credentials"
           - "2. Insufficient permissions"
-          - "3. Invalid email addresses"
+          - "3. Webhook secret not found in AWS Secrets Manager ({{ atlas_alert_webhook_secret_name }})"
           - "4. Alert already exists (not an error, can be ignored)"
           - "=========================================="
           - "Error details:"
