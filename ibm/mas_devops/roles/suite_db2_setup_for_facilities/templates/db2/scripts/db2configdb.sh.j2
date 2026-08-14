@@ -39,8 +39,12 @@ echo "Return code for starting instance $DB2_INSTANCE_USERNAME is $rc"
 
 ok=0
 
-# connect to the newly created database - required 
+# Fix SQL0290N  Table space access is not allowed.  SQLSTATE=55039
+if ! $(ls /mnt/tempts/systemp/db2inst1/NODE0000/{{ db2_dbname }}/T0000001); then
+    db2 "restart database {{ db2_dbname }} drop pending tablespaces (TEMPSPACE1)"
+fi
 
+# connect to the newly created database - required 
 echo "$DB2_HOME/bin/db2 connect to $DB2_DBNAME"
 $DB2_HOME/bin/db2 connect to $DB2_DBNAME
 rc=$?

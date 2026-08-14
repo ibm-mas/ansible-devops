@@ -1,0 +1,19 @@
+---
+- name: "Check if Subscription '{{ subscription_name }}' exists in {{ subscription_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ subscription_namespace }}"
+    name: "{{ subscription_name }}"
+  register: subscription_lookup
+
+- name: "Delete subscriptions from {{ subscription_namespace }}"
+  when: subscription_lookup.resources | length > 0
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ subscription_namespace }}"
+    name: "{{ subscription_name }}"
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"

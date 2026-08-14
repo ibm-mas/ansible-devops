@@ -148,20 +148,17 @@ mongodb_v8_upgrade: "{{ lookup('env', 'MONGODB_V8_UPGRADE') | default(false, tru
 atlas_api_base_url: "{{ lookup('env', 'ATLAS_API_BASE_URL') | default('https://cloud.mongodb.com/api/atlas/v1.0', True) }}"
 atlas_api_timeout: "{{ lookup('env', 'ATLAS_API_TIMEOUT') | default(30, True) }}"
 
-# Atlas API Credentials (can be provided directly or via AWS Secrets Manager)
-atlas_public_key: "{{ lookup('env', 'ATLAS_PUBLIC_KEY') }}"
-atlas_private_key: "{{ lookup('env', 'ATLAS_PRIVATE_KEY') }}"
-
-# AWS Secrets Manager Configuration (optional - for retrieving Atlas credentials)
-atlas_aws_secret_name: "{{ lookup('env', 'ATLAS_AWS_SECRET_NAME') }}"
-atlas_aws_secret_region: "{{ lookup('env', 'ATLAS_AWS_SECRET_REGION') | default('us-east-1', True) }}"
-
 # Atlas Organization and Project Configuration
 atlas_org_id: "{{ lookup('env', 'ATLAS_ORG_ID') }}"
 atlas_project_id: "{{ lookup('env', 'ATLAS_PROJECT_ID') }}"
 atlas_project_name: "{{ lookup('env', 'ATLAS_PROJECT_NAME') }}"
 atlas_cluster_name: "{{ lookup('env', 'ATLAS_CLUSTER_NAME') }}"
 atlas_account_id: "{{ lookup('env', 'ATLAS_ACCOUNT_ID') }}"
+
+# AWS Secrets Manager Configuration (required - for retrieving Atlas credentials)
+# Secret name follows the format: <atlas_account_id>/mongodb-atlas
+# Atlas API credentials are ONLY retrieved from AWS Secrets Manager
+atlas_aws_secret_name: "{{ atlas_account_id }}/mongodb-atlas"
 atlas_backup_compliance_enabled: "{{ (lookup('env', 'ATLAS_BACKUP_COMPLIANCE_ENABLED') | default('false', True)) | bool }}"
 # Atlas Backup Compliance Policy Configuration
 ## Authorized user details for compliance policy changes
@@ -193,6 +190,47 @@ atlas_compliance_monthly_retention_value: "{{ lookup('env', 'ATLAS_COMPLIANCE_MO
 atlas_compliance_yearly_frequency_interval: "{{ lookup('env', 'ATLAS_COMPLIANCE_YEARLY_FREQUENCY_INTERVAL') | default(1, True) | int }}"
 atlas_compliance_yearly_retention_unit: "{{ lookup('env', 'ATLAS_COMPLIANCE_YEARLY_RETENTION_UNIT') | default('years', True) }}"
 atlas_compliance_yearly_retention_value: "{{ lookup('env', 'ATLAS_COMPLIANCE_YEARLY_RETENTION_VALUE') | default(1, True) | int }}"
+
+# Atlas Audit Logging Configuration
+# MongoDB Atlas Auditing captures database operations for compliance and security
+# Required for FedRAMP, HIPAA, and other regulatory compliance
+atlas_audit_enabled: "{{ (lookup('env', 'ATLAS_AUDIT_ENABLED') | default('false', True)) | bool }}"
+# Custom audit filter (JSON string). If not provided, a default comprehensive filter will be generated
+# that excludes MAS instance users (from atlas_mas_instances) from audit logs while capturing:
+# - Authentication events (authenticate, logout)
+# - Authorization failures
+# - Critical database operations (DDL, DML, user/role management)
+atlas_audit_filter: "{{ lookup('env', 'ATLAS_AUDIT_FILTER') | default('', True) }}"
+atlas_audit_authorization_success: "{{ (lookup('env', 'ATLAS_AUDIT_AUTHORIZATION_SUCCESS') | default('true', True)) | bool }}"
+
+# Atlas S3 Audit Log Export Configuration
+# Export MongoDB Atlas audit logs to AWS S3 for long-term retention and compliance
+atlas_s3_audit_export_enabled: "{{ (lookup('env', 'ATLAS_S3_AUDIT_EXPORT_ENABLED') | default('false', True)) | bool }}"
+atlas_s3_audit_bucket_prefix: "{{ lookup('env', 'ATLAS_S3_AUDIT_BUCKET_PREFIX') | default('mongodb-atlas-audit-logs', True) }}"
+atlas_s3_audit_log_retention_days: "{{ lookup('env', 'ATLAS_S3_AUDIT_LOG_RETENTION_DAYS') | default(365, True) | int }}"
+atlas_s3_audit_bucket_enable_versioning: "{{ (lookup('env', 'ATLAS_S3_AUDIT_BUCKET_ENABLE_VERSIONING') | default('false', True)) | bool }}"
+atlas_s3_audit_glacier_transition_days: "{{ lookup('env', 'ATLAS_S3_AUDIT_GLACIER_TRANSITION_DAYS') | default(90, True) | int }}"
+atlas_s3_audit_noncurrent_version_retention_days: "{{ lookup('env', 'ATLAS_S3_AUDIT_NONCURRENT_VERSION_RETENTION_DAYS') | default(30, True) | int }}"
+
+# Atlas Alert Monitoring Configuration
+# Provides proactive notifications for cluster health, performance, and security events
+atlas_enable_alerts: "{{ (lookup('env', 'ATLAS_ENABLE_ALERTS') | default('false', True)) | bool }}"
+atlas_alert_notification_emails: "{{ lookup('env', 'ATLAS_ALERT_NOTIFICATION_EMAILS') | default('[]', True) }}"
+
+# Alert category toggles
+atlas_enable_cluster_health_alerts: "{{ (lookup('env', 'ATLAS_ENABLE_CLUSTER_HEALTH_ALERTS') | default('false', True)) | bool }}"
+atlas_enable_performance_alerts: "{{ (lookup('env', 'ATLAS_ENABLE_PERFORMANCE_ALERTS') | default('false', True)) | bool }}"
+
+# Performance alert thresholds
+# Format: [warning, critical]
+atlas_alert_cpu_thresholds: "{{ lookup('env', 'ATLAS_ALERT_CPU_THRESHOLDS') | default('[70, 80]', True) | from_json }}"
+atlas_alert_memory_thresholds: "{{ lookup('env', 'ATLAS_ALERT_MEMORY_THRESHOLDS') | default('[70, 80]', True) | from_json }}"
+atlas_alert_connection_thresholds: "{{ lookup('env', 'ATLAS_ALERT_CONNECTION_THRESHOLDS') | default('[70, 80]', True) | from_json }}"
+atlas_alert_replication_lag_threshold: "{{ lookup('env', 'ATLAS_ALERT_REPLICATION_LAG_THRESHOLD') | default(30, True) | int }}"
+atlas_alert_oplog_window_threshold_minutes: "{{ lookup('env', 'ATLAS_ALERT_OPLOG_WINDOW_THRESHOLD_MINUTES') | default(60, True) | int }}"
+
+# Alert interval configuration (in minutes) - applies to all metric threshold alerts
+atlas_alert_interval_min: "{{ lookup('env', 'ATLAS_ALERT_INTERVAL_MIN') | default(60, True) | int }}"
 
 # Atlas PrivateLink Configuration
 # PrivateLink provides secure, private connectivity between Atlas and AWS VPC
@@ -285,26 +323,34 @@ mongo_compatible_target_version:
     - "8.0.13"
     - "8.0.17"
     - "8.0.20"
+    - "8.0.23"
   "7.0.22":
     - "7.0.22"
     - "7.0.23"
     - "8.0.13"
     - "8.0.17"
     - "8.0.20"
+    - "8.0.23"
   "7.0.23":
     - "7.0.23"
     - "8.0.13"
     - "8.0.17"
     - "8.0.20"
+    - "8.0.23"
   "8.0.13":
     - "8.0.13"
     - "8.0.17"
     - "8.0.20"
+    - "8.0.23"
   "8.0.17":
     - "8.0.17"
     - "8.0.20"
+    - "8.0.23"
   "8.0.20":
     - "8.0.20"
+    - "8.0.23"
+  "8.0.23":
+    - "8.0.23"
 # destroy-data vars
 # -----------------------------------------------------------------------------
 config: "{{ lookup('env', 'CONFIG') }}"

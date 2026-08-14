@@ -1,0 +1,26 @@
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: mas-{{mas_instance}}-{{route}}
+  namespace: {{servicemesh_gateway_namespace}}
+spec:
+  host: {{route_host}}
+  path: {{route_path}}
+  port:
+    targetPort: https
+  tls:
+    termination: reencrypt
+    certificate: |
+      {{route_tls.certificate | replace('\\n', '\n') | indent(6, first=False)}}
+    key: |
+      {{route_tls.key | replace('\\n', '\n') | indent(6, first=False)}}
+    caCertificate: |
+      {{route_tls.caCertificate | replace('\\n', '\n') | indent(6, first=False)}}
+    destinationCACertificate: |
+      {{route_tls.destinationCACertificate | replace('\\n', '\n') | indent(6, first=False)}}
+  to:
+    kind: Service
+    name: {{gateway_service}}
+    weight: 100
+  wildcardPolicy: None

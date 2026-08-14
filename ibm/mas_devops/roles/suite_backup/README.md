@@ -7,6 +7,9 @@ This role supports backing up MAS Core namespace resources and supporting resour
 in other namespaces; supports creating on-demand full backups.
 
 !!! important
+
+    Supported only for MAS 9.1.x.
+
     Backup can only be restored to an instance with the same MAS instance ID.
 
 
@@ -89,7 +92,7 @@ The MAS Core backup operation captures all critical resources needed to restore 
 - **MAS Internal Resources** (internal.mas.ibm.com):
   - CoreIDP
 - **MAS Configuration Resources** (config.mas.ibm.com):
-  - AppCfg, IDPCfg, JdbcCfg, KafkaCfg, MongoCfg
+  - AppCfg, IDPCfg, JdbcCfg, KafkaCfg, McpiCfg, MongoCfg
   - ObjectStorageCfg, PushNotificationCfg, ScimCfg
   - SmtpCfg, WatsonStudioCfg
   - BasCfg (if `include_dro` is true)
@@ -142,6 +145,7 @@ The MAS Core backup operation performs the following steps:
         ├── idpcfgs/
         ├── jdbccfgs/
         ├── kafkacfgs/
+        ├── mcpicfgs/
         ├── mongocfgs/
         ├── objectstoragecfgs/
         ├── pushnotificationcfgs/

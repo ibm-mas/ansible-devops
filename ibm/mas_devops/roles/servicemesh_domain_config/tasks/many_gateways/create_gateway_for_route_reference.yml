@@ -1,0 +1,64 @@
+---
+# 1. Create Gateway deployment, service etc
+# -----------------------------------------------------------------------------
+- name: "create gateway : Expand the route reference data"
+  set_fact:
+    route_reference : "{{ routeref_configmap.data['route.yml'] | from_yaml }}"
+
+- name: "create gateway : Determine gateway name"
+  set_fact:
+    gateway_name: "gateway-{{ route_reference.metadata.name }}"
+
+- debug:
+    msg:
+      - "gateway_name ..... {{ gateway_name }}"
+
+- name: "create gateway : Set facts for Virtual Service"
+  set_fact:
+    route: "{{ route_reference.metadata.name | regex_replace('^'+mas_instance+'-', '') }}"
+    service_name: "{{ route_reference.spec.to.name }}"
+    service_namespace: "{{ route_reference.metadata.namespace }}"
+    gateway_service: "{{ gateway_name }}"
+    route_host: "{{ route_reference.spec.host }}"
+    route_path: "{{ route_reference.spec.path }}"
+    route_tls: "{{ route_reference.spec.tls }}"
+
+- name: "create gateway : Create Service Mesh Gateway Deployment"
+  kubernetes.core.k8s:
+    template: "templates/gateway-deployment.yml.j2"
+    wait: yes
+    wait_timeout: 300
+
+- name: "create gateway : Create Service Mesh Gateway Service"
+  kubernetes.core.k8s:
+    template: "templates/gateway-service.yml.j2"
+    wait: yes
+    wait_timeout: 120
+
+- name: "create gateway : Create Service Mesh Gateway CR"
+  kubernetes.core.k8s:
+    template: "templates/gateway-passthrough-cr.yml.j2"
+    wait: yes
+    wait_timeout: 120
+
+- name: "create gateway : Set facts for Virtual Service"
+  set_fact:
+    route: "{{ route_reference.metadata.name | regex_replace('^'+mas_instance+'-', '') }}"
+    service_name: "{{ route_reference.spec.to.name }}"
+    service_namespace: "{{ route_reference.metadata.namespace }}"
+    gateway_service: "{{ gateway_name }}"
+    route_host: "{{ route_reference.spec.host }}"
+    route_path: "{{ route_reference.spec.path }}"
+    route_tls: "{{ route_reference.spec.tls }}"
+
+- name: "create gateway : Create Virtual Service for {{route}} to {{service_name}}"
+  kubernetes.core.k8s:
+    template: "templates/virtual-service.yml.j2"
+    wait: yes
+    wait_timeout: 120
+
+- name: "create gateway : Create Route for {{route}} to gateway"
+  kubernetes.core.k8s:
+    template: "templates/route.yml.j2"
+    wait: yes
+    wait_timeout: 120

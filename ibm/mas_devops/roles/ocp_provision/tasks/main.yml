@@ -1,12 +1,22 @@
 ---
 # 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
-- name: "Fail if cluster name & type is not provided"
+- name: "Fail if cluster_type is not provided"
   assert:
-    that:
-      - cluster_type is defined and cluster_type != ""
-      - cluster_name is defined and cluster_name != ""
-    fail_msg: "cluster_type and cluster_name properties are required"
+    that: cluster_type is defined and cluster_type != ""
+    fail_msg: "cluster_type property is required"
+
+- name: "Fail if cluster_name is not provided"
+  when: cluster_type != "roks-vpc-setup"
+  assert:
+    that: cluster_name is defined and cluster_name != ""
+    fail_msg: "cluster_name property is required"
+
+- name: "Fail if roks_vpc_name is not provided"
+  when: cluster_type == "roks-vpc-setup"
+  assert:
+    that: roks_vpc_name is defined and roks_vpc_name != ""
+    fail_msg: "roks_vpc_name property is required"
 
 - name: "Backwards compatability for 'quickburn' cluster type"
   when: cluster_type == "quickburn"
@@ -19,30 +29,35 @@
     fail_msg: "cluster_type '{{ cluster_type }}' property is not supported by this role"
 
 - name: "Fail if no OCP version is provided"
+  when: cluster_type != "roks-vpc-setup"
   assert:
     that: ocp_version is defined and ocp_version != ""
     fail_msg: "ocp_version is required"
 
 - name: "Select ocp version based on day of the week."
-  when: ocp_version == "rotate"
+  when:
+    - cluster_type != "roks-vpc-setup"
+    - ocp_version == "rotate"
   set_fact:
-    ocp_version: "{{ rotate_ocp_version[ansible_date_time['weekday']] ~ ('_openshift' if cluster_type == 'roks' else '') }}"
+    ocp_version: "{{ rotate_ocp_version[ansible_date_time['weekday']] ~ ('_openshift' if cluster_type in ['roks', 'roks-vpc'] else '') }}"
   vars:
     rotate_ocp_version:
-      # Test supported LTS releases twice (4.20, 4.18, 4.16)
+      # Test supported LTS releases (4.21, 4.20, 4.18, 4.16)
       Monday: "4.20"
-      Tuesday: "4.18"
-      Wednesday: "4.16"
+      Tuesday: "4.21"
+      Wednesday: "4.18"
       Thursday: "4.20"
-      Friday: "4.18"
+      Friday: "4.21"
       Saturday: "4.16"
       # Test supported Non-TLS releases once (4.19)
       Sunday: "4.19"
 
 - name: "Set default OCP version"
-  when: ocp_version == "default"
+  when:
+    - cluster_type != "roks-vpc-setup"
+    - ocp_version == "default"
   set_fact:
-    ocp_version: "{{ default_ocp_version ~ ('_openshift' if cluster_type == 'roks' else '') }}"
+    ocp_version: "{{ default_ocp_version ~ ('_openshift' if cluster_type in ['roks', 'roks-vpc'] else '') }}"
 
 # 2. Run the provision
 # -----------------------------------------------------------------------------

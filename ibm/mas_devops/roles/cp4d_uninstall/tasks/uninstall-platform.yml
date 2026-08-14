@@ -1,0 +1,118 @@
+---
+# Uninstall CP4D Platform
+# This task file removes the CP4D platform components (Zen and Ibmcpd CRs)
+
+# 0. Delete icp4data-perspective-config
+# -----------------------------------------------------------------------------
+- name: "Check if ZenExtension icp4data-perspective-config exists"
+  kubernetes.core.k8s_info:
+    api_version: zen.cpd.ibm.com/v1
+    kind: ZenExtension
+    name: "icp4data-perspective-config"
+    namespace: "{{ cpd_instance_namespace }}"
+  register: icp4d_config_lookup
+
+- name: "Delete ZenExtension icp4data-perspective-config"
+  when: icp4d_config_lookup.resources | length > 0
+  kubernetes.core.k8s:
+    state: absent
+    api_version: zen.cpd.ibm.com/v1
+    kind: ZenExtension
+    namespace: "{{ cpd_instance_namespace }}"
+    name: "icp4data-perspective-config"
+
+- name: "Wait for ZenExtension icp4data-perspective-config to be deleted"
+  when: icp4d_config_lookup.resources | length > 0
+  kubernetes.core.k8s_info:
+    api_version: zen.cpd.ibm.com/v1
+    kind: ZenExtension
+    namespace: "{{ cpd_instance_namespace }}"
+    name: "icp4data-perspective-config"
+  register: icp4d_config_status
+  until: icp4d_config_status.resources | length == 0
+  retries: 120  # 20 minutes (120 * 10s)
+  delay: 10
+
+# 1. Delete ZenService CR
+# -----------------------------------------------------------------------------
+- name: "Check if ZenService CR exists"
+  kubernetes.core.k8s_info:
+    api_version: zen.cpd.ibm.com/v1
+    kind: ZenService
+    name: "{{ zen_cr_name }}"
+    namespace: "{{ cpd_instance_namespace }}"
+  register: zen_cr_lookup
+
+- name: "Delete ZenService Custom Resource"
+  when: zen_cr_lookup.resources | length > 0
+  kubernetes.core.k8s:
+    state: absent
+    api_version: zen.cpd.ibm.com/v1
+    kind: ZenService
+    namespace: "{{ cpd_instance_namespace }}"
+    name: "{{ zen_cr_name }}"
+
+- name: "Wait for ZenService CR to be deleted"
+  when: zen_cr_lookup.resources | length > 0
+  kubernetes.core.k8s_info:
+    api_version: zen.cpd.ibm.com/v1
+    kind: ZenService
+    namespace: "{{ cpd_instance_namespace }}"
+    name: "{{ zen_cr_name }}"
+  register: zen_status
+  until: zen_status.resources | length == 0
+  retries: 120  # 20 minutes (120 * 10s)
+  delay: 10
+
+# 2. Check for legacy Ibmcpd CR name
+# -----------------------------------------------------------------------------
+- name: "Check if legacy Ibmcpd CR 'ibmcpd' exists"
+  kubernetes.core.k8s_info:
+    api_version: cpd.ibm.com/v1
+    kind: Ibmcpd
+    namespace: "{{ cpd_instance_namespace }}"
+    name: ibmcpd
+  register: legacy_ibmcpd_lookup
+
+- name: "Set Ibmcpd CR name"
+  set_fact:
+    actual_cpd_platform_cr_name: "{{ (legacy_ibmcpd_lookup.resources | length > 0) | ternary('ibmcpd', cpd_platform_cr_name) }}"
+
+# 3. Delete Ibmcpd CR
+# -----------------------------------------------------------------------------
+- name: "Check if Ibmcpd CR '{{ actual_cpd_platform_cr_name }}' exists"
+  kubernetes.core.k8s_info:
+    api_version: cpd.ibm.com/v1
+    kind: Ibmcpd
+    namespace: "{{ cpd_instance_namespace }}"
+    name: "{{ actual_cpd_platform_cr_name }}"
+  register: ibmcpd_cr_lookup
+
+- name: "Delete Ibmcpd Custom Resource"
+  when: ibmcpd_cr_lookup.resources | length > 0
+  kubernetes.core.k8s:
+    state: absent
+    api_version: cpd.ibm.com/v1
+    kind: Ibmcpd
+    namespace: "{{ cpd_instance_namespace }}"
+    name: "{{ actual_cpd_platform_cr_name }}"
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+
+- name: "Wait for Ibmcpd CR to be deleted"
+  when: ibmcpd_cr_lookup.resources | length > 0
+  kubernetes.core.k8s_info:
+    api_version: cpd.ibm.com/v1
+    kind: Ibmcpd
+    namespace: "{{ cpd_instance_namespace }}"
+    name: "{{ actual_cpd_platform_cr_name }}"
+  register: ibmcpd_status
+  until: ibmcpd_status.resources | length == 0
+  retries: 120  # 20 minutes
+  delay: 10
+
+- name: "CP4D Platform uninstalled successfully"
+  debug:
+    msg: "CP4D Platform (Zen and Ibmcpd) has been uninstalled"
+
+# Made with Bob

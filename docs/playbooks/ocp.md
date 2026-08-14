@@ -31,7 +31,7 @@ This also supports upgrading the storage volume used for the cluster's internal 
 
 ```bash
 export CLUSTER_NAME=masinst1
-export OCP_VERSION=4.20_openshift
+export OCP_VERSION=4.21_openshift
 export IBMCLOUD_APIKEY=xxx
 export REBOOT_WORKER_NODES=true
 export CPD_ENTITLEMENT_KEY=xxx
@@ -54,7 +54,7 @@ ansible-playbook ibm.mas_devops.ocp_fyre_provision
 
 
 Deprovision
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 Refer to the [ocp_deprovision](../roles/ocp_deprovision.md) role documentation for more information.
 
 ### Deprovision on IBMCloud ROKS

@@ -8,6 +8,9 @@ resources in other namespace when provided the backup archive generated from
 `suite_backup` role.
 
 !!! important
+
+    Supported only for MAS 9.1.x.
+
     Restore can only be made to the an instance with the same MAS instance ID as the backup.
 
 

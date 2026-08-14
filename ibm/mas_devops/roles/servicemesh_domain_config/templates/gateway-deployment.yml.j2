@@ -1,0 +1,89 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: secret-reader
+  namespace: {{servicemesh_gateway_namespace}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: secret-reader
+  namespace: {{servicemesh_gateway_namespace}}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name:  secret-reader
+  namespace: {{servicemesh_gateway_namespace}}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: secret-reader
+subjects:
+  - kind: ServiceAccount
+    name:  secret-reader
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{gateway_name}}
+  namespace: {{servicemesh_gateway_namespace}}
+spec:
+  selector:
+    matchLabels:
+      istio: {{gateway_name}}
+  template:
+    metadata:
+      annotations:
+        inject.istio.io/templates: gateway
+      labels:
+        istio: {{gateway_name}}
+        sidecar.istio.io/inject: "true"
+    spec:
+      containers:
+        - name: istio-proxy
+          image: auto
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          ports:
+          - name: http-envoy-prom
+            containerPort: 15090
+            protocol: TCP
+          - name: http2
+            containerPort: 8080
+            protocol: TCP
+          - name: https
+            containerPort: 8443
+            protocol: TCP
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 1024Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: backend-ca-cert
+              mountPath: /etc/istio/backend-ca      
+      securityContext:
+        sysctls:
+        - name: net.ipv4.ip_unprivileged_port_start
+          value: "0"
+      serviceAccountName: secret-reader
+      volumes:
+        - name: backend-ca-cert
+          secret:
+            secretName: auth-tls-secret
+            defaultMode: 420
+            optional: true

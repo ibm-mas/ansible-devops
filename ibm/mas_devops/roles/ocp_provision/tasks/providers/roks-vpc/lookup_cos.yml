@@ -1,0 +1,32 @@
+---
+# Resolve roks_cos_instance_crn from the COS instance named <roks_vpc_name>-cos
+# if not provided directly.
+# Sets fact: roks_cos_instance_crn
+
+- name: "roks-vpc/lookup-cos : Look up COS instance by name"
+  when: roks_cos_instance_crn is not defined or roks_cos_instance_crn == ""
+  shell: |
+    ibmcloud resource service-instance "{{ roks_vpc_name }}-cos" \
+      -g {{ ibmcloud_resourcegroup }} \
+      --output json
+  register: cos_lookup_raw
+  failed_when: cos_lookup_raw.rc > 1
+
+- name: "roks-vpc/lookup-cos : Set roks_cos_instance_crn from name lookup"
+  when:
+    - roks_cos_instance_crn is not defined or roks_cos_instance_crn == ""
+    - cos_lookup_raw.rc == 0
+  set_fact:
+    roks_cos_instance_crn: "{{ (cos_lookup_raw.stdout | from_json)[0].crn }}"
+
+- name: "roks-vpc/lookup-cos : Fail if COS instance could not be resolved"
+  when: roks_cos_instance_crn is not defined or roks_cos_instance_crn == ""
+  fail:
+    msg: >
+      No COS instance named '{{ roks_vpc_name }}-cos' found in resource group
+      '{{ ibmcloud_resourcegroup }}'. Either run cluster_type=roks-vpc-setup first,
+      or provide roks_cos_instance_crn directly.
+
+- name: "roks-vpc/lookup-cos : Debug resolved COS CRN"
+  debug:
+    msg: "Using COS instance CRN: {{ roks_cos_instance_crn }}"

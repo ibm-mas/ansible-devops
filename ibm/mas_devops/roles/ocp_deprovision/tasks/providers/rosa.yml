@@ -1,13 +1,5 @@
 ---
-# 1. Failure conditions
-# -----------------------------------------------------------------------------
-- name: "rosa : Fail if rosa_token is not provided"
-  assert:
-    that: rosa_token is defined and rosa_token != ""
-    fail_msg: "rosa_token property is required"
-
-
-# 2. Debug Info
+# 1. Debug Info
 # -----------------------------------------------------------------------------
 - name: "rosa : Debug information"
   debug:
@@ -16,35 +8,13 @@
       - "ROSA token ................... ********************"
 
 
-# 3. Check for required software
+# 2. Rosa Login
 # -----------------------------------------------------------------------------
-- name: "rosa : Test if rosa is installed"
-  shell: rosa version
-  register: rosa_version
-  ignore_errors: true
-
-- name: "rosa : Fail if rosa is not installed"
-  assert:
-    that: ( rosa_version.rc == 0 )
-    fail_msg: "rosa CLI must be installed (https://console.redhat.com/openshift/create/rosa/welcome)"
+- name: "Login to Rosa"
+  include_tasks: "{{ role_path }}/../../common_tasks/rosa_login.yml"
 
 
-# 4. Login
-# -----------------------------------------------------------------------------
-- name: "rosa : Login"
-  shell: rosa login --token {{ rosa_token }}
-  no_log: true
-
-- name: "rosa : Validate login"
-  shell: rosa whoami
-  register: rosa_whoami_result
-
-- name: "rosa : Debug login"
-  debug:
-    msg: "{{ rosa_whoami_result }}"
-
-
-# 5. Check if the cluster is already provisioned
+# 3. Check if the cluster is already provisioned
 # -----------------------------------------------------------------------------
 # State: pending -> installing -> ready
 - name: "rosa : Lookup Cluster"
@@ -57,7 +27,8 @@
   debug:
     msg: "Cluster state ......................... {{ (rosa_cluster_lookup_result.stdout | from_json).state }}"
 
-# 6. Delete cluster
+
+# 4. Delete cluster
 # -----------------------------------------------------------------------------
 - name: "rosa : Delete ROSA cluster"
   when: rosa_cluster_lookup_result.rc != 1
@@ -67,7 +38,7 @@
       --yes
 
 
-# 7. Watch cluster deprovisioning progress
+# 5. Watch cluster deprovisioning progress
 # -----------------------------------------------------------------------------
 - name: "rosa : Wait for cluster to be deprovisioned"
   shell: rosa describe cluster -c {{ cluster_name }} -o json
@@ -78,7 +49,7 @@
   until: cluster_lookup.rc == 1
 
 
-# 8. Clean up other AWS resources related to the cluster
+# 6. Clean up other AWS resources related to the cluster
 # -----------------------------------------------------------------------------
 - name: "rosa : Clean up operator roles"
   shell: "rosa delete operator-roles -c {{ (rosa_cluster_lookup_result.stdout | from_json).id }} -m auto --yes"
@@ -88,7 +59,8 @@
   shell: "rosa delete oidc-provider -c {{ (rosa_cluster_lookup_result.stdout | from_json).id }} -m auto --yes"
   when: rosa_cluster_lookup_result.rc != 1
 
-# 9. AWS Login To Remove File Storage
+
+# 7. AWS Login To Remove File Storage
 # -----------------------------------------------------------------------------
 - name: "rosa : efs-setup : Login"
   shell: |
@@ -97,7 +69,8 @@
     aws configure set output json;
     aws configure set region {{ aws_region }}
 
-# 10. Get EFS Id to Delete
+
+# 8. Get EFS Id to Delete
 # -----------------------------------------------------------------------------
 - name: "rosa : Get-efsid : efsid"
   shell: aws efs describe-file-systems --query "FileSystems[?Tags[?Value == '{{ cluster_name }}-efs']]".FileSystemId
@@ -107,7 +80,8 @@
   set_fact:
     efs_id: "{{ efs_id_op.stdout|from_json|json_query(\"[0]\") }}"
 
-# 11. Get Mount Id and Delete the associated Mount Target when we have an EFS ID
+
+# 9. Get Mount Id and Delete the associated Mount Target when we have an EFS ID
 # -----------------------------------------------------------------------------
 - name: Cleanup EFS if we have an EFS Id
   when: efs_id != None and efs_id != ""
@@ -127,7 +101,6 @@
       ansible.builtin.pause:
         seconds: 30
 
-    # 12. Delete EFS
-    # -----------------------------------------------------------------------------
+    # Delete EFS
     - name: "rosa : Delete-EFS : Delete EFS"
       shell: aws efs delete-file-system --file-system-id {{ efs_id }}

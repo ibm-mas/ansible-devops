@@ -40,6 +40,35 @@
 - name: Detect Certificate Manager installation
   include_tasks: "{{ role_path }}/../../common_tasks/detect_cert_manager.yml"
 
+# 2.2. Get default storage classes if override is enabled but custom classes not provided
+# ---------------------------------------------------------------------
+- name: "Lookup default storage classes"
+  when:
+    - override_storageclass
+  block:
+    - name: "Include default storage classes lookup"
+      include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
+
+    - name: "Set default RWX storage class if not provided"
+      set_fact:
+        mas_app_custom_storage_class_rwx: "{{ defaultStorageClasses.rwx }}"
+      when: mas_app_custom_storage_class_rwx == ''
+
+    - name: "Set default RWO storage class if not provided"
+      set_fact:
+        mas_app_custom_storage_class_rwo: "{{ defaultStorageClasses.rwo }}"
+      when: mas_app_custom_storage_class_rwo == ''
+
+    - name: "Fail storage class override if default storage classes not found"
+      fail:
+        msg: "Storage class override enabled but no custom storage classes provided and default storage classes not found"
+      when: mas_app_custom_storage_class_rwx == '' or mas_app_custom_storage_class_rwo == ''
+
+    - name: Replace ManageWorkspace Persistent Volumes when override_storageclass is true
+      set_fact:
+        _manage_persistent_volumes: "{{ manage_persistent_volumes | ibm.mas_devops.override_manage_persistent_volumes(mas_app_custom_storage_class_rwo, mas_app_custom_storage_class_rwx) }}"
+      when: manage_persistent_volumes is defined and manage_persistent_volumes | length > 0
+
 # 3. Set Manage namespace and workspace CR name
 # -----------------------------------------------------------------------------
 - name: "Set fact: Manage namespace"
@@ -322,7 +351,9 @@
 # 7. If ManageWorkspace exists, set mode to down
 # -----------------------------------------------------------------------------
 - name: "Set ManageWorkspace mode to down (if exists)"
-  when: manage_workspace_exists
+  when:
+    - manage_workspace_exists
+    - mas_app_restore_include_pvc | bool
   block:
     - name: "Get current ManageWorkspace spec.mode"
       set_fact:
