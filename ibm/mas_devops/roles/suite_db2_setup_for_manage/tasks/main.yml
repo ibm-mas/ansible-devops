@@ -168,6 +168,140 @@
     success_msg: "DB2 roles granted successfully"
 
 
-# 5. Execute DB2 config enforcement
+# 5. Set up WLM service classes per tenant
+# Only applies when using the Helm-based DB2 operator with a Db2uInstance CR
+# -----------------------------------------------------------------------------
+- name: "WLM - Detect Db2 CR type"
+  when:
+    - db2_use_helm_operator | default(false) | bool
+    - db2_wlm_enabled | default(false) | bool
+  include_tasks: "{{ role_path }}/../../common_tasks/detect_db2_cr_type.yml"
+
+- name: "WLM - Skip: not applicable for this configuration"
+  when: >-
+    not (db2_use_helm_operator | default(false) | bool)
+    or not (db2_wlm_enabled | default(false) | bool)
+    or (db2_cr_type | default('') != 'Db2uInstance')
+  debug:
+    msg: >-
+      Skipping WLM setup.
+      db2_use_helm_operator={{ db2_use_helm_operator | default(false) }},
+      db2_wlm_enabled={{ db2_wlm_enabled | default(false) }},
+      db2_cr_type={{ db2_cr_type | default('not detected') }}.
+      WLM requires helm operator=true and CR type=Db2uInstance.
+
+- name: "WLM - Read tenant IDs from tenantgroup-ids ConfigMap"
+  when:
+    - db2_use_helm_operator | default(false) | bool
+    - db2_wlm_enabled | default(false) | bool
+    - db2_cr_type | default('') == 'Db2uInstance'
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: tenantgroup-ids
+    namespace: "{{ db2_wlm_namespace | default(db2_namespace) }}"
+  register: _wlm_tenantgroup_ids_cm
+
+- name: "WLM - Fail if tenantgroup-ids ConfigMap not found"
+  when:
+    - db2_use_helm_operator | default(false) | bool
+    - db2_wlm_enabled | default(false) | bool
+    - db2_cr_type | default('') == 'Db2uInstance'
+    - _wlm_tenantgroup_ids_cm.resources | default([]) | length == 0
+  fail:
+    msg: >-
+      ConfigMap 'tenantgroup-ids' not found in namespace
+      '{{ db2_wlm_namespace | default(db2_namespace) }}'.
+      Set db2_wlm_namespace if the ConfigMap lives in a different namespace.
+
+- name: "WLM - Extract tenant IDs from ConfigMap"
+  when:
+    - db2_use_helm_operator | default(false) | bool
+    - db2_wlm_enabled | default(false) | bool
+    - db2_cr_type | default('') == 'Db2uInstance'
+    - _wlm_tenantgroup_ids_cm.resources | default([]) | length > 0
+  set_fact:
+    db2_tenant_ids: >-
+      {{
+        (_wlm_tenantgroup_ids_cm.resources[0].data['id-json'] | from_json).tenantIds.values() | list
+      }}
+
+- name: "WLM - Debug tenant discovery"
+  when:
+    - db2_use_helm_operator | default(false) | bool
+    - db2_wlm_enabled | default(false) | bool
+    - db2_cr_type | default('') == 'Db2uInstance'
+  debug:
+    msg:
+      - "ConfigMap namespace .................... {{ db2_wlm_namespace | default(db2_namespace) }}"
+      - "Discovered tenant IDs .................. {{ db2_tenant_ids | default([]) }}"
+      - "WLM max concurrent activities .......... {{ db2_wlm_max_concurrent | default(10) }}"
+
+- name: "WLM - Create setupwlm script in local /tmp"
+  when:
+    - db2_use_helm_operator | default(false) | bool
+    - db2_wlm_enabled | default(false) | bool
+    - db2_cr_type | default('') == 'Db2uInstance'
+    - db2_tenant_ids | default([]) | length > 0
+  ansible.builtin.template:
+    src: setupwlm.sh.j2
+    dest: /tmp/setupwlm.sh
+    mode: '700'
+
+- name: "WLM - Copy setupwlm script into the db2u pod"
+  when:
+    - db2_use_helm_operator | default(false) | bool
+    - db2_wlm_enabled | default(false) | bool
+    - db2_cr_type | default('') == 'Db2uInstance'
+    - db2_tenant_ids | default([]) | length > 0
+  shell: "oc cp /tmp/setupwlm.sh {{ db2_namespace }}/{{ db2_pod_name }}:/tmp/setupwlm.sh -c db2u"
+  register: copy_wlm_result
+  retries: 10
+  delay: 30
+  until: copy_wlm_result.rc == 0
+
+- name: "WLM - Run setupwlm to configure WLM service classes"
+  when:
+    - db2_use_helm_operator | default(false) | bool
+    - db2_wlm_enabled | default(false) | bool
+    - db2_cr_type | default('') == 'Db2uInstance'
+    - db2_tenant_ids | default([]) | length > 0
+  shell: |
+    oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- bash -l -c '/tmp/setupwlm.sh | tee /tmp/setupwlm.log'
+  register: wlm_status
+  ignore_errors: true
+  retries: 3
+  delay: 30
+  until:
+    - wlm_status.rc == 0
+    - wlm_status.stdout | regex_search('WLMSetup-Success', multiline=True) | length > 0
+
+- name: "WLM - Debug output"
+  when:
+    - db2_use_helm_operator | default(false) | bool
+    - db2_wlm_enabled | default(false) | bool
+    - db2_cr_type | default('') == 'Db2uInstance'
+    - wlm_status is defined
+    - wlm_status.stdout is defined
+  debug:
+    msg:
+      - "Result (stdout) ........................ {{ wlm_status.stdout }}"
+      - "Result (stderr) ........................ {{ wlm_status.stderr }}"
+
+- name: "WLM - Assert WLM setup completed successfully"
+  when:
+    - db2_use_helm_operator | default(false) | bool
+    - db2_wlm_enabled | default(false) | bool
+    - db2_cr_type | default('') == 'Db2uInstance'
+    - db2_tenant_ids | default([]) | length > 0
+  assert:
+    that:
+      - wlm_status.rc is defined
+      - wlm_status.rc == 0
+      - wlm_status.stdout | regex_search('WLMSetup-Success', multiline=True) | length > 0
+    fail_msg: "setupwlm.sh failed - WLM service classes may not have been created for all tenants"
+    success_msg: "WLM service classes configured successfully for tenants: {{ db2_tenant_ids }}"
+
+# 6. Execute DB2 config enforcement
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/db2_dbconfig.yml
