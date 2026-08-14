@@ -15,12 +15,31 @@
     artifactory_password: "{{ artifactory_token }}"
     namespace_kyverno_label: "audit"
 
+- name: "Load tenant operator configuration from file"
+  when: aiservice_tenant_operator_config_file is defined and aiservice_tenant_operator_config_file != ''
+  block:
+    - name: "Check if tenant operator configuration file exists"
+      ansible.builtin.stat:
+        path: "{{ aiservice_tenant_operator_config_file }}"
+      register: aiservice_tenant_operator_config_file_stat
+
+    - name: "Fail if tenant operator configuration file does not exist"
+      ansible.builtin.fail:
+        msg: "Tenant operator configuration file not found at: {{ aiservice_tenant_operator_config_file }}"
+      when: not aiservice_tenant_operator_config_file_stat.stat.exists
+
+    - name: "Read tenant operator configuration from YAML file"
+      ansible.builtin.include_vars:
+        file: "{{ aiservice_tenant_operator_config_file }}"
+        name: aiservice_tenant_operator_config
+
 - name: "Create ibm-aiservice-tenant Subscription"
   ibm.mas_devops.apply_subscription:
     namespace: "{{ tenantNamespace }}"
     package_name: ibm-aiservice-tenant
     package_channel: "{{ aiservice_tenant_channel }}"
     catalog_source: "{{ mas_catalog_source }}"
+    config: "{{ aiservice_tenant_operator_config | default({}) }}"
   register: subscription
 
 - name: "Wait until the AIServiceTenant CRD is available"
