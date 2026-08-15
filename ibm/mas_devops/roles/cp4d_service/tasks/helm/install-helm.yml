@@ -5,9 +5,31 @@
 - name: "Setup Helm repository"
   include_tasks: "setup-helm-repo.yml"
 
+# Only create ibm-entitlement-key if it does not already exist in the namespace.
+# The cp4d role is responsible for creating this secret with a valid password.
+# Writing it here unconditionally risks overwriting a valid secret with an empty
+# password when ibm_entitlement_key is not set (e.g. during mas update flows).
+- name: "Check if ibm-entitlement-key already exists in operator namespace"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ ibm_entitlement_key_secret }}"
+    namespace: "{{ cpd_operators_namespace }}"
+  register: entitlement_secret_operators_check
+
+- name: "Check if ibm-entitlement-key already exists in instance namespace"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ ibm_entitlement_key_secret }}"
+    namespace: "{{ cpd_instance_namespace }}"
+  register: entitlement_secret_instance_check
+
 - name: "Create IBM entitlement secrets"
+  when: ibm_entitlement_key is defined and ibm_entitlement_key | length > 0
   block:
     - name: "Create IBM entitlement secret in operator namespace"
+      when: entitlement_secret_operators_check.resources | length == 0
       kubernetes.core.k8s:
         state: present
         definition:
@@ -27,6 +49,7 @@
               password: "{{ ibm_entitlement_key }}"
 
     - name: "Create IBM entitlement secret in instance namespace"
+      when: entitlement_secret_instance_check.resources | length == 0
       kubernetes.core.k8s:
         state: present
         definition:
