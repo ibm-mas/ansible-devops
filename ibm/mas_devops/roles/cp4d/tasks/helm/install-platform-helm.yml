@@ -1,0 +1,104 @@
+---
+# Helm Platform Installation Path for CPD (CPD 5.4.0+)
+# This file defines the full, clean sequence for Helm-based installation of CPD Platform.
+
+# 1. Load release-specific variables for CPD versions
+# -----------------------------------------------------------------------------
+- name: "Load CPD platform Helm release versions for {{ cpd_product_version }}"
+  include_vars: "{{ role_path }}/vars/helm_releases/{{ cpd_product_version }}.yml"
+
+# 2. Set zen_cr_version for use in wait loops
+# -----------------------------------------------------------------------------
+- name: "Set zen_cr_version from release versions"
+  set_fact:
+    zen_cr_version: "{{ cpd_platform_release_versions.zen.cr_version }}"
+
+# 3. Setup storage classes
+# -----------------------------------------------------------------------------
+- name: "Determine storage classes"
+  include_tasks: "../determine-storage-classes.yml"
+
+# 4. Authorize admin SA
+# -----------------------------------------------------------------------------
+- name: "Grant permissions to {{ cpd_admin_login_sa }} service account in Cloud Pak For Data namespaces"
+  include_tasks: "../authorize-user-cpd-admin.yml"
+
+# 5. Setup Helm repository
+# -----------------------------------------------------------------------------
+- name: "Setup Helm repository"
+  include_tasks: "setup-helm-repo.yml"
+
+# 6. Create IBM entitlement secrets
+# -----------------------------------------------------------------------------
+- name: "Check if ibm-entitlement-key already exists in operator namespace"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ ibm_entitlement_key_secret }}"
+    namespace: "{{ cpd_operators_namespace }}"
+  register: entitlement_secret_operators_check
+
+- name: "Check if ibm-entitlement-key already exists in instance namespace"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ ibm_entitlement_key_secret }}"
+    namespace: "{{ cpd_instance_namespace }}"
+  register: entitlement_secret_instance_check
+
+- name: "Create IBM entitlement secrets"
+  when: ibm_entitlement_key is defined and ibm_entitlement_key | length > 0
+  block:
+    - name: "Create IBM entitlement secret in operator namespace"
+      when: entitlement_secret_operators_check.resources | length == 0
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ ibm_entitlement_key_secret }}"
+            namespace: "{{ cpd_operators_namespace }}"
+          type: kubernetes.io/dockerconfigjson
+          data:
+            .dockerconfigjson: "{{ dockerconfig | to_json | b64encode }}"
+      vars:
+        dockerconfig:
+          auths:
+            cp.icr.io:
+              username: cp
+              password: "{{ ibm_entitlement_key }}"
+
+    - name: "Create IBM entitlement secret in instance namespace"
+      when: entitlement_secret_instance_check.resources | length == 0
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ ibm_entitlement_key_secret }}"
+            namespace: "{{ cpd_instance_namespace }}"
+          type: kubernetes.io/dockerconfigjson
+          data:
+            .dockerconfigjson: "{{ dockerconfig | to_json | b64encode }}"
+      vars:
+        dockerconfig:
+          auths:
+            cp.icr.io:
+              username: cp
+              password: "{{ ibm_entitlement_key }}"
+
+# 7. Install all platform components via Helm in order
+# -----------------------------------------------------------------------------
+- name: "Install CPD platform component {{ component_item.name }} via Helm"
+  include_tasks: "install-component.yml"
+  loop: "{{ cpd_platform_components }}"
+  loop_control:
+    loop_var: component_item
+    label: "{{ component_item.name }}"
+
+# 8. Wait and Configure CPD Platform
+# -----------------------------------------------------------------------------
+- name: "Install and Configure Cloud Pak For Data (shared tasks)"
+  include_tasks: "../install-cp4d.yml"

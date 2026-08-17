@@ -22,10 +22,11 @@
       - "IbmCpd custom resource name: {{ cpd_platform_cr_name }}"
 
 
-# 1. Create CloudPak for Data CR
+# 1. Create CloudPak for Data CR (OLM only)
 # -----------------------------------------------------------------------------
 # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=installing-cloud-pak-data
 - name: "install-cp4d : Install CloudPak for Data {{ cpd_product_version }} custom resource (Ibmcpd)"
+  when: resolved_install_method == 'olm'
   kubernetes.core.k8s:
     apply: yes
     template: "templates/cpd_platform/ibmcpd.yml.j2"
@@ -33,7 +34,7 @@
 # Sometimes during the cpd upgrade, zen-watchdog pod crashes and requires deployment to be deleted, zen upgrade will recreate it...
 - name: "Delete existing zen-watchdog deployment if exists"
   when:
-    - is_cpd_upgrade
+    - is_cpd_upgrade | default(false)
   kubernetes.core.k8s:
     state: absent
     api_version: apps/v1
@@ -43,114 +44,13 @@
   register: zen_watchdog_delete
 
 
-# 2. Patch ZenService lite-cr to set the zen version and increase resource limits
+# 2. Patch ZenService lite-cr to set the zen version and increase resource limits (OLM only)
 # ----------------------------------------------------------------------------------------------
-# 2.1 Wait for Zen operator ...
-- name: "install-cp4d : Wait for ibm-zen-operator to be ready (60s delay)"
-  kubernetes.core.k8s_info:
-    api_version: apps/v1
-    name: ibm-zen-operator
-    namespace: "{{ zen_operator_namespace }}"
-    kind: Deployment
-  register: zen_operator_lookup
-  until: zen_operator_lookup.resources[0].status.availableReplicas is defined
-  retries: 20 # Approximately 20 minutes before we give up
-  delay: 60 # 1 minute
-
-# 2.2 Wait for lite-cr to be created ...
-- name: "install-cp4d : Wait for ZenService {{ zen_cr_name }} to be created"
-  kubernetes.core.k8s_info:
-    api_version: zen.cpd.ibm.com/v1
-    name: "{{ zen_cr_name }}"
-    namespace: "{{ cpd_instance_namespace }}"
-    kind: ZenService
-  register: zenlitecr_output
-  until:
-    - zenlitecr_output.resources is defined
-    - zenlitecr_output.resources | length > 0
-  retries: 60 # approx 30 minutes before we give up
-  delay: 30 # seconds
-
-# check if zen cr is already patched
-- set_fact:
-    is_zen_already_patched: "{{ zenlitecr_output.resources[0].spec.ZenCoreMetaDb is defined }}"
-    existing_zen_cr_version: "{{ zenlitecr_output.resources[0].spec.version }}"
-
-- debug:
-    msg:
-      - "Current zen version .................. {{ existing_zen_cr_version }}"
-      - "Target zen version ................... {{ zen_cr_version }}"
-      - "Already patched? ..................... {{ is_zen_already_patched }}"
-
-# only run following block if is_zen_already_patched == False or if there's a version upgrade
-- when: not is_zen_already_patched or existing_zen_cr_version != zen_cr_version
+- name: Patch and configure ZenService (OLM only)
+  when: resolved_install_method == 'olm'
   block:
-    # 2.3 Apply the patch per recommendation from CP4D team
-    - name: "install-cp4d : Patch ZenService {{ zen_cr_name }} to set the zen version and increase resource limits"
-      kubernetes.core.k8s:
-        api_version: zen.cpd.ibm.com/v1
-        name: "{{ zen_cr_name }}"
-        namespace: "{{ cpd_instance_namespace }}"
-        kind: ZenService
-        definition:
-          spec:
-            version: "{{ zen_cr_version }}"
-            scaleConfig: "{{ cpd_scale_config }}"
-            ZenCoreMetaDb:
-              name: zen-metastoredb
-              kind: StatefulSet
-              container: zen-metastoredb
-              replicas: 3
-              resources:
-                limits:
-                  cpu: 2
-                  memory: 4Gi
-                requests:
-                  cpu: 200m
-                  memory: 1024Mi
-        apply: true
-        server_side_apply:
-          field_manager: ansible
-          force_conflicts: true
-
-    # 2.4 Delete zen-operator pod to force the reconcile from the beginning after lite-cr is patched.
-    # This is just a bit of a hacky way to force zen operator to read the zen version we specify.
-    # Otherwise it will always installed the latest supported zen version available in zen operator.
-    # Accordingly to CPD docs: "The Zen operator provides the Cloud Pak for Data control plane.
-    # "The version of Zen is determined by the version of IBM Cloud Pak foundational services that you install on your cluster.
-    # If you install the minimum required version of IBM Cloud Pak foundational services, the Zen version should correspond to the version in the table.
-    # If you install a later version of IBM Cloud Pak foundational services, you might see a later version of Zen."
-    # Reference: https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=planning-operator-operand-versions
-    - name: "install-cp4d : Scale down ibm-zen-operator"
-      kubernetes.core.k8s:
-        api_version: apps/v1
-        name: ibm-zen-operator
-        namespace: "{{ zen_operator_namespace }}"
-        kind: Deployment
-        definition:
-          spec:
-            replicas: 0
-        apply: true
-        server_side_apply:
-          field_manager: ansible
-          force_conflicts: true
-
-    - name: "install-cp4d : Scale up ibm-zen-operator to force reconcile"
-      kubernetes.core.k8s:
-        api_version: apps/v1
-        name: ibm-zen-operator
-        namespace: "{{ zen_operator_namespace }}"
-        kind: Deployment
-        definition:
-          spec:
-            replicas: 1
-        apply: true
-        server_side_apply:
-          field_manager: ansible
-          force_conflicts: true
-
-    # 2.5 Wait for Zen operator ...
-    - name: "install-cp4d : Wait for ibm-zen-operator to be ready again (60s delay)"
+    # 2.1 Wait for Zen operator ...
+    - name: "install-cp4d : Wait for ibm-zen-operator to be ready (60s delay)"
       kubernetes.core.k8s_info:
         api_version: apps/v1
         name: ibm-zen-operator
@@ -160,6 +60,110 @@
       until: zen_operator_lookup.resources[0].status.availableReplicas is defined
       retries: 20 # Approximately 20 minutes before we give up
       delay: 60 # 1 minute
+
+    # 2.2 Wait for lite-cr to be created ...
+    - name: "install-cp4d : Wait for ZenService {{ zen_cr_name }} to be created"
+      kubernetes.core.k8s_info:
+        api_version: zen.cpd.ibm.com/v1
+        name: "{{ zen_cr_name }}"
+        namespace: "{{ cpd_instance_namespace }}"
+        kind: ZenService
+      register: zenlitecr_output
+      until:
+        - zenlitecr_output.resources is defined
+        - zenlitecr_output.resources | length > 0
+      retries: 60 # approx 30 minutes before we give up
+      delay: 30 # seconds
+
+    # check if zen cr is already patched
+    - set_fact:
+        is_zen_already_patched: "{{ zenlitecr_output.resources[0].spec.ZenCoreMetaDb is defined }}"
+        existing_zen_cr_version: "{{ zenlitecr_output.resources[0].spec.version }}"
+
+    - debug:
+        msg:
+          - "Current zen version .................. {{ existing_zen_cr_version }}"
+          - "Target zen version ................... {{ zen_cr_version }}"
+          - "Already patched? ..................... {{ is_zen_already_patched }}"
+
+    # only run following block if is_zen_already_patched == False or if there's a version upgrade
+    - when: not is_zen_already_patched or existing_zen_cr_version != zen_cr_version
+      block:
+        # 2.3 Apply the patch per recommendation from CP4D team
+        - name: "install-cp4d : Patch ZenService {{ zen_cr_name }} to set the zen version and increase resource limits"
+          kubernetes.core.k8s:
+            api_version: zen.cpd.ibm.com/v1
+            name: "{{ zen_cr_name }}"
+            namespace: "{{ cpd_instance_namespace }}"
+            kind: ZenService
+            definition:
+              spec:
+                version: "{{ zen_cr_version }}"
+                scaleConfig: "{{ cpd_scale_config }}"
+                ZenCoreMetaDb:
+                  name: zen-metastoredb
+                  kind: StatefulSet
+                  container: zen-metastoredb
+                  replicas: 3
+                  resources:
+                    limits:
+                      cpu: 2
+                      memory: 4Gi
+                    requests:
+                      cpu: 200m
+                      memory: 1024Mi
+            apply: true
+            server_side_apply:
+              field_manager: ansible
+              force_conflicts: true
+
+        # 2.4 Delete zen-operator pod to force the reconcile from the beginning after lite-cr is patched.
+        # This is just a bit of a hacky way to force zen operator to read the zen version we specify.
+        # Otherwise it will always installed the latest supported zen version available in zen operator.
+        # Accordingly to CPD docs: "The Zen operator provides the Cloud Pak for Data control plane.
+        # "The version of Zen is determined by the version of IBM Cloud Pak foundational services that you install on your cluster.
+        # If you install the minimum required version of IBM Cloud Pak foundational services, the Zen version should correspond to the version in the table.
+        # If you install a later version of IBM Cloud Pak foundational services, you might see a later version of Zen."
+        # Reference: https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=planning-operator-operand-versions
+        - name: "install-cp4d : Scale down ibm-zen-operator"
+          kubernetes.core.k8s:
+            api_version: apps/v1
+            name: ibm-zen-operator
+            namespace: "{{ zen_operator_namespace }}"
+            kind: Deployment
+            definition:
+              spec:
+                replicas: 0
+            apply: true
+            server_side_apply:
+              field_manager: ansible
+              force_conflicts: true
+
+        - name: "install-cp4d : Scale up ibm-zen-operator to force reconcile"
+          kubernetes.core.k8s:
+            api_version: apps/v1
+            name: ibm-zen-operator
+            namespace: "{{ zen_operator_namespace }}"
+            kind: Deployment
+            definition:
+              spec:
+                replicas: 1
+            apply: true
+            server_side_apply:
+              field_manager: ansible
+              force_conflicts: true
+
+        # 2.5 Wait for Zen operator ...
+        - name: "install-cp4d : Wait for ibm-zen-operator to be ready again (60s delay)"
+          kubernetes.core.k8s_info:
+            api_version: apps/v1
+            name: ibm-zen-operator
+            namespace: "{{ zen_operator_namespace }}"
+            kind: Deployment
+          register: zen_operator_lookup
+          until: zen_operator_lookup.resources[0].status.availableReplicas is defined
+          retries: 20 # Approximately 20 minutes before we give up
+          delay: 60 # 1 minute
 
 
 # 3-pre. Wait for Zen Metastore Cluster  to be ready
