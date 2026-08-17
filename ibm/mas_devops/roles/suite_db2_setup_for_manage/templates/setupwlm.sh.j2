@@ -1,16 +1,24 @@
 #!/bin/bash
+set -e
 set -x
+
 db2 connect to {{ db2_dbname }}
-[ $? -ne 0 ] && echo "ERROR: Cannot connect" && exit 1
 
 {% for tenant_id in db2_tenant_ids %}
-# Service class for tenant {{ tenant_id }}
+# ---- Tenant: {{ tenant_id }} ----
+
+# Service class: idempotent - DB2 supports IF NOT EXISTS here
 db2 "CREATE SERVICE CLASS IF NOT EXISTS SC_{{ tenant_id | upper }} UNDER SYSDEFAULTUSERCPUCLASS"
-db2 "CREATE THRESHOLD IF NOT EXISTS THR_{{ tenant_id | upper }}_CONCUR
+
+# Threshold: DB2 has no IF NOT EXISTS for thresholds.
+# Drop first (silently), then recreate so db2_wlm_max_concurrent is always applied.
+db2 "DROP THRESHOLD IF EXISTS THR_{{ tenant_id | upper }}_CONCUR" || true
+db2 "CREATE THRESHOLD THR_{{ tenant_id | upper }}_CONCUR
      FOR SERVICE CLASS SC_{{ tenant_id | upper }} ACTIVITIES
      ENFORCEMENT DATABASE
-     WHEN CONCURRENTDBCOORDACTIVITIES > {{ db2_wlm_max_concurrent | default(10) }}
+     WHEN CONCURRENTDBCOORDACTIVITIES > {{ db2_wlm_max_concurrent }}
      COLLECT ACTIVITY DATA NONE STOP EXECUTION"
+
 {% endfor %}
 
 db2 connect reset
