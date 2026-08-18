@@ -1,0 +1,19 @@
+---
+apiVersion: cert-manager.io/v1
+kind: "{{ mas_issuer_kind }}"
+metadata:
+  name: "{{ cis_prod_issuer_name }}"
+{% if mas_issuer_kind == 'Issuer' %}
+  namespace: "{{ mas_namespace }}"
+{% endif %}
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: "{{ cis_email }}"
+    preferredChain: ''
+    privateKeySecretRef:
+      name: "{{ cis_prod_issuer_name }}"
+    solvers:
+    - http01:
+        ingress:
+          ingressClassName: "openshift-{{ mas_ingress_controller_name }}"

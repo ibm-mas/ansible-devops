@@ -1,38 +1,47 @@
 ---
-# 1. Deploy the CIS Webhook
+# 1. Deploy the CIS Webhook and DNS-01 ClusterIssuers (subdomain routing mode)
 # =============================================================================
-- name: "cis : Create service account {{ cert_manager_service_account }} and permissions for CIS webhook"
-  kubernetes.core.k8s:
-    namespace: "{{ cert_manager_namespace }}"
-    state: present
-    template: templates/cis/webhook/rbac.yml.j2
+- name: "cis : Deploy CIS webhook and DNS-01 issuers"
+  when: mas_routing_mode is not defined or mas_routing_mode != 'path'
+  block:
+    - name: "cis : Create service account {{ cert_manager_service_account }} and permissions for CIS webhook"
+      kubernetes.core.k8s:
+        namespace: "{{ cert_manager_namespace }}"
+        state: present
+        template: templates/cis/webhook/rbac.yml.j2
 
-# The below SSC is needed for cert-manager-webhook-ibm-cis service account so that the cert-manager-webhook-ibm-cis deployment/pod is able to run
-- name: "cis : Add Security Context Constraints for CIS webhook service account"
-  shell: |
-    oc adm policy add-scc-to-user anyuid -z cert-manager-webhook-ibm-cis -n {{ cert_manager_namespace }}
-  register: creating_user_output
+    # The below SSC is needed for cert-manager-webhook-ibm-cis service account so that the cert-manager-webhook-ibm-cis deployment/pod is able to run
+    - name: "cis : Add Security Context Constraints for CIS webhook service account"
+      shell: |
+        oc adm policy add-scc-to-user anyuid -z cert-manager-webhook-ibm-cis -n {{ cert_manager_namespace }}
+      register: creating_user_output
 
-- name: "cis : Create k8s resources for CIS webhook"
-  kubernetes.core.k8s:
-    namespace: "{{ cert_manager_namespace }}"
-    state: present
-    template: "{{ item }}"
-  with_items:
-    - templates/cis/webhook/pki.yml.j2
-    - templates/cis/webhook/deployment.yml.j2
-    - templates/cis/webhook/apiservice.yml.j2
-    - templates/cis/webhook/service.yml.j2
-    - templates/cis/webhook/cis-apikey-secret.yml.j2
-    - templates/cis/webhook/cis-proxy-route.yml.j2
+    - name: "cis : Create k8s resources for CIS webhook"
+      kubernetes.core.k8s:
+        namespace: "{{ cert_manager_namespace }}"
+        state: present
+        template: "{{ item }}"
+      with_items:
+        - templates/cis/webhook/pki.yml.j2
+        - templates/cis/webhook/deployment.yml.j2
+        - templates/cis/webhook/apiservice.yml.j2
+        - templates/cis/webhook/service.yml.j2
+        - templates/cis/webhook/cis-apikey-secret.yml.j2
+        - templates/cis/webhook/cis-proxy-route.yml.j2
 
-# 2. Create the CIS ClusterIssuers
+    - name: "cis : Create k8s resources for CIS DNS-01 ClusterIssuers"
+      kubernetes.core.k8s:
+        namespace: "{{ cert_manager_namespace }}"
+        state: present
+        template: "{{ item }}"
+      with_items:
+        - templates/cis/clusterissuer-staging.yml.j2
+        - templates/cis/clusterissuer-prod.yml.j2
+
+
+# 3. Create Let's Encrypt HTTP-01 issuer (path-based routing mode)
 # =============================================================================
-- name: "cis : Create k8s resources for CIS ClusterIssuers"
+- name: "cis : Install Let's Encrypt HTTP-01 production issuer (path routing)"
+  when: mas_routing_mode is defined and mas_routing_mode == 'path'
   kubernetes.core.k8s:
-    namespace: "{{ cert_manager_namespace }}"
-    state: present
-    template: "{{ item }}"
-  with_items:
-    - templates/cis/clusterissuer-staging.yml.j2
-    - templates/cis/clusterissuer-prod.yml.j2
+    template: templates/cis/http01-issuer-prod.yml.j2

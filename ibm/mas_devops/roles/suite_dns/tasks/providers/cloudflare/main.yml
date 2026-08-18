@@ -30,18 +30,28 @@
     template: templates/cloudflare/secret.yml.j2
 
 
-# 3. Create ClusterIssuer
+# 3. Create DNS-01 ClusterIssuers (subdomain routing mode)
 # -----------------------------------------------------------------------------
 - name: "cloudflare : Install Cloudflare production ClusterIssuer"
+  when: mas_routing_mode is not defined or mas_routing_mode != 'path'
   kubernetes.core.k8s:
     template: templates/cloudflare/clusterissuer-prod.yml.j2
 
 - name: "cloudflare : Install Cloudflare staging ClusterIssuer"
+  when: mas_routing_mode is not defined or mas_routing_mode != 'path'
   kubernetes.core.k8s:
     template: templates/cloudflare/clusterissuer-staging.yml.j2
 
 
-# 4. Lookup the OCP ingress for DNS entries
+# 4. Create Let's Encrypt HTTP-01 issuer (path-based routing mode)
+# -----------------------------------------------------------------------------
+- name: "cloudflare : Install Let's Encrypt HTTP-01 production issuer (path routing)"
+  when: mas_routing_mode is defined and mas_routing_mode == 'path'
+  kubernetes.core.k8s:
+    template: templates/cloudflare/http01-issuer-prod.yml.j2
+
+
+# 5. Lookup the OCP ingress for DNS entries
 # -----------------------------------------------------------------------------
 - name: Lookup the OCP Hostname
   when: ocp_ingress is not defined or ocp_ingress == ''
@@ -64,7 +74,7 @@
         ocp_ingress: "{{ cluster_ingress_lookup.resources[0].spec.domain }}"
 
 
-# 5. Setup MAS Domain Name Entries
+# 6. Setup MAS Domain Name Entries
 # -----------------------------------------------------------------------------
 - name: "cloudflare : Setup MAS DNS Entries"
   set_fact:

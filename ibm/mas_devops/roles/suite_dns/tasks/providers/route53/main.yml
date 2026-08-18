@@ -64,10 +64,19 @@
     - route53_subdomain is defined
     - route53_subdomain != ''
 
-# 6. Create AWS Route 53 cluster issuer
+# 6. Create AWS Route 53 DNS-01 cluster issuer (subdomain routing mode)
 # -----------------------------------------------------------------------------
 - name: "aws-route53 : Create AWS Route 53 cluster issuer: {{ route53_prod_issuer_name }}"
+  when: mas_routing_mode is not defined or mas_routing_mode != 'path'
   kubernetes.core.k8s:
     namespace: "ibm-common-services"
     state: present
     template: templates/route53/clusterissuer.yml.j2
+
+
+# 7. Create Let's Encrypt HTTP-01 issuer (path-based routing mode)
+# -----------------------------------------------------------------------------
+- name: "aws-route53 : Install Let's Encrypt HTTP-01 production issuer (path routing)"
+  when: mas_routing_mode is defined and mas_routing_mode == 'path'
+  kubernetes.core.k8s:
+    template: templates/route53/http01-issuer-prod.yml.j2
