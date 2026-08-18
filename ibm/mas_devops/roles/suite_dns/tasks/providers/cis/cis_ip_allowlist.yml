@@ -1,29 +1,6 @@
 ---
 # Manage a CIS WAF custom rule that blocks all traffic except from IPs in cis_allowed_ips.
-#
-# cis_allowed_ips is sourced from allow_list.ips in mas-instance-params.yaml via the
-# CIS_ALLOWED_IPS environment variable (default '' from defaults/main.yaml).
-# It may be a comma-separated string e.g. "1.2.3.4,5.6.7.8,10.0.0.0/8"
-# or a bracketed list string e.g. "[1.2.3.4/32]" from Helm list rendering.
-#
-# Behaviour:
-#   1. allow_list.ips non-empty, no existing rule  → CREATE custom WAF block rule
-#   2. allow_list.ips non-empty, rule exists       → UPDATE existing custom WAF block rule
-#   3. allow_list.ips removed / cleared ("")       → DELETE existing custom WAF block rule (if any)
-#   4. allow_list.ips never provided ("")          → no existing rule will be found; skip silently
-#
-# Cases 3 and 4 both arrive as cis_allowed_ips="" — the delete path handles both safely
-# because the rule lookup is idempotent (nothing is deleted if no matching rule exists).
-#
-# Rule description (stable lookup key, unique per account/region/cluster/instance):
-#   mas-ip-allowlist-<cis_subdomain>-<mas_instance_id>
-# cis_subdomain encodes the account/region/cluster context (e.g. "mreftest").
-# =============================================================================
 
-# ---------------------------------------------------------------------------
-# Step 1 — always fetch existing rules so both paths (create/update and
-# delete) share the same lookup result.
-# ---------------------------------------------------------------------------
 - name: "cis : ip-allowlist — set unique rule description"
   ansible.builtin.set_fact:
     _cis_allowlist_rule_desc: "mas-ip-allowlist-{{ mas_domain }}"
@@ -49,11 +26,6 @@
     _cis_allowlist_rule_id: ""
   when: _cis_custom_rules_result.rc != 0 or _cis_custom_rules_result.stdout | trim | length == 0
 
-# ---------------------------------------------------------------------------
-# Step 2a — CASE 3/4: cis_allowed_ips is empty.
-# Delete the existing rule if one is found (covers "allow_list removed").
-# If no rule exists this is a no-op (covers "allow_list never configured").
-# ---------------------------------------------------------------------------
 - name: "cis : ip-allowlist — manage deletion (allow_list empty or removed)"
   when: cis_allowed_ips | trim | length == 0
   block:
@@ -79,16 +51,10 @@
         msg: "WAF IP allowlist rule '{{ _cis_allowlist_rule_desc }}' deleted successfully for instance {{ mas_instance_id }}"
       when: _cis_allowlist_rule_id | trim | length > 0
 
-# ---------------------------------------------------------------------------
-# Step 2b — CASE 1/2: cis_allowed_ips is non-empty.
-# Create the rule if it does not exist, otherwise update it.
-# ---------------------------------------------------------------------------
 - name: "cis : ip-allowlist — manage create/update (allow_list set)"
   when: cis_allowed_ips | trim | length > 0
   block:
 
-    # Strip surrounding brackets if value arrived as "[1.2.3.4/32]" from
-    # Helm list rendering, then split on comma/whitespace, trim each entry.
     - name: "cis : ip-allowlist — normalise allowed IPs"
       ansible.builtin.set_fact:
         _cis_normalised_ips: >-
@@ -113,7 +79,6 @@
           - "WAF Expression ........... {{ _cis_allowlist_expression }}"
           - "Existing Rule ID ......... {{ _cis_allowlist_rule_id | default('(none — will create)') }}"
 
-    # CASE 1: no existing rule → create
     - name: "cis : ip-allowlist — create WAF block rule (new)"
       ansible.builtin.shell: |
         EXPR='{{ _cis_allowlist_expression }}'
@@ -129,7 +94,6 @@
       until: _cis_allowlist_create_result.rc == 0
       when: _cis_allowlist_rule_id | trim | length == 0
 
-    # CASE 2: existing rule → update
     - name: "cis : ip-allowlist — update WAF block rule (existing)"
       ansible.builtin.shell: |
         EXPR='{{ _cis_allowlist_expression }}'
