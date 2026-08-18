@@ -87,6 +87,7 @@
         releaseVersion: {{ cpd_product_version }}
         operatorNamespace: {{ cpd_operators_namespace }}
         instanceNamespace: {{ cpd_instance_namespace }}
+        controlCenterOperatorNamespace: {{ cpd_operators_namespace }}
 
         blockStorageClass: {{ cpd_metadata_storage_class }}
         fileStorageClass: {{ cpd_primary_storage_class }}
@@ -113,6 +114,9 @@
       --namespace {{ comp_namespace }} | \
     oc apply -f -
   register: cluster_install
+  retries: 3
+  delay: 10
+  until: cluster_install.rc == 0
 
 - name: "Install {{ comp_name }} cluster-scoped chart (airgap)"
   when:
@@ -127,20 +131,29 @@
       --insecure-skip-tls-verify | \
     oc apply -f -
   register: cluster_install_airgap
+  retries: 3
+  delay: 10
+  until: cluster_install_airgap.rc == 0
 
 - name: "Wait for {{ comp_name }} CRD to be established"
   when: comp_crd_name is defined and comp_crd_name != ""
-  kubernetes.core.k8s_info:
-    api_version: apiextensions.k8s.io/v1
-    kind: CustomResourceDefinition
-    name: "{{ comp_crd_name }}"
+  shell: oc get crd {{ comp_crd_name }} -o json
   register: crd_check
+  failed_when: false
   until:
-    - crd_check.resources is defined
-    - crd_check.resources | length > 0
-    - crd_check.resources[0].status.conditions | selectattr('type', 'equalto', 'Established') | list | length > 0
+    - crd_check.rc == 0
+    - (crd_check.stdout | from_json).status.conditions is defined
+    - (crd_check.stdout | from_json).status.conditions | selectattr('type', 'equalto', 'Established') | selectattr('status', 'equalto', 'True') | list | length > 0
   retries: 30
   delay: 10
+  changed_when: false
+
+- name: "Fail if {{ comp_name }} CRD is not established"
+  when:
+    - comp_crd_name is defined and comp_crd_name != ""
+    - crd_check.rc is not defined or crd_check.rc != 0
+  fail:
+    msg: "Timed out waiting for CustomResourceDefinition {{ comp_crd_name }} to be established."
 
 # Install namespace-scoped chart (Operator, CR)
 - name: "Install/Upgrade {{ comp_name }} namespace-scoped chart with Helm"
