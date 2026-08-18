@@ -1,23 +1,41 @@
 #!/bin/bash
-set -e
+set -eo pipefail
 set -x
 
-db2 connect to {{ db2_dbname }}
+# Retry db2 connect — WLM activation may require the engine to settle after
+# the addOns.workloadManager patch is applied to the Db2uInstance CR.
+for i in 1 2 3 4 5; do
+  db2 connect to {{ db2_dbname }} && break
+  echo "db2 connect attempt $i failed, retrying in 30s..."
+  sleep 30
+done
+db2 connect to {{ db2_dbname }} || { echo "ERROR: could not connect to {{ db2_dbname }} after retries"; exit 1; }
 
 {% for tenant_id in db2_tenant_ids %}
-# ---- Tenant: {{ tenant_id }} ----
+# ---- Tenant: {{ tenant_id | upper }} ----
 
-# Service class: idempotent - DB2 supports IF NOT EXISTS here
-db2 "CREATE SERVICE CLASS IF NOT EXISTS SC_{{ tenant_id | upper }} UNDER SYSDEFAULTUSERCPUCLASS"
+# Service superclass — DB2 WLM has no IF NOT EXISTS; use SELECT to skip if present.
+SC_COUNT=$(db2 -x "SELECT COUNT(*) FROM SYSCAT.SERVICECLASSES \
+  WHERE SERVICECLASSNAME = 'SC_{{ tenant_id | upper }}' \
+  AND PARENTSERVICECLASSNAME IS NULL" | tr -d ' ')
+if [ "${SC_COUNT}" = "0" ]; then
+  db2 "CREATE SERVICE CLASS SC_{{ tenant_id | upper }}"
+else
+  echo "Service class SC_{{ tenant_id | upper }} already exists, skipping."
+fi
 
-# Threshold: DB2 has no IF NOT EXISTS for thresholds.
-# Drop first (silently), then recreate so db2_wlm_max_concurrent is always applied.
-db2 "DROP THRESHOLD IF EXISTS THR_{{ tenant_id | upper }}_CONCUR" || true
-db2 "CREATE THRESHOLD THR_{{ tenant_id | upper }}_CONCUR
-     FOR SERVICE CLASS SC_{{ tenant_id | upper }} ACTIVITIES
-     ENFORCEMENT DATABASE
-     WHEN CONCURRENTDBCOORDACTIVITIES > {{ db2_wlm_max_concurrent }}
-     COLLECT ACTIVITY DATA NONE STOP EXECUTION"
+# Threshold — same pattern: check then create.
+THR_COUNT=$(db2 -x "SELECT COUNT(*) FROM SYSCAT.THRESHOLDS \
+  WHERE THRESHOLDNAME = 'THR_{{ tenant_id | upper }}_CONCUR'" | tr -d ' ')
+if [ "${THR_COUNT}" = "0" ]; then
+  db2 "CREATE THRESHOLD THR_{{ tenant_id | upper }}_CONCUR
+       FOR SERVICE CLASS SC_{{ tenant_id | upper }} ACTIVITIES
+       ENFORCEMENT DATABASE
+       WHEN CONCURRENTDBCOORDACTIVITIES > {{ db2_wlm_max_concurrent }}
+       COLLECT ACTIVITY DATA NONE STOP EXECUTION"
+else
+  echo "Threshold THR_{{ tenant_id | upper }}_CONCUR already exists, skipping."
+fi
 
 {% endfor %}
 
