@@ -1,0 +1,41 @@
+---
+# Enable the openshift-data-foundation addon and wait for it to become ready.
+# Depends on: cluster_name
+
+- name: "roks-vpc/odf : Enable openshift-data-foundation addon"
+  shell: |
+    ibmcloud oc cluster addon enable openshift-data-foundation --cluster {{ cluster_name }} --version {{ ocp_version | regex_replace('_openshift$', '') | regex_replace('^(\d+\.\d+).*', '\1') }}.0 --param "numOfOsd=3" -f
+  register: addon_enable
+  failed_when:
+    - addon_enable.rc != 0
+    - "'already exists' not in addon_enable.stderr"
+
+- name: "roks-vpc/odf : Wait until openshift-data-foundation addon is ready"
+  shell: |
+    ibmcloud oc cluster addon ls --cluster {{ cluster_name }} --output json
+  register: addon_status
+  vars:
+    addon: >-
+      {{
+        addon_status.stdout | from_json
+        | selectattr('name', 'equalto', 'openshift-data-foundation')
+        | list | first | default({})
+      }}
+  until:
+    - addon_status.rc == 0
+    - addon.healthState is defined
+    - addon.healthState == 'normal'
+  retries: 60
+  delay: 60  # 1 minute
+
+- name: "roks-vpc/odf : Debug openshift-data-foundation addon state"
+  vars:
+    addon: >-
+      {{
+        addon_status.stdout | from_json
+        | selectattr('name', 'equalto', 'openshift-data-foundation')
+        | list | first | default({})
+      }}
+  debug:
+    msg: "{{ addon }}"
+
