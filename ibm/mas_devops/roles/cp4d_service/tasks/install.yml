@@ -104,61 +104,32 @@
       - "Required method (after version check): {{ component_support.required_method | default('not set') }}"
       - "Version comparison (>= 5.3.1): {{ cpd_product_version is version('5.3.1', '>=') }}"
 
-# 4. Determine installation method based on user preference and component support
+# 4. Determine installation method from component support matrix
+# (already set by version-based override above)
 # -----------------------------------------------------------------------------
-- name: "Determine installation method - User requested Helm"
-  when: cpd_install_method == 'helm'
-  block:
-    - name: "Validate Helm support for {{ cpd_service_name }}"
-      assert:
-        that:
-          - component_support.support_helm | default(false)
-        fail_msg: "Component '{{ cpd_service_name }}' does not support Helm installation"
+- name: "Resolve installation method for {{ cpd_service_name }}"
+  set_fact:
+    resolved_install_method: >-
+      {%- if component_support.required_method is defined -%}
+        {{ component_support.required_method }}
+      {%- elif component_support.support_olm | default(false) -%}
+        olm
+      {%- elif component_support.support_helm | default(false) -%}
+        helm
+      {%- else -%}
+        unsupported
+      {%- endif -%}
 
-    - name: "Set installation method to Helm"
-      set_fact:
-        resolved_install_method: "helm"
-
-- name: "Determine installation method - User requested OLM"
-  when: cpd_install_method == 'olm'
-  block:
-    - name: "Validate OLM support for {{ cpd_service_name }}"
-      assert:
-        that:
-          - component_support.support_olm | default(false)
-        fail_msg: "Component '{{ cpd_service_name }}' does not support OLM installation"
-
-    - name: "Set installation method to OLM"
-      set_fact:
-        resolved_install_method: "olm"
-
-- name: "Determine installation method - Auto-detect"
-  when: cpd_install_method == 'auto'
-  block:
-    - name: "Auto-detect installation method for {{ cpd_service_name }}"
-      set_fact:
-        resolved_install_method: >-
-          {%- if component_support.required_method is defined -%}
-            {{ component_support.required_method }}
-          {%- elif component_support.support_olm | default(false) -%}
-            olm
-          {%- elif component_support.support_helm | default(false) -%}
-            helm
-          {%- else -%}
-            unsupported
-          {%- endif -%}
-
-    - name: "Validate auto-detected method"
-      assert:
-        that:
-          - resolved_install_method != 'unsupported'
-        fail_msg: "Component '{{ cpd_service_name }}' has no supported installation method"
+- name: "Validate resolved installation method"
+  assert:
+    that:
+      - resolved_install_method != 'unsupported'
+    fail_msg: "Component '{{ cpd_service_name }}' has no supported installation method for CPD {{ cpd_product_version }}"
 
 - name: "Installation method selected for {{ cpd_service_name }}"
   debug:
     msg:
       - "Component: {{ cpd_service_name }}"
-      - "User preference: {{ cpd_install_method }}"
       - "Selected method: {{ resolved_install_method }}"
       - "Support OLM: {{ component_support.support_olm | default(false) }}"
       - "Support Helm: {{ component_support.support_helm | default(false) }}"
