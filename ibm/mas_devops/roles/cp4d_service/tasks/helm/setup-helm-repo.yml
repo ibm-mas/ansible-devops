@@ -97,6 +97,11 @@
 
 # Airgap path
 # -----------------------------------------------------------------------------
+- name: "Resolve Helm registry TLS flag (airgap)"
+  when: cpd_helm_airgap
+  set_fact:
+    helm_tls_flag: "{{ '--ca-file ' ~ lookup('env', 'HELM_REGISTRY_CA_FILE') if lookup('env', 'HELM_REGISTRY_CA_FILE') else '--insecure' }}"
+
 - name: "Login to OCI Helm registry (airgap)"
   when:
     - cpd_helm_airgap
@@ -105,7 +110,7 @@
     helm registry login {{ cpd_airgap_helm_repo_url | regex_replace('^oci://', '') }}
     --username {{ registry_username }}
     --password {{ registry_password }}
-    --insecure
+    {{ helm_tls_flag }}
   no_log: true
   register: helm_oci_login
 

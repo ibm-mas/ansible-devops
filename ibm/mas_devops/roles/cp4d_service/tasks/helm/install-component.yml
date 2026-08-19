@@ -15,6 +15,7 @@
     comp_cluster_chart: "{{ (dep_component_info | default(component_info, true)).helm_cluster_chart }}"
     comp_crd_name: "{{ (dep_component_info | default(component_info, true)).crd_name }}"
     comp_case_version: "{{ (dep_component_info | default(component_info, true)).case_version | default('') }}"
+    helm_tls_flag: "{{ '--ca-file ' ~ lookup('env', 'HELM_REGISTRY_CA_FILE') if lookup('env', 'HELM_REGISTRY_CA_FILE') else '--insecure-skip-tls-verify' }}"
 
 # Online: search the named helm repo for the chart version
 - name: "Search for {{ component_name }} chart version {{ comp_case_version }}"
@@ -48,7 +49,7 @@
   when: cpd_helm_airgap
   shell: >
     helm show chart {{ cpd_airgap_helm_repo_url }}/{{ comp_chart_name }}
-    --insecure-skip-tls-verify 2>/dev/null
+    {{ helm_tls_flag }} 2>/dev/null
     | grep '^version:' | awk '{print $2}' | tr -d '"'
   register: chart_version_lookup
   changed_when: false
@@ -114,7 +115,7 @@
       --version {{ chart_version }} \
       -f /tmp/{{ component_name }}-helm-values.yaml \
       --namespace {{ cpd_operators_namespace }} \
-      --insecure-skip-tls-verify | \
+      {{ helm_tls_flag }} | \
     oc apply -f -
   register: cluster_install_airgap
 
@@ -163,7 +164,7 @@
     --create-namespace
     --wait
     --timeout {{ cpd_helm_timeout }}
-    --insecure-skip-tls-verify
+    {{ helm_tls_flag }}
   register: ns_install
   changed_when: "'has been upgraded' in ns_install.stdout or 'has been installed' in ns_install.stdout"
   retries: 10
