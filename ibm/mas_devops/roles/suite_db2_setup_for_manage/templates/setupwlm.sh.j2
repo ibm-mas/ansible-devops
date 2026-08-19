@@ -4,8 +4,17 @@ set -x
 
 # Source db2 instance profile so that the db2 CLI is on PATH regardless of
 # how this script is invoked (login shell, non-login shell, oc exec, etc.)
+# Try the Helm-based db2u path first, then fall back to legacy path.
 # shellcheck source=/dev/null
-source /database/config/db2inst1/sqllib/db2profile
+DB2_PROFILE=""
+for p in /mnt/blumeta0/home/db2inst1/sqllib/db2profile \
+          /database/config/db2inst1/sqllib/db2profile \
+          /home/db2inst1/sqllib/db2profile; do
+  [ -f "$p" ] && DB2_PROFILE="$p" && break
+done
+[ -n "$DB2_PROFILE" ] || { echo "ERROR: could not locate db2profile"; exit 1; }
+# shellcheck disable=SC1090
+source "$DB2_PROFILE"
 
 # Retry db2 connect — WLM activation may require the engine to settle after
 # the addOns.workloadManager patch is applied to the Db2uInstance CR.
