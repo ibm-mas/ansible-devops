@@ -4,86 +4,130 @@ kind: ClusterPolicy
 metadata:
   name: gpu-cluster-policy
 spec:
-  driver:
-    enabled: true
-    repository: "{{ gpu_driver_repository_path }}"
-    version: "{{ gpu_driver_version }}"
-    image: driver
-    upgradePolicy:
-      autoUpgrade: true
-      drain:
-        deleteEmptyDir: false
-        enable: false
-        force: false
-        timeoutSeconds: 300
-      maxParallelUpgrades: 1
-      maxUnavailable: 25%
-      podDeletion:
-        deleteEmptyDir: false
-        force: false
-        timeoutSeconds: 300
-      waitForCompletion:
-        timeoutSeconds: 0
-    repoConfig:
-      configMapName: ''
-    certConfig:
-      name: ''
-    licensingConfig:
-      nlsEnabled: false
-      configMapName: ''
-    virtualTopology:
-      config: ''
-    kernelModuleConfig:
-      name: ''
-  vgpuDeviceManager:
-    enabled: true
-  migManager:
-    enabled: true
+  hostPaths:
+    rootFS: /
+    driverInstallDir: /run/nvidia/driver
   operator:
     defaultRuntime: crio
-    initContainer: {}
     use_ocp_driver_toolkit: true
-  dcgm:
-    enabled: true
-  gfd:
-    enabled: true
-  dcgmExporter:
-    config:
-      name: ''
-    enabled: true
-    serviceMonitor:
-      enabled: true
-  devicePlugin:
-    config:
-      default: ''
-      name: ''
-    enabled: true
-  mig:
-    strategy: single
-  sandboxDevicePlugin:
-    enabled: true
+    runtimeClass: nvidia
+  daemonsets:
+    tolerations: 
+      - effect: NoSchedule
+        key: nvidia.com/gpu
+        operator: Exists
+    priorityClassName: system-node-critical
+    updateStrategy: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: "1"
   validator:
     plugin:
       env:
         - name: WITH_WORKLOAD
           value: 'true'
-  nodeStatusExporter:
+  mig:
+    strategy: single
+  psa:
+    enabled: false
+  cdi:
     enabled: true
-  daemonsets:
-    rollingUpdate:
-      maxUnavailable: '1'
-    updateStrategy: RollingUpdate
-  sandboxWorkloads:
-    defaultWorkload: container
-    enabled: false
-  gds:
-    enabled: false
+  driver:
+    enabled: true
+    repository: "{{ gpu_driver_repository_path }}"
+    version: "{{ gpu_driver_version }}"
+    image: driver
+    useNvidiaDriverCRD: false
+    kernelModuleType: auto
+    usePrecompiled: false
+    startupProbe: 
+      failureThreshold: 120
+      initialDelaySeconds: 60
+      periodSeconds: 10
+      timeoutSeconds: 60
+    rdma:
+      enabled: false
+      useHostMofed: false
+    repoConfig: 
+      configMapName: ""
+    certConfig: 
+      name: ""
+    licensingConfig: 
+      nlsEnabled: false
+      configMapName: ""
+    virtualTopology: 
+      config: ""
+    kernelModuleConfig: 
+      name: ""
+    upgradePolicy:
+      autoUpgrade: true
+      maxParallelUpgrades: 1
+      maxUnavailable : 25%
+      waitForCompletion:
+        timeoutSeconds: 0
+      podDeletion:
+        force: false
+        timeoutSeconds: 300
+        deleteEmptyDir: false
+      drain:
+        enable: false
+        force: false
+        timeoutSeconds: 300
+        deleteEmptyDir: false
   vgpuManager:
+    enabled: false
+    kernelModuleConfig: 
+      name: ""
+  kataManager:
     enabled: false
   vfioManager:
     enabled: true
+  vgpuDeviceManager:
+    enabled: true
+    config: 
+      default: default
+      name: ""
+  ccManager:
+    enabled: true
+    defaultMode: "on"
+    env: 
+      - name: CC_CAPABLE_DEVICE_IDS
+        value: 0x2339,0x2331,0x2330,0x2324,0x2322,0x233d
   toolkit:
     enabled: true
-  cdi:
+    installDir: /usr/local/nvidia
+  devicePlugin:
     enabled: true
-    default: true
+  dcgm:
+    enabled: false
+  dcgmExporter:
+    enabled: true
+    serviceMonitor: 
+      additionalLabels: {}
+      enabled: true
+      honorLabels: false
+      interval: 15s
+      relabelings: []
+    service: 
+      internalTrafficPolicy: Cluster
+  gfd:
+    enabled: true
+  migManager:
+    enabled: true
+    config:
+      default: "all-disabled"
+    gpuClientsConfig: 
+      name: ""
+  nodeStatusExporter:
+    enabled: false
+  gds:
+    enabled: false
+  gdrcopy:
+    enabled: false
+  sandboxWorkloads:
+    enabled: false
+    defaultWorkload: container
+    mode: "kubevirt"
+  sandboxDevicePlugin:
+    enabled: true
+  kataSandboxDevicePlugin:
+    enabled: true
