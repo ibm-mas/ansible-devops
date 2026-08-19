@@ -6,6 +6,10 @@
   set_fact:
     mas_app_namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
 
+- name: "Configure binding name"
+  set_fact:
+    mvi_clusterrolebinding_name: "ibm-mas-visualinspection-{{ mas_instance_id }}-clusterrolebinding"
+
 - name: "Debug information"
   debug:
     msg:
@@ -13,6 +17,7 @@
       - "Application ID ............. {{ mas_app_id }}"
       - "MAS app namespace .......... {{ mas_app_namespace }}"
       - "Setup ClusterRole .......... {{ mvi_setup_clusterrole }}"
+      - "ClusterRoleBinding name .... {{ mvi_clusterrolebinding_name }}"
 
 
 # 2. Apply SCC ClusterRole and ClusterRoleBinding
@@ -46,7 +51,7 @@
     state: absent
     api_version: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
-    name: ibm-mas-visualinspection-clusterrolebinding
+    name: "{{ mvi_clusterrolebinding_name }}"
 
 - name: "Delete SCC ClusterRole for visualinspection"
   when: not (mvi_setup_clusterrole | bool)
