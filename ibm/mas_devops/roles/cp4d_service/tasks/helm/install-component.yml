@@ -68,56 +68,58 @@
       - "Chart name: {{ comp_chart_name }}"
       - "Cluster chart: {{ comp_cluster_chart }}"
 
-- name: "Create Helm values for {{ component_name }}"
-  copy:
-    content: |
-      # Helm values for {{ component_name }} ({{ comp_assembly }})
+# Build Helm values dict once — passed directly to kubernetes.core.helm and
+# helm template shell commands. No temp file needed, no credentials on disk.
+- name: "Set Helm values for {{ component_name }}"
+  set_fact:
+    helm_values:
       global:
         licenseAccept: true
-        releaseVersion: {{ cpd_product_version }}
-        operatorNamespace: {{ cpd_operators_namespace }}
-        instanceNamespace: {{ cpd_instance_namespace }}
-
-        blockStorageClass: {{ cpd_service_block_storage_class }}
-        fileStorageClass: {{ cpd_service_storage_class }}
-
-        imagePullSecret: {{ ibm_entitlement_key_secret }}
-        imagePullPrefix: cp.icr.io
-
-      {{ comp_assembly }}:
-        scaleConfig: {{ cpd_service_scale_config }}
-        version: {{ cpd_product_version }}
+        releaseVersion: "{{ cpd_product_version }}"
+        operatorNamespace: "{{ cpd_operators_namespace }}"
+        instanceNamespace: "{{ cpd_instance_namespace }}"
+        blockStorageClass: "{{ cpd_service_block_storage_class }}"
+        fileStorageClass: "{{ cpd_service_storage_class }}"
+        imagePullSecret: "{{ ibm_entitlement_key_secret }}"
+        imagePullPrefix: "cp.icr.io"
+      "{{ comp_assembly }}":
+        scaleConfig: "{{ cpd_service_scale_config }}"
+        version: "{{ cpd_product_version }}"
         non_olm: true
-    dest: "/tmp/{{ component_name }}-helm-values.yaml"
 
 # Install cluster-scoped chart (CRDs, ClusterRoles, etc.)
-# Use helm template + oc apply for cluster-scoped to avoid Helm state management issues
-- name: "Install {{ component_name }} cluster-scoped chart"
-  when:
-    - not cpd_helm_airgap
-    - comp_cluster_chart is defined and comp_cluster_chart != ""
-  shell: |
-    helm template {{ component_name | replace('_', '-') }}-cluster \
-      {{ cpd_helm_repo_name }}/{{ comp_cluster_chart }} \
-      --version {{ chart_version }} \
-      -f /tmp/{{ component_name }}-helm-values.yaml \
-      --namespace {{ cpd_operators_namespace }} | \
-    oc apply -f -
-  register: cluster_install
+# kubernetes.core.helm only supports upgrade --install (namespace-scoped state).
+# Cluster-scoped charts are applied with helm template piped to kubernetes.core.k8s
+# so Ansible's connection context is used and no oc binary is required.
+- name: "Render {{ component_name }} cluster-scoped chart manifests"
+  when: comp_cluster_chart is defined and comp_cluster_chart != ""
+  command: >
+    helm template {{ component_name | replace('_', '-') }}-cluster
+    {{ cpd_helm_repo_name if not cpd_helm_airgap else cpd_airgap_helm_repo_url }}/{{ comp_cluster_chart }}
+    --version {{ chart_version }}
+    --namespace {{ cpd_operators_namespace }}
+    --set global.licenseAccept=true
+    --set global.releaseVersion={{ cpd_product_version }}
+    --set global.operatorNamespace={{ cpd_operators_namespace }}
+    --set global.instanceNamespace={{ cpd_instance_namespace }}
+    --set global.blockStorageClass={{ cpd_service_block_storage_class }}
+    --set global.fileStorageClass={{ cpd_service_storage_class }}
+    --set global.imagePullSecret={{ ibm_entitlement_key_secret }}
+    --set global.imagePullPrefix=cp.icr.io
+    --set {{ comp_assembly }}.scaleConfig={{ cpd_service_scale_config }}
+    --set {{ comp_assembly }}.version={{ cpd_product_version }}
+    --set {{ comp_assembly }}.non_olm=true
+    {{ helm_tls_flag if cpd_helm_airgap else '' }}
+  register: cluster_chart_manifests
+  changed_when: false
 
-- name: "Install {{ component_name }} cluster-scoped chart (airgap)"
+- name: "Apply {{ component_name }} cluster-scoped chart manifests"
   when:
-    - cpd_helm_airgap
     - comp_cluster_chart is defined and comp_cluster_chart != ""
-  shell: |
-    helm template {{ component_name | replace('_', '-') }}-cluster \
-      {{ cpd_airgap_helm_repo_url }}/{{ comp_cluster_chart }} \
-      --version {{ chart_version }} \
-      -f /tmp/{{ component_name }}-helm-values.yaml \
-      --namespace {{ cpd_operators_namespace }} \
-      {{ helm_tls_flag }} | \
-    oc apply -f -
-  register: cluster_install_airgap
+    - cluster_chart_manifests.stdout | length > 0
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ cluster_chart_manifests.stdout | from_yaml_all | list }}"
 
 - name: "Wait for {{ component_name }} CRD to be established"
   kubernetes.core.k8s_info:
@@ -132,44 +134,40 @@
   retries: 30
   delay: 10
 
-# Install namespace-scoped chart (Operator, CR) using helm upgrade --install
-# This command is idempotent and handles both new installations and upgrades
-# Eliminates race conditions when multiple components share dependencies
-# Retries handle transient issues like "another operation in progress"
+# Install namespace-scoped chart using kubernetes.core.helm.
+# Values passed as a dict — no temp file, no credentials written to disk.
+# Idempotent (upgrade --install), retries handle transient helm lock errors.
 - name: "Install/Upgrade {{ component_name }} namespace-scoped chart with Helm"
   when: not cpd_helm_airgap
-  command: >
-    helm upgrade --install {{ component_name | replace('_', '-') }}
-    {{ cpd_helm_repo_name }}/{{ comp_chart_name }}
-    --version {{ chart_version }}
-    -f /tmp/{{ component_name }}-helm-values.yaml
-    --namespace {{ cpd_instance_namespace }}
-    --create-namespace
-    --wait
-    --timeout {{ cpd_helm_timeout }}
+  kubernetes.core.helm:
+    name: "{{ component_name | replace('_', '-') }}"
+    chart_ref: "{{ cpd_helm_repo_name }}/{{ comp_chart_name }}"
+    chart_version: "{{ chart_version }}"
+    release_namespace: "{{ cpd_instance_namespace }}"
+    create_namespace: true
+    wait: true
+    wait_timeout: "{{ cpd_helm_timeout }}"
+    values: "{{ helm_values }}"
   register: ns_install
-  changed_when: "'has been upgraded' in ns_install.stdout or 'has been installed' in ns_install.stdout"
   retries: 10
   delay: 60
-  until: ns_install.rc == 0
+  until: ns_install is not failed
 
 - name: "Install/Upgrade {{ component_name }} namespace-scoped chart with Helm (airgap)"
   when: cpd_helm_airgap
-  command: >
-    helm upgrade --install {{ component_name | replace('_', '-') }}
-    {{ cpd_airgap_helm_repo_url }}/{{ comp_chart_name }}
-    --version {{ chart_version }}
-    -f /tmp/{{ component_name }}-helm-values.yaml
-    --namespace {{ cpd_instance_namespace }}
-    --create-namespace
-    --wait
-    --timeout {{ cpd_helm_timeout }}
-    {{ helm_tls_flag }}
+  kubernetes.core.helm:
+    name: "{{ component_name | replace('_', '-') }}"
+    chart_ref: "{{ cpd_airgap_helm_repo_url }}/{{ comp_chart_name }}"
+    chart_version: "{{ chart_version }}"
+    release_namespace: "{{ cpd_instance_namespace }}"
+    create_namespace: true
+    wait: true
+    wait_timeout: "{{ cpd_helm_timeout }}"
+    values: "{{ helm_values }}"
   register: ns_install
-  changed_when: "'has been upgraded' in ns_install.stdout or 'has been installed' in ns_install.stdout"
   retries: 10
   delay: 60
-  until: ns_install.rc == 0
+  until: ns_install is not failed
 
 - name: "{{ component_name }} Helm charts installed"
   debug:
