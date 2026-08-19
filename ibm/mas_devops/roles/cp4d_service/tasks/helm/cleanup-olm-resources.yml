@@ -202,12 +202,13 @@
       failed_when: false
 
     # Remove finalizers from all looked-up CRs (both 'all' and named)
-    # cr_subelement[0] is the task result dict; .item is the original cr_entry loop var
-    - name: "Remove finalizers from {{ cr_subelement[0].item.kind }} CR: {{ cr_subelement[1].metadata.name }}"
+    # cr_subelement[0] is the task result dict.
+    # When loop_var is 'cr_entry', Ansible stores the loop item under key 'cr_entry' (not 'item').
+    - name: "Remove finalizers from {{ cr_subelement[0].cr_entry.kind }} CR: {{ cr_subelement[1].metadata.name }}"
       kubernetes.core.k8s:
         state: patched
-        api_version: "{{ cr_subelement[0].item.api_version }}"
-        kind: "{{ cr_subelement[0].item.kind }}"
+        api_version: "{{ cr_subelement[0].cr_entry.api_version }}"
+        kind: "{{ cr_subelement[0].cr_entry.kind }}"
         name: "{{ cr_subelement[1].metadata.name }}"
         namespace: "{{ cpd_instance_namespace }}"
         definition:
@@ -220,11 +221,11 @@
       failed_when: false
 
     # Delete CRs — Helm will recreate them with the correct version
-    - name: "Delete {{ cr_subelement[0].item.kind }} CR: {{ cr_subelement[1].metadata.name }}"
+    - name: "Delete {{ cr_subelement[0].cr_entry.kind }} CR: {{ cr_subelement[1].metadata.name }}"
       kubernetes.core.k8s:
         state: absent
-        api_version: "{{ cr_subelement[0].item.api_version }}"
-        kind: "{{ cr_subelement[0].item.kind }}"
+        api_version: "{{ cr_subelement[0].cr_entry.api_version }}"
+        kind: "{{ cr_subelement[0].cr_entry.kind }}"
         namespace: "{{ cpd_instance_namespace }}"
         name: "{{ cr_subelement[1].metadata.name }}"
       loop: "{{ (cr_lookup_all.results | default([]) + cr_lookup_named.results | default([])) | subelements('resources') }}"
