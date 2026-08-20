@@ -51,6 +51,12 @@
   block:
     - name: "Create IBM entitlement secret in operator namespace"
       when: entitlement_secret_operators_check.resources | length == 0
+      vars:
+        dockerconfig:
+          auths:
+            cp.icr.io/cp:
+              username: cp
+              password: "{{ ibm_entitlement_key }}"
       kubernetes.core.k8s:
         state: present
         definition:
@@ -62,15 +68,15 @@
           type: kubernetes.io/dockerconfigjson
           data:
             .dockerconfigjson: "{{ dockerconfig | to_json | b64encode }}"
-      vars:
-        dockerconfig:
-          auths:
-            cp.icr.io:
-              username: cp
-              password: "{{ ibm_entitlement_key }}"
 
     - name: "Create IBM entitlement secret in instance namespace"
       when: entitlement_secret_instance_check.resources | length == 0
+      vars:
+        dockerconfig:
+          auths:
+            cp.icr.io/cp:
+              username: cp
+              password: "{{ ibm_entitlement_key }}"
       kubernetes.core.k8s:
         state: present
         definition:
@@ -82,12 +88,6 @@
           type: kubernetes.io/dockerconfigjson
           data:
             .dockerconfigjson: "{{ dockerconfig | to_json | b64encode }}"
-      vars:
-        dockerconfig:
-          auths:
-            cp.icr.io:
-              username: cp
-              password: "{{ ibm_entitlement_key }}"
 
 # 7. Install all platform components via Helm in order
 # -----------------------------------------------------------------------------
