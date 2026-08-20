@@ -17,11 +17,35 @@
           - "Performance Alerts: {{ atlas_enable_performance_alerts }}"
           - "=========================================="
 
+    # Step 3.5: Fetch all existing alert configs via curl — used for idempotency checks below
+    # Using curl instead of uri module because Atlas API v1.0 requires
+    # Digest auth which the Ansible uri module does not handle reliably on GET requests
+    - name: "Fetch existing alert configs from Atlas"
+      shell: |
+        curl --digest \
+          --user "{{ atlas_public_key }}:{{ atlas_private_key }}" \
+          --silent \
+          "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs?pageNum=1&itemsPerPage=100"
+      register: atlas_existing_alert_configs_raw
+      changed_when: false
+      no_log: true
+
+    - name: "Parse existing alert configs"
+      set_fact:
+        atlas_existing_alert_configs: "{{ atlas_existing_alert_configs_raw.stdout | from_json }}"
+
     # Optional: Cluster Health Alerts (require CLUSTER_NAME matcher)
     - name: "Configure cluster health alerts"
       when: atlas_enable_cluster_health_alerts | bool
       block:
+        - name: "Check if oplog window alert already exists"
+          set_fact:
+            oplog_window_exists: "{{ atlas_existing_alert_configs.results |
+              selectattr('eventTypeName', 'equalto', 'REPLICATION_OPLOG_WINDOW_RUNNING_OUT') |
+              list | length > 0 }}"
+
         - name: "Create oplog window low alert"
+          when: not oplog_window_exists
           uri:
             url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
             method: POST
@@ -52,7 +76,15 @@
                 atlas_webhook_notifications | map('combine', {'delayMin': 1}) | list
               }}
 
+        - name: "Check if replication lag alert already exists"
+          set_fact:
+            replication_lag_exists: "{{ atlas_existing_alert_configs.results |
+              selectattr('metricThreshold', 'defined') |
+              selectattr('metricThreshold.metricName', 'equalto', 'OPLOG_SLAVE_LAG_MASTER_TIME') |
+              list | length > 0 }}"
+
         - name: "Create replication lag alert"
+          when: not replication_lag_exists
           uri:
             url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
             method: POST
@@ -74,7 +106,14 @@
             timeout: "{{ atlas_api_timeout }}"
           register: alert_replication_lag
 
+        - name: "Check if primary elected alert already exists"
+          set_fact:
+            primary_elected_exists: "{{ atlas_existing_alert_configs.results |
+              selectattr('eventTypeName', 'equalto', 'PRIMARY_ELECTED') |
+              list | length > 0 }}"
+
         - name: "Create primary elected alert"
+          when: not primary_elected_exists
           uri:
             url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
             method: POST
@@ -94,7 +133,14 @@
             timeout: "{{ atlas_api_timeout }}"
           register: alert_primary_elected
 
+        - name: "Check if no primary alert already exists"
+          set_fact:
+            no_primary_exists: "{{ atlas_existing_alert_configs.results |
+              selectattr('eventTypeName', 'equalto', 'NO_PRIMARY') |
+              list | length > 0 }}"
+
         - name: "Create no primary alert"
+          when: not no_primary_exists
           uri:
             url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
             method: POST
@@ -114,7 +160,14 @@
             timeout: "{{ atlas_api_timeout }}"
           register: alert_no_primary
 
+        - name: "Check if mongos missing alert already exists"
+          set_fact:
+            mongos_missing_exists: "{{ atlas_existing_alert_configs.results |
+              selectattr('eventTypeName', 'equalto', 'CLUSTER_MONGOS_IS_MISSING') |
+              list | length > 0 }}"
+
         - name: "Create cluster mongos missing alert"
+          when: not mongos_missing_exists
           uri:
             url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
             method: POST

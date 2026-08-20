@@ -76,12 +76,38 @@
           - "Configuring: CPU, Memory, Connection alerts"
           - "=========================================="
 
-    # Step 4: Create alert configs — all using webhook notifications
+    # Step 3.5: Fetch all existing alert configs via curl — used for idempotency checks below
+    # Using curl instead of uri module because Atlas API v1.0 requires
+    # Digest auth which the Ansible uri module does not handle reliably on GET requests
+    - name: "Fetch existing alert configs from Atlas"
+      shell: |
+        curl --digest \
+          --user "{{ atlas_public_key }}:{{ atlas_private_key }}" \
+          --silent \
+          "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs?pageNum=1&itemsPerPage=100"
+      register: atlas_existing_alert_configs_raw
+      changed_when: false
+      no_log: true
+
+    - name: "Parse existing alert configs"
+      set_fact:
+        atlas_existing_alert_configs: "{{ atlas_existing_alert_configs_raw.stdout | from_json }}"
+
+    # Step 4: Create alert configs — skip if already exists (idempotency)
     # Basic Performance Alerts (No cluster matcher required)
     # CPU, Memory, and Connection alerts
     - name: "Configure basic performance alerts"
       block:
+        - name: "Check if CPU warning alert already exists"
+          set_fact:
+            cpu_warning_exists: "{{ atlas_existing_alert_configs.results |
+              selectattr('metricThreshold', 'defined') |
+              selectattr('metricThreshold.metricName', 'equalto', 'NORMALIZED_SYSTEM_CPU_USER') |
+              selectattr('metricThreshold.threshold', 'equalto', atlas_alert_cpu_thresholds[0] | float) |
+              list | length > 0 }}"
+
         - name: "Create CPU warning alert"
+          when: not cpu_warning_exists
           uri:
             url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
             method: POST
@@ -103,7 +129,16 @@
             timeout: "{{ atlas_api_timeout }}"
           register: alert_cpu_warning
 
+        - name: "Check if CPU critical alert already exists"
+          set_fact:
+            cpu_critical_exists: "{{ atlas_existing_alert_configs.results |
+              selectattr('metricThreshold', 'defined') |
+              selectattr('metricThreshold.metricName', 'equalto', 'NORMALIZED_SYSTEM_CPU_USER') |
+              selectattr('metricThreshold.threshold', 'equalto', atlas_alert_cpu_thresholds[1] | float) |
+              list | length > 0 }}"
+
         - name: "Create CPU critical alert"
+          when: not cpu_critical_exists
           uri:
             url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
             method: POST
@@ -125,7 +160,16 @@
             timeout: "{{ atlas_api_timeout }}"
           register: alert_cpu_critical
 
+        - name: "Check if memory warning alert already exists"
+          set_fact:
+            memory_warning_exists: "{{ atlas_existing_alert_configs.results |
+              selectattr('metricThreshold', 'defined') |
+              selectattr('metricThreshold.metricName', 'equalto', 'SYSTEM_MEMORY_PERCENT_USED') |
+              selectattr('metricThreshold.threshold', 'equalto', atlas_alert_memory_thresholds[0] | float) |
+              list | length > 0 }}"
+
         - name: "Create memory warning alert"
+          when: not memory_warning_exists
           uri:
             url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
             method: POST
@@ -147,7 +191,16 @@
             timeout: "{{ atlas_api_timeout }}"
           register: alert_memory_warning
 
+        - name: "Check if memory critical alert already exists"
+          set_fact:
+            memory_critical_exists: "{{ atlas_existing_alert_configs.results |
+              selectattr('metricThreshold', 'defined') |
+              selectattr('metricThreshold.metricName', 'equalto', 'SYSTEM_MEMORY_PERCENT_USED') |
+              selectattr('metricThreshold.threshold', 'equalto', atlas_alert_memory_thresholds[1] | float) |
+              list | length > 0 }}"
+
         - name: "Create memory critical alert"
+          when: not memory_critical_exists
           uri:
             url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
             method: POST
@@ -169,7 +222,16 @@
             timeout: "{{ atlas_api_timeout }}"
           register: alert_memory_critical
 
+        - name: "Check if connections warning alert already exists"
+          set_fact:
+            connections_warning_exists: "{{ atlas_existing_alert_configs.results |
+              selectattr('metricThreshold', 'defined') |
+              selectattr('metricThreshold.metricName', 'equalto', 'CONNECTIONS_PERCENT') |
+              selectattr('metricThreshold.threshold', 'equalto', atlas_alert_connection_thresholds[0] | float) |
+              list | length > 0 }}"
+
         - name: "Create connections warning alert"
+          when: not connections_warning_exists
           uri:
             url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
             method: POST
@@ -191,7 +253,16 @@
             timeout: "{{ atlas_api_timeout }}"
           register: alert_connections_warning
 
+        - name: "Check if connections critical alert already exists"
+          set_fact:
+            connections_critical_exists: "{{ atlas_existing_alert_configs.results |
+              selectattr('metricThreshold', 'defined') |
+              selectattr('metricThreshold.metricName', 'equalto', 'CONNECTIONS_PERCENT') |
+              selectattr('metricThreshold.threshold', 'equalto', atlas_alert_connection_thresholds[1] | float) |
+              list | length > 0 }}"
+
         - name: "Create connections critical alert"
+          when: not connections_critical_exists
           uri:
             url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
             method: POST
@@ -217,7 +288,15 @@
     - name: "Configure additional performance alerts"
       when: atlas_enable_performance_alerts | bool
       block:
+        - name: "Check if query performance alert already exists"
+          set_fact:
+            query_performance_exists: "{{ atlas_existing_alert_configs.results |
+              selectattr('metricThreshold', 'defined') |
+              selectattr('metricThreshold.metricName', 'equalto', 'QUERY_TARGETING_SCANNED_OBJECTS_PER_RETURNED') |
+              list | length > 0 }}"
+
         - name: "Create query performance alert"
+          when: not query_performance_exists
           uri:
             url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
             method: POST
@@ -248,7 +327,12 @@
           - "Status: Successfully Configured"
           - "Project ID: {{ atlas_project_id }}"
           - "Notification Method: WEBHOOK (OCM)"
-          - "Alerts Created: {{ '7 (CPU, Memory, Connections, Query Performance)' if atlas_enable_performance_alerts else '6 (CPU, Memory, Connections)' }}"
+          - "CPU warning alert: {{ 'skipped (already exists)' if cpu_warning_exists else 'created' }}"
+          - "CPU critical alert: {{ 'skipped (already exists)' if cpu_critical_exists else 'created' }}"
+          - "Memory warning alert: {{ 'skipped (already exists)' if memory_warning_exists else 'created' }}"
+          - "Memory critical alert: {{ 'skipped (already exists)' if memory_critical_exists else 'created' }}"
+          - "Connections warning alert: {{ 'skipped (already exists)' if connections_warning_exists else 'created' }}"
+          - "Connections critical alert: {{ 'skipped (already exists)' if connections_critical_exists else 'created' }}"
           - "Note: Cluster-level alerts will be configured after cluster creation"
           - "=========================================="
 
