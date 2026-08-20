@@ -155,19 +155,21 @@
 
 - name: "Install/Upgrade {{ component_name }} namespace-scoped chart with Helm (airgap)"
   when: cpd_helm_airgap
-  kubernetes.core.helm:
-    name: "{{ component_name | replace('_', '-') }}"
-    chart_ref: "{{ cpd_airgap_helm_repo_url }}/{{ comp_chart_name }}"
-    chart_version: "{{ chart_version }}"
-    release_namespace: "{{ cpd_instance_namespace }}"
-    create_namespace: true
-    wait: true
-    wait_timeout: "{{ cpd_helm_timeout }}"
-    values: "{{ helm_values }}"
+  command: >
+    helm upgrade --install {{ component_name | replace('_', '-') }}
+    {{ cpd_airgap_helm_repo_url }}/{{ comp_chart_name }}
+    --version {{ chart_version }}
+    -f /tmp/{{ component_name }}-helm-values.yaml
+    --namespace {{ cpd_instance_namespace }}
+    --create-namespace
+    --wait
+    --timeout {{ cpd_helm_timeout }}
+    {{ helm_tls_flag }}
   register: ns_install
+  changed_when: "'has been upgraded' in ns_install.stdout or 'has been installed' in ns_install.stdout"
   retries: 10
   delay: 60
-  until: ns_install is not failed
+  until: ns_install.rc == 0
 
 - name: "{{ component_name }} Helm charts installed"
   debug:
