@@ -307,8 +307,11 @@
     oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- bash -l -c '/tmp/setupwlm.sh | tee /tmp/setupwlm.log'
   register: wlm_status
   ignore_errors: true
+  # The script itself retries SYSCAT readiness with up to 5 x 5-min waits (25 min).
+  # If it still exits non-zero (e.g. DB2 engine did not settle in time), Ansible
+  # retries the whole script after 5 minutes, up to 3 times.
   retries: 3
-  delay: 30
+  delay: 300
   until:
     - wlm_status.rc == 0
     - (wlm_status.stdout | default('')) | regex_search('WLMSetup-Success', multiline=True) is not none
@@ -337,8 +340,66 @@
       - wlm_status.rc is defined
       - wlm_status.rc == 0
       - (wlm_status.stdout | default('')) | regex_search('WLMSetup-Success', multiline=True) is not none
+      - (wlm_status.stdout | default('')) | regex_search('WLMVerify-Success', multiline=True) is not none
     fail_msg: "setupwlm.sh failed - WLM service classes may not have been created for all tenants"
     success_msg: "WLM service classes configured successfully for tenants: {{ db2_tenant_ids }}"
+
+# Independently verify WLM objects exist in SYSCAT for every tenant by running
+# a direct query from Ansible — this is completely separate from the script's
+# own output and confirms the DB2 instance state after setupwlm.sh has exited.
+- name: "WLM - Verify service classes exist in SYSCAT for each tenant"
+  when:
+    - db2_use_helm_operator | default(false) | bool
+    - db2_wlm_enabled | default(false) | bool
+    - db2_cr_type | default('') == 'Db2uInstance'
+    - db2_tenant_ids | default([]) | length > 0
+  shell: |
+    oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- bash -l -c '
+      db2 connect to {{ db2_dbname }} > /dev/null
+      MISSING=0
+      {% for tenant_id in db2_tenant_ids %}
+      SC=$(db2 -x "SELECT COUNT(*) FROM SYSCAT.SERVICECLASSES WHERE SERVICECLASSNAME = '"'"'SC_{{ tenant_id | upper }}'"'"' AND PARENTSERVICECLASSNAME IS NULL" | tr -d " ")
+      THR=$(db2 -x "SELECT COUNT(*) FROM SYSCAT.THRESHOLDS WHERE THRESHOLDNAME = '"'"'THR_{{ tenant_id | upper }}_CONCUR'"'"'" | tr -d " ")
+      echo "TENANT={{ tenant_id | upper }} SC_COUNT=${SC} THR_COUNT=${THR}"
+      [[ "${SC}" =~ ^[0-9]+$ ]] && [ "${SC}" -ge 1 ] || MISSING=1
+      [[ "${THR}" =~ ^[0-9]+$ ]] && [ "${THR}" -ge 1 ] || MISSING=1
+      {% endfor %}
+      db2 connect reset > /dev/null
+      if [ "${MISSING}" -ne 0 ]; then
+        echo "WLMCheck-FAILED: one or more WLM objects missing"
+        exit 1
+      fi
+      echo "WLMCheck-Success: all WLM objects verified on DB2 instance"
+    '
+  register: wlm_verify_status
+  changed_when: false
+
+- name: "WLM - Debug verification output"
+  when:
+    - db2_use_helm_operator | default(false) | bool
+    - db2_wlm_enabled | default(false) | bool
+    - db2_cr_type | default('') == 'Db2uInstance'
+    - wlm_verify_status is defined
+  debug:
+    msg:
+      - "WLM verification output ................ {{ wlm_verify_status.stdout }}"
+
+- name: "WLM - Assert SYSCAT verification passed for all tenants"
+  when:
+    - db2_use_helm_operator | default(false) | bool
+    - db2_wlm_enabled | default(false) | bool
+    - db2_cr_type | default('') == 'Db2uInstance'
+    - db2_tenant_ids | default([]) | length > 0
+    - wlm_verify_status is defined
+  assert:
+    that:
+      - wlm_verify_status.rc == 0
+      - (wlm_verify_status.stdout | default('')) | regex_search('WLMCheck-Success', multiline=True) is not none
+    fail_msg: >-
+      WLM SYSCAT verification failed — service classes or thresholds are missing
+      from the DB2 instance for one or more tenants: {{ db2_tenant_ids }}.
+      Check wlm_verify_status output above for per-tenant SC_COUNT/THR_COUNT details.
+    success_msg: "WLM SYSCAT verification passed for all tenants: {{ db2_tenant_ids }}"
 
 # 6. Execute DB2 config enforcement
 # -----------------------------------------------------------------------------

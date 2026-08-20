@@ -18,20 +18,54 @@ source "$DB2_PROFILE"
 
 # Retry db2 connect — WLM activation may require the engine to settle after
 # the addOns.workloadManager patch is applied to the Db2uInstance CR.
+# Each retry waits 5 minutes (300s) to allow the WLM engine to fully initialise.
+# NOTE: no second 'db2 connect' after the loop — issuing it again would drop the
+# active session established by the loop, causing SQL1024N on the first SYSCAT query.
+DB2_CONNECTED=0
 for i in 1 2 3 4 5; do
-  db2 connect to {{ db2_dbname }} && break
-  echo "db2 connect attempt $i failed, retrying in 30s..."
-  sleep 30
+  if db2 connect to {{ db2_dbname }}; then
+    DB2_CONNECTED=1
+    break
+  fi
+  echo "db2 connect attempt $i failed, retrying in 300s..."
+  sleep 300
 done
-db2 connect to {{ db2_dbname }} || { echo "ERROR: could not connect to {{ db2_dbname }} after retries"; exit 1; }
+if [ "${DB2_CONNECTED}" -eq 0 ]; then
+  echo "ERROR: could not connect to {{ db2_dbname }} after retries"
+  exit 1
+fi
+
+# Verify SYSCAT is queryable before proceeding — db2 connect can return 0 while
+# the WLM engine is still initialising, causing db2 -x to return SQL1024N
+# (connection does not exist) instead of a numeric COUNT.
+# Retry for up to 5 attempts with a 5-minute delay between each.
+READY=""
+for i in 1 2 3 4 5; do
+  READY=$(db2 -x "SELECT 1 FROM SYSCAT.SERVICECLASSES FETCH FIRST 1 ROW ONLY" 2>/dev/null | tr -d ' \n')
+  if [[ "${READY}" =~ ^[0-9]+$ ]]; then
+    echo "SYSCAT.SERVICECLASSES is queryable (attempt $i)."
+    break
+  fi
+  echo "SYSCAT not yet queryable (attempt $i, got: '${READY}'), retrying in 300s..."
+  sleep 300
+done
+if ! [[ "${READY}" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: SYSCAT.SERVICECLASSES not queryable after retries — WLM engine may not be ready"
+  exit 1
+fi
 
 {% for tenant_id in db2_tenant_ids %}
 # ---- Tenant: {{ tenant_id | upper }} ----
 
 # Service superclass — DB2 WLM has no IF NOT EXISTS; use SELECT to skip if present.
+# Guard: db2 -x exits 0 on SQL errors; validate the result is numeric before use.
 SC_COUNT=$(db2 -x "SELECT COUNT(*) FROM SYSCAT.SERVICECLASSES \
   WHERE SERVICECLASSNAME = 'SC_{{ tenant_id | upper }}' \
   AND PARENTSERVICECLASSNAME IS NULL" | tr -d ' ')
+if ! [[ "${SC_COUNT}" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: unexpected SC_COUNT value: '${SC_COUNT}' — database connection lost mid-run"
+  exit 1
+fi
 if [ "${SC_COUNT}" = "0" ]; then
   db2 "CREATE SERVICE CLASS SC_{{ tenant_id | upper }}"
 else
@@ -41,6 +75,10 @@ fi
 # Threshold — same pattern: check then create.
 THR_COUNT=$(db2 -x "SELECT COUNT(*) FROM SYSCAT.THRESHOLDS \
   WHERE THRESHOLDNAME = 'THR_{{ tenant_id | upper }}_CONCUR'" | tr -d ' ')
+if ! [[ "${THR_COUNT}" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: unexpected THR_COUNT value: '${THR_COUNT}' — database connection lost mid-run"
+  exit 1
+fi
 if [ "${THR_COUNT}" = "0" ]; then
   db2 "CREATE THRESHOLD THR_{{ tenant_id | upper }}_CONCUR
        FOR SERVICE CLASS SC_{{ tenant_id | upper }} ACTIVITIES
@@ -52,6 +90,46 @@ else
 fi
 
 {% endfor %}
+
+# ---- Post-creation verification ----
+# Re-query SYSCAT to confirm every service class and threshold was actually
+# created. db2 -x exits 0 on SQL errors so we validate numeric results and
+# treat any missing object as a hard failure — the script exits non-zero so
+# Ansible retries rather than accepting a false "WLMSetup-Success".
+WLM_VERIFY_FAILED=0
+{% for tenant_id in db2_tenant_ids %}
+SC_VERIFY=$(db2 -x "SELECT COUNT(*) FROM SYSCAT.SERVICECLASSES \
+  WHERE SERVICECLASSNAME = 'SC_{{ tenant_id | upper }}' \
+  AND PARENTSERVICECLASSNAME IS NULL" | tr -d ' ')
+if ! [[ "${SC_VERIFY}" =~ ^[0-9]+$ ]]; then
+  echo "WLMVerify-ERROR: SYSCAT query failed for SC_{{ tenant_id | upper }} (got: '${SC_VERIFY}')"
+  WLM_VERIFY_FAILED=1
+elif [ "${SC_VERIFY}" -ge 1 ]; then
+  echo "WLMVerify-OK: service class SC_{{ tenant_id | upper }} confirmed in SYSCAT.SERVICECLASSES"
+else
+  echo "WLMVerify-MISSING: service class SC_{{ tenant_id | upper }} not found in SYSCAT.SERVICECLASSES"
+  WLM_VERIFY_FAILED=1
+fi
+
+THR_VERIFY=$(db2 -x "SELECT COUNT(*) FROM SYSCAT.THRESHOLDS \
+  WHERE THRESHOLDNAME = 'THR_{{ tenant_id | upper }}_CONCUR'" | tr -d ' ')
+if ! [[ "${THR_VERIFY}" =~ ^[0-9]+$ ]]; then
+  echo "WLMVerify-ERROR: SYSCAT query failed for THR_{{ tenant_id | upper }}_CONCUR (got: '${THR_VERIFY}')"
+  WLM_VERIFY_FAILED=1
+elif [ "${THR_VERIFY}" -ge 1 ]; then
+  echo "WLMVerify-OK: threshold THR_{{ tenant_id | upper }}_CONCUR confirmed in SYSCAT.THRESHOLDS"
+else
+  echo "WLMVerify-MISSING: threshold THR_{{ tenant_id | upper }}_CONCUR not found in SYSCAT.THRESHOLDS"
+  WLM_VERIFY_FAILED=1
+fi
+{% endfor %}
+
+if [ "${WLM_VERIFY_FAILED}" -ne 0 ]; then
+  echo "WLMVerify-FAILED: one or more WLM objects missing from SYSCAT after creation"
+  db2 connect reset
+  exit 1
+fi
+echo "WLMVerify-Success: all service classes and thresholds confirmed in SYSCAT"
 
 db2 connect reset
 echo "WLMSetup-Success"
