@@ -81,26 +81,35 @@
       - "Chart name: {{ comp_chart_name }}"
       - "Cluster chart: {{ comp_cluster_chart }}"
 
-# Helm values passed inline to all chart installs below
+# Helm values passed inline to all chart installs below.
+# The assembly-specific key (e.g. "zen", "cpfs") must be built via combine because
+# Ansible does not evaluate Jinja2 expressions used as YAML dict keys in set_fact.
 - name: "Set Helm values for {{ comp_name }}"
   set_fact:
-    comp_helm_values:
-      global:
-        licenseAccept: true
-        releaseVersion: "{{ cpd_product_version }}"
-        operatorNamespace: "{{ cpd_operators_namespace }}"
-        instanceNamespace: "{{ cpd_instance_namespace }}"
-        controlCenterOperatorNamespace: "{{ cpd_operators_namespace }}"
-        controlCenterInstanceNamespace: "{{ cpd_instance_namespace }}"
-        blockStorageClass: "{{ cpd_metadata_storage_class }}"
-        fileStorageClass: "{{ cpd_primary_storage_class }}"
-        imagePullSecret: "{{ ibm_entitlement_key_secret }}"
-        imagePullPrefix: icr.io
-      "{{ comp_assembly }}":
-        scaleConfig: "{{ cpd_scale_config }}"
-        version: "{{ cpd_product_version }}"
-        non_olm: true
-        iamIntegration: "{{ cpd_iam_integration | bool }}"
+    comp_helm_values: >-
+      {{
+        {
+          'global': {
+            'licenseAccept': true,
+            'releaseVersion': cpd_product_version,
+            'operatorNamespace': cpd_operators_namespace,
+            'instanceNamespace': cpd_instance_namespace,
+            'controlCenterOperatorNamespace': cpd_operators_namespace,
+            'controlCenterInstanceNamespace': cpd_instance_namespace,
+            'blockStorageClass': cpd_metadata_storage_class,
+            'fileStorageClass': cpd_primary_storage_class,
+            'imagePullSecret': ibm_entitlement_key_secret,
+            'imagePullPrefix': 'icr.io'
+          }
+        } | combine({
+          comp_assembly: {
+            'scaleConfig': cpd_scale_config,
+            'version': cpd_product_version,
+            'non_olm': true,
+            'iamIntegration': cpd_iam_integration | bool
+          }
+        })
+      }}
 
 # Install cluster-scoped chart (CRDs, ClusterRoles, etc.)
 # helm template renders manifests into a variable (read-only, no cluster interaction).
@@ -117,6 +126,10 @@
     --namespace {{ comp_namespace }}
     --set global.licenseAccept=true
     --set global.imagePullPrefix=icr.io
+    --set global.operatorNamespace={{ cpd_operators_namespace }}
+    --set global.instanceNamespace={{ cpd_instance_namespace }}
+    --set global.controlCenterOperatorNamespace={{ cpd_operators_namespace }}
+    --set global.controlCenterInstanceNamespace={{ cpd_instance_namespace }}
   register: cluster_chart_manifests
   changed_when: false
 
@@ -124,12 +137,24 @@
   when:
     - not cpd_helm_airgap
     - comp_cluster_chart is defined and comp_cluster_chart != ""
+  vars:
+    # ClusterRoleBinding subjects rendered with an empty controlCenterOperatorNamespace default
+    # produce 'namespace: null' after YAML parse. Substitute the correct namespace defensively.
+    _manifest: >-
+      {{
+        item | combine(
+          {'subjects': item.subjects | map('combine', {'namespace': cpd_operators_namespace}) | list}
+          if (item.kind == 'ClusterRoleBinding' and item.subjects is defined)
+          else {}
+        )
+      }}
   kubernetes.core.k8s:
     state: present
-    definition: "{{ item }}"
+    definition: "{{ _manifest }}"
     server_side_apply:
+      field_manager: ansible
       force_conflicts: true
-  loop: "{{ cluster_chart_manifests.stdout | from_yaml_all | list }}"
+  loop: "{{ cluster_chart_manifests.stdout | from_yaml_all | select('ne', None) | list }}"
 
 - name: "Render {{ comp_name }} cluster-scoped chart manifests (airgap)"
   when:
@@ -142,6 +167,10 @@
     --namespace {{ comp_namespace }}
     --set global.licenseAccept=true
     --set global.imagePullPrefix=icr.io
+    --set global.operatorNamespace={{ cpd_operators_namespace }}
+    --set global.instanceNamespace={{ cpd_instance_namespace }}
+    --set global.controlCenterOperatorNamespace={{ cpd_operators_namespace }}
+    --set global.controlCenterInstanceNamespace={{ cpd_instance_namespace }}
     --insecure-skip-tls-verify
   register: cluster_chart_manifests_airgap
   changed_when: false
@@ -150,12 +179,22 @@
   when:
     - cpd_helm_airgap
     - comp_cluster_chart is defined and comp_cluster_chart != ""
+  vars:
+    _manifest: >-
+      {{
+        item | combine(
+          {'subjects': item.subjects | map('combine', {'namespace': cpd_operators_namespace}) | list}
+          if (item.kind == 'ClusterRoleBinding' and item.subjects is defined)
+          else {}
+        )
+      }}
   kubernetes.core.k8s:
     state: present
-    definition: "{{ item }}"
+    definition: "{{ _manifest }}"
     server_side_apply:
+      field_manager: ansible
       force_conflicts: true
-  loop: "{{ cluster_chart_manifests_airgap.stdout | from_yaml_all | list }}"
+  loop: "{{ cluster_chart_manifests_airgap.stdout | from_yaml_all | select('ne', None) | list }}"
 
 - name: "Wait for {{ comp_name }} CRD to be established"
   when: comp_crd_name is defined and comp_crd_name != ""
