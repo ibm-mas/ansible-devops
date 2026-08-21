@@ -16,14 +16,28 @@ done
 # shellcheck disable=SC1090
 source "$DB2_PROFILE"
 
-# Retry db2 connect — WLM activation may require the engine to settle after
+# DB2 CLI does not share connections across subshells — every $(...) subshell
+# needs its own 'db2 connect'.  All db2 queries are therefore wrapped in a
+# helper function that reconnects before each statement, making the script safe
+# regardless of how db2's session state behaves between subshell forks.
+#
+# Retry connect — WLM activation may require the engine to settle after
 # the addOns.workloadManager patch is applied to the Db2uInstance CR.
 # Each retry waits 5 minutes (300s) to allow the WLM engine to fully initialise.
-# NOTE: no second 'db2 connect' after the loop — issuing it again would drop the
-# active session established by the loop, causing SQL1024N on the first SYSCAT query.
+db2_query() {
+  # Usage: db2_query "<SQL>"
+  # Connects, runs the query with -x (no headers), disconnects, returns output.
+  db2 connect to {{ db2_dbname }} > /dev/null 2>&1
+  db2 -x "$1"
+  local rc=$?
+  db2 connect reset > /dev/null 2>&1
+  return $rc
+}
+
 DB2_CONNECTED=0
 for i in 1 2 3 4 5; do
-  if db2 connect to {{ db2_dbname }}; then
+  if db2 connect to {{ db2_dbname }} > /dev/null 2>&1; then
+    db2 connect reset > /dev/null 2>&1
     DB2_CONNECTED=1
     break
   fi
@@ -35,13 +49,12 @@ if [ "${DB2_CONNECTED}" -eq 0 ]; then
   exit 1
 fi
 
-# Verify SYSCAT is queryable before proceeding — db2 connect can return 0 while
-# the WLM engine is still initialising, causing db2 -x to return SQL1024N
-# (connection does not exist) instead of a numeric COUNT.
-# Retry for up to 5 attempts with a 5-minute delay between each.
+# Verify SYSCAT is queryable — db2 connect can succeed while the WLM engine is
+# still initialising.  Each subshell reconnects via db2_query() so SQL1024N
+# here means the engine is genuinely not ready yet, not a session-inheritance issue.
 READY=""
 for i in 1 2 3 4 5; do
-  READY=$(db2 -x "SELECT 1 FROM SYSCAT.SERVICECLASSES FETCH FIRST 1 ROW ONLY" 2>/dev/null | tr -d ' \n')
+  READY=$(db2_query "SELECT 1 FROM SYSCAT.SERVICECLASSES FETCH FIRST 1 ROW ONLY" 2>/dev/null | tr -d ' .\n')
   if [[ "${READY}" =~ ^[0-9]+$ ]]; then
     echo "SYSCAT.SERVICECLASSES is queryable (attempt $i)."
     break
@@ -58,33 +71,37 @@ fi
 # ---- Tenant: {{ tenant_id | upper }} ----
 
 # Service superclass — DB2 WLM has no IF NOT EXISTS; use SELECT to skip if present.
-# Guard: db2 -x exits 0 on SQL errors; validate the result is numeric before use.
-SC_COUNT=$(db2 -x "SELECT COUNT(*) FROM SYSCAT.SERVICECLASSES \
+# db2_query() reconnects per call so subshell session-isolation is not an issue.
+SC_COUNT=$(db2_query "SELECT COUNT(*) FROM SYSCAT.SERVICECLASSES \
   WHERE SERVICECLASSNAME = 'SC_{{ tenant_id | upper }}' \
   AND PARENTSERVICECLASSNAME IS NULL" | tr -d ' ')
 if ! [[ "${SC_COUNT}" =~ ^[0-9]+$ ]]; then
-  echo "ERROR: unexpected SC_COUNT value: '${SC_COUNT}' — database connection lost mid-run"
+  echo "ERROR: unexpected SC_COUNT value: '${SC_COUNT}' — SYSCAT query failed"
   exit 1
 fi
 if [ "${SC_COUNT}" = "0" ]; then
+  db2 connect to {{ db2_dbname }} > /dev/null
   db2 "CREATE SERVICE CLASS SC_{{ tenant_id | upper }}"
+  db2 connect reset > /dev/null
 else
   echo "Service class SC_{{ tenant_id | upper }} already exists, skipping."
 fi
 
-# Threshold — same pattern: check then create.
-THR_COUNT=$(db2 -x "SELECT COUNT(*) FROM SYSCAT.THRESHOLDS \
+# Threshold — same pattern.
+THR_COUNT=$(db2_query "SELECT COUNT(*) FROM SYSCAT.THRESHOLDS \
   WHERE THRESHOLDNAME = 'THR_{{ tenant_id | upper }}_CONCUR'" | tr -d ' ')
 if ! [[ "${THR_COUNT}" =~ ^[0-9]+$ ]]; then
-  echo "ERROR: unexpected THR_COUNT value: '${THR_COUNT}' — database connection lost mid-run"
+  echo "ERROR: unexpected THR_COUNT value: '${THR_COUNT}' — SYSCAT query failed"
   exit 1
 fi
 if [ "${THR_COUNT}" = "0" ]; then
+  db2 connect to {{ db2_dbname }} > /dev/null
   db2 "CREATE THRESHOLD THR_{{ tenant_id | upper }}_CONCUR
        FOR SERVICE CLASS SC_{{ tenant_id | upper }} ACTIVITIES
        ENFORCEMENT DATABASE
        WHEN CONCURRENTDBCOORDACTIVITIES > {{ db2_wlm_max_concurrent }}
        COLLECT ACTIVITY DATA NONE STOP EXECUTION"
+  db2 connect reset > /dev/null
 else
   echo "Threshold THR_{{ tenant_id | upper }}_CONCUR already exists, skipping."
 fi
@@ -98,7 +115,7 @@ fi
 # Ansible retries rather than accepting a false "WLMSetup-Success".
 WLM_VERIFY_FAILED=0
 {% for tenant_id in db2_tenant_ids %}
-SC_VERIFY=$(db2 -x "SELECT COUNT(*) FROM SYSCAT.SERVICECLASSES \
+SC_VERIFY=$(db2_query "SELECT COUNT(*) FROM SYSCAT.SERVICECLASSES \
   WHERE SERVICECLASSNAME = 'SC_{{ tenant_id | upper }}' \
   AND PARENTSERVICECLASSNAME IS NULL" | tr -d ' ')
 if ! [[ "${SC_VERIFY}" =~ ^[0-9]+$ ]]; then
@@ -111,7 +128,7 @@ else
   WLM_VERIFY_FAILED=1
 fi
 
-THR_VERIFY=$(db2 -x "SELECT COUNT(*) FROM SYSCAT.THRESHOLDS \
+THR_VERIFY=$(db2_query "SELECT COUNT(*) FROM SYSCAT.THRESHOLDS \
   WHERE THRESHOLDNAME = 'THR_{{ tenant_id | upper }}_CONCUR'" | tr -d ' ')
 if ! [[ "${THR_VERIFY}" =~ ^[0-9]+$ ]]; then
   echo "WLMVerify-ERROR: SYSCAT query failed for THR_{{ tenant_id | upper }}_CONCUR (got: '${THR_VERIFY}')"
@@ -126,11 +143,9 @@ fi
 
 if [ "${WLM_VERIFY_FAILED}" -ne 0 ]; then
   echo "WLMVerify-FAILED: one or more WLM objects missing from SYSCAT after creation"
-  db2 connect reset
   exit 1
 fi
 echo "WLMVerify-Success: all service classes and thresholds confirmed in SYSCAT"
 
-db2 connect reset
 echo "WLMSetup-Success"
 exit 0
