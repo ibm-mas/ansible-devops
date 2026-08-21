@@ -74,7 +74,7 @@ fi
 # db2_query() reconnects per call so subshell session-isolation is not an issue.
 SC_COUNT=$(db2_query "SELECT COUNT(*) FROM SYSCAT.SERVICECLASSES \
   WHERE SERVICECLASSNAME = 'SC_{{ tenant_id | upper }}' \
-  AND PARENTSERVICECLASSNAME IS NULL" | tr -d ' ')
+  AND PARENTSERVICECLASSNAME IS NULL" | grep -E '^\s*[0-9]+\s*$' | tr -d ' \n\r')
 if ! [[ "${SC_COUNT}" =~ ^[0-9]+$ ]]; then
   echo "ERROR: unexpected SC_COUNT value: '${SC_COUNT}' — SYSCAT query failed"
   exit 1
@@ -89,7 +89,7 @@ fi
 
 # Threshold — same pattern.
 THR_COUNT=$(db2_query "SELECT COUNT(*) FROM SYSCAT.THRESHOLDS \
-  WHERE THRESHOLDNAME = 'THR_{{ tenant_id | upper }}_CONCUR'" | tr -d ' ')
+  WHERE THRESHOLDNAME = 'THR_{{ tenant_id | upper }}_CONCUR'" | grep -E '^\s*[0-9]+\s*$' | tr -d ' \n\r')
 if ! [[ "${THR_COUNT}" =~ ^[0-9]+$ ]]; then
   echo "ERROR: unexpected THR_COUNT value: '${THR_COUNT}' — SYSCAT query failed"
   exit 1
@@ -117,7 +117,7 @@ WLM_VERIFY_FAILED=0
 {% for tenant_id in db2_tenant_ids %}
 SC_VERIFY=$(db2_query "SELECT COUNT(*) FROM SYSCAT.SERVICECLASSES \
   WHERE SERVICECLASSNAME = 'SC_{{ tenant_id | upper }}' \
-  AND PARENTSERVICECLASSNAME IS NULL" | tr -d ' ')
+  AND PARENTSERVICECLASSNAME IS NULL" | grep -E '^\s*[0-9]+\s*$' | tr -d ' \n\r')
 if ! [[ "${SC_VERIFY}" =~ ^[0-9]+$ ]]; then
   echo "WLMVerify-ERROR: SYSCAT query failed for SC_{{ tenant_id | upper }} (got: '${SC_VERIFY}')"
   WLM_VERIFY_FAILED=1
@@ -129,7 +129,7 @@ else
 fi
 
 THR_VERIFY=$(db2_query "SELECT COUNT(*) FROM SYSCAT.THRESHOLDS \
-  WHERE THRESHOLDNAME = 'THR_{{ tenant_id | upper }}_CONCUR'" | tr -d ' ')
+  WHERE THRESHOLDNAME = 'THR_{{ tenant_id | upper }}_CONCUR'" | grep -E '^\s*[0-9]+\s*$' | tr -d ' \n\r')
 if ! [[ "${THR_VERIFY}" =~ ^[0-9]+$ ]]; then
   echo "WLMVerify-ERROR: SYSCAT query failed for THR_{{ tenant_id | upper }}_CONCUR (got: '${THR_VERIFY}')"
   WLM_VERIFY_FAILED=1
