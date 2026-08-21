@@ -12,6 +12,7 @@ spec:
     metadata:
       labels:
         app: "{{ minio_instance_name }}"
+        tag: "{{ minio_image_tag }}"
     spec:
       volumes:
         - name: storage
@@ -20,17 +21,20 @@ spec:
       containers:
         - name: "{{ minio_instance_name }}"
           image: "{{ minio_image_registry }}/{{ minio_image_name}}@{{ minio_image_digest}}"
-          metadata:
-            labels:
-              tag: "{{ minio_image_tag }}"
           command: ["minio"]
           args:
             - server
             - /data
             - --console-address
+{% if ocp_enable_ipv6 %}
             - "[::]:9090"
             - --address
             - "[::]:9000"
+{% else %}
+            - ":9090"
+            - --address
+            - ":9000"
+{% endif %}
           env:
             - name: MINIO_ROOT_USER
               value: "{{ minio_root_user }}"
