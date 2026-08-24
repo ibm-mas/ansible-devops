@@ -17,32 +17,52 @@
           - "Performance Alerts: {{ atlas_enable_performance_alerts }}"
           - "=========================================="
 
-    # Step 3.5: Fetch all existing alert configs via curl — used for idempotency checks below
-    # Using curl instead of uri module because Atlas API v1.0 requires
-    # Digest auth which the Ansible uri module does not handle reliably on GET requests
-    - name: "Fetch existing alert configs from Atlas"
+    # Fetch ALL existing alert configs for idempotency checks
+    # Loops page by page (100 per page) until an empty results page is returned.
+    # Using curl with Digest auth — uri module does not support Digest on GET requests.
+    - name: "Initialise alert config accumulator"
+      set_fact:
+        atlas_all_alert_configs: []
+
+    - name: "Fetch all existing alert configs from Atlas (paginated)"
       shell: |
         curl --digest \
           --user "{{ atlas_public_key }}:{{ atlas_private_key }}" \
-          --silent \
-          "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs?pageNum=1&itemsPerPage=100"
-      register: atlas_existing_alert_configs_raw
+          --silent --show-error --fail \
+          "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs?pageNum={{ item }}&itemsPerPage=100"
+      register: atlas_alert_page_raw
       changed_when: false
+      failed_when: atlas_alert_page_raw.rc != 0
+      no_log: true
+      loop: "{{ range(1, 1000) | list }}"
+      loop_control:
+        label: "page {{ item }}"
+      until: (atlas_alert_page_raw.stdout | from_json).get('results', []) | length == 0
+      retries: 999
+      delay: 0
+
+    - name: "Accumulate alert configs from all pages"
+      set_fact:
+        atlas_all_alert_configs: "{{ atlas_all_alert_configs + (item.stdout | from_json).get('results', []) }}"
+      loop: "{{ atlas_alert_page_raw.results }}"
+      when: (item.stdout | from_json).get('results', []) | length > 0
       no_log: true
 
-    - name: "Parse existing alert configs"
-      set_fact:
-        atlas_existing_alert_configs: "{{ atlas_existing_alert_configs_raw.stdout | from_json }}"
-
     # Optional: Cluster Health Alerts (require CLUSTER_NAME matcher)
+    # Existence check matches on: eventTypeName + CLUSTER_NAME matcher + WEBHOOK notification
     - name: "Configure cluster health alerts"
       when: atlas_enable_cluster_health_alerts | bool
       block:
         - name: "Check if oplog window alert already exists"
           set_fact:
-            oplog_window_exists: "{{ atlas_existing_alert_configs.results |
-              selectattr('eventTypeName', 'equalto', 'REPLICATION_OPLOG_WINDOW_RUNNING_OUT') |
-              list | length > 0 }}"
+            oplog_window_exists: >-
+              {{
+                atlas_all_alert_configs
+                | selectattr('eventTypeName', 'equalto', 'REPLICATION_OPLOG_WINDOW_RUNNING_OUT') | list
+                | selectattr('notifications', 'defined') | list
+                | json_query('[?notifications[?typeName==`WEBHOOK`]]') | list
+                | json_query('[?matchers[?fieldName==`CLUSTER_NAME` && value==`' + atlas_cluster_name + '`]]') | length > 0
+              }}
 
         - name: "Create oplog window low alert"
           when: not oplog_window_exists
@@ -78,10 +98,15 @@
 
         - name: "Check if replication lag alert already exists"
           set_fact:
-            replication_lag_exists: "{{ atlas_existing_alert_configs.results |
-              selectattr('metricThreshold', 'defined') |
-              selectattr('metricThreshold.metricName', 'equalto', 'OPLOG_SLAVE_LAG_MASTER_TIME') |
-              list | length > 0 }}"
+            replication_lag_exists: >-
+              {{
+                atlas_all_alert_configs
+                | selectattr('eventTypeName', 'equalto', 'OUTSIDE_METRIC_THRESHOLD') | list
+                | selectattr('metricThreshold.metricName', 'equalto', 'OPLOG_SLAVE_LAG_MASTER_TIME') | list
+                | selectattr('metricThreshold.threshold', 'equalto', atlas_alert_replication_lag_threshold | float) | list
+                | selectattr('notifications', 'defined') | list
+                | json_query('[?notifications[?typeName==`WEBHOOK`]]') | length > 0
+              }}
 
         - name: "Create replication lag alert"
           when: not replication_lag_exists
@@ -108,9 +133,14 @@
 
         - name: "Check if primary elected alert already exists"
           set_fact:
-            primary_elected_exists: "{{ atlas_existing_alert_configs.results |
-              selectattr('eventTypeName', 'equalto', 'PRIMARY_ELECTED') |
-              list | length > 0 }}"
+            primary_elected_exists: >-
+              {{
+                atlas_all_alert_configs
+                | selectattr('eventTypeName', 'equalto', 'PRIMARY_ELECTED') | list
+                | selectattr('notifications', 'defined') | list
+                | json_query('[?notifications[?typeName==`WEBHOOK`]]') | list
+                | json_query('[?matchers[?fieldName==`CLUSTER_NAME` && value==`' + atlas_cluster_name + '`]]') | length > 0
+              }}
 
         - name: "Create primary elected alert"
           when: not primary_elected_exists
@@ -135,9 +165,14 @@
 
         - name: "Check if no primary alert already exists"
           set_fact:
-            no_primary_exists: "{{ atlas_existing_alert_configs.results |
-              selectattr('eventTypeName', 'equalto', 'NO_PRIMARY') |
-              list | length > 0 }}"
+            no_primary_exists: >-
+              {{
+                atlas_all_alert_configs
+                | selectattr('eventTypeName', 'equalto', 'NO_PRIMARY') | list
+                | selectattr('notifications', 'defined') | list
+                | json_query('[?notifications[?typeName==`WEBHOOK`]]') | list
+                | json_query('[?matchers[?fieldName==`CLUSTER_NAME` && value==`' + atlas_cluster_name + '`]]') | length > 0
+              }}
 
         - name: "Create no primary alert"
           when: not no_primary_exists
@@ -162,9 +197,14 @@
 
         - name: "Check if mongos missing alert already exists"
           set_fact:
-            mongos_missing_exists: "{{ atlas_existing_alert_configs.results |
-              selectattr('eventTypeName', 'equalto', 'CLUSTER_MONGOS_IS_MISSING') |
-              list | length > 0 }}"
+            mongos_missing_exists: >-
+              {{
+                atlas_all_alert_configs
+                | selectattr('eventTypeName', 'equalto', 'CLUSTER_MONGOS_IS_MISSING') | list
+                | selectattr('notifications', 'defined') | list
+                | json_query('[?notifications[?typeName==`WEBHOOK`]]') | list
+                | json_query('[?matchers[?fieldName==`CLUSTER_NAME` && value==`' + atlas_cluster_name + '`]]') | length > 0
+              }}
 
         - name: "Create cluster mongos missing alert"
           when: not mongos_missing_exists
@@ -196,6 +236,11 @@
           - "Status: Successfully Configured"
           - "Cluster Name: {{ atlas_cluster_name }}"
           - "Cluster Health Alerts: {{ 'Enabled' if atlas_enable_cluster_health_alerts else 'Disabled' }}"
+          - "Oplog window alert: {{ 'skipped (already exists)' if oplog_window_exists else 'created' }}"
+          - "Replication lag alert: {{ 'skipped (already exists)' if replication_lag_exists else 'created' }}"
+          - "Primary elected alert: {{ 'skipped (already exists)' if primary_elected_exists else 'created' }}"
+          - "No primary alert: {{ 'skipped (already exists)' if no_primary_exists else 'created' }}"
+          - "Mongos missing alert: {{ 'skipped (already exists)' if mongos_missing_exists else 'created' }}"
           - "=========================================="
 
   rescue:
@@ -209,7 +254,7 @@
           - "Common causes:"
           - "1. Cluster not yet ready"
           - "2. Invalid cluster name"
-          - "3. Alert already exists (not an error, can be ignored)"
+          - "3. Invalid or missing Atlas API credentials"
           - "=========================================="
           - "Error details:"
           - "{{ ansible_failed_result | default('No error details available') }}"

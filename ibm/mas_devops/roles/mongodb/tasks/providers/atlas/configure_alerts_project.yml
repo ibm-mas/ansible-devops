@@ -76,35 +76,52 @@
           - "Configuring: CPU, Memory, Connection alerts"
           - "=========================================="
 
-    # Step 3.5: Fetch all existing alert configs via curl — used for idempotency checks below
-    # Using curl instead of uri module because Atlas API v1.0 requires
-    # Digest auth which the Ansible uri module does not handle reliably on GET requests
-    - name: "Fetch existing alert configs from Atlas"
+    # Step 3.5: Fetch ALL existing alert configs for idempotency checks
+    # Loops page by page (100 per page) until an empty results page is returned.
+    # Using curl with Digest auth — uri module does not support Digest on GET requests.
+    - name: "Initialise alert config accumulator"
+      set_fact:
+        atlas_all_alert_configs: []
+
+    - name: "Fetch all existing alert configs from Atlas (paginated)"
       shell: |
         curl --digest \
           --user "{{ atlas_public_key }}:{{ atlas_private_key }}" \
-          --silent \
-          "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs?pageNum=1&itemsPerPage=100"
-      register: atlas_existing_alert_configs_raw
+          --silent --show-error --fail \
+          "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs?pageNum={{ item }}&itemsPerPage=100"
+      register: atlas_alert_page_raw
       changed_when: false
+      failed_when: atlas_alert_page_raw.rc != 0
+      no_log: true
+      loop: "{{ range(1, 1000) | list }}"
+      loop_control:
+        label: "page {{ item }}"
+      until: (atlas_alert_page_raw.stdout | from_json).get('results', []) | length == 0
+      retries: 999
+      delay: 0
+
+    - name: "Accumulate alert configs from all pages"
+      set_fact:
+        atlas_all_alert_configs: "{{ atlas_all_alert_configs + (item.stdout | from_json).get('results', []) }}"
+      loop: "{{ atlas_alert_page_raw.results }}"
+      when: (item.stdout | from_json).get('results', []) | length > 0
       no_log: true
 
-    - name: "Parse existing alert configs"
-      set_fact:
-        atlas_existing_alert_configs: "{{ atlas_existing_alert_configs_raw.stdout | from_json }}"
-
     # Step 4: Create alert configs — skip if already exists (idempotency)
-    # Basic Performance Alerts (No cluster matcher required)
-    # CPU, Memory, and Connection alerts
+    # Existence check matches on: eventTypeName + metricName + threshold (float) + WEBHOOK notification
     - name: "Configure basic performance alerts"
       block:
         - name: "Check if CPU warning alert already exists"
           set_fact:
-            cpu_warning_exists: "{{ atlas_existing_alert_configs.results |
-              selectattr('metricThreshold', 'defined') |
-              selectattr('metricThreshold.metricName', 'equalto', 'NORMALIZED_SYSTEM_CPU_USER') |
-              selectattr('metricThreshold.threshold', 'equalto', atlas_alert_cpu_thresholds[0] | float) |
-              list | length > 0 }}"
+            cpu_warning_exists: >-
+              {{
+                atlas_all_alert_configs
+                | selectattr('eventTypeName', 'equalto', 'OUTSIDE_METRIC_THRESHOLD') | list
+                | selectattr('metricThreshold.metricName', 'equalto', 'NORMALIZED_SYSTEM_CPU_USER') | list
+                | selectattr('metricThreshold.threshold', 'equalto', atlas_alert_cpu_thresholds[0] | float) | list
+                | selectattr('notifications', 'defined') | list
+                | json_query('[?notifications[?typeName==`WEBHOOK`]]') | length > 0
+              }}
 
         - name: "Create CPU warning alert"
           when: not cpu_warning_exists
@@ -131,11 +148,15 @@
 
         - name: "Check if CPU critical alert already exists"
           set_fact:
-            cpu_critical_exists: "{{ atlas_existing_alert_configs.results |
-              selectattr('metricThreshold', 'defined') |
-              selectattr('metricThreshold.metricName', 'equalto', 'NORMALIZED_SYSTEM_CPU_USER') |
-              selectattr('metricThreshold.threshold', 'equalto', atlas_alert_cpu_thresholds[1] | float) |
-              list | length > 0 }}"
+            cpu_critical_exists: >-
+              {{
+                atlas_all_alert_configs
+                | selectattr('eventTypeName', 'equalto', 'OUTSIDE_METRIC_THRESHOLD') | list
+                | selectattr('metricThreshold.metricName', 'equalto', 'NORMALIZED_SYSTEM_CPU_USER') | list
+                | selectattr('metricThreshold.threshold', 'equalto', atlas_alert_cpu_thresholds[1] | float) | list
+                | selectattr('notifications', 'defined') | list
+                | json_query('[?notifications[?typeName==`WEBHOOK`]]') | length > 0
+              }}
 
         - name: "Create CPU critical alert"
           when: not cpu_critical_exists
@@ -162,11 +183,15 @@
 
         - name: "Check if memory warning alert already exists"
           set_fact:
-            memory_warning_exists: "{{ atlas_existing_alert_configs.results |
-              selectattr('metricThreshold', 'defined') |
-              selectattr('metricThreshold.metricName', 'equalto', 'SYSTEM_MEMORY_PERCENT_USED') |
-              selectattr('metricThreshold.threshold', 'equalto', atlas_alert_memory_thresholds[0] | float) |
-              list | length > 0 }}"
+            memory_warning_exists: >-
+              {{
+                atlas_all_alert_configs
+                | selectattr('eventTypeName', 'equalto', 'OUTSIDE_METRIC_THRESHOLD') | list
+                | selectattr('metricThreshold.metricName', 'equalto', 'SYSTEM_MEMORY_PERCENT_USED') | list
+                | selectattr('metricThreshold.threshold', 'equalto', atlas_alert_memory_thresholds[0] | float) | list
+                | selectattr('notifications', 'defined') | list
+                | json_query('[?notifications[?typeName==`WEBHOOK`]]') | length > 0
+              }}
 
         - name: "Create memory warning alert"
           when: not memory_warning_exists
@@ -193,11 +218,15 @@
 
         - name: "Check if memory critical alert already exists"
           set_fact:
-            memory_critical_exists: "{{ atlas_existing_alert_configs.results |
-              selectattr('metricThreshold', 'defined') |
-              selectattr('metricThreshold.metricName', 'equalto', 'SYSTEM_MEMORY_PERCENT_USED') |
-              selectattr('metricThreshold.threshold', 'equalto', atlas_alert_memory_thresholds[1] | float) |
-              list | length > 0 }}"
+            memory_critical_exists: >-
+              {{
+                atlas_all_alert_configs
+                | selectattr('eventTypeName', 'equalto', 'OUTSIDE_METRIC_THRESHOLD') | list
+                | selectattr('metricThreshold.metricName', 'equalto', 'SYSTEM_MEMORY_PERCENT_USED') | list
+                | selectattr('metricThreshold.threshold', 'equalto', atlas_alert_memory_thresholds[1] | float) | list
+                | selectattr('notifications', 'defined') | list
+                | json_query('[?notifications[?typeName==`WEBHOOK`]]') | length > 0
+              }}
 
         - name: "Create memory critical alert"
           when: not memory_critical_exists
@@ -224,11 +253,15 @@
 
         - name: "Check if connections warning alert already exists"
           set_fact:
-            connections_warning_exists: "{{ atlas_existing_alert_configs.results |
-              selectattr('metricThreshold', 'defined') |
-              selectattr('metricThreshold.metricName', 'equalto', 'CONNECTIONS_PERCENT') |
-              selectattr('metricThreshold.threshold', 'equalto', atlas_alert_connection_thresholds[0] | float) |
-              list | length > 0 }}"
+            connections_warning_exists: >-
+              {{
+                atlas_all_alert_configs
+                | selectattr('eventTypeName', 'equalto', 'OUTSIDE_METRIC_THRESHOLD') | list
+                | selectattr('metricThreshold.metricName', 'equalto', 'CONNECTIONS_PERCENT') | list
+                | selectattr('metricThreshold.threshold', 'equalto', atlas_alert_connection_thresholds[0] | float) | list
+                | selectattr('notifications', 'defined') | list
+                | json_query('[?notifications[?typeName==`WEBHOOK`]]') | length > 0
+              }}
 
         - name: "Create connections warning alert"
           when: not connections_warning_exists
@@ -255,11 +288,15 @@
 
         - name: "Check if connections critical alert already exists"
           set_fact:
-            connections_critical_exists: "{{ atlas_existing_alert_configs.results |
-              selectattr('metricThreshold', 'defined') |
-              selectattr('metricThreshold.metricName', 'equalto', 'CONNECTIONS_PERCENT') |
-              selectattr('metricThreshold.threshold', 'equalto', atlas_alert_connection_thresholds[1] | float) |
-              list | length > 0 }}"
+            connections_critical_exists: >-
+              {{
+                atlas_all_alert_configs
+                | selectattr('eventTypeName', 'equalto', 'OUTSIDE_METRIC_THRESHOLD') | list
+                | selectattr('metricThreshold.metricName', 'equalto', 'CONNECTIONS_PERCENT') | list
+                | selectattr('metricThreshold.threshold', 'equalto', atlas_alert_connection_thresholds[1] | float) | list
+                | selectattr('notifications', 'defined') | list
+                | json_query('[?notifications[?typeName==`WEBHOOK`]]') | length > 0
+              }}
 
         - name: "Create connections critical alert"
           when: not connections_critical_exists
@@ -290,10 +327,14 @@
       block:
         - name: "Check if query performance alert already exists"
           set_fact:
-            query_performance_exists: "{{ atlas_existing_alert_configs.results |
-              selectattr('metricThreshold', 'defined') |
-              selectattr('metricThreshold.metricName', 'equalto', 'QUERY_TARGETING_SCANNED_OBJECTS_PER_RETURNED') |
-              list | length > 0 }}"
+            query_performance_exists: >-
+              {{
+                atlas_all_alert_configs
+                | selectattr('eventTypeName', 'equalto', 'OUTSIDE_METRIC_THRESHOLD') | list
+                | selectattr('metricThreshold.metricName', 'equalto', 'QUERY_TARGETING_SCANNED_OBJECTS_PER_RETURNED') | list
+                | selectattr('notifications', 'defined') | list
+                | json_query('[?notifications[?typeName==`WEBHOOK`]]') | length > 0
+              }}
 
         - name: "Create query performance alert"
           when: not query_performance_exists
@@ -348,7 +389,6 @@
           - "1. Invalid API credentials"
           - "2. Insufficient permissions"
           - "3. Webhook secret not found in AWS Secrets Manager ({{ atlas_alert_webhook_secret_name }})"
-          - "4. Alert already exists (not an error, can be ignored)"
           - "=========================================="
           - "Error details:"
           - "{{ ansible_failed_result | default('No error details available') }}"
