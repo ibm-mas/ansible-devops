@@ -2,10 +2,24 @@
 # Helm Installation Path for CPD Services
 # This is the main entry point for Helm-based installations
 
-# 0. Load release-specific component versions for CPD version
+# 0. Ensure olm-utils-cm exists and load cpd_components_meta (matches cp4d role pattern)
 # -----------------------------------------------------------------------------
-- name: "Load CPD service Helm release versions for {{ cpd_product_version }}"
-  include_vars: "{{ role_path }}/vars/helm_releases/{{ cpd_product_version }}.yml"
+- name: "Create olm-utils-cm configmap for CPD {{ cpd_product_version }}"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "{{ role_path }}/../../cp4d/templates/config_maps/olm-utils-cm-{{ cpd_product_version }}.yml.j2"
+
+- name: "Lookup olm-utils-cm to load version metadata for CPD {{ cpd_product_version }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: "olm-utils-cm"
+    kind: ConfigMap
+    namespace: "{{ cpd_instance_namespace }}"
+  register: cpd_cm_info
+
+- name: "Set cpd_components_meta from olm-utils-cm"
+  set_fact:
+    cpd_components_meta: "{{ cpd_cm_info.resources[0].data.release_components_meta | from_yaml }}"
 
 - name: "Setup Helm repository"
   include_tasks: "setup-helm-repo.yml"

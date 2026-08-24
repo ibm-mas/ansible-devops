@@ -2,18 +2,30 @@
 # Helm Platform Installation Path for CPD (CPD 5.4.0+)
 # This file defines the full, clean sequence for Helm-based installation of CPD Platform.
 
-# 1. Load release-specific variables for CPD versions
+# 1. Create olm-utils-cm and load version metadata (matches OLM pattern)
 # -----------------------------------------------------------------------------
-- name: "Load CPD platform Helm release versions for {{ cpd_product_version }}"
-  include_vars: "{{ role_path }}/vars/helm_releases/{{ cpd_product_version }}.yml"
+- name: "Create olm-utils-cm configmap for CPD {{ cpd_product_version }}"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "{{ role_path }}/templates/config_maps/olm-utils-cm-{{ cpd_product_version }}.yml.j2"
 
-# 2. Set zen_cr_version for use in wait loops
-# -----------------------------------------------------------------------------
-- name: "Set zen_cr_version from release versions"
+- name: "Lookup olm-utils-cm to load version metadata for CPD {{ cpd_product_version }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: "olm-utils-cm"
+    kind: ConfigMap
+    namespace: "{{ cpd_instance_namespace }}"
+  register: cpd_cm_info
+
+- name: "Set cpd_components_meta from olm-utils-cm"
   set_fact:
-    zen_cr_version: "{{ cpd_platform_release_versions.zen.cr_version }}"
+    cpd_components_meta: "{{ cpd_cm_info.resources[0].data.release_components_meta | from_yaml }}"
 
-# 3. Setup storage classes
+- name: "Set zen_cr_version from cpd_components_meta"
+  set_fact:
+    zen_cr_version: "{{ cpd_components_meta.zen.cr_version }}"
+
+# 2. Setup storage classes
 # -----------------------------------------------------------------------------
 - name: "Determine storage classes"
   include_tasks: "../determine-storage-classes.yml"
