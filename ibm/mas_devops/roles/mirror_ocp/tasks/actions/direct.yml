@@ -66,9 +66,10 @@
 - name: "Debug Information"
   debug:
     msg:
-      - "Command ...................... DOCKER_CONFIG={{ mirror_working_dir }} oc mirror --dest-tls-verify=false --remove-signatures -c {{ mirror_working_dir }}/imageset-ocp{{ ocp_release }}.yml docker://{{ registry_public_url_with_path_redhat }} --workspace file://{{ mirror_working_dir }}/.ibm-mas --v2"
+      - "Command ...................... DOCKER_CONFIG={{ mirror_working_dir }} oc mirror --dest-tls-verify=false {{ mirror_redhat_operators | default(false) | bool | ternary('--remove-signatures', '') }} -c {{ mirror_working_dir }}/imageset-ocp{{ ocp_release }}.yml docker://{{ registry_public_url_with_path_redhat }} --workspace file://{{ mirror_working_dir }}/.ibm-mas --v2"
       - "Log File ..................... {{ mirror_working_dir }}/logs/mirror-direct-ocp{{ ocp_release }}.log"
 
 - name: "Mirror Red Hat content from source registry to target registry"
   shell: >
-    DOCKER_CONFIG={{ mirror_working_dir }} oc mirror --dest-tls-verify=false --remove-signatures -c {{ mirror_working_dir }}/imageset-ocp{{ ocp_release }}.yml docker://{{ registry_public_url_with_path_redhat }} --workspace file://{{ mirror_working_dir }}/.ibm-mas --v2 &> {{ mirror_working_dir }}/logs/mirror-direct-ocp{{ ocp_release }}.log
+    DOCKER_CONFIG={{ mirror_working_dir }} oc mirror --dest-tls-verify=false {{ mirror_redhat_operators | default(false) | bool | ternary('--remove-signatures', '') }} -c {{ mirror_working_dir }}/imageset-ocp{{ ocp_release }}.yml docker://{{ registry_public_url_with_path_redhat }} --workspace file://{{ mirror_working_dir }}/.ibm-mas --v2 &> {{ mirror_working_dir }}/logs/mirror-direct-ocp{{ ocp_release }}.log
+    
