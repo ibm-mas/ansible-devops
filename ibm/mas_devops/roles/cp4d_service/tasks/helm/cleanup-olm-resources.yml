@@ -103,8 +103,12 @@
   debug:
     msg: "No existing OLM installation detected, proceeding with Helm installation"
 
-# Delete component CRs so Helm can recreate them with correct version
-# Only deletes CRs explicitly listed in component_cr_mapping
+# Delete component CRs so Helm can adopt them during OLM→Helm migration.
+# Only deletes CRs explicitly listed in component_cr_mapping.
+# NOTE: After deletion, helm upgrade --install is a no-op (changed: false)
+# because Helm's stored release manifest still tracks the CR but does not
+# reapply missing resources on upgrade. The missing CRs are reconciled by
+# a separate reapply task in install-helm.yml after Helm runs.
 - name: "Delete component CRs for {{ component_name }}"
   when: component_name in component_cr_mapping
   block:
@@ -139,6 +143,7 @@
           {%- endfor -%}
           {{ result }}
 
+
     - name: "Remove ownerReferences from PVCs owned by {{ component_name }} CRs"
       kubernetes.core.k8s:
         state: patched
@@ -150,74 +155,6 @@
           metadata:
             ownerReferences: []
       loop: "{{ component_owned_pvcs }}"
-      loop_control:
-        loop_var: pvc_item
-        label: "{{ pvc_item.metadata.name }}"
-      failed_when: false
-
-    # Scale down zen-core-api 'volumes-*' deployments that hold terminating PVCs.
-    # These deployments are created independently by zen-core-api (not by the component
-    # operator) to serve shared runtime library volumes to users. During upgrade the
-    # component operator deletes and recreates the PVC, but the zen-core-api deployment
-    # from the previous install is still Running and holds the pvc-protection finalizer,
-    # blocking PVC termination. This is the root cause of the ws-runtimes-libs-pvc
-    # deadlock seen when upgrading WSL from 5.2.0 to 5.3.1.
-    - name: "Find zen-core-api volumes-* deployments in {{ cpd_instance_namespace }}"
-      kubernetes.core.k8s_info:
-        api_version: apps/v1
-        kind: Deployment
-        namespace: "{{ cpd_instance_namespace }}"
-        label_selectors:
-          - "app.kubernetes.io/managed-by=zen-core-api"
-          - "icpdsupport/app=volumes"
-      register: zen_volumes_deployments
-      failed_when: false
-
-    - name: "Scale down zen-core-api volumes-* deployments holding terminating PVCs"
-      vars:
-        terminating_pvc_names: "{{ all_pvcs_info.resources | default([]) | selectattr('metadata.deletionTimestamp', 'defined') | map(attribute='metadata.name') | list }}"
-      kubernetes.core.k8s:
-        state: patched
-        api_version: apps/v1
-        kind: Deployment
-        name: "{{ deploy_item.metadata.name }}"
-        namespace: "{{ cpd_instance_namespace }}"
-        definition:
-          spec:
-            replicas: 0
-      loop: "{{ zen_volumes_deployments.resources | default([]) | selectattr('metadata.labels.app', 'defined') | selectattr('metadata.labels.app', 'in', terminating_pvc_names | map('regex_replace', '^(.+)$', 'volumes-\\1') | list) | list }}"
-      loop_control:
-        loop_var: deploy_item
-        label: "{{ deploy_item.metadata.name }}"
-      failed_when: false
-
-    - name: "Wait for scaled-down volumes-* pods to terminate (up to 2 minutes)"
-      kubernetes.core.k8s_info:
-        api_version: v1
-        kind: Pod
-        namespace: "{{ cpd_instance_namespace }}"
-        label_selectors:
-          - "app.kubernetes.io/managed-by=zen-core-api"
-          - "icpdsupport/app=volumes"
-      register: volumes_pods_check
-      retries: 12
-      delay: 10
-      until: volumes_pods_check.resources | default([]) | length == 0
-      when: zen_volumes_deployments.resources | default([]) | length > 0
-      failed_when: false
-
-    # Rescue PVCs already stuck in deletion — remove finalizers via patch
-    - name: "Remove finalizers from PVCs stuck in deletion"
-      kubernetes.core.k8s:
-        state: patched
-        api_version: v1
-        kind: PersistentVolumeClaim
-        name: "{{ pvc_item.metadata.name }}"
-        namespace: "{{ cpd_instance_namespace }}"
-        definition:
-          metadata:
-            finalizers: []
-      loop: "{{ all_pvcs_info.resources | default([]) | selectattr('metadata.deletionTimestamp', 'defined') | list }}"
       loop_control:
         loop_var: pvc_item
         label: "{{ pvc_item.metadata.name }}"
@@ -283,4 +220,102 @@
       loop_control:
         loop_var: cr_subelement
         label: "{{ cr_subelement[1].metadata.name }}"
+      failed_when: false
+
+    # Re-fetch PVCs after CR deletion — the CR deletion above triggers Kubernetes to set
+    # deletionTimestamp on owned PVCs (cascade delete). We must re-fetch here to see the
+    # current state; the snapshot taken before CR deletion shows no deletionTimestamp.
+    - name: "Re-fetch PVCs after CR deletion to detect cascade-deleted {{ component_name }} PVCs"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: PersistentVolumeClaim
+        namespace: "{{ cpd_instance_namespace }}"
+      register: all_pvcs_post_delete
+      failed_when: false
+
+    - name: "Identify {{ component_name }} PVCs now stuck in Terminating after CR deletion"
+      set_fact:
+        component_terminating_pvcs: >-
+          {%- set result = [] -%}
+          {%- for pvc in all_pvcs_post_delete.resources | default([]) -%}
+            {%- if pvc.metadata.deletionTimestamp is defined -%}
+              {%- for owned in component_owned_pvcs -%}
+                {%- if owned.metadata.name == pvc.metadata.name -%}
+                  {%- if pvc not in result -%}{%- set _ = result.append(pvc) -%}{%- endif -%}
+                {%- endif -%}
+              {%- endfor -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ result }}
+
+    # Scale down zen-core-api 'volumes-*' deployments holding the now-terminating PVCs.
+    # These deployments hold the pvc-protection finalizer, blocking PVC termination.
+    # Must run AFTER CR deletion so deletionTimestamp is set on the PVCs.
+    - name: "Find zen-core-api volumes-* deployments in {{ cpd_instance_namespace }}"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ cpd_instance_namespace }}"
+        label_selectors:
+          - "app.kubernetes.io/managed-by=zen-core-api"
+          - "icpdsupport/app=volumes"
+      register: zen_volumes_deployments
+      failed_when: false
+
+    - name: "Scale down zen-core-api volumes-* deployments holding terminating {{ component_name }} PVCs"
+      vars:
+        # PVC naming: <name>-pvc → zen-core-api deploy app label: volumes-<name>
+        terminating_deploy_labels: "{{ component_terminating_pvcs | map(attribute='metadata.name') | map('regex_replace', '-pvc$', '') | map('regex_replace', '^(.+)$', 'volumes-\\1') | list }}"
+      kubernetes.core.k8s:
+        state: patched
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ deploy_item.metadata.name }}"
+        namespace: "{{ cpd_instance_namespace }}"
+        definition:
+          spec:
+            replicas: 0
+      loop: "{{ zen_volumes_deployments.resources | default([]) | selectattr('metadata.labels.app', 'defined') | selectattr('metadata.labels.app', 'in', terminating_deploy_labels) | list }}"
+      loop_control:
+        loop_var: deploy_item
+        label: "{{ deploy_item.metadata.name }}"
+      when: component_terminating_pvcs | length > 0
+      failed_when: false
+
+    - name: "Wait for scaled-down volumes-* pods to terminate (up to 2 minutes)"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: "{{ cpd_instance_namespace }}"
+        label_selectors:
+          - "app.kubernetes.io/managed-by=zen-core-api"
+          - "icpdsupport/app=volumes"
+          - "app in ({{ terminating_deploy_labels | join(',') }})"
+      register: volumes_pods_check
+      vars:
+        terminating_deploy_labels: "{{ component_terminating_pvcs | map(attribute='metadata.name') | map('regex_replace', '-pvc$', '') | map('regex_replace', '^(.+)$', 'volumes-\\1') | list }}"
+      retries: 12
+      delay: 10
+      until: volumes_pods_check.resources | default([]) | length == 0
+      when: component_terminating_pvcs | length > 0
+      failed_when: false
+
+    # Rescue this component's PVCs stuck in Terminating — remove pvc-protection finalizer.
+    # Safe: scoped to component_terminating_pvcs (this component's PVCs only).
+    # Guaranteed to work: zen-core-api pod is already terminated by the scale-down above.
+    - name: "Remove pvc-protection finalizer from {{ component_name }} PVCs stuck in Terminating"
+      kubernetes.core.k8s:
+        state: patched
+        api_version: v1
+        kind: PersistentVolumeClaim
+        name: "{{ pvc_item.metadata.name }}"
+        namespace: "{{ cpd_instance_namespace }}"
+        definition:
+          metadata:
+            finalizers: []
+      loop: "{{ component_terminating_pvcs }}"
+      loop_control:
+        loop_var: pvc_item
+        label: "{{ pvc_item.metadata.name }}"
+      when: component_terminating_pvcs | length > 0
       failed_when: false
