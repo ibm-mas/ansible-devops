@@ -76,7 +76,7 @@ OpenShift version to install.
 - Specific version: `4.21`, `4.21.21`
 
 **Valid values**: 
-- Specific version: `4.22`, `4.22.2`
+- Specific version: `4.21`, `4.21.21`
 - Alias: `default` (newest MAS-supported version)
 - Alias: `rotate` (predetermined version by day, for testing)
 - **ROKS format**: Must append `_openshift` (e.g., `4.21_openshift`, `4.21.21_openshift`)
