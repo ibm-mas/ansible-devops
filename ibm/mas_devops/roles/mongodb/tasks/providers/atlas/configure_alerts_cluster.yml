@@ -18,35 +18,37 @@
           - "=========================================="
 
     # Fetch ALL existing alert configs for idempotency checks
-    # Loops page by page (100 per page) until an empty results page is returned.
+    # Two requests: first to get totalCount, second to fetch all in one shot.
     # Using curl with Digest auth — uri module does not support Digest on GET requests.
-    - name: "Initialise alert config accumulator"
-      set_fact:
-        atlas_all_alert_configs: []
-
-    - name: "Fetch all existing alert configs from Atlas (paginated)"
+    - name: "Fetch alert config count from Atlas"
       shell: |
         curl --digest \
           --user "{{ atlas_public_key }}:{{ atlas_private_key }}" \
           --silent --show-error --fail \
-          "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs?pageNum={{ item }}&itemsPerPage=100"
-      register: atlas_alert_page_raw
+          "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs?pageNum=1&itemsPerPage=1"
+      register: atlas_alert_count_raw
       changed_when: false
-      failed_when: atlas_alert_page_raw.rc != 0
+      failed_when: atlas_alert_count_raw.rc != 0
       no_log: true
-      loop: "{{ range(1, 1000) | list }}"
-      loop_control:
-        label: "page {{ item }}"
-      until: (atlas_alert_page_raw.stdout | from_json).get('results', []) | length == 0
-      retries: 999
-      delay: 0
 
-    - name: "Accumulate alert configs from all pages"
+    - name: "Set total alert config count"
       set_fact:
-        atlas_all_alert_configs: "{{ atlas_all_alert_configs + (item.stdout | from_json).get('results', []) }}"
-      loop: "{{ atlas_alert_page_raw.results }}"
-      when: (item.stdout | from_json).get('results', []) | length > 0
+        atlas_alert_total_count: "{{ (atlas_alert_count_raw.stdout | from_json).get('totalCount', 0) | int }}"
+
+    - name: "Fetch all existing alert configs from Atlas"
+      shell: |
+        curl --digest \
+          --user "{{ atlas_public_key }}:{{ atlas_private_key }}" \
+          --silent --show-error --fail \
+          "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs?pageNum=1&itemsPerPage={{ [atlas_alert_total_count | int, 1] | max }}"
+      register: atlas_alert_all_raw
+      changed_when: false
+      failed_when: atlas_alert_all_raw.rc != 0
       no_log: true
+
+    - name: "Set all alert configs fact"
+      set_fact:
+        atlas_all_alert_configs: "{{ (atlas_alert_all_raw.stdout | from_json).get('results', []) }}"
 
     # Optional: Cluster Health Alerts (require CLUSTER_NAME matcher)
     # Existence check matches on: eventTypeName + CLUSTER_NAME matcher + WEBHOOK notification
@@ -96,20 +98,19 @@
                 atlas_webhook_notifications | map('combine', {'delayMin': 1}) | list
               }}
 
-        - name: "Check if replication lag alert already exists"
+        - name: "Find existing replication lag alert"
           set_fact:
-            replication_lag_exists: >-
+            replication_lag_match: >-
               {{
                 atlas_all_alert_configs
                 | selectattr('eventTypeName', 'equalto', 'OUTSIDE_METRIC_THRESHOLD') | list
                 | selectattr('metricThreshold.metricName', 'equalto', 'OPLOG_SLAVE_LAG_MASTER_TIME') | list
-                | selectattr('metricThreshold.threshold', 'equalto', atlas_alert_replication_lag_threshold | float) | list
                 | selectattr('notifications', 'defined') | list
-                | json_query('[?notifications[?typeName==`WEBHOOK`]]') | length > 0
+                | json_query('[?notifications[?typeName==`WEBHOOK`]]') | first | default({})
               }}
 
         - name: "Create replication lag alert"
-          when: not replication_lag_exists
+          when: replication_lag_match == {}
           uri:
             url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
             method: POST
@@ -129,7 +130,30 @@
             body_format: json
             status_code: [200, 201]
             timeout: "{{ atlas_api_timeout }}"
-          register: alert_replication_lag
+
+        - name: "Update replication lag alert threshold if changed"
+          when:
+            - replication_lag_match != {}
+            - replication_lag_match.metricThreshold.threshold | float != atlas_alert_replication_lag_threshold | float
+          uri:
+            url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs/{{ replication_lag_match.id }}"
+            method: PUT
+            user: "{{ atlas_public_key }}"
+            password: "{{ atlas_private_key }}"
+            force_basic_auth: false
+            body:
+              eventTypeName: "OUTSIDE_METRIC_THRESHOLD"
+              enabled: true
+              metricThreshold:
+                metricName: "OPLOG_SLAVE_LAG_MASTER_TIME"
+                operator: "GREATER_THAN"
+                threshold: "{{ atlas_alert_replication_lag_threshold }}"
+                units: "SECONDS"
+                mode: "AVERAGE"
+              notifications: "{{ atlas_replication_lag_notifications }}"
+            body_format: json
+            status_code: [200, 201]
+            timeout: "{{ atlas_api_timeout }}"
 
         - name: "Check if primary elected alert already exists"
           set_fact:
@@ -236,11 +260,11 @@
           - "Status: Successfully Configured"
           - "Cluster Name: {{ atlas_cluster_name }}"
           - "Cluster Health Alerts: {{ 'Enabled' if atlas_enable_cluster_health_alerts else 'Disabled' }}"
-          - "Oplog window alert: {{ 'skipped (already exists)' if oplog_window_exists else 'created' }}"
-          - "Replication lag alert: {{ 'skipped (already exists)' if replication_lag_exists else 'created' }}"
-          - "Primary elected alert: {{ 'skipped (already exists)' if primary_elected_exists else 'created' }}"
-          - "No primary alert: {{ 'skipped (already exists)' if no_primary_exists else 'created' }}"
-          - "Mongos missing alert: {{ 'skipped (already exists)' if mongos_missing_exists else 'created' }}"
+          - "Oplog window alert: {{ 'skipped (already exists)' if oplog_window_exists is defined and oplog_window_exists else 'created' }}"
+          - "Replication lag alert: {{ 'created' if replication_lag_match == {} else 'skipped or updated' }}"
+          - "Primary elected alert: {{ 'skipped (already exists)' if primary_elected_exists is defined and primary_elected_exists else 'created' }}"
+          - "No primary alert: {{ 'skipped (already exists)' if no_primary_exists is defined and no_primary_exists else 'created' }}"
+          - "Mongos missing alert: {{ 'skipped (already exists)' if mongos_missing_exists is defined and mongos_missing_exists else 'created' }}"
           - "=========================================="
 
   rescue:
