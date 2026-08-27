@@ -1,0 +1,28 @@
+---
+# Setup MCPI routes using mas.util.routes_configuration role
+# This manages the lifecycle of routes including certificate management,
+# domain change detection, and route creation for MCPI endpoint
+# Following the same pattern as ibm-mas-suite operator
+# -----------------------------------------------------------------------------
+- name: Setup the routes using common template
+  include_role:
+    name: mas.util.routes_configuration
+    tasks_from: manage-routes-lifecycle
+  vars:
+    instance_id: "{{ instanceId }}"
+    route_namespace: "{{ mcpi_meta_namespace }}"
+    internal_cert_secret_name: "{{ certNames.internal }}"
+    public_cert_secret_name: "{{ certNames.public }}"
+    status_update_task: "{{ role_path }}/tasks/status-update.yml"
+    routing_mode: "{{ routingMode }}"
+    manual_route_mgmt: "{{ manualRouteMgmt }}"
+    managed_operator_name: "mcpi"
+    operator_name: "ibm-mas"
+    routes:
+      - route_name: "{{ instanceId }}-mcpi"
+        route_domain: "{{ mcpiRouteDomain }}"
+        route_path: "{{ mcpiRoutePath }}"
+        service_name: "mcpi-service"
+        route_annotations:
+          haproxy.router.openshift.io/rewrite-target: "/"
+

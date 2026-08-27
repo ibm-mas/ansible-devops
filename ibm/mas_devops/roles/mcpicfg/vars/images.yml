@@ -1,0 +1,45 @@
+# -----------------------------------------------------------------------------
+# MCPI Image Configuration
+# -----------------------------------------------------------------------------
+# The following container image tags can be customized by the user at
+# deployment time by specifying config.image.xxx in the CR spec
+#
+# NOTE: images.registry is updated from the Suite resource dynamically in
+# tasks/main.yml
+
+defaultTags:
+  mcpiViewer: 1.0.11
+  mcpiScripts: 1.1.191
+
+defaultPullPolicy: IfNotPresent
+
+images:
+  # images.registry is set dynamically from Suite CR in tasks/main.yml
+  pullPolicy: '{{ config.image.pullPolicy | default(defaultPullPolicy) if config.image
+    is defined else defaultPullPolicy }}'
+  pullSecretName: ibm-entitlement
+
+  mcpiViewer:
+    name: mas/mcpi-viewer
+    tag: '{{ config.image.tag | default(defaultTags.mcpiViewer) if config.image is
+      defined else defaultTags.mcpiViewer }}-{{ targetPlatform }}'
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+  mcpiScripts:
+    name: mas/mas-autoscaling
+    tag: '{{ config.image.tag | default(defaultTags.mcpiScripts) if config.image is
+      defined else defaultTags.mcpiScripts }}-{{ targetPlatform }}'
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+

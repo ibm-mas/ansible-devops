@@ -1,0 +1,24 @@
+---
+- name: "status-update : Update McpiCfg CR status"
+  operator_sdk.util.k8s_status:
+    api_version: config.mas.ibm.com/v1
+    kind: McpiCfg
+    name: "{{ ansible_operator_meta.name }}"
+    namespace: "{{ ansible_operator_meta.namespace }}"
+    status:
+      conditions:
+        - type: "{{ statusUpdate.type}}"
+          status: "{{ statusUpdate.status | string }}"
+          reason: "{{ statusUpdate.reason }}"
+          message: "{{ statusUpdate.message }}"
+      versions:
+        reconciled: "{{ operatorVersion }}"
+        generation: "{{ selfLookupResult.resources[0].metadata.generation }}"
+
+- name: "status-update : Fail if ready status condition is being set to False"
+  fail:
+    msg: "{{ statusUpdate.reason }}: {{ statusUpdate.message }}"
+  when:
+    - statusUpdate.status | string == "False"
+    - statusUpdate.type | string == "Ready"
+

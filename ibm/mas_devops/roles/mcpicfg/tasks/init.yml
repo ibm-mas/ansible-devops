@@ -1,0 +1,59 @@
+---
+# =============================================================================
+# MCPI Configuration Operator - Initialization
+# =============================================================================
+# This file handles initialization tasks including loading variables
+
+# 1. Look ourselves up to get instanceId from labels
+# -----------------------------------------------------------------------------
+- name: Lookup ourself
+  kubernetes.core.k8s_info:
+    api_version: config.mas.ibm.com/v1
+    kind: McpiCfg
+    name: "{{ ansible_operator_meta.name }}"
+    namespace: "{{ ansible_operator_meta.namespace }}"
+  register: selfLookupResult
+
+- debug:
+    msg: "selfLookupResult ...... {{ selfLookupResult }}"
+
+- set_fact:
+    instanceId: "{{ selfLookupResult.resources[0].metadata.labels['mas.ibm.com/instanceId'] }}"
+
+# 2. Retrieve OAuth client secret for redirect URI registration
+# -----------------------------------------------------------------------------
+- name: Retrieve oauth client secret
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ instanceId }}-credentials-oauth-client"
+    namespace: "{{ ansible_operator_meta.namespace }}"
+  register: oauthLookupResult
+  no_log: true
+
+- debug:
+    msg: "OAuth secret lookup completed: {{ 'Found' if oauthLookupResult.resources | length > 0 else 'Not Found' }}"
+
+- name: Fail if the oauth secret does not exist
+  when: oauthLookupResult.resources | length == 0
+  vars:
+    statusUpdate:
+      type: Ready
+      status: "False"
+      reason: "MissingCredentials"
+      message: "Unable to find resource Secret/{{ instanceId }}-credentials-oauth-client"
+  include_tasks: tasks/status-update.yml
+
+# 3. Load supported pod keys for podTemplates validation
+# -----------------------------------------------------------------------------
+- name: Load supported pod keys
+  include_vars: "vars/supported-pod-keys.yml"
+
+# 4. Load image configuration variables
+# -----------------------------------------------------------------------------
+- name: Load image configuration
+  include_vars: "{{ item }}"
+  with_first_found:
+    - vars/images-with-digests.yml
+    - vars/images.yml
+
