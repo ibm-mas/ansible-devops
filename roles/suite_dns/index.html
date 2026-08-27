@@ -1217,6 +1217,30 @@ In OCP 4.12+, to avoid CIS webhook deployment failure at start up, this role wil
 <li>Environment Variable: <code>CIS_ENTRIES_TO_ADD</code></li>
 <li>Default: <code>all</code></li>
 </ul>
+<h4 id="cis_allowed_ips">cis_allowed_ips<a class="headerlink" href="#cis_allowed_ips" title="Permanent link">¤</a></h4>
+<p>Comma-separated list of IP addresses or CIDR ranges (IPv4 and IPv6) that are permitted to access the MAS instance. When set, a CIS WAF custom block rule is created that denies all traffic <strong>not</strong> originating from the specified IPs on the MAS domain. When unset or empty, any existing WAF block rule for this instance is removed.</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>CIS_ALLOWED_IPS</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Restricts access to MAS public routes by creating a CIS WAF custom rule with the expression:</p>
+<pre><code>(not ip.src in {&lt;ip1&gt; &lt;ip2&gt; ...} and http.host contains "&lt;mas_domain&gt;")
+</code></pre>
+<p><strong>When to use</strong>:
+- Set when you want to restrict MAS access to specific IPs or corporate network ranges
+- Leave unset to allow unrestricted public access</p>
+<p><strong>Valid values</strong>: Comma-separated IPs/CIDRs, e.g.:</p>
+<pre><code>10.0.0.0/8,192.168.1.0/24,2405:201:d000:9060::/64,49.37.171.108
+</code></pre>
+<p><strong>Impact</strong>:
+- <strong>Set</strong>: Creates or updates a WAF block rule scoped to <code>mas_domain</code> — only the listed IPs can access the instance
+- <strong>Unset/empty</strong>: Deletes the existing WAF block rule, restoring unrestricted access</p>
+<p><strong>Related variables</strong>:
+- <code>cis_service_name</code>: CIS instance used to manage the rule
+- <code>cis_enhanced_security</code>: Should be enabled when using IP allowlisting
+- <code>mas_domain</code>: Used to scope the WAF rule to the correct MAS instance domain</p>
+<p><strong>Note</strong>: Requires <code>dns_provider=cis</code> and CIS enhanced security to be enabled. The Custom WAF rule is identified by the description <code>mas-ip-allowlist-&lt;mas_domain&gt;</code> and is created/updated/deleted automatically based on whether this variable is set.</p>
 <h3 id="aws-route-53">AWS Route 53<a class="headerlink" href="#aws-route-53" title="Permanent link">¤</a></h3>
 <p><strong>Prerequisites:</strong> To run this role successfully you must have already installed the <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">AWS CLI</a>.
 Also, you need to have AWS user credentials configured via <code>aws configure</code> command or simply export <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code> environment variables with your corresponding AWS username credentials prior running this role.</p>
