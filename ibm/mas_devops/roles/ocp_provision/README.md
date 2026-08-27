@@ -73,7 +73,7 @@ OpenShift version to install.
 - Always required for cluster provisioning
 - Use specific version for production (e.g., `4.21.21`)
 - Use `default` for latest MAS-supported version
-- Use `rotate` for testing (version changes by day of week)
+- Specific version: `4.21`, `4.21.21`
 
 **Valid values**: 
 - Specific version: `4.21`, `4.21.21`
