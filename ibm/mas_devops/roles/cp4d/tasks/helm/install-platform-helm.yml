@@ -113,6 +113,172 @@
     loop_var: component_item
     label: "{{ component_item.name }}"
 
+# 7b. Gap 4 — Propagate ibm-licensing upload resources into cpd_instance_namespace
+# -----------------------------------------------------------------------------
+# Must run AFTER the component loop so that:
+#   - ibm_licensing namespace-scoped chart has created the ibm-licensing-operator Deployment
+#   - ibm_common_service_operator has installed the OperandRequest CRD
+#     (operandrequests.operator.ibm.com) and the common-service OperandRegistry
+#
+# The operator never propagates these natively because instanceNamespace is not set in
+# the Helm chart. Setting instanceNamespace directly triggers an infinite SA token loop
+# (legacy SA token Secrets for ibm-licensing-default-reader are immediately GC'd by OCP
+# 4.11+ because the SA doesn't exist in cpd_instance_namespace — operator loops forever,
+# never reaches ConfigMap propagation code).
+#
+# IBM dev team guidance: use ODLM-native binding via OperandRequest:
+#   Step 1 — Role + RoleBinding: grant ibm-licensing-operator SA write access in cpd_instance_namespace
+#   Step 2 — OperandRequest: ODLM binds upload-config and upload-token into cpd_instance_namespace
+#   Step 3 — Expand WATCH_NAMESPACE: operator must watch cpd_instance_namespace to act on ODLM events
+
+# Step 1a — Role granting ibm-licensing-operator SA write access in cpd_instance_namespace
+- name: "Create ibm-licensing-opreq-role in cpd_instance_namespace"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: Role
+      metadata:
+        name: ibm-licensing-opreq-role
+        namespace: "{{ cpd_instance_namespace }}"
+      rules:
+        - apiGroups: [apps]
+          resources: [deployments]
+          verbs: [get, list, watch]
+        - apiGroups: [""]
+          resources: [pods, services]
+          verbs: [get, list, watch]
+        - apiGroups: [""]
+          resources: [secrets, configmaps]
+          verbs: [get, list, watch, create, update, patch, delete]
+
+# Step 1b — RoleBinding binding the ibm-licensing-operator SA to the Role above
+- name: "Create ibm-licensing-opreq-role-binding in cpd_instance_namespace"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata:
+        name: ibm-licensing-opreq-role-binding
+        namespace: "{{ cpd_instance_namespace }}"
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: Role
+        name: ibm-licensing-opreq-role
+      subjects:
+        - kind: ServiceAccount
+          name: ibm-licensing-operator
+          namespace: "{{ cpd_ibm_licensing_namespace }}"
+
+# Step 2 — OperandRequest: ODLM reads the public-api-upload binding from OperandBindInfo
+# and instructs the operator to materialise upload-config and upload-token in this namespace
+- name: "Create licensing-service-request OperandRequest in cpd_instance_namespace"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: operator.ibm.com/v1alpha1
+      kind: OperandRequest
+      metadata:
+        name: licensing-service-request
+        namespace: "{{ cpd_instance_namespace }}"
+      spec:
+        requests:
+          - registry: common-service
+            registryNamespace: "{{ cpd_instance_namespace }}"
+            operands:
+              - name: ibm-licensing-operator
+                bindings:
+                  public-api-upload:
+                    configmap: ibm-licensing-upload-config
+                    secret: ibm-licensing-upload-token
+
+# Step 3 — Expand WATCH_NAMESPACE on the ibm-licensing-operator Deployment.
+# Chart sets WATCH_NAMESPACE=ibm-licensing only — operator ignores ODLM events from
+# other namespaces unless they are explicitly added here.
+- name: "Get ibm-licensing-operator Deployment"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: ibm-licensing-operator
+    namespace: "{{ cpd_ibm_licensing_namespace }}"
+  register: _licensing_operator_deploy
+
+- name: "Expand WATCH_NAMESPACE to include cpd_instance_namespace"
+  when: _licensing_operator_deploy.resources | length > 0
+  vars:
+    _existing_watch: >-
+      {{
+        _licensing_operator_deploy.resources[0].spec.template.spec.containers[0].env
+        | selectattr('name', 'equalto', 'WATCH_NAMESPACE')
+        | map(attribute='value') | first | default(cpd_ibm_licensing_namespace)
+      }}
+    _new_watch: "{{ (_existing_watch.split(',') | union([cpd_instance_namespace])) | join(',') }}"
+    # Strategic merge patch on containers uses name as the merge key, so only env is touched.
+    # env list uses name as merge key too — existing vars not listed here are left unchanged.
+    _patch: >-
+      {{
+        {
+          'spec': {
+            'template': {
+              'spec': {
+                'containers': [{
+                  'name': _licensing_operator_deploy.resources[0].spec.template.spec.containers[0].name,
+                  'env': [{'name': 'WATCH_NAMESPACE', 'value': _new_watch}]
+                }]
+              }
+            }
+          }
+        }
+      }}
+  kubernetes.core.k8s:
+    state: patched
+    api_version: apps/v1
+    kind: Deployment
+    name: ibm-licensing-operator
+    namespace: "{{ cpd_ibm_licensing_namespace }}"
+    definition: "{{ _patch }}"
+
+# Wait for operator Deployment to report readyReplicas >= 1 after WATCH_NAMESPACE rollout
+- name: "Wait for ibm-licensing-operator to be Ready after WATCH_NAMESPACE update"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: ibm-licensing-operator
+    namespace: "{{ cpd_ibm_licensing_namespace }}"
+  register: _licensing_op_deploy_check
+  until:
+    - _licensing_op_deploy_check.resources | length > 0
+    - _licensing_op_deploy_check.resources[0].status.readyReplicas is defined
+    - _licensing_op_deploy_check.resources[0].status.readyReplicas | int >= 1
+    - _licensing_op_deploy_check.resources[0].status.updatedReplicas is defined
+    - _licensing_op_deploy_check.resources[0].status.updatedReplicas | int >= 1
+  retries: 30
+  delay: 10
+
+# Wait for ODLM to have materialised both resources in cpd_instance_namespace
+- name: "Wait for ibm-licensing-upload-config in cpd_instance_namespace"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: ibm-licensing-upload-config
+    namespace: "{{ cpd_instance_namespace }}"
+  register: upload_config_check
+  until: upload_config_check.resources | length > 0
+  retries: 60
+  delay: 10
+
+- name: "Wait for ibm-licensing-upload-token in cpd_instance_namespace"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: ibm-licensing-upload-token
+    namespace: "{{ cpd_instance_namespace }}"
+  register: upload_token_check
+  until: upload_token_check.resources | length > 0
+  retries: 60
+  delay: 10
+
 # 8. Wait and Configure CPD Platform
 # -----------------------------------------------------------------------------
 - name: "Install and Configure Cloud Pak For Data (shared tasks)"
