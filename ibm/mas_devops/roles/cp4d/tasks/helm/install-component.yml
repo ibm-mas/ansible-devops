@@ -196,6 +196,66 @@
       force_conflicts: true
   loop: "{{ cluster_chart_manifests_airgap.stdout | from_yaml_all | select('ne', None) | list }}"
 
+# Workaround: ibm-licensing-cluster-scoped Helm chart (CPD 5.4.0) has two RBAC gaps:
+#   1. ibm-licensing-opreqs-role ClusterRole is missing operandrequests.operator.ibm.com permissions
+#   2. ibm-licensing-opreqs-role-binding subjects namespace is 'ibm-cpd-operators' (wrong), should be 'ibm-licensing'
+# Without this fix, catalog-api pods in CCS cannot create the ibm-licensing-upload-config configmap
+# or ibm-licensing-upload-token secret, causing CCS to stall at 50% (wkc-base role).
+- name: "Wait for ibm-licensing-opreqs-role ClusterRole to exist"
+  when: comp_name == 'ibm_licensing'
+  kubernetes.core.k8s_info:
+    api_version: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    name: ibm-licensing-opreqs-role
+  register: licensing_clusterrole_check
+  until: licensing_clusterrole_check.resources | length > 0
+  retries: 30
+  delay: 10
+
+- name: "Patch ibm-licensing-opreqs-role to add operandrequests.operator.ibm.com permissions"
+  when: comp_name == 'ibm_licensing'
+  kubernetes.core.k8s_json_patch:
+    api_version: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    name: ibm-licensing-opreqs-role
+    patch:
+      - op: add
+        path: /rules/-
+        value:
+          apiGroups:
+            - operator.ibm.com
+          resources:
+            - operandrequests
+          verbs:
+            - create
+            - delete
+            - get
+            - list
+            - patch
+            - update
+            - watch
+
+- name: "Patch ibm-licensing-opreqs-role-binding to use ibm-licensing namespace for ServiceAccount"
+  when: comp_name == 'ibm_licensing'
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: ibm-licensing-opreqs-role-binding
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: ibm-licensing-opreqs-role
+      subjects:
+        - kind: ServiceAccount
+          name: ibm-licensing-service-account
+          namespace: "{{ cpd_ibm_licensing_namespace }}"
+    server_side_apply:
+      field_manager: ansible
+      force_conflicts: true
+
 - name: "Wait for {{ comp_name }} CRD to be established"
   when: comp_crd_name is defined and comp_crd_name != ""
   kubernetes.core.k8s_info:
