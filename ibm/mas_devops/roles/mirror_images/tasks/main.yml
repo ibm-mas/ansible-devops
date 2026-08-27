@@ -36,33 +36,30 @@
 # 3. Modify the manifest
 # -----------------------------------------------------------------------------
 - name: Validate that mirror_single_arch is correctly set
+  when: helm_pull_charts is not defined
   assert:
     that: mirror_single_arch in ["amd64", "ppc64le", "s390x"]
     fail_msg: "mirror_single_arch must be one of amd64, ppc64le, or s390x"
 
 - name: Set up exclusion rules for amd64
-  when: mirror_single_arch == "amd64"
   set_fact:
     exclude_arch:
       - s390x
       - ppc64le
 
 - name: Set up exclusion rules for ppc64le
-  when: mirror_single_arch == "ppc64le"
   set_fact:
     exclude_arch:
       - s390x
       - amd64
 
 - name: Set up exclusion rules for s390x
-  when: mirror_single_arch == "s390x"
   set_fact:
     exclude_arch:
       - amd64
       - ppc64le
 
 - name: "Remove any container images with a tag ending in '-{arch}'"
-  when: mirror_single_arch in ["amd64", "ppc64le", "s390x"]
   ansible.builtin.lineinfile:
     path: "{{ mirror_working_dir }}/manifests/{{ mirror_mode }}/{{ manifest_name }}_{{ manifest_version }}.txt"
     state: absent
@@ -231,7 +228,6 @@
 # 4D. Execute the mirror (direct)
 # -----------------------------------------------------------------------------
 - name: "Mirror Images directly"
-  when: mirror_mode == "direct"
   block:
     - name: "{{ manifest_name }} : Run mirror command"
       shell: |
