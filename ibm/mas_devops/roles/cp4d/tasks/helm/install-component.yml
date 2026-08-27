@@ -196,12 +196,20 @@
       force_conflicts: true
   loop: "{{ cluster_chart_manifests_airgap.stdout | from_yaml_all | select('ne', None) | list }}"
 
-# Workaround: ibm-licensing-cluster-scoped Helm chart (CPD 5.4.0) has three RBAC gaps —
-# all caused by the chart hard-coding 'ibm-cpd-operators' as the SA namespace instead of
-# 'ibm-licensing', and missing the operandrequests permission on the opreqs ClusterRole.
-# Without these fixes the ibm-licensing-operator pod crash-loops (cannot watch IBMLicensing
-# or OperandRequest resources) and catalog-api pods in CCS stall waiting for
-# ibm-licensing-upload-config / ibm-licensing-upload-token.
+# Workaround: ibm-licensing-cluster-scoped Helm chart (CPD 5.4.0) has four gaps that must
+# be fixed after the cluster-scoped chart is applied:
+#
+# Gap 1: ibm-licensing-opreqs-role ClusterRole is missing operandrequests.operator.ibm.com
+#         — causes ibm-licensing-operator to fail watching OperandRequests
+# Gap 2: ibm-licensing-opreqs-role-binding subject namespace is 'ibm-cpd-operators' (wrong)
+#         — should be 'ibm-licensing' where the operator SA actually lives
+# Gap 3: ibm-licensing-operator ClusterRoleBinding subject namespace is 'ibm-cpd-operators'
+#         — should be 'ibm-licensing', causing crash-loop on IBMLicensing watch
+# Gap 4: IBMLicensing CR has no instanceNamespace set
+#         — operator never propagates ibm-licensing-upload-config/ibm-licensing-upload-token
+#           into ibm-cpd, so catalog-api pods stay ContainerCreating and CCS stalls at 50%
+#
+# All four are confirmed against CPD 5.4.0 cluster testing.
 - name: "Wait for ibm-licensing RBAC resources to exist"
   when: comp_name == 'ibm_licensing'
   kubernetes.core.k8s_info:
@@ -213,7 +221,7 @@
   retries: 30
   delay: 10
 
-# Gap 1: ibm-licensing-opreqs-role is missing the operandrequests permission entirely
+# Gap 1: missing operandrequests permission on opreqs ClusterRole
 - name: "Patch ibm-licensing-opreqs-role to add operandrequests.operator.ibm.com permissions"
   when: comp_name == 'ibm_licensing'
   kubernetes.core.k8s_json_patch:
@@ -237,7 +245,7 @@
             - update
             - watch
 
-# Gap 2: ibm-licensing-opreqs-role-binding binds to SA in 'ibm-cpd-operators' (wrong namespace)
+# Gap 2: opreqs-role-binding subject namespace wrong
 - name: "Fix ibm-licensing-opreqs-role-binding subject namespace to ibm-licensing"
   when: comp_name == 'ibm_licensing'
   kubernetes.core.k8s:
@@ -259,8 +267,7 @@
       field_manager: ansible
       force_conflicts: true
 
-# Gap 3: ibm-licensing-operator ClusterRoleBinding (grants cluster-wide IBMLicensing watch)
-# also binds to SA in 'ibm-cpd-operators' — operator lives in 'ibm-licensing' namespace
+# Gap 3: ibm-licensing-operator ClusterRoleBinding subject namespace wrong
 - name: "Fix ibm-licensing-operator ClusterRoleBinding subject namespace to ibm-licensing"
   when: comp_name == 'ibm_licensing'
   kubernetes.core.k8s:
@@ -281,6 +288,73 @@
     server_side_apply:
       field_manager: ansible
       force_conflicts: true
+
+# Gap 4: IBMLicensing CR needs instanceNamespace so the operator propagates
+# ibm-licensing-upload-token secret and ibm-licensing-upload-config configmap
+# into cpd_instance_namespace where catalog-api and other CCS components mount them.
+- name: "Wait for IBMLicensing CR to exist"
+  when: comp_name == 'ibm_licensing'
+  kubernetes.core.k8s_info:
+    api_version: operator.ibm.com/v1alpha1
+    kind: IBMLicensing
+    name: instance
+  register: ibmlicensing_check
+  until: ibmlicensing_check.resources | length > 0
+  retries: 30
+  delay: 10
+
+- name: "Set instanceNamespace on IBMLicensing CR to cpd_instance_namespace"
+  when: comp_name == 'ibm_licensing'
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: operator.ibm.com/v1alpha1
+      kind: IBMLicensing
+      metadata:
+        name: instance
+      spec:
+        instanceNamespace: "{{ cpd_instance_namespace }}"
+    server_side_apply:
+      field_manager: ansible
+      force_conflicts: true
+
+- name: "Wait for ibm-licensing-upload-token secret in cpd_instance_namespace"
+  when: comp_name == 'ibm_licensing'
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: ibm-licensing-upload-token
+    namespace: "{{ cpd_instance_namespace }}"
+  register: upload_token_check
+  until: upload_token_check.resources | length > 0
+  retries: 30
+  delay: 10
+
+- name: "Wait for ibm-licensing-upload-config configmap in ibm-licensing namespace"
+  when: comp_name == 'ibm_licensing'
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: ibm-licensing-upload-config
+    namespace: "{{ cpd_ibm_licensing_namespace }}"
+  register: upload_config_src_check
+  until: upload_config_src_check.resources | length > 0
+  retries: 30
+  delay: 10
+
+# The operator propagates the upload-token secret via instanceNamespace but does NOT
+# propagate the upload-config configmap the same way. Copy it explicitly.
+- name: "Copy ibm-licensing-upload-config configmap to cpd_instance_namespace"
+  when: comp_name == 'ibm_licensing'
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: ibm-licensing-upload-config
+        namespace: "{{ cpd_instance_namespace }}"
+      data: "{{ upload_config_src_check.resources[0].data }}"
 
 - name: "Wait for {{ comp_name }} CRD to be established"
   when: comp_crd_name is defined and comp_crd_name != ""
