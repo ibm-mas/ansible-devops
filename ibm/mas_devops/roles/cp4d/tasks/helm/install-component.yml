@@ -196,12 +196,13 @@
       force_conflicts: true
   loop: "{{ cluster_chart_manifests_airgap.stdout | from_yaml_all | select('ne', None) | list }}"
 
-# Workaround: ibm-licensing-cluster-scoped Helm chart (CPD 5.4.0) has two RBAC gaps:
-#   1. ibm-licensing-opreqs-role ClusterRole is missing operandrequests.operator.ibm.com permissions
-#   2. ibm-licensing-opreqs-role-binding subjects namespace is 'ibm-cpd-operators' (wrong), should be 'ibm-licensing'
-# Without this fix, catalog-api pods in CCS cannot create the ibm-licensing-upload-config configmap
-# or ibm-licensing-upload-token secret, causing CCS to stall at 50% (wkc-base role).
-- name: "Wait for ibm-licensing-opreqs-role ClusterRole to exist"
+# Workaround: ibm-licensing-cluster-scoped Helm chart (CPD 5.4.0) has three RBAC gaps —
+# all caused by the chart hard-coding 'ibm-cpd-operators' as the SA namespace instead of
+# 'ibm-licensing', and missing the operandrequests permission on the opreqs ClusterRole.
+# Without these fixes the ibm-licensing-operator pod crash-loops (cannot watch IBMLicensing
+# or OperandRequest resources) and catalog-api pods in CCS stall waiting for
+# ibm-licensing-upload-config / ibm-licensing-upload-token.
+- name: "Wait for ibm-licensing RBAC resources to exist"
   when: comp_name == 'ibm_licensing'
   kubernetes.core.k8s_info:
     api_version: rbac.authorization.k8s.io/v1
@@ -212,6 +213,7 @@
   retries: 30
   delay: 10
 
+# Gap 1: ibm-licensing-opreqs-role is missing the operandrequests permission entirely
 - name: "Patch ibm-licensing-opreqs-role to add operandrequests.operator.ibm.com permissions"
   when: comp_name == 'ibm_licensing'
   kubernetes.core.k8s_json_patch:
@@ -235,7 +237,8 @@
             - update
             - watch
 
-- name: "Patch ibm-licensing-opreqs-role-binding to use ibm-licensing namespace for ServiceAccount"
+# Gap 2: ibm-licensing-opreqs-role-binding binds to SA in 'ibm-cpd-operators' (wrong namespace)
+- name: "Fix ibm-licensing-opreqs-role-binding subject namespace to ibm-licensing"
   when: comp_name == 'ibm_licensing'
   kubernetes.core.k8s:
     state: present
@@ -248,6 +251,29 @@
         apiGroup: rbac.authorization.k8s.io
         kind: ClusterRole
         name: ibm-licensing-opreqs-role
+      subjects:
+        - kind: ServiceAccount
+          name: ibm-licensing-operator
+          namespace: "{{ cpd_ibm_licensing_namespace }}"
+    server_side_apply:
+      field_manager: ansible
+      force_conflicts: true
+
+# Gap 3: ibm-licensing-operator ClusterRoleBinding (grants cluster-wide IBMLicensing watch)
+# also binds to SA in 'ibm-cpd-operators' — operator lives in 'ibm-licensing' namespace
+- name: "Fix ibm-licensing-operator ClusterRoleBinding subject namespace to ibm-licensing"
+  when: comp_name == 'ibm_licensing'
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: ibm-licensing-operator
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: ibm-licensing-operator
       subjects:
         - kind: ServiceAccount
           name: ibm-licensing-operator
