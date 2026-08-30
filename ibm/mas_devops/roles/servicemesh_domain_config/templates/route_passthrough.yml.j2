@@ -1,0 +1,23 @@
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{route}}
+  namespace: {{servicemesh_gateway_namespace}}
+  annotations:
+    haproxy.router.openshift.io/timeout: 60s
+spec:
+  host: {{route_host}}
+  path: {{route_path}}
+  port:
+    targetPort: {{ target_port_name }}
+  tls:
+    termination: passthrough
+{% if route_tls.insecureEdgeTerminationPolicy is defined %} 
+    insecureEdgeTerminationPolicy: {{route_tls.insecureEdgeTerminationPolicy}}
+{% endif %}    
+  to:
+    kind: Service
+    name: {{gateway_service}}
+    weight: 100
+  wildcardPolicy: None

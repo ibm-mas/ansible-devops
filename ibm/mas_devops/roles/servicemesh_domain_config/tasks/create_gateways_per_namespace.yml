@@ -1,0 +1,36 @@
+---
+- set_fact:
+    targetNamespace: "mas-{{ mas_instance }}-{{ ns_suffix }}"
+
+- name: "Service Mesh Domain Config : Debug properties per namespace"
+  debug:
+    msg:
+      - "MAS Suite Domain ......................... {{ mas_domain }}"
+      - "MAS Suite Instance ....................... {{ mas_instance }}"
+      - "Target namespace ......................... {{ targetNamespace }}"
+      - "Service Mesh Ingress namespace ........... {{ servicemesh_gateway_namespace }}"
+      - "Gateway Strategy ......................... {{ gateway_strategy }}"
+
+# Get route references from the MAS core namespace to determine what routes we need to create.
+# -----------------------------------------------------------------------------
+- name: "Get Config Maps in {{targetNamespace}}"
+  kubernetes.core.k8s_info:
+    kind: ConfigMap
+    namespace: "{{ targetNamespace }}"
+  register: all_configmaps
+
+- name: Extract and filter route references only
+  set_fact:
+    routeref_configmaps: "{{ all_configmaps.resources |
+                             selectattr('metadata.name', 'match', '^' + configmap_prefix) |
+                             list }}"
+  vars:
+    configmap_prefix: "routeref-"
+
+- name: Display route references config maps
+  debug:
+    msg:
+      - "Creating Routes for these  route reference config maps: {{ routeref_configmaps | map(attribute='metadata.name') | list  }}"
+
+- name: Create Gateways according to {{ gateway_strategy }} strategy
+  include_tasks: "tasks/{{ gateway_strategy }}/create_gateways.yml"
