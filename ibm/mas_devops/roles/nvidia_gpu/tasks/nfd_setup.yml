@@ -112,18 +112,87 @@
     # DaemonSet so that this will work regardless of the version of OCP/NFD that is being used.
 
     - name: "Wait for 'nfd-worker' DaemonSet pods to be ready"
-      kubernetes.core.k8s_info:
-        api_version: apps/v1
-        name: nfd-worker
-        namespace: "{{nfd_namespace}}"
-        kind: DaemonSet
-      register: nfd_worker_daemonset
-      until:
-        - nfd_worker_daemonset.resources is defined
-        - nfd_worker_daemonset.resources | length > 0
-        - nfd_worker_daemonset.resources[0].status.numberReady > 0
-        - nfd_worker_daemonset.resources[0].status.numberReady == nfd_worker_daemonset.resources[0].status.desiredNumberScheduled
-      retries: 60 # approx 90 minutes before we give up
-      delay: 90 # 1.5 minutes
+      block:
+        - name: "Wait for nfd-worker DaemonSet to be ready"
+          kubernetes.core.k8s_info:
+            api_version: apps/v1
+            name: nfd-worker
+            namespace: "{{nfd_namespace}}"
+            kind: DaemonSet
+          register: nfd_worker_daemonset
+          until:
+            - nfd_worker_daemonset.resources is defined
+            - nfd_worker_daemonset.resources | length > 0
+            - nfd_worker_daemonset.resources[0].status.numberReady > 0
+            - nfd_worker_daemonset.resources[0].status.numberReady == nfd_worker_daemonset.resources[0].status.desiredNumberScheduled
+          retries: 60 # approx 90 minutes before we give up
+          delay: 90 # 1.5 minutes
+      # TODO: TEMPORARY FIX
+      rescue:
+        - name: "Get nfd-worker pods status"
+          kubernetes.core.k8s_info:
+            api_version: v1
+            kind: Pod
+            namespace: "{{ nfd_namespace }}"
+            label_selectors:
+              - app=nfd-worker
+          register: nfd_worker_pods
+
+        - name: "Check if maximum two pods are not ready"
+          set_fact:
+            not_ready_pods: "{{ nfd_worker_pods.resources | selectattr('status.phase', 'equalto', 'Pending') | list }}"
+
+        - name: "Fail if more than two pods are not ready"
+          fail:
+            msg: "More than two nfd-worker pods are not ready. Manual intervention required."
+          when: not_ready_pods | length > 2
+
+        - name: "Troubleshoot stuck nfd-worker pods"
+          when: not_ready_pods | length > 0 and not_ready_pods | length <= 2
+          block:
+            - name: "Get nodes with stuck pods"
+              set_fact:
+                stuck_pod_nodes: "{{ not_ready_pods | map(attribute='spec.nodeName') | list }}"
+
+            - name: "Create missing NFD directories on affected nodes"
+              shell: |
+                oc debug node/{{ item }} -- chroot /host mkdir -p \
+                  /etc/kubernetes/node-feature-discovery/source.d \
+                  /etc/kubernetes/node-feature-discovery/features.d
+              loop: "{{ stuck_pod_nodes }}"
+              failed_when: false
+
+            - name: "Delete stuck nfd-worker pods"
+              kubernetes.core.k8s:
+                api_version: v1
+                kind: Pod
+                name: "{{ item.metadata.name }}"
+                namespace: "{{ nfd_namespace }}"
+                state: absent
+                force: yes
+                delete_options:
+                  gracePeriodSeconds: 0
+              loop: "{{ not_ready_pods }}"
+              when: delete_pods_result is failed
+
+            - name: "Wait for new nfd-worker pods to be created and ready"
+              kubernetes.core.k8s_info:
+                api_version: apps/v1
+                name: nfd-worker
+                namespace: "{{nfd_namespace}}"
+                kind: DaemonSet
+              register: nfd_worker_daemonset_retry
+              until:
+                - nfd_worker_daemonset_retry.resources is defined
+                - nfd_worker_daemonset_retry.resources | length > 0
+                - nfd_worker_daemonset_retry.resources[0].status.numberReady > 0
+                - nfd_worker_daemonset_retry.resources[0].status.numberReady == nfd_worker_daemonset_retry.resources[0].status.desiredNumberScheduled
+              retries: 20
+              delay: 30
+
+            - name: "Fail if pods still not ready after troubleshooting"
+              fail:
+                msg: "NFD worker pods failed to become ready after troubleshooting. Manual intervention required."
+              when: nfd_worker_daemonset_retry is failed
   when:
     - nfd_worker_daemonset_result.resources | length == 0
