@@ -133,10 +133,36 @@ Skip compatibility validation before upgrade.
 - `mas_upgrade_dryrun`: Controls whether upgrade is executed or only validated
 - `mas_app_channel`: Target channel being validated
 
-**Note**: **WARNING** - Skipping compatibility checks can lead to failed upgrades or unstable installations. Only skip validation if you have manually verified the upgrade path is supported. The default validation protects against incompatible upgrades.
+**Note**: **WARNING** - Skipping compatibility checks can lead to failed upgrades or unstable installations. Only skip validation if you have manually verified the upgrade path is supported. The default validation protects against incompatible upgrades. When using `skip_compatibility_check=true` with non-GA channels, use `targeted_mas_upgrade_channel` to explicitly specify the target upgrade channel.
+
+### targeted_mas_upgrade_channel
+Explicitly specify target upgrade channel when skipping compatibility checks.
+
+- **Optional**
+- Environment Variable: `TARGETED_MAS_UPGRADE_CHANNEL`
+- Default: None (empty string)
+
+**Purpose**: Explicitly specifies the target MAS upgrade channel to use when `skip_compatibility_check=true`. This ensures the correct channel is selected when automatic channel determination is bypassed.
+
+**When to use**:
+- When using `skip_compatibility_check=true` with non-GA channels (e.g., `-dev`, `-feature`)
+- When you need to target a specific MAS channel that differs from the default GA channel
+- When testing pre-release versions or feature branches
+- Leave empty (default) for standard GA channel upgrades
+
+**Valid values**: Valid MAS subscription channel (e.g., `9.1.x-dev`, `9.2.x-feature`, `8.11.x`)
+
+**Impact**: When `skip_compatibility_check=true`, this variable takes precedence over automatic channel determination. The role will use this channel for the upgrade without performing compatibility validation.
+
+**Related variables**:
+- `skip_compatibility_check`: Must be `true` for this variable to have effect
+- `mas_app_channel`: Application channel being upgraded to
+
+**Note**: **WARNING** - This variable is intended for use with `skip_compatibility_check=true` and non-GA channels. Using this with GA channels or without skipping compatibility checks may lead to unexpected behavior. Always verify the target channel is compatible with your MAS installation before using this option.
 
 ## Example Playbook
 
+Standard upgrade with compatibility validation:
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
@@ -144,6 +170,22 @@ Skip compatibility validation before upgrade.
     mas_instance_id: instance1
     mas_app_id: iot
     mas_app_channel: 8.5.x
+  roles:
+    - ibm.mas_devops.suite_app_upgrade
+```
+
+Upgrade with non-GA channel (skipping compatibility checks):
+```yaml
+# Use this approach when testing pre-release versions or feature branches
+# WARNING: Only use when you have manually verified compatibility
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: instance1
+    mas_app_id: iot
+    mas_app_channel: 8.5.x-dev
+    skip_compatibility_check: true
+    targeted_mas_upgrade_channel: 9.2.x-feature
   roles:
     - ibm.mas_devops.suite_app_upgrade
 ```
