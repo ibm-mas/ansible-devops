@@ -214,20 +214,40 @@
       changed_when: false
       failed_when: false
 
-    - name: "Parse existing release names"
+    - name: "Parse existing releases as a dict keyed by release name to app_version"
       set_fact:
-        installed_releases: "{{ (existing_releases.stdout | from_json | map(attribute='name') | list) if existing_releases.rc == 0 else [] }}"
+        installed_releases_map: >-
+          {{
+            dict(
+              (existing_releases.stdout | from_json | map(attribute='name') | list)
+              | zip(existing_releases.stdout | from_json | map(attribute='app_version') | list)
+            ) if existing_releases.rc == 0 else {}
+          }}
 
-    - name: "Filter dependencies that need installation"
+    - name: "Initialise dependencies_to_install as empty list"
       set_fact:
-        dependencies_to_install: "{{ component_info.helm_dependencies | rejectattr('name', 'in', installed_releases) | list }}"
+        dependencies_to_install: []
+
+    - name: "Collect dependencies that need installation or upgrade"
+      # Appends dep to dependencies_to_install when:
+      # - dep.name is not yet installed (new install), OR
+      # - dep.case_version differs from the installed app_version (upgrade needed)
+      set_fact:
+        dependencies_to_install: >-
+          {{
+            dependencies_to_install + [item]
+            if (item.name not in installed_releases_map
+                or item.case_version != installed_releases_map[item.name])
+            else dependencies_to_install
+          }}
+      loop: "{{ component_info.helm_dependencies }}"
 
     - name: "Debug: Dependencies status"
       debug:
         msg:
           - "Total dependencies: {{ component_info.helm_dependencies | length }}"
-          - "Already installed: {{ component_info.helm_dependencies | selectattr('name', 'in', installed_releases) | map(attribute='name') | list }}"
-          - "To be installed: {{ dependencies_to_install | map(attribute='name') | list }}"
+          - "To be installed/upgraded: {{ dependencies_to_install | map(attribute='name') | list }}"
+          - "Already up-to-date: {{ component_info.helm_dependencies | map(attribute='name') | reject('in', dependencies_to_install | map(attribute='name') | list) | list }}"
 
     - name: "Install dependency components"
       include_tasks: "install-component.yml"
