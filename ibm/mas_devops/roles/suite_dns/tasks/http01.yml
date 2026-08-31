@@ -31,7 +31,21 @@
       - "HTTP-01 Issuer Kind ................. {{ mas_issuer_kind }}"
       - "HTTP-01 IngressClass ................ openshift-{{ mas_ingress_controller_name }}"
 
-# 3. Create issuer
+# 3. Ensure namespace exists
+# -----------------------------------------------------------------------------
+# suite-dns runs before suite-install which creates mas-<instanceId>-core, so we must ensure
+# the namespace exists before creating a namespaced Issuer resource.
+- name: "http01 : Ensure MAS core namespace exists (Issuer mode)"
+  when: mas_issuer_kind == 'Issuer'
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ mas_namespace }}"
+
+# 4. Create issuer
 # -----------------------------------------------------------------------------
 - name: "http01 : Create Let's Encrypt HTTP-01 production issuer"
   vars:
