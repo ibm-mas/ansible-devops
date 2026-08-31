@@ -1,0 +1,38 @@
+---
+# Create Let's Encrypt HTTP-01 issuer
+# -----------------------------------------------------------------------------
+# This task is called when:
+#   - mas_routing_mode == 'path'
+#   - mas_letsencrypt_http01_enabled == true
+#
+# mas_le_email is always collected by the CLI when the user opts into Let's Encrypt.
+# The issuer name is always <instanceId>-http01-le-prod (mas_http01_le_prod_issuer_name).
+
+# 1. Validate email
+# -----------------------------------------------------------------------------
+- name: "http01 : Assert mas_le_email is set"
+  assert:
+    that:
+      - mas_le_email is defined and mas_le_email != ""
+    fail_msg: >-
+      MAS_LE_EMAIL must be set when using Let's Encrypt HTTP-01.
+      Provide it via the MAS_LE_EMAIL environment variable or the CLI prompt.
+
+# 2. Debug
+# -----------------------------------------------------------------------------
+- name: "http01 : Debug"
+  debug:
+    msg:
+      - "HTTP-01 Issuer Name ................. {{ mas_http01_le_prod_issuer_name }}"
+      - "HTTP-01 Issuer Email ................ {{ mas_le_email }}"
+      - "HTTP-01 Issuer Kind ................. {{ mas_issuer_kind }}"
+      - "HTTP-01 IngressClass ................ openshift-{{ mas_ingress_controller_name }}"
+
+# 3. Create issuer
+# -----------------------------------------------------------------------------
+- name: "http01 : Create Let's Encrypt HTTP-01 production issuer"
+  vars:
+    http01_issuer_name: "{{ mas_http01_le_prod_issuer_name }}"
+    http01_issuer_email: "{{ mas_le_email }}"
+  kubernetes.core.k8s:
+    template: templates/http01-issuer-prod.yml.j2

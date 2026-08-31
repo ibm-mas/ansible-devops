@@ -1,8 +1,8 @@
 ---
-# 1. Deploy the CIS Webhook and DNS-01 ClusterIssuers (subdomain routing mode)
+# 1. Deploy the CIS Webhook and DNS-01 ClusterIssuers (Skip when Let's Encrypt HTTP-01 is enabled)
 # =============================================================================
 - name: "cis : Deploy CIS webhook and DNS-01 issuers"
-  when: mas_routing_mode is not defined or mas_routing_mode != 'path'
+  when: not mas_letsencrypt_http01_enabled
   block:
     - name: "cis : Create service account {{ cert_manager_service_account }} and permissions for CIS webhook"
       kubernetes.core.k8s:
@@ -37,14 +37,3 @@
       with_items:
         - templates/cis/clusterissuer-staging.yml.j2
         - templates/cis/clusterissuer-prod.yml.j2
-
-
-# 3. Create Let's Encrypt HTTP-01 issuer (path-based routing mode)
-# =============================================================================
-- name: "cis : Install Let's Encrypt HTTP-01 production issuer (path routing)"
-  when: mas_routing_mode is defined and mas_routing_mode == 'path'
-  vars:
-    http01_issuer_name: "{{ cis_prod_issuer_name }}"
-    http01_issuer_email: "{{ cis_email }}"
-  kubernetes.core.k8s:
-    template: templates/http01-issuer-prod.yml.j2
