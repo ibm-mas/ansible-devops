@@ -1,0 +1,301 @@
+---
+# Helm Installation Path for CPD Services
+# This is the main entry point for Helm-based installations
+
+- name: "Setup Helm repository"
+  include_tasks: "setup-helm-repo.yml"
+
+# Only create ibm-entitlement-key if it does not already exist in the namespace.
+# The cp4d role is responsible for creating this secret with a valid password.
+# Writing it here unconditionally risks overwriting a valid secret with an empty
+# password when ibm_entitlement_key is not set (e.g. during mas update flows).
+- name: "Check if ibm-entitlement-key already exists in operator namespace"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ ibm_entitlement_key_secret }}"
+    namespace: "{{ cpd_operators_namespace }}"
+  register: entitlement_secret_operators_check
+
+- name: "Check if ibm-entitlement-key already exists in instance namespace"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ ibm_entitlement_key_secret }}"
+    namespace: "{{ cpd_instance_namespace }}"
+  register: entitlement_secret_instance_check
+
+- name: "Create IBM entitlement secrets"
+  when: cpd_entitlement_key is defined and cpd_entitlement_key | length > 0
+  block:
+    - name: "Create IBM entitlement secret in operator namespace"
+      when: entitlement_secret_operators_check.resources | length == 0
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ ibm_entitlement_key_secret }}"
+            namespace: "{{ cpd_operators_namespace }}"
+          type: kubernetes.io/dockerconfigjson
+          data:
+            .dockerconfigjson: "{{ dockerconfig | to_json | b64encode }}"
+      vars:
+        dockerconfig:
+          auths:
+            cp.icr.io:
+              username: cp
+              password: "{{ cpd_entitlement_key }}"
+
+    - name: "Create IBM entitlement secret in instance namespace"
+      when: entitlement_secret_instance_check.resources | length == 0
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ ibm_entitlement_key_secret }}"
+            namespace: "{{ cpd_instance_namespace }}"
+          type: kubernetes.io/dockerconfigjson
+          data:
+            .dockerconfigjson: "{{ dockerconfig | to_json | b64encode }}"
+      vars:
+        dockerconfig:
+          auths:
+            cp.icr.io:
+              username: cp
+              password: "{{ cpd_entitlement_key }}"
+
+- name: "Get component metadata"
+  set_fact:
+    component_assembly: "{{ cpd_service_info[cpd_service_name].assembly_name }}"
+    component_info: "{{ cpd_service_info[cpd_service_name] }}"
+
+# Cleanup OLM resources before Helm installation (for upgrades from 5.2.0 to 5.3.1+)
+- name: "Cleanup OLM resources for dependencies"
+  when:
+    - component_info.helm_dependencies is defined
+    - component_info.helm_dependencies | length > 0
+  block:
+    - name: "Cleanup OLM resources for each dependency"
+      include_tasks: "cleanup-olm-resources.yml"
+      loop: "{{ component_info.helm_dependencies }}"
+      loop_control:
+        loop_var: dep_item
+      vars:
+        component_name: "{{ dep_item.name }}"
+
+- name: "Cleanup OLM resources for main component"
+  include_tasks: "cleanup-olm-resources.yml"
+  vars:
+    component_name: "{{ cpd_service_name }}"
+
+# Create ClusterRole/ClusterRoleBinding for OpenSearch operator
+# Required for CPD 5.3.1+ Helm-based OpenSearch operator
+# The newer operator image requires cluster-wide permissions
+- name: "Create ClusterRole for OpenSearch operator"
+  when: cpd_service_name == 'opensearch' or (component_info.helm_dependencies is defined and component_info.helm_dependencies | selectattr('name', 'equalto', 'opensearch') | list | length > 0)
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRole
+      metadata:
+        name: ibm-opensearch-operator-manager-role
+        labels:
+          app.kubernetes.io/name: ibm-opensearch-operator
+          app.kubernetes.io/managed-by: Helm
+          component-id: opencontent-opensearch
+          icpdsupport/addOnId: opencontent-opensearch
+      rules:
+        - apiGroups:
+            - ""
+          resources:
+            - namespaces
+          verbs:
+            - get
+            - list
+            - watch
+        - apiGroups:
+            - apiextensions.k8s.io
+          resources:
+            - customresourcedefinitions
+          verbs:
+            - get
+            - list
+            - watch
+        - apiGroups:
+            - ""
+          resources:
+            - nodes
+          verbs:
+            - get
+            - list
+            - watch
+        - apiGroups:
+            - config.openshift.io
+          resources:
+            - clusterversions
+            - infrastructures
+          verbs:
+            - get
+            - list
+            - watch
+        - apiGroups:
+            - apiregistration.k8s.io
+          resources:
+            - apiservices
+          verbs:
+            - get
+            - list
+            - watch
+        - apiGroups:
+            - security.openshift.io
+          resources:
+            - securitycontextconstraints
+          verbs:
+            - use
+          resourceNames:
+            - restricted
+            - anyuid
+
+- name: "Create ClusterRoleBinding for OpenSearch operator"
+  when: cpd_service_name == 'opensearch' or (component_info.helm_dependencies is defined and component_info.helm_dependencies | selectattr('name', 'equalto', 'opensearch') | list | length > 0)
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: ibm-opensearch-operator-manager-rolebinding
+        labels:
+          app.kubernetes.io/name: ibm-opensearch-operator
+          app.kubernetes.io/managed-by: Helm
+          component-id: opencontent-opensearch
+          icpdsupport/addOnId: opencontent-opensearch
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: ibm-opensearch-operator-manager-role
+      subjects:
+        - kind: ServiceAccount
+          name: ibm-opensearch-operator-controller-manager
+          namespace: "{{ cpd_operators_namespace }}"
+
+- name: "Install component dependencies"
+  when:
+    - component_info.helm_dependencies is defined
+    - component_info.helm_dependencies | length > 0
+  block:
+    - name: "Check existing Helm releases"
+      command: helm list -n {{ cpd_instance_namespace }} --output json
+      register: existing_releases
+      changed_when: false
+      failed_when: false
+
+    - name: "Parse existing release names"
+      set_fact:
+        installed_releases: "{{ (existing_releases.stdout | from_json | map(attribute='name') | list) if existing_releases.rc == 0 else [] }}"
+
+    - name: "Filter dependencies that need installation"
+      set_fact:
+        dependencies_to_install: "{{ component_info.helm_dependencies | rejectattr('name', 'in', installed_releases) | list }}"
+
+    - name: "Debug: Dependencies status"
+      debug:
+        msg:
+          - "Total dependencies: {{ component_info.helm_dependencies | length }}"
+          - "Already installed: {{ component_info.helm_dependencies | selectattr('name', 'in', installed_releases) | map(attribute='name') | list }}"
+          - "To be installed: {{ dependencies_to_install | map(attribute='name') | list }}"
+
+    - name: "Install dependency components"
+      include_tasks: "install-component.yml"
+      loop: "{{ dependencies_to_install }}"
+      loop_control:
+        loop_var: dep_item
+      vars:
+        component_name: "{{ dep_item.name }}"
+        dep_component_info: "{{ dep_item }}"
+      when: dependencies_to_install | length > 0
+
+    # Create CCS CR if CCS is in the dependencies
+    - name: "Create CCS CR after Helm install"
+      when: component_info.helm_dependencies | selectattr('name', 'equalto', 'ccs') | list | length > 0
+      block:
+        - name: "Get CCS dependency info"
+          set_fact:
+            ccs_dependency: "{{ component_info.helm_dependencies | selectattr('name', 'equalto', 'ccs') | first }}"
+
+        - name: "Create CCS Custom Resource"
+          kubernetes.core.k8s:
+            state: present
+            definition:
+              apiVersion: ccs.cpd.ibm.com/v1beta1
+              kind: CCS
+              metadata:
+                name: ccs-cr
+                namespace: "{{ cpd_instance_namespace }}"
+                labels:
+                  app.kubernetes.io/instance: ccs-cr
+                  app.kubernetes.io/managed-by: Ansible
+                  app.kubernetes.io/name: ccs
+              spec:
+                version: "{{ ccs_dependency.case_version }}"
+                license:
+                  accept: true
+                  license: Enterprise
+                storageClass: "{{ cpd_service_storage_class }}"
+                blockStorageClass: "{{ cpd_service_block_storage_class }}"
+                fileStorageClass: "{{ cpd_service_storage_class }}"
+                imagePullSecret: "{{ ibm_entitlement_key_secret }}"
+                scaleConfig: "{{ cpd_service_scale_config }}"
+
+        - name: "Wait for CCS to be ready"
+          include_tasks: "../wait/wait-ccs.yml"
+
+# Install main component operator and CR via Helm
+# The Helm chart includes the CR template (03-cr.yaml), so Helm will create it automatically
+- name: "Install main component operator and CR: {{ cpd_service_name }}"
+  include_tasks: "install-component.yml"
+  vars:
+    component_name: "{{ cpd_service_name }}"
+    component_info: "{{ cpd_service_info[cpd_service_name] }}"
+
+- name: "Installation complete"
+  debug:
+    msg:
+      - "✓ {{ cpd_service_name }} operator installed via Helm"
+      - "✓ {{ cpd_service_name }} CR created automatically by Helm"
+      - "✓ Dependency CRs will be auto-created by operator"
+      - "Note: Helm chart includes CR template (03-cr.yaml) with storage classes from values"
+
+- name: "Wait for {{ cpd_service_name }} to be ready"
+  include_tasks: "../wait/wait-{{ cpd_service_name }}.yml"
+
+# Generate MAS Config
+# -----------------------------------------------------------------------------
+# Only Watson Studio and Watson Discovery generate a configuration in config
+# folder for later usage
+- name: "Lookup admin credentials for gencfg tasks"
+  when:
+    - mas_instance_id is defined and mas_instance_id != ""
+    - mas_config_dir is defined and mas_config_dir != ""
+    - cpd_service_name is in ['wsl','wd']
+  include_tasks: "{{ role_path }}/../cp4d/tasks/lookup-admin-credentials.yml"
+
+- name: "Generate MAS Config into {{ mas_config_dir }} folder"
+  when:
+    - mas_instance_id is defined and mas_instance_id != ""
+    - mas_config_dir is defined and mas_config_dir != ""
+    - cpd_service_name is in ['wsl','wd']
+  include_tasks: "../gencfg/gencfg-{{ cpd_service_name }}.yml"
+
+- name: "Helm installation complete"
+  debug:
+    msg:
+      - "✓ {{ cpd_service_name }} installed successfully via Helm"
+      - "Installation method: Helm"
+      - "CPD version: {{ cpd_product_version }}"
+      - "Custom Resource: {{ cpd_service_info[cpd_service_name].cr_name }}"
