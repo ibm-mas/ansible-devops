@@ -275,6 +275,139 @@
   fail:
     msg: "Timed out waiting for CustomResourceDefinition {{ comp_crd_name }} to be established."
 
+# Pre-install adoption: stamp any existing namespace-scoped resources with Helm ownership metadata
+# so that `helm upgrade -i` can adopt them rather than fail on invalid ownership.
+# This is required when upgrading from an OLM-based CPD installation (pre-5.4.0) where these
+# resources were created without Helm labels/annotations.
+- name: "Render {{ comp_name }} namespace-scoped chart manifests for adoption check"
+  when:
+    - not cpd_helm_airgap
+    - comp_chart_name is defined and comp_chart_name != ""
+  shell: >
+    helm template {{ comp_name | replace('_', '-') }}
+    {{ cpd_helm_repo_name }}/{{ comp_chart_name }}
+    --version {{ chart_version }}
+    --namespace {{ comp_namespace }}
+    --set global.licenseAccept=true
+    --set global.imagePullPrefix=icr.io
+    --set global.operatorNamespace={{ cpd_operators_namespace }}
+    --set global.instanceNamespace={{ cpd_instance_namespace }}
+    --set global.controlCenterOperatorNamespace={{ cpd_operators_namespace }}
+    --set global.controlCenterInstanceNamespace={{ cpd_instance_namespace }}
+  register: ns_chart_manifests
+  changed_when: false
+
+# Deployments cannot be adopted via metadata-only patch: their spec may differ between the
+# OLM-created version and the new Helm chart (e.g. conflicting value/valueFrom on env vars),
+# causing Kubernetes to reject the strategic merge patch that Helm issues during install.
+# Delete them so Helm creates them fresh with the correct spec.
+- name: "Delete existing {{ comp_name }} Deployments for fresh Helm install"
+  when:
+    - not cpd_helm_airgap
+    - comp_chart_name is defined and comp_chart_name != ""
+    - item.kind == 'Deployment'
+  kubernetes.core.k8s:
+    state: absent
+    api_version: "{{ item.apiVersion }}"
+    kind: Deployment
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ item.metadata.namespace | default(comp_namespace) }}"
+    wait: true
+    wait_timeout: 120
+  loop: "{{ ns_chart_manifests.stdout | from_yaml_all | select('ne', None) | list }}"
+  loop_control:
+    label: "{{ item.kind }}/{{ item.metadata.name }}"
+  failed_when: false
+
+- name: "Adopt existing {{ comp_name }} namespace-scoped resources into Helm release"
+  when:
+    - not cpd_helm_airgap
+    - comp_chart_name is defined and comp_chart_name != ""
+    - item.kind != 'Deployment'
+  vars:
+    _release_name: "{{ comp_name | replace('_', '-') }}"
+    _manifest: "{{ item }}"
+  kubernetes.core.k8s:
+    state: patched
+    api_version: "{{ _manifest.apiVersion }}"
+    kind: "{{ _manifest.kind }}"
+    name: "{{ _manifest.metadata.name }}"
+    namespace: "{{ _manifest.metadata.namespace | default(comp_namespace) }}"
+    definition:
+      metadata:
+        labels:
+          app.kubernetes.io/managed-by: Helm
+        annotations:
+          meta.helm.sh/release-name: "{{ _release_name }}"
+          meta.helm.sh/release-namespace: "{{ comp_namespace }}"
+  loop: "{{ ns_chart_manifests.stdout | from_yaml_all | select('ne', None) | list }}"
+  loop_control:
+    label: "{{ item.kind }}/{{ item.metadata.name }}"
+  failed_when: false
+
+- name: "Render {{ comp_name }} namespace-scoped chart manifests for adoption check (airgap)"
+  when:
+    - cpd_helm_airgap
+    - comp_chart_name is defined and comp_chart_name != ""
+  shell: >
+    helm template {{ comp_name | replace('_', '-') }}
+    {{ cpd_airgap_helm_repo_url }}/{{ comp_chart_name }}
+    --version {{ chart_version }}
+    --namespace {{ comp_namespace }}
+    --set global.licenseAccept=true
+    --set global.imagePullPrefix=icr.io
+    --set global.operatorNamespace={{ cpd_operators_namespace }}
+    --set global.instanceNamespace={{ cpd_instance_namespace }}
+    --set global.controlCenterOperatorNamespace={{ cpd_operators_namespace }}
+    --set global.controlCenterInstanceNamespace={{ cpd_instance_namespace }}
+    --insecure-skip-tls-verify
+  register: ns_chart_manifests_airgap
+  changed_when: false
+
+- name: "Delete existing {{ comp_name }} Deployments for fresh Helm install (airgap)"
+  when:
+    - cpd_helm_airgap
+    - comp_chart_name is defined and comp_chart_name != ""
+    - item.kind == 'Deployment'
+  kubernetes.core.k8s:
+    state: absent
+    api_version: "{{ item.apiVersion }}"
+    kind: Deployment
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ item.metadata.namespace | default(comp_namespace) }}"
+    wait: true
+    wait_timeout: 120
+  loop: "{{ ns_chart_manifests_airgap.stdout | from_yaml_all | select('ne', None) | list }}"
+  loop_control:
+    label: "{{ item.kind }}/{{ item.metadata.name }}"
+  failed_when: false
+
+- name: "Adopt existing {{ comp_name }} namespace-scoped resources into Helm release (airgap)"
+  when:
+    - cpd_helm_airgap
+    - comp_chart_name is defined and comp_chart_name != ""
+    - item.kind != 'Deployment'
+  vars:
+    _release_name: "{{ comp_name | replace('_', '-') }}"
+    _manifest: "{{ item }}"
+  kubernetes.core.k8s:
+    state: patched
+    api_version: "{{ _manifest.apiVersion }}"
+    kind: "{{ _manifest.kind }}"
+    name: "{{ _manifest.metadata.name }}"
+    namespace: "{{ _manifest.metadata.namespace | default(comp_namespace) }}"
+    definition:
+      metadata:
+        labels:
+          app.kubernetes.io/managed-by: Helm
+        annotations:
+          meta.helm.sh/release-name: "{{ _release_name }}"
+          meta.helm.sh/release-namespace: "{{ comp_namespace }}"
+  loop: "{{ ns_chart_manifests_airgap.stdout | from_yaml_all | select('ne', None) | list }}"
+  loop_control:
+    label: "{{ item.kind }}/{{ item.metadata.name }}"
+  failed_when: false
+
 # Install namespace-scoped chart (Operator, CR) using the native Ansible Helm module
 - name: "Install/Upgrade {{ comp_name }} namespace-scoped chart"
   when:

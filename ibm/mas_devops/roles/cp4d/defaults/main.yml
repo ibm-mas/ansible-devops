@@ -74,6 +74,12 @@ cpd_platform_components:
     crd_name: commonservices.operator.ibm.com
     case_version: "{{ cpd_components_meta.ibm_common_service_operator.case_version }}"
     namespace: "{{ cpd_operators_namespace }}"
+    # This Helm chart installs both CPFS and ODLM.
+    # ODLM's OLM label is ibm-odlm (package name), not operand-deployment-lifecycle-manager-app (subscription name).
+    # Both label selectors are listed so CSVs and subscriptions are caught correctly.
+    olm_subscription_names:
+      - ibm-common-service-operator
+      - ibm-odlm
 
   - name: ibm_iam_operator
     assembly_name: ibmIamOperator
@@ -90,6 +96,9 @@ cpd_platform_components:
     crd_name: clusters.postgresql.k8s.enterprisedb.io
     case_version: "{{ cpd_components_meta.postgresql.case_version }}"
     namespace: "{{ cpd_operators_namespace }}"
+    # cloud-native-postgresql is the OLM subscription name for the postgresql operator
+    olm_subscription_names:
+      - cloud-native-postgresql
 
   - name: ibm_pg_operator
     assembly_name: ibmPgOperator
@@ -107,6 +116,18 @@ cpd_platform_components:
     case_version: "{{ cpd_components_meta.ibm_swhcc.case_version }}"
     namespace: "{{ cpd_operators_namespace }}"
 
+  - name: ibm_namespace_scope_operator
+    assembly_name: ibmNamespaceScopeOperator
+    helm_chart_name: ""
+    helm_cluster_chart: ""
+    crd_name: ""
+    case_version: ""
+    namespace: "{{ cpd_operators_namespace }}"
+    # ibm-namespace-scope-operator is installed by the OLM path and must be removed
+    # before Helm takes over — it is not reinstalled by Helm in 5.4.0
+    olm_subscription_names:
+      - ibm-namespace-scope-operator
+
   - name: cpd_platform
     assembly_name: cpdPlatform
     helm_chart_name: cpd-platform
@@ -114,6 +135,8 @@ cpd_platform_components:
     crd_name: ibmcpds.cpd.ibm.com
     case_version: "{{ cpd_components_meta.cpd_platform.case_version }}"
     namespace: "{{ cpd_operators_namespace }}"
+    olm_subscription_names:
+      - cpd-platform-operator
 
   - name: zen
     assembly_name: zen
@@ -122,6 +145,8 @@ cpd_platform_components:
     crd_name: zenservices.zen.cpd.ibm.com
     case_version: "{{ cpd_components_meta.zen.case_version }}"
     namespace: "{{ cpd_operators_namespace }}"
+    olm_subscription_names:
+      - ibm-zen-operator
 
 # ------ CPD 4.8+ specific -----------------------------------------------------------------------------------------------
 cpd_cs_control_namespace: "{{ lookup('env', 'CPD_CS_CONTROL_NAMESPACE') | default('cs-control', true) }}"

@@ -101,13 +101,151 @@
           data:
             .dockerconfigjson: "{{ dockerconfig | to_json | b64encode }}"
 
-# 7. Install all platform components via Helm in order
+# 7. Remove OLM-managed resources before Helm install (OLM → Helm migration)
+# -----------------------------------------------------------------------------
+# When upgrading from CPD 5.3.1 (OLM-managed) to 5.4.0 (Helm-managed), several
+# OLM subsystems must be dismantled in the correct order, otherwise they keep
+# recreating the resources Helm is trying to own:
+#
+# Step 1 — Remove ODLM OperandRequests that drive postgresql/zen installation via OLM.
+#   The ZenService CR owns cloud-native-postgresql-opreq, so we must first strip its
+#   finalizer (so Kubernetes will actually delete it) then delete it. Without this,
+#   ODLM continuously recreates the cloud-native-postgresql Subscription even after
+#   the CatalogSource and Subscription are deleted.
+#
+# Step 2 — Delete the CatalogSources we installed in cpd_operators_namespace.
+#   As long as a CatalogSource exists, OLM can recreate Subscriptions from it.
+#
+# Step 3 — Delete all Subscriptions by label selector (catches any auto-generated name).
+#
+# Step 4 — Delete CSVs by the same label selector.
+#
+# All steps use failed_when: false — silent no-op on fresh installs.
+
+# Step 1a: Strip finalizers from ODLM OperandRequests so they can be deleted
+- name: "Remove finalizers from ODLM OperandRequests in cpd_instance_namespace"
+  kubernetes.core.k8s:
+    state: patched
+    api_version: operator.ibm.com/v1alpha1
+    kind: OperandRequest
+    name: "{{ item }}"
+    namespace: "{{ cpd_instance_namespace }}"
+    definition:
+      metadata:
+        finalizers: []
+  loop:
+    - cloud-native-postgresql-opreq
+    - zen-ca-operand-request
+    - zen-service
+  failed_when: false
+
+- name: "Remove finalizers from ODLM OperandRequests in cpd_operators_namespace"
+  kubernetes.core.k8s:
+    state: patched
+    api_version: operator.ibm.com/v1alpha1
+    kind: OperandRequest
+    name: "{{ item }}"
+    namespace: "{{ cpd_operators_namespace }}"
+    definition:
+      metadata:
+        finalizers: []
+  loop:
+    - zen-ca-operand-request
+    - zen-service
+  failed_when: false
+
+# Step 1b: Delete the OperandRequests
+- name: "Delete ODLM OperandRequests in cpd_instance_namespace"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operator.ibm.com/v1alpha1
+    kind: OperandRequest
+    name: "{{ item }}"
+    namespace: "{{ cpd_instance_namespace }}"
+  loop:
+    - cloud-native-postgresql-opreq
+    - zen-ca-operand-request
+    - zen-service
+  failed_when: false
+
+- name: "Delete ODLM OperandRequests in cpd_operators_namespace"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operator.ibm.com/v1alpha1
+    kind: OperandRequest
+    name: "{{ item }}"
+    namespace: "{{ cpd_operators_namespace }}"
+  loop:
+    - zen-ca-operand-request
+    - zen-service
+  failed_when: false
+
+# Step 1c: Uninstall any failed/partial Helm releases from previous upgrade attempts
+# so that the install-component loop can start fresh with `helm upgrade -i`
+- name: "Uninstall failed Helm releases from previous upgrade attempts"
+  command: helm uninstall {{ item }} -n {{ cpd_operators_namespace }}
+  loop: "{{ cpd_platform_components | selectattr('helm_chart_name', 'ne', '') | map(attribute='helm_chart_name') | list }}"
+  failed_when: false
+  changed_when: false
+
+# Step 2: Delete CatalogSources we installed — stops OLM from reconciling new Subscriptions
+- name: "Delete OLM CatalogSources installed by CPD OLM path"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: CatalogSource
+    name: "{{ item }}"
+    namespace: "{{ cpd_operators_namespace }}"
+  loop:
+    - cpd-platform
+    - opencloud-operators
+    - ibm-zen-operator-catalog
+  failed_when: false
+
+# Step 3: Delete Subscriptions by label selector — catches any auto-generated name
+- name: "Delete OLM Subscriptions for {{ sub_name }} (component: {{ component_item.name }})"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/{{ sub_name }}.{{ cpd_operators_namespace }}"
+  loop: "{{ cpd_platform_components | subelements('olm_subscription_names', skip_missing=True) }}"
+  loop_control:
+    loop_var: sub_item
+    label: "{{ sub_item[0].name }}/{{ sub_item[1] }}"
+  vars:
+    component_item: "{{ sub_item[0] }}"
+    sub_name: "{{ sub_item[1] }}"
+  failed_when: false
+
+# Step 4: Delete CSVs by label selector
+- name: "Delete OLM ClusterServiceVersions for {{ sub_name }} (component: {{ component_item.name }})"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ cpd_operators_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/{{ sub_name }}.{{ cpd_operators_namespace }}"
+  loop: "{{ cpd_platform_components | subelements('olm_subscription_names', skip_missing=True) }}"
+  loop_control:
+    loop_var: sub_item
+    label: "{{ sub_item[0].name }}/{{ sub_item[1] }}"
+  vars:
+    component_item: "{{ sub_item[0] }}"
+    sub_name: "{{ sub_item[1] }}"
+  failed_when: false
+
+# 8. Install all platform components via Helm in order
 # -----------------------------------------------------------------------------
 - name: "Install CPD platform component {{ component_item.name }} via Helm"
   include_tasks: "install-component.yml"
   when: >-
-    (component_item.name != 'ibm_iam_operator') or
-    (component_item.name == 'ibm_iam_operator' and (cpd_iam_integration | bool))
+    component_item.helm_chart_name != '' and
+    ((component_item.name != 'ibm_iam_operator') or
+    (component_item.name == 'ibm_iam_operator' and (cpd_iam_integration | bool)))
   loop: "{{ cpd_platform_components }}"
   loop_control:
     loop_var: component_item
