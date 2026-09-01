@@ -1,0 +1,349 @@
+---
+# odf/restore : Restore all S3 buckets from minio backup into ODF/NooBaa
+#
+# Reads from: {{ mas_config_dir }}/minio-backup/objects/<bucket>/
+# Auto-discovers all buckets — no per-bucket vars needed.
+# Creates any missing OBCs (spec.bucketName matches OBC name — no UUID suffix).
+# Mirrors objects into ODF using noobaa-admin credentials.
+# -----------------------------------------------------------------------------
+
+# 1. Validate required parameters
+# -----------------------------------------------------------------------------
+- name: "odf/restore : Fail if mas_config_dir is not provided"
+  assert:
+    that:
+      - mas_config_dir is defined
+      - mas_config_dir != ""
+    fail_msg: >
+      mas_config_dir is required for cos_bucket_action=restore.
+      This must be the same path used during minio backup.
+      The backup objects are expected at: {{ mas_config_dir }}/minio-backup/objects/
+
+- name: "odf/restore : Check backup objects directory exists"
+  stat:
+    path: "{{ mas_config_dir }}/minio-backup/objects"
+  register: backup_objects_dir_stat
+
+- name: "odf/restore : Fail if backup objects directory does not exist"
+  assert:
+    that:
+      - backup_objects_dir_stat.stat.exists
+      - backup_objects_dir_stat.stat.isdir
+    fail_msg: >
+      Backup objects directory not found: {{ mas_config_dir }}/minio-backup/objects
+      Run minio backup (MINIO_ACTION=backup) before running restore.
+
+# 2. Discover all buckets from the backup directory
+# -----------------------------------------------------------------------------
+- name: "odf/restore : Discover backed-up bucket directories"
+  find:
+    paths: "{{ mas_config_dir }}/minio-backup/objects"
+    file_type: directory
+    recurse: no
+  register: backup_bucket_dirs
+
+- name: "odf/restore : Set backed-up bucket names"
+  set_fact:
+    restore_bucket_names: "{{ backup_bucket_dirs.files | map(attribute='path') | map('basename') | list }}"
+
+- name: "odf/restore : Fail if no buckets found in backup"
+  assert:
+    that: restore_bucket_names | length > 0
+    fail_msg: >
+      No bucket directories found in {{ mas_config_dir }}/minio-backup/objects
+      Run minio backup (MINIO_ACTION=backup) before running restore.
+
+- name: "odf/restore : Debug - buckets discovered for restore"
+  debug:
+    msg:
+      - "Backup directory ............. {{ mas_config_dir }}/minio-backup/objects"
+      - "Buckets to restore ........... {{ restore_bucket_names | join(', ') }}"
+      - "Bucket count ................. {{ restore_bucket_names | length }}"
+
+# 3. Validate ODF StorageCluster is ready
+# -----------------------------------------------------------------------------
+- name: "odf/restore : Check ODF StorageCluster exists"
+  kubernetes.core.k8s_info:
+    api_version: ocs.openshift.io/v1
+    kind: StorageCluster
+    namespace: "{{ odf_bucket_namespace }}"
+  register: storage_cluster
+
+- name: "odf/restore : Verify ODF is ready"
+  assert:
+    that:
+      - storage_cluster.resources | length > 0
+      - storage_cluster.resources[0].status.phase == 'Ready'
+    fail_msg: "ODF StorageCluster is not ready. Please install ODF/Ceph first."
+
+# 4. Create missing OBCs (idempotent — skips if already Bound)
+# -----------------------------------------------------------------------------
+- name: "odf/restore : Check if OBC exists for each bucket"
+  kubernetes.core.k8s_info:
+    api_version: objectbucket.io/v1alpha1
+    kind: ObjectBucketClaim
+    name: "{{ item }}"
+    namespace: "{{ odf_bucket_namespace }}"
+  loop: "{{ restore_bucket_names }}"
+  register: obc_check_results
+
+- name: "odf/restore : Create missing OBCs"
+  kubernetes.core.k8s:
+    state: present
+    template: "templates/odf/objectbucketclaim.yml.j2"
+  vars:
+    cos_bucket_name: "{{ item.item }}"
+  loop: "{{ obc_check_results.results }}"
+  when: item.resources | length == 0
+
+- name: "odf/restore : Wait for all OBCs to be Bound"
+  kubernetes.core.k8s_info:
+    api_version: objectbucket.io/v1alpha1
+    kind: ObjectBucketClaim
+    name: "{{ item }}"
+    namespace: "{{ odf_bucket_namespace }}"
+  loop: "{{ restore_bucket_names }}"
+  register: _obc_wait
+  until:
+    - _obc_wait.resources | length > 0
+    - _obc_wait.resources[0].status.phase == "Bound"
+  retries: 20
+  delay: 30
+
+# 5. Get NooBaa admin credentials
+# -----------------------------------------------------------------------------
+- name: "odf/restore : Get noobaa-admin secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: noobaa-admin
+    namespace: "{{ odf_bucket_namespace }}"
+  register: noobaa_admin_secret
+
+- name: "odf/restore : Fail if noobaa-admin secret not found"
+  assert:
+    that: noobaa_admin_secret.resources | length > 0
+    fail_msg: "noobaa-admin secret not found in namespace '{{ odf_bucket_namespace }}'"
+
+- name: "odf/restore : Set NooBaa connection facts"
+  set_fact:
+    odf_restore_access_key: "{{ noobaa_admin_secret.resources[0].data.AWS_ACCESS_KEY_ID | b64decode }}"
+    odf_restore_secret_key: "{{ noobaa_admin_secret.resources[0].data.AWS_SECRET_ACCESS_KEY | b64decode }}"
+    # NooBaa S3 service exposes port 80 (HTTP) internally on the clusterIP.
+    # The external Route is HTTPS but the restore pod runs inside the cluster, so we use HTTP:80.
+    odf_restore_host: "s3.{{ odf_bucket_namespace }}.svc.cluster.local"
+    odf_restore_port: "80"
+
+# 6. Create mc config ConfigMap
+# -----------------------------------------------------------------------------
+- name: "odf/restore : Create mc config ConfigMap"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: odf-restore-config
+        namespace: "{{ odf_bucket_namespace }}"
+      data:
+        config.json: |
+          {
+            "version": "10",
+            "aliases": {
+              "odf": {
+                "url": "http://{{ odf_restore_host }}:{{ odf_restore_port }}",
+                "accessKey": "{{ odf_restore_access_key }}",
+                "secretKey": "{{ odf_restore_secret_key }}",
+                "api": "s3v4",
+                "path": "auto"
+              }
+            }
+          }
+
+# 7. Delete existing restore pod if present
+# -----------------------------------------------------------------------------
+- name: "odf/restore : Delete existing restore pod if present"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Pod
+    name: odf-restore-pod
+    namespace: "{{ odf_bucket_namespace }}"
+    state: absent
+    wait: yes
+    wait_timeout: 120
+
+# 8. Create restore pod
+# activeDeadlineSeconds: 7200 — hard kills pod if playbook is interrupted mid-run
+# -----------------------------------------------------------------------------
+- name: "odf/restore : Create restore pod"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: odf-restore-pod
+        namespace: "{{ odf_bucket_namespace }}"
+      spec:
+        activeDeadlineSeconds: 7200
+        securityContext:
+          fsGroup: 1000
+        initContainers:
+        - name: install-mc
+          image: "{{ ubi_image }}"
+          command: ["/bin/sh", "-c"]
+          args:
+          - |
+            curl -sL -o /shared/mc https://dl.min.io/client/mc/release/linux-amd64/mc.{{ mc_version }}
+            chmod +x /shared/mc
+          securityContext:
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+              add:
+              - CHOWN
+              - DAC_OVERRIDE
+          volumeMounts:
+          - name: shared-bin
+            mountPath: /shared
+        containers:
+        - name: mc
+          image: "{{ ubi_image }}"
+          command: ["/bin/sh", "-c"]
+          args:
+          - |
+            export PATH=/shared:$PATH
+            mkdir -p /tmp/.mc
+            cp /config/config.json /tmp/.mc/config.json
+            mkdir -p /restore
+            sleep 3600
+          env:
+          - name: MC_CONFIG_DIR
+            value: /tmp/.mc
+          - name: HOME
+            value: /tmp
+          securityContext:
+            runAsUser: 1000
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+          volumeMounts:
+          - name: mc-config
+            mountPath: /config
+            readOnly: true
+          - name: shared-bin
+            mountPath: /shared
+            readOnly: true
+          - name: restore
+            mountPath: /restore
+          - name: tmp
+            mountPath: /tmp
+        volumes:
+        - name: mc-config
+          configMap:
+            name: odf-restore-config
+        - name: shared-bin
+          emptyDir: {}
+        - name: restore
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        restartPolicy: Never
+
+# 9. Wait for restore pod to be Running
+# -----------------------------------------------------------------------------
+- name: "odf/restore : Wait for restore pod to be ready"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    name: odf-restore-pod
+    namespace: "{{ odf_bucket_namespace }}"
+  register: restore_pod_status
+  until:
+    - restore_pod_status.resources | length > 0
+    - restore_pod_status.resources[0].status.phase == "Running"
+  retries: 30
+  delay: 10
+
+# 10. Copy objects into pod and mirror into ODF
+# OBC spec.bucketName == OBC name — mc target is simply odf/{{ item }}
+# -----------------------------------------------------------------------------
+- name: "odf/restore : Copy backup objects into restore pod"
+  shell: >
+    oc cp --retries=50 -c mc
+    {{ mas_config_dir }}/minio-backup/objects/{{ item }}/.
+    {{ odf_bucket_namespace }}/odf-restore-pod:/restore/{{ item }}/
+  loop: "{{ restore_bucket_names }}"
+  register: copy_results
+
+- name: "odf/restore : Fail if any oc cp failed"
+  assert:
+    that: copy_results.results | selectattr('rc', 'ne', 0) | list | length == 0
+    fail_msg: >
+      oc cp failed for buckets:
+      {{ copy_results.results | selectattr('rc', 'ne', 0) | map(attribute='item') | list | join(', ') }}
+
+- name: "odf/restore : Mirror objects from restore pod into ODF buckets"
+  shell: >
+    oc exec -n {{ odf_bucket_namespace }} odf-restore-pod -c mc --
+    /shared/mc mirror --preserve --overwrite
+    /restore/{{ item }}/
+    odf/{{ item }}
+  loop: "{{ restore_bucket_names }}"
+  register: mirror_results
+
+# 11. Verify object counts per bucket
+# -----------------------------------------------------------------------------
+- name: "odf/restore : List objects in each ODF bucket after restore"
+  shell: >
+    oc exec -n {{ odf_bucket_namespace }} odf-restore-pod -c mc --
+    /shared/mc ls --recursive
+    odf/{{ item }}
+  loop: "{{ restore_bucket_names }}"
+  register: verify_results
+
+- name: "odf/restore : Check for mirror failures"
+  set_fact:
+    failed_restore_buckets: "{{ mirror_results.results | selectattr('rc', 'ne', 0) | map(attribute='item') | list }}"
+
+# 12. Cleanup — delete pod and ConfigMap
+# -----------------------------------------------------------------------------
+- name: "odf/restore : Delete restore pod"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Pod
+    name: odf-restore-pod
+    namespace: "{{ odf_bucket_namespace }}"
+    state: absent
+    wait: yes
+    wait_timeout: 120
+
+- name: "odf/restore : Delete mc config ConfigMap"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: ConfigMap
+    name: odf-restore-config
+    namespace: "{{ odf_bucket_namespace }}"
+    state: absent
+
+# 13. Assert and summarise
+# -----------------------------------------------------------------------------
+- name: "odf/restore : Assert no buckets failed"
+  assert:
+    that: failed_restore_buckets | length == 0
+    fail_msg: "Restore failed for buckets: {{ failed_restore_buckets | join(', ') }}"
+
+- name: "odf/restore : Restore complete"
+  debug:
+    msg:
+      - "=========================================="
+      - "ODF Bucket Restore Complete"
+      - "=========================================="
+      - "Backup source ............... {{ mas_config_dir }}/minio-backup/objects"
+      - "Buckets restored ............ {{ (restore_bucket_names | length) - (failed_restore_buckets | length) }}/{{ restore_bucket_names | length }}"
+      - "Failed ...................... {{ failed_restore_buckets | join(', ') if failed_restore_buckets | length > 0 else 'None' }}"
+      - "=========================================="
