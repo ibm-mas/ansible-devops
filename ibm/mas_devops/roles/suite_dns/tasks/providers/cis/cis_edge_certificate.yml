@@ -35,9 +35,9 @@
 
 - name: "cis : Define default CIS service name"
   set_fact:
-    cis_service_name: "{{ cluster_name }}-cis-{{instance_id}}"
+    cis_service_name: "{{ cluster_name }}-cis-{{ instance_id }}"
   when:
-    - cis_service_name is not defined or cis_service_name == ''
+    - lookup('env', 'CIS_SERVICE_NAME') == ''
 
 - name: "cis : debug cis_service_name"
   debug:
@@ -110,7 +110,7 @@
       ibm.mas_devops.cis_edge_cert_entries:
         cis_crn: "{{ cis_crn }}"
         ibmcloud_apikey: "{{ cis_apikey }}"
-        edge_cert_entries: "{{ edge_cert_routes }}"
+        edge_cert_entries: "{{ edge_cert_entries }}"
         instance_id: "{{ instance_id }}"
       register: edge_cert_output
 
@@ -143,6 +143,6 @@
 - name: "cis : Order certificate if there no dedicated yet or we just deleted them"
   ansible.builtin.shell: |
     ibmcloud cis certificate-order {{ _cis_domain_id }} --hostnames {{ item|join(',') }} -i "{{ cis_service_name }}"
-  loop: "{{ edge_cert_routes | batch(50) | list }}"
+  loop: "{{ edge_cert_entries | batch(50) | list }}"
   when:
     - not hasDedicated or (_deleted_certificate is defined and _deleted_certificate["changed"])

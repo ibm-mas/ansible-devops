@@ -14,12 +14,19 @@
     fail_msg: "'{{ dns_provider }}' is not a valid value for 'dns_provider' property! Supported DNS providers: {{ supported_dns_providers }}"
 
 - name: "Check required properties (MAS mode)"
-  when: not is_aiservice_mode
+  when: is_mas_mode
   assert:
     that:
       - mas_instance_id is defined and mas_instance_id != ""
       - mas_workspace_id is defined and mas_workspace_id != ""
     fail_msg: "MAS_INSTANCE_ID and MAS_WORKSPACE_ID are required for MAS mode"
+
+- name: "Check required properties (at least one mode must be active)"
+  when: not is_mas_mode and not is_aiservice_mode
+  assert:
+    that:
+      - false
+    fail_msg: "Either MAS_INSTANCE_ID (with MAS_WORKSPACE_ID) or AISERVICE_INSTANCE_ID must be set"
 
 - name: "Check required properties (AI Service mode)"
   when: is_aiservice_mode
@@ -34,6 +41,23 @@
     that:
       - dns_provider != "cloudflare"
     fail_msg: "Cloudflare is not supported for AI Service"
+
+- name: "Check required properties when MAS_INSTANCE_ID and AISERVICE_INSTANCE_ID are both set with CIS"
+  when:
+    - is_mas_mode and is_aiservice_mode
+    - dns_provider == "cis"
+  assert:
+    that:
+      - cis_service_name is defined and cis_service_name != ""
+      - mas_domain == aiservice_domain
+    fail_msg: >-
+      When MAS_INSTANCE_ID='{{ mas_instance_id }}' and AISERVICE_INSTANCE_ID='{{ aiservice_instance_id }}'
+      are both set with DNS_PROVIDER=cis, the following are required:
+      1) CIS_SERVICE_NAME must be explicitly provided. Both MAS and AI Service share the same CIS
+         domain and the service name cannot be derived automatically.
+      2) MAS_DOMAIN and AISERVICE_DOMAIN must be the same. Both MAS and AI Service must be
+         configured under the same CIS DNS zone.
+         Got: MAS_DOMAIN='{{ mas_domain }}', AISERVICE_DOMAIN='{{ aiservice_domain }}'.
 
 - name: Debug manual certificate installation
   when: mas_manual_cert_mgmt is defined and mas_manual_cert_mgmt

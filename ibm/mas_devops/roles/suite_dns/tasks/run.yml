@@ -31,14 +31,27 @@
 
 # 3. Ensure namespace exists
 # -----------------------------------------------------------------------------
-- name: "Ensure namespace exists"
+- name: "Ensure namespace exists (AI Service mode)"
+  when: is_aiservice_mode
   kubernetes.core.k8s:
     state: present
     definition:
       apiVersion: v1
       kind: Namespace
       metadata:
-        name: "{{ instance_namespace }}"
+        name: "{{ aiservice_namespace }}"
+        labels:
+          ibm.com/kyverno: "audit"
+
+- name: "Ensure namespace exists (MAS mode)"
+  when: is_mas_mode
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ mas_namespace }}"
         labels:
           ibm.com/kyverno: "audit"
 
