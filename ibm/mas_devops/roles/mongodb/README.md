@@ -230,7 +230,7 @@ Specifies the MongoDB version to deploy.
 - Use for testing compatibility with newer MongoDB versions
 - Never use to downgrade an existing MongoDB instance
 
-**Valid values**: `7.0.12`, `7.0.22`, `7.0.23`, `8.0.13`, `8.0.17`, `8.0.20`  (check MAS compatibility matrix for supported versions)
+**Valid values**: `7.0.12`, `7.0.22`, `7.0.23`, `8.0.13`, `8.0.17`, `8.0.20`, `8.0.23`  (check MAS compatibility matrix for supported versions)
 
 **Impact**: Determines MongoDB feature set, performance characteristics, and compatibility. Changing versions may require data migration or compatibility testing.
 

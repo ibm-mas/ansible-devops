@@ -330,6 +330,115 @@ WatsonX AI project identifier.
 
 **Note**: The project ID is found in your WatsonX AI project settings in IBM Cloud. Ensure the API key has appropriate permissions for the project. The project should have the required AI models and resources configured.
 
+### Database Configuration Variables
+
+#### install_db2
+Controls whether to install in-cluster DB2 for AI Service.
+
+- **Optional**
+- Environment Variable: `INSTALL_DB2`
+- Default: `true`
+
+**Purpose**: Determines whether to deploy an in-cluster DB2 instance for AI Service or use an external database.
+
+**When to use**:
+- Use `true` (default) for development, testing, or proof-of-concept deployments
+- Use `false` for production deployments with external Oracle or DB2 databases
+
+**Valid values**: `true`, `false`
+
+**Impact**: When set to `false`, you must provide external database connection details via `aiservice_db_*` variables.
+
+**Related variables**:
+- `aiservice_db_jdbc_url`: Required when `install_db2` is `false`
+- `aiservice_db_username`: Required when `install_db2` is `false`
+- `aiservice_db_password`: Required when `install_db2` is `false`
+- `aiservice_db_ca_cert`: Optional SSL/TLS certificate for external database
+
+**Note**: External database support is available in AI Service 9.1.x only. Supported external databases: Oracle and DB2.
+
+#### aiservice_db_jdbc_url
+JDBC connection URL for external database.
+
+- **Optional** (Required when `install_db2` is `false`)
+- Environment Variable: `AISERVICE_DB_JDBC_URL`
+- Default: None
+
+**Purpose**: Specifies the JDBC connection string for connecting AI Service to an external Oracle or DB2 database.
+
+**When to use**:
+- Required when `install_db2` is `false`
+- Must be a valid JDBC URL for Oracle or DB2
+- Database must be accessible from the cluster
+
+**Valid values**:
+- Oracle: `jdbc:oracle:thin:@//hostname:1521/servicename`
+- DB2: `jdbc:db2://hostname:50000/database`
+
+**Impact**: AI Service uses this database for persistent storage. Incorrect URL will prevent AI Service from starting.
+
+**Note**: Ensure the database exists and is properly configured before installation. The database user must have appropriate permissions to create tables and manage schema.
+
+#### aiservice_db_username
+Database username for external database authentication.
+
+- **Optional** (Required when `install_db2` is `false`)
+- Environment Variable: `AISERVICE_DB_USERNAME`
+- Default: None
+
+**Purpose**: Provides the username for authenticating AI Service to the external database.
+
+**When to use**:
+- Required when `install_db2` is `false`
+- Must have appropriate database permissions
+- Should be a dedicated service account for AI Service
+
+**Valid values**: Valid database username string
+
+**Impact**: Without valid credentials, AI Service cannot connect to the database and will fail to start.
+
+**Note**: **SECURITY** - The database user must have permissions to create tables, indexes, and manage schema objects. Use a dedicated service account rather than a DBA account.
+
+#### aiservice_db_password
+Database password for external database authentication.
+
+- **Optional** (Required when `install_db2` is `false`)
+- Environment Variable: `AISERVICE_DB_PASSWORD`
+- Default: None
+
+**Purpose**: Provides the password for authenticating AI Service to the external database.
+
+**When to use**:
+- Required when `install_db2` is `false`
+- Must match the password for `aiservice_db_username`
+- Should be stored securely
+
+**Valid values**: Valid database password string
+
+**Impact**: Without valid credentials, AI Service cannot connect to the database and will fail to start.
+
+**Note**: **SECURITY** - Never commit passwords to source control. Use environment variables or secure secret management.
+
+#### aiservice_db_ca_cert
+CA certificate for external database SSL/TLS connections.
+
+- **Optional**
+- Environment Variable: `AISERVICE_DB_CA_CERT`
+- Default: None
+
+**Purpose**: Provides the CA certificate content for validating SSL/TLS connections to external databases using self-signed certificates.
+
+**When to use**:
+- Required when external database uses SSL/TLS with self-signed certificates
+- Not needed for databases with publicly trusted certificates
+- Must be the complete certificate in PEM format
+
+**Valid values**: Complete CA certificate content in PEM format (including `-----BEGIN CERTIFICATE-----` and `-----END CERTIFICATE-----` markers)
+
+**Impact**: Without the CA certificate, AI Service cannot validate SSL/TLS connections to databases using self-signed certificates.
+
+**Note**: Provide the entire certificate content, not a file path. Include all lines from `-----BEGIN CERTIFICATE-----` to `-----END CERTIFICATE-----`.
+
 ### Certificate Management
 
 #### aiservice_certificate_issuer
@@ -408,12 +517,38 @@ Specifies when to renew certificates before they expire.
 ## Example Playbook
 After installing the Ansible Collection you can include this role in your own custom playbooks.
 
+### Example 1: Basic Installation with In-Cluster DB2
 ```yaml
 - hosts: localhost
   vars:
     tenant_action: install
     tenantName: production
     app_domain: apps.mycluster.example.com
+    aiservice_s3_host: s3.amazonaws.com
+    aiservice_s3_accesskey: "{{ lookup('env', 'AWS_ACCESS_KEY') }}"
+    aiservice_s3_secretkey: "{{ lookup('env', 'AWS_SECRET_KEY') }}"
+    aiservice_s3_region: us-east-1
+    aiservice_watsonxai_apikey: "{{ lookup('env', 'WATSONX_API_KEY') }}"
+    aiservice_watsonxai_url: https://us-south.ml.cloud.ibm.com
+    aiservice_watsonxai_project_id: my-project-id
+  roles:
+    - ibm.mas_devops.aiservice
+```
+
+### Example 2: Installation with External Oracle Database
+```yaml
+- hosts: localhost
+  vars:
+    tenant_action: install
+    tenantName: production
+    app_domain: apps.mycluster.example.com
+    # External Database Configuration
+    install_db2: false
+    aiservice_db_jdbc_url: "{{ lookup('env', 'AISERVICE_DB_JDBC_URL') }}"
+    aiservice_db_username: "{{ lookup('env', 'AISERVICE_DB_USERNAME') }}"
+    aiservice_db_password: "{{ lookup('env', 'AISERVICE_DB_PASSWORD') }}"
+    aiservice_db_ca_cert: "{{ lookup('env', 'AISERVICE_DB_CA_CERT') }}"
+    # S3 and WatsonX Configuration
     aiservice_s3_host: s3.amazonaws.com
     aiservice_s3_accesskey: "{{ lookup('env', 'AWS_ACCESS_KEY') }}"
     aiservice_s3_secretkey: "{{ lookup('env', 'AWS_SECRET_KEY') }}"
@@ -439,6 +574,16 @@ export AISERVICE_S3_REGION=us-east-1
 export AISERVICE_WATSONXAI_APIKEY=your_watsonx_api_key
 export AISERVICE_WATSONXAI_URL=https://us-south.ml.cloud.ibm.com
 export AISERVICE_WATSONXAI_PROJECT_ID=my-project-id
+# Database Configuration (INSTALL_DB2 defaults to true for in-cluster DB2)
+# For external database, set:
+# export INSTALL_DB2=false
+# export AISERVICE_DB_JDBC_URL=jdbc:oracle:thin:@//oracle.example.com:1521/ORCL
+# export AISERVICE_DB_USERNAME=aiservice_user
+# export AISERVICE_DB_PASSWORD=your_db_password
+# export AISERVICE_DB_CA_CERT="-----BEGIN CERTIFICATE-----
+# MIIDXTCCAkWgAwIBAgIJAKJ...
+# ...certificate content...
+# -----END CERTIFICATE-----"
 ROLE_NAME=aiservice ansible-playbook ibm.mas_devops.run_role
 ```
 

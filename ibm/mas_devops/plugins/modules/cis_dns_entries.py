@@ -25,8 +25,20 @@ author:
 import requests
 import getpass
 import os
+import time
 from requests.exceptions import HTTPError
 from ansible.module_utils.basic import AnsibleModule
+
+
+def _request_with_retry(method, url, headers, payload, max_retries=5, backoff_base=10):
+    """Execute an HTTP request with exponential backoff retry on 429 responses."""
+    for attempt in range(max_retries):
+        response = requests.request(method, url, headers=headers, data=payload)
+        if response.status_code != 429:
+            return response
+        wait = backoff_base * (2 ** attempt)
+        time.sleep(wait)
+    return response
 
 def main():
 
@@ -208,7 +220,7 @@ def main():
                     'X-Auth-User-Token': access_token
                     }
 
-                    response = requests.request("PUT", url, headers=headers, data=payload)
+                    response = _request_with_retry("PUT", url, headers=headers, payload=payload)
                     if(response.status_code == 200):
                         changed = True
                     else:
@@ -228,7 +240,7 @@ def main():
                 'X-Auth-User-Token': access_token
                 }
 
-                response = requests.request("POST", url, headers=headers, data=payload)
+                response = _request_with_retry("POST", url, headers=headers, payload=payload)
                 if(response.status_code == 200):
                     changed = True
                 else:
@@ -239,7 +251,7 @@ def main():
                 if entry.startswith('*'):
                     dnsId = existingDNSIDs[existingDNSEntries.index(entry)]
                     url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/dns_records/{dnsId}"
-                    response = requests.request("DELETE", url, headers=headers, data=payload)
+                    response = _request_with_retry("DELETE", url, headers=headers, payload=payload)
                     if(response.status_code == 200):
                         changed = True
         if cis_waf:

@@ -48,7 +48,7 @@ pushsecrets.external-secrets.io
 ## Role Variables
 
 ### eso_action
-Action to perform: install, uninstall, or create a ClusterSecretStore.
+Action to perform: install, uninstall, or manage SecretStore/ClusterSecretStore resources.
 
 - **Optional**
 - Environment Variable: `ESO_ACTION`
@@ -59,18 +59,23 @@ Action to perform: install, uninstall, or create a ClusterSecretStore.
 **When to use**:
 - Use `install` for deploying the operator
 - Use `uninstall` for removing the operator
-- Use `create-clustersecretstore` for creating an IBM Secrets Manager ClusterSecretStore
+- Use `create-clustersecretstore` for creating an IBM Secrets Manager ClusterSecretStore (cluster-wide)
+- Use `delete-clustersecretstore` for removing an IBM Secrets Manager ClusterSecretStore
+- Use `create-secretstore` for creating an IBM Secrets Manager SecretStore (namespace-scoped)
+- Use `delete-secretstore` for removing an IBM Secrets Manager SecretStore
 
-**Valid values**: `install`, `uninstall`, `create-clustersecretstore`
+**Valid values**: `install`, `uninstall`, `create-clustersecretstore`, `delete-clustersecretstore`, `create-secretstore`, `delete-secretstore`
 
 **Impact**: Controls the primary operation of the role.
 
-**Related variables**: `eso_cleanup_crds`, `eso_cleanup_namespace`, `eso_store_name`, `ibm_sm_instance_url`, `ibm_sm_api_key`
+**Related variables**: `eso_cleanup_crds`, `eso_cleanup_namespace`, `eso_store_name`, `ibm_sm_instance_url`, `ibm_sm_api_key`, `ibm_sm_store_namespace`
 
 **Notes**:
 - Installation is idempotent - can be run multiple times safely
 - Uninstallation behavior depends on cleanup flags
-- The `create-clustersecretstore` action requires IBM Secrets Manager configuration variables
+- The `create-clustersecretstore` and `create-secretstore` actions require IBM Secrets Manager configuration variables
+- ClusterSecretStore is cluster-wide and can be used by ExternalSecrets in any namespace
+- SecretStore is namespace-scoped and can only be used by ExternalSecrets in the same namespace
 
 ### eso_namespace
 Namespace for External Secrets Operator installation.
@@ -337,17 +342,27 @@ IBM Cloud API key for authenticating with IBM Secrets Manager.
 - Ensure the API key has appropriate IAM permissions for the Secrets Manager instance
 
 ### ibm_sm_store_namespace
-Namespace for the IBM Secrets Manager SecretStore (not ClusterSecretStore).
+Namespace for the IBM Secrets Manager SecretStore (namespace-scoped).
 
-- **Optional**
+- **Required** (when using `create-secretstore` or `delete-secretstore` actions)
 - Environment Variable: `IBM_SM_STORE_NAMESPACE`
 - Default: None
 
-**Purpose**: Reserved for future use with namespace-scoped SecretStore resources.
+**Purpose**: Specifies the namespace where a namespace-scoped SecretStore will be created or deleted.
+
+**When to use**: Required when creating or deleting a namespace-scoped SecretStore for IBM Secrets Manager integration.
+
+**Valid values**: Valid Kubernetes namespace name (lowercase alphanumeric with hyphens)
+
+**Impact**: Determines which namespace the SecretStore and its credentials secret will be created in.
+
+**Related variables**: `eso_action`, `eso_store_name`, `ibm_sm_instance_url`, `ibm_sm_api_key`
 
 **Notes**:
-- Currently not used by the `create-clustersecretstore` action
-- ClusterSecretStore resources are cluster-scoped and don't require a namespace
+- Only used when `eso_action` is set to `create-secretstore` or `delete-secretstore`
+- SecretStore is namespace-scoped and can only be used by ExternalSecrets in the same namespace
+- The namespace will be created if it doesn't exist during `create-secretstore`
+- For cluster-wide access, use `create-clustersecretstore` instead (does not require this variable)
 
 ## Example Playbooks
 
@@ -436,6 +451,129 @@ Namespace for the IBM Secrets Manager SecretStore (not ClusterSecretStore).
   roles:
     - ibm.mas_devops.eso
 ```
+
+### Delete IBM Secrets Manager ClusterSecretStore
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    eso_action: delete-clustersecretstore
+    eso_namespace: external-secrets-system
+    eso_store_name: ibm-secrets-manager
+  roles:
+    - ibm.mas_devops.eso
+```
+
+### Create IBM Secrets Manager SecretStore (Namespace-Scoped)
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    eso_action: create-secretstore
+    eso_store_name: ibm-secrets-manager
+    ibm_sm_store_namespace: mas-core
+    ibm_sm_instance_url: "https://my-instance.secrets-manager.cloud.ibm.com"
+    ibm_sm_api_key: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
+  roles:
+    - ibm.mas_devops.eso
+```
+
+### Delete IBM Secrets Manager SecretStore
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    eso_action: delete-secretstore
+    eso_store_name: ibm-secrets-manager
+    ibm_sm_store_namespace: mas-core
+  roles:
+    - ibm.mas_devops.eso
+```
+
+### ExternalSecret: Arbitrary Secret (IBM Secrets Manager)
+
+Arbitrary secrets contain a single text value stored in the `payload` field.
+
+```yaml
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: example-arbitrary-secret
+  namespace: default
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: ibm-secrets-manager
+    kind: ClusterSecretStore  # Use 'SecretStore' for namespace-specific store
+  target:
+    name: my-arbitrary-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: API_KEY  # Key name in the Kubernetes Secret
+      remoteRef:
+        # Use the secret ID (recommended) or secret name
+        key: YOUR-SECRET-ID-OR-NAME
+```
+
+### ExternalSecret: Key-Value Secret (individual keys)
+
+Key-value secrets contain multiple key-value pairs. Prefix the secret ID with `kv/` and use `property` to select individual keys.
+
+```yaml
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: example-kv-secret
+  namespace: default
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: ibm-secrets-manager
+    kind: ClusterSecretStore  # Use 'SecretStore' for namespace-specific store
+  target:
+    name: my-kv-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: USERNAME
+      remoteRef:
+        key: "kv/YOUR-SECRET-ID"
+        property: "username"
+    - secretKey: PASSWORD
+      remoteRef:
+        key: "kv/YOUR-SECRET-ID"
+        property: "password"
+```
+
+### ExternalSecret: Key-Value Secret (fetch all keys at once)
+
+Use `dataFrom.extract` to pull every key from a key-value secret in one operation.
+
+```yaml
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: example-kv-all-keys
+  namespace: default
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: ibm-secrets-manager
+    kind: ClusterSecretStore
+  target:
+    name: my-kv-secret-all
+    creationPolicy: Owner
+  dataFrom:
+    - extract:
+        key: "kv/YOUR-SECRET-ID"
+```
+
+> **Notes:**
+> - Always prefix key-value secret IDs with `kv/` (e.g. `"kv/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"`)
+> - Secret IDs (UUIDs) are more reliable than secret names
+> - Use `data` + `property` to fetch specific keys; use `dataFrom.extract` to fetch all keys at once
 
 ## Prerequisites
 
