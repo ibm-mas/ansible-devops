@@ -243,7 +243,7 @@
 - name: "Install CPD platform component {{ component_item.name }} via Helm"
   include_tasks: "install-component.yml"
   when: >-
-    component_item.helm_chart_name != '' and
+    (component_item.helm_chart_name != '' or component_item.helm_cluster_chart != '') and
     ((component_item.name != 'ibm_iam_operator') or
     (component_item.name == 'ibm_iam_operator' and (cpd_iam_integration | bool)))
   loop: "{{ cpd_platform_components }}"
@@ -377,8 +377,12 @@
     namespace: "{{ cpd_ibm_licensing_namespace }}"
     definition: "{{ _patch }}"
 
-# Wait for operator Deployment to report readyReplicas >= 1 after WATCH_NAMESPACE rollout
+# Wait for operator Deployment to report readyReplicas >= 1 after WATCH_NAMESPACE rollout.
+# Guard with the same condition as the patch above — if the Deployment was not found in
+# cpd_ibm_licensing_namespace (e.g. OLM-managed cluster or cluster-scoped-only install),
+# there is nothing to wait for and this task must be skipped.
 - name: "Wait for ibm-licensing-operator to be Ready after WATCH_NAMESPACE update"
+  when: _licensing_operator_deploy.resources | length > 0
   kubernetes.core.k8s_info:
     api_version: apps/v1
     kind: Deployment
