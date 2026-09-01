@@ -153,6 +153,16 @@
   delay: 60
   until: ns_install is not failed
 
+# Airgap: write helm_values to a temp file so special characters in values
+# (storage class names, secret names, etc.) are handled safely by YAML parsing
+# rather than shell string splitting that --set flags are subject to.
+- name: "Write Helm values to temp file (airgap)"
+  when: cpd_helm_airgap
+  copy:
+    content: "{{ helm_values | to_nice_yaml }}"
+    dest: "/tmp/{{ component_name }}-helm-values.yaml"
+    mode: "0600"
+
 - name: "Install/Upgrade {{ component_name }} namespace-scoped chart with Helm (airgap)"
   when: cpd_helm_airgap
   command: >
@@ -169,7 +179,13 @@
   changed_when: "'has been upgraded' in ns_install.stdout or 'has been installed' in ns_install.stdout"
   retries: 10
   delay: 60
-  until: ns_install.rc == 0
+  until: ns_install is not failed
+
+- name: "Remove Helm values temp file (airgap)"
+  when: cpd_helm_airgap
+  file:
+    path: "/tmp/{{ component_name }}-helm-values.yaml"
+    state: absent
 
 - name: "{{ component_name }} Helm charts installed"
   debug:
@@ -178,3 +194,40 @@
       - "✓ Namespace-scoped chart installed via Helm"
       - "✓ CRD established: {{ comp_crd_name }}"
       - "✓ CR will be created automatically by Helm"
+
+# During OLM→Helm migration cleanup deletes the component CR so Helm can adopt it.
+# However helm upgrade --install is a no-op when chart/values are unchanged, so
+# it does not reapply the now-missing CR from its stored manifest.
+# Check for each CR entry in component_cr_mapping and force Helm to reapply if missing.
+- name: "Check {{ cr_entry.kind }} CR after Helm install (OLM→Helm migration)"
+  when: component_name in (component_cr_mapping | default({}))
+  kubernetes.core.k8s_info:
+    api_version: "{{ cr_entry.api_version }}"
+    kind: "{{ cr_entry.kind }}"
+    namespace: "{{ cpd_instance_namespace }}"
+    name: "{{ cr_entry.name if cr_entry.name != 'all' else omit }}"
+  register: dep_cr_existence_check
+  loop: "{{ component_cr_mapping[component_name] | default([]) }}"
+  loop_control:
+    loop_var: cr_entry
+    label: "{{ cr_entry.kind }}/{{ cr_entry.name }}"
+  failed_when: false
+
+- name: "Force Helm to reapply when {{ component_name }} CRs are missing (OLM→Helm migration)"
+  when:
+    - component_name in (component_cr_mapping | default({}))
+    - dep_cr_existence_check.results | default([]) | map(attribute='resources') | flatten | length == 0
+  command: >
+    helm upgrade {{ component_name | replace('_', '-') }}
+    {{ cpd_helm_repo_name if not cpd_helm_airgap else cpd_airgap_helm_repo_url }}/{{ comp_chart_name }}
+    --version {{ chart_version }}
+    --namespace {{ cpd_instance_namespace }}
+    --reuse-values
+    --force
+    --wait
+    --timeout {{ cpd_helm_timeout }}
+  register: helm_dep_force_reapply
+  retries: 3
+  delay: 30
+  until: helm_dep_force_reapply.rc == 0
+  failed_when: false
