@@ -39,7 +39,7 @@ NVIDIA GPU Operator subscription channel.
 
 - **Optional**
 - Environment Variable: `GPU_CHANNEL`
-- Default: `v24.9`
+- Default: `v26.3`
 
 **Purpose**: Determines which version stream of the NVIDIA GPU Operator will be installed from OperatorHub.
 
@@ -157,7 +157,7 @@ After installing the Ansible Collection you can include this role in your own cu
 - hosts: localhost
   vars:
     gpu_namespace: nvidia-gpu-operator
-    gpu_channel: v24.9
+    gpu_channel: v26.3
     nfd_namespace: openshift-nfd
   roles:
     - ibm.mas_devops.nvidia_gpu
@@ -168,7 +168,7 @@ After installing the Ansible Collection you can easily run the role standalone u
 
 ```bash
 export GPU_NAMESPACE=nvidia-gpu-operator
-export GPU_CHANNEL=v24.9
+export GPU_CHANNEL=v26.3
 export NFD_NAMESPACE=openshift-nfd
 ROLE_NAME=nvidia_gpu ansible-playbook ibm.mas_devops.run_role
 ```
