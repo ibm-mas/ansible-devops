@@ -21,6 +21,7 @@
     comp_crd_name: "{{ component_item.crd_name }}"
     comp_case_version: "{{ component_item.case_version }}"
     comp_namespace: "{{ component_item.namespace }}"
+    helm_tls_flag: "{{ '--ca-file ' ~ lookup('env', 'HELM_REGISTRY_CA_FILE') if lookup('env', 'HELM_REGISTRY_CA_FILE') else '--insecure-skip-tls-verify' }}"
 
 # helm search repo has no module equivalent - command is used for a read-only repo index query.
 - name: "Resolve chart version from repo index"
@@ -62,7 +63,7 @@
     search_chart_name: "{{ comp_cluster_chart if comp_cluster_chart != '' else comp_chart_name }}"
   shell: >
     helm show chart {{ cpd_airgap_helm_repo_url }}/{{ search_chart_name }}
-    --insecure-skip-tls-verify 2>/dev/null
+    {{ helm_tls_flag }} 2>/dev/null
     | grep '^version:' | awk '{print $2}' | tr -d '"'
   register: chart_version_lookup
   changed_when: false
@@ -165,7 +166,7 @@
   when:
     - cpd_helm_airgap
     - comp_cluster_chart is defined and comp_cluster_chart != ""
-  shell: >
+  command: >
     helm template {{ comp_name | replace('_', '-') }}-cluster
     {{ cpd_airgap_helm_repo_url }}/{{ comp_cluster_chart }}
     --version {{ chart_version }}
@@ -176,7 +177,7 @@
     --set global.instanceNamespace={{ cpd_instance_namespace }}
     --set global.controlCenterOperatorNamespace={{ cpd_operators_namespace }}
     --set global.controlCenterInstanceNamespace={{ cpd_instance_namespace }}
-    --insecure-skip-tls-verify
+    {{ helm_tls_flag }}
   register: cluster_chart_manifests_airgap
   changed_when: false
 
@@ -349,7 +350,7 @@
   when:
     - cpd_helm_airgap
     - comp_chart_name is defined and comp_chart_name != ""
-  shell: >
+  command: >
     helm template {{ comp_name | replace('_', '-') }}
     {{ cpd_airgap_helm_repo_url }}/{{ comp_chart_name }}
     --version {{ chart_version }}
@@ -360,7 +361,7 @@
     --set global.instanceNamespace={{ cpd_instance_namespace }}
     --set global.controlCenterOperatorNamespace={{ cpd_operators_namespace }}
     --set global.controlCenterInstanceNamespace={{ cpd_instance_namespace }}
-    --insecure-skip-tls-verify
+    {{ helm_tls_flag }}
   register: ns_chart_manifests_airgap
   changed_when: false
 
@@ -423,19 +424,42 @@
     wait_timeout: "{{ cpd_helm_timeout }}"
     values: "{{ comp_helm_values }}"
 
-- name: "Install/Upgrade {{ comp_name }} namespace-scoped chart (airgap)"
+- name: "Write Helm values to temp file for {{ comp_name }} (airgap)"
   when:
     - cpd_helm_airgap
     - comp_chart_name is defined and comp_chart_name != ""
-  kubernetes.core.helm:
-    name: "{{ comp_name | replace('_', '-') }}"
-    chart_ref: "{{ cpd_airgap_helm_repo_url }}/{{ comp_chart_name }}"
-    chart_version: "{{ chart_version }}"
-    release_namespace: "{{ comp_namespace }}"
-    create_namespace: true
-    wait: true
-    wait_timeout: "{{ cpd_helm_timeout }}"
-    values: "{{ comp_helm_values }}"
+  copy:
+    content: "{{ comp_helm_values | to_nice_yaml }}"
+    dest: "/tmp/{{ comp_name }}-helm-values.yaml"
+    mode: "0600"
+
+- name: "Install/Upgrade {{ comp_name }} namespace-scoped chart with Helm (airgap)"
+  when:
+    - cpd_helm_airgap
+    - comp_chart_name is defined and comp_chart_name != ""
+  command: >
+    helm upgrade --install {{ comp_name | replace('_', '-') }}
+    {{ cpd_airgap_helm_repo_url }}/{{ comp_chart_name }}
+    --version {{ chart_version }}
+    -f /tmp/{{ comp_name }}-helm-values.yaml
+    --namespace {{ comp_namespace }}
+    --create-namespace
+    --wait
+    --timeout {{ cpd_helm_timeout }}
+    {{ helm_tls_flag }}
+  register: ns_install
+  changed_when: "'has been upgraded' in ns_install.stdout or 'has been installed' in ns_install.stdout"
+  retries: 10
+  delay: 60
+  until: ns_install is not failed
+
+- name: "Remove Helm values temp file for {{ comp_name }} (airgap)"
+  when:
+    - cpd_helm_airgap
+    - comp_chart_name is defined and comp_chart_name != ""
+  file:
+    path: "/tmp/{{ comp_name }}-helm-values.yaml"
+    state: absent
 
 - name: "{{ comp_name }} Helm charts installed"
   debug:
