@@ -655,6 +655,38 @@ Comma separated list of entries to add for edge certificates. These are broken d
 - Environment Variable: `CIS_ENTRIES_TO_ADD`
 - Default: `all`
 
+#### cis_allowed_ips
+Comma-separated list of IP addresses or CIDR ranges (IPv4 and IPv6) that are permitted to access the MAS instance. When set, a CIS WAF custom block rule is created that denies all traffic **not** originating from the specified IPs on the MAS domain. When unset or empty, any existing WAF block rule for this instance is removed.
+
+- **Optional**
+- Environment Variable: `CIS_ALLOWED_IPS`
+- Default: None
+
+**Purpose**: Restricts access to MAS public routes by creating a CIS WAF custom rule with the expression:
+```
+(not ip.src in {<ip1> <ip2> ...} and http.host contains "<mas_domain>")
+```
+
+**When to use**:
+- Set when you want to restrict MAS access to specific IPs or corporate network ranges
+- Leave unset to allow unrestricted public access
+
+**Valid values**: Comma-separated IPs/CIDRs, e.g.:
+```
+10.0.0.0/8,192.168.1.0/24,2405:201:d000:9060::/64,49.37.171.108
+```
+
+**Impact**:
+- **Set**: Creates or updates a WAF block rule scoped to `mas_domain` — only the listed IPs can access the instance
+- **Unset/empty**: Deletes the existing WAF block rule, restoring unrestricted access
+
+**Related variables**:
+- `cis_service_name`: CIS instance used to manage the rule
+- `cis_enhanced_security`: Should be enabled when using IP allowlisting
+- `mas_domain`: Used to scope the WAF rule to the correct MAS instance domain
+
+**Note**: Requires `dns_provider=cis` and CIS enhanced security to be enabled. The Custom WAF rule is identified by the description `mas-ip-allowlist-<mas_domain>` and is created/updated/deleted automatically based on whether this variable is set.
+
 ### AWS Route 53
 
 **Prerequisites:** To run this role successfully you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).

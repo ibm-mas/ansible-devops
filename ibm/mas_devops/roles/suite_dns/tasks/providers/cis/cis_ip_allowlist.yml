@@ -1,0 +1,117 @@
+---
+# Manage a CIS WAF custom rule that blocks all traffic except from IPs in cis_allowed_ips.
+- name: "cis : ip-allowlist — set unique rule description"
+  ansible.builtin.set_fact:
+    _cis_allowlist_rule_desc: "mas-ip-allowlist-{{ mas_domain }}"
+
+- name: "cis : ip-allowlist — get existing custom WAF rules"
+  ansible.builtin.shell: |
+    ibmcloud cis custom-waf rules {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+      -i "{{ cis_service_name }}" --output json
+  register: _cis_custom_rules_result
+  failed_when: false
+
+- name: "cis : ip-allowlist — find existing rule id by description"
+  ansible.builtin.set_fact:
+    _cis_allowlist_rule_id: >-
+      {{ (_cis_custom_rules_result.stdout | from_json).get('rules', [])
+         | selectattr('description', 'defined')
+         | selectattr('description', 'equalto', _cis_allowlist_rule_desc)
+         | map(attribute='id') | list | first | default('') }}
+  when: _cis_custom_rules_result.rc == 0 and _cis_custom_rules_result.stdout | trim | length > 0
+
+- name: "cis : ip-allowlist — set rule id to empty when rules could not be fetched"
+  ansible.builtin.set_fact:
+    _cis_allowlist_rule_id: ""
+  when: _cis_custom_rules_result.rc != 0 or _cis_custom_rules_result.stdout | trim | length == 0
+
+- name: "cis : ip-allowlist — manage deletion (allow_list empty or removed)"
+  when: cis_allowed_ips | trim | length == 0
+  block:
+
+    - name: "cis : ip-allowlist — no existing rule to delete (nothing to do)"
+      ansible.builtin.debug:
+        msg: "No WAF allowlist rule found for '{{ _cis_allowlist_rule_desc }}', nothing to delete"
+      when: _cis_allowlist_rule_id | trim | length == 0
+
+    - name: "cis : ip-allowlist — delete existing WAF block rule"
+      ansible.builtin.shell: |
+        ibmcloud cis custom-waf rule-delete {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+          {{ _cis_allowlist_rule_id }} \
+          -i "{{ cis_service_name }}" --force
+      register: _cis_allowlist_delete_result
+      retries: 5
+      delay: 30
+      until: _cis_allowlist_delete_result.rc == 0
+      when: _cis_allowlist_rule_id | trim | length > 0
+
+    - name: "cis : ip-allowlist — deletion confirmed"
+      ansible.builtin.debug:
+        msg: "WAF IP allowlist rule '{{ _cis_allowlist_rule_desc }}' deleted successfully for instance {{ mas_instance_id }}"
+      when: _cis_allowlist_rule_id | trim | length > 0
+
+- name: "cis : ip-allowlist — manage create/update (allow_list set)"
+  when: cis_allowed_ips | trim | length > 0
+  block:
+
+    - name: "cis : ip-allowlist — normalise allowed IPs"
+      ansible.builtin.set_fact:
+        _cis_normalised_ips: >-
+          {{ cis_allowed_ips
+             | regex_replace('(^\[|\]$)', '')
+             | regex_replace(',', ' ')
+             | split()
+             | select('match', '.+')
+             | list }}
+
+    - name: "cis : ip-allowlist — build WAF expression"
+      ansible.builtin.set_fact:
+        _cis_allowlist_expression: >-
+          {{ '(not ip.src in {' + (_cis_normalised_ips | join(' ')) + '} and http.host contains "' + mas_domain + '")' }}
+
+    - name: "cis : ip-allowlist — show configuration"
+      ansible.builtin.debug:
+        msg:
+          - "Rule Description ......... {{ _cis_allowlist_rule_desc }}"
+          - "CIS Allowed IPs .......... {{ cis_allowed_ips }}"
+          - "Normalised IPs ........... {{ _cis_normalised_ips }}"
+          - "WAF Expression ........... {{ _cis_allowlist_expression }}"
+          - "Existing Rule ID ......... {{ _cis_allowlist_rule_id | default('(none — will create)') }}"
+
+    - name: "cis : ip-allowlist — create WAF block rule (new)"
+      ansible.builtin.shell: |
+        EXPR='{{ _cis_allowlist_expression }}'
+        ibmcloud cis custom-waf rule-create {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+          -i "{{ cis_service_name }}" \
+          --action block \
+          --match "$EXPR" \
+          --description "{{ _cis_allowlist_rule_desc }}" \
+          --enabled true
+      register: _cis_allowlist_create_result
+      retries: 5
+      delay: 30
+      until: _cis_allowlist_create_result.rc == 0
+      when: _cis_allowlist_rule_id | trim | length == 0
+
+    - name: "cis : ip-allowlist — update WAF block rule (existing)"
+      ansible.builtin.shell: |
+        EXPR='{{ _cis_allowlist_expression }}'
+        ibmcloud cis custom-waf rule-update {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+          {{ _cis_allowlist_rule_id }} \
+          -i "{{ cis_service_name }}" \
+          --action block \
+          --match "$EXPR" \
+          --description "{{ _cis_allowlist_rule_desc }}" \
+          --enabled true
+      register: _cis_allowlist_update_result
+      retries: 5
+      delay: 30
+      until: _cis_allowlist_update_result.rc == 0
+      when: _cis_allowlist_rule_id | trim | length > 0
+
+    - name: "cis : ip-allowlist — result"
+      ansible.builtin.debug:
+        msg: >-
+          WAF IP allowlist rule '{{ _cis_allowlist_rule_desc }}'
+          {{ 'created' if _cis_allowlist_rule_id | trim | length == 0 else 'updated' }}
+          successfully for instance {{ mas_instance_id }}
