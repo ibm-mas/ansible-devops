@@ -586,7 +586,7 @@ Set this to false to not override and delete any existing edge certificates in c
 - Default: `true`
 
 #### cis_entries_to_add
-Comma separated list of entries to add for edge certificates. These are broken down into functional areas of MAS. The options are: `all` (include all entries - default), `core` (MAS Core), `health` (MAS Health App), `iot` (MAS IoT app), `manage` (MAS Manage app), `monitor` (MAS Monitor app), `predict` (MAS Predict app), `visualinspection` (MAS VisualInspection app), `optimizer` (MAS Optimizer app), `assist` (MAS Assist app), `arcgis` (MAS Arcgis), `reportdb` (MAS ReportDB), `facilities` (MAS Facilities app).
+Comma separated list of entries to add for edge certificates. These are broken down into functional areas of MAS. The options are: `all` (include all entries - default), `core` (MAS Core), `health` (MAS Health App), `iot` (MAS IoT app), `manage` (MAS Manage app), `monitor` (MAS Monitor app), `predict` (MAS Predict app), `visualinspection` (MAS VisualInspection app), `optimizer` (MAS Optimizer app), `assist` (MAS Assist app), `arcgis` (MAS Arcgis), `reportdb` (MAS ReportDB), `facilities` (MAS Facilities app), `cpd-public` (CP4D public route — creates `cpd-public.<mas_domain>` DNS CNAME and edge certificate for VPN-free CP4D access).
 
 - **Optional**
 - Environment Variable: `CIS_ENTRIES_TO_ADD`
