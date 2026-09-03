@@ -1,0 +1,400 @@
+---
+# =============================================================================
+# MCPI Configuration Operator - Main Reconciliation Logic
+# =============================================================================
+
+# Initialize (load variables, etc.)
+- name: Initialize
+  include_tasks: tasks/init.yml
+
+- name: "Debug: Show CR information"
+  debug:
+    msg:
+      - "Processing McpiCfg: {{ mcpi_meta_name }}"
+      - "CR Namespace: {{ mcpi_meta_namespace }}"
+      - "Enabled: {{ isEnabled }}"
+      - "Target Namespace: {{ mcpi_namespace }}"
+# =============================================================================
+# Check for podTemplates
+# =============================================================================
+- name: Run PodTemplates Validation and Status Update
+  include_role:
+    name: mas.util.update_pod_templates_status
+  vars:
+    app_api: "config.mas.ibm.com/v1"
+    app_kind: "McpiCfg"
+    validKeys: "{{ supportedPodKeys | mas.util.combineSupportedPodKeys }}"
+
+
+# =============================================================================
+# Lookup Suite CR
+# =============================================================================
+- name: Retrieve Suite CR to fetch registry configuration
+  kubernetes.core.k8s_info:
+    api_version: core.mas.ibm.com/v1
+    kind: Suite
+    name: "{{ instanceId }}"
+    namespace: "{{ ansible_operator_meta.namespace }}"
+  register: suiteLookup
+
+- debug:
+    msg: "suiteLookup ...... {{suiteLookup}}"
+
+- name: Fail if the suite does not exist
+  vars:
+    errorReason: SuiteIsNotInstalled
+    errorMessage: |
+      Suite {{ instanceId }} does not exist in the {{ ansible_operator_meta.namespace }} namespace, you must
+      create the suite installation before you can configure MCPI integration.
+  block:
+    - name: Update McpiCfg status (suiteLookup not available)
+      operator_sdk.util.k8s_status:
+        api_version: config.mas.ibm.com/v1
+        kind: McpiCfg
+        name: "{{ ansible_operator_meta.name }}"
+        namespace: "{{ ansible_operator_meta.namespace }}"
+        status:
+          conditions:
+            - type: Ready
+              status: "False"
+              reason: "{{ errorReason }}"
+              message: "{{ errorMessage }}"
+    - fail:
+        msg: "{{ errorReason }}: {{ errorMessage }}"
+  when: >-
+    suiteLookup['resources'] | length == 0
+
+- name: Fail if the suite is not ready
+  vars:
+    errorReason: SuiteIsNotReady
+    errorMessage: |
+      Suite {{ instanceId }} is not ready in the {{ ansible_operator_meta.namespace }} namespace. Wait for Suite to become ready.
+  block:
+    - name: Update McpiCfg status (suite not ready)
+      operator_sdk.util.k8s_status:
+        api_version: config.mas.ibm.com/v1
+        kind: McpiCfg
+        name: "{{ ansible_operator_meta.name }}"
+        namespace: "{{ ansible_operator_meta.namespace }}"
+        status:
+          conditions:
+            - type: Ready
+              status: "False"
+              reason: "{{ errorReason }}"
+              message: "{{ errorMessage }}"
+    - fail:
+        msg: "{{ errorReason }}: {{ errorMessage }}"
+  when: >-
+    suiteLookup.resources[0].status is not defined
+    or suiteLookup.resources[0].status.settings is not defined
+    or suiteLookup.resources[0].status.settings.icr is not defined
+    or suiteLookup.resources[0].spec.domain is not defined
+
+- name: Store values from Suite CR
+  set_fact:
+    images: "{{ images | combine ({ 'registry': suiteLookup.resources[0].status.settings.icr.cp }) }}"
+    masDomain: "{{ suiteLookup.resources[0].spec.domain }}"
+    apiInternalUrl: "{{ suiteLookup.resources[0].status.apis.internal.url }}"
+    internalCertificateAuthority: "{{ suiteLookup.resources[0].spec.internalCertificateAuthority | default('internalCA', true) }}"
+
+- debug:
+    msg:
+      - "Registry: {{ images.registry }}"
+      - "Pull Policy: {{ images.pullPolicy }}"
+      - "Pull Secret: {{ images.pullSecretName }}"
+      - "MAS Domain: {{ masDomain }}"
+      - "Routing Mode: {{ routingMode }}"
+      - "API Internal URL: {{ apiInternalUrl }}"
+      - "Internal CA: {{ internalCertificateAuthority }}"
+
+# =============================================================================
+# Configure OIDC Route URL
+# =============================================================================
+
+- name: Configure oidc route (single-domain mode)
+  when: routingMode == "path"
+  set_fact:
+    oidcRouteURL: "https://{{masDomain}}"
+
+- name: Configure oidc route (multi-domain mode)
+  when: routingMode == "subdomain"
+  set_fact:
+    oidcRouteURL: "https://auth.{{masDomain}}"
+
+- debug:
+    msg:
+      - "OIDC Route URL: {{ oidcRouteURL }}"
+
+# =============================================================================
+# Setup Client Certificates for MAS Internal API
+# =============================================================================
+# Required for OAuth redirect URI registration and workspace updates
+# -----------------------------------------------------------------------------
+- name: Set up client authentication certificates for the MAS internal API
+  include_tasks: tasks/client-cert.yml
+
+# =============================================================================
+# Create MCPI Service Internal Certificate
+# =============================================================================
+# Create internal certificate for mcpi-service to enable TLS termination on routes
+# This must be created before route setup so the certificate is available
+# -----------------------------------------------------------------------------
+- name: Create mcpi-service internal certificate
+  include_role:
+    name: mas.util.certificates
+  vars:
+    namespace: "{{ mcpi_meta_namespace }}"
+    internalCertAuthority: "{{ internalCertificateAuthority }}"
+    cert:
+      name: "{{ certNames.internal }}"
+      labels:
+        mas.ibm.com/instanceId: "{{ instanceId }}"
+        app.kubernetes.io/instance: "{{ instanceId }}"
+        app.kubernetes.io/managed-by: "{{ operatorName }}"
+        app.kubernetes.io/name: ibm-mas
+      serviceName: "mcpi-service"
+      usages: [ "client auth", "server auth" ]
+
+# =============================================================================
+# Configure Route
+# =============================================================================
+# Setup route configuration using mas.util.routes_configuration role
+# This configures route domains, paths, and URLs for MCPI based on routing mode
+# This must happen BEFORE creating resources so route variables are available
+# -----------------------------------------------------------------------------
+- name: Set route configuration
+  include_role:
+    name: mas.util.routes_configuration
+    tasks_from: setup-routing-configuration
+  vars:
+    routing_mode: "{{ routingMode }}"
+    mas_domain: "{{ masDomain }}"
+    apps:
+      - app_name: "mcpi"
+
+- name: Set MCPI route URL for OAuth registration (path mode)
+  when: routingMode == "path"
+  set_fact:
+    mcpiRouteURL: "https://{{ masDomain }}/mcpi"
+
+- name: Set MCPI route URL for OAuth registration (subdomain mode)
+  when: routingMode == "subdomain"
+  set_fact:
+    mcpiRouteURL: "https://mcpi.{{ masDomain }}"
+
+# =============================================================================
+# Validation
+# =============================================================================
+
+- name: "Validate: Check required fields"
+  assert:
+    that:
+      - config.enabled is defined
+      - display_name is defined
+    msg: "Required fields missing in spec: config.enabled and displayName are required"
+
+# =============================================================================
+# Create Resources (when enabled)
+# =============================================================================
+
+- name: "Create: ServiceAccount"
+  when: isEnabled
+  kubernetes.core.k8s:
+    state: present
+    template: serviceaccount.yml.j2
+
+- name: "Create: Role (for MCPI workload)"
+  when: isEnabled
+  kubernetes.core.k8s:
+    state: present
+    template: role.yml.j2
+
+- name: "Create: RoleBinding (for MCPI workload)"
+  when: isEnabled
+  kubernetes.core.k8s:
+    state: present
+    template: rolebinding.yml.j2
+
+- name: "Create: Deployment"
+  when: isEnabled
+  kubernetes.core.k8s:
+    state: present
+    template: deployment.yml.j2
+
+- name: "Create: HTTP Service"
+  when: isEnabled
+  kubernetes.core.k8s:
+    state: present
+    template: service-http.yml.j2
+
+- name: "Create: Rsyslog Service"
+  when: isEnabled
+  kubernetes.core.k8s:
+    state: present
+    template: service-rsyslog.yml.j2
+
+- name: "Setup MCPI Routes"
+  when:
+    - isEnabled
+    - mcpi_route_enabled | bool
+  include_tasks: routes.yml
+
+# =============================================================================
+# Register OAuth Redirect URI with MAS Internal API
+# =============================================================================
+# Register OAuth Redirect URI
+# Required for authentication flows
+# -----------------------------------------------------------------------------
+- name: Store OAuth client ID from secret
+  when: isEnabled
+  set_fact:
+    oauthClientId: "{{ oauthLookupResult.resources[0].data['oauth-client-id'] | b64decode }}"
+
+- name: Register MCPI OAuth redirect URI with MAS
+  when:
+    - isEnabled
+    - not (skip_openid_registration | default(False))
+  open_id_config:
+    apiInternalUrl: "{{ apiInternalUrl }}"
+    clientId: "{{ oauthClientId }}"
+    mcpiRouteURL: "{{ mcpiRouteURL }}"
+    delete: "{{ finalizer | default(False) }}"
+  register: verifyOpenIdResult
+
+- name: "Create: NetworkPolicy"
+  when: isEnabled
+  kubernetes.core.k8s:
+    state: present
+    template: networkpolicy.yml.j2
+
+- name: "Info: All resources created"
+  when: isEnabled
+  debug:
+    msg: "All MCPI resources created in namespace {{ mcpi_namespace }}"
+
+# =============================================================================
+# Update Status (when enabled)
+# =============================================================================
+
+- name: "Update: CR Status (Enabled)"
+  when: isEnabled
+  operator_sdk.util.k8s_status:
+    api_version: config.mas.ibm.com/v1
+    kind: McpiCfg
+    name: "{{ mcpi_meta_name }}"
+    namespace: "{{ mcpi_meta_namespace }}"
+    status:
+      conditions:
+        - type: Ready
+          status: "True"
+          reason: "ResourcesCreated"
+          message: "MCPI resources deployed successfully in namespace {{ mcpi_namespace }}"
+      versions:
+        reconciled: "{{ operatorVersion }}"
+        generation: "{{ selfLookupResult.resources[0].metadata.generation }}"
+
+# =============================================================================
+# Delete Resources (when disabled)
+# =============================================================================
+
+- name: "Delete: OAuth Redirect URI"
+  when:
+    - not isEnabled
+    - not (skip_openid_registration | default(False))
+    - oauthLookupResult.resources | length > 0
+  open_id_config:
+    apiInternalUrl: "{{ apiInternalUrl }}"
+    clientId: "{{ oauthLookupResult.resources[0].data['oauth-client-id'] | b64decode }}"
+    mcpiRouteURL: "{{ mcpiRouteURL }}"
+    delete: true
+  register: deleteOpenIdResult
+  ignore_errors: true
+
+- name: "Delete: NetworkPolicy"
+  when: not isEnabled
+  kubernetes.core.k8s:
+    state: absent
+    api_version: networking.k8s.io/v1
+    kind: NetworkPolicy
+    name: mcpi-network-policy
+    namespace: "{{ mcpi_namespace }}"
+
+- name: "Delete: Route"
+  when: not isEnabled
+  kubernetes.core.k8s:
+    state: absent
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: "{{ instanceId }}-mcpi"
+    namespace: "{{ mcpi_namespace }}"
+
+- name: "Delete: Rsyslog Service"
+  when: not isEnabled
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Service
+    name: mcpi-rsyslog
+    namespace: "{{ mcpi_namespace }}"
+
+- name: "Delete: HTTP Service"
+  when: not isEnabled
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Service
+    name: mcpi-service
+    namespace: "{{ mcpi_namespace }}"
+
+- name: "Delete: Deployment"
+  when: not isEnabled
+  kubernetes.core.k8s:
+    state: absent
+    api_version: apps/v1
+    kind: Deployment
+    name: mcpi-deployment
+    namespace: "{{ mcpi_namespace }}"
+
+- name: "Delete: RoleBinding"
+  when: not isEnabled
+  kubernetes.core.k8s:
+    state: absent
+    api_version: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    name: mcpi-workload
+    namespace: "{{ mcpi_namespace }}"
+
+- name: "Delete: Role"
+  when: not isEnabled
+  kubernetes.core.k8s:
+    state: absent
+    api_version: rbac.authorization.k8s.io/v1
+    kind: Role
+    name: mcpi-workload
+    namespace: "{{ mcpi_namespace }}"
+
+- name: "Delete: ServiceAccount"
+  when: not isEnabled
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: ServiceAccount
+    name: mcpi
+    namespace: "{{ mcpi_namespace }}"
+
+- name: "Update: CR Status (Disabled)"
+  when: not isEnabled
+  operator_sdk.util.k8s_status:
+    api_version: config.mas.ibm.com/v1
+    kind: McpiCfg
+    name: "{{ mcpi_meta_name }}"
+    namespace: "{{ mcpi_meta_namespace }}"
+    status:
+      conditions:
+        - type: Ready
+          status: "False"
+          reason: "Disabled"
+          message: "MCPI is disabled"
+      versions:
+        reconciled: "{{ operatorVersion }}"
+        generation: "{{ selfLookupResult.resources[0].metadata.generation }}"
