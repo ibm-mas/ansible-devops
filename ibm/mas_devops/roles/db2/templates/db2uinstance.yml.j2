@@ -1,8 +1,4 @@
 ---
-# DB2uInstance Custom Resource
-# Supports two installation methods:
-#   - Helm-based operator: uses spec.image / imageRegistryOverride
-#   - Subscription-based (OLM) operator: uses spec.version (master-compatible)
 apiVersion: db2u.databases.ibm.com/v1
 kind: Db2uInstance
 metadata:
@@ -15,12 +11,7 @@ metadata:
 {% endfor %}
 {% endif %}
 spec:
-{% if db2_use_helm_operator | default(false) | bool %}
-  imageRegistryOverride: true
-  image: "{{ db2_image }}"
-{% endif %}
   nodes: {{ db2_num_pods }}
-{% if not (db2_use_helm_operator | default(false) | bool) %}
 {% if db2_affinity_key != "" and db2_affinity_value != "" %}
   affinity:
     nodeAffinity:
@@ -50,72 +41,23 @@ spec:
 {{ db2_addons_audit_config | to_yaml | indent(6) }}
 {% endif %}
   version: "{{ db2_version }}"
-{% endif %}
   environment:
-    dbType: "{{ db2_type | default('db2wh') }}"
+    dbType: "{{ db2_type }}"
     databases:
       - name: "{{ db2_dbname }}"
-{% if not (db2_use_helm_operator | default(false) | bool) %}
+
 {% if db2_database_db_config is defined and db2_database_db_config != "" %}
         dbConfig:
           {{ db2_database_db_config }}
 {% endif %}
         settings:
           dftTableOrg: "{{ db2_table_org }}"
-{% endif %}
-    partitionConfig:
-      total: {{ db2_mln_count }}
     ssl:
-{% if db2_use_helm_operator | default(false) | bool %}
-      fromVolumeSource:
-        secret:
-          secretName: db2u-certificate-{{ db2_instance_name | lower }}
-          items:
-            - key: tls.crt
-              path: tls.crt
-            - key: tls.key
-              path: tls.key
-            - key: ca.crt
-              path: ca.crt
-{% endif %}
-{% if db2_ldap_configmap is defined and db2_ldap_configmap != "" %}
-    authentication:
-      ldap:
-{% if db2_use_helm_operator | default(false) | bool %}
-        enabled: true
-        fromVolumeSource:
-          configMap:
-            name: {{ db2_ldap_configmap }}
-        searcherPassword:
-          value: {{ db2_ldap_searcher_password }}
-{% else %}
-        enabled: true
-        externalLdap:
-          server: ldap-{{ db2_namespace }}.{{ db2_namespace }}.svc.cluster.local
-          port: "636"
-          type: ldap
-          sslMethod: ssl
-          domain: dc=smaasdb2,dc=world
-          userBaseDN: ou=People,dc=smaasdb2,dc=world
-          userObjectClass: posixAccount
-          userIdAttribute: uid
-          authIdAttribute: uid
-          groupBaseDN: ou=Group,dc=smaasdb2,dc=world
-          groupObjectClass: posixGroup
-          groupNameAttribute: cn
-          groupLookupMethod: SEARCH_BY_DN
-          groupLookupAttribute: memberUid
-          searcherDN: uid=dbadmin,ou=People,dc=smaasdb2,dc=world
-          searcherPassword: "{{ db2_ldap_searcher_password }}"
-          adminGroup: "{{ db2_ldap_admin_group }}"
-          userGroup: "{{ db2_ldap_user_group }}"
-{% endif %}
-{% endif %}
-{% if not (db2_use_helm_operator | default(false) | bool) %}
       secretName: "db2u-certificate-{{ db2_instance_name }}"
       certLabel: "CN=db2u"
       allowSslOnly: true
     instance:
+
 {% if db2_instance_registry is defined and db2_instance_registry != "" %}
       registry:
         {{ db2_instance_registry }}
@@ -124,10 +66,10 @@ spec:
       dbmConfig:
         {{ db2_instance_dbm_config }}
 {% endif %}
-{% endif %}
+    partitionConfig:
+      total: {{ db2_mln_count }}
   license:
     accept: true
-{% if not (db2_use_helm_operator | default(false) | bool) %}
 {% if db2_license_encoded is defined and db2_license_encoded != "" %}
     value: "{{ db2_license_encoded }}"
 {% endif %}
@@ -135,43 +77,16 @@ spec:
   advOpts:
     timezone: "{{ db2_timezone }}"
 {% endif %}
-{% endif %}
   podTemplate:
     db2u:
-{% if db2_use_helm_operator | default(false) | bool %}
-{% if db2_affinity_key is defined and db2_affinity_key != "" %}
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: "{{ db2_affinity_key }}"
-                    operator: In
-                    values:
-                      - "{{ db2_affinity_value }}"
-{% endif %}
-{% if db2_tolerate_key is defined and db2_tolerate_key != "" %}
-      tolerations:
-        - key: "{{ db2_tolerate_key }}"
-          operator: "Equal"
-          value: "{{ db2_tolerate_value }}"
-          effect: "{{ db2_tolerate_effect }}"
-{% endif %}
-{% endif %}
       resource:
         db2u:
           requests:
             cpu: "{{ db2_cpu_requests }}"
             memory: "{{ db2_memory_requests }}"
-{% if db2_use_helm_operator | default(false) | bool %}
-            ephemeral-storage: "{{ db2_ephemeral_storage_requests }}"
-{% endif %}
           limits:
             cpu: "{{ db2_cpu_limits }}"
             memory: "{{ db2_memory_limits }}"
-{% if db2_use_helm_operator | default(false) | bool %}
-            ephemeral-storage: "{{ db2_ephemeral_storage_limits }}"
-{% endif %}
   storage:
     - name: meta
       type: create
@@ -224,6 +139,7 @@ spec:
         storageClassName: "{{ db2_logs_storage_class }}"
       type: template
 {% endif %}
+
 {% if db2_audit_logs_storage_class is defined and db2_audit_logs_storage_class != "None" %}
     - name: auditlogs
       type: template
