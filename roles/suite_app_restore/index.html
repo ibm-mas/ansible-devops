@@ -820,13 +820,6 @@
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
 <li>Default: None</li>
 </ul>
-<h3 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link">¤</a></h3>
-<p>Defines the MAS workspace ID for the restore action. Must match the workspace ID from the backup.</p>
-<ul>
-<li><strong>Required</strong></li>
-<li>Environment Variable: <code>MAS_WORKSPACE_ID</code></li>
-<li>Default: None</li>
-</ul>
 <h3 id="mas_backup_dir">mas_backup_dir<a class="headerlink" href="#mas_backup_dir" title="Permanent link">¤</a></h3>
 <p>Defines the directory where backups are stored. The role will look for the backup version subdirectory within this location.</p>
 <ul>
@@ -842,6 +835,13 @@
 <li>Environment Variable: <code>MAS_APP_BACKUP_VERSION</code></li>
 <li>Default: None</li>
 <li>Example: <code>20240315-143022</code> or <code>v1.0-prod</code></li>
+</ul>
+<h3 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link">¤</a></h3>
+<p>Defines the MAS workspace ID for the restore action. If not provided, it is automatically derived from the <code>mas.ibm.com/workspaceId</code> label on the workspace backup CR.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MAS_WORKSPACE_ID</code></li>
+<li>Default: Auto-discovered from workspace backup CR label <code>mas.ibm.com/workspaceId</code></li>
 </ul>
 <h3 id="mas_app_restore_wait_retries">mas_app_restore_wait_retries<a class="headerlink" href="#mas_app_restore_wait_retries" title="Permanent link">¤</a></h3>
 <p>Maximum time in seconds to wait for ManageWorkspace to become ready after restore.</p>
@@ -1065,12 +1065,11 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
 </code></pre>
 <h2 id="example-playbooks">Example Playbooks<a class="headerlink" href="#example-playbooks" title="Permanent link">¤</a></h2>
 <h3 id="basic-restore">Basic Restore<a class="headerlink" href="#basic-restore" title="Permanent link">¤</a></h3>
-<p>Restore Manage namespace resources and persistent volumes from a backup:</p>
+<p>Restore Manage namespace resources and persistent volumes from a backup. The workspace ID is automatically derived from the backup CR:</p>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
     mas_instance_id: inst1
-    mas_workspace_id: ws1
     mas_app_id: manage
     mas_backup_dir: /backup/mas
     mas_app_backup_version: "20240315-143022"
@@ -1083,7 +1082,6 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
   any_errors_fatal: true
   vars:
     mas_instance_id: inst1
-    mas_workspace_id: ws1
     mas_app_id: manage
     mas_backup_dir: /backup/mas
     mas_app_backup_version: "prod-backup-20240315"
@@ -1098,7 +1096,6 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
   any_errors_fatal: true
   vars:
     mas_instance_id: inst1
-    mas_workspace_id: ws1
     mas_app_id: facilities
     mas_backup_dir: /backup/mas
     mas_app_backup_version: "20240315-143022"
@@ -1111,7 +1108,6 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
   any_errors_fatal: true
   vars:
     mas_instance_id: inst1
-    mas_workspace_id: ws1
     mas_backup_dir: /backup/mas
     backup_version: "20240315-143022"
 
@@ -1138,7 +1134,6 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
   any_errors_fatal: true
   vars:
     mas_instance_id: inst1
-    mas_workspace_id: ws1
     mas_backup_dir: /backup/mas
     backup_version: "20240315-143022"
 
@@ -1165,7 +1160,6 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
   any_errors_fatal: true
   vars:
     mas_instance_id: inst1
-    mas_workspace_id: ws1
     mas_app_id: manage
     mas_backup_dir: /backup/mas
     mas_app_backup_version: "20240315-143022"
@@ -1183,7 +1177,6 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
   any_errors_fatal: true
   vars:
     mas_instance_id: inst1
-    mas_workspace_id: ws1
     mas_app_id: manage
     mas_backup_dir: /backup/mas
     mas_app_backup_version: "20240315-143022"
@@ -1199,7 +1192,6 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
   any_errors_fatal: true
   vars:
     mas_instance_id: inst1
-    mas_workspace_id: ws1
     mas_app_id: manage
     mas_backup_dir: /backup/mas
     mas_app_backup_version: "20240315-143022"
@@ -1214,7 +1206,6 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
   any_errors_fatal: true
   vars:
     mas_instance_id: inst1
-    mas_workspace_id: ws1
     mas_app_id: facilities
     mas_backup_dir: /backup/mas
     mas_app_backup_version: "20240315-143022"
@@ -1251,6 +1242,7 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
 - Increase <code>mas_app_restore_wait_retries</code> and <code>mas_app_restore_wait_delay</code> values` if deployment is slow</p>
 <h2 id="notes">Notes<a class="headerlink" href="#notes" title="Permanent link">¤</a></h2>
 <ul>
+<li><strong>Workspace ID Auto-Discovery</strong>: <code>mas_workspace_id</code> is automatically derived from the <code>mas.ibm.com/workspaceId</code> label on the workspace backup CR. You only need to set <code>MAS_WORKSPACE_ID</code> explicitly if you want to override the value from the backup</li>
 <li><strong>Database Restore</strong>: This role does NOT restore application databases. Use the <a href="../db2/">db2</a> role to restore Db2 databases separately, and do this BEFORE running the application restore</li>
 <li><strong>Suite Resources</strong>: This role restores application-specific resources only. For suite-level resources (Suite CR, workspace CRs, etc.), use the <a href="../suite_restore/">suite_restore</a> role</li>
 <li><strong>Instance ID Match</strong>: The restore must be performed on a cluster with the same MAS instance ID as the backup</li>
@@ -1327,11 +1319,6 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#mas_workspace_id" class="md-toc__link" data-md-level="2">
-                          mas_workspace_id
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
                         <a href="#mas_backup_dir" class="md-toc__link" data-md-level="2">
                           mas_backup_dir
                         </a>
@@ -1339,6 +1326,11 @@ Image must have <code>tar</code> installed for <code>oc cp</code> to work.</p>
                       <li class="md-toc__item">
                         <a href="#mas_app_backup_version" class="md-toc__link" data-md-level="2">
                           mas_app_backup_version
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#mas_workspace_id" class="md-toc__link" data-md-level="2">
+                          mas_workspace_id
                         </a>
                       </li>
                       <li class="md-toc__item">
