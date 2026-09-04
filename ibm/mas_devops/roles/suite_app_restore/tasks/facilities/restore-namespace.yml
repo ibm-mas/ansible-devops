@@ -62,7 +62,23 @@
 
 - name: "Set fact: Facilities workspace CR name"
   set_fact:
-    facilities_workspace_cr_name: "{{ workspace_backup_cr.metadata.name}}"
+    facilities_workspace_cr_name: "{{ workspace_backup_cr.metadata.name }}"
+
+- name: "Set fact: mas_workspace_id from FacilitiesWorkspace backup CR label"
+  set_fact:
+    mas_workspace_id: "{{ workspace_backup_cr.metadata.labels['mas.ibm.com/workspaceId'] }}"
+  when: mas_workspace_id == '' or mas_workspace_id is not defined
+
+- name: "Fail if mas_workspace_id could not be determined"
+  fail:
+    msg: >-
+      mas_workspace_id could not be determined. The FacilitiesWorkspace backup CR at
+      {{ instance_files[0] }} does not have the label 'mas.ibm.com/workspaceId'.
+  when: mas_workspace_id == '' or mas_workspace_id is not defined
+
+- name: "Display resolved mas_workspace_id"
+  debug:
+    msg: "Workspace ID resolved to: {{ mas_workspace_id }}"
 
 # 3.1. Determine storage class override settings
 # ---------------------------------------------------------------------
