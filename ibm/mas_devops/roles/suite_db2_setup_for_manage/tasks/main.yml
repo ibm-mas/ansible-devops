@@ -76,14 +76,14 @@
 # the setup, however this file will be lost after pod restarts.
 - name: Run setupdb to prepare Db2 for use with Maximo TPAE
   shell: |
-    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc '/tmp/setupdb.sh | tee /tmp/setupdb.log' db2inst1
+    oc exec -n {{db2_namespace}} {{db2_pod_name}} -c db2u -- bash -l -c '/tmp/setupdb.sh | tee /tmp/setupdb.log'
   register: prepare_cmds_status
   ignore_errors: true
   retries: 10
   delay: 30 # seconds
   until:
     - prepare_cmds_status.rc == 0  ## Always going to be zero in this case, but let's check anyway.
-    - prepare_cmds_status.stdout | regex_search('DBstatus-Success', multiline=True)
+    - prepare_cmds_status.stdout | regex_search('DBstatus-Success', multiline=True) | length > 0
 
 - name: "Print setupdb.sh return code"
   when: prepare_cmds_status.rc is defined
@@ -104,7 +104,7 @@
     that:
       - prepare_cmds_status.rc is defined
       - prepare_cmds_status.rc == 0
-      - prepare_cmds_status.stdout | regex_search('DBstatus-Success', multiline=True)
+      - prepare_cmds_status.stdout | regex_search('DBstatus-Success', multiline=True) | length > 0
     fail_msg: "setupdb.sh failed for Manage Maxinst -  tablespace or bufferpools may not have been created"
     success_msg: "Manage DB setup ran successfully"
 
