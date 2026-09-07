@@ -1,0 +1,65 @@
+# The TrustStore operator is not required by the Tenant operator, however, in 9.1 and 9.2 it is
+# installed into the tenant namespace as a dependency. For 9.3 and above we remove this operator.
+
+- name: "Search for TrustStore operator subscription in namespace {{ target_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: ibm-truststore-mgr
+    namespace: "{{ target_namespace }}"
+  register: truststore_sub
+  no_log: true
+
+- name: Determine if TrustStore operator is installed
+  ansible.builtin.set_fact:
+    is_truststore_operator_installed: "{{ truststore_sub.resources | length > 0 }}"
+
+- when: is_truststore_operator_installed
+  block:
+    - name: Delete TrustStore operator subscription
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: Subscription
+        name: ibm-truststore-mgr
+        namespace: "{{ target_namespace }}"
+    
+    - name: Delete TrustStore operator installed CSV
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: ClusterServiceVersion
+        name: "{{ truststore_sub.resources[0].status.installedCSV }}"
+        namespace: "{{ target_namespace }}"
+
+    - name: "Get InstallPlans in namespace {{ target_namespace }}"
+      kubernetes.core.k8s_info:
+        api_version: operators.coreos.com/v1alpha1
+        kind: InstallPlan
+        namespace: "{{ target_namespace }}"
+      register: install_plans
+      no_log: true
+
+    - name: "Delete InstallPlan for TrustStore CSV"
+      kubernetes.core.k8s:
+        api_version: operators.coreos.com/v1alpha1
+        kind: InstallPlan
+        name: "{{ item.metadata.name }}"
+        namespace: "{{ target_namespace }}"
+        state: absent
+      loop: "{{ install_plans.resources | selectattr('spec.clusterServiceVersionNames', 'contains', truststore_sub.resources[0].status.currentCSV) | list }}"
+
+    - name: "Delete remaining TrustStore resources (ServiceAccount, Role, RoleBinding, ConfigMap, Secret)"
+      kubernetes.core.k8s:
+        api_version: "{{ item.api_version }}"
+        kind: "{{ item.kind }}"
+        namespace: "{{ target_namespace }}"
+        state: absent
+        label_selectors:
+          - "app.kubernetes.io/name=ibm-truststore-mgr"
+      loop:
+        - { api_version: v1, kind: ServiceAccount }
+        - { api_version: rbac.authorization.k8s.io/v1, kind: Role }
+        - { api_version: rbac.authorization.k8s.io/v1, kind: RoleBinding }
+        - { api_version: v1, kind: ConfigMap }
+        - { api_version: v1, kind: Secret }
