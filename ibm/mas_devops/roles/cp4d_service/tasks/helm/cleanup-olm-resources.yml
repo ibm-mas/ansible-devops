@@ -1,0 +1,321 @@
+---
+# Patch OLM-managed resources for Helm adoption
+# This is needed when upgrading from CPD 5.2.0 (OLM) to 5.3.1+ (Helm)
+# Instead of deleting resources, we add Helm labels so Helm can adopt them
+
+- name: "Load OLM resource mappings"
+  include_vars: "{{ role_path }}/vars/olm-resource-mappings.yml"
+
+- name: "Check if component {{ component_name }} has OLM resources"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ServiceAccount
+    name: "{{ olm_sa_name }}"
+    namespace: "{{ cpd_operators_namespace }}"
+  register: olm_sa_check
+  vars:
+    olm_sa_name: "{{ component_olm_sa_mapping[component_name] | default('') }}"
+  when: component_name in component_olm_sa_mapping
+  failed_when: false
+
+- name: "Patch OLM resources for Helm adoption - {{ component_name }}"
+  when:
+    - olm_sa_check.resources is defined
+    - olm_sa_check.resources | length > 0
+  block:
+    - name: "Found existing OLM installation for {{ component_name }}"
+      debug:
+        msg:
+          - "Detected OLM-managed resources for {{ component_name }}"
+          - "ServiceAccount: {{ olm_sa_name }}"
+          - "Namespace: {{ cpd_operators_namespace }}"
+          - "Will patch resources with Helm labels for adoption"
+      vars:
+        olm_sa_name: "{{ component_olm_sa_mapping[component_name] }}"
+
+    # Delete OLM-specific resources (Subscription, CSV)
+    - name: "Delete OLM Subscription for {{ component_name }}"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: Subscription
+        name: "{{ olm_subscription_name }}"
+        namespace: "{{ cpd_operators_namespace }}"
+      vars:
+        olm_subscription_name: "{{ component_olm_subscription_mapping[component_name] | default(component_name + '-subscription') }}"
+      failed_when: false
+
+    - name: "Delete OLM ClusterServiceVersion for {{ component_name }}"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: ClusterServiceVersion
+        namespace: "{{ cpd_operators_namespace }}"
+        label_selectors:
+          - "operators.coreos.com/{{ component_olm_package_mapping[component_name] | default(component_name) }}.{{ cpd_operators_namespace }}"
+      failed_when: false
+
+    # Patch Deployment with Helm labels and annotations
+    - name: "Add Helm labels and annotations to Deployment for {{ component_name }}"
+      kubernetes.core.k8s:
+        state: patched
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ component_olm_deployment_mapping[component_name] | default(component_olm_sa_mapping[component_name]) }}"
+        namespace: "{{ cpd_operators_namespace }}"
+        definition:
+          metadata:
+            labels:
+              app.kubernetes.io/managed-by: Helm
+              meta.helm.sh/release-name: "{{ component_name | replace('_', '-') }}"
+              meta.helm.sh/release-namespace: "{{ cpd_instance_namespace }}"
+            annotations:
+              meta.helm.sh/release-name: "{{ component_name | replace('_', '-') }}"
+              meta.helm.sh/release-namespace: "{{ cpd_instance_namespace }}"
+      failed_when: false
+
+    # Patch ServiceAccount with Helm labels and annotations
+    - name: "Add Helm labels and annotations to ServiceAccount for {{ component_name }}"
+      kubernetes.core.k8s:
+        state: patched
+        api_version: v1
+        kind: ServiceAccount
+        name: "{{ component_olm_sa_mapping[component_name] }}"
+        namespace: "{{ cpd_operators_namespace }}"
+        definition:
+          metadata:
+            labels:
+              app.kubernetes.io/managed-by: Helm
+              meta.helm.sh/release-name: "{{ component_name | replace('_', '-') }}"
+              meta.helm.sh/release-namespace: "{{ cpd_instance_namespace }}"
+            annotations:
+              meta.helm.sh/release-name: "{{ component_name | replace('_', '-') }}"
+              meta.helm.sh/release-namespace: "{{ cpd_instance_namespace }}"
+      failed_when: false
+
+    - name: "OLM to Helm migration complete for {{ component_name }}"
+      debug:
+        msg: "✓ Resources patched with Helm labels, ready for Helm adoption"
+
+- name: "No OLM resources found for {{ component_name }}"
+  when:
+    - olm_sa_check.resources is not defined or olm_sa_check.resources | length == 0
+  debug:
+    msg: "No existing OLM installation detected, proceeding with Helm installation"
+
+# Delete component CRs so Helm can adopt them during OLM→Helm migration.
+# Only deletes CRs explicitly listed in component_cr_mapping.
+# NOTE: After deletion, helm upgrade --install is a no-op (changed: false)
+# because Helm's stored release manifest still tracks the CR but does not
+# reapply missing resources on upgrade. The missing CRs are reconciled by
+# a separate reapply task in install-helm.yml after Helm runs.
+- name: "Delete component CRs for {{ component_name }}"
+  when: component_name in component_cr_mapping
+  block:
+    # Fetch all PVCs in the instance namespace once
+    - name: "Fetch PVCs in {{ cpd_instance_namespace }}"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: PersistentVolumeClaim
+        namespace: "{{ cpd_instance_namespace }}"
+      register: all_pvcs_info
+
+    # Build list of PVCs owned by this component's CRs.
+    # For named CRs: match by ownerReference name.
+    # For 'all' CRs (e.g. ws_runtimes): match by ownerReference kind.
+    - name: "Build list of PVCs owned by {{ component_name }} CRs"
+      set_fact:
+        component_owned_pvcs: >-
+          {%- set result = [] -%}
+          {%- for pvc in all_pvcs_info.resources | default([]) -%}
+            {%- set refs = pvc.metadata.ownerReferences | default([]) -%}
+            {%- for cr_entry in component_cr_mapping[component_name] -%}
+              {%- if cr_entry.name == 'all' -%}
+                {%- if refs | selectattr('kind', 'equalto', cr_entry.kind) | list | length > 0 -%}
+                  {%- if pvc not in result -%}{%- set _ = result.append(pvc) -%}{%- endif -%}
+                {%- endif -%}
+              {%- else -%}
+                {%- if refs | selectattr('name', 'equalto', cr_entry.name) | list | length > 0 -%}
+                  {%- if pvc not in result -%}{%- set _ = result.append(pvc) -%}{%- endif -%}
+                {%- endif -%}
+              {%- endif -%}
+            {%- endfor -%}
+          {%- endfor -%}
+          {{ result }}
+
+
+    - name: "Remove ownerReferences from PVCs owned by {{ component_name }} CRs"
+      kubernetes.core.k8s:
+        state: patched
+        api_version: v1
+        kind: PersistentVolumeClaim
+        name: "{{ pvc_item.metadata.name }}"
+        namespace: "{{ cpd_instance_namespace }}"
+        definition:
+          metadata:
+            ownerReferences: []
+      loop: "{{ component_owned_pvcs }}"
+      loop_control:
+        loop_var: pvc_item
+        label: "{{ pvc_item.metadata.name }}"
+      failed_when: false
+
+    # Look up CRs of each kind in this component.
+    # For name == 'all': omit name to list all CRs of that kind.
+    # For named CRs: fetch by exact name.
+    # Two separate tasks to avoid the omit-in-ternary limitation.
+    - name: "Look up all {{ cr_entry.kind }} CRs (name=all)"
+      kubernetes.core.k8s_info:
+        api_version: "{{ cr_entry.api_version }}"
+        kind: "{{ cr_entry.kind }}"
+        namespace: "{{ cpd_instance_namespace }}"
+      register: cr_lookup_all
+      loop: "{{ component_cr_mapping[component_name] | selectattr('name', 'equalto', 'all') | list }}"
+      loop_control:
+        loop_var: cr_entry
+        label: "{{ cr_entry.kind }}"
+      failed_when: false
+
+    - name: "Look up named {{ cr_entry.kind }} CR: {{ cr_entry.name }}"
+      kubernetes.core.k8s_info:
+        api_version: "{{ cr_entry.api_version }}"
+        kind: "{{ cr_entry.kind }}"
+        namespace: "{{ cpd_instance_namespace }}"
+        name: "{{ cr_entry.name }}"
+      register: cr_lookup_named
+      loop: "{{ component_cr_mapping[component_name] | rejectattr('name', 'equalto', 'all') | list }}"
+      loop_control:
+        loop_var: cr_entry
+        label: "{{ cr_entry.kind }}/{{ cr_entry.name }}"
+      failed_when: false
+
+    # Remove finalizers from all looked-up CRs (both 'all' and named)
+    # cr_subelement[0] is the task result dict.
+    # When loop_var is 'cr_entry', Ansible stores the loop item under key 'cr_entry' (not 'item').
+    - name: "Remove finalizers from {{ cr_subelement[0].cr_entry.kind }} CR: {{ cr_subelement[1].metadata.name }}"
+      kubernetes.core.k8s:
+        state: patched
+        api_version: "{{ cr_subelement[0].cr_entry.api_version }}"
+        kind: "{{ cr_subelement[0].cr_entry.kind }}"
+        name: "{{ cr_subelement[1].metadata.name }}"
+        namespace: "{{ cpd_instance_namespace }}"
+        definition:
+          metadata:
+            finalizers: []
+      loop: "{{ (cr_lookup_all.results | default([]) + cr_lookup_named.results | default([])) | subelements('resources') }}"
+      loop_control:
+        loop_var: cr_subelement
+        label: "{{ cr_subelement[1].metadata.name }}"
+      failed_when: false
+
+    # Delete CRs — Helm will recreate them with the correct version
+    - name: "Delete {{ cr_subelement[0].cr_entry.kind }} CR: {{ cr_subelement[1].metadata.name }}"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: "{{ cr_subelement[0].cr_entry.api_version }}"
+        kind: "{{ cr_subelement[0].cr_entry.kind }}"
+        namespace: "{{ cpd_instance_namespace }}"
+        name: "{{ cr_subelement[1].metadata.name }}"
+      loop: "{{ (cr_lookup_all.results | default([]) + cr_lookup_named.results | default([])) | subelements('resources') }}"
+      loop_control:
+        loop_var: cr_subelement
+        label: "{{ cr_subelement[1].metadata.name }}"
+      failed_when: false
+
+    # Re-fetch PVCs after CR deletion — the CR deletion above triggers Kubernetes to set
+    # deletionTimestamp on owned PVCs (cascade delete). We must re-fetch here to see the
+    # current state; the snapshot taken before CR deletion shows no deletionTimestamp.
+    - name: "Re-fetch PVCs after CR deletion to detect cascade-deleted {{ component_name }} PVCs"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: PersistentVolumeClaim
+        namespace: "{{ cpd_instance_namespace }}"
+      register: all_pvcs_post_delete
+      failed_when: false
+
+    - name: "Identify {{ component_name }} PVCs now stuck in Terminating after CR deletion"
+      set_fact:
+        component_terminating_pvcs: >-
+          {%- set result = [] -%}
+          {%- for pvc in all_pvcs_post_delete.resources | default([]) -%}
+            {%- if pvc.metadata.deletionTimestamp is defined -%}
+              {%- for owned in component_owned_pvcs -%}
+                {%- if owned.metadata.name == pvc.metadata.name -%}
+                  {%- if pvc not in result -%}{%- set _ = result.append(pvc) -%}{%- endif -%}
+                {%- endif -%}
+              {%- endfor -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ result }}
+
+    # Scale down zen-core-api 'volumes-*' deployments holding the now-terminating PVCs.
+    # These deployments hold the pvc-protection finalizer, blocking PVC termination.
+    # Must run AFTER CR deletion so deletionTimestamp is set on the PVCs.
+    - name: "Find zen-core-api volumes-* deployments in {{ cpd_instance_namespace }}"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ cpd_instance_namespace }}"
+        label_selectors:
+          - "app.kubernetes.io/managed-by=zen-core-api"
+          - "icpdsupport/app=volumes"
+      register: zen_volumes_deployments
+      failed_when: false
+
+    - name: "Scale down zen-core-api volumes-* deployments holding terminating {{ component_name }} PVCs"
+      vars:
+        # PVC naming: <name>-pvc → zen-core-api deploy app label: volumes-<name>
+        terminating_deploy_labels: "{{ component_terminating_pvcs | map(attribute='metadata.name') | map('regex_replace', '-pvc$', '') | map('regex_replace', '^(.+)$', 'volumes-\\1') | list }}"
+      kubernetes.core.k8s:
+        state: patched
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ deploy_item.metadata.name }}"
+        namespace: "{{ cpd_instance_namespace }}"
+        definition:
+          spec:
+            replicas: 0
+      loop: "{{ zen_volumes_deployments.resources | default([]) | selectattr('metadata.labels.app', 'defined') | selectattr('metadata.labels.app', 'in', terminating_deploy_labels) | list }}"
+      loop_control:
+        loop_var: deploy_item
+        label: "{{ deploy_item.metadata.name }}"
+      when: component_terminating_pvcs | length > 0
+      failed_when: false
+
+    - name: "Wait for scaled-down volumes-* pods to terminate (up to 2 minutes)"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: "{{ cpd_instance_namespace }}"
+        label_selectors:
+          - "app.kubernetes.io/managed-by=zen-core-api"
+          - "icpdsupport/app=volumes"
+          - "app in ({{ terminating_deploy_labels | join(',') }})"
+      register: volumes_pods_check
+      vars:
+        terminating_deploy_labels: "{{ component_terminating_pvcs | map(attribute='metadata.name') | map('regex_replace', '-pvc$', '') | map('regex_replace', '^(.+)$', 'volumes-\\1') | list }}"
+      retries: 12
+      delay: 10
+      until: volumes_pods_check.resources | default([]) | length == 0
+      when: component_terminating_pvcs | length > 0
+      failed_when: false
+
+    # Rescue this component's PVCs stuck in Terminating — remove pvc-protection finalizer.
+    # Safe: scoped to component_terminating_pvcs (this component's PVCs only).
+    # Guaranteed to work: zen-core-api pod is already terminated by the scale-down above.
+    - name: "Remove pvc-protection finalizer from {{ component_name }} PVCs stuck in Terminating"
+      kubernetes.core.k8s:
+        state: patched
+        api_version: v1
+        kind: PersistentVolumeClaim
+        name: "{{ pvc_item.metadata.name }}"
+        namespace: "{{ cpd_instance_namespace }}"
+        definition:
+          metadata:
+            finalizers: []
+      loop: "{{ component_terminating_pvcs }}"
+      loop_control:
+        loop_var: pvc_item
+        label: "{{ pvc_item.metadata.name }}"
+      when: component_terminating_pvcs | length > 0
+      failed_when: false
