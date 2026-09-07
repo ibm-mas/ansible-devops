@@ -1,6 +1,34 @@
 ---
 
-# 0. Look up OCP version in Cluster and set expected operator and channel
+# 0. Check if ODF/OCS is already installed
+# -----------------------------------------------------------------------------
+- name: "Check if ODF/OCS StorageCluster exists"
+  kubernetes.core.k8s_info:
+    api_version: ocs.openshift.io/v1
+    kind: StorageCluster
+    namespace: openshift-storage
+  register: existing_storage_cluster
+  failed_when: false
+
+- name: "Set ODF installation status"
+  set_fact:
+    odf_already_installed: "{{ existing_storage_cluster.resources | default([]) | length > 0 }}"
+    odf_skip_installation: "{{ existing_storage_cluster.resources | default([]) | length > 0 and existing_storage_cluster.resources[0].status.phase | default('') == 'Ready' }}"
+
+- name: "Debug: ODF detection result"
+  debug:
+    msg:
+      - "ODF already installed .................. {{ odf_already_installed }}"
+      - "ODF ready (skip installation) ......... {{ odf_skip_installation }}"
+      - "StorageCluster name .................... {{ existing_storage_cluster.resources[0].metadata.name | default('N/A') }}"
+      - "StorageCluster phase ................... {{ existing_storage_cluster.resources[0].status.phase | default('N/A') }}"
+
+- name: "ODF/OCS is already installed and ready"
+  when: odf_skip_installation
+  debug:
+    msg: "ODF/OCS StorageCluster '{{ existing_storage_cluster.resources[0].metadata.name }}' is already installed and ready. Skipping installation."
+
+# 1. Look up OCP version in Cluster and set expected operator and channel
 # -----------------------------------------------------------------------------
 - name: "Look up cluster ocp version"
   kubernetes.core.k8s_info:
@@ -58,4 +86,7 @@
 # 2. Configure ODF or OCS backed by local-storage
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/install/localstorage.yml
+  when: not odf_skip_installation
+
 - include_tasks: tasks/install/storage.yml
+  when: not odf_skip_installation
