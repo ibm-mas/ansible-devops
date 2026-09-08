@@ -143,6 +143,54 @@
 
     - ansible.builtin.include_tasks: tasks/providers/cis/cis_managed_ruleset.yml
       loop: "{{ managed_ruleset_rules_to_disable }}"
+
+    # -------------------------------------------------------------------------
+    # Deploy CIS OWASP Core Ruleset
+    # -------------------------------------------------------------------------
+    - name: "cis: get CIS OWASP Core Ruleset ruleset_id"
+      ansible.builtin.shell: |
+        ibmcloud cis managed-waf rulesets {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+        -i "{{ cis_service_name }}" --output json | jq -r '.[] | select(.name == "CIS OWASP Core Ruleset") | .id'
+      register: _cis_owasp_ruleset_result
+
+    - name: "cis: validate CIS OWASP Core Ruleset ID was found"
+      ansible.builtin.fail:
+        msg: "CIS OWASP Core Ruleset ID not found. Ensure the ruleset exists in the CIS instance."
+      when: _cis_owasp_ruleset_result.stdout | trim | length == 0
+
+    - name: "cis: get deployed rule id and enabled status for CIS OWASP Core Ruleset"
+      ansible.builtin.shell: |
+        ibmcloud cis managed-waf deployments {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+        -i "{{ cis_service_name }}" --output json | jq -r --arg target_id {{ _cis_owasp_ruleset_result.stdout }} \
+        '(.rules // [])[] | select(.action_parameters.id == $target_id) | "\(.id) \(.enabled)"'
+      register: _cis_owasp_rule_status_result
+
+    - name: "cis: set deployed rule facts for CIS OWASP Core Ruleset"
+      ansible.builtin.set_fact:
+        _cis_owasp_rule_id: "{{ _cis_owasp_rule_status_result.stdout.split(' ')[0] | default('') }}"
+        _cis_owasp_rule_enabled: "{{ _cis_owasp_rule_status_result.stdout.split(' ')[1] | default('false') }}"
+
+    - name: "cis: add CIS OWASP Core Ruleset to WAF when not yet deployed"
+      ansible.builtin.shell: |
+        ibmcloud cis managed-waf deployment-add-ruleset {{ (_cis_domains_result.stdout | from_json)[0].id }} {{ _cis_owasp_ruleset_result.stdout }} \
+        -i "{{ cis_service_name }}" --enabled true
+      when: _cis_owasp_rule_id | trim | length == 0
+
+    - name: "cis: get deployed rule id for CIS OWASP Core Ruleset"
+      ansible.builtin.shell: |
+        ibmcloud cis managed-waf deployments {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+        -i "{{ cis_service_name }}" --output json | jq -r --arg target_id "{{ _cis_owasp_ruleset_result.stdout }}" \
+        '(.rules // [])[] | select(.action_parameters.id == $target_id) | .id'
+      register: _cis_owasp_rule_id_result
+
+    - name: "cis: enable CIS OWASP Core Ruleset if deployed but disabled"
+      ansible.builtin.shell: |
+        ibmcloud cis managed-waf deployment-update-ruleset {{ (_cis_domains_result.stdout | from_json)[0].id }} {{ _cis_owasp_rule_id_result.stdout }} \
+        --enabled true --reset-all -i "{{ cis_service_name }}"
+      when:
+        - _cis_owasp_rule_id | trim | length > 0
+        - _cis_owasp_rule_enabled == 'false'
+
 - ansible.builtin.include_tasks: tasks/providers/cis/cis_domain_setting.yml
 
 - name: "cis : configure WAF IP allowlist"
