@@ -33,6 +33,15 @@ If you want to use Let's Encrypt certificates in your MAS installation you will 
 
     At present there is no workaround for this, so do not use the LetsEncrypt staging certificate issuer.
 
+### HTTP-01 (path-based routing extension)
+
+When `mas_routing_mode` is `path` and `mas_le_email` is set, this role additionally creates a Let's Encrypt HTTP-01 issuer. This is an opt-in extension — existing DNS-01 behaviour is unchanged when `mas_le_email` is not set.
+
+The issuer kind is controlled by `mas_issuer_kind` (`ClusterIssuer` or `Issuer`) and the issuer name defaults to `{{ mas_instance_id }}-http01-le-prod` (override via `MAS_CLUSTER_ISSUER`).
+
+!!! note
+    HTTP-01 requires the cluster to be publicly reachable from the internet. It cannot be used in private network environments.
+
 ## Role Variables
 
 ### General
@@ -177,6 +186,27 @@ OpenShift namespace where Certificate Manager is installed.
 **Related variables**: Used when creating ClusterIssuer for Cloudflare or CIS Let's Encrypt integration.
 
 **Note**: Automatic detection typically finds Certificate Manager in standard namespaces. Only override if using a custom installation.
+
+#### mas_le_email
+Contact email for Let's Encrypt HTTP-01 certificate issuance. Setting this is the sole signal that enables HTTP-01 mode — no separate flag is needed.
+
+- **Optional** — only required when using Let's Encrypt HTTP-01 with path-based routing
+- Environment Variable: `MAS_LE_EMAIL`
+- Default: None
+
+#### mas_issuer_kind
+Kind of cert-manager issuer resource to create for Let's Encrypt HTTP-01 (`ClusterIssuer` or `Issuer`).
+
+- **Optional**
+- Environment Variable: `MAS_ISSUER_KIND`
+- Default: `ClusterIssuer`
+
+#### mas_ingress_controller_name
+Name of the OpenShift IngressController used for the HTTP-01 ACME challenge solver. Only relevant when `mas_le_email` is set.
+
+- **Optional**
+- Environment Variable: `MAS_INGRESS_CONTROLLER_NAME`
+- Default: `default`
 
 #### custom_labels
 Comma-separated list of key=value labels to apply to DNS-related resources.
