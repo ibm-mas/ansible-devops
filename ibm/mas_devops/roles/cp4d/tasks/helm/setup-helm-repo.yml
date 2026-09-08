@@ -93,8 +93,11 @@
   when:
     - cpd_helm_airgap
     - registry_username != ""
+  vars:
+    _raw_registry: "{{ cpd_airgap_helm_repo_url | regex_replace('^oci://', '') }}"
+    _registry_host_port: "{{ _raw_registry.split('/')[0] }}"
   shell: >
-    helm registry login {{ cpd_airgap_helm_repo_url | regex_replace('^oci://', '') }}
+    helm registry login {{ _registry_host_port }}
     --username {{ registry_username }}
     --password {{ registry_password }}
     {{ helm_tls_flag }}
