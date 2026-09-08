@@ -16,6 +16,9 @@
     # Application Configuration
     mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') | default('masdev', true) }}"
 
+    # ClusterRole setup flag for MVI RBAC pre-install step
+    mvi_setup_clusterrole: "{{ lookup('env', 'MVI_SETUP_CLUSTERROLE') | default('true', true) | bool }}"
+
     # Additional Condfiguration - Object Storage
     configure_cos: "{{ lookup('env', 'CONFIGURE_COS') | default('false', true) | bool }}"
     configure_cos_bucket: "{{ lookup('env', 'CONFIGURE_COS_BUCKET') | default('false', true) | bool }}"
@@ -79,6 +82,11 @@
       vars:
         cos_bucket_name: "{{ mas_app_settings_visualinspection_object_storage_workspace }}"
         aws_bucket_name: "{{ mas_app_settings_visualinspection_object_storage_workspace }}"
+
+    # Set up SCC ClusterRole and ClusterRoleBinding for MVI operator (~1 min)
+    # Note: mvi_setup_clusterrole is intentionally not guarded here so that
+    # setting MVI_SETUP_CLUSTERROLE=false triggers the role's teardown tasks.
+    - role: ibm.mas_devops.visualinspection_clusterrole
 
     # Install Nvidia Operator (~15 Minutes)
     - ibm.mas_devops.nvidia_gpu
