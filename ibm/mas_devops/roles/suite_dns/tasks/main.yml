@@ -35,3 +35,20 @@
     - dns_provider != ""
     - not mas_manual_cert_mgmt
   include_tasks: tasks/run.yml
+
+# Create Let's Encrypt HTTP-01 issuer
+# -----------------------------------------------------------------------------
+- name: "HTTP-01: Detect Certificate Manager"
+  when:
+    - not mas_manual_cert_mgmt
+    - mas_routing_mode == 'path'
+    - mas_letsencrypt_http01_enabled
+    - cert_manager_namespace is not defined or cert_manager_namespace | length == 0
+  include_tasks: "{{ role_path }}/../../common_tasks/detect_cert_manager.yml"
+
+- name: "HTTP-01: Create Let's Encrypt HTTP-01 issuer"
+  when:
+    - not mas_manual_cert_mgmt
+    - mas_routing_mode == 'path'
+    - mas_letsencrypt_http01_enabled
+  include_tasks: tasks/http01.yml
