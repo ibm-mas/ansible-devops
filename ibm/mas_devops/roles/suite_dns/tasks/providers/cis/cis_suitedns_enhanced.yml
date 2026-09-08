@@ -36,56 +36,70 @@
     - name: "cis: list of managed ruleset rules to disable"
       ansible.builtin.include_vars: vars/managed_ruleset_rules_to_disable.yml
 
-    - name: "cis: get IAM token for CIS API"
+    - name: "cis: check if any managed ruleset is already deployed"
       ansible.builtin.shell: |
-        ibmcloud iam oauth-tokens --output json | jq -r '.iam_token'
-      register: _cis_iam_token_result
-      no_log: true
+        ibmcloud cis managed-waf deployments {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+        -i "{{ cis_service_name }}" --output json | jq -r '(.rules // []) | length'
+      register: _cis_any_ruleset_deployed_result
 
-    - name: "cis: check if http_request_firewall_managed entry point ruleset exists"
-      ansible.builtin.shell: |
-        curl -s -X GET \
-          "https://api.cis.cloud.ibm.com/v1/{{ cis_crn }}/zones/{{ (_cis_domains_result.stdout | from_json)[0].id }}/rulesets/phases/http_request_firewall_managed/entrypoint" \
-          -H "X-Auth-User-Token: {{ _cis_iam_token_result.stdout }}" \
-          -H "Content-Type: application/json"
-      register: _cis_entrypoint_check_result
-      failed_when: false
-      no_log: true
+    - name: "cis: set fact - any managed ruleset already deployed"
+      ansible.builtin.set_fact:
+        _cis_any_ruleset_deployed: "{{ _cis_any_ruleset_deployed_result.stdout | trim | int > 0 }}"
 
-    - name: "cis: debug entry point ruleset check result"
-      ansible.builtin.debug:
-        msg: "{{ _cis_entrypoint_check_result.stdout | from_json }}"
+    - name: "cis: create http_request_firewall_managed entry point ruleset"
+      when: not _cis_any_ruleset_deployed
+      block:
 
-    - name: "cis: create http_request_firewall_managed entry point ruleset via API"
-      ansible.builtin.shell: |
-        curl -s -X POST \
-          "https://api.cis.cloud.ibm.com/v1/{{ cis_crn }}/zones/{{ (_cis_domains_result.stdout | from_json)[0].id }}/rulesets" \
-          -H "X-Auth-User-Token: {{ _cis_iam_token_result.stdout }}" \
-          -H "Content-Type: application/json" \
-          -d '{"name":"Zone-level phase entry point","kind":"zone","description":"WAF managed rule entrypoint ruleset.","phase":"http_request_firewall_managed"}'
-      register: _cis_entrypoint_create_result
-      when: not (_cis_entrypoint_check_result.stdout | from_json).success
-      no_log: true
+        - name: "cis: get IAM token for CIS API"
+          ansible.builtin.shell: |
+            ibmcloud iam oauth-tokens --output json | jq -r '.iam_token'
+          register: _cis_iam_token_result
+          no_log: true
 
-    - name: "cis: debug entry point ruleset creation response"
-      ansible.builtin.debug:
-        msg: "{{ _cis_entrypoint_create_result.stdout | from_json }}"
-      when: not (_cis_entrypoint_check_result.stdout | from_json).success
+        - name: "cis: check if http_request_firewall_managed entry point ruleset exists"
+          ansible.builtin.shell: |
+            curl -s -X GET \
+              "https://api.cis.cloud.ibm.com/v1/{{ cis_crn }}/zones/{{ (_cis_domains_result.stdout | from_json)[0].id }}/rulesets/phases/http_request_firewall_managed/entrypoint" \
+              -H "X-Auth-User-Token: {{ _cis_iam_token_result.stdout }}" \
+              -H "Content-Type: application/json"
+          register: _cis_entrypoint_check_result
+          failed_when: false
+          no_log: true
 
-    - name: "cis: verify http_request_firewall_managed entry point ruleset after creation"
-      ansible.builtin.shell: |
-        curl -s -X GET \
-          "https://api.cis.cloud.ibm.com/v1/{{ cis_crn }}/zones/{{ (_cis_domains_result.stdout | from_json)[0].id }}/rulesets/phases/http_request_firewall_managed/entrypoint" \
-          -H "X-Auth-User-Token: {{ _cis_iam_token_result.stdout }}" \
-          -H "Content-Type: application/json"
-      register: _cis_entrypoint_verify_result
-      when: not (_cis_entrypoint_check_result.stdout | from_json).success
-      no_log: true
+        - name: "cis: debug entry point ruleset check result"
+          ansible.builtin.debug:
+            msg: "{{ _cis_entrypoint_check_result.stdout | from_json }}"
 
-    - name: "cis: debug entry point ruleset verification result"
-      ansible.builtin.debug:
-        msg: "{{ _cis_entrypoint_verify_result.stdout | from_json }}"
-      when: not (_cis_entrypoint_check_result.stdout | from_json).success
+        - name: "cis: create http_request_firewall_managed entry point ruleset via API"
+          ansible.builtin.shell: |
+            curl -s -X POST \
+              "https://api.cis.cloud.ibm.com/v1/{{ cis_crn }}/zones/{{ (_cis_domains_result.stdout | from_json)[0].id }}/rulesets" \
+              -H "X-Auth-User-Token: {{ _cis_iam_token_result.stdout }}" \
+              -H "Content-Type: application/json" \
+              -d '{"name":"Zone-level phase entry point","kind":"zone","description":"WAF managed rule entrypoint ruleset.","phase":"http_request_firewall_managed"}'
+          register: _cis_entrypoint_create_result
+          when: not (_cis_entrypoint_check_result.stdout | from_json).success
+          no_log: true
+
+        - name: "cis: debug entry point ruleset creation response"
+          ansible.builtin.debug:
+            msg: "{{ _cis_entrypoint_create_result.stdout | from_json }}"
+          when: not (_cis_entrypoint_check_result.stdout | from_json).success
+
+        - name: "cis: verify http_request_firewall_managed entry point ruleset after creation"
+          ansible.builtin.shell: |
+            curl -s -X GET \
+              "https://api.cis.cloud.ibm.com/v1/{{ cis_crn }}/zones/{{ (_cis_domains_result.stdout | from_json)[0].id }}/rulesets/phases/http_request_firewall_managed/entrypoint" \
+              -H "X-Auth-User-Token: {{ _cis_iam_token_result.stdout }}" \
+              -H "Content-Type: application/json"
+          register: _cis_entrypoint_verify_result
+          when: not (_cis_entrypoint_check_result.stdout | from_json).success
+          no_log: true
+
+        - name: "cis: debug entry point ruleset verification result"
+          ansible.builtin.debug:
+            msg: "{{ _cis_entrypoint_verify_result.stdout | from_json }}"
+          when: not (_cis_entrypoint_check_result.stdout | from_json).success
 
     - name: "cis: deploy and enable WAF managed rulesets"
       ansible.builtin.include_tasks: tasks/providers/cis/cis_deploy_managed_ruleset.yml
