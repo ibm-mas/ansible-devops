@@ -78,14 +78,15 @@
 # 6. Create AWS Route 53 Issuer (ClusterIssuer for MAS, Issuer for AI Service)
 # -----------------------------------------------------------------------------
 - name: "aws-route53 : Create AWS Route 53 DNS-01 cluster issuer (MAS mode): {{ mas_instance_id }}-route53-le-prod (skip when Let's Encrypt HTTP-01 is enabled)"
-  when: not mas_letsencrypt_http01_enabled
+  when:
+    - not mas_letsencrypt_http01_enabled
+    - is_mas_mode
   vars:
     instance_id: "{{ mas_instance_id }}"
   kubernetes.core.k8s:
     namespace: "ibm-common-services"
     state: present
     template: templates/route53/clusterissuer.yml.j2
-  when: is_mas_mode
 
 - name: "aws-route53 : Create AWS Route 53 Issuer (AI Service mode): {{ aiservice_instance_id }}-route53-le-prod"
   vars:
