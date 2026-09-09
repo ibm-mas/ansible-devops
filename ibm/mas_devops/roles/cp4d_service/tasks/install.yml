@@ -9,18 +9,42 @@
 
 # 2. Determine storage classes (if not already set by parent cp4d role)
 # -----------------------------------------------------------------------------
-- name: "Load default storage class information"
+# Priority order:
+#   1. Explicit env vars (CPD_SERVICE_STORAGE_CLASS / CPD_PRIMARY_STORAGE_CLASS)
+#      These are set by the Tekton task from the pipeline's storage_class_rwx/rwo params
+#   2. Auto-detected defaults from the cluster (fallback only)
+# -----------------------------------------------------------------------------
+- name: "Set File Storage from environment variable (CPD_SERVICE_STORAGE_CLASS or CPD_PRIMARY_STORAGE_CLASS)"
+  when:
+    - cpd_primary_storage_class is not defined or cpd_primary_storage_class == ""
+    - lookup('env', 'CPD_SERVICE_STORAGE_CLASS') != "" or lookup('env', 'CPD_PRIMARY_STORAGE_CLASS') != ""
+  set_fact:
+    cpd_primary_storage_class: "{{ lookup('env', 'CPD_SERVICE_STORAGE_CLASS') | default(lookup('env', 'CPD_PRIMARY_STORAGE_CLASS'), true) }}"
+
+- name: "Set Block Storage from environment variable (CPD_SERVICE_BLOCK_STORAGE_CLASS or CPD_METADATA_STORAGE_CLASS)"
+  when:
+    - cpd_metadata_storage_class is not defined or cpd_metadata_storage_class == ""
+    - lookup('env', 'CPD_SERVICE_BLOCK_STORAGE_CLASS') != "" or lookup('env', 'CPD_METADATA_STORAGE_CLASS') != ""
+  set_fact:
+    cpd_metadata_storage_class: "{{ lookup('env', 'CPD_SERVICE_BLOCK_STORAGE_CLASS') | default(lookup('env', 'CPD_METADATA_STORAGE_CLASS'), true) }}"
+
+- name: "Load default storage class information (fallback when env vars are not set)"
+  when: >
+    cpd_primary_storage_class is not defined or cpd_primary_storage_class == ""
+    or cpd_metadata_storage_class is not defined or cpd_metadata_storage_class == ""
   include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
 
-- name: "Set default File Storage if not set"
+- name: "Set default File Storage from auto-detection (fallback)"
   when:
+    - defaultStorageClasses is defined
     - defaultStorageClasses.success
     - cpd_primary_storage_class is not defined or cpd_primary_storage_class == ""
   set_fact:
     cpd_primary_storage_class: "{{ defaultStorageClasses.rwx }}"
 
-- name: "Set default Block Storage if not set"
+- name: "Set default Block Storage from auto-detection (fallback)"
   when:
+    - defaultStorageClasses is defined
     - defaultStorageClasses.success
     - cpd_metadata_storage_class is not defined or cpd_metadata_storage_class == ""
   set_fact:
