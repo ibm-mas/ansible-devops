@@ -1,5 +1,5 @@
 # coding: utf-8 -*-
-# # (C) Copyright IBM Corp. 2025 All Rights Reserved.
+# (C) Copyright IBM Corp. 2025 All Rights Reserved.
 # Eclipse Public License 2.0 (see https://spdx.org/licenses/EPL-2.0.html)
 
 ANSIBLE_METADATA = {
@@ -47,6 +47,11 @@ def main():
             type = "str",
             required = True,
         ),
+        mas_domain = dict(
+            type = "str",
+            required = False,
+            default = "",
+        ),
         dns_zone = dict(
             type = "str",
         ),
@@ -62,6 +67,7 @@ def main():
     crn = module.params['cis_crn']
     ibmCloudApiKey = module.params['ibmcloud_apikey']
     masInstanceId = module.params['mas_instance_id']
+    masDomain = module.params['mas_domain']
     edgeCertEntries = module.params['edge_cert_entries']
 
     # User may want to select an specific zone
@@ -140,11 +146,21 @@ def main():
 
         msg = ""
         existingCertHosts = []
+
+        # Primary filter: collect hosts from advanced certs that contain mas_instance_id
         for certs in results:
             if certs['type'] == "advanced":
                 for host in certs['hosts']:
                     if masInstanceId in host:
                         existingCertHosts.append(host)
+
+        # Fallback filter: when no hosts matched by instance ID, use mas_domain
+        if len(existingCertHosts) == 0 and masDomain:
+            for certs in results:
+                if certs['type'] == "advanced":
+                    for host in certs['hosts']:
+                        if masDomain in host:
+                            existingCertHosts.append(host)
 
         exitingCertHostsFound = len(existingCertHosts)
 

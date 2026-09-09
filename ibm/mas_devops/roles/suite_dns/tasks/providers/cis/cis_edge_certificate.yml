@@ -46,13 +46,20 @@
     ibmcloud cis certificates {{ _cis_domain_id }} -i "{{ cis_service_name }}" -o json --status all
   register: _cis_certificates
 
-- name: "cis : exclude certs not for {{ mas_instance_id }}"
+- name: "cis : filter certs by mas_instance_id"
   set_fact:
-    dedicated_list: "{{ _cis_certificates.stdout | from_json | selectattr('hosts','search','(^|\\.)' + mas_instance_id + '\\.') }}"
+    dedicated_list: "{{ _cis_certificates.stdout | from_json | selectattr('hosts','search','(^|\\.)' + mas_instance_id + '\\.') | selectattr('type', 'equalto', 'advanced') | list }}"
 
-- name: "cis : exclude certs non advanced certificates"
+- name: "cis : fallback - filter certs by mas_domain when mas_instance_id filter yields no results"
+  when:
+    - dedicated_list | length == 0
+    - mas_domain is defined and mas_domain != ''
   set_fact:
-    dedicated_list: "{{ dedicated_list | selectattr('type', 'equalto', 'advanced') }}"
+    dedicated_list: "{{ _cis_certificates.stdout | from_json | selectattr('hosts','search', mas_domain | regex_escape) | selectattr('type', 'equalto', 'advanced') | list }}"
+
+- name: "cis : debug filter applied"
+  debug:
+    msg: "Edge cert filter: {{ 'mas_instance_id=' + mas_instance_id if (dedicated_list | length == 0 or (_cis_certificates.stdout | from_json | selectattr('hosts','search','(^|\\.)' + mas_instance_id + '\\.') | list | length > 0)) else 'mas_domain=' + mas_domain }}"
 
 - name: "cis : Build non-dro certificate list (exclude certs whose first host starts with dro.)"
   set_fact:
@@ -90,6 +97,7 @@
         ibmcloud_apikey: "{{ cis_apikey }}"
         edge_cert_entries: "{{ edge_cert_routes }}"
         mas_instance_id: "{{ mas_instance_id }}"
+        mas_domain: "{{ mas_domain | default('') }}"
       register: edge_cert_output
 
     - name: "cis : dump output"
