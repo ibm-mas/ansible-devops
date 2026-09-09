@@ -1,0 +1,55 @@
+---
+# Create Let's Encrypt HTTP-01 issuer
+# -----------------------------------------------------------------------------
+# This task is called when:
+#   - mas_routing_mode == 'path'
+#   - mas_letsencrypt_http01_enabled == true
+#
+# mas_le_email is always collected by the CLI when the user opts into Let's Encrypt.
+# The issuer name comes from mas_http01_le_prod_issuer_name which resolves to:
+#   - MAS_CLUSTER_ISSUER env var if explicitly provided (--mas-cluster-issuer flag)
+#   - <instanceId>-http01-le-prod otherwise (default)
+# This ensures the Suite CR (mas_cluster_issuer) and the created issuer resource always match.
+
+# 1. Validate email
+# -----------------------------------------------------------------------------
+- name: "http01 : Assert mas_le_email is set"
+  assert:
+    that:
+      - mas_le_email is defined and mas_le_email != ""
+    fail_msg: >-
+      MAS_LE_EMAIL must be set when using Let's Encrypt HTTP-01.
+      Provide it via the MAS_LE_EMAIL environment variable or the CLI prompt.
+
+# 2. Debug
+# -----------------------------------------------------------------------------
+- name: "http01 : Debug"
+  debug:
+    msg:
+      - "HTTP-01 Issuer Name ................. {{ mas_http01_le_prod_issuer_name }}"
+      - "HTTP-01 Issuer Email ................ {{ mas_le_email }}"
+      - "HTTP-01 Issuer Kind ................. {{ mas_issuer_kind }}"
+      - "HTTP-01 IngressClass ................ openshift-{{ mas_ingress_controller_name }}"
+
+# 3. Ensure namespace exists
+# -----------------------------------------------------------------------------
+# suite-dns runs before suite-install which creates mas-<instanceId>-core, so we must ensure
+# the namespace exists before creating a namespaced Issuer resource.
+- name: "http01 : Ensure MAS core namespace exists (Issuer mode)"
+  when: mas_issuer_kind == 'Issuer'
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ mas_namespace }}"
+
+# 4. Create issuer
+# -----------------------------------------------------------------------------
+- name: "http01 : Create Let's Encrypt HTTP-01 production issuer"
+  vars:
+    http01_issuer_name: "{{ mas_http01_le_prod_issuer_name }}"
+    http01_issuer_email: "{{ mas_le_email }}"
+  kubernetes.core.k8s:
+    template: templates/http01-issuer-prod.yml.j2
