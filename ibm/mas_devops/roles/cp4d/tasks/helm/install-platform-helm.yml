@@ -1,0 +1,427 @@
+---
+# Helm Platform Installation Path for CPD (CPD 5.4.0+)
+# This file defines the full, clean sequence for Helm-based installation of CPD Platform.
+
+# 1. Create olm-utils-cm and load version metadata (matches OLM pattern)
+# -----------------------------------------------------------------------------
+- name: "Create olm-utils-cm configmap for CPD {{ cpd_product_version }}"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "{{ role_path }}/templates/config_maps/olm-utils-cm-{{ cpd_product_version }}.yml.j2"
+
+- name: "Lookup olm-utils-cm to load version metadata for CPD {{ cpd_product_version }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: "olm-utils-cm"
+    kind: ConfigMap
+    namespace: "{{ cpd_instance_namespace }}"
+  register: cpd_cm_info
+
+- name: "Set cpd_components_meta from olm-utils-cm"
+  set_fact:
+    cpd_components_meta: "{{ cpd_cm_info.resources[0].data.release_components_meta | from_yaml }}"
+
+- name: "Set zen_cr_version from cpd_components_meta"
+  set_fact:
+    zen_cr_version: "{{ cpd_components_meta.zen.cr_version }}"
+
+# 2. Setup storage classes
+# -----------------------------------------------------------------------------
+- name: "Determine storage classes"
+  include_tasks: "../determine-storage-classes.yml"
+
+# 4. Authorize admin SA
+# -----------------------------------------------------------------------------
+- name: "Grant permissions to {{ cpd_admin_login_sa }} service account in Cloud Pak For Data namespaces"
+  include_tasks: "../authorize-user-cpd-admin.yml"
+
+# 5. Setup Helm repository
+# -----------------------------------------------------------------------------
+- name: "Setup Helm repository"
+  include_tasks: "setup-helm-repo.yml"
+
+# 6. Create IBM entitlement secrets
+# -----------------------------------------------------------------------------
+- name: "Check if ibm-entitlement-key already exists in operator namespace"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ ibm_entitlement_key_secret }}"
+    namespace: "{{ cpd_operators_namespace }}"
+  register: entitlement_secret_operators_check
+
+- name: "Check if ibm-entitlement-key already exists in instance namespace"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ ibm_entitlement_key_secret }}"
+    namespace: "{{ cpd_instance_namespace }}"
+  register: entitlement_secret_instance_check
+
+- name: "Create IBM entitlement secrets"
+  when: ibm_entitlement_key is defined and ibm_entitlement_key | length > 0
+  block:
+    - name: "Create IBM entitlement secret in operator namespace"
+      when: entitlement_secret_operators_check.resources | length == 0
+      vars:
+        dockerconfig:
+          auths:
+            cp.icr.io/cp:
+              username: cp
+              password: "{{ ibm_entitlement_key }}"
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ ibm_entitlement_key_secret }}"
+            namespace: "{{ cpd_operators_namespace }}"
+          type: kubernetes.io/dockerconfigjson
+          data:
+            .dockerconfigjson: "{{ dockerconfig | to_json | b64encode }}"
+
+    - name: "Create IBM entitlement secret in instance namespace"
+      when: entitlement_secret_instance_check.resources | length == 0
+      vars:
+        dockerconfig:
+          auths:
+            cp.icr.io/cp:
+              username: cp
+              password: "{{ ibm_entitlement_key }}"
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ ibm_entitlement_key_secret }}"
+            namespace: "{{ cpd_instance_namespace }}"
+          type: kubernetes.io/dockerconfigjson
+          data:
+            .dockerconfigjson: "{{ dockerconfig | to_json | b64encode }}"
+
+# 7. Remove OLM-managed resources before Helm install (OLM → Helm migration)
+# -----------------------------------------------------------------------------
+# When upgrading from CPD 5.3.1 (OLM-managed) to 5.4.0 (Helm-managed), several
+# OLM subsystems must be dismantled in the correct order, otherwise they keep
+# recreating the resources Helm is trying to own:
+#
+# Step 1 — Remove ODLM OperandRequests that drive postgresql/zen installation via OLM.
+#   The ZenService CR owns cloud-native-postgresql-opreq, so we must first strip its
+#   finalizer (so Kubernetes will actually delete it) then delete it. Without this,
+#   ODLM continuously recreates the cloud-native-postgresql Subscription even after
+#   the CatalogSource and Subscription are deleted.
+#
+# Step 2 — Delete the CatalogSources we installed in cpd_operators_namespace.
+#   As long as a CatalogSource exists, OLM can recreate Subscriptions from it.
+#
+# Step 3 — Delete all Subscriptions by label selector (catches any auto-generated name).
+#
+# Step 4 — Delete CSVs by the same label selector.
+#
+# All steps use failed_when: false — silent no-op on fresh installs.
+
+# Step 1a: Strip finalizers from ODLM OperandRequests so they can be deleted
+- name: "Remove finalizers from ODLM OperandRequests in cpd_instance_namespace"
+  kubernetes.core.k8s:
+    state: patched
+    api_version: operator.ibm.com/v1alpha1
+    kind: OperandRequest
+    name: "{{ item }}"
+    namespace: "{{ cpd_instance_namespace }}"
+    definition:
+      metadata:
+        finalizers: []
+  loop:
+    - cloud-native-postgresql-opreq
+    - zen-ca-operand-request
+    - zen-service
+  failed_when: false
+
+- name: "Remove finalizers from ODLM OperandRequests in cpd_operators_namespace"
+  kubernetes.core.k8s:
+    state: patched
+    api_version: operator.ibm.com/v1alpha1
+    kind: OperandRequest
+    name: "{{ item }}"
+    namespace: "{{ cpd_operators_namespace }}"
+    definition:
+      metadata:
+        finalizers: []
+  loop:
+    - zen-ca-operand-request
+    - zen-service
+  failed_when: false
+
+# Step 1b: Delete the OperandRequests
+- name: "Delete ODLM OperandRequests in cpd_instance_namespace"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operator.ibm.com/v1alpha1
+    kind: OperandRequest
+    name: "{{ item }}"
+    namespace: "{{ cpd_instance_namespace }}"
+  loop:
+    - cloud-native-postgresql-opreq
+    - zen-ca-operand-request
+    - zen-service
+  failed_when: false
+
+- name: "Delete ODLM OperandRequests in cpd_operators_namespace"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operator.ibm.com/v1alpha1
+    kind: OperandRequest
+    name: "{{ item }}"
+    namespace: "{{ cpd_operators_namespace }}"
+  loop:
+    - zen-ca-operand-request
+    - zen-service
+  failed_when: false
+
+# Step 1c: Uninstall any failed/partial Helm releases from previous upgrade attempts
+# so that the install-component loop can start fresh with `helm upgrade -i`
+- name: "Uninstall failed Helm releases from previous upgrade attempts"
+  command: helm uninstall {{ item }} -n {{ cpd_operators_namespace }}
+  loop: "{{ cpd_platform_components | selectattr('helm_chart_name', 'ne', '') | map(attribute='helm_chart_name') | list }}"
+  failed_when: false
+  changed_when: false
+
+# Step 2: Delete CatalogSources we installed — stops OLM from reconciling new Subscriptions
+- name: "Delete OLM CatalogSources installed by CPD OLM path"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: CatalogSource
+    name: "{{ item }}"
+    namespace: "{{ cpd_operators_namespace }}"
+  loop:
+    - cpd-platform
+    - opencloud-operators
+    - ibm-zen-operator-catalog
+  failed_when: false
+
+# Step 3: Delete Subscriptions by label selector — catches any auto-generated name
+- name: "Delete OLM Subscriptions for {{ sub_name }} (component: {{ component_item.name }})"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/{{ sub_name }}.{{ cpd_operators_namespace }}"
+  loop: "{{ cpd_platform_components | subelements('olm_subscription_names', skip_missing=True) }}"
+  loop_control:
+    loop_var: sub_item
+    label: "{{ sub_item[0].name }}/{{ sub_item[1] }}"
+  vars:
+    component_item: "{{ sub_item[0] }}"
+    sub_name: "{{ sub_item[1] }}"
+  failed_when: false
+
+# Step 4: Delete CSVs by label selector
+- name: "Delete OLM ClusterServiceVersions for {{ sub_name }} (component: {{ component_item.name }})"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ cpd_operators_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/{{ sub_name }}.{{ cpd_operators_namespace }}"
+  loop: "{{ cpd_platform_components | subelements('olm_subscription_names', skip_missing=True) }}"
+  loop_control:
+    loop_var: sub_item
+    label: "{{ sub_item[0].name }}/{{ sub_item[1] }}"
+  vars:
+    component_item: "{{ sub_item[0] }}"
+    sub_name: "{{ sub_item[1] }}"
+  failed_when: false
+
+# 8. Install all platform components via Helm in order
+# -----------------------------------------------------------------------------
+- name: "Install CPD platform component {{ component_item.name }} via Helm"
+  include_tasks: "install-component.yml"
+  when: >-
+    (component_item.helm_chart_name != '' or component_item.helm_cluster_chart != '') and
+    ((component_item.name != 'ibm_iam_operator') or
+    (component_item.name == 'ibm_iam_operator' and (cpd_iam_integration | bool)))
+  loop: "{{ cpd_platform_components }}"
+  loop_control:
+    loop_var: component_item
+    label: "{{ component_item.name }}"
+
+# 7b. Gap 4 — Propagate ibm-licensing upload resources into cpd_instance_namespace
+# -----------------------------------------------------------------------------
+# Must run AFTER the component loop so that:
+#   - ibm_licensing namespace-scoped chart has created the ibm-licensing-operator Deployment
+#   - ibm_common_service_operator has installed the OperandRequest CRD
+#     (operandrequests.operator.ibm.com) and the common-service OperandRegistry
+#
+# The operator never propagates these natively because instanceNamespace is not set in
+# the Helm chart. Setting instanceNamespace directly triggers an infinite SA token loop
+# (legacy SA token Secrets for ibm-licensing-default-reader are immediately GC'd by OCP
+# 4.11+ because the SA doesn't exist in cpd_instance_namespace — operator loops forever,
+# never reaches ConfigMap propagation code).
+#
+# IBM dev team guidance: use ODLM-native binding via OperandRequest:
+#   Step 1 — Role + RoleBinding: grant ibm-licensing-operator SA write access in cpd_instance_namespace
+#   Step 2 — OperandRequest: ODLM binds upload-config and upload-token into cpd_instance_namespace
+#   Step 3 — Expand WATCH_NAMESPACE: operator must watch cpd_instance_namespace to act on ODLM events
+
+# Step 1a — Role granting ibm-licensing-operator SA write access in cpd_instance_namespace
+- name: "Create ibm-licensing-opreq-role in cpd_instance_namespace"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: Role
+      metadata:
+        name: ibm-licensing-opreq-role
+        namespace: "{{ cpd_instance_namespace }}"
+      rules:
+        - apiGroups: [apps]
+          resources: [deployments]
+          verbs: [get, list, watch]
+        - apiGroups: [""]
+          resources: [pods, services]
+          verbs: [get, list, watch]
+        - apiGroups: [""]
+          resources: [secrets, configmaps]
+          verbs: [get, list, watch, create, update, patch, delete]
+
+# Step 1b — RoleBinding binding the ibm-licensing-operator SA to the Role above
+- name: "Create ibm-licensing-opreq-role-binding in cpd_instance_namespace"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata:
+        name: ibm-licensing-opreq-role-binding
+        namespace: "{{ cpd_instance_namespace }}"
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: Role
+        name: ibm-licensing-opreq-role
+      subjects:
+        - kind: ServiceAccount
+          name: ibm-licensing-operator
+          namespace: "{{ cpd_ibm_licensing_namespace }}"
+
+# Step 2 — OperandRequest: ODLM reads the public-api-upload binding from OperandBindInfo
+# and instructs the operator to materialise upload-config and upload-token in this namespace
+- name: "Create licensing-service-request OperandRequest in cpd_instance_namespace"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: operator.ibm.com/v1alpha1
+      kind: OperandRequest
+      metadata:
+        name: licensing-service-request
+        namespace: "{{ cpd_instance_namespace }}"
+      spec:
+        requests:
+          - registry: common-service
+            registryNamespace: "{{ cpd_instance_namespace }}"
+            operands:
+              - name: ibm-licensing-operator
+                bindings:
+                  public-api-upload:
+                    configmap: ibm-licensing-upload-config
+                    secret: ibm-licensing-upload-token
+
+# Step 3 — Expand WATCH_NAMESPACE on the ibm-licensing-operator Deployment.
+# Chart sets WATCH_NAMESPACE=ibm-licensing only — operator ignores ODLM events from
+# other namespaces unless they are explicitly added here.
+- name: "Get ibm-licensing-operator Deployment"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: ibm-licensing-operator
+    namespace: "{{ cpd_ibm_licensing_namespace }}"
+  register: _licensing_operator_deploy
+
+- name: "Expand WATCH_NAMESPACE to include cpd_instance_namespace"
+  when: _licensing_operator_deploy.resources | length > 0
+  vars:
+    _existing_watch: >-
+      {{
+        _licensing_operator_deploy.resources[0].spec.template.spec.containers[0].env
+        | selectattr('name', 'equalto', 'WATCH_NAMESPACE')
+        | map(attribute='value') | first | default(cpd_ibm_licensing_namespace)
+      }}
+    _new_watch: "{{ (_existing_watch.split(',') | union([cpd_instance_namespace])) | join(',') }}"
+    # Strategic merge patch on containers uses name as the merge key, so only env is touched.
+    # env list uses name as merge key too — existing vars not listed here are left unchanged.
+    _patch: >-
+      {{
+        {
+          'spec': {
+            'template': {
+              'spec': {
+                'containers': [{
+                  'name': _licensing_operator_deploy.resources[0].spec.template.spec.containers[0].name,
+                  'env': [{'name': 'WATCH_NAMESPACE', 'value': _new_watch}]
+                }]
+              }
+            }
+          }
+        }
+      }}
+  kubernetes.core.k8s:
+    state: patched
+    api_version: apps/v1
+    kind: Deployment
+    name: ibm-licensing-operator
+    namespace: "{{ cpd_ibm_licensing_namespace }}"
+    definition: "{{ _patch }}"
+
+# Wait for operator Deployment to report readyReplicas >= 1 after WATCH_NAMESPACE rollout.
+# Guard with the same condition as the patch above — if the Deployment was not found in
+# cpd_ibm_licensing_namespace (e.g. OLM-managed cluster or cluster-scoped-only install),
+# there is nothing to wait for and this task must be skipped.
+- name: "Wait for ibm-licensing-operator to be Ready after WATCH_NAMESPACE update"
+  when: _licensing_operator_deploy.resources | length > 0
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: ibm-licensing-operator
+    namespace: "{{ cpd_ibm_licensing_namespace }}"
+  register: _licensing_op_deploy_check
+  until:
+    - _licensing_op_deploy_check.resources | length > 0
+    - _licensing_op_deploy_check.resources[0].status.readyReplicas is defined
+    - _licensing_op_deploy_check.resources[0].status.readyReplicas | int >= 1
+    - _licensing_op_deploy_check.resources[0].status.updatedReplicas is defined
+    - _licensing_op_deploy_check.resources[0].status.updatedReplicas | int >= 1
+  retries: 30
+  delay: 10
+
+# Wait for ODLM to have materialised both resources in cpd_instance_namespace
+- name: "Wait for ibm-licensing-upload-config in cpd_instance_namespace"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: ibm-licensing-upload-config
+    namespace: "{{ cpd_instance_namespace }}"
+  register: upload_config_check
+  until: upload_config_check.resources | length > 0
+  retries: 60
+  delay: 10
+
+- name: "Wait for ibm-licensing-upload-token in cpd_instance_namespace"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: ibm-licensing-upload-token
+    namespace: "{{ cpd_instance_namespace }}"
+  register: upload_token_check
+  until: upload_token_check.resources | length > 0
+  retries: 60
+  delay: 10
+
+# 8. Wait and Configure CPD Platform
+# -----------------------------------------------------------------------------
+- name: "Install and Configure Cloud Pak For Data (shared tasks)"
+  include_tasks: "../install-cp4d.yml"

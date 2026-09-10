@@ -1,0 +1,20 @@
+apiVersion: config.openshift.io/v1
+kind: ImageTagMirrorSet
+metadata:
+  name: mas-ibm-catalog{{ itms_suffix | default('') }}
+  labels:
+    mas.ibm.com/itmsContent: ibm
+  annotations:
+    mas.ibm.com/itmsRegistry: "{{ registry_private_url_with_path }}"
+    mas.ibm.com/itmsRegistryHost: "{{ registry_private_host }}"
+    mas.ibm.com/itmsRegistryPort: "{{ registry_private_port }}"
+    mas.ibm.com/itmsRegistryPrefix: "{{ registry_prefix }}"
+spec:
+  imageTagMirrors:
+    # CPD platform utility image pulled by tag (e.g. upload-metadata-job)
+    # ImageDigestMirrorSet does not redirect tag-based pulls, so this ITMS is
+    # required for CPD components that reference olm-utils-v4 by tag.
+    - source: icr.io/cpopen/cpd/olm-utils-v4
+      mirrors:
+        - {{ registry_private_url_with_path }}/cpopen/cpd/olm-utils-v4
+      mirrorSourcePolicy: NeverContactSource
