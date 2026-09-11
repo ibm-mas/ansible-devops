@@ -8,32 +8,11 @@
   delay: 60 # 1 minute
   no_log: true
 
-- name: "cis: configure edge certificate (MAS mode)"
-  when: is_mas_mode
-  ansible.builtin.include_tasks: tasks/providers/cis/cis_edge_certificate.yml
-  vars:
-    instance_id: "{{ mas_instance_id }}"
-    edge_cert_entries: "{{ edge_cert_routes['mas'] }}"
-
-- name: "cis : Reset facts"
-  set_fact:
-    dedicated_list: []
-    non_dro_list: []
-    hasDedicated: false
-    dedicatedId: ""
-    edge_cert_output: {}
-    _deleted_certificate: {}
-
-- name: "cis: configure edge certificate (AI Service mode)"
-  when: is_aiservice_mode
-  ansible.builtin.include_tasks: tasks/providers/cis/cis_edge_certificate.yml
-  vars:
-    instance_id: "{{ aiservice_instance_id }}"
-    edge_cert_entries: "{{ edge_cert_routes['aiservice'] }}"
+- include_tasks: tasks/providers/cis/cis_edge_certificate.yml
 
 - name: "cis: use managed_rulesets"
   ansible.builtin.shell: |
-    ibmcloud cis waf-packages {{ _cis_domain_id }} \
+    ibmcloud cis waf-packages {{ (_cis_domains_result.stdout | from_json)[0].id}} \
     -i "{{ cis_service_name }}"
   failed_when: false
   register: error_output
@@ -57,28 +36,16 @@
     - name: "cis: list of managed ruleset rules to disable"
       ansible.builtin.include_vars: vars/managed_ruleset_rules_to_disable.yml
 
-    - name: "cis: get CIS Managed Ruleset ruleset_id"
+    - name: "cis: get deployed rule id for CIS Managed Ruleset"
       ansible.builtin.shell: |
-        ibmcloud cis managed-waf rulesets {{ _cis_domain_id }} \
-        -i "{{ cis_service_name }}" --output json | jq -r '.[] | select(.name == "CIS Managed Ruleset") | .id'
-      register: _cis_ruleset_result
+        ibmcloud cis managed-waf deployments {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+        -i "{{ cis_service_name }}" --output json | jq -r \
+        '(.rules // [])[] | select(.action_parameters.id != null) | .id' | head -1
+      register: _cis_rule_id_result
 
-    - name: "cis: validate CIS Managed Ruleset ID was found"
-      ansible.builtin.fail:
-        msg: "CIS Managed Ruleset ID not found. Ensure the ruleset exists in the CIS instance."
-      when: _cis_ruleset_result.stdout | trim | length == 0
-
-    - name: "cis: get deployed rule id and enabled status for CIS Managed Ruleset"
-      ansible.builtin.shell: |
-        ibmcloud cis managed-waf deployments {{ _cis_domain_id }} \
-        -i "{{ cis_service_name }}" --output json | jq -r --arg target_id {{ _cis_ruleset_result.stdout }} \
-        '(.rules // [])[] | select(.action_parameters.id == $target_id) | "\(.id) \(.enabled)"'
-      register: _cis_rule_status_result
-
-    - name: "cis: set deployed rule facts"
+    - name: "cis: set deployed rule id fact"
       ansible.builtin.set_fact:
-        _cis_rule_id: "{{ _cis_rule_status_result.stdout.split(' ')[0] | default('') }}"
-        _cis_rule_enabled: "{{ _cis_rule_status_result.stdout.split(' ')[1] | default('false') }}"
+        _cis_rule_id: "{{ _cis_rule_id_result.stdout | trim }}"
 
     - name: "cis: get IAM token for CIS API"
       ansible.builtin.shell: |
@@ -90,7 +57,7 @@
     - name: "cis: check if http_request_firewall_managed entry point ruleset exists"
       ansible.builtin.shell: |
         curl -s -X GET \
-          "https://api.cis.cloud.ibm.com/v1/{{ cis_crn }}/zones/{{ _cis_domain_id }}/rulesets/phases/http_request_firewall_managed/entrypoint" \
+          "https://api.cis.cloud.ibm.com/v1/{{ cis_crn }}/zones/{{ (_cis_domains_result.stdout | from_json)[0].id }}/rulesets/phases/http_request_firewall_managed/entrypoint" \
           -H "X-Auth-User-Token: {{ _cis_iam_token_result.stdout }}" \
           -H "Content-Type: application/json"
       register: _cis_entrypoint_check_result
@@ -106,7 +73,7 @@
     - name: "cis: create http_request_firewall_managed entry point ruleset via API"
       ansible.builtin.shell: |
         curl -s -X POST \
-          "https://api.cis.cloud.ibm.com/v1/{{ cis_crn }}/zones/{{ _cis_domain_id }}/rulesets" \
+          "https://api.cis.cloud.ibm.com/v1/{{ cis_crn }}/zones/{{ (_cis_domains_result.stdout | from_json)[0].id }}/rulesets" \
           -H "X-Auth-User-Token: {{ _cis_iam_token_result.stdout }}" \
           -H "Content-Type: application/json" \
           -d '{"name":"Zone-level phase entry point","kind":"zone","description":"WAF managed rule entrypoint ruleset.","phase":"http_request_firewall_managed"}'
@@ -126,7 +93,7 @@
     - name: "cis: verify http_request_firewall_managed entry point ruleset after creation"
       ansible.builtin.shell: |
         curl -s -X GET \
-          "https://api.cis.cloud.ibm.com/v1/{{ cis_crn }}/zones/{{ _cis_domain_id }}/rulesets/phases/http_request_firewall_managed/entrypoint" \
+          "https://api.cis.cloud.ibm.com/v1/{{ cis_crn }}/zones/{{ (_cis_domains_result.stdout | from_json)[0].id }}/rulesets/phases/http_request_firewall_managed/entrypoint" \
           -H "X-Auth-User-Token: {{ _cis_iam_token_result.stdout }}" \
           -H "Content-Type: application/json"
       register: _cis_entrypoint_verify_result
@@ -142,44 +109,17 @@
         - _cis_rule_id | trim | length == 0
         - not (_cis_entrypoint_check_result.stdout | from_json).success
 
-    - name: "cis: add CIS Managed Ruleset to WAF when WAF rule does not exist"
-      ansible.builtin.shell: |
-        ibmcloud cis managed-waf deployment-add-ruleset {{ _cis_domain_id }} {{ _cis_ruleset_result.stdout }} \
-        -i "{{ cis_service_name }}" --enabled true
-      when: _cis_rule_id | trim | length == 0
-
-    - name: "cis: get deployed rule id for CIS Managed Ruleset id"
-      ansible.builtin.shell: |
-        ibmcloud cis managed-waf deployments {{ _cis_domain_id }} \
-        -i "{{ cis_service_name }}" --output json | jq -r --arg target_id "{{ _cis_ruleset_result.stdout }}" '(.rules // [])[] | select(.action_parameters.id == $target_id) | .id'
-      register: _cis_rule_id_result
-
-    - name: "cis: enable CIS Managed Ruleset if deployed but disabled"
-      ansible.builtin.shell: |
-        ibmcloud cis managed-waf deployment-update-ruleset {{ _cis_domain_id }} {{ _cis_rule_id_result.stdout }} \
-        --enabled true --reset-all -i "{{ cis_service_name }}"
-      when:
-        - _cis_rule_id | trim | length > 0
-        - _cis_rule_enabled == 'false'
+    - name: "cis: deploy and enable WAF managed rulesets"
+      ansible.builtin.include_tasks: tasks/providers/cis/cis_deploy_managed_ruleset.yml
+      loop:
+        - name: "CIS Managed Ruleset"
+        - name: "CIS OWASP Core Ruleset"
 
     - ansible.builtin.include_tasks: tasks/providers/cis/cis_managed_ruleset.yml
       loop: "{{ managed_ruleset_rules_to_disable }}"
+
 - ansible.builtin.include_tasks: tasks/providers/cis/cis_domain_setting.yml
 
-- name: "cis : configure WAF IP allowlist for MAS"
-  when:
-    - cis_waf | bool
-    - is_mas_mode
+- name: "cis : configure WAF IP allowlist"
+  when: cis_waf | bool
   ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist.yml
-  vars:
-    instance_id: "{{ mas_instance_id }}"
-    domain: "{{ mas_domain }}"
-
-- name: "cis : configure WAF IP allowlist for AI Service"
-  when:
-    - cis_waf | bool
-    - is_aiservice_mode
-  ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist.yml
-  vars:
-    instance_id: "{{ aiservice_instance_id }}"
-    domain: "{{ aiservice_domain }}"
