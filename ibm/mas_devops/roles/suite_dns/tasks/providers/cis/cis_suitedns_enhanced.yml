@@ -36,28 +36,16 @@
     - name: "cis: list of managed ruleset rules to disable"
       ansible.builtin.include_vars: vars/managed_ruleset_rules_to_disable.yml
 
-    - name: "cis: get CIS Managed Ruleset ruleset_id"
-      ansible.builtin.shell: |
-        ibmcloud cis managed-waf rulesets {{ (_cis_domains_result.stdout | from_json)[0].id }} \
-        -i "{{ cis_service_name }}" --output json | jq -r '.[] | select(.name == "CIS Managed Ruleset") | .id'
-      register: _cis_ruleset_result
-
-    - name: "cis: validate CIS Managed Ruleset ID was found"
-      ansible.builtin.fail:
-        msg: "CIS Managed Ruleset ID not found. Ensure the ruleset exists in the CIS instance."
-      when: _cis_ruleset_result.stdout | trim | length == 0
-
-    - name: "cis: get deployed rule id and enabled status for CIS Managed Ruleset"
+    - name: "cis: get deployed rule id for CIS Managed Ruleset"
       ansible.builtin.shell: |
         ibmcloud cis managed-waf deployments {{ (_cis_domains_result.stdout | from_json)[0].id }} \
-        -i "{{ cis_service_name }}" --output json | jq -r --arg target_id {{ _cis_ruleset_result.stdout }} \
-        '(.rules // [])[] | select(.action_parameters.id == $target_id) | "\(.id) \(.enabled)"'
-      register: _cis_rule_status_result
+        -i "{{ cis_service_name }}" --output json | jq -r \
+        '(.rules // [])[] | select(.action_parameters.id != null) | .id' | head -1
+      register: _cis_rule_id_result
 
-    - name: "cis: set deployed rule facts"
+    - name: "cis: set deployed rule id fact"
       ansible.builtin.set_fact:
-        _cis_rule_id: "{{ _cis_rule_status_result.stdout.split(' ')[0] | default('') }}"
-        _cis_rule_enabled: "{{ _cis_rule_status_result.stdout.split(' ')[1] | default('false') }}"
+        _cis_rule_id: "{{ _cis_rule_id_result.stdout | trim }}"
 
     - name: "cis: get IAM token for CIS API"
       ansible.builtin.shell: |
@@ -121,28 +109,15 @@
         - _cis_rule_id | trim | length == 0
         - not (_cis_entrypoint_check_result.stdout | from_json).success
 
-    - name: "cis: add CIS Managed Ruleset to WAF when WAF rule does not exist"
-      ansible.builtin.shell: |
-        ibmcloud cis managed-waf deployment-add-ruleset {{ (_cis_domains_result.stdout | from_json)[0].id }} {{ _cis_ruleset_result.stdout }} \
-        -i "{{ cis_service_name }}" --enabled true
-      when: _cis_rule_id | trim | length == 0
-
-    - name: "cis: get deployed rule id for CIS Managed Ruleset id"
-      ansible.builtin.shell: |
-        ibmcloud cis managed-waf deployments {{ (_cis_domains_result.stdout | from_json)[0].id }} \
-        -i "{{ cis_service_name }}" --output json | jq -r --arg target_id "{{ _cis_ruleset_result.stdout }}" '(.rules // [])[] | select(.action_parameters.id == $target_id) | .id'
-      register: _cis_rule_id_result
-
-    - name: "cis: enable CIS Managed Ruleset if deployed but disabled"
-      ansible.builtin.shell: |
-        ibmcloud cis managed-waf deployment-update-ruleset {{ (_cis_domains_result.stdout | from_json)[0].id }} {{ _cis_rule_id_result.stdout }} \
-        --enabled true --reset-all -i "{{ cis_service_name }}"
-      when:
-        - _cis_rule_id | trim | length > 0
-        - _cis_rule_enabled == 'false'
+    - name: "cis: deploy and enable WAF managed rulesets"
+      ansible.builtin.include_tasks: tasks/providers/cis/cis_deploy_managed_ruleset.yml
+      loop:
+        - name: "CIS Managed Ruleset"
+        - name: "CIS OWASP Core Ruleset"
 
     - ansible.builtin.include_tasks: tasks/providers/cis/cis_managed_ruleset.yml
       loop: "{{ managed_ruleset_rules_to_disable }}"
+
 - ansible.builtin.include_tasks: tasks/providers/cis/cis_domain_setting.yml
 
 - name: "cis : ip-allowlist — mas version check"
