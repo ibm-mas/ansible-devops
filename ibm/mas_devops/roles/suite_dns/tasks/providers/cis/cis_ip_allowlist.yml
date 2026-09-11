@@ -12,7 +12,7 @@
 
 - name: "cis : ip-allowlist — get existing custom WAF rules"
   ansible.builtin.shell: |
-    ibmcloud cis custom-waf rules {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+    ibmcloud cis custom-waf rules {{ _cis_domain_id }} \
       -i "{{ cis_service_name }}" --output json
   register: _cis_custom_rules_result
   failed_when: false
@@ -42,7 +42,7 @@
 
     - name: "cis : ip-allowlist — delete existing WAF block rule"
       ansible.builtin.shell: |
-        ibmcloud cis custom-waf rule-delete {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+        ibmcloud cis custom-waf rule-delete {{ _cis_domain_id }} \
           {{ _cis_allowlist_rule_id }} \
           -i "{{ cis_service_name }}" --force
       register: _cis_allowlist_delete_result
@@ -87,7 +87,7 @@
     - name: "cis : ip-allowlist — create WAF block rule (new)"
       ansible.builtin.shell: |
         EXPR='{{ _cis_allowlist_expression }}'
-        ibmcloud cis custom-waf rule-create {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+        ibmcloud cis custom-waf rule-create {{ _cis_domain_id }} \
           -i "{{ cis_service_name }}" \
           --action block \
           --match "$EXPR" \
@@ -102,7 +102,7 @@
     - name: "cis : ip-allowlist — update WAF block rule (existing)"
       ansible.builtin.shell: |
         EXPR='{{ _cis_allowlist_expression }}'
-        ibmcloud cis custom-waf rule-update {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+        ibmcloud cis custom-waf rule-update {{ _cis_domain_id }} \
           {{ _cis_allowlist_rule_id }} \
           -i "{{ cis_service_name }}" \
           --action block \
