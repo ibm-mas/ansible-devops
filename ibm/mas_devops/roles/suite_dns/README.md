@@ -628,6 +628,7 @@ Comma-separated list of IP addresses or CIDR ranges (IPv4 and IPv6) that are per
 - **Optional**
 - Environment Variable: `CIS_ALLOWED_IPS`
 - Default: None
+- **Supported MAS versions**: `9.1.x` and above only. This variable is ignored when `mas_channel` is set to `9.0.x` or earlier.
 
 **Purpose**: Restricts access to MAS public routes by creating a CIS WAF custom rule with the expression:
 ```
@@ -647,10 +648,14 @@ Comma-separated list of IP addresses or CIDR ranges (IPv4 and IPv6) that are per
 - **Set**: Creates or updates a WAF block rule scoped to `mas_domain` — only the listed IPs can access the instance
 - **Unset/empty**: Deletes the existing WAF block rule, restoring unrestricted access
 
+**MAS version requirement**:
+IP allowlisting requires MAS `9.1.x` or above. When `mas_channel` is `9.0.x` or earlier, the WAF allowlist task is automatically skipped regardless of whether `cis_allowed_ips` is set. To use IP allowlisting, ensure `mas_channel` is set to `9.1.x` or later.
+
 **Related variables**:
 - `cis_service_name`: CIS instance used to manage the rule
 - `cis_enhanced_security`: Should be enabled when using IP allowlisting
 - `mas_domain`: Used to scope the WAF rule to the correct MAS instance domain
+- `mas_channel`: Must be `9.1.x` or above for allowlisting to take effect
 
 **Note**: Requires `dns_provider=cis` and CIS enhanced security to be enabled. The Custom WAF rule is identified by the description `mas-ip-allowlist-<mas_domain>` and is created/updated/deleted automatically based on whether this variable is set.
 
