@@ -13,18 +13,7 @@
     msg:
       - "AWS Hosted Zone name ................................... {{ route53_hosted_zone_name }}"
       - "AWS Hosted Zone region ................................. {{ route53_hosted_zone_region }}"
-
-# 2. Set AWS policy name
-# -----------------------------------------------------------------------------
-- name: "Set AWS policy name (MAS mode)"
-  when: is_mas_mode
-  ansible.builtin.set_fact:
-    aws_policy_name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-route53-policy"
-
-- name: "Set AWS policy name (AI Service mode)"
-  when: is_aiservice_mode
-  ansible.builtin.set_fact:
-    aws_policy_name: "{{ aiservice_instance_id }}-route53-policy"
+      - "AWS Route53 Cluster Issuer ............................. {{ route53_prod_issuer_name }}"
 
 # 3. Create IAM Policy to allow cert-manager to add records to AWS Route53
 # -----------------------------------------------------------------------------
@@ -32,7 +21,7 @@
   import_role:
     name: ibm.mas_devops.aws_policy
   vars:
-    aws_policy_name: "{{ aws_policy_name }}"
+    aws_policy_name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-route53-policy"
     aws_policy_statement:
       - Effect: Allow
         Action: route53:GetChange
@@ -75,24 +64,11 @@
     - route53_subdomain is defined
     - route53_subdomain != ''
 
-# 6. Create AWS Route 53 Issuer (ClusterIssuer for MAS, Issuer for AI Service)
+# 6. Create AWS Route 53 DNS-01 cluster issuer (skip when Let's Encrypt HTTP-01 is enabled)
 # -----------------------------------------------------------------------------
-- name: "aws-route53 : Create AWS Route 53 DNS-01 cluster issuer (MAS mode): {{ mas_instance_id }}-route53-le-prod (skip when Let's Encrypt HTTP-01 is enabled)"
-  when:
-    - not mas_letsencrypt_http01_enabled
-    - is_mas_mode
-  vars:
-    instance_id: "{{ mas_instance_id }}"
+- name: "aws-route53 : Create AWS Route 53 cluster issuer: {{ route53_prod_issuer_name }}"
+  when: not mas_letsencrypt_http01_enabled
   kubernetes.core.k8s:
     namespace: "ibm-common-services"
     state: present
     template: templates/route53/clusterissuer.yml.j2
-
-- name: "aws-route53 : Create AWS Route 53 Issuer (AI Service mode): {{ aiservice_instance_id }}-route53-le-prod"
-  vars:
-    instance_id: "{{ aiservice_instance_id }}"
-    instance_namespace: "{{ aiservice_namespace }}"
-  kubernetes.core.k8s:
-    state: present
-    template: templates/route53/issuer.yml.j2
-  when: is_aiservice_mode

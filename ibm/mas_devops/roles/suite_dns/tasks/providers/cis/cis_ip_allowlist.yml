@@ -1,14 +1,8 @@
 ---
 # Manage a CIS WAF custom rule that blocks all traffic except from IPs in cis_allowed_ips.
-- name: "cis : ip-allowlist — set unique rule description for MAS"
-  when: is_mas_mode
+- name: "cis : ip-allowlist — set unique rule description"
   ansible.builtin.set_fact:
-    _cis_allowlist_rule_desc: "mas-ip-allowlist-{{ domain }}"
-
-- name: "cis : ip-allowlist — set unique rule description for AI Service"
-  when: is_aiservice_mode
-  ansible.builtin.set_fact:
-    _cis_allowlist_rule_desc: "aiservice-ip-allowlist-{{ domain }}"
+    _cis_allowlist_rule_desc: "mas-ip-allowlist-{{ mas_domain }}"
 
 - name: "cis : ip-allowlist — get existing custom WAF rules"
   ansible.builtin.shell: |
@@ -53,7 +47,7 @@
 
     - name: "cis : ip-allowlist — deletion confirmed"
       ansible.builtin.debug:
-        msg: "WAF IP allowlist rule '{{ _cis_allowlist_rule_desc }}' deleted successfully for instance {{ instance_id }}"
+        msg: "WAF IP allowlist rule '{{ _cis_allowlist_rule_desc }}' deleted successfully for instance {{ mas_instance_id }}"
       when: _cis_allowlist_rule_id | trim | length > 0
 
 - name: "cis : ip-allowlist — manage create/update (allow_list set)"
@@ -73,7 +67,7 @@
     - name: "cis : ip-allowlist — build WAF expression"
       ansible.builtin.set_fact:
         _cis_allowlist_expression: >-
-          {{ '(not ip.src in {' + (_cis_normalised_ips | join(' ')) + '} and http.host contains "' + domain + '")' }}
+          {{ '(not ip.src in {' + (_cis_normalised_ips | join(' ')) + '} and http.host contains "' + mas_domain + '")' }}
 
     - name: "cis : ip-allowlist — show configuration"
       ansible.builtin.debug:
@@ -120,4 +114,4 @@
         msg: >-
           WAF IP allowlist rule '{{ _cis_allowlist_rule_desc }}'
           {{ 'created' if _cis_allowlist_rule_id | trim | length == 0 else 'updated' }}
-          successfully for instance {{ instance_id }}
+          successfully for instance {{ mas_instance_id }}
