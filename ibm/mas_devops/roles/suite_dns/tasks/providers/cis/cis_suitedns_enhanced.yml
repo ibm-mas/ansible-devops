@@ -120,6 +120,20 @@
 
 - ansible.builtin.include_tasks: tasks/providers/cis/cis_domain_setting.yml
 
-- name: "cis : configure WAF IP allowlist"
-  when: cis_waf | bool
+- name: "cis : configure WAF IP allowlist for MAS"
+  when:
+    - cis_waf | bool
+    - is_mas_mode
   ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist.yml
+  vars:
+    instance_id: "{{ mas_instance_id }}"
+    domain: "{{ mas_domain }}"
+
+- name: "cis : configure WAF IP allowlist for AI Service"
+  when:
+    - cis_waf | bool
+    - is_aiservice_mode
+  ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist.yml
+  vars:
+    instance_id: "{{ aiservice_instance_id }}"
+    domain: "{{ aiservice_domain }}"
