@@ -746,8 +746,6 @@
     <cds-select id="breadcrumbs-toc" inline="" placeholder="..." oninput="changeAnchor(this.value)">
     
     
-      <cds-select-item value="#mas-vs-ai-service-mode">MAS vs AI Service Mode</cds-select-item>
-    
       <cds-select-item value="#dns-management">DNS Management</cds-select-item>
     
       <cds-select-item value="#lets-encrypt-integration">Let's Encrypt Integration</cds-select-item>
@@ -767,15 +765,8 @@
           <div class="rst-content">
             
             <h1 id="suite_dns">suite_dns<a class="headerlink" href="#suite_dns" title="Permanent link">¤</a></h1>
-<p>This role manages DNS provider integration for both IBM Maximo Application Suite (MAS) and AI Service. IBM Cloud Internet Services, Cloudflare, and AWS Route 53 are the supported DNS providers. It will also create a secure route (https://cp4d.<mas_domain>) to the CP4D web client using the custom domain used in this role.</mas_domain></p>
+<p>This role will manage MAS and DNS provider integration. IBM Cloud Internet Services, Cloudflare, and AWS Route 53 are the supported DNS providers. It will also create a secure route (https://cp4d.<mas_domain>) to the CP4D web client using the custom domain used in this role.</mas_domain></p>
 <p><strong>Note</strong>: this role will take no action when <code>mas_manual_cert_mgmt</code> is set to <code>True</code></p>
-<h2 id="mas-vs-ai-service-mode">MAS vs AI Service Mode<a class="headerlink" href="#mas-vs-ai-service-mode" title="Permanent link">¤</a></h2>
-<p>This role automatically detects whether it's being used for MAS or AI Service based on the presence of <code>AISERVICE_INSTANCE_ID</code>:</p>
-<ul>
-<li><strong>MAS Mode</strong>: Uses ClusterIssuer (cluster-wide certificate issuer) and supports multiple workspaces</li>
-<li><strong>AI Service Mode</strong>: Uses namespace-scoped Issuer within the AI Service namespace (<code>aiservice-{instance_id}</code>)</li>
-</ul>
-<p>The key difference is that AI Service creates the certificate Issuer within its own namespace rather than using a shared ClusterIssuer.</p>
 <h2 id="dns-management">DNS Management<a class="headerlink" href="#dns-management" title="Permanent link">¤</a></h2>
 <p>There are two different ways this role controls DNS entries in the provider:</p>
 <h3 id="top-level-dns-entries">Top Level DNS Entries<a class="headerlink" href="#top-level-dns-entries" title="Permanent link">¤</a></h3>
@@ -807,47 +798,6 @@
 <p>HTTP-01 requires the cluster to be publicly reachable from the internet. It cannot be used in private network environments.</p>
 </div>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
-<h3 id="ai-service-variables">AI Service Variables<a class="headerlink" href="#ai-service-variables" title="Permanent link">¤</a></h3>
-<h4 id="aiservice_instance_id">aiservice_instance_id<a class="headerlink" href="#aiservice_instance_id" title="Permanent link">¤</a></h4>
-<p>Unique identifier for the AI Service instance requiring DNS configuration.</p>
-<ul>
-<li><strong>Required</strong> for AI Service mode</li>
-<li>Environment Variable: <code>AISERVICE_INSTANCE_ID</code></li>
-<li>Default: None</li>
-</ul>
-<p><strong>Purpose</strong>: Identifies which AI Service instance to configure DNS entries for. When set, the role operates in AI Service mode and creates namespace-scoped Issuers instead of ClusterIssuers.</p>
-<p><strong>When to use</strong>:
-- Required for AI Service DNS configuration
-- Must match the instance ID used during AI Service installation
-- Triggers AI Service mode (namespace-scoped Issuer creation)</p>
-<p><strong>Valid values</strong>: Lowercase alphanumeric string (e.g., <code>aiservice1</code>, <code>prod</code>, <code>dev</code>)</p>
-<p><strong>Impact</strong>:
-- Enables AI Service mode
-- DNS entries created for AI Service namespace: <code>aiservice-{aiservice_instance_id}</code>
-- Issuer created in AI Service namespace (not ClusterIssuer)
-- Issuer name format: <code>{aiservice_instance_id}-{provider}-le-prod</code></p>
-<p><strong>Related variables</strong>:
-- <code>aiservice_domain</code>: Custom domain for AI Service (optional)
-- When set, <code>mas_instance_id</code> and <code>mas_workspace_id</code> are not required</p>
-<p><strong>Note</strong>: AI Service uses namespace-scoped Issuers within the <code>aiservice-{instance_id}</code> namespace, unlike MAS which uses cluster-wide ClusterIssuers.</p>
-<h4 id="aiservice_domain">aiservice_domain<a class="headerlink" href="#aiservice_domain" title="Permanent link">¤</a></h4>
-<p>Custom domain name for accessing AI Service APIs and interfaces.</p>
-<ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>AISERVICE_DOMAIN</code></li>
-<li>Default: None (uses cluster default domain)</li>
-</ul>
-<p><strong>Purpose</strong>: Defines the base domain used to construct all AI Service URLs and DNS entries. This domain must be managed by your chosen DNS provider.</p>
-<p><strong>When to use</strong>:
-- Set when using a custom domain for AI Service
-- Leave unset to use the cluster's default application domain
-- Must align with DNS provider zone configuration</p>
-<p><strong>Valid values</strong>: Any valid DNS domain name (e.g., <code>aiservice.mycompany.com</code>, <code>ai.example.org</code>)</p>
-<p><strong>Impact</strong>: DNS entries will be created for this domain in your DNS provider. All AI Service routes will use this domain.</p>
-<p><strong>Related variables</strong>:
-- Must align with DNS provider zone configuration (<code>cloudflare_zone</code>, <code>cis_crn</code>, etc.)
-- Works with <code>aiservice_instance_id</code> to create unique DNS entries</p>
-<p><strong>Note</strong>: If not set, the role will use the cluster's default application domain for AI Service routes.</p>
 <h3 id="general">General<a class="headerlink" href="#general" title="Permanent link">¤</a></h3>
 <h4 id="dns_provider">dns_provider<a class="headerlink" href="#dns_provider" title="Permanent link">¤</a></h4>
 <p>Specifies which DNS provider to use for managing MAS domain DNS entries.</p>
@@ -1396,13 +1346,12 @@ If not set, then it will use same domain set for MAS instance.</p>
 <li>Default: <code>cp4d.{{ mas_domain }}</code></li>
 </ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
-<h3 id="mas-with-cis-or-cloudflare">MAS with CIS or Cloudflare<a class="headerlink" href="#mas-with-cis-or-cloudflare" title="Permanent link">¤</a></h3>
+<h3 id="cis-or-cloudflare">CIS or Cloudflare<a class="headerlink" href="#cis-or-cloudflare" title="Permanent link">¤</a></h3>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
     dns_provider: cis  # or cloudflare
     mas_instance_id: inst1
-    mas_workspace_id: masdev
     mas_domain: mydomain.com
     cis_crn: xxx
     cis_apikey: xxx
@@ -1410,48 +1359,18 @@ If not set, then it will use same domain set for MAS instance.</p>
   roles:
     - ibm.mas_devops.suite_dns
 </code></pre>
-<h3 id="mas-with-aws-route-53">MAS with AWS Route 53<a class="headerlink" href="#mas-with-aws-route-53" title="Permanent link">¤</a></h3>
+<h3 id="aws-route-53_1">AWS Route 53<a class="headerlink" href="#aws-route-53_1" title="Permanent link">¤</a></h3>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
     dns_provider: route53
     mas_instance_id: inst1
-    mas_workspace_id: masdev
     mas_domain: inst1.mydomain.com
     aws_access_key_id: xxx
     aws_secret_access_key: xxx
     route53_hosted_zone_name: mydomain.com
     route53_hosted_zone_region: us-east-2
     route53_subdomain: inst1
-    route53_email: anyemail@test.com
-  roles:
-    - ibm.mas_devops.suite_dns
-</code></pre>
-<h3 id="ai-service-with-cis">AI Service with CIS<a class="headerlink" href="#ai-service-with-cis" title="Permanent link">¤</a></h3>
-<pre><code class="language-yaml">- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    dns_provider: cis
-    aiservice_instance_id: aiservice1
-    aiservice_domain: aiservice.mydomain.com
-    cis_crn: xxx
-    cis_apikey: xxx
-    cis_email: xxx
-  roles:
-    - ibm.mas_devops.suite_dns
-</code></pre>
-<h3 id="ai-service-with-aws-route-53">AI Service with AWS Route 53<a class="headerlink" href="#ai-service-with-aws-route-53" title="Permanent link">¤</a></h3>
-<pre><code class="language-yaml">- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    dns_provider: route53
-    aiservice_instance_id: aiservice1
-    aiservice_domain: aiservice.mydomain.com
-    aws_access_key_id: xxx
-    aws_secret_access_key: xxx
-    route53_hosted_zone_name: mydomain.com
-    route53_hosted_zone_region: us-east-2
-    route53_subdomain: aiservice
     route53_email: anyemail@test.com
   roles:
     - ibm.mas_devops.suite_dns
@@ -1500,11 +1419,6 @@ If not set, then it will use same domain set for MAS instance.</p>
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
               <li class="md-toc__item">
-                <a href="#mas-vs-ai-service-mode" class="md-toc__link" data-md-level="1">
-                  MAS vs AI Service Mode
-                </a>
-              </li>
-              <li class="md-toc__item">
                 <a href="#dns-management" class="md-toc__link" data-md-level="1">
                   DNS Management
                 </a>
@@ -1538,11 +1452,6 @@ If not set, then it will use same domain set for MAS instance.</p>
                   Role Variables
                 </a>
                   <ul class="md-toc__list">
-                      <li class="md-toc__item">
-                        <a href="#ai-service-variables" class="md-toc__link" data-md-level="2">
-                          AI Service Variables
-                        </a>
-                      </li>
                       <li class="md-toc__item">
                         <a href="#general" class="md-toc__link" data-md-level="2">
                           General
@@ -1581,23 +1490,13 @@ If not set, then it will use same domain set for MAS instance.</p>
                 </a>
                   <ul class="md-toc__list">
                       <li class="md-toc__item">
-                        <a href="#mas-with-cis-or-cloudflare" class="md-toc__link" data-md-level="2">
-                          MAS with CIS or Cloudflare
+                        <a href="#cis-or-cloudflare" class="md-toc__link" data-md-level="2">
+                          CIS or Cloudflare
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#mas-with-aws-route-53" class="md-toc__link" data-md-level="2">
-                          MAS with AWS Route 53
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#ai-service-with-cis" class="md-toc__link" data-md-level="2">
-                          AI Service with CIS
-                        </a>
-                      </li>
-                      <li class="md-toc__item">
-                        <a href="#ai-service-with-aws-route-53" class="md-toc__link" data-md-level="2">
-                          AI Service with AWS Route 53
+                        <a href="#aws-route-53_1" class="md-toc__link" data-md-level="2">
+                          AWS Route 53
                         </a>
                       </li>
                   </ul>
