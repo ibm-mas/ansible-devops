@@ -1,0 +1,36 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mcpi-network-policy
+  namespace: {{ mcpi_namespace }}
+  labels:
+    app.kubernetes.io/name: mcpi
+    app.kubernetes.io/instance: {{ mcpi_meta_name }}
+    app.kubernetes.io/managed-by: mcpi-operator
+spec:
+  podSelector:
+    matchLabels:
+      app: mcpi
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic from OpenShift router (for Route access to HTTP service)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              network.openshift.io/policy-group: ingress
+      ports:
+        - protocol: TCP
+          port: {{ mcpi_http_port }}
+    # Allow traffic from external nodes (for NodePort rsyslog service)
+    # NodePort services bypass NetworkPolicy for external traffic, but we document the intent
+    - ports:
+        - protocol: TCP
+          port: {{ mcpi_rsyslog_port }}
+        - protocol: UDP
+          port: {{ mcpi_rsyslog_port }}
+  egress:
+    # Allow all egress traffic (MCPI needs to communicate with various services)
+    - {}

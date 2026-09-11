@@ -1,0 +1,137 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcpi-deployment
+  namespace: {{ mcpi_namespace }}
+  labels:
+    app: mcpi
+    app.kubernetes.io/name: mcpi
+    app.kubernetes.io/instance: {{ mcpi_meta_name }}
+    app.kubernetes.io/managed-by: mcpi-operator
+    ibm.com/singleton: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcpi
+  template:
+    metadata:
+      labels:
+        app: mcpi
+        app.kubernetes.io/name: mcpi
+        app.kubernetes.io/instance: {{ mcpi_meta_name }}
+        ibm.com/singleton: "true"
+    spec:
+      serviceAccountName: mcpi
+      imagePullSecrets:
+        - name: "{{ images.pullSecretName }}"
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: mcpi-cert
+          secret:
+            secretName: "{{ certNames.internalMcpi }}"
+        - name: oauth-client-credentials
+          secret:
+            secretName: "{{ instanceId }}-credentials-oauth-client"
+            items:
+              - key: oauth-client-id
+                path: oauth-client-id
+              - key: oauth-client-secret
+                path: oauth-client-secret
+      containers:
+        - name: mcpi-viewer
+          image: "{{ [ images.registry, images.mcpiViewer ] | mas.util.getImageReference }}"
+          imagePullPolicy: "{{ images.pullPolicy }}"
+          ports:
+            - name: https
+              containerPort: 9443
+              protocol: TCP
+            - name: rsyslog-tcp
+              containerPort: {{ mcpi_rsyslog_port }}
+              protocol: TCP
+            - name: rsyslog-udp
+              containerPort: {{ mcpi_rsyslog_port }}
+              protocol: UDP
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            privileged: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          livenessProbe:
+            httpGet:
+              path: /probes/liveness
+              port: 9443
+              scheme: HTTPS
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /probes/readiness
+              port: 9443
+              scheme: HTTPS
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources: {{ [podTemplates, 'mcpi', 'mcpi-viewer', images.mcpiViewer.resources] | mas.util.getContainerResources }}
+          env:
+            - name: NAMESPACE
+              value: "{{ ansible_operator_meta.namespace }}"
+            - name: ENVIRONMENT_NAME
+              value: "{{ instanceId }}"
+            - name: ROUTING_MODE
+              value: "{{ routingMode }}"
+            - name: NODE_ENV
+              value: "production"
+            - name: SECURED_PORT
+              value: "9443"
+            - name: TLS_MOUNT_PATH
+              value: /etc/mas/certs/mcpi-cert
+            - name: DOMAIN
+              value: "{{ masDomain }}"
+            - name: AUTH_ISSUER_URI
+              value: "{{ oidcRouteURL }}/oidc/endpoint/MaximoAppSuite"
+            - name: AUTH_OIDC_URI
+              value: "{{ oidcRouteURL }}/oidc/endpoint/MaximoAppSuite"
+            - name: AUTH_API_URI
+              value: "{{ oidcRouteURL }}/api/auth"
+            - name: AUTH_LOGOUT_URI
+              value: "{{ oidcRouteURL }}/ibm_security_logout"
+            - name: TOKEN_URL
+              value: "https://coreidp.{{ ansible_operator_meta.namespace }}.svc/oidc/endpoint/MaximoAppSuite/token"
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: mcpi-cert
+              mountPath: /etc/mas/certs/mcpi-cert
+              readOnly: true
+            - name: oauth-client-credentials
+              readOnly: true
+              mountPath: /etc/mas/creds/oauth/client
+        - name: mcpi-scripts
+          image: "{{ [ images.registry, images.mcpiScripts ] | mas.util.getImageReference }}"
+          imagePullPolicy: "{{ images.pullPolicy }}"
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            privileged: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          resources: {{ [podTemplates, 'mcpi', 'mcpi-scripts', images.mcpiScripts.resources] | mas.util.getContainerResources }}
+          env:
+            - name: NAMESPACE
+              value: "{{ ansible_operator_meta.namespace }}"
+            - name: ENVIRONMENT_NAME
+              value: "{{ instanceId }}"
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
