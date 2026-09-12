@@ -4,7 +4,7 @@
 
 - name: "cis: get ruleset_id for '{{ item.name }}'"
   ansible.builtin.shell: |
-    ibmcloud cis managed-waf rulesets {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+    ibmcloud cis managed-waf rulesets {{ _cis_domain_id }} \
     -i "{{ cis_service_name }}" --output json | jq -r --arg name "{{ item.name }}" '.[] | select(.name == $name) | .id'
   register: _cis_deploy_ruleset_id_result
 
@@ -15,7 +15,7 @@
 
 - name: "cis: get deployed rule id and enabled status for '{{ item.name }}'"
   ansible.builtin.shell: |
-    ibmcloud cis managed-waf deployments {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+    ibmcloud cis managed-waf deployments {{ _cis_domain_id }} \
     -i "{{ cis_service_name }}" --output json | jq -r --arg target_id {{ _cis_deploy_ruleset_id_result.stdout }} \
     '(.rules // [])[] | select(.action_parameters.id == $target_id) | "\(.id) \(.enabled)"'
   register: _cis_deploy_rule_status_result
@@ -27,20 +27,20 @@
 
 - name: "cis: add '{{ item.name }}' to WAF when not yet deployed"
   ansible.builtin.shell: |
-    ibmcloud cis managed-waf deployment-add-ruleset {{ (_cis_domains_result.stdout | from_json)[0].id }} {{ _cis_deploy_ruleset_id_result.stdout }} \
+    ibmcloud cis managed-waf deployment-add-ruleset {{ _cis_domain_id }} {{ _cis_deploy_ruleset_id_result.stdout }} \
     -i "{{ cis_service_name }}" --enabled true
   when: _cis_deploy_rule_id | trim | length == 0
 
 - name: "cis: get deployed rule id for '{{ item.name }}'"
   ansible.builtin.shell: |
-    ibmcloud cis managed-waf deployments {{ (_cis_domains_result.stdout | from_json)[0].id }} \
+    ibmcloud cis managed-waf deployments {{ _cis_domain_id }} \
     -i "{{ cis_service_name }}" --output json | jq -r --arg target_id "{{ _cis_deploy_ruleset_id_result.stdout }}" \
     '(.rules // [])[] | select(.action_parameters.id == $target_id) | .id'
   register: _cis_deploy_rule_id_result
 
 - name: "cis: enable '{{ item.name }}' if deployed but disabled"
   ansible.builtin.shell: |
-    ibmcloud cis managed-waf deployment-update-ruleset {{ (_cis_domains_result.stdout | from_json)[0].id }} {{ _cis_deploy_rule_id_result.stdout }} \
+    ibmcloud cis managed-waf deployment-update-ruleset {{ _cis_domain_id }} {{ _cis_deploy_rule_id_result.stdout }} \
     --enabled true --reset-all -i "{{ cis_service_name }}"
   when:
     - _cis_deploy_rule_id | trim | length > 0

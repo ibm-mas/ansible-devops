@@ -3,13 +3,13 @@
 # -----------------------------------------------------------------------------
 - name: "cis : Check whether WAF rule exists: {{ item.rule_id }}"
   ansible.builtin.shell: |
-    if echo $(ibmcloud cis waf-rule {{(_cis_domains_result.stdout | from_json)[0].id}} {{ item.rule_package_id }} {{ item.rule_id }} -i "{{cis_service_name}}") | grep 'Invalid or missing WAF Rule ID'; then echo "not_exists"; else echo "exists"; fi
+    if echo $(ibmcloud cis waf-rule {{_cis_domain_id}} {{ item.rule_package_id }} {{ item.rule_id }} -i "{{cis_service_name}}") | grep 'Invalid or missing WAF Rule ID'; then echo "not_exists"; else echo "exists"; fi
   register: _cis_waf_rule_exists_result
   failed_when: false
 
 - name: "cis : Check if WAF is deprecated (Managed Rulesets in use)"
   ansible.builtin.shell: |
-    if echo $(ibmcloud cis waf-rule {{(_cis_domains_result.stdout | from_json)[0].id}} {{ item.rule_package_id }} {{ item.rule_id }} -i "{{cis_service_name}}") | grep 'WAF is deprecated for this zone'; then echo "deprecated"; else echo "not_deprecated"; fi
+    if echo $(ibmcloud cis waf-rule {{_cis_domain_id}} {{ item.rule_package_id }} {{ item.rule_id }} -i "{{cis_service_name}}") | grep 'WAF is deprecated for this zone'; then echo "deprecated"; else echo "not_deprecated"; fi
   register: _cis_waf_deprecated_result
   failed_when: false
   when: _cis_waf_rule_exists_result.stdout_lines[-1] == "exists"
@@ -23,7 +23,7 @@
 
 - name: "cis : Check WAF rule mode:  {{ item.rule_id }}"
   ansible.builtin.shell: |
-    if echo $(ibmcloud cis waf-rule {{(_cis_domains_result.stdout | from_json)[0].id}} {{ item.rule_package_id }} {{ item.rule_id }} -i "{{cis_service_name}}") | grep 'Mode disable'; then echo "disabled"; else echo "not_disabled"; fi
+    if echo $(ibmcloud cis waf-rule {{_cis_domain_id}} {{ item.rule_package_id }} {{ item.rule_id }} -i "{{cis_service_name}}") | grep 'Mode disable'; then echo "disabled"; else echo "not_disabled"; fi
   register: _cis_waf_rule_mode_result
   failed_when: false
   when:
@@ -39,7 +39,7 @@
 
 - name: "cis : Disable WAF rule: {{ item.rule_id }}"
   ansible.builtin.shell: |
-    ibmcloud cis waf-rule-mode-set {{(_cis_domains_result.stdout | from_json)[0].id}} {{ item.rule_package_id }} {{ item.rule_id }} disable -i "{{cis_service_name}}"
+    ibmcloud cis waf-rule-mode-set {{_cis_domain_id}} {{ item.rule_package_id }} {{ item.rule_id }} disable -i "{{cis_service_name}}"
   register: _cis_waf_rule_disable_result
   failed_when: false
   when:
