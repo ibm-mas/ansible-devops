@@ -7,48 +7,10 @@
 - name: "Load component support matrix"
   include_vars: "{{ role_path }}/vars/component-support.yml"
 
-# 2. Determine storage classes (if not already set by parent cp4d role)
+# 2. Determine storage classes
 # -----------------------------------------------------------------------------
-- name: "Load default storage class information"
-  include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
-
-- name: "Set default File Storage if not set"
-  when:
-    - defaultStorageClasses.success
-    - cpd_primary_storage_class is not defined or cpd_primary_storage_class == ""
-  set_fact:
-    cpd_primary_storage_class: "{{ defaultStorageClasses.rwx }}"
-
-- name: "Set default Block Storage if not set"
-  when:
-    - defaultStorageClasses.success
-    - cpd_metadata_storage_class is not defined or cpd_metadata_storage_class == ""
-  set_fact:
-    cpd_metadata_storage_class: "{{ defaultStorageClasses.rwo }}"
-
-- name: "Assert that primary storage class has been defined (RWX)"
-  assert:
-    that: cpd_primary_storage_class is defined and cpd_primary_storage_class != ""
-    fail_msg: "cpd_primary_storage_class must be defined (set CPD_PRIMARY_STORAGE_CLASS or CPD_SERVICE_STORAGE_CLASS)"
-
-- name: "Assert that metadata storage class has been defined (RWO)"
-  assert:
-    that: cpd_metadata_storage_class is defined and cpd_metadata_storage_class != ""
-    fail_msg: "cpd_metadata_storage_class must be defined (set CPD_METADATA_STORAGE_CLASS or CPD_SERVICE_BLOCK_STORAGE_CLASS)"
-
-# Map to the variables expected by wait-ccs.yml for backward compatibility
-- name: "Set storage class variables for service tasks"
-  set_fact:
-    cpd_service_storage_class: "{{ cpd_primary_storage_class }}"
-    cpd_service_block_storage_class: "{{ cpd_metadata_storage_class }}"
-
-- name: "Debug CP4D storage class configuration"
-  debug:
-    msg:
-      - "Primary Storage class (RWX) ............ {{ cpd_primary_storage_class }}"
-      - "Metadata Storage class (RWO) ........... {{ cpd_metadata_storage_class }}"
-      - "Service Storage class .................. {{ cpd_service_storage_class }}"
-      - "Service Block Storage class ............ {{ cpd_service_block_storage_class }}"
+- name: "Determine storage classes"
+  include_tasks: "{{ role_path }}/tasks/determine-storage-classes.yml"
 
 # 3. Get component support information
 # -----------------------------------------------------------------------------
@@ -56,7 +18,7 @@
   set_fact:
     component_support: "{{ component_support_matrix[cpd_service_name] | default({}) }}"
 
-# 3. Validate component is supported
+# 4. Validate component is supported
 # -----------------------------------------------------------------------------
 - name: "Check if component {{ cpd_service_name }} is defined in support matrix"
   assert:
@@ -64,7 +26,7 @@
       - component_support | length > 0
     fail_msg: "Component '{{ cpd_service_name }}' is not defined in component support matrix"
 
-# 3.1. Override installation method based on CPD version
+# 4.1. Override installation method based on CPD version
 # -----------------------------------------------------------------------------
 # For CPD 5.3.1 and above: Use Helm (if supported)
 # For CPD 5.2.0 and below: Use OLM (if supported)
@@ -104,7 +66,7 @@
       - "Required method (after version check): {{ component_support.required_method | default('not set') }}"
       - "Version comparison (>= 5.3.1): {{ cpd_product_version is version('5.3.1', '>=') }}"
 
-# 4. Determine installation method from component support matrix
+# 5. Determine installation method from component support matrix
 # (already set by version-based override above)
 # -----------------------------------------------------------------------------
 - name: "Resolve installation method for {{ cpd_service_name }}"
@@ -134,7 +96,7 @@
       - "Support OLM: {{ component_support.support_olm | default(false) }}"
       - "Support Helm: {{ component_support.support_helm | default(false) }}"
 
-# 5. Route to appropriate installation method
+# 6. Route to appropriate installation method
 # -----------------------------------------------------------------------------
 - name: "Install {{ cpd_service_name }} via OLM"
   when: resolved_install_method == 'olm'
