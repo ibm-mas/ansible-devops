@@ -1,0 +1,73 @@
+---
+# Remove CP4D services that were deprecated and removed in CPD 5.2.0
+# -----------------------------------------------------------------------------
+# SPSS Modeler (ibm-cpd-spss) and CanvasBase (ibm-cpd-canvasbase) are no
+# longer supported as standalone OLM-managed services in CPD 5.2.0+.
+# Their subscriptions and CSVs must be removed before the platform upgrade
+# or they will conflict with the 5.2.0 operator catalog.
+#
+# This task runs automatically when upgrading from CPD 5.1.x to 5.2.0.
+# It is safe to run if the services are already absent (failed_when: false).
+
+- name: "cleanup-deprecated-services : Check if this is a 5.1.x to 5.2.0 upgrade"
+  set_fact:
+    cpd_remove_deprecated_services: >-
+      {{
+        is_cpd_upgrade | default(false) | bool and
+        existing_zen_cr_version is defined and
+        existing_zen_cr_version is version('5.2', '<') and
+        cpd_product_version == '5.2.0'
+      }}
+
+- name: "cleanup-deprecated-services : Debug"
+  debug:
+    msg:
+      - "Is CPD upgrade ......................... {{ is_cpd_upgrade | default(false) }}"
+      - "Existing Zen version ................... {{ existing_zen_cr_version | default('N/A') }}"
+      - "Target CPD version ..................... {{ cpd_product_version }}"
+      - "Remove deprecated services ............. {{ cpd_remove_deprecated_services }}"
+
+- name: "cleanup-deprecated-services : Remove deprecated services (SPSS Modeler, CanvasBase)"
+  when: cpd_remove_deprecated_services | bool
+  block:
+    # --- SPSS Modeler ---
+    - name: "cleanup-deprecated-services : Delete ibm-cpd-spss Subscription"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: Subscription
+        namespace: "{{ cpd_operators_namespace }}"
+        label_selectors:
+          - "operators.coreos.com/ibm-cpd-spss.{{ cpd_operators_namespace }}"
+      failed_when: false
+
+    - name: "cleanup-deprecated-services : Delete ibm-cpd-spss ClusterServiceVersion"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: ClusterServiceVersion
+        namespace: "{{ cpd_operators_namespace }}"
+        label_selectors:
+          - "operators.coreos.com/ibm-cpd-spss.{{ cpd_operators_namespace }}"
+      failed_when: false
+
+    # --- CanvasBase ---
+    - name: "cleanup-deprecated-services : Delete ibm-cpd-canvasbase Subscription"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: Subscription
+        namespace: "{{ cpd_operators_namespace }}"
+        label_selectors:
+          - "operators.coreos.com/ibm-cpd-canvasbase.{{ cpd_operators_namespace }}"
+      failed_when: false
+
+    - name: "cleanup-deprecated-services : Delete ibm-cpd-canvasbase ClusterServiceVersion"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: ClusterServiceVersion
+        namespace: "{{ cpd_operators_namespace }}"
+        label_selectors:
+          - "operators.coreos.com/ibm-cpd-canvasbase.{{ cpd_operators_namespace }}"
+      failed_when: false
