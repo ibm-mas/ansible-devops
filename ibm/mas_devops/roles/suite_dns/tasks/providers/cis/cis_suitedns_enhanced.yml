@@ -141,10 +141,25 @@
 
 - ansible.builtin.include_tasks: tasks/providers/cis/cis_domain_setting.yml
 
+- name: "cis : ip-allowlist — mas version check"
+  when:
+    - cis_allowed_ips is defined and cis_allowed_ips | trim | length > 0
+  ansible.builtin.debug:
+    msg: >-
+      {% if mas_channel is not defined or mas_channel == "" %}
+      MAS channel is not set — IP allowlist is not supported, skipping.
+      {% elif mas_channel.split('.')[:2] | join('.') is version('9.1', '>=') %}
+      MAS channel is '{{ mas_channel }}' (>= 9.1) — IP allowlist will run.
+      {% else %}
+      MAS channel is '{{ mas_channel }}' (< 9.1) — IP allowlist is not supported, skipping.
+      {% endif %}
+
 - name: "cis : configure WAF IP allowlist for MAS"
   when:
     - cis_waf | bool
     - is_mas_mode
+    - mas_channel is defined and mas_channel != ""
+    - mas_channel.split('.')[:2] | join('.') is version('9.1', '>=')
   ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist.yml
   vars:
     instance_id: "{{ mas_instance_id }}"
