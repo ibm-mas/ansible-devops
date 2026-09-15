@@ -1251,6 +1251,7 @@ In OCP 4.12+, to avoid CIS webhook deployment failure at start up, this role wil
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>CIS_ALLOWED_IPS</code></li>
 <li>Default: None</li>
+<li><strong>Supported MAS versions</strong>: <code>9.1.x</code> and above only. This variable is ignored when <code>mas_channel</code> is set to <code>9.0.x</code> or earlier.</li>
 </ul>
 <p><strong>Purpose</strong>: Restricts access to MAS public routes by creating a CIS WAF custom rule with the expression:</p>
 <pre><code>(not ip.src in {&lt;ip1&gt; &lt;ip2&gt; ...} and http.host contains "&lt;mas_domain&gt;")
@@ -1264,10 +1265,13 @@ In OCP 4.12+, to avoid CIS webhook deployment failure at start up, this role wil
 <p><strong>Impact</strong>:
 - <strong>Set</strong>: Creates or updates a WAF block rule scoped to <code>mas_domain</code> — only the listed IPs can access the instance
 - <strong>Unset/empty</strong>: Deletes the existing WAF block rule, restoring unrestricted access</p>
+<p><strong>MAS version requirement</strong>:
+IP allowlisting requires MAS <code>9.1.x</code> or above. When <code>mas_channel</code> is <code>9.0.x</code> or earlier, the WAF allowlist task is automatically skipped regardless of whether <code>cis_allowed_ips</code> is set. To use IP allowlisting, ensure <code>mas_channel</code> is set to <code>9.1.x</code> or later.</p>
 <p><strong>Related variables</strong>:
 - <code>cis_service_name</code>: CIS instance used to manage the rule
 - <code>cis_enhanced_security</code>: Should be enabled when using IP allowlisting
-- <code>mas_domain</code>: Used to scope the WAF rule to the correct MAS instance domain</p>
+- <code>mas_domain</code>: Used to scope the WAF rule to the correct MAS instance domain
+- <code>mas_channel</code>: Must be <code>9.1.x</code> or above for allowlisting to take effect</p>
 <p><strong>Note</strong>: Requires <code>dns_provider=cis</code> and CIS enhanced security to be enabled. The Custom WAF rule is identified by the description <code>mas-ip-allowlist-&lt;mas_domain&gt;</code> and is created/updated/deleted automatically based on whether this variable is set.</p>
 <h3 id="aws-route-53">AWS Route 53<a class="headerlink" href="#aws-route-53" title="Permanent link">¤</a></h3>
 <p><strong>Prerequisites:</strong> To run this role successfully you must have already installed the <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">AWS CLI</a>.
