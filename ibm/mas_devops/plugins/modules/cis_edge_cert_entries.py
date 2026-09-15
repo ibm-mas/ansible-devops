@@ -52,6 +52,11 @@ def main():
             required = False,
             default = "",
         ),
+        cis_subdomain = dict(
+            type = "str",
+            required = False,
+            default = "",
+        ),
         dns_zone = dict(
             type = "str",
         ),
@@ -68,6 +73,7 @@ def main():
     ibmCloudApiKey = module.params['ibmcloud_apikey']
     masInstanceId = module.params['mas_instance_id']
     masDomain = module.params['mas_domain']
+    cisSubdomain = module.params['cis_subdomain']
     edgeCertEntries = module.params['edge_cert_entries']
 
     # User may want to select an specific zone
@@ -154,7 +160,15 @@ def main():
                     if masInstanceId in host:
                         existingCertHosts.append(host)
 
-        # Fallback filter: when no hosts matched by instance ID, use mas_domain
+        # Fallback filter: when no hosts matched by instance ID, use cis_subdomain
+        if len(existingCertHosts) == 0 and cisSubdomain:
+            for certs in results:
+                if certs['type'] == "advanced":
+                    for host in certs['hosts']:
+                        if cisSubdomain in host:
+                            existingCertHosts.append(host)
+
+        # Fallback filter: when no hosts matched by instance ID or subdomain, use mas_domain
         if len(existingCertHosts) == 0 and masDomain:
             for certs in results:
                 if certs['type'] == "advanced":

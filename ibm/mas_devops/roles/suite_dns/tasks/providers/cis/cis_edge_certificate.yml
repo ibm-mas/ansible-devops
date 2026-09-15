@@ -50,7 +50,14 @@
   set_fact:
     dedicated_list: "{{ _cis_certificates.stdout | from_json | selectattr('hosts','search','(^|\\.)' + mas_instance_id + '\\.') | selectattr('type', 'equalto', 'advanced') | list }}"
 
-- name: "cis : fallback - filter certs by mas_domain when mas_instance_id filter yields no results"
+- name: "cis : fallback - filter certs by cis_subdomain when mas_instance_id filter yields no results"
+  when:
+    - dedicated_list | length == 0
+    - cis_subdomain is defined and cis_subdomain != ''
+  set_fact:
+    dedicated_list: "{{ _cis_certificates.stdout | from_json | selectattr('hosts','search', cis_subdomain | regex_escape) | selectattr('type', 'equalto', 'advanced') | list }}"
+
+- name: "cis : fallback - filter certs by mas_domain when mas_instance_id and cis_subdomain filters yield no results"
   when:
     - dedicated_list | length == 0
     - mas_domain is defined and mas_domain != ''
@@ -59,7 +66,17 @@
 
 - name: "cis : debug filter applied"
   debug:
-    msg: "Edge cert filter: {{ 'mas_instance_id=' + mas_instance_id if (dedicated_list | length == 0 or (_cis_certificates.stdout | from_json | selectattr('hosts','search','(^|\\.)' + mas_instance_id + '\\.') | list | length > 0)) else 'mas_domain=' + mas_domain }}"
+    msg: >-
+      Edge cert filter:
+      {%- if (_cis_certificates.stdout | from_json | selectattr('hosts','search','(^|\\.)' + mas_instance_id + '\\.') | selectattr('type', 'equalto', 'advanced') | list | length > 0) %}
+        mas_instance_id={{ mas_instance_id }}
+      {%- elif (cis_subdomain is defined and cis_subdomain != '' and _cis_certificates.stdout | from_json | selectattr('hosts','search', cis_subdomain | regex_escape) | selectattr('type', 'equalto', 'advanced') | list | length > 0) %}
+        cis_subdomain={{ cis_subdomain }}
+      {%- elif (mas_domain is defined and mas_domain != '') %}
+        mas_domain={{ mas_domain }}
+      {%- else %}
+        no matching filter found
+      {%- endif %}
 
 - name: "cis : Build non-dro certificate list (exclude certs whose first host starts with dro.)"
   set_fact:
@@ -97,6 +114,7 @@
         ibmcloud_apikey: "{{ cis_apikey }}"
         edge_cert_entries: "{{ edge_cert_routes }}"
         mas_instance_id: "{{ mas_instance_id }}"
+        cis_subdomain: "{{ cis_subdomain | default('') }}"
         mas_domain: "{{ mas_domain | default('') }}"
       register: edge_cert_output
 
