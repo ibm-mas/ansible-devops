@@ -122,6 +122,14 @@
       debug:
         msg: '{{ edge_cert_output }}'
 
+- name: "cis : Certificate already exists, no action required"
+  debug:
+    msg: "Edge certificate already exists (id: {{ dedicatedId }}) and all required hosts are present - skipping certificate order"
+  when:
+    - hasDedicated
+    - not override_edge_certs
+    - edge_cert_output is defined and not edge_cert_output["reorder"]
+
 - name: "cis : Delete ALL existing advanced edge certificates for this instance"
   ansible.builtin.shell: |
     ibmcloud cis certificate-delete {{ _cis_domain_id }} {{ item.id }} -i "{{ cis_service_name }}" -f
