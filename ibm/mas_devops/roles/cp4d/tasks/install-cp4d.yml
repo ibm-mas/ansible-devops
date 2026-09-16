@@ -17,9 +17,38 @@
   set_fact:
     cpd_platform_cr_name: "ibmcpd"
 
+- when:
+    - existing_ibmcpd_lookup.resources is defined
+    - existing_ibmcpd_lookup.resources | length > 0
+    - existing_ibmcpd_lookup.resources[0].spec.iamIntegration is defined
+  set_fact:
+    cpd_iam_integration: "{{ existing_ibmcpd_lookup.resources[0].spec.iamIntegration }}"
+
+# If the old-name lookup found nothing, also check under the current cpd_platform_cr_name
+# (typically 'ibmcpd-cr') so that iamIntegration is preserved on upgrade regardless of CR name.
+- name: "install-cp4d : Lookup existing CloudPak for Data CR named '{{ cpd_platform_cr_name }}'"
+  when:
+    - existing_ibmcpd_lookup.resources is defined
+    - existing_ibmcpd_lookup.resources | length == 0
+  kubernetes.core.k8s_info:
+    api_version: cpd.ibm.com/v1
+    name: "{{ cpd_platform_cr_name }}"
+    namespace: "{{ cpd_instance_namespace }}"
+    kind: Ibmcpd
+  register: existing_ibmcpd_cr_lookup
+
+- when:
+    - existing_ibmcpd_cr_lookup is not skipped
+    - existing_ibmcpd_cr_lookup.resources is defined
+    - existing_ibmcpd_cr_lookup.resources | length > 0
+    - existing_ibmcpd_cr_lookup.resources[0].spec.iamIntegration is defined
+  set_fact:
+    cpd_iam_integration: "{{ existing_ibmcpd_cr_lookup.resources[0].spec.iamIntegration }}"
+
 - debug:
     msg:
       - "IbmCpd custom resource name: {{ cpd_platform_cr_name }}"
+      - "iamIntegration: {{ cpd_iam_integration }}"
 
 
 # 1. Create CloudPak for Data CR
@@ -218,7 +247,97 @@
     apply: yes
     template: "templates/cpd_platform/zenextension-icp4data-perspective.yml.j2"
 
-# 6. Lookup CPD credentials
+# 6. Configure cross-namespace networking and TLS for IAM integration
+# -----------------------------------------------------------------------------
+# When IAM integration is enabled in CP4D 5.x, the Identity Provider UI (common-web-ui)
+# in the operators namespace calls internal-nginx-svc.ibm-cpd-operators.svc.cluster.local.
+# We must ensure:
+#   1. internal-nginx-svc DNS resolves in the operators namespace via an ExternalName service.
+#   2. internal-tls-certificate includes internal-nginx-svc.{{ cpd_operators_namespace }}.svc.cluster.local in its SANs.
+# -----------------------------------------------------------------------------
+- when: cpd_iam_integration | bool
+  block:
+    - name: "install-cp4d : Create internal-nginx-svc bridge in operators namespace"
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: internal-nginx-svc
+            namespace: "{{ cpd_operators_namespace }}"
+          spec:
+            type: ExternalName
+            externalName: "internal-nginx-svc.{{ cpd_instance_namespace }}.svc.cluster.local"
+            ports:
+              - name: https
+                port: 12443
+                protocol: TCP
+                targetPort: 12443
+
+    - name: "install-cp4d : Lookup internal-tls-certificate in instance namespace"
+      kubernetes.core.k8s_info:
+        api_version: cert-manager.io/v1
+        kind: Certificate
+        name: internal-tls-certificate
+        namespace: "{{ cpd_instance_namespace }}"
+      register: internal_tls_cert_lookup
+
+    - when:
+        - internal_tls_cert_lookup.resources is defined
+        - internal_tls_cert_lookup.resources | length > 0
+        - "'internal-nginx-svc.' + cpd_operators_namespace + '.svc.cluster.local' not in internal_tls_cert_lookup.resources[0].spec.dnsNames"
+      block:
+        - name: "install-cp4d : Update internal-tls-certificate with operators namespace SAN"
+          vars:
+            target_san: "internal-nginx-svc.{{ cpd_operators_namespace }}.svc.cluster.local"
+            merged_dns_names: "{{ (internal_tls_cert_lookup.resources[0].spec.dnsNames + [target_san]) | unique }}"
+          kubernetes.core.k8s:
+            state: patched
+            api_version: cert-manager.io/v1
+            kind: Certificate
+            name: internal-tls-certificate
+            namespace: "{{ cpd_instance_namespace }}"
+            definition:
+              spec:
+                dnsNames: "{{ merged_dns_names }}"
+
+        - name: "install-cp4d : Delete internal-tls secret to trigger immediate re-issuance"
+          kubernetes.core.k8s:
+            state: absent
+            api_version: v1
+            kind: Secret
+            name: internal-tls
+            namespace: "{{ cpd_instance_namespace }}"
+
+        - name: "install-cp4d : Wait for internal-tls-certificate to be Ready"
+          kubernetes.core.k8s_info:
+            api_version: cert-manager.io/v1
+            kind: Certificate
+            name: internal-tls-certificate
+            namespace: "{{ cpd_instance_namespace }}"
+          register: cert_ready_check
+          until:
+            - cert_ready_check.resources is defined
+            - cert_ready_check.resources | length > 0
+            - cert_ready_check.resources[0].status.conditions is defined
+            - (cert_ready_check.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | first | default('False')) == 'True'
+          retries: 30
+          delay: 10
+
+        - name: "install-cp4d : Restart ibm-nginx to load updated TLS certificate"
+          shell: |
+            oc rollout restart deployment/ibm-nginx -n {{ cpd_instance_namespace }}
+            oc rollout status deployment/ibm-nginx -n {{ cpd_instance_namespace }} --timeout=180s
+          ignore_errors: true
+
+        - name: "install-cp4d : Restart common-web-ui to clear stale TLS connections"
+          shell: |
+            oc rollout restart deployment/common-web-ui -n {{ cpd_operators_namespace }}
+            oc rollout status deployment/common-web-ui -n {{ cpd_operators_namespace }} --timeout=180s
+          ignore_errors: true
+
+# 7. Lookup CPD credentials
 # -----------------------------------------------------------------------------
 # If 'ibm-iam-bindinfo-platform-auth-idp-credentials' exists, then CPD 4.8 has been installed/upgraded
 # If 'admin-user-details' secret exists, then CPD 4.6 has been installed/upgraded

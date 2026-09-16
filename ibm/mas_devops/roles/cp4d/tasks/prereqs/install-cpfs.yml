@@ -26,7 +26,8 @@
     that: cpfs_available_channel is version(cpfs_channel, '>=')
     fail_msg: "The channel available in ibm-common-service-operator package manifest (cpfs_available_channel) is older than the minimum required version {{ cpfs_channel }} needed by Cloud Pak for Data {{ cpd_product_version }}!"
 
-# Backup and delete existing common-service-maps
+# Preserve existing common-service-maps on upgrade; only install on fresh installs
+# -----------------------------------------------------------------------------
 - name: "Lookup existing common-service-maps configmap"
   kubernetes.core.k8s_info:
     api_version: v1
@@ -38,31 +39,10 @@
 - debug:
     var: common_service_maps_lookup
 
-- when:
-    - common_service_maps_lookup.resources is defined
-    - common_service_maps_lookup.resources | length == 1
-  block:
-    - name: "Backup existing common-service-maps configmap"
-      vars:
-        data: "{{ common_service_maps_lookup.resources[0] }}"
-      kubernetes.core.k8s:
-        state: present
-        namespace: "kube-public"
-        template: "templates/cpfs/common-service-maps-cm-blank.yml.j2"
-
-    - name: "Delete existing common-service-maps configmap"
-      kubernetes.core.k8s:
-        state: absent
-        kind: ConfigMap
-        namespace: "kube-public"
-        name: "common-service-maps"
-      register: common_service_maps_delete
-
-    - debug:
-        var: common_service_maps_delete
-
-# Backup and delete existing common-service-maps
 - name: "Install common-services-maps configmap"
+  when:
+    - common_service_maps_lookup.resources is defined
+    - common_service_maps_lookup.resources | length == 0
   kubernetes.core.k8s:
     apply: yes
     template: "templates/cpfs/common-service-maps-cm.yml.j2"
@@ -150,3 +130,15 @@
   retries: 5 # This can fail transiently if the common service webhook is not yet ready
   delay: 12
   until: not result.failed
+
+# Reconcile platform-oidc-credentials after CPFS upgrade
+# -----------------------------------------------------------------------------
+# After a CPFS upgrade the IAM operator regenerates platform-oidc-credentials
+# with a new client ID that is not yet registered in the IM PostgreSQL database,
+# causing common-web-ui to fail token requests and the login-page identity
+# provider dropdown (Enterprise LDAP, OpenShift authentication) to disappear.
+# This task detects and corrects the mismatch before the rest of the CP4D
+# upgrade proceeds.
+- name: "Reconcile OIDC client credentials after CPFS upgrade"
+  when: is_cpd_upgrade | default(false)
+  include_tasks: "tasks/upgrade/reconcile-oidc-client.yml"

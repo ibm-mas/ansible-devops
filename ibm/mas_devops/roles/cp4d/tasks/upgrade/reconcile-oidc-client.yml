@@ -1,0 +1,163 @@
+---
+# Reconcile platform-oidc-credentials after a CPFS upgrade
+# -----------------------------------------------------------------------------
+# The CPFS IAM operator regenerates the platform-oidc-credentials secret with a
+# new client ID on upgrade, but does not re-register that client in the EDB
+# PostgreSQL `im` database (oauthdbschema.oauthclient).  This leaves common-web-ui
+# unable to obtain a management token, so it can never call /v3/auth/idsource and
+# the login-page dropdown (Enterprise LDAP, OpenShift authentication, etc.) is
+# always empty — regardless of what LDAP/OIDC configuration is in the database.
+#
+# This task detects and corrects the mismatch:
+#   1. Read the client ID that is currently stored in platform-oidc-credentials.
+#   2. Query the platform-identity-provider pod to find the client ID that is
+#      actually registered in the database.
+#   3. If the two values differ, decode the registered client's XOR-encoded
+#      password from the database and patch platform-oidc-credentials to use
+#      the registered client ID and its decoded secret.
+#   4. Restart common-web-ui so it picks up the corrected credentials.
+
+# 1. Read the current (potentially mismatched) secret
+# -----------------------------------------------------------------------------
+- name: "reconcile-oidc-client : Read platform-oidc-credentials secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: platform-oidc-credentials
+    namespace: "{{ cpd_operators_namespace }}"
+  register: oidc_creds_lookup
+
+- name: "reconcile-oidc-client : Skip if secret does not exist"
+  when: oidc_creds_lookup.resources | length == 0
+  debug:
+    msg: "platform-oidc-credentials secret not found in {{ cpd_operators_namespace }} — skipping OIDC client reconciliation"
+
+- when: oidc_creds_lookup.resources | length > 0
+  block:
+    - name: "reconcile-oidc-client : Decode current client ID from secret"
+      set_fact:
+        current_oidc_client_id: "{{ oidc_creds_lookup.resources[0].data.WLP_CLIENT_ID | b64decode }}"
+
+    # 2. Read the EDB superuser credentials and RW endpoint
+    # -------------------------------------------------------------------------
+    - name: "reconcile-oidc-client : Read EDB superuser credentials"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        name: common-service-db-superuser
+        namespace: "{{ cpd_operators_namespace }}"
+      register: edb_superuser_lookup
+
+    - name: "reconcile-oidc-client : Read EDB RW endpoint"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: ConfigMap
+        name: im-datastore-edb-cm
+        namespace: "{{ cpd_operators_namespace }}"
+      register: edb_cm_lookup
+
+    - name: "reconcile-oidc-client : Set EDB connection facts"
+      set_fact:
+        edb_superuser: "{{ edb_superuser_lookup.resources[0].data.username | b64decode }}"
+        edb_superpass: "{{ edb_superuser_lookup.resources[0].data.password | b64decode }}"
+        edb_rw_host: "{{ edb_cm_lookup.resources[0].data.DATABASE_RW_ENDPOINT }}"
+
+    # 3. Find a running EDB pod (ships with psql at /usr/pgsql-16/bin/psql)
+    # -------------------------------------------------------------------------
+    - name: "reconcile-oidc-client : Find a running common-service-db pod"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: "{{ cpd_operators_namespace }}"
+        label_selectors:
+          - "postgresql=common-service-db"
+      register: edb_pod_lookup
+      retries: 10
+      delay: 30
+      until:
+        - edb_pod_lookup.resources is defined
+        - (edb_pod_lookup.resources | selectattr('status.phase', 'equalto', 'Running') | list | length) > 0
+
+    - name: "reconcile-oidc-client : Set EDB pod name"
+      set_fact:
+        edb_pod_name: "{{ (edb_pod_lookup.resources | selectattr('status.phase', 'equalto', 'Running') | list | first).metadata.name }}"
+
+    # 4. Query the database for the registered client ID
+    # -------------------------------------------------------------------------
+    - name: "reconcile-oidc-client : Query registered OIDC client from IM database"
+      shell: |
+        oc exec {{ edb_pod_name }} -n {{ cpd_operators_namespace }} \
+          -c postgres -- \
+          bash -c "PGPASSWORD='{{ edb_superpass }}' /usr/pgsql-16/bin/psql \
+            -h {{ edb_rw_host }} -U {{ edb_superuser }} -d im -tA \
+            -c \"SELECT clientid, clientsecret \
+                 FROM oauthdbschema.oauthclient \
+                 WHERE clientid NOT LIKE 'node_%' \
+                   AND clientid NOT IN ('admin','manage','zen_ui_client','common_web_ui') \
+                 LIMIT 1;\""
+      register: db_client_query
+      changed_when: false
+      no_log: true
+
+    # 5. Parse the query output  (format: "<clientid>|<xor-encoded-secret>")
+    # -------------------------------------------------------------------------
+    - name: "reconcile-oidc-client : Parse DB client ID and encoded secret"
+      set_fact:
+        db_oidc_client_id: "{{ db_client_query.stdout.split('|')[0] | trim }}"
+        db_oidc_client_secret_encoded: "{{ db_client_query.stdout.split('|')[1] | trim }}"
+      when: db_client_query.stdout | length > 0
+
+    # 6. Decode the Liberty XOR-encoded password  ({xor}base64...)
+    # -------------------------------------------------------------------------
+    - name: "reconcile-oidc-client : Decode XOR-encoded client secret from database"
+      shell: |
+        python3 - <<'EOF'
+        import base64, sys
+        encoded = "{{ db_oidc_client_secret_encoded | replace('{xor}', '') }}"
+        raw = base64.b64decode(encoded)
+        decoded = bytes(b ^ 0x5F for b in raw).decode()
+        print(decoded, end='')
+        EOF
+      register: db_oidc_secret_decoded
+      changed_when: false
+      no_log: true
+      when: db_oidc_client_id is defined
+
+    # 7. Patch the secret if the client ID does not match the DB registration
+    # -------------------------------------------------------------------------
+    - name: "reconcile-oidc-client : Log mismatch detection"
+      when:
+        - db_oidc_client_id is defined
+        - current_oidc_client_id != db_oidc_client_id
+      debug:
+        msg: >
+          CPFS upgrade mismatch detected — platform-oidc-credentials contains client
+          '{{ current_oidc_client_id }}' but the IM database has '{{ db_oidc_client_id }}'
+          registered. Patching the secret to restore login-page identity providers.
+
+    - name: "reconcile-oidc-client : Patch platform-oidc-credentials to match DB registration"
+      when:
+        - db_oidc_client_id is defined
+        - current_oidc_client_id != db_oidc_client_id
+      no_log: true
+      kubernetes.core.k8s:
+        state: patched
+        api_version: v1
+        kind: Secret
+        name: platform-oidc-credentials
+        namespace: "{{ cpd_operators_namespace }}"
+        definition:
+          data:
+            WLP_CLIENT_ID: "{{ db_oidc_client_id | b64encode }}"
+            WLP_CLIENT_SECRET: "{{ db_oidc_secret_decoded.stdout | b64encode }}"
+
+    # 8. Restart common-web-ui to pick up the corrected credentials
+    # -------------------------------------------------------------------------
+    - name: "reconcile-oidc-client : Restart common-web-ui to apply corrected OIDC credentials"
+      when:
+        - db_oidc_client_id is defined
+        - current_oidc_client_id != db_oidc_client_id
+      shell: |
+        oc rollout restart deployment/common-web-ui -n {{ cpd_operators_namespace }}
+        oc rollout status deployment/common-web-ui -n {{ cpd_operators_namespace }} --timeout=300s
+      ignore_errors: false
