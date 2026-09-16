@@ -1,0 +1,56 @@
+---
+
+- name: "roks-vpc : Fail if ibmcloud_apikey is not provided"
+  assert:
+    that: ibmcloud_apikey is defined and ibmcloud_apikey != ""
+    fail_msg: "ibmcloud_apikey property is required"
+
+
+# 1. Debug Info
+# -----------------------------------------------------------------------------
+- name: "roks-vpc : Debug information"
+  debug:
+    msg:
+      - "Cluster name ................. {{ cluster_name }}"
+      - "IBM Cloud API key ............ ********************"
+
+
+# 2. Login
+# -----------------------------------------------------------------------------
+- name: "roks-vpc : Login to ibmcloud account"
+  shell: |
+    ibmcloud login --apikey "{{ ibmcloud_apikey }}" -q --no-region
+
+
+# 3. Check if the roks-vpc cluster already exists
+# -----------------------------------------------------------------------------
+- name: "roks-vpc : Check if the roks-vpc cluster already exists"
+  shell: |
+    ibmcloud oc cluster get -c {{ cluster_name }} --output json
+  register: cluster_lookup
+  failed_when: "cluster_lookup.rc > 1"
+
+
+# 4. Deprovision roks-vpc cluster
+# -----------------------------------------------------------------------------
+- name: "roks-vpc : Deprovision ROKS VPC cluster"
+  when: cluster_lookup.rc == 0
+  shell: |
+    ibmcloud oc cluster rm --cluster {{ cluster_name }} --delete-storage --delete-openshift-registry-cos-bucket -f
+
+- name: "roks-vpc : ROKS VPC cluster does not exist"
+  when: cluster_lookup.rc == 1
+  debug:
+    msg: "Cluster {{ cluster_name }} does not exist so there is no action to take"
+
+
+# 5. Wait for the deprovision to complete
+# -----------------------------------------------------------------------------
+- name: "roks-vpc : Wait for cluster to be deprovisioned"
+  shell: |
+    ibmcloud oc cluster get -c {{ cluster_name }} --output json
+  register: cluster_lookup
+  failed_when: "cluster_lookup.rc > 1"
+  retries: 60
+  delay: 60 # 60s * 60 retries = 1 hour
+  until: cluster_lookup.rc == 1
