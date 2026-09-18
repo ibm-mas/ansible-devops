@@ -249,13 +249,16 @@
 
 # 6. Configure cross-namespace networking and TLS for IAM integration
 # -----------------------------------------------------------------------------
-# When IAM integration is enabled in CP4D 5.x, the Identity Provider UI (common-web-ui)
-# in the operators namespace calls internal-nginx-svc.ibm-cpd-operators.svc.cluster.local.
-# We must ensure:
+# When IAM integration is enabled, common-web-ui in cpd_operators_namespace connects to
+# internal-nginx-svc in cpd_operators_namespace.
+# When cpd_operators_namespace != cpd_instance_namespace:
 #   1. internal-nginx-svc DNS resolves in the operators namespace via an ExternalName service.
 #   2. internal-tls-certificate includes internal-nginx-svc.{{ cpd_operators_namespace }}.svc.cluster.local in its SANs.
 # -----------------------------------------------------------------------------
-- when: cpd_iam_integration | bool
+- when:
+    - is_cpd_upgrade | default(false)
+    - cpd_iam_integration | bool
+    - cpd_operators_namespace != cpd_instance_namespace
   block:
     - name: "install-cp4d : Create internal-nginx-svc bridge in operators namespace"
       kubernetes.core.k8s:
@@ -282,6 +285,11 @@
         name: internal-tls-certificate
         namespace: "{{ cpd_instance_namespace }}"
       register: internal_tls_cert_lookup
+      retries: 30
+      delay: 10
+      until:
+        - internal_tls_cert_lookup.resources is defined
+        - internal_tls_cert_lookup.resources | length > 0
 
     - when:
         - internal_tls_cert_lookup.resources is defined
