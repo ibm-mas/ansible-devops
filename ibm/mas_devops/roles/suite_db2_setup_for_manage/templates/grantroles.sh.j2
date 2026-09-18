@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# TEMPORARY WORKAROUND: This script is required for the current pre-release version
+# of the next-gen DB2U Helm chart. These role grants should be handled automatically
+# by the Helm chart in future releases. This workaround can be removed once the
+# chart properly configures these roles during deployment.
+
+if ! db2gcf -s | grep Available >/dev/null
+then
+
+    db2_kill
+    ipclean -a
+    db2start
+    sleep 5
+
+    if ! db2gcf -s | grep Available >/dev/null
+    then
+        echo "Instance is not up. Please check."
+        exit 1
+    fi
+
+fi
+
+db2 connect to {{ db2_dbname }}
+
+if [ $? -eq 0 ]; then
+
+    db2 "GRANT ROLE DASHDB_ENTERPRISE_ADMIN TO GROUP DBADMINUSERS"
+    grant_admin_group=$?
+    
+    db2 "GRANT ROLE DASHDB_ENTERPRISE_USER TO GROUP TENANTUSERS"
+    grant_user_group=$?
+    
+    db2 "GRANT ROLE DASHDB_ENTERPRISE_ADMIN TO USER DBADMIN"
+    grant_admin_user=$?
+
+    if [[ "$grant_admin_group" -eq "0" && "$grant_user_group" -eq "0" && "$grant_admin_user" -eq "0" ]]
+    then
+
+        echo "Role grants completed successfully"
+        echo "DBstatus-Success"
+
+    else
+
+        echo "Error detected during role grants."
+        exit 1
+
+    fi
+
+else
+
+    echo "Failed to connect to database!"
+    exit 1
+
+fi
