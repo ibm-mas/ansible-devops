@@ -13,11 +13,11 @@
     msg:
       - "AWS Hosted Zone name ................................... {{ route53_hosted_zone_name }}"
       - "AWS Hosted Zone region ................................. {{ route53_hosted_zone_region }}"
-      - "AWS Route53 Cluster Issuer ............................. {{ route53_prod_issuer_name }}"
 
-# 3. Create IAM Policy to allow cert-manager to add records to AWS Route53
+# 2. Create IAM Policy to allow cert-manager to add records to AWS Route53
 # -----------------------------------------------------------------------------
-- name: "aws-route53 : Create AWS IAM Policy to allow cert-manager to add records"
+- name: "aws-route53 : Create AWS IAM Policy to allow cert-manager to add records (MAS mode)"
+  when: is_mas_mode
   import_role:
     name: ibm.mas_devops.aws_policy
   vars:
@@ -35,7 +35,26 @@
         Action: route53:ListHostedZonesByName
         Resource: "*"
 
-# 4. Check AWS Route 53 hosted zone exists
+- name: "aws-route53 : Create AWS IAM Policy to allow cert-manager to add records (AI Service mode)"
+  when: is_aiservice_mode
+  import_role:
+    name: ibm.mas_devops.aws_policy
+  vars:
+    aws_policy_name: "{{ aiservice_instance_id }}-route53-policy"
+    aws_policy_statement:
+      - Effect: Allow
+        Action: route53:GetChange
+        Resource: arn:aws:route53:::change/*
+      - Effect: Allow
+        Action:
+          - route53:ChangeResourceRecordSets
+          - route53:ListResourceRecordSets
+        Resource: arn:aws:route53:::hostedzone/*
+      - Effect: Allow
+        Action: route53:ListHostedZonesByName
+        Resource: "*"
+
+# 3. Check AWS Route 53 hosted zone exists
 # -----------------------------------------------------------------------------
 - name: "aws-route53 : Lookup AWS Route53 Hosted zone instance"
   shell: |
@@ -56,19 +75,43 @@
   debug:
     var: route53_hosted_zone_id
 
-# 5. Create CNAMEs in the hosted zone
+# 4. Create CNAMEs in the hosted zone
 # -----------------------------------------------------------------------------
 - name: "aws-route53 : Create CNAMEs in the hosted zone {{ route53_hosted_zone_name }}"
-  include_tasks: "tasks/providers/route53/create-cnames.yml"
   when:
     - route53_subdomain is defined
     - route53_subdomain != ''
+  block:
+    - name: "aws-route53 : Create CNAMEs for MAS"
+      when: is_mas_mode
+      vars:
+        instance_id: "{{ mas_instance_id }}"
+      include_tasks: "tasks/providers/route53/create-cnames.yml"
 
-# 6. Create AWS Route 53 DNS-01 cluster issuer (skip when Let's Encrypt HTTP-01 is enabled)
+    - name: "aws-route53 : Create CNAMEs for AI Service"
+      when: is_aiservice_mode
+      vars:
+        instance_id: "{{ aiservice_instance_id }}"
+      include_tasks: "tasks/providers/route53/create-cnames.yml"
+
+# 5. Create AWS Route 53 Issuer (ClusterIssuer for MAS, Issuer for AI Service)
 # -----------------------------------------------------------------------------
-- name: "aws-route53 : Create AWS Route 53 cluster issuer: {{ route53_prod_issuer_name }}"
-  when: not mas_letsencrypt_http01_enabled
+- name: "aws-route53 : Create AWS Route 53 DNS-01 cluster issuer (MAS mode): {{ mas_instance_id }}-route53-le-prod (skip when Let's Encrypt HTTP-01 is enabled)"
+  when:
+    - not mas_letsencrypt_http01_enabled
+    - is_mas_mode
+  vars:
+    instance_id: "{{ mas_instance_id }}"
   kubernetes.core.k8s:
     namespace: "ibm-common-services"
     state: present
     template: templates/route53/clusterissuer.yml.j2
+
+- name: "aws-route53 : Create AWS Route 53 Issuer (AI Service mode): {{ aiservice_instance_id }}-route53-le-prod"
+  vars:
+    instance_id: "{{ aiservice_instance_id }}"
+    instance_namespace: "{{ aiservice_namespace }}"
+  kubernetes.core.k8s:
+    state: present
+    template: templates/route53/issuer.yml.j2
+  when: is_aiservice_mode
