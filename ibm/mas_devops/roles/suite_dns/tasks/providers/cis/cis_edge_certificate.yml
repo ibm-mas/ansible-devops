@@ -72,9 +72,33 @@
   set_fact:
     dedicated_list: "{{ _cis_certificates.stdout | from_json | selectattr('hosts','search','(^|\\.)' + instance_id + '\\.') }}"
 
-- name: "cis : exclude certs non advanced certificates"
+- name: "cis : fallback - filter certs by cis_subdomain when mas_instance_id filter yields no results"
+  when:
+    - dedicated_list | length == 0
+    - cis_subdomain is defined and cis_subdomain != ''
   set_fact:
-    dedicated_list: "{{ dedicated_list | selectattr('type', 'equalto', 'advanced') }}"
+    dedicated_list: "{{ _cis_certificates.stdout | from_json | selectattr('hosts','search', cis_subdomain | regex_escape) | selectattr('type', 'equalto', 'advanced') | list }}"
+
+- name: "cis : fallback - filter certs by mas_domain when mas_instance_id and cis_subdomain filters yield no results"
+  when:
+    - dedicated_list | length == 0
+    - mas_domain is defined and mas_domain != ''
+  set_fact:
+    dedicated_list: "{{ _cis_certificates.stdout | from_json | selectattr('hosts','search', mas_domain | regex_escape) | selectattr('type', 'equalto', 'advanced') | list }}"
+
+- name: "cis : debug filter applied"
+  debug:
+    msg: >-
+      Edge cert filter:
+      {%- if (_cis_certificates.stdout | from_json | selectattr('hosts','search','(^|\\.)' + mas_instance_id + '\\.') | selectattr('type', 'equalto', 'advanced') | list | length > 0) %}
+        mas_instance_id={{ mas_instance_id }}
+      {%- elif (cis_subdomain is defined and cis_subdomain != '' and _cis_certificates.stdout | from_json | selectattr('hosts','search', cis_subdomain | regex_escape) | selectattr('type', 'equalto', 'advanced') | list | length > 0) %}
+        cis_subdomain={{ cis_subdomain }}
+      {%- elif (mas_domain is defined and mas_domain != '') %}
+        mas_domain={{ mas_domain }}
+      {%- else %}
+        no matching filter found
+      {%- endif %}
 
 - name: "cis : Build non-dro certificate list (exclude certs whose first host starts with dro.)"
   set_fact:
@@ -117,6 +141,14 @@
     - name: "cis : dump output"
       debug:
         msg: '{{ edge_cert_output }}'
+
+- name: "cis : Certificate already exists, no action required"
+  debug:
+    msg: "Edge certificate already exists (id: {{ dedicatedId }}) and all required hosts are present - skipping certificate order"
+  when:
+    - hasDedicated
+    - not override_edge_certs
+    - edge_cert_output is defined and not edge_cert_output["reorder"]
 
 - name: "cis : Delete ALL existing advanced edge certificates for this instance"
   ansible.builtin.shell: |
