@@ -25,7 +25,7 @@
         pod: "c-{{ current_instance_name }}-db2u-0"
         command: >
           su - db2inst1 -c
-          "db2 -x \"SELECT TBSP_STATE FROM SYSIBMADM.TBSP_UTILIZATION WHERE TBSP_NAME = 'TEMPSPACE1'\""
+          "db2 connect to {{ db2_dbname }} && db2 -x \"SELECT TBSP_STATE FROM SYSIBMADM.TBSP_UTILIZATION WHERE TBSP_NAME = 'TEMPSPACE1'\""
       register: tempspace1_check
       failed_when: false
 
@@ -41,12 +41,12 @@
             pod: "c-{{ current_instance_name }}-db2u-0"
             command: >
               su - db2inst1 -c
-              "db2 -x \"SELECT PAGESIZE FROM SYSCAT.BUFFERPOOLS WHERE BPNAME = 'IBMDEFAULTBP'\""
+              "db2 connect to {{ db2_dbname }} && db2 -x \"SELECT PAGESIZE FROM SYSCAT.BUFFERPOOLS WHERE BPNAME = 'IBMDEFAULTBP'\""
           register: pagesize_result
 
         - name: "Parse page size for {{ current_instance_name }}"
           set_fact:
-            db2_tempspace_pagesize: "{{ pagesize_result.stdout | trim }}"
+            db2_tempspace_pagesize: "{{ pagesize_result.stdout | trim | regex_search('[0-9]+') }}"
 
         - name: "Create TEMPSPACE2 with page size {{ db2_tempspace_pagesize }} for {{ current_instance_name }}"
           kubernetes.core.k8s_exec:
@@ -54,7 +54,7 @@
             pod: "c-{{ current_instance_name }}-db2u-0"
             command: >
               su - db2inst1 -c
-              "db2 'CREATE TEMPORARY TABLESPACE TEMPSPACE2 PAGESIZE {{ db2_tempspace_pagesize }} MANAGED BY AUTOMATIC STORAGE'"
+              "db2 connect to {{ db2_dbname }} && db2 'CREATE TEMPORARY TABLESPACE TEMPSPACE2 PAGESIZE {{ db2_tempspace_pagesize }} MANAGED BY AUTOMATIC STORAGE'"
           register: create_tempspace2_result
 
         - name: "Drop TEMPSPACE1 for {{ current_instance_name }}"
@@ -63,7 +63,7 @@
             pod: "c-{{ current_instance_name }}-db2u-0"
             command: >
               su - db2inst1 -c
-              "db2 'DROP TABLESPACE TEMPSPACE1'"
+              "db2 connect to {{ db2_dbname }} && db2 'DROP TABLESPACE TEMPSPACE1'"
           register: drop_tempspace1_result
 
         - name: "Debug DBT5530N tablespace fix result for {{ current_instance_name }}"
@@ -179,7 +179,7 @@
         command: >
           su - db2inst1 -c "db2 get db config for {{ db2_dbname }} | grep STMTHEAP"
       register: stmtheap_verification
-      retries: 5
+      retries: 20
       delay: 30
       until:
         - stmtheap_verification.rc == 0
