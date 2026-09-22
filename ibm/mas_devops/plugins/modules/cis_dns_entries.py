@@ -142,6 +142,7 @@ def main():
             'X-Auth-User-Token': access_token
         }
 
+        module.warn("[cis_dns_entries] mascore-19099: calling _request_with_retry for zones GET")
         response = _request_with_retry("GET", url, headers=headers, payload=payload)
         json_response = response.json()
 
