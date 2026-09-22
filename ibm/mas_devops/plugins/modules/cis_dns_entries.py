@@ -142,7 +142,7 @@ def main():
             'X-Auth-User-Token': access_token
         }
 
-        response = requests.request("GET", url, headers=headers, data=payload)
+        response = _request_with_retry("GET", url, headers=headers, payload=payload)
         json_response = response.json()
 
         if response.status_code != 200:
