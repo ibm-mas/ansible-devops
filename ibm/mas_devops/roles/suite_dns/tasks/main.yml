@@ -4,51 +4,94 @@
   debug:
     msg: "dns_provider is not set, so this role will take no action"
 
-# 1. Check required properties
-# -----------------------------------------------------------------------------
-- name: "Check required properties"
+- name: "Detect execution mode and check required properties"
   when: dns_provider != ""
-  assert:
-    that:
-      - dns_provider is in supported_dns_providers
-    fail_msg: "'{{ dns_provider }}' is not a valid value for 'dns_provider' property! Supported DNS providers: {{ supported_dns_providers }}"
+  block:
+    - name: "Check DNS provider"
+      assert:
+        that:
+          - dns_provider is in supported_dns_providers
+        fail_msg: "'{{ dns_provider }}' is not a valid value for 'dns_provider' property! Supported DNS providers: {{ supported_dns_providers }}"
 
-- name: "Check required properties"
-  assert:
-    that:
-      - mas_instance_id is defined and mas_instance_id != ""
-    fail_msg: "MAS_INSTANCE_ID is not set"
+    - name: Detect MAS mode
+      when:
+        - mas_instance_id is defined and mas_instance_id != ""
+        - mas_workspace_id is defined and mas_workspace_id != ""
+        - mas_domain is defined and mas_domain != ""
+      ansible.builtin.set_fact:
+        is_mas_mode: true
 
-- name: "Check required properties"
-  assert:
-    that:
-      - mas_workspace_id is defined and mas_workspace_id != ""
-    fail_msg: "MAS_WORKSPACE_ID is not set"
+    - name: Detect AI Service mode
+      when:
+        - aiservice_instance_id is defined and aiservice_instance_id != ""
+        - aiservice_domain is defined and aiservice_domain != ""
+      ansible.builtin.set_fact:
+        is_aiservice_mode: true
 
-- name: Debug manual certificate installation
-  when: mas_manual_cert_mgmt is defined and mas_manual_cert_mgmt
-  debug:
-    msg: "mas_manual_cert_mgmt is True, so this role will take no action as this installation will use manual certificates previously configured"
+    - name: Check DNS Provider for AI Service
+      when:
+        - is_aiservice_mode
+        - dns_provider == 'cloudflare'
+      block:
+        - debug:
+            msg: "Cloudflare is not supported for AI Service."
 
-- name: "Proceed with suite_dns role execution"
-  when:
-    - dns_provider != ""
-    - not mas_manual_cert_mgmt
-  include_tasks: tasks/run.yml
+        - name: Disable AI Service mode
+          ansible.builtin.set_fact:
+            is_aiservice_mode: false
+
+    - name: Manual certificate installation for MAS
+      when:
+        - is_mas_mode
+        - mas_manual_cert_mgmt is defined and mas_manual_cert_mgmt
+      block:
+        - debug:
+            msg: "mas_manual_cert_mgmt is True, so this role will take no action for MAS as this installation will use manual certificates previously configured"
+
+        - name: Disable MAS mode
+          ansible.builtin.set_fact:
+            is_mas_mode: false
+
+    - name: Check domain when role is executed for MAS & AI Service
+      when:
+        - is_mas_mode and is_aiservice_mode
+      assert:
+        that:
+          - mas_domain == aiservice_domain
+        fail_msg: >-
+          When both MAS_INSTANCE_ID='{{ mas_instance_id }}' and AISERVICE_INSTANCE_ID='{{ aiservice_instance_id }}' are configured, MAS_DOMAIN and AISERVICE_DOMAIN are expected to be the same.
+          If you want to configure different domains, execute this role with either `MAS_INSTANCE_ID` or `AISERVICE_INSTANCE_ID`.
+
+    - debug:
+        msg:
+          - "MAS mode .......................... {% if is_mas_mode %}Enabled{% else %}Disabled{% endif %}"
+          - "AI Service mode ................... {% if is_aiservice_mode %}Enabled{% else %}Disabled{% endif %}"
+
+    - name: "Debug"
+      when: not (is_mas_mode or is_aiservice_mode)
+      debug:
+        msg:
+          - "no-op mode detected."
+
+    - name: "Proceed with suite_dns role execution"
+      when: is_mas_mode or is_aiservice_mode
+      include_tasks: tasks/run.yml
 
 # Create Let's Encrypt HTTP-01 issuer
+# Execute only for MAS (when MAS Instance Id & MAS workspace Id exists)
 # -----------------------------------------------------------------------------
-- name: "HTTP-01: Detect Certificate Manager"
+- name: Create Let's Encrypt HTTP-01 issuer
   when:
+    - mas_instance_id is defined and mas_instance_id != ""
+    - mas_workspace_id is defined and mas_workspace_id != ""
     - not mas_manual_cert_mgmt
     - mas_routing_mode == 'path'
     - mas_letsencrypt_http01_enabled
-    - cert_manager_namespace is not defined or cert_manager_namespace | length == 0
-  include_tasks: "{{ role_path }}/../../common_tasks/detect_cert_manager.yml"
+  block:
+    - name: "HTTP-01: Detect Certificate Manager"
+      when:
+        - cert_manager_namespace is not defined or cert_manager_namespace | length == 0
+      include_tasks: "{{ role_path }}/../../common_tasks/detect_cert_manager.yml"
 
-- name: "HTTP-01: Create Let's Encrypt HTTP-01 issuer"
-  when:
-    - not mas_manual_cert_mgmt
-    - mas_routing_mode == 'path'
-    - mas_letsencrypt_http01_enabled
-  include_tasks: tasks/http01.yml
+    - name: "HTTP-01: Create Let's Encrypt HTTP-01 issuer"
+      include_tasks: tasks/http01.yml
