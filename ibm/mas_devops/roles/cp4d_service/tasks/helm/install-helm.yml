@@ -240,10 +240,6 @@
           set_fact:
             ccs_dependency: "{{ component_info.helm_dependencies | selectattr('name', 'equalto', 'ccs') | first }}"
 
-        - name: "Determine target CCS version"
-          set_fact:
-            ccs_target_version: "{{ (ccs_dependency.case_version | default('13.0.0')) if not cpd_helm_airgap else (chart_version | default(ccs_dependency.case_version, true) | regex_replace('\\+.*$', '')) }}"
-
         - name: "Create CCS Custom Resource"
           kubernetes.core.k8s:
             state: present
@@ -258,7 +254,7 @@
                   app.kubernetes.io/managed-by: Ansible
                   app.kubernetes.io/name: ccs
               spec:
-                version: "{{ ccs_target_version }}"
+                version: "{{ ccs_dependency.case_version }}"
                 license:
                   accept: true
                   license: Enterprise
