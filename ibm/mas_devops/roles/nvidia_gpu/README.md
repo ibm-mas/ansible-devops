@@ -45,7 +45,7 @@ NVIDIA GPU Operator subscription channel.
 
 **When to use**: Use default for latest stable version. Specify older channel for compatibility with specific OpenShift versions or when stability is prioritized over features.
 
-**Valid values**: Valid GPU Operator channel versions (e.g., `v24.9`, `v24.6`, `v23.9`)
+**Valid values**: Valid GPU Operator channel versions (e.g., `v26.3`, `v24.9`, `v24.6`)
 
 **Impact**: Controls which operator version is installed and which features are available. Newer channels may require newer OpenShift versions.
 
