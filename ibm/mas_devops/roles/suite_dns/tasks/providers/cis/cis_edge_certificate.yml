@@ -51,6 +51,9 @@
   ansible.builtin.shell: |
     ibmcloud cis domains -i "{{ cis_service_name }}" -o json
   register: _cis_domains_result
+  retries: 5
+  delay: 30
+  until: _cis_domains_result.rc == 0
 
 - set_fact:
     _cis_domain_id: "{{ (_cis_domains_result.stdout | from_json)[0].id }}"
