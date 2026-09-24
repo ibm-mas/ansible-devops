@@ -1,15 +1,10 @@
 ---
-# Setup Helm Repository for CPD Charts
+# Setup Helm Repository for CPD Platform Charts
+# Re-implemented to keep cp4d role fully independent of cp4d_service
+#
 # Online mode:  adds the IBM GitHub Helm repo and updates the index
 # Airgap mode:  skips repo add/update; logs in to the OCI registry instead
 #               (OCI registries are referenced directly, not as named repos)
-#
-# Airgap auto-detection (when CPD_AIRGAP_HELM_REPO_URL is not set explicitly):
-#   1. Query ImageDigestMirrorSet with label mas.ibm.com/idmsContent=ibm for
-#      idmsRegistryHost / idmsRegistryPort / idmsRegistryPrefix annotations
-#      (written by ocp_idms role during configure-airgap)
-#   2. Read openshift-config/pull-secret and extract credentials for that host
-#      (written by ocp_idms role during configure-airgap)
 
 # Airgap auto-detection
 # -----------------------------------------------------------------------------
@@ -64,7 +59,6 @@
   vars:
     _dockerconfig: "{{ pull_secret_lookup.resources[0].data['.dockerconfigjson'] | b64decode | from_json }}"
     _auths: "{{ _dockerconfig.auths | default({}) }}"
-    # Find the entry whose key starts with the registry host
     _registry_key: "{{ _auths.keys() | select('match', '^' + _idms_registry_host) | list | first | default('') }}"
     _auth_decoded: "{{ (_auths[_registry_key].auth | default('')) | b64decode }}"
   set_fact:
@@ -76,17 +70,9 @@
 # -----------------------------------------------------------------------------
 - name: "Add IBM Helm repository"
   when: not cpd_helm_airgap
-  command: helm repo add {{ cpd_helm_repo_name }} {{ cpd_helm_repo_url }}
-  register: repo_add
-  changed_when: "'already exists' not in repo_add.stderr"
-  failed_when:
-    - repo_add.rc != 0
-    - "'already exists' not in repo_add.stderr"
-
-- name: "Update Helm repositories"
-  when: not cpd_helm_airgap
-  command: helm repo update
-  changed_when: true
+  kubernetes.core.helm_repository:
+    name: "{{ cpd_helm_repo_name }}"
+    repo_url: "{{ cpd_helm_repo_url }}"
 
 - name: "Helm repository configured"
   when: not cpd_helm_airgap
@@ -102,6 +88,7 @@
   set_fact:
     helm_tls_flag: "{{ '--ca-file ' ~ lookup('env', 'HELM_REGISTRY_CA_FILE') if lookup('env', 'HELM_REGISTRY_CA_FILE') else '--insecure' }}"
 
+# helm registry login has no Ansible module equivalent - shell is required here
 - name: "Login to OCI Helm registry (airgap)"
   when:
     - cpd_helm_airgap
@@ -116,6 +103,7 @@
     {{ helm_tls_flag }}
   no_log: true
   register: helm_oci_login
+  changed_when: true
 
 - name: "Fail if OCI registry login failed (airgap)"
   when:
