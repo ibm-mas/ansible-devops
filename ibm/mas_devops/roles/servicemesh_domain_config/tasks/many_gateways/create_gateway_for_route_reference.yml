@@ -7,7 +7,11 @@
 
 - name: "create gateway : Determine gateway name"
   set_fact:
-    gateway_name: "gateway-{{ route_reference.metadata.name }}"
+    route: "{{ ns_suffix }}-{{ route_reference.metadata.name | regex_replace(mas_instance+'-', '') }}"
+
+- name: "create gateway : Determine gateway name"
+  set_fact:
+    gateway_name: "gateway-{{ route }}"
 
 - debug:
     msg:
@@ -15,13 +19,50 @@
 
 - name: "create gateway : Set facts for Virtual Service"
   set_fact:
-    route: "{{ route_reference.metadata.name | regex_replace('^'+mas_instance+'-', '') }}"
     service_name: "{{ route_reference.spec.to.name }}"
-    service_namespace: "{{ route_reference.metadata.namespace }}"
+    service_namespace: "{{ route_reference.metadata.namespace | default( targetNamespace )}}"
     gateway_service: "{{ gateway_name }}"
     route_host: "{{ route_reference.spec.host }}"
-    route_path: "{{ route_reference.spec.path }}"
+    route_path: "{{ route_reference.spec.path | default('')}}"
     route_tls: "{{ route_reference.spec.tls }}"
+    target_port_name: "{{ route_reference.spec.port.targetPort }}"
+    port_number: 443
+    target_port_number: 8443
+
+- set_fact:
+    port_number: 8883
+    target_port_number: 8883
+  when: target_port_name == "mqtts"
+
+- set_fact:
+    port_number: 3000
+    target_port_number: 3000
+  when: target_port_name == 3000
+
+# collaborateext
+- set_fact:
+    port_number: 3000
+    target_port_number: 3000
+  when: target_port_name == "http"
+
+# Monitor services
+- set_fact:
+    port_number: 9443
+    target_port_number: 9443
+  when: target_port_name == 9443
+
+- debug:
+    msg:
+      - "service_name ........... {{ service_name }}"
+      - "service_namespace ...... {{ service_namespace }}"
+      - "gateway_service ........ {{ gateway_service }}"
+      - "route_host ............. {{ route_host }}"
+      - "route_path ............. {{ route_path }}"
+      - "route_tls.termination .. {{ route_tls.termination }}"
+      - "gateway_name ........... {{ gateway_name }}"
+      - "target_port_name ....... {{ target_port_name }}"
+      - "port_number ............ {{ port_number }}"
+      - "target_port_number ..... {{ target_port_number }}"
 
 - name: "create gateway : Create Service Mesh Gateway Deployment"
   kubernetes.core.k8s:
@@ -41,16 +82,6 @@
     wait: yes
     wait_timeout: 120
 
-- name: "create gateway : Set facts for Virtual Service"
-  set_fact:
-    route: "{{ route_reference.metadata.name | regex_replace('^'+mas_instance+'-', '') }}"
-    service_name: "{{ route_reference.spec.to.name }}"
-    service_namespace: "{{ route_reference.metadata.namespace }}"
-    gateway_service: "{{ gateway_name }}"
-    route_host: "{{ route_reference.spec.host }}"
-    route_path: "{{ route_reference.spec.path }}"
-    route_tls: "{{ route_reference.spec.tls }}"
-
 - name: "create gateway : Create Virtual Service for {{route}} to {{service_name}}"
   kubernetes.core.k8s:
     template: "templates/virtual-service.yml.j2"
@@ -59,6 +90,6 @@
 
 - name: "create gateway : Create Route for {{route}} to gateway"
   kubernetes.core.k8s:
-    template: "templates/route.yml.j2"
+    template: "templates/route_{{route_tls.termination}}.yml.j2"
     wait: yes
     wait_timeout: 120
