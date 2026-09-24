@@ -1,0 +1,53 @@
+---
+# Detect whether the backup contains Db2uCluster or Db2uInstance
+# This sets db2_cr_type and discovers the instance name from backup
+
+- name: "Get files from db2uclusters directory"
+  set_fact:
+    db2ucluster_files: "{{ lookup('fileglob', '{{ db2_backup_path }}/resources/db2uclusters/*', wantlist=True) }}"
+
+- name: "Get files from db2uinstances directory"
+  set_fact:
+    db2uinstance_files: "{{ lookup('fileglob', '{{ db2_backup_path }}/resources/db2uinstances/*', wantlist=True) }}"
+
+- name: "Fail if neither CR type exists"
+  fail:
+    msg: "Backup must contain either Db2uCluster or Db2uInstance CR"
+  when:
+    - db2ucluster_files | length == 0
+    - db2uinstance_files | length == 0
+
+- name: "Fail if both CR types exist"
+  fail:
+    msg: "Backup contains both Db2uCluster and Db2uInstance CRs. Only one should exist."
+  when:
+    - db2ucluster_files | length > 0
+    - db2uinstance_files | length > 0
+
+- name: "Fail if multiple Db2uCluster CRs exist"
+  fail:
+    msg: "Backup contains {{ db2ucluster_files | length }} Db2uCluster CRs. Only one should exist."
+  when: db2ucluster_files | length > 1
+
+- name: "Fail if multiple Db2uInstance CRs exist"
+  fail:
+    msg: "Backup contains {{ db2uinstance_files | length }} Db2uInstance CRs. Only one should exist."
+  when: db2uinstance_files | length > 1
+
+- name: "Set CR type to Db2uCluster"
+  set_fact:
+    db2_cr_type: "Db2uCluster"
+    db2_cr_file: "{{ db2ucluster_files[0] }}"
+  when: db2ucluster_files | length == 1
+
+- name: "Set CR type to Db2uInstance"
+  set_fact:
+    db2_cr_type: "Db2uInstance"
+    db2_cr_file: "{{ db2uinstance_files[0] }}"
+  when: db2uinstance_files | length == 1
+
+- name: "Display detected CR type"
+  debug:
+    msg:
+      - "Detected Db2 CR Type: {{ db2_cr_type }}"
+      - "CR File: {{ db2_cr_file }}"
