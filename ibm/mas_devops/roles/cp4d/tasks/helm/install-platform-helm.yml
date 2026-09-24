@@ -40,6 +40,54 @@
 - name: "Setup Helm repository"
   include_tasks: "setup-helm-repo.yml"
 
+# 5b. Resolve olm-utils-v4 image digest from ibm-cp-datacore CASE bundle (airgap, CPD >= 5.4.0 only)
+# Runs oc ibm-pak get to download the CASE manifest and parses the images.csv to extract
+# the digest for icr.io/cpopen/cpd/olm-utils-v4. This avoids hardcoding any digest in a
+# public repository. Env var CPD_OLM_UTILS_IMAGE_DIGEST takes precedence if set explicitly.
+# -----------------------------------------------------------------------------
+- name: "Download ibm-cp-datacore CASE manifest to resolve olm-utils-v4 digest (airgap)"
+  when:
+    - cpd_helm_airgap
+    - cpd_olm_utils_image_digest == ''
+    - cpd_product_version is version('5.4.0', '>=')
+  command: >
+    oc ibm-pak get ibm-cp-datacore
+    --version {{ cpd_components_meta.cpd_platform.case_version }}
+    --skip-dependencies
+  changed_when: false
+
+- name: "Extract olm-utils-v4 digest from ibm-cp-datacore images.csv (airgap)"
+  when:
+    - cpd_helm_airgap
+    - cpd_olm_utils_image_digest == ''
+    - cpd_product_version is version('5.4.0', '>=')
+  shell: >
+    grep 'cpopen/cpd/olm-utils-v4' \
+    ~/.ibm-pak/data/cases/ibm-cp-datacore/{{ cpd_components_meta.cpd_platform.case_version }}/ibm-cp-datacore-{{ cpd_components_meta.cpd_platform.case_version }}-images.csv \
+    | awk -F',' '{print $4}' | head -1
+  register: _olm_utils_digest_raw
+  changed_when: false
+
+- name: "Set cpd_olm_utils_image_digest from CASE images.csv"
+  when:
+    - cpd_helm_airgap
+    - cpd_olm_utils_image_digest == ''
+    - cpd_product_version is version('5.4.0', '>=')
+    - _olm_utils_digest_raw.stdout | default('') != ''
+  set_fact:
+    cpd_olm_utils_image_digest: "{{ _olm_utils_digest_raw.stdout | trim }}"
+
+- name: "Fail if olm-utils-v4 digest could not be resolved (airgap)"
+  when:
+    - cpd_helm_airgap
+    - cpd_olm_utils_image_digest == ''
+    - cpd_product_version is version('5.4.0', '>=')
+  fail:
+    msg: >
+      Could not resolve olm-utils-v4 digest from ibm-cp-datacore CASE bundle
+      (version {{ cpd_components_meta.cpd_platform.case_version }}).
+      Set CPD_OLM_UTILS_IMAGE_DIGEST env var to override.
+
 # 6. Create IBM entitlement secrets
 # -----------------------------------------------------------------------------
 - name: "Check if ibm-entitlement-key already exists in operator namespace"

@@ -100,7 +100,10 @@
             'blockStorageClass': cpd_metadata_storage_class,
             'fileStorageClass': cpd_primary_storage_class,
             'imagePullSecret': ibm_entitlement_key_secret,
-            'imagePullPrefix': 'icr.io'
+            'imagePullPrefix': 'icr.io',
+            'installConfigImagePullPrefix': (cpd_airgap_helm_repo_url | regex_replace('^oci://', '') | regex_replace('/charts$', '')) if (cpd_helm_airgap and comp_name == 'ibm_licensing' and cpd_product_version is version('5.4.0', '>=')) else omit,
+            'installConfigImageName': 'cpopen/cpd/olm-utils-v4' if (cpd_helm_airgap and comp_name == 'ibm_licensing' and cpd_product_version is version('5.4.0', '>=')) else omit,
+            'installConfigImageDigest': cpd_olm_utils_image_digest if (cpd_helm_airgap and comp_name == 'ibm_licensing' and cpd_product_version is version('5.4.0', '>=') and cpd_olm_utils_image_digest | default('') != '') else omit
           }
         } | combine({
           comp_assembly: {
@@ -173,6 +176,9 @@
     --namespace {{ comp_namespace }}
     --set global.licenseAccept=true
     --set global.imagePullPrefix=icr.io
+    {% if comp_name == 'ibm_licensing' and cpd_product_version is version('5.4.0', '>=') %}--set global.installConfigImagePullPrefix={{ cpd_airgap_helm_repo_url | regex_replace('^oci://', '') | regex_replace('/charts$', '') }}{% endif %}
+    {% if comp_name == 'ibm_licensing' and cpd_product_version is version('5.4.0', '>=') %}--set global.installConfigImageName=cpopen/cpd/olm-utils-v4{% endif %}
+    {% if comp_name == 'ibm_licensing' and cpd_product_version is version('5.4.0', '>=') and cpd_olm_utils_image_digest | default('') != '' %}--set global.installConfigImageDigest={{ cpd_olm_utils_image_digest }}{% endif %}
     --set global.operatorNamespace={{ cpd_operators_namespace }}
     --set global.instanceNamespace={{ cpd_instance_namespace }}
     --set global.controlCenterOperatorNamespace={{ cpd_operators_namespace }}
@@ -357,6 +363,9 @@
     --namespace {{ comp_namespace }}
     --set global.licenseAccept=true
     --set global.imagePullPrefix=icr.io
+    {% if comp_name == 'ibm_licensing' and cpd_product_version is version('5.4.0', '>=') %}--set global.installConfigImagePullPrefix={{ cpd_airgap_helm_repo_url | regex_replace('^oci://', '') | regex_replace('/charts$', '') }}{% endif %}
+    {% if comp_name == 'ibm_licensing' and cpd_product_version is version('5.4.0', '>=') %}--set global.installConfigImageName=cpopen/cpd/olm-utils-v4{% endif %}
+    {% if comp_name == 'ibm_licensing' and cpd_product_version is version('5.4.0', '>=') and cpd_olm_utils_image_digest | default('') != '' %}--set global.installConfigImageDigest={{ cpd_olm_utils_image_digest }}{% endif %}
     --set global.operatorNamespace={{ cpd_operators_namespace }}
     --set global.instanceNamespace={{ cpd_instance_namespace }}
     --set global.controlCenterOperatorNamespace={{ cpd_operators_namespace }}
