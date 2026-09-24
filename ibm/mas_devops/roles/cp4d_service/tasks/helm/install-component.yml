@@ -42,13 +42,14 @@
     msg: "Chart {{ comp_chart_name }} version {{ comp_case_version }} not found in repository {{ cpd_helm_repo_name }}"
 
 # Airgap: the registry may store charts with a build-stamped version such as
-# "12.1.0+20260206.151111.23" while case_version is only "12.1.0".
-# Pull Chart.yaml without specifying --version so we get the actual tag pushed
-# to the registry, then use that full version string for helm template/upgrade.
+# "12.1.0+20260206.151111.23" or "12.1.0_20260220...".
+# Pass ~comp_case_version constraint so we resolve the matching build version
+# from the OCI registry rather than defaulting to the latest pushed tag.
 - name: "Resolve chart version from OCI registry (airgap)"
   when: cpd_helm_airgap
   shell: >
     helm show chart {{ cpd_airgap_helm_repo_url }}/{{ comp_chart_name }}
+    {% if comp_case_version != '' %}--version "~{{ comp_case_version }}"{% endif %}
     {{ helm_tls_flag }} 2>/dev/null
     | grep '^version:' | awk '{print $2}' | tr -d '"'
   register: chart_version_lookup
@@ -57,7 +58,7 @@
 - name: "Set chart version from OCI registry (airgap)"
   when: cpd_helm_airgap
   set_fact:
-    chart_version: "{{ chart_version_lookup.stdout | trim | default(comp_case_version) }}"
+    chart_version: "{{ chart_version_lookup.stdout | trim | default(comp_case_version, true) }}"
 
 - name: "Component {{ component_name }} chart version"
   debug:
