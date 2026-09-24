@@ -28,9 +28,24 @@
   register: updated_suite_sub_info
   retries: 20 # about 10 minutes
   delay: 30 # seconds
-  until:
-    - updated_suite_sub_info.resources[0].status.installPlanGeneration > suite_sub_info.resources[0].status.installPlanGeneration
-    - updated_suite_sub_info.resources[0].status.state == "AtLatestKnown"
+  # Wait for one of two scenarios:
+  # A) Version upgrade: new install plan generated AND subscription at latest
+  # B) No version change: install plan unchanged AND subscription at latest AND current CSV matches installed CSV
+  until: >
+    (updated_suite_sub_info.resources[0].status.installPlanGeneration > suite_sub_info.resources[0].status.installPlanGeneration
+     and updated_suite_sub_info.resources[0].status.state == "AtLatestKnown") or
+    (updated_suite_sub_info.resources[0].status.state == "AtLatestKnown"
+     and updated_suite_sub_info.resources[0].status.currentCSV == updated_suite_sub_info.resources[0].status.installedCSV)
+
+- name: "upgrade : Debug subscription state after channel change"
+  debug:
+    msg:
+      - "Original installPlanGeneration: {{ suite_sub_info.resources[0].status.installPlanGeneration }}"
+      - "Updated installPlanGeneration: {{ updated_suite_sub_info.resources[0].status.installPlanGeneration }}"
+      - "Subscription state: {{ updated_suite_sub_info.resources[0].status.state }}"
+      - "Current CSV: {{ updated_suite_sub_info.resources[0].status.currentCSV }}"
+      - "Installed CSV: {{ updated_suite_sub_info.resources[0].status.installedCSV }}"
+      - "Scenario: {{ 'Version Upgrade' if updated_suite_sub_info.resources[0].status.installPlanGeneration > suite_sub_info.resources[0].status.installPlanGeneration else 'No Version Change' }}"
 
 - name: "upgrade : Debug Subscription"
   debug:
