@@ -4,26 +4,74 @@
 # Can be configured immediately after project creation
 
 # Validate prerequisites before attempting configuration
-- name: "Validate alert notification emails are provided"
+- name: "Validate alert webhook secret name is provided"
   when: atlas_enable_alerts | bool
   assert:
     that:
-      - atlas_alert_notification_emails is defined
-      - atlas_alert_notification_emails != ""
-      - atlas_alert_notification_emails != "[]"
-    fail_msg: "At least one email address is required in atlas_alert_notification_emails when alerts are enabled"
+      - atlas_alert_webhook_secret_name is defined
+      - atlas_alert_webhook_secret_name != ""
+    fail_msg: "atlas_alert_webhook_secret_name is required when alerts are enabled. Ensure atlas_account_id is set."
 
 - name: "Configure Atlas project-level alert monitoring"
   when: atlas_enable_alerts | bool
   block:
-    - name: "Parse alert notification emails"
-      set_fact:
-        atlas_alert_emails_list: "{{ atlas_alert_notification_emails if atlas_alert_notification_emails is iterable and atlas_alert_notification_emails is not string else (atlas_alert_notification_emails.split(',') if atlas_alert_notification_emails is string else atlas_alert_notification_emails | from_json) }}"
+    # Step 1: Read webhook credentials from AWS Secrets Manager
+    - name: "Get webhook credentials from AWS Secrets Manager"
+      shell: |
+        aws secretsmanager get-secret-value \
+          --secret-id "{{ atlas_alert_webhook_secret_name }}" \
+          --region "{{ atlas_aws_region }}" \
+          --query SecretString \
+          --output text
+      register: atlas_webhook_secret_output
+      failed_when: atlas_webhook_secret_output.rc != 0
+      no_log: true
 
-    - name: "Build email notifications list"
+    - name: "Parse webhook credentials from secret"
       set_fact:
-        atlas_email_notifications: "{{ atlas_email_notifications | default([]) + [{'typeName': 'EMAIL', 'emailAddress': item, 'delayMin': 0, 'intervalMin': atlas_alert_interval_min}] }}"
-      loop: "{{ atlas_alert_emails_list }}"
+        atlas_webhook_credentials: "{{ atlas_webhook_secret_output.stdout | from_json }}"
+      no_log: true
+
+    - name: "Set webhook url and secret from AWS Secrets Manager"
+      set_fact:
+        atlas_alert_webhook_url: "{{ atlas_webhook_credentials.webhook_url }}"
+        atlas_alert_webhook_secret: "{{ atlas_webhook_credentials.webhook_secret }}"
+      no_log: true
+
+    - name: "Validate webhook url and secret are not empty"
+      assert:
+        that:
+          - atlas_alert_webhook_url is defined
+          - atlas_alert_webhook_url != ""
+          - atlas_alert_webhook_secret is defined
+          - atlas_alert_webhook_secret != ""
+        fail_msg: "webhook_url and webhook_secret must be non-empty in secret {{ atlas_alert_webhook_secret_name }}"
+
+    # Step 2: Register the webhook integration with Atlas (must happen before alert configs)
+    - name: "Register webhook integration with Atlas project"
+      uri:
+        url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/integrations/WEBHOOK"
+        method: PUT
+        user: "{{ atlas_public_key }}"
+        password: "{{ atlas_private_key }}"
+        force_basic_auth: false
+        body:
+          type: "WEBHOOK"
+          url: "{{ atlas_alert_webhook_url }}"
+          secret: "{{ atlas_alert_webhook_secret }}"
+        body_format: json
+        status_code: [200, 201]
+        timeout: "{{ atlas_api_timeout }}"
+      register: atlas_webhook_integration
+      no_log: true
+
+    # Step 3: Build the webhook notifications list used by all alert configs
+    - name: "Build webhook notifications list"
+      set_fact:
+        atlas_webhook_notifications:
+          - typeName: "WEBHOOK"
+            delayMin: 0
+            intervalMin: "{{ atlas_alert_interval_min }}"
 
     - name: "Display project-level alert configuration"
       debug:
@@ -32,15 +80,65 @@
           - "Atlas Project-Level Alert Configuration"
           - "=========================================="
           - "Alerts Enabled: true"
-          - "Notification Emails: {{ atlas_alert_emails_list | join(', ') }}"
+          - "Notification Method: WEBHOOK (OCM)"
+          - "Webhook Secret Name: {{ atlas_alert_webhook_secret_name }}"
           - "Configuring: CPU, Memory, Connection alerts"
           - "=========================================="
 
-    # Basic Performance Alerts (No cluster matcher required)
-    # CPU, Memory, and Connection alerts
+    # Step 3.5: Fetch ALL existing alert configs for idempotency checks
+    # Two requests: first to get totalCount, second to fetch all in one shot.
+    # Using curl with Digest auth — uri module does not support Digest on GET requests.
+    - name: "Fetch alert config count from Atlas"
+      shell: |
+        curl --digest \
+          --user "{{ atlas_public_key }}:{{ atlas_private_key }}" \
+          --silent --show-error --fail \
+          "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs?pageNum=1&itemsPerPage=1"
+      register: atlas_alert_count_raw
+      changed_when: false
+      failed_when: atlas_alert_count_raw.rc != 0
+      no_log: true
+
+    - name: "Set total alert config count"
+      set_fact:
+        atlas_alert_total_count: "{{ (atlas_alert_count_raw.stdout | from_json).get('totalCount', 0) | int }}"
+
+    - name: "Fetch all existing alert configs from Atlas"
+      shell: |
+        curl --digest \
+          --user "{{ atlas_public_key }}:{{ atlas_private_key }}" \
+          --silent --show-error --fail \
+          "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs?pageNum=1&itemsPerPage={{ [atlas_alert_total_count | int, 1] | max }}"
+      register: atlas_alert_all_raw
+      changed_when: false
+      failed_when: atlas_alert_all_raw.rc != 0
+      no_log: true
+
+    - name: "Set all alert configs fact"
+      set_fact:
+        atlas_all_alert_configs: "{{ (atlas_alert_all_raw.stdout | from_json).get('results', []) }}"
+
+    # Step 4: Create or update alert configs (idempotency)
+    # Existence check: eventTypeName + metricName + WEBHOOK (no threshold)
+    # If found and threshold matches → skip
+    # If found and threshold differs → PUT to update
+    # If not found → POST to create
     - name: "Configure basic performance alerts"
       block:
+        # ── CPU warning ──────────────────────────────────────────────────────
+        - name: "Find existing CPU warning alert"
+          set_fact:
+            cpu_warning_match: >-
+              {{
+                atlas_all_alert_configs
+                | selectattr('eventTypeName', 'equalto', 'OUTSIDE_METRIC_THRESHOLD') | list
+                | selectattr('metricThreshold.metricName', 'equalto', 'NORMALIZED_SYSTEM_CPU_USER') | list
+                | selectattr('notifications', 'defined') | list
+                | json_query('[?notifications[?typeName==`WEBHOOK`]]') | first | default({})
+              }}
+
         - name: "Create CPU warning alert"
+          when: cpu_warning_match == {}
           uri:
             url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
             method: POST
@@ -56,13 +154,51 @@
                 threshold: "{{ atlas_alert_cpu_thresholds[0] }}"
                 units: "RAW"
                 mode: "AVERAGE"
-              notifications: "{{ atlas_email_notifications }}"
+              notifications: "{{ atlas_webhook_notifications }}"
             body_format: json
             status_code: [200, 201]
             timeout: "{{ atlas_api_timeout }}"
-          register: alert_cpu_warning
+
+        - name: "Update CPU warning alert threshold if changed"
+          when:
+            - cpu_warning_match != {}
+            - cpu_warning_match.metricThreshold.threshold | float != atlas_alert_cpu_thresholds[0] | float
+          uri:
+            url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs/{{ cpu_warning_match.id }}"
+            method: PUT
+            user: "{{ atlas_public_key }}"
+            password: "{{ atlas_private_key }}"
+            force_basic_auth: false
+            body:
+              eventTypeName: "OUTSIDE_METRIC_THRESHOLD"
+              enabled: true
+              metricThreshold:
+                metricName: "NORMALIZED_SYSTEM_CPU_USER"
+                operator: "GREATER_THAN"
+                threshold: "{{ atlas_alert_cpu_thresholds[0] }}"
+                units: "RAW"
+                mode: "AVERAGE"
+              notifications: "{{ atlas_webhook_notifications }}"
+            body_format: json
+            status_code: [200, 201]
+            timeout: "{{ atlas_api_timeout }}"
+
+        # ── CPU critical ─────────────────────────────────────────────────────
+        - name: "Find existing CPU critical alert"
+          set_fact:
+            cpu_critical_match: >-
+              {{
+                atlas_all_alert_configs
+                | selectattr('eventTypeName', 'equalto', 'OUTSIDE_METRIC_THRESHOLD') | list
+                | selectattr('metricThreshold.metricName', 'equalto', 'NORMALIZED_SYSTEM_CPU_USER') | list
+                | selectattr('notifications', 'defined') | list
+                | json_query('[?notifications[?typeName==`WEBHOOK`]]')
+                | selectattr('metricThreshold.threshold', 'ne', atlas_alert_cpu_thresholds[0] | float) | list
+                | first | default({})
+              }}
 
         - name: "Create CPU critical alert"
+          when: cpu_critical_match == {}
           uri:
             url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
             method: POST
@@ -78,13 +214,49 @@
                 threshold: "{{ atlas_alert_cpu_thresholds[1] }}"
                 units: "RAW"
                 mode: "AVERAGE"
-              notifications: "{{ atlas_email_notifications }}"
+              notifications: "{{ atlas_webhook_notifications }}"
             body_format: json
             status_code: [200, 201]
             timeout: "{{ atlas_api_timeout }}"
-          register: alert_cpu_critical
+
+        - name: "Update CPU critical alert threshold if changed"
+          when:
+            - cpu_critical_match != {}
+            - cpu_critical_match.metricThreshold.threshold | float != atlas_alert_cpu_thresholds[1] | float
+          uri:
+            url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs/{{ cpu_critical_match.id }}"
+            method: PUT
+            user: "{{ atlas_public_key }}"
+            password: "{{ atlas_private_key }}"
+            force_basic_auth: false
+            body:
+              eventTypeName: "OUTSIDE_METRIC_THRESHOLD"
+              enabled: true
+              metricThreshold:
+                metricName: "NORMALIZED_SYSTEM_CPU_USER"
+                operator: "GREATER_THAN"
+                threshold: "{{ atlas_alert_cpu_thresholds[1] }}"
+                units: "RAW"
+                mode: "AVERAGE"
+              notifications: "{{ atlas_webhook_notifications }}"
+            body_format: json
+            status_code: [200, 201]
+            timeout: "{{ atlas_api_timeout }}"
+
+        # ── Memory warning ───────────────────────────────────────────────────
+        - name: "Find existing memory warning alert"
+          set_fact:
+            memory_warning_match: >-
+              {{
+                atlas_all_alert_configs
+                | selectattr('eventTypeName', 'equalto', 'OUTSIDE_METRIC_THRESHOLD') | list
+                | selectattr('metricThreshold.metricName', 'equalto', 'SYSTEM_MEMORY_PERCENT_USED') | list
+                | selectattr('notifications', 'defined') | list
+                | json_query('[?notifications[?typeName==`WEBHOOK`]]') | first | default({})
+              }}
 
         - name: "Create memory warning alert"
+          when: memory_warning_match == {}
           uri:
             url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
             method: POST
@@ -100,13 +272,51 @@
                 threshold: "{{ atlas_alert_memory_thresholds[0] }}"
                 units: "RAW"
                 mode: "AVERAGE"
-              notifications: "{{ atlas_email_notifications }}"
+              notifications: "{{ atlas_webhook_notifications }}"
             body_format: json
             status_code: [200, 201]
             timeout: "{{ atlas_api_timeout }}"
-          register: alert_memory_warning
+
+        - name: "Update memory warning alert threshold if changed"
+          when:
+            - memory_warning_match != {}
+            - memory_warning_match.metricThreshold.threshold | float != atlas_alert_memory_thresholds[0] | float
+          uri:
+            url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs/{{ memory_warning_match.id }}"
+            method: PUT
+            user: "{{ atlas_public_key }}"
+            password: "{{ atlas_private_key }}"
+            force_basic_auth: false
+            body:
+              eventTypeName: "OUTSIDE_METRIC_THRESHOLD"
+              enabled: true
+              metricThreshold:
+                metricName: "SYSTEM_MEMORY_PERCENT_USED"
+                operator: "GREATER_THAN"
+                threshold: "{{ atlas_alert_memory_thresholds[0] }}"
+                units: "RAW"
+                mode: "AVERAGE"
+              notifications: "{{ atlas_webhook_notifications }}"
+            body_format: json
+            status_code: [200, 201]
+            timeout: "{{ atlas_api_timeout }}"
+
+        # ── Memory critical ──────────────────────────────────────────────────
+        - name: "Find existing memory critical alert"
+          set_fact:
+            memory_critical_match: >-
+              {{
+                atlas_all_alert_configs
+                | selectattr('eventTypeName', 'equalto', 'OUTSIDE_METRIC_THRESHOLD') | list
+                | selectattr('metricThreshold.metricName', 'equalto', 'SYSTEM_MEMORY_PERCENT_USED') | list
+                | selectattr('notifications', 'defined') | list
+                | json_query('[?notifications[?typeName==`WEBHOOK`]]')
+                | selectattr('metricThreshold.threshold', 'ne', atlas_alert_memory_thresholds[0] | float) | list
+                | first | default({})
+              }}
 
         - name: "Create memory critical alert"
+          when: memory_critical_match == {}
           uri:
             url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
             method: POST
@@ -122,13 +332,49 @@
                 threshold: "{{ atlas_alert_memory_thresholds[1] }}"
                 units: "RAW"
                 mode: "AVERAGE"
-              notifications: "{{ atlas_email_notifications }}"
+              notifications: "{{ atlas_webhook_notifications }}"
             body_format: json
             status_code: [200, 201]
             timeout: "{{ atlas_api_timeout }}"
-          register: alert_memory_critical
+
+        - name: "Update memory critical alert threshold if changed"
+          when:
+            - memory_critical_match != {}
+            - memory_critical_match.metricThreshold.threshold | float != atlas_alert_memory_thresholds[1] | float
+          uri:
+            url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs/{{ memory_critical_match.id }}"
+            method: PUT
+            user: "{{ atlas_public_key }}"
+            password: "{{ atlas_private_key }}"
+            force_basic_auth: false
+            body:
+              eventTypeName: "OUTSIDE_METRIC_THRESHOLD"
+              enabled: true
+              metricThreshold:
+                metricName: "SYSTEM_MEMORY_PERCENT_USED"
+                operator: "GREATER_THAN"
+                threshold: "{{ atlas_alert_memory_thresholds[1] }}"
+                units: "RAW"
+                mode: "AVERAGE"
+              notifications: "{{ atlas_webhook_notifications }}"
+            body_format: json
+            status_code: [200, 201]
+            timeout: "{{ atlas_api_timeout }}"
+
+        # ── Connections warning ──────────────────────────────────────────────
+        - name: "Find existing connections warning alert"
+          set_fact:
+            connections_warning_match: >-
+              {{
+                atlas_all_alert_configs
+                | selectattr('eventTypeName', 'equalto', 'OUTSIDE_METRIC_THRESHOLD') | list
+                | selectattr('metricThreshold.metricName', 'equalto', 'CONNECTIONS_PERCENT') | list
+                | selectattr('notifications', 'defined') | list
+                | json_query('[?notifications[?typeName==`WEBHOOK`]]') | first | default({})
+              }}
 
         - name: "Create connections warning alert"
+          when: connections_warning_match == {}
           uri:
             url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
             method: POST
@@ -144,13 +390,51 @@
                 threshold: "{{ atlas_alert_connection_thresholds[0] }}"
                 units: "RAW"
                 mode: "AVERAGE"
-              notifications: "{{ atlas_email_notifications }}"
+              notifications: "{{ atlas_webhook_notifications }}"
             body_format: json
             status_code: [200, 201]
             timeout: "{{ atlas_api_timeout }}"
-          register: alert_connections_warning
+
+        - name: "Update connections warning alert threshold if changed"
+          when:
+            - connections_warning_match != {}
+            - connections_warning_match.metricThreshold.threshold | float != atlas_alert_connection_thresholds[0] | float
+          uri:
+            url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs/{{ connections_warning_match.id }}"
+            method: PUT
+            user: "{{ atlas_public_key }}"
+            password: "{{ atlas_private_key }}"
+            force_basic_auth: false
+            body:
+              eventTypeName: "OUTSIDE_METRIC_THRESHOLD"
+              enabled: true
+              metricThreshold:
+                metricName: "CONNECTIONS_PERCENT"
+                operator: "GREATER_THAN"
+                threshold: "{{ atlas_alert_connection_thresholds[0] }}"
+                units: "RAW"
+                mode: "AVERAGE"
+              notifications: "{{ atlas_webhook_notifications }}"
+            body_format: json
+            status_code: [200, 201]
+            timeout: "{{ atlas_api_timeout }}"
+
+        # ── Connections critical ─────────────────────────────────────────────
+        - name: "Find existing connections critical alert"
+          set_fact:
+            connections_critical_match: >-
+              {{
+                atlas_all_alert_configs
+                | selectattr('eventTypeName', 'equalto', 'OUTSIDE_METRIC_THRESHOLD') | list
+                | selectattr('metricThreshold.metricName', 'equalto', 'CONNECTIONS_PERCENT') | list
+                | selectattr('notifications', 'defined') | list
+                | json_query('[?notifications[?typeName==`WEBHOOK`]]')
+                | selectattr('metricThreshold.threshold', 'ne', atlas_alert_connection_thresholds[0] | float) | list
+                | first | default({})
+              }}
 
         - name: "Create connections critical alert"
+          when: connections_critical_match == {}
           uri:
             url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
             method: POST
@@ -166,17 +450,52 @@
                 threshold: "{{ atlas_alert_connection_thresholds[1] }}"
                 units: "RAW"
                 mode: "AVERAGE"
-              notifications: "{{ atlas_email_notifications }}"
+              notifications: "{{ atlas_webhook_notifications }}"
             body_format: json
             status_code: [200, 201]
             timeout: "{{ atlas_api_timeout }}"
-          register: alert_connections_critical
+
+        - name: "Update connections critical alert threshold if changed"
+          when:
+            - connections_critical_match != {}
+            - connections_critical_match.metricThreshold.threshold | float != atlas_alert_connection_thresholds[1] | float
+          uri:
+            url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs/{{ connections_critical_match.id }}"
+            method: PUT
+            user: "{{ atlas_public_key }}"
+            password: "{{ atlas_private_key }}"
+            force_basic_auth: false
+            body:
+              eventTypeName: "OUTSIDE_METRIC_THRESHOLD"
+              enabled: true
+              metricThreshold:
+                metricName: "CONNECTIONS_PERCENT"
+                operator: "GREATER_THAN"
+                threshold: "{{ atlas_alert_connection_thresholds[1] }}"
+                units: "RAW"
+                mode: "AVERAGE"
+              notifications: "{{ atlas_webhook_notifications }}"
+            body_format: json
+            status_code: [200, 201]
+            timeout: "{{ atlas_api_timeout }}"
 
     # Optional: Additional Performance Alerts (Query Performance)
     - name: "Configure additional performance alerts"
       when: atlas_enable_performance_alerts | bool
       block:
+        - name: "Check if query performance alert already exists"
+          set_fact:
+            query_performance_exists: >-
+              {{
+                atlas_all_alert_configs
+                | selectattr('eventTypeName', 'equalto', 'OUTSIDE_METRIC_THRESHOLD') | list
+                | selectattr('metricThreshold.metricName', 'equalto', 'QUERY_TARGETING_SCANNED_OBJECTS_PER_RETURNED') | list
+                | selectattr('notifications', 'defined') | list
+                | json_query('[?notifications[?typeName==`WEBHOOK`]]') | length > 0
+              }}
+
         - name: "Create query performance alert"
+          when: not query_performance_exists
           uri:
             url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/alertConfigs"
             method: POST
@@ -192,7 +511,7 @@
                 threshold: 1000
                 units: "RAW"
                 mode: "AVERAGE"
-              notifications: "{{ atlas_email_notifications }}"
+              notifications: "{{ atlas_webhook_notifications }}"
             body_format: json
             status_code: [200, 201]
             timeout: "{{ atlas_api_timeout }}"
@@ -206,7 +525,13 @@
           - "=========================================="
           - "Status: Successfully Configured"
           - "Project ID: {{ atlas_project_id }}"
-          - "Alerts Created: {{ '7 (CPU, Memory, Connections, Query Performance)' if atlas_enable_performance_alerts else '6 (CPU, Memory, Connections)' }}"
+          - "Notification Method: WEBHOOK (OCM)"
+          - "CPU warning alert: {{ 'created' if cpu_warning_match == {} else 'skipped or updated' }}"
+          - "CPU critical alert: {{ 'created' if cpu_critical_match == {} else 'skipped or updated' }}"
+          - "Memory warning alert: {{ 'created' if memory_warning_match == {} else 'skipped or updated' }}"
+          - "Memory critical alert: {{ 'created' if memory_critical_match == {} else 'skipped or updated' }}"
+          - "Connections warning alert: {{ 'created' if connections_warning_match == {} else 'skipped or updated' }}"
+          - "Connections critical alert: {{ 'created' if connections_critical_match == {} else 'skipped or updated' }}"
           - "Note: Cluster-level alerts will be configured after cluster creation"
           - "=========================================="
 
@@ -221,8 +546,7 @@
           - "Common causes:"
           - "1. Invalid API credentials"
           - "2. Insufficient permissions"
-          - "3. Invalid email addresses"
-          - "4. Alert already exists (not an error, can be ignored)"
+          - "3. Webhook secret not found in AWS Secrets Manager ({{ atlas_alert_webhook_secret_name }})"
           - "=========================================="
           - "Error details:"
           - "{{ ansible_failed_result | default('No error details available') }}"

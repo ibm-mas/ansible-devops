@@ -327,6 +327,24 @@ predictor:
        topology.kubernetes.io/zone: "us-east-1a"
    ```
 
+### aiservice_tenant_operator_config_file
+Path to the YAML file containing the tenant operator customization settings.
+
+- Optional
+- Environment Variable: `AISERVICE_TENANT_OPERATOR_CONFIG_FILE`
+- Default: None
+
+**Purpose**: Allows the tenant operator to be customized by setting configuration in a YAML file
+whose content is added to the "config" field in the operator Subscription.
+
+**When to use**: Set when customizing the tenant operator such as adjusting CPU/memory requests/limits.
+
+**Valid values**: Path to a valid YAML file containing the Subscription "config" fields.
+
+**Impact**: Invalid configuration will prevent the tenant operator from installing.
+
+**Related variables**: None.
+
 ## Example Playbook
 
 ```yaml

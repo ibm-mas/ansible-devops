@@ -1,0 +1,35 @@
+---
+# Resolve roks_subnet_id from roks_vpc_id + roks_zone if not provided directly.
+# There is exactly one subnet per zone created by roks-vpc-setup, so we can
+# unambiguously find it by filtering on zone name.
+# Depends on: roks_vpc_id (set by lookup_vpc.yml), roks_zone, ibmcloud_resourcegroup
+# Sets fact: roks_subnet_id
+
+- name: "roks-vpc/lookup-subnet : Look up subnet by VPC and zone"
+  when: roks_subnet_id is not defined or roks_subnet_id == ""
+  shell: |
+    ibmcloud is subnets --vpc {{ roks_vpc_id }} --resource-group-name {{ ibmcloud_resourcegroup }} --output json
+  register: subnet_list_raw
+
+- name: "roks-vpc/lookup-subnet : Set roks_subnet_id from zone lookup"
+  when: roks_subnet_id is not defined or roks_subnet_id == ""
+  vars:
+    matched: >-
+      {{
+        subnet_list_raw.stdout | from_json
+        | selectattr('zone.name', 'equalto', roks_zone)
+        | list | first | default({})
+      }}
+  set_fact:
+    roks_subnet_id: "{{ matched.id }}"
+
+- name: "roks-vpc/lookup-subnet : Fail if no subnet found for zone"
+  when: roks_subnet_id is not defined or roks_subnet_id == ""
+  fail:
+    msg: >
+      No subnet found in VPC '{{ roks_vpc_id }}' for zone '{{ roks_zone }}'.
+      Run cluster_type=roks-vpc-setup first, or provide roks_subnet_id directly.
+
+- name: "roks-vpc/lookup-subnet : Debug resolved subnet ID"
+  debug:
+    msg: "Using subnet ID: {{ roks_subnet_id }} (zone {{ roks_zone }})"

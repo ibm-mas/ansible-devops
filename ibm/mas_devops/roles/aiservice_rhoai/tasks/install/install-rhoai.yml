@@ -98,3 +98,16 @@
   kubernetes.core.k8s:
     apply: yes
     template: 'templates/rhoai/allow-rhoai-model-controller-netpol.yml.j2'
+
+# 7. Patch Security Context Constraint openshift-ai-llminferenceservice-multi-node-scc.
+# -----------------------------------------------------------------------------
+
+- name: 'Patch RHOAI SCC - disable managed and set priority to null'
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/rhoai/scc-patch.yml.j2'
+  vars:
+    scc_name: "{{ item }}"
+  loop:
+    - "{{ rhoai_scc_multinode }}"
+    - "{{ rhoai_scc_node }}"

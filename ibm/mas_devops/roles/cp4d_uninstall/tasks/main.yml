@@ -13,6 +13,7 @@
       - "Delete PVCs ........................... {{ cpd_uninstall_delete_pvcs }}"
       - "Delete Namespaces ..................... {{ cpd_uninstall_delete_namespaces }}"
       - "Delete Catalog Sources ................ {{ cpd_uninstall_delete_catalog_sources }}"
+      - "Delete Helm Cluster Resources ......... {{ cpd_uninstall_delete_helm_cluster_resources }}"
       - "Wait Timeout .......................... {{ cpd_uninstall_wait_timeout }}s"
 
 - name: "Warning: Destructive operation"
@@ -115,13 +116,22 @@
       when: cpd_uninstall_delete_catalog_sources
       include_tasks: "cleanup-catalog-sources.yml"
 
-    # 3.8. Delete PVCs (if requested)
+    # 3.8. Cleanup Helm cluster-scoped resources (CRDs, ClusterRole, ClusterRoleBinding)
+    # Runs for all CPD versions - silently skips resources that do not exist.
+    # Handles CRDs left behind by Helm cluster-scoped charts (helm template | oc apply)
+    # which survive namespace deletion as they are cluster-scoped.
+    # ---------------------------------------------------------------------------
+    - name: "Cleanup Helm Cluster-Scoped Resources"
+      when: cpd_uninstall_delete_helm_cluster_resources
+      include_tasks: "cleanup-helm-cluster-resources.yml"
+
+    # 3.9. Delete PVCs (if requested)
     # ---------------------------------------------------------------------------
     - name: "Delete PVCs"
       when: cpd_uninstall_delete_pvcs
       include_tasks: "cleanup-pvcs.yml"
 
-    # 3.9. Delete Namespaces (if requested)
+    # 3.10. Delete Namespaces (if requested)
     # ---------------------------------------------------------------------------
     - name: "Delete Namespaces"
       when: cpd_uninstall_delete_namespaces
@@ -135,11 +145,12 @@
       - "=========================================="
       - "CP4D Uninstall Complete"
       - "=========================================="
-      - "Services uninstalled: {{ cpd_is_installed | ternary('Yes', 'N/A - Not installed') }}"
-      - "Platform uninstalled: {{ cpd_is_installed | ternary('Yes', 'N/A - Not installed') }}"
-      - "Prerequisites uninstalled: {{ cpd_is_installed | ternary('Yes', 'N/A - Not installed') }}"
-      - "PVCs deleted: {{ (cpd_is_installed and cpd_uninstall_delete_pvcs) | ternary('Yes', 'No') }}"
-      - "Namespaces deleted: {{ (cpd_is_installed and cpd_uninstall_delete_namespaces) | ternary('Yes', 'No') }}"
+      - "Services uninstalled ................... {{ cpd_is_installed | ternary('Yes', 'N/A - Not installed') }}"
+      - "Platform uninstalled ................... {{ cpd_is_installed | ternary('Yes', 'N/A - Not installed') }}"
+      - "Prerequisites uninstalled .............. {{ cpd_is_installed | ternary('Yes', 'N/A - Not installed') }}"
+      - "Helm cluster resources deleted ......... {{ (cpd_is_installed and cpd_uninstall_delete_helm_cluster_resources) | ternary('Yes', 'No') }}"
+      - "PVCs deleted ........................... {{ (cpd_is_installed and cpd_uninstall_delete_pvcs) | ternary('Yes', 'No') }}"
+      - "Namespaces deleted ..................... {{ (cpd_is_installed and cpd_uninstall_delete_namespaces) | ternary('Yes', 'No') }}"
       - "=========================================="
 
 # Made with Bob

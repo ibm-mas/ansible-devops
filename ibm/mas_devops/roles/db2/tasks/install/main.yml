@@ -128,7 +128,7 @@
   when: db2_channel is not defined or db2_channel == ""
   #when: db2_channel is not defined or db2_channel == "" or db2_version is not defined or db2_version == ""
 
-  # Rotate DB2 channel by day of the week
+  # Rotate DB2 Channel by day of the week
 - name: "Select DB2 channel based on day of the week"
   when: db2_channel is defined and db2_channel == "rotate"
   set_fact:
@@ -375,7 +375,29 @@
           - "License file exists .................... {{ license_file_stat.stat.exists }}"
           - "License encoded (first 50 chars) ....... {{ db2_license_encoded[:50] }}..."
 
-# 12. Display deprecation notice for Db2uCluster
+# 12. Rotate DB2U_KIND by day of the week
+# -----------------------------------------------------------------------------
+- name: "Select Db2u kind based on day of the week"
+  when: db2u_kind is defined and db2u_kind == "rotate"
+  set_fact:
+    db2u_kind: "{{ rotate_db2u_kind[ansible_facts['date_time']['weekday']] }}"
+  vars:
+    rotate_db2u_kind:
+      Monday: "db2uinstance"
+      Tuesday: "db2ucluster"
+      Wednesday: "db2uinstance"
+      Thursday: "db2ucluster"
+      Friday: "db2uinstance"
+      Saturday: "db2ucluster"
+      Sunday: "db2uinstance"
+
+- name: "Debug DB2U_KIND after rotation"
+  when: db2u_kind is defined and db2u_kind != ""
+  ansible.builtin.debug:
+    msg:
+      - "DB2U_KIND (after rotation check) .......... {{ db2u_kind }}"
+
+# 13. Display deprecation notice for Db2uCluster
 # -----------------------------------------------------------------------------
 - name: "Notice of deprecation of Db2uCluster"
   when: db2u_kind == "db2ucluster"
@@ -384,7 +406,7 @@
       - "Deprecation Notice: The Db2uCluster resource is deprecated (replaced by Db2uInstance)."
       - "This Ansible collection will retain support for Db2uCluster until it's eventual EOL."
 
-# 13. Detect existing Db2uCluster deployment
+# 14. Detect existing Db2uCluster deployment
 # -----------------------------------------------------------------------------
 - name: "Detect existing Db2uCluster CR"
   kubernetes.core.k8s_info:
@@ -394,7 +416,7 @@
     kind: Db2uCluster
   register: initial_db2_cluster_lookup
 
-# 14. Strict validation: Ensure DB2U_KIND matches existing deployment
+# 15. Strict validation: Ensure DB2U_KIND matches existing deployment
 # -----------------------------------------------------------------------------
 - name: "Set detected deployment type"
   set_fact:
@@ -428,19 +450,19 @@
       - To manage existing Db2uCluster: Set DB2U_KIND=db2ucluster
       - To deploy new Db2uInstance: Use a different instance name
 
-# 15. Deploy Db2uCluster (for existing or explicitly requested deployments)
+# 16. Deploy Db2uCluster (for existing or explicitly requested deployments)
 # -----------------------------------------------------------------------------
 - name: "Deploy Db2uCluster"
   include_tasks: tasks/db2ucluster.yml
   when: db2u_kind == "db2ucluster"
 
-# 16. Deploy Db2uInstance (recommended for new deployments)
+# 17. Deploy Db2uInstance (recommended for new deployments)
 # -----------------------------------------------------------------------------
 - name: "Deploy Db2uInstance"
   include_tasks: tasks/db2uinstance.yml
   when: db2u_kind == "db2uinstance"
 
-# 17. Set db2 instance timezone
+# 18. Set db2 instance timezone
 # -----------------------------------------------------------------------------
 - name: "Set db2 instance timezone"
   include_tasks: "tasks/install/setup_timezone.yml"
@@ -449,7 +471,7 @@
     - db2_timezone != ""
     - db2u_kind == "db2ucluster"
 
-# 18. Configure a public route for Db2
+# 19. Configure a public route for Db2
 # -----------------------------------------------------------------------------
 - name: Lookup db2u Engn Service
   kubernetes.core.k8s_info:
@@ -515,7 +537,7 @@
     state: absent
 
 
-## 19. create an LDAP user if db2_ldap_username specified
+## 20. create an LDAP user if db2_ldap_username specified
 # -----------------------------------------------------------------------------
 - name: Create LDAP user if username and password is provided
   include_tasks: tasks/install/create_ldap_user.yml
@@ -532,7 +554,7 @@
       - "LDAP Username .......................... {{ db2_ldap_username | default('<undefined>', true) }}"
       - "Rotate Password ........................ {{ db2_rotate_password | ternary('*********', '<undefined>') }}"
 
-# 20. Rotate db2 ldap password
+# 21. Rotate db2 ldap password
 # -----------------------------------------------------------------------------
 - name: Rotate Db2 LDAP password if db2_rotate_password is True and username is provided
   include_tasks: tasks/install/rotate_ldap_user_password.yml
@@ -541,7 +563,7 @@
     - db2_ldap_username != ""
     - db2_rotate_password == true
 
-# 21. Generate a JdbcCfg for MAS configuration
+# 22. Generate a JdbcCfg for MAS configuration
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/install/suite_jdbccfg.yml
   when:

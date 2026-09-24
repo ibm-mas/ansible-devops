@@ -216,6 +216,24 @@ Whether to download Manage DB2 archive (`-db2u-manage.tar.gz`) from S3 or Artifa
 - Environment Variable: `INCLUDE_MANAGE_DB_ARCHIVE`
 - Default Value: `true`
 
+#### include_facilities_app_archive
+Whether to download Facilities app archive (`-app-facilities.tar.gz`) from S3 or Artifactory.
+
+**Important:** When set to `false`, the role will automatically skip downloading facilities app archive (`-app-facilities.tar.gz`) from S3 or Artifactory. This prevents unnecessary downloads when facilities component restore is not needed.
+
+- **Optional**
+- Environment Variable: `INCLUDE_FACILITIES_APP_ARCHIVE`
+- Default Value: `true`
+
+#### include_facilities_db_archive
+Whether to download Facilities DB2 archive (`-db2u-facilities.tar.gz`) from S3 or Artifactory.
+
+**Important:** When set to `false`, the role will automatically skip downloading facilities DB2 archive (`-db2u-facilities.tar.gz`) from S3 or Artifactory. This prevents unnecessary downloads when facilities component restore is not needed.
+
+- **Optional**
+- Environment Variable: `INCLUDE_FACILITIES_DB_ARCHIVE`
+- Default Value: `true`
+
 ## Example Playbook
 
 ### Download Multiple Archives from S3 (Auto-generated names)

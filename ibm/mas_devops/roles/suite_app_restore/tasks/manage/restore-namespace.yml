@@ -91,7 +91,23 @@
 
 - name: "Set fact: Manage workspace CR name"
   set_fact:
-    manage_workspace_cr_name: "{{ workspace_backup_cr.metadata.name}}"
+    manage_workspace_cr_name: "{{ workspace_backup_cr.metadata.name }}"
+
+- name: "Set fact: mas_workspace_id from ManageWorkspace backup CR label"
+  set_fact:
+    mas_workspace_id: "{{ workspace_backup_cr.metadata.labels['mas.ibm.com/workspaceId'] }}"
+  when: mas_workspace_id == '' or mas_workspace_id is not defined
+
+- name: "Fail if mas_workspace_id could not be determined"
+  fail:
+    msg: >-
+      mas_workspace_id could not be determined. The ManageWorkspace backup CR at
+      {{ instance_files[0] }} does not have the label 'mas.ibm.com/workspaceId'.
+  when: mas_workspace_id == '' or mas_workspace_id is not defined
+
+- name: "Display resolved mas_workspace_id"
+  debug:
+    msg: "Workspace ID resolved to: {{ mas_workspace_id }}"
 
 # 4. Restore resources until ManageApp CR (excluding ManageWorkspace)
 # -----------------------------------------------------------------------------
@@ -307,7 +323,7 @@
     name: "{{ mas_instance_id }}"
     namespace: "{{ mas_app_namespace }}"
   register: manage_app_cr
-  retries: 15
+  retries: 30
   delay: 60
   until:
     - manage_app_cr.resources is defined
@@ -384,7 +400,7 @@
         name: "{{ manage_workspace_cr_name }}"
         namespace: "{{ mas_app_namespace }}"
       register: workspace_status
-      retries: 15
+      retries: 30
       delay: 60
       until:
         - workspace_status.resources is defined
