@@ -12,13 +12,15 @@ import sys
 import tempfile
 from pathlib import Path
 
+from mocks.fake_k8s_server import FakeKubernetesServer
+
 # Root of the ibm/mas_devops collection — two levels up from tests/unit/roles/
 _ROLES_ROOT = Path(__file__).parent.parent.parent.parent / "roles"
 
 _ANSIBLE_PLAYBOOK = str(Path(sys.executable).parent / "ansible-playbook")
 
 
-def run_task(task_file: str, kubeconfig_path: str, variables: dict = None) -> subprocess.CompletedProcess:
+def run_task(task_file: str, fake_k8s: FakeKubernetesServer, variables: dict = None) -> subprocess.CompletedProcess:
     """Run an Ansible task file against a fake Kubernetes server.
 
     Wraps the task file in a minimal localhost playbook and executes it as a
@@ -54,7 +56,7 @@ def run_task(task_file: str, kubeconfig_path: str, variables: dict = None) -> su
     try:
         env = {
             **os.environ,
-            "KUBECONFIG": kubeconfig_path,
+            "KUBECONFIG": fake_k8s.kubeconfig_path,
             "ANSIBLE_DEPRECATION_WARNINGS": "False",
             "ANSIBLE_LOCALHOST_WARNING": "False",
         }

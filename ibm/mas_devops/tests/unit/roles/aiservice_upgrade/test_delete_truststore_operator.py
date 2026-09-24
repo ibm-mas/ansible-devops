@@ -20,7 +20,7 @@ class TestDeleteTruststoreOperator:
         fake_k8s.add_configmap(namespace, "ibm-truststore-mgr-config")
         fake_k8s.add_secret(namespace, "ibm-truststore-mgr-secret")
 
-        result = run_task(_TASK_FILE, fake_k8s.kubeconfig_path, {"target_namespace": namespace})
+        result = run_task(_TASK_FILE, fake_k8s, {"target_namespace": namespace})
 
         assert result.returncode == 0, (
             f"ansible-playbook failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
@@ -36,7 +36,7 @@ class TestDeleteTruststoreOperator:
 
     def test_skip_deletion_when_subscription_absent(self, fake_k8s):
         namespace = "mas-test-aiservice"
-        result = run_task(_TASK_FILE, fake_k8s.kubeconfig_path, {"target_namespace": namespace})
+        result = run_task(_TASK_FILE, fake_k8s, {"target_namespace": namespace})
         assert result.returncode == 0, (
             f"ansible-playbook failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
         )
