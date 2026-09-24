@@ -10,6 +10,7 @@ import sys
 import os
 
 # Add the mocks directory to the path so we can import mock helpers
+# Path: unit/plugins/conftest.py -> mocks/
 mocks_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'mocks'))
 if mocks_path not in sys.path:
     sys.path.insert(0, mocks_path)
