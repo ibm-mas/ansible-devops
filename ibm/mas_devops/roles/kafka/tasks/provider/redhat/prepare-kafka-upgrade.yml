@@ -57,16 +57,64 @@
       - "Current kafka channel .......... {{ old_kafka_channel }}"
       - "Current kafka csv .............. {{ old_kafka_csv }}"
 
-# 3. If the current operator channel is the same for the upgrade, no subscription upgrade
+# 3. Check if Kafka cluster is already in KRaft mode and ready
 # -----------------------------------------------------------------------------
-- name: "Debug when no upgrade is needed"
+- name: "Get the Kafka CR instance to check metadata state"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+  register: kafka_cluster_check
   when: kafka_default_channel == old_kafka_channel
-  debug:
-    msg: "No action is required. Kafka subscription is already on the {{ kafka_default_channel }} channel"
 
+- name: "Check if cluster is ready and in KRaft mode"
+  set_fact:
+    kafka_is_kraft: "{{ kafka_cluster_check.resources[0].status.kafkaMetadataState is defined and kafka_cluster_check.resources[0].status.kafkaMetadataState == 'KRaft' }}"
+    kafka_is_ready: "{{ (kafka_cluster_check.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | list | first | default('False')) == 'True' }}"
+  when:
+    - kafka_default_channel == old_kafka_channel
+    - kafka_cluster_check.resources is defined
+    - kafka_cluster_check.resources | length > 0
+    - kafka_cluster_check.resources[0].status is defined
+    - kafka_cluster_check.resources[0].status.conditions is defined
+
+# 4. If the current operator channel is the same, cluster is KRaft and ready, exit early
+# -----------------------------------------------------------------------------
+- name: "No upgrade needed - already on target channel, KRaft mode, and ready"
+  when:
+    - kafka_default_channel == old_kafka_channel
+    - kafka_is_kraft is defined
+    - kafka_is_kraft | bool
+    - kafka_is_ready is defined
+    - kafka_is_ready | bool
+  debug:
+    msg:
+      - "No action is required:"
+      - "  - Kafka subscription is already on the {{ kafka_default_channel }} channel"
+      - "  - Kafka cluster is already in KRaft mode"
+      - "  - Kafka cluster is Ready"
+      - "Upgrade complete - no changes needed."
+
+- name: "Skip upgrade when already on target channel, KRaft, and ready"
+  meta: end_play
+  when:
+    - kafka_default_channel == old_kafka_channel
+    - kafka_is_kraft is defined
+    - kafka_is_kraft | bool
+    - kafka_is_ready is defined
+    - kafka_is_ready | bool
+
+# 5. If channel is the same but not KRaft or not ready, continue with install
+# -----------------------------------------------------------------------------
+- name: "Channel matches but cluster needs attention"
+  when:
+    - kafka_default_channel == old_kafka_channel
+    - (kafka_is_kraft is not defined or not kafka_is_kraft | bool or kafka_is_ready is not defined or not kafka_is_ready | bool)
+  debug:
+    msg: "Kafka subscription is on {{ kafka_default_channel }} channel but cluster needs configuration updates"
+
+# 6. Run subscription upgrade if channel differs
+# -----------------------------------------------------------------------------
 - include_tasks: "tasks/provider/redhat/run-kafka-subscription-upgrade.yml"
   when: kafka_default_channel != old_kafka_channel
-
-# 4. Run Kafka instance upgrade
-# -----------------------------------------------------------------------------
-- include_tasks: "tasks/provider/redhat/run-kafka-instances-upgrade.yml"
