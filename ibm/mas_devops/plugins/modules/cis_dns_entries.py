@@ -33,8 +33,10 @@ from ansible.module_utils.basic import AnsibleModule
 def _request_with_retry(method, url, headers, payload, max_retries=5, backoff_base=30):
     """Execute an HTTP request with exponential backoff retry on 429 responses.
 
-    Retries up to max_retries times when a 429 rate-limit response is received,
-    waiting backoff_base * 2^attempt seconds between attempts (30s, 60s, 120s, …).
+    Retries up to max_retries times when a 429 rate-limit response is received.
+    The wait time is the greater of backoff_base * 2^attempt and the retry_after
+    value returned in the 429 response body, ensuring we always respect the
+    server's requested back-off.
 
     Args:
         method (str): HTTP method (GET, POST, PUT, PATCH, DELETE).
@@ -51,8 +53,12 @@ def _request_with_retry(method, url, headers, payload, max_retries=5, backoff_ba
         response = requests.request(method, url, headers=headers, data=payload)
         if response.status_code != 429:
             return response
-        wait = backoff_base * (2 ** attempt)
-        time.sleep(wait)
+        retry_after = backoff_base * (2 ** attempt)
+        try:
+            retry_after = max(retry_after, response.json().get("retry_after", 0))
+        except Exception:
+            pass
+        time.sleep(retry_after)
     return response
 
 def main():
