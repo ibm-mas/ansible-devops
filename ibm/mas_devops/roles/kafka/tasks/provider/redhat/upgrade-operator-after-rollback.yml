@@ -1,0 +1,191 @@
+---
+# Upgrade operator back to original channel after successful migration
+# This completes the three-phase process:
+# 1. Rollback to 2.x (completed)
+# 2. Migrate to KRaft (completed)
+# 3. Upgrade back to original channel (this file)
+
+- name: "Post-Migration Upgrade: Display upgrade plan"
+  debug:
+    msg:
+      - "=========================================="
+      - "UPGRADING OPERATOR AFTER MIGRATION"
+      - "=========================================="
+      - ""
+      - "Migration completed successfully!"
+      - "Cluster is now in KRaft mode."
+      - ""
+      - "Upgrading operator back to original channel:"
+      - "  From: {{ rollback_channel }} ({{ rollback_operator_version }})"
+      - "  To: {{ original_operator_channel }}"
+      - ""
+      - "This will install the latest KRaft-compatible operator."
+      - "=========================================="
+
+- name: "Post-Migration Upgrade: Change subscription back to original channel"
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "{{ kafka_operator_name }}"
+    namespace: "{{ kafka_namespace }}"
+    definition:
+      spec:
+        channel: "{{ original_operator_channel }}"
+    state: patched
+
+- name: "Post-Migration Upgrade: Delete 2.x CSV to trigger upgrade"
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: "{{ rollback_operator_csv }}"
+    namespace: "{{ kafka_namespace }}"
+    state: absent
+
+- name: "Post-Migration Upgrade: Wait for 2.x CSV to be deleted (up to 5 minutes)"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: "{{ rollback_operator_csv }}"
+    namespace: "{{ kafka_namespace }}"
+  register: old_csv_check
+  until: old_csv_check.resources | length == 0
+  retries: 30
+  delay: 10
+  failed_when: false
+
+- name: "Post-Migration Upgrade: Pause for OLM to stabilize and operator transition (90 seconds)"
+  pause:
+    seconds: 90
+
+- name: "Post-Migration Upgrade: Wait for new operator to install (up to 10 minutes)"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ kafka_namespace }}"
+  register: upgraded_csv_check
+  until:
+    - upgraded_csv_check.resources | length > 0
+    - upgraded_csv_check.resources | selectattr('spec.displayName', 'search', 'Streams for Apache Kafka') | list | length > 0
+    - (upgraded_csv_check.resources | selectattr('spec.displayName', 'search', 'Streams for Apache Kafka') | map(attribute='status.phase') | first) == 'Succeeded'
+  retries: 60
+  delay: 10
+
+- name: "Post-Migration Upgrade: Get upgraded operator version"
+  set_fact:
+    upgraded_operator_csv: "{{ upgraded_csv_check.resources | selectattr('spec.displayName', 'search', 'Streams for Apache Kafka') | map(attribute='metadata.name') | first }}"
+    upgraded_operator_version: "{{ upgraded_csv_check.resources | selectattr('spec.displayName', 'search', 'Streams for Apache Kafka') | map(attribute='spec.version') | first }}"
+
+- name: "Post-Migration Upgrade: Wait for operator pod to be ready (up to 5 minutes)"
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ kafka_namespace }}"
+    label_selectors:
+      - "strimzi.io/kind=cluster-operator"
+  register: new_operator_pod_check
+  until:
+    - new_operator_pod_check.resources | length > 0
+    - new_operator_pod_check.resources[0].status.phase == 'Running'
+    - new_operator_pod_check.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | first == 'True'
+  retries: 30
+  delay: 10
+
+- name: "Post-Migration Upgrade: Get current Kafka cluster state"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+  register: kafka_current_state
+
+- name: "Post-Migration Upgrade: Extract cluster details"
+  set_fact:
+    current_kafka_version: "{{ kafka_current_state.resources[0].spec.kafka.version }}"
+    current_metadata_state: "{{ kafka_current_state.resources[0].status.kafkaMetadataState | default('Unknown') }}"
+
+- name: "Post-Migration Upgrade: Check if Kafka version needs update"
+  debug:
+    msg:
+      - "Current Kafka version: {{ current_kafka_version }}"
+      - "Target Kafka version: {{ kafka_version }}"
+      - "Version update needed: {{ current_kafka_version != kafka_version }}"
+
+- name: "Post-Migration Upgrade: Update Kafka version if needed"
+  kubernetes.core.k8s:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    name: "{{ kafka_cluster_name }}"
+    namespace: "{{ kafka_namespace }}"
+    definition:
+      spec:
+        kafka:
+          version: "{{ kafka_version }}"
+          metadataVersion: "{{ kafka_version }}"
+    state: patched
+  when: current_kafka_version != kafka_version
+
+- name: "Post-Migration Upgrade: Wait for version update to complete (up to 10 minutes)"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+  register: kafka_version_check
+  until:
+    - kafka_version_check.resources | length > 0
+    - kafka_version_check.resources[0].spec.kafka.version == kafka_version
+    - kafka_version_check.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | list | length > 0
+    - (kafka_version_check.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | first) == 'True'
+  retries: 60
+  delay: 10
+  when: current_kafka_version != kafka_version
+
+- name: "Post-Migration Upgrade: Final cluster reconciliation check (up to 10 minutes)"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+  register: kafka_final_check
+  until:
+    - kafka_final_check.resources | length > 0
+    - kafka_final_check.resources[0].spec.kafka.version == kafka_version
+    - kafka_final_check.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | list | length > 0
+    - (kafka_final_check.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | first) == 'True'
+  retries: 60
+  delay: 10
+
+- name: "Post-Migration Upgrade: Get final state"
+  set_fact:
+    final_metadata_state: "{{ kafka_final_check.resources[0].status.kafkaMetadataState }}"
+    final_kafka_version: "{{ kafka_final_check.resources[0].spec.kafka.version }}"
+
+- name: "Post-Migration Upgrade: Upgrade complete"
+  debug:
+    msg:
+      - "=========================================="
+      - "OPERATOR UPGRADE SUCCESSFUL"
+      - "=========================================="
+      - ""
+      - "Complete upgrade path:"
+      - "  1. Rolled back: {{ current_operator_version }} → {{ rollback_operator_version }}"
+      - "  2. Migrated: ZooKeeper → KRaft"
+      - "  3. Upgraded: {{ rollback_operator_version }} → {{ upgraded_operator_version }}"
+      - "  4. Updated Kafka: {{ current_kafka_version }} → {{ final_kafka_version }}"
+      - ""
+      - "Current State:"
+      - "  - Operator: {{ upgraded_operator_csv }} ({{ upgraded_operator_version }})"
+      - "  - Channel: {{ original_operator_channel }}"
+      - "  - Kafka Version: {{ final_kafka_version }}"
+      - "  - Cluster Mode: {{ final_metadata_state }}"
+      - "  - Cluster Status: Ready"
+      - ""
+      - "The cluster is now running on a KRaft-only operator"
+      - "with a compatible Kafka version."
+      - "=========================================="
+
+- name: "Post-Migration Upgrade: Fail if cluster not in KRaft mode"
+  fail:
+    msg: "ERROR: Cluster is not in KRaft mode after upgrade. Current state: {{ final_metadata_state }}"
+  when: final_metadata_state != "KRaft"
+
+# Made with Bob
