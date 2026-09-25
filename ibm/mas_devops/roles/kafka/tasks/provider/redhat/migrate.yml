@@ -1,0 +1,279 @@
+---
+# 1. Load default storage classes (if not provided by the user)
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/determine-storage-classes.yml
+
+# 2. Verify that the Kafka instance is in ZooKeeper mode
+# -----------------------------------------------------------------------------
+- name: "Get the Kafka CR instance"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+  register: kafka_cluster_cr
+
+- name: "Verify that the Kafka instance is in ZooKeeper mode"
+  assert:
+    that:
+      - kafka_cluster_cr.resources[0].status.kafkaMetadataState == "ZooKeeper"
+    fail_msg: "Kafka cluster is not in ZooKeeper mode. Aborting..."
+
+
+# 3. Take a backup of the existing Kafka CR
+# -----------------------------------------------------------------------------
+- name: "Take a backup of the existing Kafka CR"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+  register: kafka_cr_backup
+
+- name: "Save Kafka CR to local YAML file"
+  copy:
+    content: "{{ kafka_cr_backup.resources[0] | to_nice_yaml }}"
+    dest: "./{{ kafka_cluster_name }}-backup.yml"
+
+
+# 4. Deploy the controller as NodePool
+# -----------------------------------------------------------------------------
+- name: "Create the Controller"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/redhat/nodepools/controller.yml.j2"
+
+
+# 5. Deploy the Broker as NodePool
+# -----------------------------------------------------------------------------
+- name: "Create the Broker"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/redhat/nodepools/broker.yml.j2"
+
+
+# 6. Enable NodePool in the Kafka CR
+# -----------------------------------------------------------------------------
+- name: "Enable NodePool in the Kafka CR"
+  kubernetes.core.k8s:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+    merge_type: merge
+    definition:
+      metadata:
+        annotations:
+          strimzi.io/kraft: disabled
+          strimzi.io/node-pools: enabled
+
+
+# 7. Trigger the ZooKeeper migration to KRaft
+# -----------------------------------------------------------------------------
+- name: "Trigger the ZooKeeper migration to KRaft"
+  kubernetes.core.k8s:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+    merge_type: merge
+    definition:
+      metadata:
+        annotations:
+          strimzi.io/kraft: migration
+
+
+# 8. Wait for the migration to finish
+# -----------------------------------------------------------------------------
+- name: "Wait for the migration to finish"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+  register: kafka_cluster_cr
+  retries: 30
+  delay: 30
+  until:
+    - kafka_cluster_cr.resources[0].status.kafkaMetadataState is defined
+    - kafka_cluster_cr.resources[0].status.kafkaMetadataState == "KRaftPostMigration"
+
+
+# 9. Enable KRaft annotation on the Kafka CR
+# -----------------------------------------------------------------------------
+- name: "Enable KRaft annotation on the Kafka CR"
+  kubernetes.core.k8s:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+    merge_type: merge
+    definition:
+      metadata:
+        annotations:
+          strimzi.io/kraft: enabled
+
+# 10. Get current cluster state
+# -----------------------------------------------------------------------------
+- name: "Get current Kafka cluster state"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+  register: kafka_cluster_cr
+
+- name: "Check if ZooKeeper section exists in spec"
+  set_fact:
+    zookeeper_exists: "{{ kafka_cluster_cr.resources[0].spec.zookeeper is defined }}"
+
+- name: "Display post-migration status"
+  debug:
+    msg:
+      - "=========================================="
+      - "POST-MIGRATION STATE"
+      - "=========================================="
+      - ""
+      - "Metadata State: {{ kafka_cluster_cr.resources[0].status.kafkaMetadataState }}"
+      - "KRaft Annotation: {{ kafka_cluster_cr.resources[0].metadata.annotations['strimzi.io/kraft'] }}"
+      - "ZooKeeper in Spec: {{ zookeeper_exists }}"
+      - ""
+      - "Finalizing migration by removing ZooKeeper..."
+      - "=========================================="
+
+# 11. Delete the ZooKeeper section from the Kafka CR to finalize migration
+# -----------------------------------------------------------------------------
+- name: "Delete the ZooKeeper section from the Kafka CR"
+  kubernetes.core.k8s_json_patch:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+    patch:
+      - op: remove
+        path: /spec/zookeeper
+  when: zookeeper_exists | bool
+
+- name: "Wait for operator to process ZooKeeper removal (30 seconds)"
+  pause:
+    seconds: 30
+  when: zookeeper_exists | bool
+
+# 12. Wait for cluster to transition to pure KRaft mode
+# -----------------------------------------------------------------------------
+- name: "Wait for cluster to transition to KRaft mode (up to 10 minutes)"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+  register: kafka_cluster_final
+  retries: 60
+  delay: 10
+  until:
+    - kafka_cluster_final.resources[0].status.kafkaMetadataState is defined
+    - kafka_cluster_final.resources[0].status.kafkaMetadataState == "KRaft"
+
+- name: "Wait for ZooKeeper pods to terminate (up to 10 minutes)"
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ kafka_namespace }}"
+    label_selectors:
+      - "strimzi.io/cluster={{ kafka_cluster_name }}"
+      - "strimzi.io/kind=Kafka"
+      - "strimzi.io/name={{ kafka_cluster_name }}-zookeeper"
+  register: zookeeper_pods
+  retries: 60
+  delay: 10
+  until: zookeeper_pods.resources | length == 0
+  when: zookeeper_exists | bool
+
+- name: "Display migration finalization status"
+  debug:
+    msg:
+      - "=========================================="
+      - "MIGRATION TO KRAFT FINALIZED"
+      - "=========================================="
+      - ""
+      - "Metadata State: {{ kafka_cluster_final.resources[0].status.kafkaMetadataState }}"
+      - "ZooKeeper Pods: {{ zookeeper_pods.resources | length if zookeeper_exists else 0 }}"
+      - ""
+      - "Migration complete! Cluster is now in pure KRaft mode."
+      - "=========================================="
+
+# 12. Remove other deprecated fields for KRaft-only operators
+# -----------------------------------------------------------------------------
+- name: "Remove deprecated kafka.replicas field"
+  kubernetes.core.k8s_json_patch:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+    patch:
+      - op: remove
+        path: /spec/kafka/replicas
+  failed_when: false
+
+- name: "Remove deprecated kafka.storage field"
+  kubernetes.core.k8s_json_patch:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+    patch:
+      - op: remove
+        path: /spec/kafka/storage
+  failed_when: false
+
+- name: "Remove deprecated kafka.config.log.message.format.version field"
+  kubernetes.core.k8s_json_patch:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+    patch:
+      - op: remove
+        path: /spec/kafka/config/log.message.format.version
+  failed_when: false
+
+- name: "Remove deprecated entityOperator.topicOperator.zookeeperSessionTimeoutSeconds field"
+  kubernetes.core.k8s_json_patch:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+    patch:
+      - op: remove
+        path: /spec/entityOperator/topicOperator/zookeeperSessionTimeoutSeconds
+  failed_when: false
+
+- name: "Remove deprecated entityOperator.tlsSidecar field"
+  kubernetes.core.k8s_json_patch:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+    patch:
+      - op: remove
+        path: /spec/entityOperator/tlsSidecar
+  failed_when: false
+
+- name: "Wait for operator to reconcile after cleanup (30 seconds)"
+  pause:
+    seconds: 30
+
+# 13. Assert that the Kafka CR is switched to KRaft
+# -----------------------------------------------------------------------------
+- name: "Get the Kafka CR instance"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+  register: kafka_cluster_cr
+
+- name: "Assert that the Kafka CR is switched to KRaft"
+  assert:
+    that:
+      - kafka_cluster_cr.resources[0].status.kafkaMetadataState == "KRaft"
+    fail_msg: "Kafka CR is not in KRaft mode, try restarting the migration."
