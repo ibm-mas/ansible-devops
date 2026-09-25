@@ -162,6 +162,9 @@
   loop: "{{ non_dro_list }}"
   when: hasDedicated and (override_edge_certs or (edge_cert_output is defined and edge_cert_output["reorder"]))
   register: _deleted_certificates
+  retries: 5
+  delay: 30
+  until: _deleted_certificates.rc == 0
 
 - name: "cis : Log deleted certificates count"
   debug:
@@ -182,5 +185,9 @@
   ansible.builtin.shell: |
     ibmcloud cis certificate-order {{ _cis_domain_id }} --hostnames {{ item|join(',') }} -i "{{ cis_service_name }}"
   loop: "{{ edge_cert_entries | batch(50) | list }}"
+  retries: 5
+  delay: 30
+  until: _cis_certificate_order.rc == 0
+  register: _cis_certificate_order
   when:
     - not hasDedicated or (_deleted_certificate is defined and _deleted_certificate["changed"])
