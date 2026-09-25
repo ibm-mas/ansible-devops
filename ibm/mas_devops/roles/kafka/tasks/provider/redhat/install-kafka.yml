@@ -78,8 +78,6 @@
       - "Kafka cluster size .................... {{ kafka_cluster_size }}"
       - "Kafka kafka storage class ............. {{ kafka_storage_class }}"
       - "Kafka kafka storage size .............. {{ kafka_storage_size }}"
-      - "Kafka zookeeper storage class ......... {{ zookeeper_storage_class }}"
-      - "Kafka zookeeper storage size .......... {{ zookeeper_storage_size }}"
       - "Kafka MAS user ........................ {{ kafka_user_name }}"
       - "Cluster supports grafana v4 ........... {{ supports_grafanav4 }}"
       - "Cluster supports grafana v5 ........... {{ supports_grafanav5 }}"
@@ -121,7 +119,63 @@
     apply: yes
     template: "templates/redhat/podmonitor.yml.j2"
 
-# 10. Deploy the cluster
+# 10. Check for existing ZooKeeper cluster before deploying KRaft template
+# -----------------------------------------------------------------------------
+- name: "Check if Kafka cluster already exists"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+  register: existing_kafka_cluster
+
+- name: "Detect existing ZooKeeper-based cluster"
+  set_fact:
+    existing_is_zookeeper: true
+  when:
+    - existing_kafka_cluster.resources is defined
+    - existing_kafka_cluster.resources | length > 0
+    - existing_kafka_cluster.resources[0].status is defined
+    - existing_kafka_cluster.resources[0].status.kafkaMetadataState is defined
+    - existing_kafka_cluster.resources[0].status.kafkaMetadataState == "ZooKeeper"
+
+- name: "Fail if trying to install KRaft template on existing ZooKeeper cluster"
+  fail:
+    msg:
+      - "=========================================="
+      - "CANNOT INSTALL KRAFT CLUSTER"
+      - "=========================================="
+      - ""
+      - "An existing ZooKeeper-based Kafka cluster was detected:"
+      - "  Cluster: {{ kafka_cluster_name }}"
+      - "  Namespace: {{ kafka_namespace }}"
+      - "  Current Mode: ZooKeeper"
+      - ""
+      - "The install action uses KRaft-only templates which are"
+      - "incompatible with existing ZooKeeper clusters."
+      - ""
+      - "SOLUTION: Use the upgrade action to migrate:"
+      - "  KAFKA_ACTION=upgrade"
+      - ""
+      - "This will safely migrate your cluster from ZooKeeper to KRaft."
+      - ""
+      - "If you have a 3.x operator, you may need to enable rollback:"
+      - "  KAFKA_ALLOW_ROLLBACK=true KAFKA_ACTION=upgrade"
+      - "=========================================="
+  when:
+    - existing_is_zookeeper is defined
+    - existing_is_zookeeper | bool
+
+- name: "Display cluster deployment info"
+  debug:
+    msg:
+      - "Deploying Kafka cluster:"
+      - "  Name: {{ kafka_cluster_name }}"
+      - "  Mode: KRaft (ZooKeeper-free)"
+      - "  {% if existing_kafka_cluster.resources | length > 0 %}Action: Update existing cluster{% else %}Action: Create new cluster{% endif %}"
+  when: existing_is_zookeeper is not defined or not existing_is_zookeeper | bool
+
+# 11. Deploy the cluster
 # -----------------------------------------------------------------------------
 - name: "Create Kafka Cluster"
   kubernetes.core.k8s:
@@ -212,6 +266,11 @@
 
 # 15. Create KafkaCfg for MAS (if mas_instance_id & mas_config_dir are set)
 # -----------------------------------------------------------------------------
+- name: Set kafka_provider_name if not already set
+  set_fact:
+    kafka_provider_name: "{{ kafka_defaults[kafka_provider].alias_name }}"
+  when: kafka_provider_name is not defined
+
 - name: Debug KafkaCfg creation properties
   when:
     - mas_instance_id is defined
