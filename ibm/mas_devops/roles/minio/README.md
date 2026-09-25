@@ -15,6 +15,13 @@ MinIO provides S3-compatible object storage and is deployed with persistent volu
 - **OpenShift Integration**: Deployed as native OpenShift resources
 - **Auto-Configuration**: Automatic credential generation and setup
 
+## Actions
+
+The role supports three actions via `MINIO_ACTION` environment variable:
+
+- **install** (default): Deploy minio instance
+- **backup**: Backup minio buckets to local directory
+- **uninstall**: Remove minio deployment
 
 ## Role Variables
 
@@ -316,6 +323,26 @@ export MINIO_INSTANCE_NAME=minio-dev
 export MINIO_ROOT_USER=admin
 export MINIO_ROOT_PASSWORD=mySecurePassword123
 export MINIO_STORAGE_SIZE=50Gi
+ROLE_NAME=minio ansible-playbook ibm.mas_devops.run_role
+```
+
+### Backup minio
+```bash
+export MINIO_ACTION=backup
+export MINIO_NAMESPACE=minio
+export MINIO_INSTANCE_NAME=minio
+export MINIO_ROOT_USER=admin
+export MINIO_ROOT_PASSWORD=mySecurePassword123
+export MAS_CONFIG_DIR=/path/to/backup
+ROLE_NAME=minio ansible-playbook ibm.mas_devops.run_role
+```
+
+### Uninstall minio
+```bash
+export MINIO_ACTION=uninstall
+export MINIO_NAMESPACE=minio
+export MINIO_DELETE_PVC=true
+export MINIO_DELETE_NAMESPACE=true
 ROLE_NAME=minio ansible-playbook ibm.mas_devops.run_role
 ```
 

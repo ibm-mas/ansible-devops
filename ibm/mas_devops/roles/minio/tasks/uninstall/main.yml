@@ -1,0 +1,99 @@
+---
+- name: "minio Uninstall : Debug properties"
+  debug:
+    msg:
+      - "Uninstalling minio object storage"
+      - "Namespace: {{ minio_namespace }}"
+      - "Instance: {{ minio_instance_name }}"
+      - "Delete PVC: {{ minio_delete_pvc }}"
+      - "Delete namespace: {{ minio_delete_namespace }}"
+
+# delete minio deployment
+- name: "Delete minio deployment"
+  kubernetes.core.k8s:
+    api_version: apps/v1
+    kind: Deployment
+    name: "{{ minio_instance_name }}"
+    namespace: "{{ minio_namespace }}"
+    state: absent
+    wait: yes
+    wait_timeout: 120
+  ignore_errors: true
+
+# delete minio service
+- name: "Delete minio service"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Service
+    name: "{{ minio_instance_name }}-service"
+    namespace: "{{ minio_namespace }}"
+    state: absent
+  ignore_errors: true
+
+# delete minio route
+- name: "Delete minio route"
+  kubernetes.core.k8s:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: "{{ minio_instance_name }}"
+    namespace: "{{ minio_namespace }}"
+    state: absent
+  ignore_errors: true
+
+# Wait for pods to terminate
+- name: "Wait for pods to terminate"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ minio_namespace }}"
+    label_selectors:
+      - "app={{ minio_instance_name }}"
+  register: minio_pods
+  until: minio_pods.resources | length == 0
+  retries: 20
+  delay: 10
+  ignore_errors: true
+
+# delete minio PVC (optional, only if not deleting namespace)
+- name: "Delete minio pvc"
+  when:
+    - minio_delete_pvc | bool
+    - not (minio_delete_namespace | bool)
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: PersistentVolumeClaim
+    name: "{{ minio_instance_name }}-pvc"
+    namespace: "{{ minio_namespace }}"
+    state: absent
+    wait: yes
+    wait_timeout: 120
+
+# delete minio namespace (optional)
+- name: "Delete minio namespace"
+  when: minio_delete_namespace | bool
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: "{{ minio_namespace }}"
+    state: absent
+
+- name: "Wait for namespace to be deleted"
+  when: minio_delete_namespace | bool
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ minio_namespace }}"
+  register: namespace_check
+  until:
+    - namespace_check.resources is defined
+    - namespace_check.resources | length == 0
+  retries: 30
+  delay: 10
+
+- name: "Uninstall Complete"
+  debug:
+    msg:
+      - "minio uninstall complete"
+      - "Deployment removed: {{ minio_instance_name }}"
+      - "PVC: {{ 'Deleted' if minio_delete_pvc else 'Preserved' }}"
+      - "Namespace: {{ 'Deleted' if minio_delete_namespace else 'Preserved' }}"

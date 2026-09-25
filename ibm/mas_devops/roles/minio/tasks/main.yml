@@ -1,56 +1,18 @@
 ---
-- name: Load variables (main)
-  include_vars: "vars/main.yml"
+# minio/tasks/main.yml
+# =============================================================================
+# Main dispatcher for MinIO actions
+# Supports: install, backup, uninstall
 
-# Load default storage class (if not provided by the user)
-# -----------------------------------------------------------------------------
-- include_tasks: tasks/determine-storage-classes.yml
+- name: "Run the selected action"
+  include_tasks: "tasks/{{ minio_action }}/main.yml"
+  when:
+    - minio_action != "none"
+    - minio_action in ["install", "backup", "uninstall"]
 
-- name: Load minio defaults using version from the catalog
-  block:
-    - include_tasks: "{{ role_path }}/../../common_tasks/determine-ibmcatalog-tag.yml"
+- name: "Fail if minio_action is invalid"
+  fail:
+    msg: "minio_action must be one of ['install', 'backup', 'uninstall', 'none']"
+  when:
+    - minio_action not in ["none", "install", "backup", "uninstall"]
 
-    - ibm.mas_devops.get_catalog_info:
-        mas_catalog_version: "{{ catalog_tag }}"
-      register: _mas_catalog
-
-    - name: Load minio defaults
-      include_vars:
-        file: "{{ role_path }}/../mirror_extras_prepare/vars/minio_{{ _mas_catalog.minio_version }}.yml"
-
-- name: Retrieve image setting parts
-  set_fact:
-    minio_image_name: "{{ extra_images | selectattr('name', 'match', '.*/minio$') | map(attribute='name') | first }}"
-    minio_image_registry: "{{ extra_images | selectattr('name', 'match', '.*/minio$') | map(attribute='registry') | first }}"
-    minio_image_digest: "{{ extra_images | selectattr('name', 'match', '.*/minio$') | map(attribute='digest') | first }}"
-    minio_image_tag: "{{ extra_images | selectattr('name', 'match', '.*/minio$') | map(attribute='tag') | first }}"
-
-# create minio namespace
-- name: 'Create minio namespace'
-  kubernetes.core.k8s:
-    apply: yes
-    template: "templates/minio/minio-ns.yml.j2"
-
-# create minio PVC
-- name: 'Create minio pvc'
-  kubernetes.core.k8s:
-    apply: yes
-    template: "templates/minio/minio-pvc.yml.j2"
-
-# create minio deployment
-- name: 'Create minio deployment'
-  kubernetes.core.k8s:
-    apply: yes
-    template: "templates/minio/minio-deployment.yml.j2"
-
-# create minio service
-- name: 'Create minio service'
-  kubernetes.core.k8s:
-    apply: yes
-    template: "templates/minio/minio-service.yml.j2"
-
-# create minio route
-- name: 'Create minio route'
-  kubernetes.core.k8s:
-    apply: yes
-    template: "templates/minio/minio-route.yml.j2"
