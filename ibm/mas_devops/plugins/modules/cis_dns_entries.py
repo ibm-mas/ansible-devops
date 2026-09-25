@@ -30,8 +30,23 @@ from requests.exceptions import HTTPError
 from ansible.module_utils.basic import AnsibleModule
 
 
-def _request_with_retry(method, url, headers, payload, max_retries=5, backoff_base=10):
-    """Execute an HTTP request with exponential backoff retry on 429 responses."""
+def _request_with_retry(method, url, headers, payload, max_retries=5, backoff_base=30):
+    """Execute an HTTP request with exponential backoff retry on 429 responses.
+
+    Retries up to max_retries times when a 429 rate-limit response is received,
+    waiting backoff_base * 2^attempt seconds between attempts (30s, 60s, 120s, …).
+
+    Args:
+        method (str): HTTP method (GET, POST, PUT, PATCH, DELETE).
+        url (str): Request URL.
+        headers (dict): HTTP headers.
+        payload: Request body.
+        max_retries (int, optional): Maximum number of attempts. Defaults to 5.
+        backoff_base (int, optional): Base wait seconds for exponential backoff. Defaults to 30.
+
+    Returns:
+        requests.Response: The last response received.
+    """
     for attempt in range(max_retries):
         response = requests.request(method, url, headers=headers, data=payload)
         if response.status_code != 429:
@@ -145,7 +160,9 @@ def main():
         response = _request_with_retry("GET", url, headers=headers, payload=payload)
         json_response = response.json()
 
-        if response.status_code != 200:
+        if response.status_code == 429:
+            module.fail_json(msg = f"Could not get Zones using provided CRN (rate limited after retries): {response.content}")
+        elif response.status_code != 200:
             module.fail_json(msg = f"Could not get Zones using provided CRN: {response.content}")
 
         zones = json_response['result']
@@ -178,7 +195,9 @@ def main():
         response = _request_with_retry("GET", url, headers=headers, payload=payload)
         json_response = response.json()
 
-        if response.status_code != 200:
+        if response.status_code == 429:
+            module.fail_json(msg = f"Could not get DNS entries using provided CRN and Zone (rate limited after retries): {response.content}")
+        elif response.status_code != 200:
             module.fail_json(msg = f"Could not get DNS entries using provided CRN and Zone: {response.content}")
 
         dnsRecords = json_response['result']
@@ -255,9 +274,9 @@ def main():
                     if(response.status_code == 200):
                         changed = True
         if cis_waf:
-            url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/settings/waf"	
-            payload="{\n \"value\": \"on\" \n}"
-            response = requests.request("PATCH", url, headers=headers, data=payload)
+            url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/settings/waf"
+            payload = "{\n \"value\": \"on\" \n}"
+            response = _request_with_retry("PATCH", url, headers=headers, payload=payload)
             if(response.status_code == 200):
                 changed = True
         
