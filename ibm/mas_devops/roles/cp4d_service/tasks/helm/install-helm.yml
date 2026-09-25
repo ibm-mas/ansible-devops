@@ -210,7 +210,8 @@
     - name: "Parse existing releases (name and chart version)"
       set_fact:
         # helm list --output json: each entry has 'name' and 'chart' (e.g. "ccs-12.1.0+20260220.163654.253")
-        installed_release_versions: "{{ dict((existing_releases.stdout | from_json | map(attribute='name')) | zip(existing_releases.stdout | from_json | map(attribute='chart'))) if existing_releases.rc == 0 else {} }}"
+        # default('[]', true) guards against empty stdout when no releases exist yet
+        installed_release_versions: "{{ dict((existing_releases.stdout | default('[]', true) | from_json | map(attribute='name')) | zip(existing_releases.stdout | default('[]', true) | from_json | map(attribute='chart'))) if existing_releases.rc == 0 else {} }}"
 
     - name: "Initialise dependency install list"
       set_fact:
