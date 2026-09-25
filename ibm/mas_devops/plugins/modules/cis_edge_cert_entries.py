@@ -22,9 +22,43 @@ author:
     - Andrew Whitfield (@whitfiea)
 '''
 
+import time
+
 import requests
-from requests.exceptions import HTTPError
 from ansible.module_utils.basic import AnsibleModule
+
+
+def _request_with_retry(method, url, headers, payload, max_retries=5, backoff_base=30):
+    """Execute an HTTP request with exponential backoff retry on 429 responses.
+
+    Retries up to max_retries times when a 429 rate-limit response is received.
+    The wait time is the greater of backoff_base * 2^attempt and the retry_after
+    value returned in the 429 response body, ensuring we always respect the
+    server's requested back-off.
+
+    Args:
+        method (str): HTTP method (GET, POST, PUT, PATCH, DELETE).
+        url (str): Request URL.
+        headers (dict): HTTP headers.
+        payload: Request body.
+        max_retries (int, optional): Maximum number of attempts. Defaults to 5.
+        backoff_base (int, optional): Base wait seconds for exponential backoff. Defaults to 30.
+
+    Returns:
+        requests.Response: The last response received.
+    """
+    for attempt in range(max_retries):
+        response = requests.request(method, url, headers=headers, data=payload)
+        if response.status_code != 429:
+            return response
+        retry_after = backoff_base * (2 ** attempt)
+        try:
+            retry_after = max(retry_after, response.json().get("retry_after", 0))
+        except Exception:
+            pass
+        time.sleep(retry_after)
+    return response
+
 
 def main():
 
@@ -107,10 +141,12 @@ def main():
             'X-Auth-User-Token': access_token
         }
 
-        response = requests.request("GET", url, headers=headers, data=payload)
+        response = _request_with_retry("GET", url, headers=headers, payload=payload)
         json_response = response.json()
 
-        if response.status_code != 200:
+        if response.status_code == 429:
+            module.fail_json(msg = f"Could not get Zones using provided CRN (rate limited after retries): {response.content}")
+        elif response.status_code != 200:
             module.fail_json(msg = f"Could not get Zones using provided CRN: {response.content}")
 
         zones = json_response['result']
@@ -140,10 +176,12 @@ def main():
             'X-Auth-User-Token': access_token
         }
 
-        response = requests.request("GET", url, headers=headers, data=payload)
+        response = _request_with_retry("GET", url, headers=headers, payload=payload)
         json_response = response.json()
 
-        if response.status_code != 200:
+        if response.status_code == 429:
+            module.fail_json(msg = f"Could not get SSL Certificates using provided CRN and Zone (rate limited after retries): {response.content}")
+        elif response.status_code != 200:
             module.fail_json(msg = f"Could not get SSL Certificates using provided CRN and Zone: {response.content}")
 
         results = json_response['result']
