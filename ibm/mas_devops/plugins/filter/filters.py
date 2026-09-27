@@ -558,6 +558,84 @@ def set_storage_classes_names(storage_list: list, storage_class_name_rwo: str, s
         storage_item['spec']['storageClassName'] = storage_class_name_rwo
   return storage_list
 
+def strip_build_number(version: str) -> str:
+  """
+    Strips trailing build number suffix from a version string.
+    
+    Build numbers are numeric suffixes appended after a hyphen at the end of the version string.
+    This function preserves custom text suffixes (e.g., -dev, -test1, -pre.maint90xdev) while
+    removing only numeric build suffixes (e.g., -28084, -12345).
+    
+    Examples:
+      - "9.0.27" -> "9.0.27" (no change)
+      - "9.0.27-28084" -> "9.0.27" (build number stripped)
+      - "9.0.27-dev" -> "9.0.27-dev" (custom suffix preserved)
+      - "9.0.27-dev-28084" -> "9.0.27-dev" (custom suffix preserved, build stripped)
+      - "9.0.27-pre.maint90xdev" -> "9.0.27-pre.maint90xdev" (custom suffix preserved)
+      - "9.0.27-pre.maint90xdev-28084" -> "9.0.27-pre.maint90xdev" (custom suffix preserved, build stripped)
+    
+    :version: Version string that may contain a build number suffix
+    :return: Version string with build number suffix removed
+  """
+  import re
+  # Strip trailing hyphen followed by one or more digits at end of string
+  return re.sub(r'-\d+$', '', version)
+
+
+def compare_versions_ignore_build(reconciled_version: str, expected_version: str, is_feature_channel: bool = False) -> bool:
+  """
+    Compares two version strings, ignoring build number suffixes and optionally handling feature channel format differences.
+    
+    This function is used to validate that an operator has been upgraded to the expected version, accounting for:
+    1. Build number suffixes that may be present in the OperatorCondition but not in the CR reconciled version
+    2. Feature channel format differences where '+' in CR version corresponds to '-' in OperatorCondition
+    3. Custom channel suffixes (e.g., -dev, -test1, -pre.maint90xdev) that should be preserved
+    
+    For feature channels, the logic is:
+    - First replace '+' with '-' to normalize format
+    - Then check if expected starts with reconciled (to handle build number suffix)
+    - This preserves the semantic version number after +/- while ignoring build numbers
+    
+    Examples:
+      GA Channels (is_feature_channel=False):
+        - ("9.0.27", "9.0.27") -> True
+        - ("9.0.27", "9.0.27-28084") -> True (build number ignored)
+        - ("9.0.27-dev", "9.0.27-dev-28084") -> True (custom suffix preserved, build ignored)
+        - ("9.0.27-pre.maint90xdev", "9.0.27-pre.maint90xdev-28084") -> True
+        - ("9.0.27", "9.0.28") -> False (different versions)
+      
+      Feature Channels (is_feature_channel=True):
+        - ("9.1.0-pre.stable+8193", "9.1.0-pre.stable-8193") -> True (+ replaced with -)
+        - ("9.1.0-pre.stable+8193", "9.1.0-pre.stable-8193-28084") -> True (+ replaced, build ignored)
+        - ("9.2.0-feature-dev+1234", "9.2.0-feature-dev-1234-28084") -> True
+    
+    :reconciled_version: Version from CR status.versions.reconciled
+    :expected_version: Version from OperatorCondition
+    :is_feature_channel: Whether this is a feature channel (handles + vs - difference)
+    :return: True if versions match (ignoring build numbers and feature channel format differences)
+  """
+  # Handle feature channel format difference (+ vs -)
+  if is_feature_channel:
+    reconciled_version = reconciled_version.replace('+', '-')
+    expected_version = expected_version.replace('+', '-')
+    
+    # For feature channels, check if expected starts with reconciled
+    # This handles cases where expected has additional build number suffix
+    # e.g., "9.1.0-pre.stable-8193" should match "9.1.0-pre.stable-8193-28084"
+    if expected_version.startswith(reconciled_version):
+      # Check if what follows is a build number (hyphen + digits)
+      remainder = expected_version[len(reconciled_version):]
+      if remainder == "" or (remainder.startswith('-') and remainder[1:].isdigit()):
+        return True
+    return reconciled_version == expected_version
+  else:
+    # For GA channels, strip build numbers from both versions
+    reconciled_clean = strip_build_number(reconciled_version)
+    expected_clean = strip_build_number(expected_version)
+    
+    return reconciled_clean == expected_clean
+
+
 def override_manage_persistent_volumes(volumes_list: list, storage_class_name_rwo: str, storage_class_name_rwx: str):
   """
   Iterate through the volumes_list list and set the storage_class_name for each storage item based on the access mode.
