@@ -1,0 +1,261 @@
+---
+# Parameter Mapping
+# =============================================================================
+# Map migration parameters from CLI/Tekton naming to the names expected by
+# the migration tasks below (which uses db2_namespace and db2_instance_name)
+# =============================================================================
+- name: "Map migration parameters"
+  ansible.builtin.set_fact:
+    db2_namespace: "{{ db2_migration_namespace }}"
+    db2_instance_name: "{{ db2_migration_cluster_name }}"
+
+# Db2uCluster to Db2uInstance Migration
+# =============================================================================
+# This task performs migration from deprecated Db2uCluster to Db2uInstance
+# using the db2u_migrate CLI tool. The migration is namespace-scoped and
+# requires the Db2uCluster to be running v12.x.
+#
+# Requirements:
+# - db2u_migrate CLI tool must be available on the local machine
+# - Db2uCluster must be v12.x (migration will fail otherwise)
+# - No Db2uInstance with the same name should exist
+#
+# =============================================================================
+
+# 0. Verify db2u_migrate is installed
+# -----------------------------------------------------------------------------
+- name: "Check if db2u_migrate is installed"
+  ansible.builtin.command:
+    cmd: "which db2u_migrate"
+  register: _db2u_migrate_check
+  changed_when: false
+  failed_when: false
+
+- name: "Fail if db2u_migrate is not installed"
+  ansible.builtin.fail:
+    msg: |
+      The 'db2u_migrate' CLI tool was not found on this machine.
+      Please install it before running this migration.
+  when: _db2u_migrate_check.rc != 0
+
+# 1. Validate namespace exists
+# -----------------------------------------------------------------------------
+- name: "Lookup namespace: {{ db2_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ db2_namespace }}"
+  register: _namespace_lookup
+
+- name: "Fail if namespace does not exist"
+  ansible.builtin.fail:
+    msg: |
+      Namespace '{{ db2_namespace }}' does not exist.
+      Cannot proceed with migration.
+  when:
+    - _namespace_lookup.resources is not defined or _namespace_lookup.resources | length == 0
+
+# 2. Validate Db2uCluster exists
+# -----------------------------------------------------------------------------
+- name: "Lookup Db2uCluster: {{ db2_instance_name }}"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    kind: Db2uCluster
+    name: "{{ db2_instance_name | lower }}"
+    namespace: "{{ db2_namespace }}"
+  register: _db2ucluster_lookup
+
+- name: "Fail if Db2uCluster does not exist"
+  ansible.builtin.fail:
+    msg: |
+      Db2uCluster '{{ db2_instance_name }}' does not exist in namespace '{{ db2_namespace }}'.
+      Cannot proceed with migration.
+
+      Available Db2uClusters in namespace:
+      {{ _all_clusters.resources | map(attribute='metadata.name') | list | join(', ') if _all_clusters.resources | length > 0 else 'None' }}
+  when:
+    - _db2ucluster_lookup.resources is not defined or _db2ucluster_lookup.resources | length == 0
+  vars:
+    _all_clusters: "{{ lookup('kubernetes.core.k8s', api_version='db2u.databases.ibm.com/v1', kind='Db2uCluster', namespace=db2_namespace) }}"
+
+# 3. Validate Db2uCluster version is v12
+# -----------------------------------------------------------------------------
+- name: "Extract Db2uCluster version"
+  ansible.builtin.set_fact:
+    _db2_cluster_version: "{{ _db2ucluster_lookup.resources[0].spec.version | default('unknown') }}"
+
+- name: "Display Db2uCluster version"
+  ansible.builtin.debug:
+    msg:
+      - "Db2uCluster name: {{ db2_instance_name }}"
+      - "Db2uCluster version: {{ _db2_cluster_version }}"
+      - "Namespace: {{ db2_namespace }}"
+
+- name: "Validate Db2uCluster is v12"
+  ansible.builtin.fail:
+    msg: |
+      Migration requires Db2uCluster to be v12.x
+
+      Current version: {{ _db2_cluster_version }}
+      Required: v12.x (e.g., 12.0.0, s12.1.4.0)
+
+      Please upgrade your Db2uCluster to v12 before attempting migration.
+  when:
+    - not (_db2_cluster_version is match('^[^\d]*12[\.\d]*$'))
+
+# 4. Check for existing Db2uInstance conflict
+# -----------------------------------------------------------------------------
+- name: "Check if Db2uInstance already exists"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    kind: Db2uInstance
+    name: "{{ db2_instance_name | lower }}"
+    namespace: "{{ db2_namespace }}"
+  register: _db2uinstance_lookup
+
+- name: "Fail if Db2uInstance already exists"
+  ansible.builtin.fail:
+    msg: |
+      Db2uInstance '{{ db2_instance_name }}' already exists in namespace '{{ db2_namespace }}'.
+      Migration cannot proceed as it would conflict with the existing instance.
+
+      If you want to re-migrate, please delete the existing Db2uInstance first:
+      oc delete db2uinstance {{ db2_instance_name | lower }} -n {{ db2_namespace }}
+  when:
+    - _db2uinstance_lookup.resources is defined
+    - _db2uinstance_lookup.resources | length > 0
+
+# 5. Display pre-migration summary
+# -----------------------------------------------------------------------------
+- name: "Pre-migration summary"
+  ansible.builtin.debug:
+    msg:
+      - "=========================================="
+      - "Db2uCluster to Db2uInstance Migration"
+      - "=========================================="
+      - "Source: Db2uCluster/{{ db2_instance_name }}"
+      - "Target: Db2uInstance/{{ db2_instance_name }}"
+      - "Namespace: {{ db2_namespace }}"
+      - "Version: {{ _db2_cluster_version }}"
+      - ""
+      - "=========================================="
+
+# 6. Execute db2u_migrate command
+# -----------------------------------------------------------------------------
+- name: "Execute db2u_migrate command"
+  ansible.builtin.command:
+    cmd: "db2u_migrate --namespace {{ db2_namespace }} --name {{ db2_instance_name | lower }}"
+  register: _migrate_result
+  changed_when: true
+  failed_when: _migrate_result.rc != 0
+
+- name: "Display migration command output"
+  ansible.builtin.debug:
+    msg:
+      - "Migration command completed"
+      - "Return code: {{ _migrate_result.rc }}"
+      - "Output: {{ _migrate_result.stdout }}"
+  when: _migrate_result.stdout is defined and _migrate_result.stdout != ""
+
+- name: "Display migration command errors (if any)"
+  ansible.builtin.debug:
+    msg:
+      - "Migration command stderr:"
+      - "{{ _migrate_result.stderr }}"
+  when:
+    - _migrate_result.stderr is defined
+    - _migrate_result.stderr != ""
+
+# 7. Verify Db2uInstance was created
+# -----------------------------------------------------------------------------
+- name: "Verify Db2uInstance was created"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    kind: Db2uInstance
+    name: "{{ db2_instance_name | lower }}"
+    namespace: "{{ db2_namespace }}"
+  register: _verify_instance
+  retries: 5
+  delay: 10
+  until:
+    - _verify_instance.resources is defined
+    - _verify_instance.resources | length > 0
+
+- name: "Fail if Db2uInstance was not created"
+  ansible.builtin.fail:
+    msg: |
+      Migration failed: Db2uInstance '{{ db2_instance_name }}' was not created.
+
+      The db2u_migrate command completed, but the Db2uInstance resource was not found.
+      Please check the migration command output above for details.
+  when:
+    - _verify_instance.resources is not defined or _verify_instance.resources | length == 0
+
+# 8. Wait for Db2uInstance to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for Db2uInstance to be ready (5m delay)"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    name: "{{ db2_instance_name | lower }}"
+    namespace: "{{ db2_namespace }}"
+    kind: Db2uInstance
+  register: _db2_instance_status
+  until:
+    - _db2_instance_status.resources is defined
+    - _db2_instance_status.resources | length == 1
+    - _db2_instance_status.resources[0].status is defined
+    - _db2_instance_status.resources[0].status.state is defined
+    - _db2_instance_status.resources[0].status.state == "Ready"
+  retries: 24 # Approximately 2 hours before we give up
+  delay: 300 # 5 minutes
+
+# 9. Wait for Db2uEngine to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for Db2uEngine to be ready"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1alpha1
+    kind: Db2uEngine
+    name: "c-{{ db2_instance_name | lower }}-db2u"
+    namespace: "{{ db2_namespace }}"
+  register: _db2_engine_status
+  until:
+    - _db2_engine_status.resources is defined
+    - _db2_engine_status.resources | length > 0
+    - _db2_engine_status.resources[0].status is defined
+    - _db2_engine_status.resources[0].status.state is defined
+    - _db2_engine_status.resources[0].status.state == 'Ready'
+  retries: 20 # approx 10 minutes before we give up
+  delay: 30 # seconds
+
+# 10. Display post-migration status
+# -----------------------------------------------------------------------------
+- name: "Post-migration status"
+  ansible.builtin.debug:
+    msg:
+      - "=========================================="
+      - "Migration Completed Successfully"
+      - "=========================================="
+      - "Db2uInstance '{{ db2_instance_name }}' is Ready"
+      - "Db2uEngine is Ready"
+      - "Namespace: {{ db2_namespace }}"
+      - ""
+      - "=========================================="
+
+# 11. Update MAS JdbcCfg (if requested)
+# -----------------------------------------------------------------------------
+- name: "Update MAS JdbcCfg configuration"
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  block:
+    - name: "Generate JdbcCfg for migrated instance"
+      include_tasks: "tasks/install/suite_jdbccfg.yml"
+
+    - name: "JdbcCfg update completed"
+      ansible.builtin.debug:
+        msg:
+          - "JdbcCfg has been generated for the migrated instance"
+          - "Location: {{ mas_config_dir }}/jdbc-{{ db2_instance_name | lower }}-{{ db2_namespace }}.yml"
+          - "Apply the configuration to update MAS if needed"
