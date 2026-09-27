@@ -23,51 +23,34 @@
     msg:
       - "Pod name ............................... {{ db2_pod_name }}"
 
-- name: "Creating LOGARCHMETH1 folder in {{ db2_pod_name }}"
+- name: "Detect Db2 CR type (Db2uCluster or Db2uInstance)"
   when: not db2_helm_operator_mode
+  include_tasks: "{{ role_path }}/../../common_tasks/detect_db2_cr_type.yml"
+
+- name: "Validate CR detection and state"
+  when: not db2_helm_operator_mode
+  include_tasks: "{{ role_path }}/../../common_tasks/validate_db2_cr.yml"
+
+- name: "Creating LOGARCHMETH1 folder in {{ db2_pod_name }}"
+  when: not db2_helm_operator_mode and db2_cr_type == "Db2uCluster"
   shell: |
-    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- bash -l -c "mkdir -p /mnt/bludata0/db2/archive_log/"
+    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc "mkdir -p /mnt/bludata0/db2/archive_log/" db2inst1
   register: creating_logarchmeth1_folder_output
 
 - fail: msg="Failed to create path for LOGARCHMETH1"
   when:
     - not db2_helm_operator_mode
+    - db2_cr_type == "Db2uCluster"
     - creating_logarchmeth1_folder_output.rc != 0
 
 - name: "Creating DB2_OBJECT_STORAGE_LOCAL_STAGING_PATH folder in {{ db2_pod_name }}"
   shell: |
-    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- bash -l -c "mkdir -p /mnt/backup/staging"
+    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc "mkdir -p /mnt/backup/staging" db2inst1
   register: creating_stagingpath_folder_output
 
 - fail: msg="Failed to create path for DB2_OBJECT_STORAGE_LOCAL_STAGING_PATH"
   when:
     - creating_stagingpath_folder_output.rc != 0
-
-- name: Lookup db2ucluster instance (legacy operator)
-  when: not db2_helm_operator_mode
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Db2uCluster
-    name: "{{db2_instance_name | lower}}"
-    namespace: "{{db2_namespace}}"
-  register: _db2_instance_engn_svc
-  until:
-    - _db2_instance_engn_svc.resources[0] is defined
-  retries: 15 # approx 5 minutes before we give up
-  delay: 20 # seconds
-
-- name: Lookup db2uinstance (helm operator)
-  when: db2_helm_operator_mode
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Db2uInstance
-    name: "{{db2_instance_name | lower}}"
-    namespace: "{{db2_namespace}}"
-  register: _db2_instance_engn_svc
-  until:
-    - _db2_instance_engn_svc.resources[0] is defined
-  retries: 15 # approx 5 minutes before we give up
-  delay: 20 # seconds
 
 - include_vars: vars/main.yml
 
@@ -76,15 +59,12 @@
   kubernetes.core.k8s:
     merge_type: merge
     definition:
-      apiVersion: v1
-      kind: Db2uCluster
+      apiVersion: "db2u.databases.ibm.com/v1"
+      kind: "{{ db2_cr_type }}"
       metadata:
         name: "{{db2_instance_name | lower}}"
         namespace: "{{ db2_namespace }}"
-      spec: "{{ spec | from_yaml }}"
-  vars:
-    spec: |
-      {{db2_configs[db2_config_version]}}
+      spec: "{{ db2_configs[db2_config_version][db2_cr_type] | from_yaml }}"
 
 # Helm operator mode: Apply settings via DB2 commands instead of CR updates
 - name: Create updatedbsettings script in local /tmp (helm operator)
