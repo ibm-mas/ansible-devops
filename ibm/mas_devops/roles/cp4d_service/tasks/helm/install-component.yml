@@ -90,6 +90,23 @@
         version: "{{ cpd_product_version }}"
         non_olm: true
 
+# Inject WML-specific runtimeresources ephemeral storage limits into Helm values.
+# WML Python runtime pods (wml-dep-py-rt251-* / wml-dep-py-rt241-*) are evicted
+# by Kubelet when the default 2000Mi ephemeral storage limit is breached by large
+# package extensions (aix360ts + aix360 + xgboost wheel cache ~3.6GB total).
+# This block only runs when installing WML and is a no-op for all other components.
+- name: "Inject WML runtimeresources ephemeral storage into Helm values"
+  when: component_name == 'wml'
+  set_fact:
+    helm_values: "{{ helm_values | combine({
+      'wml': (helm_values.wml | default({})) | combine({
+        'runtimeresources': {
+          'runtime_251': {'ephemeral': {'request': cpd_wml_runtime_ephemeral_request, 'limit': cpd_wml_runtime_ephemeral_limit}},
+          'runtime_241': {'ephemeral': {'request': cpd_wml_runtime_ephemeral_request, 'limit': cpd_wml_runtime_ephemeral_limit}}
+        }
+      })
+    }, recursive=True) }}"
+
 # Install cluster-scoped chart (CRDs, ClusterRoles, etc.)
 # kubernetes.core.helm only supports upgrade --install (namespace-scoped state).
 # Cluster-scoped charts are applied with helm template piped to kubernetes.core.k8s
