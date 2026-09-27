@@ -1,0 +1,57 @@
+---
+
+# 1. Derive the MVI application namespace
+# -----------------------------------------------------------------------------
+- name: "Configure namespace"
+  set_fact:
+    mas_app_namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "Instance ID ................ {{ mas_instance_id }}"
+      - "Application ID ............. {{ mas_app_id }}"
+      - "MAS app namespace .......... {{ mas_app_namespace }}"
+      - "Setup ClusterRole .......... {{ mvi_setup_clusterrole }}"
+
+
+# 2. Apply SCC ClusterRole and ClusterRoleBinding
+# -----------------------------------------------------------------------------
+# These are cluster-scoped resources that grant the MVI operator ServiceAccount
+# permission to use the ibm-mas-visualinspection-scc before the operator starts
+# its first reconcile.  They are managed here (outside OLM) so the operator
+# bundle does not need clusterPermissions.
+
+- name: "Apply SCC ClusterRole for visualinspection"
+  when: mvi_setup_clusterrole | bool
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/clusterrole.yml.j2"
+
+- name: "Apply SCC ClusterRoleBinding for visualinspection"
+  when: mvi_setup_clusterrole | bool
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/clusterrole_binding.yml.j2"
+
+
+# 3. Clean up ClusterRole and ClusterRoleBinding on teardown
+# -----------------------------------------------------------------------------
+# These tasks only run when mvi_setup_clusterrole is false, which signals
+# the caller wants to remove the RBAC (e.g. post-uninstall pipeline).
+
+- name: "Delete SCC ClusterRoleBinding for visualinspection"
+  when: not (mvi_setup_clusterrole | bool)
+  kubernetes.core.k8s:
+    state: absent
+    api_version: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    name: ibm-mas-visualinspection-clusterrolebinding
+
+- name: "Delete SCC ClusterRole for visualinspection"
+  when: not (mvi_setup_clusterrole | bool)
+  kubernetes.core.k8s:
+    state: absent
+    api_version: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    name: ibm-mas-visualinspection-clusterrole
