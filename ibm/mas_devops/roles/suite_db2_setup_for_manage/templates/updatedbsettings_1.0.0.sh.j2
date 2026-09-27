@@ -1,0 +1,118 @@
+#!/bin/bash
+
+# Script to update DB2 database and instance configuration settings
+# for helm operator mode where CR updates are not allowed
+
+# Note: Not using 'set -e' because DB2 commands may return warnings (like SQL1363W)
+# that have non-zero exit codes but are not actual errors
+
+# Enable command echoing so all commands are logged
+set -x
+
+echo "Starting DB2 configuration update..."
+
+# Check if DB2 instance is available
+if ! db2gcf -s | grep Available >/dev/null
+then
+    echo "DB2 instance is not available. Attempting to start..."
+    db2_kill
+    ipclean -a
+    db2start
+    sleep 5
+
+    if ! db2gcf -s | grep Available >/dev/null
+    then
+        echo "ERROR: Instance is not up. Please check."
+        exit 1
+    fi
+fi
+
+# Connect to database
+echo "Connecting to database {{ db2_dbname }}..."
+db2 connect to {{ db2_dbname }}
+
+if [ $? -ne 0 ]; then
+    echo "ERROR: Failed to connect to database {{ db2_dbname }}"
+    exit 1
+fi
+
+echo "Connected successfully. Applying database configuration settings..."
+
+# Apply database configuration settings
+db2 update db cfg for {{ db2_dbname }} using CHNGPGS_THRESH 40
+db2 update db cfg for {{ db2_dbname }} using DFT_QUERYOPT 5
+db2 update db cfg for {{ db2_dbname }} using LOGBUFSZ 1024
+db2 update db cfg for {{ db2_dbname }} using LOCKLIST AUTOMATIC
+db2 update db cfg for {{ db2_dbname }} using MAXFILOP 61440
+db2 update db cfg for {{ db2_dbname }} using NUM_IOCLEANERS AUTOMATIC
+db2 update db cfg for {{ db2_dbname }} using NUM_IOSERVERS AUTOMATIC
+db2 update db cfg for {{ db2_dbname }} using STMTHEAP 20000
+db2 update db cfg for {{ db2_dbname }} using CUR_COMMIT ON
+db2 update db cfg for {{ db2_dbname }} using AUTO_REVAL DEFERRED
+db2 update db cfg for {{ db2_dbname }} using DEC_TO_CHAR_FMT NEW
+db2 update db cfg for {{ db2_dbname }} using DATABASE_MEMORY AUTOMATIC
+db2 update db cfg for {{ db2_dbname }} using PCKCACHESZ AUTOMATIC
+db2 update db cfg for {{ db2_dbname }} using DBHEAP AUTOMATIC
+db2 update db cfg for {{ db2_dbname }} using STAT_HEAP_SZ AUTOMATIC
+db2 update db cfg for {{ db2_dbname }} using SOFTMAX 0
+db2 update db cfg for {{ db2_dbname }} using CATALOGCACHE_SZ 800
+db2 update db cfg for {{ db2_dbname }} using LOCKTIMEOUT 300
+db2 update db cfg for {{ db2_dbname }} using LOGPRIMARY 100
+db2 update db cfg for {{ db2_dbname }} using LOGSECOND 156
+db2 update db cfg for {{ db2_dbname }} using LOGFILSIZ 32768
+db2 update db cfg for {{ db2_dbname }} using MIRRORLOGPATH /mnt/backup
+db2 update db cfg for {{ db2_dbname }} using STMT_CONC LITERALS
+db2 update db cfg for {{ db2_dbname }} using DDL_CONSTRAINT_DEF YES
+db2 update db cfg for {{ db2_dbname }} using TRACKMOD YES
+db2 update db cfg for {{ db2_dbname }} using AUTO_DEL_REC_OBJ ON
+db2 update db cfg for {{ db2_dbname }} using REC_HIS_RETENTN 60
+db2 update db cfg for {{ db2_dbname }} using NUM_DB_BACKUPS 60
+db2 update db cfg for {{ db2_dbname }} using DFT_TABLE_ORG ROW
+db2 update db cfg for {{ db2_dbname }} using AUTO_MAINT ON
+db2 update db cfg for {{ db2_dbname }} using AUTO_TBL_MAINT ON
+db2 update db cfg for {{ db2_dbname }} using AUTO_RUNSTATS ON
+db2 update db cfg for {{ db2_dbname }} using AUTO_REORG OFF
+db2 update db cfg for {{ db2_dbname }} using AUTO_DB_BACKUP OFF
+db2 update db cfg for {{ db2_dbname }} using WLM_ADMISSION_CTRL NO
+db2 update db cfg for {{ db2_dbname }} using AUTHN_CACHE_USERS 100
+db2 update db cfg for {{ db2_dbname }} using AUTHN_CACHE_DURATION 10
+
+echo "Database configuration settings applied successfully."
+
+# Disconnect from database
+db2 connect reset
+
+echo "Applying instance database manager configuration..."
+
+# Apply instance dbmConfig settings
+db2 update dbm cfg using AGENT_STACK_SZ 1024
+db2 update dbm cfg using RQRIOBLK 65535
+db2 update dbm cfg using HEALTH_MON OFF
+db2 update dbm cfg using MON_HEAP_SZ AUTOMATIC
+db2 update dbm cfg using KEEPFENCED NO
+db2 update dbm cfg using FENCED_POOL 50
+
+echo "Instance database manager configuration applied successfully."
+
+echo "Applying instance registry variables..."
+
+# Apply instance registry variables
+db2set DB2_CDE_REDUCED_LOGGING=REDUCED_REDO:NO
+db2set DB2_OBJECT_STORAGE_LOCAL_STAGING_PATH=/mnt/backup/staging
+db2set DB2_BCKP_PAGE_VERIFICATION=TRUE
+db2set DB2_WORKLOAD=MAXIMO
+db2set DB2_SKIPINSERTED=ON
+db2set DB2_INLIST_TO_NLJN=YES
+db2set DB2_MINIMIZE_LISTPREFETCH=Y
+db2set DB2_EVALUNCOMMITTED=YES
+db2set DB2_SKIPDELETED=ON
+db2set DB2_FMP_COMM_HEAPSZ=65536
+db2set DB2_USE_ALTERNATE_PAGE_CLEANING=ON
+
+echo "Instance registry variables applied successfully."
+
+echo "DBConfigUpdate-Success"
+echo "Configuration update completed successfully."
+echo "NOTE: Some configuration changes require a DB2 restart to take effect."
+
+exit 0
