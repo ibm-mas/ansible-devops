@@ -239,19 +239,28 @@
         var: _cis_status_active_create_result
       when: _cis_status_active_create_result is defined
 
+    - name: "cis : ip-allowlist — build error message (create)"
+      ansible.builtin.set_fact:
+        _cis_create_error_msg: >-
+          {{ ((_cis_allowlist_create_result.stdout_lines | default([]) + _cis_allowlist_create_result.stderr_lines | default([])) | join(' ')) | replace("'", "") }}
+      when:
+        - _cis_allowlist_rule_id | trim | length == 0
+        - _cis_allowlist_create_result is defined
+        - _cis_allowlist_create_result.rc != 0
+
     - name: "cis : ip-allowlist — status update: ERROR (create)"
       ansible.builtin.shell: |
         mas-devops-feature-status-update status-update \
           {{ _cis_allowlist_status_base_args }} \
           --status ERROR \
           --status-details '{
-            "message": "{{ (_cis_allowlist_create_result.stdout | default("") ~ " " ~ _cis_allowlist_create_result.stderr | default("")) | trim | replace("'"'"'", "") }}",
-            "error_code": {{ _cis_allowlist_create_result.rc | default(1) }},
+            "message": "{{ _cis_create_error_msg }}",
+            "error_code": {{ _cis_allowlist_create_result.rc }},
             "error_source": {
               "gitops_version": "{{ lookup("env", "GITOPS_VERSION") | default("", true) }}",
               "filename": "cis_ip_allowlist.yml",
               "log_file": "{{ lookup("env", "JUNIT_OUTPUT_DIR") | default("/var/log/gitops", true) }}/run.log",
-              "stacktrace": "{{ (_cis_allowlist_create_result.stdout | default("") ~ " " ~ _cis_allowlist_create_result.stderr | default("")) | trim | replace("'"'"'", "") }}"
+              "stacktrace": "{{ _cis_create_error_msg }}"
             },
             "request_configuration": "{{ _cis_normalised_ips | join(", ") }}"
           }' \
@@ -349,19 +358,29 @@
         var: _cis_status_active_update_result
       when: _cis_status_active_update_result is defined
 
+    - name: "cis : ip-allowlist — build error message (update)"
+      ansible.builtin.set_fact:
+        _cis_update_error_msg: >-
+          {{ ((_cis_allowlist_update_result.stdout_lines | default([]) + _cis_allowlist_update_result.stderr_lines | default([])) | join(' ')) | replace("'", "") }}
+      when:
+        - _cis_allowlist_rule_id | trim | length > 0
+        - _cis_existing_expression != _cis_allowlist_expression
+        - _cis_allowlist_update_result is defined
+        - _cis_allowlist_update_result.rc != 0
+
     - name: "cis : ip-allowlist — status update: ERROR (update)"
       ansible.builtin.shell: |
         mas-devops-feature-status-update status-update \
           {{ _cis_allowlist_status_base_args }} \
           --status ERROR \
           --status-details '{
-            "message": "{{ (_cis_allowlist_update_result.stdout | default("") ~ " " ~ _cis_allowlist_update_result.stderr | default("")) | trim | replace("'"'"'", "") }}",
-            "error_code": {{ _cis_allowlist_update_result.rc | default(1) }},
+            "message": "{{ _cis_update_error_msg }}",
+            "error_code": {{ _cis_allowlist_update_result.rc }},
             "error_source": {
               "gitops_version": "{{ lookup("env", "GITOPS_VERSION") | default("", true) }}",
               "filename": "cis_ip_allowlist.yml",
               "log_file": "{{ lookup("env", "JUNIT_OUTPUT_DIR") | default("/var/log/gitops", true) }}/run.log",
-              "stacktrace": "{{ (_cis_allowlist_update_result.stdout | default("") ~ " " ~ _cis_allowlist_update_result.stderr | default("")) | trim | replace("'"'"'", "") }}"
+              "stacktrace": "{{ _cis_update_error_msg }}"
             },
             "request_configuration": "{{ _cis_normalised_ips | join(", ") }}"
           }' \
