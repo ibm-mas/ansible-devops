@@ -54,6 +54,9 @@
     oc ibm-pak get ibm-cp-datacore
     --version {{ cpd_components_meta.cpd_platform.case_version }}
     --skip-dependencies
+  environment:
+    IBMPAK_HTTP_TIMEOUT: "600"
+    IBMPAK_HTTP_RETRY: "10"
   changed_when: false
 
 - name: "Extract olm-utils-v4 digest from ibm-cp-datacore images.csv (airgap)"
@@ -63,7 +66,7 @@
     - cpd_product_version is version('5.4.0', '>=')
   shell: >
     grep 'cpopen/cpd/olm-utils-v4' \
-    ~/.ibm-pak/data/cases/ibm-cp-datacore/{{ cpd_components_meta.cpd_platform.case_version }}/ibm-cp-datacore-{{ cpd_components_meta.cpd_platform.case_version }}-images.csv \
+    ~/.ibm-pak/data/cases/ibm-cp-datacore/{{ cpd_components_meta.cpd_platform.case_version.split('+')[0] }}*/ibm-cp-datacore-{{ cpd_components_meta.cpd_platform.case_version.split('+')[0] }}*-images.csv \
     | awk -F',' '{print $4}' | head -1
   register: _olm_utils_digest_raw
   changed_when: false
