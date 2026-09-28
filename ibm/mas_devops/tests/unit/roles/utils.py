@@ -6,11 +6,15 @@ FakeKubernetesServer, following the same pattern used in the watcher
 integration tests.
 """
 
+import json
 import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any, Dict, Optional
+
+import yaml
 
 from mocks.fake_k8s_server import FakeKubernetesServer
 
@@ -20,34 +24,82 @@ _ROLES_ROOT = Path(__file__).parent.parent.parent.parent / "roles"
 _ANSIBLE_PLAYBOOK = str(Path(sys.executable).parent / "ansible-playbook")
 
 
-def run_task(task_file: str, fake_k8s: FakeKubernetesServer, variables: dict = None) -> subprocess.CompletedProcess:
+def _coerce_variable(value: Any) -> Any:
+    """Coerce a variable value for embedding in a playbook vars block.
+
+    JSON strings that represent dicts or lists are parsed back to native Python
+    so they are emitted as proper YAML structures (not quoted strings) and
+    Ansible receives them as the correct types.
+
+    Args:
+        value: The variable value to coerce
+
+    Returns:
+        The coerced value — a parsed dict/list if the input was a JSON string,
+        otherwise the original value unchanged
+    """
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.startswith(("{", "[")):
+            try:
+                return json.loads(stripped)
+            except json.JSONDecodeError:
+                pass
+    return value
+
+
+def run_task(
+    task_file: str,
+    fake_k8s: FakeKubernetesServer,
+    variables: Optional[Dict[str, Any]] = None,
+    timeout: int = 60,
+) -> subprocess.CompletedProcess:
     """Run an Ansible task file against a fake Kubernetes server.
 
     Wraps the task file in a minimal localhost playbook and executes it as a
-    subprocess with KUBECONFIG set to the fake server's kubeconfig.
+    subprocess with KUBECONFIG set to the fake server's kubeconfig. Variables
+    are serialised as proper YAML so complex types (dicts, lists) are passed
+    correctly to Ansible.
 
     Args:
         task_file (str): Absolute path to the task YAML file to run
-        kubeconfig_path (str): Path to the kubeconfig pointing at the fake server
-        variables (dict, optional): Extra variables passed to the playbook. Defaults to None.
+        fake_k8s (FakeKubernetesServer): Running fake server; provides kubeconfig_path
+        variables (dict, optional): Extra variables passed to the playbook. Dict and
+            list values, or JSON strings representing them, are embedded as structured
+            YAML rather than quoted strings. Defaults to None.
+        timeout (int, optional): Subprocess timeout in seconds. Defaults to 60.
 
     Returns:
         subprocess.CompletedProcess: The completed process result. Check
             returncode == 0 for success; stdout and stderr contain Ansible output.
     """
-    vars_lines = ""
-    if variables:
-        vars_lines = "  vars:\n" + "".join(f"    {k}: \"{v}\"\n" for k, v in variables.items())
+    # Derive role_path from task_file if under roles/
+    vars_dict: Dict[str, Any] = {}
+    try:
+        task_path_obj = Path(task_file).resolve()
+        if "roles" in task_path_obj.parts:
+            roles_idx = task_path_obj.parts.index("roles")
+            role_dir = Path(*task_path_obj.parts[: roles_idx + 2])
+            vars_dict["role_path"] = str(role_dir)
+    except Exception:
+        pass
 
-    playbook_content = (
-        f"- hosts: localhost\n"
-        f"  gather_facts: false\n"
-        f"  connection: local\n"
-        f"  tasks:\n"
-        f"    - ansible.builtin.include_tasks:\n"
-        f"        file: \"{task_file}\"\n"
-        + vars_lines
-    )
+    playbook: Dict[str, Any] = {
+        "hosts": "localhost",
+        "gather_facts": False,
+        "connection": "local",
+        "tasks": [
+            {"ansible.builtin.include_tasks": {"file": task_file}},
+        ],
+    }
+
+    if variables:
+        vars_dict.update({k: _coerce_variable(v) for k, v in variables.items()})
+
+    if vars_dict:
+        playbook["vars"] = vars_dict
+
+    playbook_content = yaml.dump([playbook], default_flow_style=False, allow_unicode=True)
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
         f.write(playbook_content)
@@ -65,7 +117,7 @@ def run_task(task_file: str, fake_k8s: FakeKubernetesServer, variables: dict = N
             capture_output=True,
             text=True,
             env=env,
-            timeout=60,
+            timeout=timeout,
         )
     finally:
         os.unlink(playbook_path)

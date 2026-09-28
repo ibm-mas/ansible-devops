@@ -34,10 +34,10 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
+import aiservice
 import operators
 import rbac
 import workloads
-
 
 # ---------------------------------------------------------------------------
 # API discovery response bodies
@@ -56,6 +56,7 @@ _API_GROUPS = {
     "groups": [
         operators.API_GROUP_LIST_ENTRY,
         rbac.API_GROUP_LIST_ENTRY,
+        aiservice.API_GROUP_LIST_ENTRY,
     ],
 }
 
@@ -99,12 +100,23 @@ class _Handler(BaseHTTPRequestHandler):
             self._send_json(200, operators.API_GROUP)
         elif path == "/apis/operators.coreos.com/v1alpha1":
             self._send_json(200, operators.RESOURCE_LIST)
+        elif path == "/apis/operators.coreos.com/v2":
+            self._send_json(200, operators.RESOURCE_LIST_V2)
         elif path == "/apis/rbac.authorization.k8s.io":
             self._send_json(200, rbac.API_GROUP)
         elif path == "/apis/rbac.authorization.k8s.io/v1":
             self._send_json(200, rbac.RESOURCE_LIST)
+        elif path == "/apis/aiservice.ibm.com":
+            self._send_json(200, aiservice.API_GROUP)
+        elif path == "/apis/aiservice.ibm.com/v1":
+            self._send_json(200, aiservice.RESOURCE_LIST)
         else:
             self._route_resource_get(path)
+
+    def do_PATCH(self):  # noqa: N802
+        body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
+        parsed = urlparse(self.path)
+        self._route_resource_patch(parsed.path.rstrip("/"), body)
 
     def do_DELETE(self):  # noqa: N802
         parsed = urlparse(self.path)
@@ -113,6 +125,25 @@ class _Handler(BaseHTTPRequestHandler):
     # ------------------------------------------------------------------
     # Resource routing
     # ------------------------------------------------------------------
+
+    def _route_resource_patch(self, path: str, body: dict):
+        srv = self._srv()
+        parts = path.lstrip("/").split("/")
+
+        # /apis/{group}/{version}/namespaces/{ns}/{resource}/{name}
+        if len(parts) >= 7 and parts[0] == "apis" and parts[3] == "namespaces":
+            ns, resource, name = parts[4], parts[5], parts[6]
+            for mixin in type(srv).__mro__:
+                handler = getattr(mixin, "_handle_apis_patch", None)
+                if handler:
+                    result = handler(srv, ns, resource, name, body)
+                    if result is not None:
+                        self._send_json(*result)
+                        return
+            self._send_json(404, {"kind": "Status", "status": "Failure", "reason": "NotFound", "code": 404})
+            return
+
+        self._send_json(404, {"kind": "Status", "status": "Failure", "reason": "NotFound", "code": 404})
 
     def _route_resource_get(self, path: str):
         srv = self._srv()
@@ -174,14 +205,15 @@ class _Handler(BaseHTTPRequestHandler):
 # ---------------------------------------------------------------------------
 
 
-class FakeKubernetesServer(operators.OperatorsMixin, workloads.WorkloadsMixin, rbac.RbacMixin):
+class FakeKubernetesServer(operators.OperatorsMixin, workloads.WorkloadsMixin, rbac.RbacMixin, aiservice.AIServiceMixin):
     """
     A lightweight fake Kubernetes API server for Ansible role unit testing.
 
     Inherits developer-facing add_* methods from:
-      - operators.OperatorsMixin  (Subscription, ClusterServiceVersion, InstallPlan)
+      - operators.OperatorsMixin  (Subscription, ClusterServiceVersion, InstallPlan, OperatorCondition)
       - workloads.WorkloadsMixin  (ServiceAccount, ConfigMap, Secret)
       - rbac.RbacMixin            (Role, RoleBinding)
+      - aiservice.AIServiceMixin  (AIServiceTenant)
 
     Intended to be used as a context manager::
 
@@ -195,6 +227,7 @@ class FakeKubernetesServer(operators.OperatorsMixin, workloads.WorkloadsMixin, r
         self._init_operators()
         self._init_workloads()
         self._init_rbac()
+        self._init_aiservice()
         self._deleted: Dict[str, List[tuple]] = {}
         self._request_log: List[str] = []
 

@@ -2,7 +2,7 @@ import pytest
 
 from utils import run_task, task_path
 
-_TASK_FILE = task_path("aiservice_upgrade", "tenant", "delete_truststore_operator.yaml")
+_TASK_FILE = task_path("aiservice_upgrade", "tenant", "delete_truststore_operator.yml")
 
 
 class TestDeleteTruststoreOperator:
