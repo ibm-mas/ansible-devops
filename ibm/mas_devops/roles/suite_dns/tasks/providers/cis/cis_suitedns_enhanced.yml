@@ -88,8 +88,10 @@
 
     - name: "cis: debug entry point ruleset check result"
       ansible.builtin.debug:
-        msg: "{{ _cis_entrypoint_check_result.stdout | from_json }}"
-      when: _cis_rule_id | trim | length == 0
+        msg: "{{ _cis_entrypoint_check_result.stdout | default('{}') | from_json }}"
+      when:
+        - _cis_rule_id | trim | length == 0
+        - _cis_entrypoint_check_result.stdout | default('') | length > 0
 
     - name: "cis: create http_request_firewall_managed entry point ruleset via API"
       ansible.builtin.shell: |
@@ -101,15 +103,16 @@
       register: _cis_entrypoint_create_result
       when:
         - _cis_rule_id | trim | length == 0
-        - not (_cis_entrypoint_check_result.stdout | from_json).success
+        - not (_cis_entrypoint_check_result.stdout | default('{}') | from_json).get('success', false)
       no_log: true
 
     - name: "cis: debug entry point ruleset creation response"
       ansible.builtin.debug:
-        msg: "{{ _cis_entrypoint_create_result.stdout | from_json }}"
+        msg: "{{ _cis_entrypoint_create_result.stdout | default('{}') | from_json }}"
       when:
         - _cis_rule_id | trim | length == 0
-        - not (_cis_entrypoint_check_result.stdout | from_json).success
+        - not (_cis_entrypoint_check_result.stdout | default('{}') | from_json).get('success', false)
+        - _cis_entrypoint_create_result.stdout | default('') | length > 0
 
     - name: "cis: verify http_request_firewall_managed entry point ruleset after creation"
       ansible.builtin.shell: |
@@ -120,15 +123,16 @@
       register: _cis_entrypoint_verify_result
       when:
         - _cis_rule_id | trim | length == 0
-        - not (_cis_entrypoint_check_result.stdout | from_json).success
+        - not (_cis_entrypoint_check_result.stdout | default('{}') | from_json).get('success', false)
       no_log: true
 
     - name: "cis: debug entry point ruleset verification result"
       ansible.builtin.debug:
-        msg: "{{ _cis_entrypoint_verify_result.stdout | from_json }}"
+        msg: "{{ _cis_entrypoint_verify_result.stdout | default('{}') | from_json }}"
       when:
         - _cis_rule_id | trim | length == 0
-        - not (_cis_entrypoint_check_result.stdout | from_json).success
+        - not (_cis_entrypoint_check_result.stdout | default('{}') | from_json).get('success', false)
+        - _cis_entrypoint_verify_result.stdout | default('') | length > 0
 
     - name: "cis: deploy and enable WAF managed rulesets"
       ansible.builtin.include_tasks: tasks/providers/cis/cis_deploy_managed_ruleset.yml
