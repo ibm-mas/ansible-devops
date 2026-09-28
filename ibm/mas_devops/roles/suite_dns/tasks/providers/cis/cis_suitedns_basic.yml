@@ -43,6 +43,10 @@
 
 # 4. Add DNS entries
 # =============================================================================
+- name: "Pause for 5 minutes before calling CIS API..."
+  pause:
+    minutes: 5
+
 - name: "cis : run cis_dns_entries module"
   ibm.mas_devops.cis_dns_entries:
     ocp_ingress: "{{ ocp_ingress }}"
@@ -54,6 +58,9 @@
     cis_waf: null
     cis_proxy: "{{ cis_proxy }}"
   register: dnsoutput
+  retries: 5
+  delay: 60
+  until: dnsoutput is not failed
 
 - name: "cis : dump output"
   debug:
