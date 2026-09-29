@@ -14,17 +14,9 @@ concurrency:
 
 jobs:
   test:
-    name: Test (${{ matrix.suite }})
+    name: Test
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.head_commit.message, '[doc]') && !contains(github.event.head_commit.message, '[skip tests]') }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - suite: Plugins
-            test_path: unit/plugins
-          - suite: Roles
-            test_path: unit/roles
     steps:
       - name: Install Python v3.12
         uses: actions/setup-python@v5
@@ -70,56 +62,33 @@ jobs:
           fi
 
       # -------------------------------------------------------------------------------------------
-      # Run pytest with coverage — produces .coverage.<suite> for later merging
+      # Run plugin tests, then role tests — each appends to the same .coverage file so a
+      # single combined report is produced at the end without any merging step.
       # -------------------------------------------------------------------------------------------
-      - name: Run ${{ matrix.suite }} tests with coverage
-        id: run-tests
+      - name: Run plugins tests
+        id: run-plugins-tests
         run: |
           cd $GITHUB_WORKSPACE/ibm/mas_devops/tests
-          pytest --cov=${{ matrix.test_path }} --cov-report=term --cov-report=xml ${{ matrix.test_path }}
-          mv .coverage .coverage.${{ matrix.suite }}
+          pytest --cov=unit/plugins --cov-report=term unit/plugins
 
-      - name: Upload coverage data
+      - name: Run roles tests
+        id: run-roles-tests
+        run: |
+          cd $GITHUB_WORKSPACE/ibm/mas_devops/tests
+          pytest --cov=unit/roles --cov-append --cov-report=term unit/roles
+
+      # -------------------------------------------------------------------------------------------
+      # Generate and upload the combined coverage report
+      # -------------------------------------------------------------------------------------------
+      - name: Generate coverage reports
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-data-${{ matrix.suite }}
-          path: ${{ github.workspace }}/ibm/mas_devops/tests/.coverage.${{ matrix.suite }}
-          retention-days: 1
-
-  coverage:
-    name: Combined coverage report
-    runs-on: ubuntu-latest
-    needs: test
-    if: always()
-    steps:
-      - name: Install Python v3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install coverage
-        run: pip install coverage
-
-      - name: Download coverage data
-        uses: actions/download-artifact@v4
-        with:
-          pattern: coverage-data-*
-          path: ${{ github.workspace }}/ibm/mas_devops/tests
-          merge-multiple: true
-
-      - name: Merge and report
         run: |
           cd $GITHUB_WORKSPACE/ibm/mas_devops/tests
-          coverage combine
           coverage xml
           coverage html
-          coverage report
 
       - name: Upload coverage report (XML)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report-xml
@@ -127,13 +96,18 @@ jobs:
           retention-days: 30
 
       - name: Upload coverage report (HTML)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report-html
           path: ${{ github.workspace }}/ibm/mas_devops/tests/htmlcov/
           retention-days: 30
 
+      # -------------------------------------------------------------------------------------------
+      # Display coverage summary
+      # -------------------------------------------------------------------------------------------
       - name: Coverage summary
+        if: always()
         run: |
           cd $GITHUB_WORKSPACE/ibm/mas_devops/tests
           echo "## Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
