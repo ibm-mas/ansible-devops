@@ -106,9 +106,16 @@ def run_task(
         playbook_path = f.name
 
     try:
+        # Point Ansible at the collection root so ibm.mas_devops filters/plugins
+        # are found both in CI (no ~/.ansible/collections) and locally.
+        _collection_root = str(Path(__file__).resolve().parents[4])
+        _existing = os.environ.get("ANSIBLE_COLLECTIONS_PATHS", "")
+        _collections_paths = f"{_collection_root}:{_existing}" if _existing else _collection_root
+
         env = {
             **os.environ,
             "KUBECONFIG": fake_k8s.kubeconfig_path,
+            "ANSIBLE_COLLECTIONS_PATHS": _collections_paths,
             "ANSIBLE_DEPRECATION_WARNINGS": "False",
             "ANSIBLE_LOCALHOST_WARNING": "False",
         }
