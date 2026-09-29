@@ -6,8 +6,10 @@ FakeKubernetesServer, following the same pattern used in the watcher
 integration tests.
 """
 
+import atexit
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -22,6 +24,16 @@ from mocks.fake_k8s_server import FakeKubernetesServer
 _ROLES_ROOT = Path(__file__).parent.parent.parent.parent / "roles"
 
 _ANSIBLE_PLAYBOOK = str(Path(sys.executable).parent / "ansible-playbook")
+
+# Ansible requires collections at <path>/ansible_collections/<namespace>/<name>.
+# The repo layout is ibm/mas_devops/ (no ansible_collections/ prefix), so we
+# create a temporary directory with the correct structure and symlink the source.
+_collection_src = Path(__file__).resolve().parents[3]  # ibm/mas_devops/
+_collections_tmp = Path(tempfile.mkdtemp(prefix="mas_devops_test_collections_"))
+_collections_link = _collections_tmp / "ansible_collections" / "ibm" / "mas_devops"
+_collections_link.parent.mkdir(parents=True)
+_collections_link.symlink_to(_collection_src)
+atexit.register(shutil.rmtree, _collections_tmp, True)
 
 
 def _coerce_variable(value: Any) -> Any:
@@ -106,18 +118,13 @@ def run_task(
         playbook_path = f.name
 
     try:
-        # Point Ansible at the repo root (parent of the ibm/ namespace dir) so
-        # ibm.mas_devops filters/plugins are found both in CI and locally.
-        # Path: ibm/mas_devops/tests/unit/roles/utils.py
-        #   parents[0]=roles  [1]=unit  [2]=tests  [3]=mas_devops  [4]=ibm  [5]=<repo root>
-        _collection_root = str(Path(__file__).resolve().parents[5])
-        _existing = os.environ.get("ANSIBLE_COLLECTIONS_PATHS", "")
-        _collections_paths = f"{_collection_root}:{_existing}" if _existing else _collection_root
+        _existing = os.environ.get("ANSIBLE_COLLECTIONS_PATH", "")
+        _col_path = f"{_collections_tmp}:{_existing}" if _existing else str(_collections_tmp)
 
         env = {
             **os.environ,
             "KUBECONFIG": fake_k8s.kubeconfig_path,
-            "ANSIBLE_COLLECTIONS_PATHS": _collections_paths,
+            "ANSIBLE_COLLECTIONS_PATH": _col_path,
             "ANSIBLE_DEPRECATION_WARNINGS": "False",
             "ANSIBLE_LOCALHOST_WARNING": "False",
         }
