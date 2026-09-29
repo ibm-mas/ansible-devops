@@ -106,9 +106,11 @@ def run_task(
         playbook_path = f.name
 
     try:
-        # Point Ansible at the collection root so ibm.mas_devops filters/plugins
-        # are found both in CI (no ~/.ansible/collections) and locally.
-        _collection_root = str(Path(__file__).resolve().parents[4])
+        # Point Ansible at the repo root (parent of the ibm/ namespace dir) so
+        # ibm.mas_devops filters/plugins are found both in CI and locally.
+        # Path: ibm/mas_devops/tests/unit/roles/utils.py
+        #   parents[0]=roles  [1]=unit  [2]=tests  [3]=mas_devops  [4]=ibm  [5]=<repo root>
+        _collection_root = str(Path(__file__).resolve().parents[5])
         _existing = os.environ.get("ANSIBLE_COLLECTIONS_PATHS", "")
         _collections_paths = f"{_collection_root}:{_existing}" if _existing else _collection_root
 
