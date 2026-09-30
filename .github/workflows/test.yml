@@ -1,4 +1,4 @@
-name: Test Plugins
+name: Test
 
 on:
   push:
@@ -13,8 +13,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test-plugins:
-    name: Test Plugins
+  test:
+    name: Test
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.head_commit.message, '[doc]') && !contains(github.event.head_commit.message, '[skip tests]') }}
     steps:
@@ -62,17 +62,31 @@ jobs:
           fi
 
       # -------------------------------------------------------------------------------------------
-      # Run pytest with coverage
+      # Run plugin tests, then role tests — each appends to the same .coverage file so a
+      # single combined report is produced at the end without any merging step.
       # -------------------------------------------------------------------------------------------
-      - name: Run tests with coverage
-        id: run-tests
+      - name: Run plugins tests
+        id: run-plugins-tests
         run: |
           cd $GITHUB_WORKSPACE/ibm/mas_devops/tests
-          pytest -v --cov=unit/plugins --cov-report=term --cov-report=xml --cov-report=html
+          pytest --cov=unit/plugins --cov-report=term unit/plugins
+
+      - name: Run roles tests
+        id: run-roles-tests
+        run: |
+          cd $GITHUB_WORKSPACE/ibm/mas_devops/tests
+          pytest --cov=unit/roles --cov-append --cov-report=term unit/roles
 
       # -------------------------------------------------------------------------------------------
-      # Upload coverage reports
+      # Generate and upload the combined coverage report
       # -------------------------------------------------------------------------------------------
+      - name: Generate coverage reports
+        if: always()
+        run: |
+          cd $GITHUB_WORKSPACE/ibm/mas_devops/tests
+          coverage xml
+          coverage html
+
       - name: Upload coverage report (XML)
         if: always()
         uses: actions/upload-artifact@v4
