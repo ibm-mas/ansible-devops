@@ -1,0 +1,77 @@
+---
+# =============================================================================
+# MCPI Configuration Operator - Client Certificate Setup
+# =============================================================================
+# Sets up client authentication certificates for communicating with MAS internal API
+# Required for OAuth redirect URI registration
+
+# 1. Create the certificate using mas.util.certificates role
+# -----------------------------------------------------------------------------
+- name: Setup internal client certificate for operator
+  include_role:
+    name: mas.util.certificates
+  vars:
+    namespace: "{{ mcpi_meta_namespace }}"
+    internalCertAuthority: "{{ internalCertificateAuthority }}"
+    cert:
+      name: "{{ certNames.internalMcpiCfgCertName }}"
+      labels:
+        mas.ibm.com/instanceId: "{{ instanceId }}"
+        app.kubernetes.io/instance: "{{ instanceId }}"
+        app.kubernetes.io/managed-by: "{{ operatorName }}"
+        app.kubernetes.io/name: ibm-mas
+      commonName: "{{ certNames.internalMcpiCfgCertName }}"
+      usages: ["client auth", "server auth"]
+    waitForCert: yes
+  register: createCertResult
+
+# 2. Retrieve the certificate details from the secret
+# -----------------------------------------------------------------------------
+- name: Get client auth certificate
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ certNames.internalMcpiCfgCertName }}"
+    namespace: "{{ mcpi_meta_namespace }}"
+  register: clientCertSecret
+
+- name: Fail if client certificate secret not found
+  vars:
+    errorReason: ClientCertificateNotFound
+    errorMessage: "Unable to find resource Secret/{{ certNames.internalMcpiCfgCertName }}"
+  when: clientCertSecret.resources | length == 0
+  block:
+    - name: Update McpiCfg status
+      include_tasks: tasks/status-update.yml
+      vars:
+        statusUpdate:
+          type: Ready
+          status: "False"
+          reason: "{{ errorReason }}"
+          message: "{{ errorMessage }}"
+
+# 3. Save the certificate to disk
+# -----------------------------------------------------------------------------
+- name: Create directory to hold the certs
+  file:
+    path: /tmp/mas/certs/client/
+    state: directory
+
+- name: Save operator client certificate to disk
+  copy:
+    content: "{{ clientCertSecret['resources'][0]['data']['tls.crt'] | b64decode }}"
+    dest: "{{ clientCertFile }}"
+
+- name: Save operator client private key to disk
+  copy:
+    content: "{{ clientCertSecret['resources'][0]['data']['tls.key'] | b64decode }}"
+    dest: "{{ clientKeyFile }}"
+
+- name: Save MAS internal CA certificate to disk
+  copy:
+    content: "{{ clientCertSecret['resources'][0]['data']['ca.crt'] | b64decode }}"
+    dest: "{{ serverCAFile }}"
+
+- name: Certificate Debug
+  debug:
+    msg: "Client auth certificate changed ....... {{ createCertResult.changed }}"

@@ -1,0 +1,32 @@
+---
+# Variables from CR metadata
+mcpi_meta_name: "{{ ansible_operator_meta.name }}"
+mcpi_meta_namespace: "{{ ansible_operator_meta.namespace }}"
+
+# Extract instance ID from namespace (e.g., mas-inst1-core -> inst1)
+mcpi_instance_id: "{{ mcpi_meta_namespace.split('-')[1] if '-' in mcpi_meta_namespace else 'default' }}"
+
+# Computed values from spec with defaults
+# Note: In Ansible operators, spec fields are passed as top-level extra vars
+display_name: "{{ displayName }}"
+isEnabled: "{{ config.enabled }}"
+
+# Namespace configuration
+# Always uses constructed namespace: {{ namespacePrefix }}{{ instanceId }}-core
+# No config.namespace override
+mcpi_namespace: "{{ namespacePrefix }}{{ mcpi_instance_id }}-core"
+
+# Certificate names
+# =============================================================================
+certNames:
+  internalMcpiCfgCertName: "{{ mcpi_instance_id }}-entitymgr-mcpicfg"
+  internalMcpi: "{{ mcpi_instance_id }}-mcpi-cert-internal"
+  internal: "{{ mcpi_instance_id }}-mcpi-cert-internal"
+  public: "{{ mcpi_instance_id }}-cert-public"
+
+# Service configuration
+mcpi_http_port: "{{ config.service.httpPort | default(mcpi_default_http_port) if config.service is defined else mcpi_default_http_port }}"
+mcpi_rsyslog_port: "{{ config.service.rsyslogPort | default(mcpi_default_rsyslog_port) if config.service is defined else mcpi_default_rsyslog_port }}"
+
+# Route configuration
+mcpi_route_enabled: "{{ config.route.enabled | default(mcpi_default_route_enabled) if config.route is defined else mcpi_default_route_enabled }}"
