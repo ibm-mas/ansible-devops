@@ -153,6 +153,13 @@
       - atlas_cluster_size is defined and atlas_cluster_size != ""
     fail_msg: "Atlas cluster configuration (name, provider, region, size) is required"
 
+- name: "Fail if disk_size_gb or ebs_volume_type is set for M10 or M20 instance size"
+  assert:
+    that:
+      - atlas_cluster_size not in ['M10', 'M20']
+    fail_msg: "atlas_disk_size_gb and atlas_ebs_volume_type are not supported for M10 and M20 instance sizes. Use M30 or above to configure custom disk size or EBS volume type."
+  when: atlas_disk_size_gb != "" or atlas_ebs_volume_type != ""
+
 # 6. Display provisioning configuration
 # -----------------------------------------------------------------------------
 - name: "MongoDB Atlas Provisioning Configuration"
@@ -167,6 +174,8 @@
       - "Region ...................... {{ atlas_aws_region }}"
       - "Cluster Size ................ {{ atlas_cluster_size }}"
       - "MongoDB Version ............. {{ atlas_mongodb_version | default('6.0') }}"
+      - "Disk Size (GB) .............. {{ atlas_disk_size_gb if atlas_disk_size_gb != '' else '(default for instance size)' }}"
+      - "EBS Volume Type ............. {{ atlas_ebs_volume_type if atlas_ebs_volume_type != '' else '(default for instance size)' }}"
       - "Database Username ........... {{ atlas_db_username | default('(multi-user: see atlas_database_users)') }}"
       - "Backup Enabled .............. {{ atlas_backup_enabled | default(true) }}"
       - "Using AWS Secrets Manager ... {{ (atlas_aws_secret_name is defined and atlas_aws_secret_name != '') | bool }}"
@@ -373,6 +382,22 @@
             atlas_auto_indexing_config:
               enabled: false
 
+        - name: "Build base electableSpecs"
+          set_fact:
+            atlas_electable_specs:
+              instanceSize: "{{ atlas_cluster_size }}"
+              nodeCount: 3
+
+        - name: "Add diskSizeGB to electableSpecs when provided"
+          when: atlas_disk_size_gb != ""
+          set_fact:
+            atlas_electable_specs: "{{ atlas_electable_specs | combine({'diskSizeGB': atlas_disk_size_gb | int}) }}"
+
+        - name: "Add ebsVolumeType to electableSpecs when provided"
+          when: atlas_ebs_volume_type != ""
+          set_fact:
+            atlas_electable_specs: "{{ atlas_electable_specs | combine({'ebsVolumeType': atlas_ebs_volume_type}) }}"
+
         - name: "Add replicationSpecs with electableSpecs and autoscaling"
           set_fact:
             atlas_cluster_config: "{{ atlas_cluster_config | combine({'replicationSpecs': replication_specs}) }}"
@@ -382,9 +407,7 @@
                   - providerName: "{{ atlas_cluster_provider }}"
                     regionName: "{{ atlas_cluster_region_name }}"
                     priority: 7
-                    electableSpecs:
-                      instanceSize: "{{ atlas_cluster_size }}"
-                      nodeCount: 3
+                    electableSpecs: "{{ atlas_electable_specs }}"
                     autoScaling:
                       autoIndexing: "{{ atlas_auto_indexing_config }}"
                       compute: "{{ atlas_compute_config }}"
