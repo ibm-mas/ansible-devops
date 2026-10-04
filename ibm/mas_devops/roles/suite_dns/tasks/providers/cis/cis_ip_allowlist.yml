@@ -10,41 +10,33 @@
   ansible.builtin.set_fact:
     _cis_allowlist_rule_desc: "aiservice-ip-allowlist-{{ domain }}"
 
-# Reuse preflight fetch result from cis_ip_allowlist_requested.yml if available (MAS create/update).
-# For AI Service and MAS delete path (requested skipped), fetch fresh.
-- name: "cis : ip-allowlist — preflight rules result (already fetched)"
-  ansible.builtin.set_fact:
-    _cis_custom_rules_result: "{{ _cis_preflight_rules_result }}"
-  when: _cis_preflight_rules_result is defined
-
-- name: "cis : ip-allowlist — get existing custom WAF rules (no preflight available)"
+- name: "cis : ip-allowlist — get existing custom WAF rules"
   ansible.builtin.shell: |
     ibmcloud cis custom-waf rules {{ _cis_domain_id }} \
       -i "{{ cis_service_name }}" --output json
   register: _cis_custom_rules_result
   failed_when: false
-  when: _cis_preflight_rules_result is not defined
 
 - name: "cis : ip-allowlist — capture failure (fetch rules)"
   ansible.builtin.set_fact:
     _cis_error:
-      rc: "{{ _cis_custom_rules_result['rc'] }}"
-      msg: "{{ ((_cis_custom_rules_result['stdout_lines'] | default([])) + (_cis_custom_rules_result['stderr_lines'] | default([]))) | join(' ') | replace(\"'\", '') }}"
-  when: _cis_custom_rules_result['rc'] != 0
+      rc: "{{ _cis_custom_rules_result.rc }}"
+      msg: "{{ ((_cis_custom_rules_result.stdout_lines | default([])) + (_cis_custom_rules_result.stderr_lines | default([]))) | join(' ') | replace(\"'\", '') }}"
+  when: _cis_custom_rules_result.rc != 0
 
 - name: "cis : ip-allowlist — find existing rule id by description"
   ansible.builtin.set_fact:
     _cis_allowlist_rule_id: >-
-      {{ (_cis_custom_rules_result['stdout'] | from_json).get('rules', [])
+      {{ (_cis_custom_rules_result.stdout | from_json).get('rules', [])
          | selectattr('description', 'defined')
          | selectattr('description', 'equalto', _cis_allowlist_rule_desc)
          | map(attribute='id') | list | first | default('') }}
-  when: _cis_custom_rules_result['rc'] == 0 and _cis_custom_rules_result['stdout'] | trim | length > 0
+  when: _cis_custom_rules_result.rc == 0 and _cis_custom_rules_result.stdout | trim | length > 0
 
 - name: "cis : ip-allowlist — set rule id to empty when rules could not be fetched"
   ansible.builtin.set_fact:
     _cis_allowlist_rule_id: ""
-  when: _cis_custom_rules_result['rc'] != 0 or _cis_custom_rules_result['stdout'] | trim | length == 0
+  when: _cis_custom_rules_result.rc != 0 or _cis_custom_rules_result.stdout | trim | length == 0
 
 - name: "cis : ip-allowlist — manage deletion (allow_list empty or removed)"
   when: cis_allowed_ips | trim | length == 0
@@ -153,7 +145,7 @@
     - name: "cis : ip-allowlist — fetch current rule expression (existing rule)"
       ansible.builtin.set_fact:
         _cis_existing_expression: >-
-          {{ (_cis_custom_rules_result['stdout'] | from_json).get('rules', [])
+          {{ (_cis_custom_rules_result.stdout | from_json).get('rules', [])
              | selectattr('description', 'equalto', _cis_allowlist_rule_desc)
              | map(attribute='expression') | list | first | default('') }}
       when: _cis_allowlist_rule_id | trim | length > 0
