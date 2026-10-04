@@ -19,3 +19,12 @@
   register: _cis_ruleset_rule_disable_result
   failed_when: false
   when: _cis_rule_check.stdout | trim | length > 0
+
+- name: "cis: capture failure (managed ruleset disable: {{ item.rule_id }})"
+  ansible.builtin.set_fact:
+    _cis_error:
+      rc: "{{ _cis_ruleset_rule_disable_result.rc }}"
+      msg: "{{ ((_cis_ruleset_rule_disable_result.stdout_lines | default([])) + (_cis_ruleset_rule_disable_result.stderr_lines | default([]))) | join(' ') | replace(\"'\", '') }}"
+  when:
+    - _cis_ruleset_rule_disable_result is defined
+    - _cis_ruleset_rule_disable_result.rc != 0
