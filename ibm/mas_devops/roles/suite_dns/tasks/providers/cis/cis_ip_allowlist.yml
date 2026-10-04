@@ -59,22 +59,28 @@
       failed_when: false
       when: _cis_allowlist_rule_id | trim | length > 0
 
+    - name: "cis : ip-allowlist — extract delete result rc"
+      ansible.builtin.set_fact:
+        _cis_allowlist_delete_rc: "{{ _cis_allowlist_delete_result.rc | default(-1) | int }}"
+        _cis_allowlist_delete_msg: "{{ ((_cis_allowlist_delete_result.stdout_lines | default([])) + (_cis_allowlist_delete_result.stderr_lines | default([]))) | join(' ') | replace(\"'\", '') }}"
+      when: _cis_allowlist_delete_result is defined
+
     - name: "cis : ip-allowlist — capture failure (delete)"
       ansible.builtin.set_fact:
         _cis_error:
-          rc: "{{ _cis_allowlist_delete_result.rc }}"
-          msg: "{{ ((_cis_allowlist_delete_result.stdout_lines | default([])) + (_cis_allowlist_delete_result.stderr_lines | default([]))) | join(' ') | replace(\"'\", '') }}"
+          rc: "{{ _cis_allowlist_delete_rc }}"
+          msg: "{{ _cis_allowlist_delete_msg }}"
       when:
-        - _cis_allowlist_delete_result is defined
-        - _cis_allowlist_delete_result.rc != 0
+        - _cis_allowlist_delete_rc is defined
+        - _cis_allowlist_delete_rc != 0
 
     - name: "cis : ip-allowlist — capture deployment end timestamp (delete)"
       ansible.builtin.set_fact:
         _cis_allowlist_deployment_end: "{{ ansible_facts['date_time']['iso8601'] }}"
       when:
         - _cis_allowlist_rule_id | trim | length > 0
-        - _cis_allowlist_delete_result is defined
-        - _cis_allowlist_delete_result.rc == 0
+        - _cis_allowlist_delete_rc is defined
+        - _cis_allowlist_delete_rc == 0
 
     - name: "cis : ip-allowlist — build status-update base args (delete)"
       ansible.builtin.set_fact:
@@ -90,8 +96,8 @@
       when:
         - is_mas_mode
         - _cis_allowlist_rule_id | trim | length > 0
-        - _cis_allowlist_delete_result is defined
-        - _cis_allowlist_delete_result.rc == 0
+        - _cis_allowlist_delete_rc is defined
+        - _cis_allowlist_delete_rc == 0
 
     - name: "cis : ip-allowlist — status update: DEACTIVATED (delete)"
       ansible.builtin.shell: |
@@ -103,8 +109,8 @@
       when:
         - is_mas_mode
         - _cis_allowlist_rule_id | trim | length > 0
-        - _cis_allowlist_delete_result is defined
-        - _cis_allowlist_delete_result.rc == 0
+        - _cis_allowlist_delete_rc is defined
+        - _cis_allowlist_delete_rc == 0
       failed_when: false
       register: _cis_status_deactivated_result
 
@@ -224,21 +230,27 @@
       failed_when: false
       when: _cis_allowlist_rule_id | trim | length == 0
 
+    - name: "cis : ip-allowlist — extract create result rc"
+      ansible.builtin.set_fact:
+        _cis_allowlist_create_rc: "{{ _cis_allowlist_create_result.rc | default(-1) | int }}"
+        _cis_allowlist_create_msg: "{{ ((_cis_allowlist_create_result.stdout_lines | default([])) + (_cis_allowlist_create_result.stderr_lines | default([]))) | join(' ') | replace(\"'\", '') }}"
+      when: _cis_allowlist_create_result is defined
+
     - name: "cis : ip-allowlist — capture deployment end timestamp (create)"
       ansible.builtin.set_fact:
         _cis_allowlist_deployment_end: "{{ ansible_facts['date_time']['iso8601'] }}"
       when:
         - _cis_allowlist_rule_id | trim | length == 0
-        - _cis_allowlist_create_result is defined
+        - _cis_allowlist_create_rc is defined
 
     - name: "cis : ip-allowlist — capture failure (create)"
       ansible.builtin.set_fact:
         _cis_error:
-          rc: "{{ _cis_allowlist_create_result.rc }}"
-          msg: "{{ ((_cis_allowlist_create_result.stdout_lines | default([])) + (_cis_allowlist_create_result.stderr_lines | default([]))) | join(' ') | replace(\"'\", '') }}"
+          rc: "{{ _cis_allowlist_create_rc }}"
+          msg: "{{ _cis_allowlist_create_msg }}"
       when:
-        - _cis_allowlist_create_result is defined
-        - _cis_allowlist_create_result.rc != 0
+        - _cis_allowlist_create_rc is defined
+        - _cis_allowlist_create_rc != 0
 
     - name: "cis : ip-allowlist — status update: ACTIVE (create)"
       ansible.builtin.shell: |
@@ -250,8 +262,8 @@
       when:
         - is_mas_mode
         - _cis_allowlist_rule_id | trim | length == 0
-        - _cis_allowlist_create_result is defined
-        - _cis_allowlist_create_result.rc == 0
+        - _cis_allowlist_create_rc is defined
+        - _cis_allowlist_create_rc == 0
       failed_when: false
       register: _cis_status_active_create_result
 
@@ -311,22 +323,28 @@
         - _cis_allowlist_rule_id | trim | length > 0
         - _cis_existing_expression != _cis_allowlist_expression
 
+    - name: "cis : ip-allowlist — extract update result rc"
+      ansible.builtin.set_fact:
+        _cis_allowlist_update_rc: "{{ _cis_allowlist_update_result.rc | default(-1) | int }}"
+        _cis_allowlist_update_msg: "{{ ((_cis_allowlist_update_result.stdout_lines | default([])) + (_cis_allowlist_update_result.stderr_lines | default([]))) | join(' ') | replace(\"'\", '') }}"
+      when: _cis_allowlist_update_result is defined
+
     - name: "cis : ip-allowlist — capture deployment end timestamp (update)"
       ansible.builtin.set_fact:
         _cis_allowlist_deployment_end: "{{ ansible_facts['date_time']['iso8601'] }}"
       when:
         - _cis_allowlist_rule_id | trim | length > 0
         - _cis_existing_expression != _cis_allowlist_expression
-        - _cis_allowlist_update_result is defined
+        - _cis_allowlist_update_rc is defined
 
     - name: "cis : ip-allowlist — capture failure (update)"
       ansible.builtin.set_fact:
         _cis_error:
-          rc: "{{ _cis_allowlist_update_result.rc }}"
-          msg: "{{ ((_cis_allowlist_update_result.stdout_lines | default([])) + (_cis_allowlist_update_result.stderr_lines | default([]))) | join(' ') | replace(\"'\", '') }}"
+          rc: "{{ _cis_allowlist_update_rc }}"
+          msg: "{{ _cis_allowlist_update_msg }}"
       when:
-        - _cis_allowlist_update_result is defined
-        - _cis_allowlist_update_result.rc != 0
+        - _cis_allowlist_update_rc is defined
+        - _cis_allowlist_update_rc != 0
 
     - name: "cis : ip-allowlist — status update: ACTIVE (update)"
       ansible.builtin.shell: |
@@ -339,8 +357,8 @@
         - is_mas_mode
         - _cis_allowlist_rule_id | trim | length > 0
         - _cis_existing_expression != _cis_allowlist_expression
-        - _cis_allowlist_update_result is defined
-        - _cis_allowlist_update_result.rc == 0
+        - _cis_allowlist_update_rc is defined
+        - _cis_allowlist_update_rc == 0
       failed_when: false
       register: _cis_status_active_update_result
 
