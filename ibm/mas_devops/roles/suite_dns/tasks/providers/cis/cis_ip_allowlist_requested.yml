@@ -1,16 +1,26 @@
 ---
-# Set allowlisting REQUESTED status.
-# Called from cis_suitedns_enhanced.yml after ibmcloud login and _cis_domain_id
-# is available (set inside cis_edge_certificate.yml).
+# Set allowlisting REQUESTED status in MongoDB.
+# Called from cis_suitedns_enhanced.yml after cis_edge_certificate.yml (MAS),
+# so _cis_domain_id and cis_service_name are available for the pre-flight fetch.
 #
-# Logic:
-#   1. GET current CIS WAF rules
-#   2. Build expected expression from cis_allowed_ips
-#   3. Compare — if different → REQUESTED (change is pending)
-#   4. If same → skip (no-op, no status update)
+# REQUESTED is written when the existing CIS expression differs from what is
+# expected based on current cis_allowed_ips. This covers all three cases:
 #
-# Runs only in MAS mode when cis_allowed_ips is configured.
+#   1. Rule exists,  cis_allowed_ips empty/unset → deletion pending
+#   2. Rule exists,  cis_allowed_ips changed     → update pending
+#   3. No rule yet,  cis_allowed_ips has data    → create pending
+#
+# In all cases: existing expression != expected expression → REQUESTED.
+# If they match (or both empty): no-op — nothing to do, no status noise.
+#
+# Also sets _cis_allowlist_status_base_args used by ALL downstream status
+# updates (IN_PROGRESS, ACTIVE, DEACTIVATED, ERROR). Setting it here ensures
+# failures in cis_domain_setting.yml / cis_deploy_managed_ruleset.yml
+# (which run before cis_ip_allowlist.yml) can still write ERROR to MongoDB.
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Pre-flight: fetch current WAF rules from CIS
+# ─────────────────────────────────────────────────────────────────────────────
 - name: "cis : ip-allowlist — requested: get current WAF rules"
   ansible.builtin.shell: |
     ibmcloud cis custom-waf rules {{ _cis_domain_id }} \
@@ -18,10 +28,14 @@
   register: _cis_preflight_rules_result
   failed_when: false
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Build expected expression from cis_allowed_ips.
+# Empty string when cis_allowed_ips is unset or empty (deletion path).
+# ─────────────────────────────────────────────────────────────────────────────
 - name: "cis : ip-allowlist — requested: normalise requested IPs"
   ansible.builtin.set_fact:
     _cis_preflight_normalised_ips: >-
-      {{ cis_allowed_ips
+      {{ cis_allowed_ips | default('')
          | regex_replace('(^\[|\]$)', '')
          | regex_replace(',', ' ')
          | split()
@@ -31,8 +45,12 @@
 - name: "cis : ip-allowlist — requested: build expected WAF expression"
   ansible.builtin.set_fact:
     _cis_preflight_expected_expr: >-
-      {{ '(not ip.src in {' + (_cis_preflight_normalised_ips | join(' ')) + '} and http.host contains "' + mas_domain + '")' }}
+      {{ '(not ip.src in {' + (_cis_preflight_normalised_ips | join(' ')) + '} and http.host contains "' + mas_domain + '")'
+         if _cis_preflight_normalised_ips | length > 0 else '' }}
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Extract existing expression from CIS response
+# ─────────────────────────────────────────────────────────────────────────────
 - name: "cis : ip-allowlist — requested: extract existing expression from CIS"
   ansible.builtin.set_fact:
     _cis_preflight_existing_expr: >-
@@ -43,23 +61,26 @@
     - _cis_preflight_rules_result.rc == 0
     - _cis_preflight_rules_result.stdout | trim | length > 0
 
-- name: "cis : ip-allowlist — requested: set existing expression empty (fetch failed)"
+- name: "cis : ip-allowlist — requested: set existing expression empty (fetch failed or no rules)"
   ansible.builtin.set_fact:
     _cis_preflight_existing_expr: ""
   when: >-
     _cis_preflight_rules_result.rc != 0 or
     _cis_preflight_rules_result.stdout | trim | length == 0
 
-- name: "cis : ip-allowlist — requested: show comparison"
+# ─────────────────────────────────────────────────────────────────────────────
+# Compare: REQUESTED fires when existing != expected
+# ─────────────────────────────────────────────────────────────────────────────
+- name: "cis : ip-allowlist — requested: show pre-flight result"
   ansible.builtin.debug:
     msg:
       - "Existing expression .. {{ _cis_preflight_existing_expr | default('(none)') }}"
-      - "Expected expression .. {{ _cis_preflight_expected_expr }}"
+      - "Expected expression .. {{ _cis_preflight_expected_expr | default('(none)') }}"
       - "Change needed ........ {{ _cis_preflight_existing_expr != _cis_preflight_expected_expr }}"
 
 - name: "cis : ip-allowlist — requested: no change, skipping REQUESTED"
   ansible.builtin.debug:
-    msg: "Allow list expression unchanged — skipping REQUESTED (no-op)"
+    msg: "Allow list already in desired state — skipping REQUESTED (no-op)"
   when: _cis_preflight_existing_expr == _cis_preflight_expected_expr
 
 - name: "cis : ip-allowlist — requested: set REQUESTED status"
