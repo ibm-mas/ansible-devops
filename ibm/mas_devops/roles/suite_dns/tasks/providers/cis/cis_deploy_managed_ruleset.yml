@@ -2,46 +2,80 @@
 # Deploy and enable a single CIS managed WAF ruleset.
 # Expected loop variable: item.name  (e.g. "CIS Managed Ruleset")
 
-- name: "cis: get ruleset_id for '{{ item.name }}'"
-  ansible.builtin.shell: |
-    ibmcloud cis managed-waf rulesets {{ _cis_domain_id }} \
-    -i "{{ cis_service_name }}" --output json | jq -r --arg name "{{ item.name }}" '.[] | select(.name == $name) | .id'
-  register: _cis_deploy_ruleset_id_result
+- block:
 
-- name: "cis: validate ruleset ID was found for '{{ item.name }}'"
-  ansible.builtin.fail:
-    msg: "'{{ item.name }}' ruleset ID not found. Ensure the ruleset exists in the CIS instance."
-  when: _cis_deploy_ruleset_id_result.stdout | trim | length == 0
+    - name: "cis: get ruleset_id for '{{ item.name }}'"
+      ansible.builtin.shell: |
+        ibmcloud cis managed-waf rulesets {{ _cis_domain_id }} \
+        -i "{{ cis_service_name }}" --output json | jq -r --arg name "{{ item.name }}" '.[] | select(.name == $name) | .id'
+      register: _cis_deploy_ruleset_id_result
 
-- name: "cis: get deployed rule id and enabled status for '{{ item.name }}'"
-  ansible.builtin.shell: |
-    ibmcloud cis managed-waf deployments {{ _cis_domain_id }} \
-    -i "{{ cis_service_name }}" --output json | jq -r --arg target_id {{ _cis_deploy_ruleset_id_result.stdout }} \
-    '(.rules // [])[] | select(.action_parameters.id == $target_id) | "\(.id) \(.enabled)"'
-  register: _cis_deploy_rule_status_result
+    - name: "cis: validate ruleset ID was found for '{{ item.name }}'"
+      ansible.builtin.fail:
+        msg: "'{{ item.name }}' ruleset ID not found. Ensure the ruleset exists in the CIS instance."
+      when: _cis_deploy_ruleset_id_result.stdout | trim | length == 0
 
-- name: "cis: set deployed rule facts for '{{ item.name }}'"
-  ansible.builtin.set_fact:
-    _cis_deploy_rule_id: "{{ _cis_deploy_rule_status_result.stdout.split(' ')[0] | default('') }}"
-    _cis_deploy_rule_enabled: "{{ _cis_deploy_rule_status_result.stdout.split(' ')[1] | default('false') }}"
+    - name: "cis: get deployed rule id and enabled status for '{{ item.name }}'"
+      ansible.builtin.shell: |
+        ibmcloud cis managed-waf deployments {{ _cis_domain_id }} \
+        -i "{{ cis_service_name }}" --output json | jq -r --arg target_id {{ _cis_deploy_ruleset_id_result.stdout }} \
+        '(.rules // [])[] | select(.action_parameters.id == $target_id) | "\(.id) \(.enabled)"'
+      register: _cis_deploy_rule_status_result
 
-- name: "cis: add '{{ item.name }}' to WAF when not yet deployed"
-  ansible.builtin.shell: |
-    ibmcloud cis managed-waf deployment-add-ruleset {{ _cis_domain_id }} {{ _cis_deploy_ruleset_id_result.stdout }} \
-    -i "{{ cis_service_name }}" --enabled true
-  when: _cis_deploy_rule_id | trim | length == 0
+    - name: "cis: set deployed rule facts for '{{ item.name }}'"
+      ansible.builtin.set_fact:
+        _cis_deploy_rule_id: "{{ _cis_deploy_rule_status_result.stdout.split(' ')[0] | default('') }}"
+        _cis_deploy_rule_enabled: "{{ _cis_deploy_rule_status_result.stdout.split(' ')[1] | default('false') }}"
 
-- name: "cis: get deployed rule id for '{{ item.name }}'"
-  ansible.builtin.shell: |
-    ibmcloud cis managed-waf deployments {{ _cis_domain_id }} \
-    -i "{{ cis_service_name }}" --output json | jq -r --arg target_id "{{ _cis_deploy_ruleset_id_result.stdout }}" \
-    '(.rules // [])[] | select(.action_parameters.id == $target_id) | .id'
-  register: _cis_deploy_rule_id_result
+    - name: "cis: add '{{ item.name }}' to WAF when not yet deployed"
+      ansible.builtin.shell: |
+        ibmcloud cis managed-waf deployment-add-ruleset {{ _cis_domain_id }} {{ _cis_deploy_ruleset_id_result.stdout }} \
+        -i "{{ cis_service_name }}" --enabled true
+      when: _cis_deploy_rule_id | trim | length == 0
 
-- name: "cis: enable '{{ item.name }}' if deployed but disabled"
-  ansible.builtin.shell: |
-    ibmcloud cis managed-waf deployment-update-ruleset {{ _cis_domain_id }} {{ _cis_deploy_rule_id_result.stdout }} \
-    --enabled true --reset-all -i "{{ cis_service_name }}"
-  when:
-    - _cis_deploy_rule_id | trim | length > 0
-    - _cis_deploy_rule_enabled == 'false'
+    - name: "cis: get deployed rule id for '{{ item.name }}'"
+      ansible.builtin.shell: |
+        ibmcloud cis managed-waf deployments {{ _cis_domain_id }} \
+        -i "{{ cis_service_name }}" --output json | jq -r --arg target_id "{{ _cis_deploy_ruleset_id_result.stdout }}" \
+        '(.rules // [])[] | select(.action_parameters.id == $target_id) | .id'
+      register: _cis_deploy_rule_id_result
+
+    - name: "cis: enable '{{ item.name }}' if deployed but disabled"
+      ansible.builtin.shell: |
+        ibmcloud cis managed-waf deployment-update-ruleset {{ _cis_domain_id }} {{ _cis_deploy_rule_id_result.stdout }} \
+        --enabled true --reset-all -i "{{ cis_service_name }}"
+      when:
+        - _cis_deploy_rule_id | trim | length > 0
+        - _cis_deploy_rule_enabled == 'false'
+
+  rescue:
+
+    - name: "cis: capture failure message (deploy managed ruleset '{{ item.name }}')"
+      ansible.builtin.set_fact:
+        _cis_deploy_ruleset_error_msg: "{{ ansible_failed_result.msg | default(ansible_failed_task.name + ' failed') | replace(\"'\", '') }}"
+
+    - name: "cis: status update: ERROR (deploy managed ruleset '{{ item.name }}')"
+      ansible.builtin.shell: |
+        mas-devops-feature-status-update status-update \
+          {{ _cis_allowlist_status_base_args }} \
+          --status ERROR \
+          --status-details '{
+            "message": "{{ _cis_deploy_ruleset_error_msg }}",
+            "error_code": 1,
+            "error_source": {
+              "gitops_version": "{{ lookup("env", "GITOPS_VERSION") | default("", true) }}",
+              "filename": "cis_deploy_managed_ruleset.yml",
+              "log_file": "oc logs -n mas-{{ mas_instance_id }}-syncres {{ lookup("env", "HOSTNAME") }}",
+              "stacktrace": "{{ _cis_deploy_ruleset_error_msg }}"
+            },
+            "request_configuration": "{{ _cis_normalised_ips | default([]) | join(", ") }}"
+          }' \
+          --deployment-end "{{ ansible_facts['date_time']['iso8601'] }}"
+      when:
+        - is_mas_mode
+        - _cis_allowlist_status_base_args is defined
+      failed_when: false
+
+    - name: "cis: re-raise failure (deploy managed ruleset '{{ item.name }}')"
+      ansible.builtin.fail:
+        msg: "{{ _cis_deploy_ruleset_error_msg }}"

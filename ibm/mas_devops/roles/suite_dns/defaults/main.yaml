@@ -74,6 +74,16 @@ cis_proxy: "{{ lookup('env', 'CIS_PROXY') | default(false, true) }}"
 cis_service_name: "{{ lookup('env', 'CIS_SERVICE_NAME')}}"
 cis_allowed_ips: "{{ lookup('env', 'CIS_ALLOWED_IPS') | default('', true) }}"
 
+# SaaS status update
+# -----------------------------------------------------------------------------
+# ACCOUNT_ID, CLUSTER_ID, REGION_ID: injected via environment-properties ConfigMap (envFrom in gitops-suite-dns task)
+# SLS_SUBSCRIPTION_ID: injected via secure-properties secret (mapped from sls.subscription_id in sls-params.yaml)
+#   Note: there is no SUBSCRIPTION_ID env var — the actual env var name used across the pipeline is SLS_SUBSCRIPTION_ID
+account_id: "{{ lookup('env', 'ACCOUNT_ID') | default('', true) }}"
+cluster_id: "{{ lookup('env', 'CLUSTER_ID') | default('', true) }}"
+region_id: "{{ lookup('env', 'REGION_ID') | default(aws_region, true) }}"
+subscription_id: "{{ lookup('env', 'SLS_SUBSCRIPTION_ID') | default('', true) }}"
+
 # Update DNS entry if it already exists
 update_dns: "{{ lookup('env', 'UPDATE_DNS_ENTRIES') | default('true', true) | bool }}"
 # Force deletion of wildcard dns entries in cis

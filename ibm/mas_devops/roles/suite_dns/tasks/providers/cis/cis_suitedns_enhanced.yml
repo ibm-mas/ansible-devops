@@ -15,6 +15,15 @@
     instance_id: "{{ mas_instance_id }}"
     edge_cert_entries: "{{ edge_cert_routes['mas'] }}"
 
+# set REQUESTED if allowlist config changed (create / update / delete paths)
+- name: "cis : ip-allowlist — set REQUESTED status"
+  when:
+    - is_mas_mode
+    - cis_waf | bool
+    - mas_channel is defined and mas_channel != ""
+    - mas_channel.split('.')[:2] | join('.') is version('9.1', '>=')
+  ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist_requested.yml
+
 - name: "cis : Reset facts"
   set_fact:
     dedicated_list: []
@@ -136,6 +145,12 @@
         - name: "CIS Managed Ruleset"
         - name: "CIS OWASP Core Ruleset"
 
+    # TODO: REMOVE — inject bad CIS service name to force OWASP rule error for testing (mvidev3 only)
+    - name: "cis : [TEST] inject bad CIS service name before managed ruleset disable (mvidev3 only)"
+      ansible.builtin.set_fact:
+        cis_service_name: "INVALID-SERVICE-NAME-TEST"
+      when: mas_instance_id == "mvidev3"
+
     - ansible.builtin.include_tasks: tasks/providers/cis/cis_managed_ruleset.yml
       loop: "{{ managed_ruleset_rules_to_disable }}"
 
@@ -173,3 +188,36 @@
   vars:
     instance_id: "{{ aiservice_instance_id }}"
     domain: "{{ aiservice_domain }}"
+
+# -------------------------------------------------------------------------
+# Job-level ERROR catch — runs after ALL CIS tasks complete.
+# Any CIS task across any included file sets _cis_error {rc, msg} on failure.
+# Scoped to MAS mode only. Writes ERROR status to MongoDB once at job end.
+# -------------------------------------------------------------------------
+- name: "cis : status update: ERROR (job-level)"
+  ansible.builtin.shell: |
+    mas-devops-feature-status-update status-update \
+      {{ _cis_allowlist_status_base_args }} \
+      --status ERROR \
+      --status-details '{
+        "message": "{{ _cis_error.msg }}",
+        "error_code": {{ _cis_error.rc }},
+        "error_source": {
+          "gitops_version": "{{ lookup("env", "GITOPS_VERSION") | default("", true) }}",
+          "filename": "cis_suitedns_enhanced.yml",
+          "log_file": "oc logs -n mas-{{ mas_instance_id }}-syncres {{ lookup("env", "HOSTNAME") }}",
+          "stacktrace": "{{ _cis_error.msg }}"
+        },
+        "request_configuration": "{{ _cis_normalised_ips | default([]) | join(", ") }}"
+      }' \
+      --deployment-end "{{ _cis_allowlist_deployment_end | default(ansible_facts['date_time']['iso8601']) }}"
+  when:
+    - is_mas_mode
+    - _cis_error is defined
+  failed_when: false
+  register: _cis_status_error_job_result
+
+- name: "cis : status update: ERROR job-level (result)"
+  ansible.builtin.debug:
+    var: _cis_status_error_job_result
+  when: _cis_status_error_job_result is defined
