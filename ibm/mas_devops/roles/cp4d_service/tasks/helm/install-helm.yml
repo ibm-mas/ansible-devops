@@ -314,6 +314,75 @@
     component_name: "{{ cpd_service_name }}"
     component_info: "{{ cpd_service_info[cpd_service_name] }}"
 
+# Airgap + spark: operator digests.yaml is out of sync with the mirrored CASE bundle.
+# Override spec.image_digests from the images.csv so operator-created pods use the
+# registry-correct digests instead of the baked-in ones.
+- name: "Patch spark AnalyticsEngine CR image_digests from CASE images.csv (airgap)"
+  when:
+    - cpd_helm_airgap
+    - cpd_service_name == 'spark'
+    - cpd_product_version is version('5.4.0', '>=')
+  block:
+    - name: "Download ibm-analyticsengine CASE bundle"
+      command: >
+        oc ibm-pak get ibm-analyticsengine
+        --version {{ cpd_components_meta.analyticsengine.case_version }}
+        --skip-dependencies
+      environment:
+        IBMPAK_HTTP_TIMEOUT: "600"
+        IBMPAK_HTTP_RETRY: "10"
+      changed_when: false
+
+    - name: "Locate ibm-analyticsengine images.csv for CASE version {{ cpd_components_meta.analyticsengine.case_version }}"
+      find:
+        paths: "{{ ansible_env.HOME }}/.ibm-pak/data/cases/ibm-analyticsengine"
+        patterns: "ibm-analyticsengine-{{ cpd_components_meta.analyticsengine.case_version }}*-images.csv"
+        recurse: true
+      register: _ae_csv_find
+
+    - name: "Fail if images.csv not found"
+      fail:
+        msg: >
+          Could not find ibm-analyticsengine images.csv matching version
+          {{ cpd_components_meta.analyticsengine.case_version }} under ~/.ibm-pak/data/cases/ibm-analyticsengine
+      when: _ae_csv_find.files | length == 0
+
+    - name: "Parse image digests from CASE images.csv and patch AnalyticsEngine CR"
+      vars:
+        _csv_path: "{{ _ae_csv_find.files[0].path }}"
+        _rows: "{{ lookup('file', _csv_path).splitlines() | select('match', '^cp\\.icr\\.io,cp/cpd/ibm-lh-spark-') | map('split', ',') | list }}"
+        # Single-tag images: name → digest
+        _single: >-
+          {{
+            dict(
+              _rows | rejectattr('1', 'match', '.*(miniforge|miniconda)-runtimes.*')
+              | map(attribute='1') | map('regex_replace', '^cp/cpd/', '') | list
+              | zip(_rows | rejectattr('1', 'match', '.*(miniforge|miniconda)-runtimes.*') | map(attribute='3') | list)
+            )
+          }}
+        # Multi-version runtimes: name-v35 (tag starts with 3.) or name-v40 (tag starts with 4.)
+        _multi: >-
+          {{
+            dict(
+              _rows | selectattr('1', 'match', '.*(miniforge|miniconda)-runtimes.*')
+              | map(attribute='1') | map('regex_replace', '^cp/cpd/', '')
+              | zip(_rows | selectattr('1', 'match', '.*(miniforge|miniconda)-runtimes.*') | map(attribute='2') | list)
+              | map('join', '|')
+              | map('regex_replace', '\\|3\\.\\S+', '-v35')
+              | map('regex_replace', '\\|4\\.\\S+', '-v40') | list
+              | zip(_rows | selectattr('1', 'match', '.*(miniforge|miniconda)-runtimes.*') | map(attribute='3') | list)
+            )
+          }}
+      kubernetes.core.k8s:
+        state: patched
+        api_version: ae.cpd.ibm.com/v1
+        kind: AnalyticsEngine
+        name: "{{ cpd_service_info.spark.cr_name }}"
+        namespace: "{{ cpd_instance_namespace }}"
+        definition:
+          spec:
+            image_digests: "{{ _single | combine(_multi) }}"
+
 - name: "Installation complete"
   debug:
     msg:
