@@ -198,6 +198,37 @@
       - "✓ CRD established: {{ comp_crd_name }}"
       - "✓ CR will be created automatically by Helm"
 
+# The WML Helm chart (03-cr.yaml) does not expose runtimeresources in its template,
+# so passing it via helm_values has no effect. Instead, patch the live WmlBase CR
+# directly after Helm creates it. The WML operator (CPD >= 5.4.0) reads
+# spec.runtimeresources from the CR and applies the ephemeral storage limits to
+# wml-dep-py-rt251-* / wml-dep-py-rt241-* runtime pods, preventing Kubelet eviction
+# when large package extensions (aix360ts + aix360 + xgboost wheel cache ~3.6GB)
+# are installed during Predict explainability calls.
+- name: "Patch WmlBase CR with runtimeresources ephemeral storage limits"
+  when:
+    - component_name == 'wml'
+    - cpd_product_version is version('5.4.0', '>=')
+  kubernetes.core.k8s:
+    state: present
+    merge_type: merge
+    definition:
+      apiVersion: wml.cpd.ibm.com/v1beta1
+      kind: WmlBase
+      metadata:
+        name: wml-cr
+        namespace: "{{ cpd_instance_namespace }}"
+      spec:
+        runtimeresources:
+          runtime_251:
+            ephemeral:
+              request: "{{ cpd_wml_runtime_ephemeral_request }}"
+              limit: "{{ cpd_wml_runtime_ephemeral_limit }}"
+          runtime_241:
+            ephemeral:
+              request: "{{ cpd_wml_runtime_ephemeral_request }}"
+              limit: "{{ cpd_wml_runtime_ephemeral_limit }}"
+
 # During OLM→Helm migration cleanup deletes the component CR so Helm can adopt it.
 # However helm upgrade --install is a no-op when chart/values are unchanged, so
 # it does not reapply the now-missing CR from its stored manifest.
