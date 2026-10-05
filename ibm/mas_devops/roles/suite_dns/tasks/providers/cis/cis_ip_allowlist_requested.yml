@@ -69,6 +69,21 @@
     _cis_preflight_rules_result.stdout | trim | length == 0
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Always set base args — needed by downstream ERROR writes even when no change.
+# ─────────────────────────────────────────────────────────────────────────────
+- name: "cis : ip-allowlist — requested: build status-update base args"
+  ansible.builtin.set_fact:
+    _cis_allowlist_status_base_args: >-
+      --region "{{ region_id }}"
+      --instance-id "{{ mas_instance_id }}"
+      --account "{{ account_id }}"
+      --cluster "{{ cluster_id }}"
+      --subscription-id "{{ subscription_id }}"
+      --type allow-list
+      --feature-details '{"ips": {{ _cis_preflight_normalised_ips | to_json }}}'
+      --deployment-start "{{ ansible_facts['date_time']['iso8601'] }}"
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Compare: REQUESTED fires when existing != expected
 # ─────────────────────────────────────────────────────────────────────────────
 - name: "cis : ip-allowlist — requested: show pre-flight result"
@@ -86,22 +101,6 @@
 - name: "cis : ip-allowlist — requested: set REQUESTED status"
   when: _cis_preflight_existing_expr != _cis_preflight_expected_expr
   block:
-
-    - name: "cis : ip-allowlist — requested: capture deployment start timestamp"
-      ansible.builtin.set_fact:
-        _cis_allowlist_deployment_start: "{{ ansible_facts['date_time']['iso8601'] }}"
-
-    - name: "cis : ip-allowlist — requested: build status-update base args"
-      ansible.builtin.set_fact:
-        _cis_allowlist_status_base_args: >-
-          --region "{{ region_id }}"
-          --instance-id "{{ mas_instance_id }}"
-          --account "{{ account_id }}"
-          --cluster "{{ cluster_id }}"
-          --subscription-id "{{ subscription_id }}"
-          --type allow-list
-          --feature-details '{"ips": {{ _cis_preflight_normalised_ips | to_json }}}'
-          --deployment-start "{{ _cis_allowlist_deployment_start }}"
 
     - name: "cis : ip-allowlist — status update: REQUESTED"
       ansible.builtin.shell: |
