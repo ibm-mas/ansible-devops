@@ -43,10 +43,27 @@
     - db2_cr_type == "Db2uCluster"
     - creating_logarchmeth1_folder_output.rc != 0
 
-- name: "Creating DB2_OBJECT_STORAGE_LOCAL_STAGING_PATH folder in {{ db2_pod_name }}"
+- name: "Creating DB2_OBJECT_STORAGE_LOCAL_STAGING_PATH folder in {{ db2_pod_name }} (helm operator)"
+  when: db2_helm_operator_mode
   shell: |
-    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc "mkdir -p /mnt/backup/staging" db2inst1
-  register: creating_stagingpath_folder_output
+    oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- bash -l -c "mkdir -p /mnt/backup/staging"
+  register: creating_stagingpath_folder_output_helm
+
+- name: "Creating DB2_OBJECT_STORAGE_LOCAL_STAGING_PATH folder in {{ db2_pod_name }} (subscription operator)"
+  when: not db2_helm_operator_mode
+  shell: |
+    oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc "mkdir -p /mnt/backup/staging" db2inst1
+  register: creating_stagingpath_folder_output_sub
+
+- name: Set creating_stagingpath_folder_output from helm branch
+  when: db2_helm_operator_mode
+  set_fact:
+    creating_stagingpath_folder_output: "{{ creating_stagingpath_folder_output_helm }}"
+
+- name: Set creating_stagingpath_folder_output from subscription branch
+  when: not db2_helm_operator_mode
+  set_fact:
+    creating_stagingpath_folder_output: "{{ creating_stagingpath_folder_output_sub }}"
 
 - fail: msg="Failed to create path for DB2_OBJECT_STORAGE_LOCAL_STAGING_PATH"
   when:
