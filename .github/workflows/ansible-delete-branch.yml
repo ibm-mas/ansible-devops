@@ -1,19 +1,31 @@
 name: Artifactory Clean Up
+
 on:
   delete:
     branches:
       - '**'
     tags-ignore:
       - '**'
+
+env:
+  IBM_CLOUD_APIKEY: ${{ secrets.IBM_CLOUD_APIKEY }}
+  ARTIFACTORY_SECRET_ID: ${{ secrets.ARTIFACTORY_SECRET_ID }}
+  SECRET_MANAGER_URL: ${{ secrets.SECRET_MANAGER_URL }}
+
 jobs:
   clean-up-artifactory:
     name: Delete Build Artifacts
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch Artifactory token from IBM Cloud Secrets Manager
+        uses: ./.github/actions/fetch-artifactory-token
+
       - name: Delete
         env:
           ARTIFACTORY_GENERIC_RELEASE_URL: ${{ secrets.ARTIFACTORY_GENERIC_RELEASE_URL }}
-          ARTIFACTORY_TOKEN: ${{ secrets.ARTIFACTORY_TOKEN }}
         run: |
           echo "Clean up for branch ${{ github.event.ref }}"
           BRANCH_TARGET_URL="${ARTIFACTORY_GENERIC_RELEASE_URL}/ibm-mas/ansible-devops/branches/ibm-mas_devops-${{ github.event.ref }}.tar.gz"
