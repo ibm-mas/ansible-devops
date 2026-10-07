@@ -18,10 +18,20 @@
   debug:
     var: checkapp_sub_info
 
+# Skip all checks if this app is already on the target channel
+- name: "{{ check_app.id }} : Skip if already on target channel"
+  when:
+    - checkapp_sub_info.resources is defined
+    - checkapp_sub_info.resources | length == 1
+    - checkapp_sub_info.resources[0].spec.channel == mas_channel
+  debug:
+    msg: "No action required, ibm-mas-{{ check_app.id }} is already on channel {{ mas_channel }}"
+
 - name: "{{ check_app.id }} : Check that upgrade is supported from current application"
   when:
     - not ( skip_compatibility_check is defined and skip_compatibility_check )
     - checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+    - checkapp_sub_info.resources[0].spec.channel != mas_channel
   assert:
     that: check_app.id in compatibility_matrix[mas_channel]
     fail_msg: "Unable to upgrade to {{ mas_channel }} because ibm-mas-{{ check_app.id }} is installed and is not compatible with this release."
@@ -30,6 +40,7 @@
   when:
     - not ( skip_compatibility_check is defined and skip_compatibility_check )
     - checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+    - checkapp_sub_info.resources[0].spec.channel != mas_channel
   assert:
     that: checkapp_sub_info.resources[0].spec.channel in compatibility_matrix[mas_channel][check_app.id]
     fail_msg: "Unable to upgrade to {{ mas_channel }} because ibm-mas-{{ check_app.id }} is subscribed to a channel that is not compatible with this release ({{ checkapp_sub_info.resources[0].spec.channel }}).  Supported channels are: {{ compatibility_matrix[mas_channel][check_app.id] }}"
@@ -38,6 +49,7 @@
   when:
     - checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
     - checkapp_sub_info.resources[0].spec.installPlanApproval is defined
+    - checkapp_sub_info.resources[0].spec.channel != mas_channel
   assert:
     that: checkapp_sub_info.resources[0].spec.installPlanApproval == 'Automatic'
     fail_msg: "Automatic install plan approvals must be enabled to upgrade via this role"
@@ -46,7 +58,9 @@
 # 2. Lookup the OperatorCondition
 # -----------------------------------------------------------------------------
 - name: "{{ check_app.id }} : Lookup OperatorCondition for ibm-mas-{{ check_app.id }}"
-  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  when:
+    - checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+    - checkapp_sub_info.resources[0].spec.channel != mas_channel
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v2
     kind: OperatorCondition
@@ -62,7 +76,9 @@
     - opcon.resources[0].metadata.name is defined
 
 - name: "{{ check_app.id }} : Debug OperatorCondition"
-  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  when:
+    - checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+    - checkapp_sub_info.resources[0].spec.channel != mas_channel
   debug:
     var: opcon
 
@@ -72,22 +88,28 @@
 # OperatorCondition names are in the format {packageName}.{packageVersion}
 # We want to strip off the "v" prefix from the version while we do this
 - name: "{{ check_app.id }} : Lookup operator version for ibm-mas"
-  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  when:
+    - checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+    - checkapp_sub_info.resources[0].spec.channel != mas_channel
   set_fact:
     opcon_version: "{{ opcon.resources[0].metadata.name.split('.v')[1] }}"
 
 - name: "{{ check_app.id }} : Debug Operator Version"
-  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  when:
+    - checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+    - checkapp_sub_info.resources[0].spec.channel != mas_channel
   debug:
     msg:
       - "Operator condition ......... {{ opcon.resources[0].metadata.name }}"
       - "Operator version ........... {{ opcon_version }}"
 
 
-# 2. Check the health of the appliation
+# 4. Check the health of the application
 # -----------------------------------------------------------------------------
 - name: "{{ check_app.id }} : Get CR for {{ check_app.id }}"
-  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  when:
+    - checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+    - checkapp_sub_info.resources[0].spec.channel != mas_channel
   kubernetes.core.k8s_info:
     api_version: "{{ check_app.api_version }}"
     name: "{{ mas_instance_id }}"
@@ -96,12 +118,16 @@
   register: check_app_info
 
 - name: "{{ check_app.id }} : Debug Application Info"
-  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  when:
+    - checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+    - checkapp_sub_info.resources[0].spec.channel != mas_channel
   debug:
     var: check_app_info
 
 - name: "{{ check_app.id }} : Check that the CR exists"
-  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  when:
+    - checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+    - checkapp_sub_info.resources[0].spec.channel != mas_channel
   assert:
     that:
       - check_app_info.resources is defined
@@ -111,6 +137,7 @@
 - name: "{{ check_app.id }} : Check that the Suite CR has been reconciled to the expected version for GA channels (Non feature)"
   when:
     - checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+    - checkapp_sub_info.resources[0].spec.channel != mas_channel
     - "'-feature' not in checkapp_sub_info.resources[0].spec.channel"
     - check_app_info.resources is defined
     - check_app_info.resources | length == 1
@@ -127,6 +154,7 @@
 - name: "{{ check_app.id }} : Check that the Suite CR has been reconciled to the expected version for feature channels"
   when:
     - checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+    - checkapp_sub_info.resources[0].spec.channel != mas_channel
     - "'-feature' in checkapp_sub_info.resources[0].spec.channel"
     - check_app_info.resources is defined
     - check_app_info.resources | length == 1
@@ -138,7 +166,9 @@
     fail_msg: "Upgrade failed because {{ mas_instance_id }}/{{ check_app.kind }}.{{ check_app.api_version }} version ({{ check_app_info.resources[0].status.versions.reconciled }}) is not at the expected version {{ opcon_version }}"
 
 - name: "{{ check_app.id }} : Check that the Application CR is in a healthy state"
-  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  when:
+    - checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+    - checkapp_sub_info.resources[0].spec.channel != mas_channel
   assert:
     that:
       - check_app_info.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
