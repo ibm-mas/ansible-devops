@@ -1,0 +1,94 @@
+#!/bin/bash
+
+MONGODB_BACKUP_USER="bradmin"
+
+TMP_BACKUP_DIR="/tmp/masbr/{{ mongodb_backup_version }}"
+TMP_BACKUP_MONGODUMP_DIR="${TMP_BACKUP_DIR}/mongodump"
+
+ALL_DATABASES_FILTER="^(mas|iot|sls|ibm-sls)(_|-)({{ mas_instance_id }}|sls)(_|-)(?!.*monitor$)"
+
+tlsCAFile=$(ls /var/lib/tls/ca/*.pem)
+primary_host=""
+
+is_primary=$(mongosh --quiet -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --host {{ mongodb_host }} --tlsCAFile $tlsCAFile --authenticationDatabase=admin --tls --eval 'db.isMaster().ismaster')
+cmdrc=$?
+if [ $cmdrc -ne 0 ]; then
+    echo "Error checking if node is primary. Exiting."
+    exit 1
+fi
+
+if [ "$is_primary" != "true" ]; then
+    echo "This node is not primary. Get Primary from server status."
+    primary_host=$(mongosh --quiet -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --tlsCAFile $tlsCAFile --host {{ mongodb_host }} --authenticationDatabase=admin --tls --eval 'rs.isMaster().primary')
+    cmdrc=$?
+    if [ $cmdrc -ne 0 ]; then
+        echo "Error getting primary node. Exiting."
+        exit 1
+    fi
+    echo "Primary host is: $primary_host"
+fi
+
+if [ -n "$primary_host" ]; then
+    echo "Connecting to primary host: $primary_host"
+    mongo_cmd="mongosh --quiet -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --tlsCAFile $tlsCAFile --authenticationDatabase=admin --tls --host $primary_host"
+    mongodump_cmd="mongodump -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --sslCAFile $tlsCAFile --authenticationDatabase=admin --ssl --host $primary_host"
+else
+    echo "Continuing on current primary node."
+    mongo_cmd="mongosh --quiet -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --tlsCAFile $tlsCAFile --authenticationDatabase=admin --tls --host {{ mongodb_host }}"
+    mongodump_cmd="mongodump -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --sslCAFile $tlsCAFile --authenticationDatabase=admin --ssl --host {{ mongodb_host }}"
+fi
+
+# cleanup base backup dir
+rm -rf $TMP_BACKUP_DIR
+
+# Create temporary directory for backup
+mkdir -p $TMP_BACKUP_MONGODUMP_DIR
+if [ $? -ne 0 ]; then
+    echo "Error creating temporary backup directory $TMP_BACKUP_MONGODUMP_DIR. Exiting."
+    exit 1
+fi
+
+# Get database names matching the filter
+databases=$($mongo_cmd --eval "db.adminCommand('listDatabases').databases.map(db => db.name).filter(name => name.match(/$ALL_DATABASES_FILTER/)).join(',')")
+cmdrc=$?
+if [ $cmdrc -ne 0 ]; then
+    echo "Error retrieving database names. Exiting."
+    exit 1
+fi
+echo "Databases to back up: $databases"
+IFS=',' read -r -a db_array <<< "$databases"
+
+# Perform backup for each database
+
+# Excluding sessions collection for Monitor database since it is not cleaned up automatically
+# leading to very large backup sizes and long backup times. This is acceptable as
+# sessions are transient and can be recreated.
+# Refer DT425304 - MASCORE-5808
+
+for db_name in "${db_array[@]}"; do
+    echo "Backing up database: $db_name"
+    # ignore sessions collection for monitor database
+    if [[ "$db_name" == *_monitor ]]; then
+        $mongodump_cmd --db=$db_name --excludeCollection=sessions --out=$TMP_BACKUP_MONGODUMP_DIR
+    else
+        $mongodump_cmd --db=$db_name --out=$TMP_BACKUP_MONGODUMP_DIR
+    fi
+    cmdrc=$?
+    if [ $cmdrc -ne 0 ]; then
+        echo "Error backing up database $db_name. Exiting."
+        exit 1
+    fi
+done
+echo "Backup completed successfully. Backup files are located in $TMP_BACKUP_MONGODUMP_DIR."
+
+# Create tar.gz archives of database backup files
+tar -czf $TMP_BACKUP_DIR/{{ mongodb_backup_data_filename }} -C $TMP_BACKUP_MONGODUMP_DIR .
+if [ $? -ne 0 ]; then
+    echo "Error creating tar.gz archive of backup files. Exiting."
+    exit 1
+fi
+
+echo "Created archive: $TMP_BACKUP_DIR/{{ mongodb_backup_data_filename }}"
+
+echo "DATABASEBACKUPstatus-SUCCESS"
+

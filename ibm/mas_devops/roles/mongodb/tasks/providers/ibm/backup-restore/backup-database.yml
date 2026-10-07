@@ -1,0 +1,180 @@
+---
+# Backup Mongodb database Data using mondodump
+# -----------------------------------------------------------------------------
+
+- name: "Retrieve MongoDB info from MCK CR and resources"
+  ibm.mas_devops.get_mongomck_info:
+    mongodb_instance_name: "{{ mongodb_instance_name }}"
+    mongodb_namespace: "{{ mongodb_namespace }}"
+  register: mongodb_info_result
+
+- name: "Set fact: mongodb info"
+  set_fact:
+    mongodb_backup_data_path: "{{ mongodb_backup_path }}/data"
+    mongodb_backup_data_filename: "mongodump-{{ mongodb_backup_version }}.tar.gz"
+    mongodb_pod_name: "{{ mongodb_info_result.mongomck_pod_name }}"
+    mongodb_version: "{{ mongodb_info_result.mongodb_version }}"
+    mongodb_service_name: "{{ mongodb_info_result.mongodb_service_name }}"
+    mongodb_host: "{{ mongodb_info_result.mongodb_host }}"
+    mongodb_admin_user: "{{ mongodb_info_result.mongodb_admin_user }}"
+    mongodb_admin_password: "{{ mongodb_info_result.mongodb_admin_password }}"
+
+- name: "Create {{ mongodb_backup_data_path }} directory for MongoDB backup"
+  ansible.builtin.file:
+    path: "{{ mongodb_backup_data_path }}"
+    state: directory
+    mode: "0755"
+
+- name: "debug facts"
+  debug:
+    msg:
+      - "mongodb_pod_name ................................. {{ mongodb_pod_name }}"
+      - "mongodb_version ................................... {{ mongodb_version }}"
+      - "mongodb_service_name .............................. {{ mongodb_service_name }}"
+      - "mongodb_host ...................................... {{ mongodb_host }}"
+      - "mongodb_backup_version ............................ {{ mongodb_backup_version }}"
+
+
+# Prepare shell scripts and transfer to MongoDB pod
+# -----------------------------------------------------------------------------
+- name: Create create-role-user.sh script in local /tmp
+  ansible.builtin.template:
+    src: mck/backup-restore/create-role-user.sh.j2
+    dest: /tmp/create-role-user.sh
+    mode: '777'
+
+- name: Create database-backup.sh script in local /tmp
+  ansible.builtin.template:
+    src: mck/backup-restore/database-backup.sh.j2
+    dest: /tmp/database-backup.sh
+    mode: '777'
+
+- name: "Copy create-role-user.sh script into MongoDB pod"
+  ansible.builtin.shell: >
+    oc cp --retries=50
+    /tmp/create-role-user.sh
+    {{ mongodb_namespace }}/{{ mongodb_pod_name }}:/tmp/create-role-user.sh
+    -c mongod
+  register: copy_role_script_result
+  changed_when: true
+
+- name: "Copy database-backup.sh script into MongoDB pod"
+  ansible.builtin.shell: >
+    oc cp --retries=50
+    /tmp/database-backup.sh
+    {{ mongodb_namespace }}/{{ mongodb_pod_name }}:/tmp/database-backup.sh
+    -c mongod
+  register: copy_backup_script_result
+  changed_when: true
+
+
+# Create backup user
+# -----------------------------------------------------------------------------
+
+- name: "Execute create-role-user.sh in MongoDB pod"
+  ansible.builtin.shell: |
+    oc exec -n {{ mongodb_namespace }} \
+      {{ mongodb_pod_name }} \
+      -c mongod -- \
+      bash /tmp/create-role-user.sh
+  register: create_roleuser_output
+  changed_when: true
+
+- name: "Assert MongoDB backup role/user creation"
+  ansible.builtin.assert:
+    that:
+      - create_roleuser_output.rc == 0
+      - >-
+        create_roleuser_output.stdout |
+        regex_search('ROLEUSERstatus-SUCCESS', multiline=True)
+        is not none
+    fail_msg: "Failed to create role and user for MongoDB backup"
+
+- name: "Debug create-role-user logs"
+  ansible.builtin.debug:
+    msg: "{{ create_roleuser_output.stdout_lines }}"
+
+
+# Start MongoDB backup
+# -----------------------------------------------------------------------------
+
+- name: "Starting MongoDB database backup"
+  block:
+
+    - name: "Run database backup script in MongoDB pod"
+      ansible.builtin.shell: |
+        oc exec -n {{ mongodb_namespace }} \
+          {{ mongodb_pod_name }} \
+          -c mongod -- \
+          bash -c '/tmp/database-backup.sh | tee /tmp/database-backup.log'
+      register: database_backup_output
+      changed_when: true
+
+    - name: "Assert MongoDB database backup"
+      ansible.builtin.assert:
+        that:
+          - database_backup_output.rc == 0
+          - >-
+            database_backup_output.stdout |
+            regex_search('DATABASEBACKUPstatus-SUCCESS', multiline=True)
+            is not none
+        fail_msg: "Failed to backup MongoDB databases"
+
+    - name: "Debug database-backup logs"
+      ansible.builtin.debug:
+        msg: "{{ database_backup_output.stdout_lines }}"
+
+    - name: "Copy MongoDB backup from pod to local backup directory"
+      ansible.builtin.shell: >
+        oc cp --retries=50
+        -c mongod
+        {{ mongodb_namespace }}/{{ mongodb_pod_name }}:/tmp/masbr/{{ mongodb_backup_version }}/{{ mongodb_backup_data_filename }}
+        {{ mongodb_backup_data_path }}/{{ mongodb_backup_data_filename }}
+      register: copy_backup_result
+      changed_when: true
+
+    - name: "Verify MongoDB backup file exists"
+      ansible.builtin.stat:
+        path: "{{ mongodb_backup_data_path }}/{{ mongodb_backup_data_filename }}"
+      register: mongodb_backup_file
+
+    - name: "Assert MongoDB backup file exists"
+      ansible.builtin.assert:
+        that:
+          - mongodb_backup_file.stat.exists
+          - mongodb_backup_file.stat.size > 0
+        fail_msg: >-
+          MongoDB backup file
+          {{ mongodb_backup_data_path }}/{{ mongodb_backup_data_filename }}
+          was not created or is empty.
+
+    - name: "Create YAML file with MongoDB backup details"
+      ansible.builtin.copy:
+        dest: "{{ mongodb_backup_data_path }}/mongodb-info.yaml"
+        mode: "0644"
+        content: |
+          source_mongodb_backup_version: "{{ mongodb_backup_version }}"
+          source_mongodb_backup_data_filename: "{{ mongodb_backup_data_filename }}"
+          source_mongodb_version: "{{ mongodb_version }}"
+
+  always:
+
+    - name: "Cleanup MongoDB backup files from pod"
+      ansible.builtin.shell: |
+        oc exec -n {{ mongodb_namespace }} \
+          {{ mongodb_pod_name }} \
+          -c mongod -- \
+          rm -rf /tmp/masbr/{{ mongodb_backup_version }}
+      register: database_backup_cleanup_output
+      changed_when: true
+      failed_when: false
+
+    - name: "Cleanup backup scripts from MongoDB pod"
+      ansible.builtin.shell: |
+        oc exec -n {{ mongodb_namespace }} \
+          {{ mongodb_pod_name }} \
+          -c mongod -- \
+          rm -f /tmp/create-role-user.sh /tmp/database-backup.sh /tmp/database-backup.log
+      register: database_backup_script_cleanup_output
+      changed_when: true
+      failed_when: false
