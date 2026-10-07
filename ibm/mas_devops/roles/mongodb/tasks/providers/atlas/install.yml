@@ -397,7 +397,12 @@
           when: atlas_disk_size_gb != ""
           set_fact:
             atlas_cluster_config: "{{ atlas_cluster_config | combine({'diskSizeGB': atlas_disk_size_gb | int}) }}"
-
+        - name: "Fail if disk_size_gb is set without ebs_volume_type as PROVISIONED"
+          assert:
+            that:
+              - atlas_ebs_volume_type == "PROVISIONED"
+            fail_msg: "atlas_ebs_volume_type must be set to 'PROVISIONED' when atlas_disk_size_gb is specified."
+          when: atlas_disk_size_gb != ""
         - name: "Add replicationSpecs with electableSpecs and autoscaling"
           set_fact:
             atlas_cluster_config: "{{ atlas_cluster_config | combine({'replicationSpecs': replication_specs}) }}"
