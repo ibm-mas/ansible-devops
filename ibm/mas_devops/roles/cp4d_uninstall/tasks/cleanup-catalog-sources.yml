@@ -1,0 +1,135 @@
+---
+# Cleanup Catalog Sources and ConfigMaps
+# This task file removes CP4D-specific catalog sources and configuration maps
+
+# 1. Delete CP4D Platform Catalog Source
+# -----------------------------------------------------------------------------
+- name: "Check if CP4D Platform Catalog Source exists"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: CatalogSource
+    namespace: "{{ cpd_operators_namespace }}"
+    name: cpd-platform
+  register: cpd_platform_cs_lookup
+
+- name: "Delete CP4D Platform Catalog Source"
+  when: cpd_platform_cs_lookup.resources | length > 0
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: CatalogSource
+    namespace: "{{ cpd_operators_namespace }}"
+    name: cpd-platform
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+
+# 2. Delete OpenCloud Operators Catalog Source
+# -----------------------------------------------------------------------------
+- name: "Check if OpenCloud Operators Catalog Source exists"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: CatalogSource
+    namespace: "{{ cpd_operators_namespace }}"
+    name: opencloud-operators
+  register: opencloud_operators_cs_lookup
+
+- name: "Delete OpenCloud Operators Catalog Source"
+  when: opencloud_operators_cs_lookup.resources | length > 0
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: CatalogSource
+    namespace: "{{ cpd_operators_namespace }}"
+    name: opencloud-operators
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+
+# 3. Delete Zen Operator Catalog Source
+# -----------------------------------------------------------------------------
+- name: "Check if Zen Operator Catalog Source exists"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: CatalogSource
+    namespace: "{{ cpd_operators_namespace }}"
+    name: ibm-zen-operator-catalog
+  register: zen_operator_cs_lookup
+
+- name: "Delete Zen Operator Catalog Source"
+  when: zen_operator_cs_lookup.resources | length > 0
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: CatalogSource
+    namespace: "{{ cpd_operators_namespace }}"
+    name: ibm-zen-operator-catalog
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+
+# 4. Delete common-service-maps ConfigMap
+# -----------------------------------------------------------------------------
+- name: "Check if common-service-maps ConfigMap exists"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    namespace: kube-public
+    name: common-service-maps
+  register: common_service_maps_lookup
+
+- name: "Delete common-service-maps ConfigMap"
+  when: common_service_maps_lookup.resources | length > 0
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: ConfigMap
+    namespace: kube-public
+    name: common-service-maps
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+
+# 5. Delete common-service-maps backup ConfigMap
+# -----------------------------------------------------------------------------
+- name: "Check if common-service-maps backup ConfigMap exists"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    namespace: kube-public
+    name: common-service-maps-backup
+  register: common_service_maps_backup_lookup
+
+- name: "Delete common-service-maps backup ConfigMap"
+  when: common_service_maps_backup_lookup.resources | length > 0
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: ConfigMap
+    namespace: kube-public
+    name: common-service-maps-backup
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+
+# 6. Delete olm-utils-cm ConfigMap
+# -----------------------------------------------------------------------------
+- name: "Check if olm-utils-cm ConfigMap exists"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    namespace: "{{ cpd_instance_namespace }}"
+    name: olm-utils-cm
+  register: olm_utils_cm_lookup
+
+- name: "Delete olm-utils-cm ConfigMap"
+  when: olm_utils_cm_lookup.resources | length > 0
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: ConfigMap
+    namespace: "{{ cpd_instance_namespace }}"
+    name: olm-utils-cm
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+
+- name: "Catalog sources and ConfigMaps cleaned up successfully"
+  debug:
+    msg: "CP4D catalog sources and configuration maps have been removed"
+
+# Made with Bob

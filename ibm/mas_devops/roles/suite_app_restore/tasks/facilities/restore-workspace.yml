@@ -1,0 +1,89 @@
+---
+# Restore Facilities Workspace
+# =============================================================================
+# This task restores Facilities persistent volume data by:
+# 1. Checking if FacilitiesWorkspace CR exists
+# 2. If not present, restoring FacilitiesWorkspace CR and waiting for ready
+
+# 1. Check if FacilitiesWorkspace CR exists
+# -----------------------------------------------------------------------------
+- name: "Display restore phase 3 information"
+  debug:
+    msg:
+      - "=========================================="
+      - "Phase 3: Check FacilitiesWorkspace CR"
+      - "=========================================="
+
+- name: "Check if FacilitiesWorkspace CR exists"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: FacilitiesWorkspace
+    name: "{{ facilities_workspace_cr_name }}"
+    namespace: "{{ mas_app_namespace }}"
+  register: existing_facilities_workspace_cr
+
+- name: "Set fact: FacilitiesWorkspace CR exists"
+  set_fact:
+    facilities_workspace_exists: "{{ existing_facilities_workspace_cr.resources is defined and existing_facilities_workspace_cr.resources | length > 0 }}"
+
+- name: "Display FacilitiesWorkspace CR status"
+  debug:
+    msg: "FacilitiesWorkspace CR {{ 'exists' if facilities_workspace_exists else 'does not exist' }}"
+
+# 2. If workspace CR not present, restore it and wait for ready
+# -----------------------------------------------------------------------------
+- name: "Restore FacilitiesWorkspace CR (if not present)"
+  when: (facilities_workspace_exists | bool) == false
+  block:
+    - name: "Display workspace restore information"
+      debug:
+        msg: "FacilitiesWorkspace CR not found - restoring from backup"
+
+    - name: "Restore FacilitiesWorkspace CR"
+      ibm.mas_devops.restore_resource:
+        backup_path: "{{ facilities_backup_path }}"
+        resource_kinds:
+          - FacilitiesWorkspace
+        override_values:
+          FacilitiesWorkspace:
+            - spec.settings.storage.log.class: "{{ _facilities_log_storage }}"
+            - spec.settings.storage.userfiles.class: "{{ _facilities_userfiles_storage }}"
+      register: facilities_restore_workspace_result
+
+    - name: "Display FacilitiesWorkspace CR restore results"
+      debug:
+        msg: >-
+          Facilities Workspace resource: {{ facilities_restore_workspace_result.created_count }} created,
+          {{ facilities_restore_workspace_result.updated_count }} updated,
+          {{ facilities_restore_workspace_result.skipped_count }} skipped,
+          {{ facilities_restore_workspace_result.failed_count }} failed
+
+    - name: "Fail if FacilitiesWorkspace CR restore had errors"
+      fail:
+        msg: "FacilitiesWorkspace CR restore failed. See logs for details."
+      when: facilities_restore_workspace_result.failed_count | int > 0
+
+    - name: "Wait for FacilitiesWorkspace to be ready"
+      kubernetes.core.k8s_info:
+        api_version: apps.mas.ibm.com/v1
+        kind: FacilitiesWorkspace
+        name: "{{ facilities_workspace_cr_name }}"
+        namespace: "{{ mas_app_namespace }}"
+      register: workspace_ready_status
+      retries: "{{ mas_app_restore_wait_retries | int }}"
+      delay: "{{ mas_app_restore_wait_delay | int }}"
+      until:
+        - workspace_ready_status.resources is defined
+        - workspace_ready_status.resources | length > 0
+        - workspace_ready_status.resources[0].status is defined
+        - workspace_ready_status.resources[0].status.conditions is defined
+        - workspace_ready_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | list | length > 0
+        - (workspace_ready_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | first).status == 'True'
+
+    - name: "Set fact: FacilitiesWorkspace CR exists"
+      set_fact:
+        facilities_workspace_exists: true
+
+    - name: "FacilitiesWorkspace is ready"
+      debug:
+        msg: "FacilitiesWorkspace {{ facilities_workspace_cr_name }} is ready"

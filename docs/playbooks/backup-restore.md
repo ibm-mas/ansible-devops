@@ -2,6 +2,9 @@ Backup and Restore
 ===============================================================================
 
 !!! important
+
+    Supported only for MAS 9.1.x.
+
     These playbooks are samples to demonstrate how to use the roles in this collection.
 
     They are **not intended for production use** as-is, they are a starting point for power users to aid in the development of their own Ansible playbooks using the roles in this collection.

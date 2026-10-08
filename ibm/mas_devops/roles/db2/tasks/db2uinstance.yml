@@ -5,14 +5,20 @@
 # Db2uInstance is the current recommended deployment method.
 # =============================================================================
 
-# 1. Create Db2uInstance CR
+# 1. Remove LOGARCHMETH1 and LOGARCHMETH2 from db2_default_config before applying the CR
+# -----------------------------------------------------------------------------
+- name: "Remove LOGARCHMETH1 and LOGARCHMETH2 from db2_default_config"
+  ansible.builtin.set_fact:
+    db2_default_config: "{{ db2_default_config | combine({'dbConfig': db2_default_config.dbConfig | dict2items | rejectattr('key', 'in', ['LOGARCHMETH1', 'LOGARCHMETH2']) | items2dict}) }}"
+
+# 2. Create Db2uInstance CR
 # -----------------------------------------------------------------------------
 - name: "Create Db2uInstance"
   kubernetes.core.k8s:
     apply: yes
     template: "{{ role_path }}/templates/db2uinstance.yml.j2"
 
-# 2. Wait for the Db2uInstance to be ready
+# 3. Wait for the Db2uInstance to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for Db2uInstance instance to be ready (5m delay)"
   kubernetes.core.k8s_info:
@@ -30,7 +36,7 @@
   retries: 24 # Approximately 2 hours before we give up
   delay: 300 # 5 minutes
 
-# 3. Wait for Db2uEngine to be ready
+# 4. Wait for Db2uEngine to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for Db2UEngine to be ready"
   kubernetes.core.k8s_info:

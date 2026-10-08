@@ -1,6 +1,12 @@
 Restore MAS Applications
 ===============================================================================
 
+!!! important
+
+    Supported only for MAS 9.1.x.
+
+    Restore can only be made to the an instance with the same MAS instance ID as the backup.
+
 Overview
 -------------------------------------------------------------------------------
 This role supports restoring MAS application resources and data from backups created by the `suite_app_backup` role. Currently supported applications:
@@ -43,13 +49,6 @@ Defines the MAS instance ID for the restore action. Must match the instance ID f
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default: None
 
-### mas_workspace_id
-Defines the MAS workspace ID for the restore action. Must match the workspace ID from the backup.
-
-- **Required**
-- Environment Variable: `MAS_WORKSPACE_ID`
-- Default: None
-
 ### mas_backup_dir
 Defines the directory where backups are stored. The role will look for the backup version subdirectory within this location.
 
@@ -65,6 +64,13 @@ Specifies which backup version to restore. This should match the version identif
 - Environment Variable: `MAS_APP_BACKUP_VERSION`
 - Default: None
 - Example: `20240315-143022` or `v1.0-prod`
+
+### mas_workspace_id
+Defines the MAS workspace ID for the restore action. If not provided, it is automatically derived from the `mas.ibm.com/workspaceId` label on the workspace backup CR.
+
+- Optional
+- Environment Variable: `MAS_WORKSPACE_ID`
+- Default: Auto-discovered from workspace backup CR label `mas.ibm.com/workspaceId`
 
 ### mas_app_restore_wait_retries
 Maximum time in seconds to wait for ManageWorkspace to become ready after restore.
@@ -112,6 +118,13 @@ Custom storage class to use for PVCs with ReadWriteOnce (RWO) access mode when `
 - Default: Empty (uses default storage class)
 - Example: `ocs-storagecluster-ceph-rbd`
 
+### mas_app_restore_include_pvc
+Control whether to restore persistent volume data for application. When set to `false`, only namespace resources (CRs, secrets, subscriptions) will be restored, and PVC data restore will be skipped.
+
+- Optional
+- Environment Variable: `MAS_APP_RESTORE_INCLUDE_PVC`
+- Default: `true`
+- Valid Values: `true`, `false`
 
 What Gets Restored
 -------------------------------------------------------------------------------
@@ -297,14 +310,13 @@ Example Playbooks
 -------------------------------------------------------------------------------
 
 ### Basic Restore
-Restore Manage namespace resources and persistent volumes from a backup:
+Restore Manage namespace resources and persistent volumes from a backup. The workspace ID is automatically derived from the backup CR:
 
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
   vars:
     mas_instance_id: inst1
-    mas_workspace_id: ws1
     mas_app_id: manage
     mas_backup_dir: /backup/mas
     mas_app_backup_version: "20240315-143022"
@@ -320,7 +332,6 @@ Restore with a custom wait timeout for large deployments:
   any_errors_fatal: true
   vars:
     mas_instance_id: inst1
-    mas_workspace_id: ws1
     mas_app_id: manage
     mas_backup_dir: /backup/mas
     mas_app_backup_version: "prod-backup-20240315"
@@ -338,7 +349,6 @@ Restore Facilities namespace resources and persistent volumes from a backup:
   any_errors_fatal: true
   vars:
     mas_instance_id: inst1
-    mas_workspace_id: ws1
     mas_app_id: facilities
     mas_backup_dir: /backup/mas
     mas_app_backup_version: "20240315-143022"
@@ -354,7 +364,6 @@ Complete workflow including database restore:
   any_errors_fatal: true
   vars:
     mas_instance_id: inst1
-    mas_workspace_id: ws1
     mas_backup_dir: /backup/mas
     backup_version: "20240315-143022"
   
@@ -384,7 +393,6 @@ Complete workflow including database restore:
   any_errors_fatal: true
   vars:
     mas_instance_id: inst1
-    mas_workspace_id: ws1
     mas_backup_dir: /backup/mas
     backup_version: "20240315-143022"
   
@@ -414,7 +422,6 @@ Restore to a different cluster with different storage classes:
   any_errors_fatal: true
   vars:
     mas_instance_id: inst1
-    mas_workspace_id: ws1
     mas_app_id: manage
     mas_backup_dir: /backup/mas
     mas_app_backup_version: "20240315-143022"
@@ -435,13 +442,46 @@ Restore with override enabled but using cluster's default storage classes:
   any_errors_fatal: true
   vars:
     mas_instance_id: inst1
-    mas_workspace_id: ws1
     mas_app_id: manage
     mas_backup_dir: /backup/mas
     mas_app_backup_version: "20240315-143022"
     # Enable storage class override without specifying custom classes
     # Will automatically use the cluster's default storage class
     override_storageclass: true
+  roles:
+    - ibm.mas_devops.suite_app_restore
+```
+
+### Restore Without PVC Data
+Restore only namespace resources without restoring persistent volume data:
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: inst1
+    mas_app_id: manage
+    mas_backup_dir: /backup/mas
+    mas_app_backup_version: "20240315-143022"
+    # Skip PVC restore
+    mas_app_restore_include_pvc: false
+  roles:
+    - ibm.mas_devops.suite_app_restore
+```
+
+### Restore Facilities Without PVC Data
+Restore Facilities namespace resources without restoring persistent volume data:
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: inst1
+    mas_app_id: facilities
+    mas_backup_dir: /backup/mas
+    mas_app_backup_version: "20240315-143022"
+    # Skip PVC restore
+    mas_app_restore_include_pvc: false
   roles:
     - ibm.mas_devops.suite_app_restore
 ```
@@ -482,6 +522,7 @@ Troubleshooting
 
 Notes
 -------------------------------------------------------------------------------
+- **Workspace ID Auto-Discovery**: `mas_workspace_id` is automatically derived from the `mas.ibm.com/workspaceId` label on the workspace backup CR. You only need to set `MAS_WORKSPACE_ID` explicitly if you want to override the value from the backup
 - **Database Restore**: This role does NOT restore application databases. Use the [db2](db2.md) role to restore Db2 databases separately, and do this BEFORE running the application restore
 - **Suite Resources**: This role restores application-specific resources only. For suite-level resources (Suite CR, workspace CRs, etc.), use the [suite_restore](suite_restore.md) role
 - **Instance ID Match**: The restore must be performed on a cluster with the same MAS instance ID as the backup

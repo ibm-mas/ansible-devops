@@ -187,19 +187,10 @@ Subscription channel for Red Hat OpenShift AI Operator.
 
 **Impact**: Determines the RHOAI version installed and update frequency. `fast` channel receives updates more quickly than `stable`.
 
-**Related variables**: [`rhoai_catalog_source`](#rhoai_catalog_source)
-
 **Notes**:
 - `fast` channel provides latest features but may be less stable
 - `stable` channel recommended for production deployments
 - RHOAI is the enterprise-supported version of Open Data Hub
-
-### rhoai_catalog_source
-Catalog source for Red Hat OpenShift AI Operator.
-
-- Optional
-- Environment Variable: `RHOAI_CATALOG_SOURCE`
-- Default: `community-operators`
 
 **Purpose**: Specifies which operator catalog provides the Red Hat OpenShift AI Operator.
 

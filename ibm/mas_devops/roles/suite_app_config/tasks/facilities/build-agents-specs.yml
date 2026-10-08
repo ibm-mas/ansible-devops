@@ -1,0 +1,46 @@
+---
+- name: 'Define agents control list'
+  ansible.builtin.set_fact:
+    agents_control_list:
+      - { agentname: "dataconnectagent", deploymentmode: "{{ mas_ws_facilities_dataconnectagent_deploymentmode }}", allowedvalues: ["dedicated", "disabled", "shared"] }
+      - { agentname: "extendedformulaagent", deploymentmode: "{{ mas_ws_facilities_extendedformulaagent_deploymentmode }}", allowedvalues: ["dedicated", "disabled", "shared"] }
+      - { agentname: "formularecalcagent", deploymentmode: "{{ mas_ws_facilities_formularecalcagent_deploymentmode }}", allowedvalues: ["dedicated", "disabled", "shared"] }
+      - { agentname: "incomingmailagent", deploymentmode: "{{ mas_ws_facilities_incomingmailagent_deploymentmode }}", allowedvalues: ["dedicated", "disabled", "shared"] }
+      - { agentname: "objectmigrationagent", deploymentmode: "{{ mas_ws_facilities_objectmigrationagent_deploymentmode }}", allowedvalues: ["dedicated", "disabled", "shared"] }
+      - { agentname: "objectpublishagent", deploymentmode: "{{ mas_ws_facilities_objectpublishagent_deploymentmode }}", allowedvalues: ["dedicated", "disabled", "shared"] }
+      - { agentname: "maintenanceagent", deploymentmode: "{{ mas_ws_facilities_maintenanceagent_deploymentmode }}", allowedvalues: ["dedicated", "disabled", "shared"] }
+      - { agentname: "reportqueueagent", deploymentmode: "{{ mas_ws_facilities_reportqueueagent_deploymentmode }}", allowedvalues: ["dedicated", "shared"] }
+      - { agentname: "wfagent", deploymentmode: "{{ mas_ws_facilities_wfagent_deploymentmode }}", allowedvalues: ["dedicated", "shared"] }
+      - { agentname: "wffutureagent", deploymentmode: "{{ mas_ws_facilities_wffutureagent_deploymentmode }}", allowedvalues: ["dedicated", "disabled", "shared"] }
+      - { agentname: "wfnotificationagent", deploymentmode: "{{ mas_ws_facilities_wfnotificationagent_deploymentmode }}", allowedvalues: ["dedicated", "disabled", "shared"] }
+      - { agentname: "reservesmtpagent", deploymentmode: "{{ mas_ws_facilities_reservesmtpagent_deploymentmode }}", allowedvalues: ["dedicated", "disabled", "shared"] }
+      - { agentname: "scheduleragent", deploymentmode: "{{ mas_ws_facilities_scheduleragent_deploymentmode }}", allowedvalues: ["dedicated", "disabled", "shared"] }
+
+- name: 'Check deploymentmode input values'
+  loop: "{{ agents_control_list }}"
+  ansible.builtin.debug:
+    msg: "Ignoring invalid deploymentmode {{ item.deploymentmode }} provided for agent {{ item.agentname }}. Allowed values are: {{ item.allowedvalues | join(', ') }}"
+  when:
+    - item.deploymentmode != ""
+    - item.deploymentmode not in item.allowedvalues
+
+- name: 'Initialize empty mas_ws_facilities_deployment_agentsSpecs'
+  ansible.builtin.set_fact:
+    mas_ws_facilities_deployment_agentsSpecs: {}
+
+- name: 'Add to mas_ws_facilities_deployment_agentsSpecs all agents with a valid deploymentmode'
+  loop: "{{ agents_control_list }}"
+  ansible.builtin.set_fact:
+    mas_ws_facilities_deployment_agentsSpecs: "{{ mas_ws_facilities_deployment_agentsSpecs | combine({item.agentname: {'deploymentMode': item.deploymentmode}}) }}"
+  when:
+    - item.deploymentmode != ""
+    - item.deploymentmode in item.allowedvalues
+
+- name: 'Display mas_ws_facilities_deployment_agentsSpecs'
+  ansible.builtin.debug:
+    var: mas_ws_facilities_deployment_agentsSpecs
+
+- name: "Agents Deployments flexibility not used"
+  when: (mas_ws_facilities_deployment_agentsSpecs | length) == 0
+  debug:
+    msg: "mas_ws_facilities_deployment_agentsSpecs is empty. Agents Deployments Flexibility will not be used."

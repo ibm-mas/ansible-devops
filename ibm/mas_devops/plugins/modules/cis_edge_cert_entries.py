@@ -1,5 +1,5 @@
 # coding: utf-8 -*-
-# # (C) Copyright IBM Corp. 2025 All Rights Reserved.
+# (C) Copyright IBM Corp. 2025 All Rights Reserved.
 # Eclipse Public License 2.0 (see https://spdx.org/licenses/EPL-2.0.html)
 
 ANSIBLE_METADATA = {
@@ -43,9 +43,19 @@ def main():
             required = True,
             no_log = True,
         ),
-        mas_instance_id = dict(
+        instance_id = dict(
             type = "str",
             required = True,
+        ),
+        mas_domain = dict(
+            type = "str",
+            required = False,
+            default = "",
+        ),
+        cis_subdomain = dict(
+            type = "str",
+            required = False,
+            default = "",
         ),
         dns_zone = dict(
             type = "str",
@@ -56,12 +66,12 @@ def main():
         supports_check_mode = True,
     )
 
-    if any(v == "" for v in [module.params['edge_cert_entries'], module.params['cis_crn'], module.params['ibmcloud_apikey'], module.params['mas_instance_id']]):
-        module.fail_json(msg = f"Required parameters: [edge_cert_entries, cis_crn, ibmcloud_apikey, mas_instance_id] cannot be empty")
+    if any(v == "" for v in [module.params['edge_cert_entries'], module.params['cis_crn'], module.params['ibmcloud_apikey'], module.params['instance_id']]):
+        module.fail_json(msg = f"Required parameters: [edge_cert_entries, cis_crn, ibmcloud_apikey, instance_id] cannot be empty")
 
     crn = module.params['cis_crn']
     ibmCloudApiKey = module.params['ibmcloud_apikey']
-    masInstanceId = module.params['mas_instance_id']
+    instanceId = module.params['instance_id']
     edgeCertEntries = module.params['edge_cert_entries']
 
     # User may want to select an specific zone
@@ -140,11 +150,29 @@ def main():
 
         msg = ""
         existingCertHosts = []
+
+        # Primary filter: collect hosts from advanced certs that contain mas_instance_id
         for certs in results:
             if certs['type'] == "advanced":
                 for host in certs['hosts']:
-                    if masInstanceId in host:
+                    if instanceId in host:
                         existingCertHosts.append(host)
+
+        # Fallback filter: when no hosts matched by instance ID, use cis_subdomain
+        if len(existingCertHosts) == 0 and cisSubdomain:
+            for certs in results:
+                if certs['type'] == "advanced":
+                    for host in certs['hosts']:
+                        if cisSubdomain in host:
+                            existingCertHosts.append(host)
+
+        # Fallback filter: when no hosts matched by instance ID or subdomain, use mas_domain
+        if len(existingCertHosts) == 0 and masDomain:
+            for certs in results:
+                if certs['type'] == "advanced":
+                    for host in certs['hosts']:
+                        if masDomain in host:
+                            existingCertHosts.append(host)
 
         exitingCertHostsFound = len(existingCertHosts)
 

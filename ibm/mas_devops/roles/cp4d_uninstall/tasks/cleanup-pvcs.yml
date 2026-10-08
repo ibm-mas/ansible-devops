@@ -1,0 +1,107 @@
+---
+# Cleanup PVCs
+# WARNING: This will permanently delete all CP4D data
+# This task file removes all PersistentVolumeClaims in CP4D namespaces
+
+- name: "WARNING: PVC deletion is enabled"
+  debug:
+    msg:
+      - "=========================================="
+      - "WARNING: PVC DELETION IS ENABLED"
+      - "=========================================="
+      - "This will permanently delete all CP4D data"
+      - "This operation CANNOT be undone"
+      - "Ensure you have backups before proceeding"
+      - "=========================================="
+
+# 1. Get all PVCs in CP4D instance namespace
+# -----------------------------------------------------------------------------
+- name: "Get all PVCs in {{ cpd_instance_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: PersistentVolumeClaim
+    namespace: "{{ cpd_instance_namespace }}"
+  register: cpd_instance_pvcs
+
+- name: "Debug: Found {{ cpd_instance_pvcs.resources | length }} PVCs in {{ cpd_instance_namespace }}"
+  debug:
+    msg: "Found {{ cpd_instance_pvcs.resources | length }} PVCs in {{ cpd_instance_namespace }}"
+
+# 2. Delete all PVCs in CP4D instance namespace
+# -----------------------------------------------------------------------------
+- name: "Delete PVCs in {{ cpd_instance_namespace }}"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: PersistentVolumeClaim
+    namespace: "{{ pvc_resource.metadata.namespace }}"
+    name: "{{ pvc_resource.metadata.name }}"
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+  loop: "{{ cpd_instance_pvcs.resources }}"
+  loop_control:
+    loop_var: pvc_resource
+  when: cpd_instance_pvcs.resources | length > 0
+
+# 3. Wait for all PVCs to be deleted
+# -----------------------------------------------------------------------------
+- name: "Wait for all PVCs in {{ cpd_instance_namespace }} to be deleted"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: PersistentVolumeClaim
+    namespace: "{{ cpd_instance_namespace }}"
+  register: pvc_status
+  until: pvc_status.resources | length == 0
+  retries: 60  # 10 minutes
+  delay: 10
+  when: cpd_instance_pvcs.resources | length > 0
+
+# 4. Get all PVCs in CPFS namespace
+# -----------------------------------------------------------------------------
+- name: "Get all PVCs in {{ cpd_cpfs_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: PersistentVolumeClaim
+    namespace: "{{ cpd_cpfs_namespace }}"
+  register: cpfs_pvcs
+
+- name: "Debug: Found {{ cpfs_pvcs.resources | length }} PVCs in {{ cpd_cpfs_namespace }}"
+  debug:
+    msg: "Found {{ cpfs_pvcs.resources | length }} PVCs in {{ cpd_cpfs_namespace }}"
+
+# 5. Delete all PVCs in CPFS namespace
+# -----------------------------------------------------------------------------
+- name: "Delete PVCs in {{ cpd_cpfs_namespace }}"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: PersistentVolumeClaim
+    namespace: "{{ pvc_resource.metadata.namespace }}"
+    name: "{{ pvc_resource.metadata.name }}"
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+  loop: "{{ cpfs_pvcs.resources }}"
+  loop_control:
+    loop_var: pvc_resource
+  when: cpfs_pvcs.resources | length > 0
+
+# 6. Wait for all PVCs in CPFS namespace to be deleted
+# -----------------------------------------------------------------------------
+- name: "Wait for all PVCs in {{ cpd_cpfs_namespace }} to be deleted"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: PersistentVolumeClaim
+    namespace: "{{ cpd_cpfs_namespace }}"
+  register: cpfs_pvc_status
+  until: cpfs_pvc_status.resources | length == 0
+  retries: 60  # 10 minutes
+  delay: 10
+  when: cpfs_pvcs.resources | length > 0
+
+- name: "PVCs deleted successfully"
+  debug:
+    msg:
+      - "All CP4D PVCs have been permanently deleted"
+      - "Total PVCs deleted: {{ (cpd_instance_pvcs.resources | length) + (cpfs_pvcs.resources | length) }}"
+
+# Made with Bob

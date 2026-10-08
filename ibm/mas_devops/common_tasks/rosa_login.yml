@@ -1,0 +1,33 @@
+# 1. Failure conditions
+# -----------------------------------------------------------------------------
+- name: "rosa : Fail if rosa_token is not provided"
+  assert:
+    that: rosa_token is defined and rosa_token != ""
+    fail_msg: "rosa_token property is required"
+
+
+# 2. Check for required software
+# -----------------------------------------------------------------------------
+- name: "rosa : Test if rosa is installed"
+  shell: rosa version
+  register: rosa_version
+  ignore_errors: true
+
+- name: "rosa : Fail if rosa is not installed"
+  assert:
+    that: ( rosa_version.rc == 0 )
+    fail_msg: "rosa CLI must be installed (https://console.redhat.com/openshift/create/rosa/welcome)"
+
+
+# 3. Login
+# -----------------------------------------------------------------------------
+- name: "rosa : Login"
+  shell: rosa login --token {{ rosa_token }}
+
+- name: "rosa : Validate login"
+  shell: rosa whoami
+  register: rosa_whoami_result
+
+- name: "rosa : Debug login"
+  debug:
+    msg: "{{ rosa_whoami_result }}"

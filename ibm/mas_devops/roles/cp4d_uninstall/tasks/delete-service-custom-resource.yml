@@ -1,0 +1,29 @@
+---
+# Uninstall CP4D Services
+# This common task deletes CP4D Services
+
+
+# 1. Delete Service Custom Resources
+# -----------------------------------------------------------------------------
+- name: "Delete {{ cpd_service }} Custom Resource"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: "{{ service_api_version }}"
+    kind: "{{ service_cr_kind }}"
+    namespace: "{{ service_namespace }}"
+    name: "{{ service_name }}"
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+
+# 2. Wait for Service CR to be deleted
+# -----------------------------------------------------------------------------
+- name: "Wait for {{ cpd_service }} CR to be deleted"
+  kubernetes.core.k8s_info:
+    api_version: "{{ service_api_version }}"
+    kind: "{{ service_cr_kind }}"
+    namespace: "{{ service_namespace }}"
+    name: "{{ service_name }}"
+  register: service_cr_status
+  until: service_cr_status.resources | length == 0
+  retries: 60  # 10 minutes (60 * 10s)
+  delay: 10

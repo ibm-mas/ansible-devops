@@ -1,0 +1,78 @@
+---
+# 1. Failure conditions
+# -----------------------------------------------------------------------------
+- name: "roks-vpc-setup : Fail if ibmcloud_apikey is not provided"
+  assert:
+    that: ibmcloud_apikey is defined and ibmcloud_apikey != ""
+    fail_msg: "ibmcloud_apikey property is required"
+
+- name: "roks-vpc-setup : Fail if ibmcloud_region is not provided"
+  assert:
+    that: ibmcloud_region is defined and ibmcloud_region != ""
+    fail_msg: "ibmcloud_region property is required (e.g. us-south, eu-de)"
+
+- name: "roks-vpc-setup : Fail if roks_vpc_name is not provided"
+  assert:
+    that: roks_vpc_name is defined and roks_vpc_name != ""
+    fail_msg: "roks_vpc_name property is required"
+
+
+# 2. Debug Info
+# -----------------------------------------------------------------------------
+- name: "roks-vpc-setup : Debug information"
+  debug:
+    msg:
+      - "IBM Cloud API key ............ ********************"
+      - "IBM Cloud Region ............. {{ ibmcloud_region }}"
+      - "IBM Cloud Resource Group ..... {{ ibmcloud_resourcegroup }}"
+      - "ROKS VPC name ................ {{ roks_vpc_name }}"
+      - "Zones ........................ {{ ibmcloud_region }}-1, {{ ibmcloud_region }}-2, {{ ibmcloud_region }}-3"
+
+
+# 3. Login
+# -----------------------------------------------------------------------------
+- name: "roks-vpc-setup : Login to IBM Cloud"
+  shell: |
+    ibmcloud login -a "{{ ibmcloud_endpoint }}" --apikey "{{ ibmcloud_apikey }}" -q --no-region
+
+
+# 4. Ensure resource group exists
+# -----------------------------------------------------------------------------
+- name: "roks-vpc-setup : Check resource group exists"
+  shell: |
+    ibmcloud resource group "{{ ibmcloud_resourcegroup }}"
+  register: rg_lookup
+  failed_when: "rg_lookup.rc > 1"
+
+- name: "roks-vpc-setup : Create resource group if it does not exist"
+  when: rg_lookup.rc == 1
+  shell: |
+    ibmcloud resource group-create {{ ibmcloud_resourcegroup }}
+
+
+# 5. Target the IBM Cloud region
+# -----------------------------------------------------------------------------
+- name: "roks-vpc-setup : Target IBM Cloud region"
+  shell: |
+    ibmcloud target -r {{ ibmcloud_region }}
+
+
+# 6. Provision VPC, public gateways, subnets, and COS instance
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/providers/roks-vpc-setup/vpc.yml"
+- include_tasks: "tasks/providers/roks-vpc-setup/gateway.yml"
+- include_tasks: "tasks/providers/roks-vpc-setup/subnet.yml"
+- include_tasks: "tasks/providers/roks-vpc-setup/cos.yml"
+
+
+# 7. Report the resulting IDs
+# -----------------------------------------------------------------------------
+- name: "roks-vpc-setup : VPC setup complete"
+  debug:
+    msg:
+      - "VPC setup complete. Use the following values with cluster_type=roks-vpc:"
+      - "ROKS_VPC_ID .......................... {{ roks_vpc_id }}"
+      - "ROKS_SUBNET_ID ({{ ibmcloud_region }}-1) ... {{ roks_subnet_ids[0] }}"
+      - "ROKS_SUBNET_ID ({{ ibmcloud_region }}-2) ... {{ roks_subnet_ids[1] }}"
+      - "ROKS_SUBNET_ID ({{ ibmcloud_region }}-3) ... {{ roks_subnet_ids[2] }}"
+      - "ROKS_COS_INSTANCE_CRN ................ {{ roks_cos_instance_crn }}"

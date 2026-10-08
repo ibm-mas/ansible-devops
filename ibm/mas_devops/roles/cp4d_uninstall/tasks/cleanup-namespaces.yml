@@ -1,0 +1,131 @@
+---
+# Cleanup Namespaces
+# This task file removes all CP4D-related namespaces
+
+- name: "Info: Namespace deletion is enabled"
+  debug:
+    msg:
+      - "Namespace deletion is enabled"
+      - "The following namespaces will be deleted:"
+      - "  - {{ cpd_instance_namespace }}"
+      - "  - {{ cpd_operators_namespace }}"
+      - "  - {{ cpd_cs_control_namespace }}"
+      - "  - {{ cpd_cpfs_namespace }}"
+      - "  - {{ cpd_ibm_licensing_namespace }}"
+
+# 1. Delete CP4D Instance Namespace
+# -----------------------------------------------------------------------------
+- name: "Delete {{ cpd_instance_namespace }} namespace"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Namespace
+    name: "{{ cpd_instance_namespace }}"
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+
+- name: "Wait for {{ cpd_instance_namespace }} namespace to be deleted"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ cpd_instance_namespace }}"
+  register: cpd_instance_ns_status
+  until: cpd_instance_ns_status.resources | length == 0
+  retries: 120  # 20 minutes (120 * 10s) - namespaces can take time due to finalizers
+  delay: 10
+
+# 2. Delete CP4D Operators Namespace
+# -----------------------------------------------------------------------------
+- name: "Delete {{ cpd_operators_namespace }} namespace"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Namespace
+    name: "{{ cpd_operators_namespace }}"
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+
+- name: "Wait for {{ cpd_operators_namespace }} namespace to be deleted"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ cpd_operators_namespace }}"
+  register: cpd_operators_ns_status
+  until: cpd_operators_ns_status.resources | length == 0
+  retries: 120  # 20 minutes
+  delay: 10
+
+# 3. Delete CS Control Namespace
+# -----------------------------------------------------------------------------
+- name: "Delete {{ cpd_cs_control_namespace }} namespace"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Namespace
+    name: "{{ cpd_cs_control_namespace }}"
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+  ignore_errors: true
+
+- name: "Wait for {{ cpd_cs_control_namespace }} namespace to be deleted"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ cpd_cs_control_namespace }}"
+  register: cs_control_ns_status
+  until: cs_control_ns_status.resources | length == 0
+  retries: 120  # 20 minutes
+  delay: 10
+  ignore_errors: true
+
+# 4. Delete CPFS Namespace
+# -----------------------------------------------------------------------------
+- name: "Delete {{ cpd_cpfs_namespace }} namespace"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Namespace
+    name: "{{ cpd_cpfs_namespace }}"
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+  ignore_errors: true
+
+- name: "Wait for {{ cpd_cpfs_namespace }} namespace to be deleted"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ cpd_cpfs_namespace }}"
+  register: cpfs_ns_status
+  until: cpfs_ns_status.resources | length == 0
+  retries: 120  # 20 minutes
+  delay: 10
+  ignore_errors: true
+
+# 5. Delete IBM Licensing Namespace
+# -----------------------------------------------------------------------------
+- name: "Delete {{ cpd_ibm_licensing_namespace }} namespace"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Namespace
+    name: "{{ cpd_ibm_licensing_namespace }}"
+    wait: true
+    wait_timeout: "{{ cpd_uninstall_wait_timeout }}"
+  ignore_errors: true
+
+- name: "Wait for {{ cpd_ibm_licensing_namespace }} namespace to be deleted"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ cpd_ibm_licensing_namespace }}"
+  register: licensing_ns_status
+  until: licensing_ns_status.resources | length == 0
+  retries: 120  # 20 minutes
+  delay: 10
+  ignore_errors: true
+
+- name: "Namespaces deleted successfully"
+  debug:
+    msg: "All CP4D namespaces have been deleted"
+
+# Made with Bob

@@ -1,0 +1,145 @@
+---
+# 1. For IPv6 testing, enable dual stack networking
+- name: Lookup network for IPv6 testing
+  kubernetes.core.k8s:
+    api_version: config.openshift.io/v1
+    kind: Network
+    name: "cluster"
+  register: _network
+
+- name: "Enable dual stack networking"
+  kubernetes.core.k8s_json_patch:
+    kind: Network
+    name: "cluster"
+    api_version: config.openshift.io/v1
+    patch:
+      - op: add
+        path: /spec/clusterNetwork/-
+        value:
+          cidr: fd01::/48
+          hostPrefix: 64
+      - op: add
+        path: /spec/serviceNetwork/-
+        value: fd02::/112
+  when:
+    - "'fd01::/48' not in (_network.result.spec.clusterNetwork | map(attribute='cidr') | list)"
+
+- name: Pause for 5 minutes
+  ansible.builtin.pause:
+    seconds: 300
+# 2. Wait until all cluster operators are healthy for 3 consecutive checks
+- name: Wait until all cluster operators are healthy for 3 consecutive checks
+  ansible.builtin.shell: |
+    for i in 1 2 3; do
+      oc get clusteroperators --no-headers | \
+      awk '$3 != "True" || $4 != "False" || $5 != "False" { exit 1 }'
+      if [ "$i" -lt 3 ]; then
+        sleep 30
+      fi
+    done
+    exit 0
+  register: co_status
+  retries: 40
+  delay: 30
+  until: co_status.rc == 0
+# 3. Wait for all nodes to report network ready
+- name: Wait for all nodes to be Ready, Schedulable and Network Ready
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Node
+  register: _nodes
+  no_log: true
+  until:
+    - _nodes is succeeded
+    - _nodes.resources is defined
+
+    # No node is unschedulable
+    - >
+      _nodes.resources
+      | selectattr('spec.unschedulable', 'defined')
+      | selectattr('spec.unschedulable', 'equalto', true)
+      | list
+      | length == 0
+
+    # All nodes are Ready=True
+    - >
+      _nodes.resources
+      | rejectattr(
+          'status.conditions',
+          'undefined'
+        )
+      | map(attribute='status.conditions')
+      | flatten
+      | selectattr('type', 'equalto', 'Ready')
+      | selectattr('status', 'equalto', 'True')
+      | list
+      | length
+      ==
+      _nodes.resources | length
+
+    # No node has NetworkUnavailable=True
+    - >
+      _nodes.resources
+      | map(attribute='status.conditions')
+      | flatten
+      | selectattr('type', 'equalto', 'NetworkUnavailable')
+      | selectattr('status', 'equalto', 'True')
+      | list
+      | length == 0
+
+  retries: 60
+  delay: 30
+  changed_when: false
+# 4. Verify all workers have IPv6 configured
+- name: Get worker nodes
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Node
+    label_selectors:
+      - node-role.kubernetes.io/worker
+  no_log: true
+  register: worker_nodes
+
+- name: Initialize missing IPv6 node list
+  ansible.builtin.set_fact:
+    workers_missing_ipv6: []
+
+- name: Find workers missing IPv6
+  no_log: true
+  ansible.builtin.set_fact:
+    workers_missing_ipv6: "{{ workers_missing_ipv6 + [item.metadata.name] }}"
+  loop: "{{ worker_nodes.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  when: >
+    (
+      item.metadata.annotations['k8s.ovn.org/node-primary-ifaddr']
+      | default('{}')
+      | from_json
+    ).ipv6 is not defined
+- name: Verify all workers have IPv6 configured
+  ansible.builtin.assert:
+    that:
+      - workers_missing_ipv6 | length == 0
+    fail_msg: >-
+      IPv6 is missing on worker nodes:
+      {{ workers_missing_ipv6 | join(', ') }}
+  register: ipv6_check
+  until: ipv6_check is succeeded
+  retries: 20
+  delay: 30
+# 5. Approve pending node CSRs if any
+- name: Get pending node CSRs
+  ansible.builtin.shell: |
+    oc get csr -o json | jq -r '
+      .items[]
+      | select(.status.conditions == null)
+      | select(.spec.username | startswith("system:node:"))
+      | .metadata.name'
+  register: pending_node_csrs
+  changed_when: false
+- name: Approve pending node CSRs
+  ansible.builtin.command:
+    cmd: "oc adm certificate approve {{ item }}"
+  loop: "{{ pending_node_csrs.stdout_lines }}"
+  when: pending_node_csrs.stdout_lines | length > 0

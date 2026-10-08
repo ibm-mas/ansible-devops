@@ -1,0 +1,37 @@
+---
+# Only applicable for pipeline CLI - deploy CM in pipeline namespace
+- name: Lookup config map
+  when: mas_ws_facilities_config_map_name != ''
+  k8s_info:
+    kind: ConfigMap
+    api_version: v1
+    namespace: "mas-{{ mas_instance_id }}-pipelines"
+    name: "{{ mas_ws_facilities_config_map_name }}"
+  register: facilitiesConfigResult
+
+- name: Setting new vars for Facilities
+  when:
+    - facilitiesConfigResult is defined
+    - facilitiesConfigResult.resources is defined
+    - facilitiesConfigResult.resources | length > 0
+  ansible.builtin.set_fact:
+    mas_ws_facilities_storage_log_size: "{{ facilitiesConfigResult.resources[0].data.mas_ws_facilities_storage_log_size | int }}"
+    mas_ws_facilities_storage_userfiles_size: "{{ facilitiesConfigResult.resources[0].data.mas_ws_facilities_storage_userfiles_size  | int }}"
+    mas_ws_facilities_db_maxconnpoolsize: "{{ facilitiesConfigResult.resources[0].data.mas_ws_facilities_db_maxconnpoolsize | int }}"
+    mas_ws_facilities_dwfagents: "{{ facilitiesConfigResult.resources[0].data.mas_ws_facilities_dwfagents | from_yaml }}"
+
+# volumes for Facilities  configurations
+- name: Determine Storage Class for facilities application
+  ansible.builtin.include_tasks: "tasks/facilities/determine-storage-classes-facilities.yml"
+
+# Create Facilities properties secret (custom or default)
+- name: Create Facilities properties secret
+  ansible.builtin.include_tasks: "tasks/facilities/create-facilities-properties-secret.yml"
+
+- name: 'Build mas_ws_facilities_deployment_agentsSpecs'
+  ansible.builtin.include_tasks: "tasks/facilities/build-agents-specs.yml"
+
+- name: Generate default application workspace spec for facilities
+  template:
+    src: "{{ role_path }}/vars/defaultspecs/facilities.yml.j2"
+    dest: "{{ role_path }}/vars/defaultspecs/facilities.yml"

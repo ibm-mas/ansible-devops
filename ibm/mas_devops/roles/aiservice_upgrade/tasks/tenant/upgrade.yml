@@ -36,7 +36,7 @@
 # # two installPlanGenerateion increase. Wait for 5 minutes like we do for apps
 - name: "Pause for 5 minutes before checking upgrade status..."
   pause:
-    minutes: 5
+    minutes: "{{ aiservice_tenant_upgrade_pause_minutes | default(5) }}"
 
 - name: "Lookup OperatorCondition for ibm-aiservice-tenant"
   kubernetes.core.k8s_info:
@@ -73,7 +73,7 @@
 - name: "Confirm AIServiceTenant CR is ready"
   kubernetes.core.k8s_info:
     api_version: aiservice.ibm.com/v1
-    name: "{{ tenant_subscription.metadata.name }}"
+    name: "{{ tenant_subscription.metadata.namespace }}"
     namespace: "{{ tenant_subscription.metadata.namespace }}"
     kind: AIServiceTenant
   retries: 20 # about 40 minutes
@@ -86,3 +86,8 @@
 - name: "Updated AIServiceTenant CR info"
   debug:
     var: updated_aiservice_info
+
+- name: Clean up TrustStore operator
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/tenant/delete_truststore_operator.yml"
+  vars:
+    target_namespace: "{{ tenant_subscription.metadata.namespace }}"

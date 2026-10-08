@@ -56,8 +56,41 @@ All content from the subset of the Red Hat operator catalogs supported by [mirro
 
 If you are managing the Red Hat Operator Catalogs yourself the content therein may well be different depending how you have configured mirroring.
 
+## Hosted Control Planes
+When working with hosted control planes such as **ROSA with HCP**, management of the IDMS requires a specialized process because access to critical resources is restricted via standard Kubernetes resources. This collection has specific support for ROSA with HCP.
+
+Before running this role, use the `ocp_config` role to:
+
+- Add the image registry to allowed registries on the cluster
+- Add the image registry's CA as an additional trusted CA
+
+Running this role will then:
+
+- Add each IDMS individually using the `rosa` cli commands
+
+!!! important
+    Note that on ROSA with HCP there is no way to access `MachinePoolConfigs` to figure out the state of the nodes (e.g. whether it is `updating`). Therefore, we cannot reliably determine when (or if) the changes have been successfully applied.  This is a limitation of the ROSA with HCP implementation; we recommend to wait up to an hour after running this role for the changes to be applied across all workers on a large cluster and contact ROSA support if the IDMS does not apply successfully.
+
 
 ## Role Variables - General
+### cluster_type
+Cluster type for ImageDigestMirrorSet configuration.
+
+- **Optional**
+- Environment Variable: `CLUSTER_TYPE`
+
+**Purpose**: Currently only used with ROSA HCP cluster.
+
+**When to use**:
+- Use rosa-hcp (`rosa-hcp`)for ROSA HCP cluster
+
+**Valid values**: `rosa-hcp`
+
+**Related variables**:
+- `cluster_name`: The name of the rosa hcp cluster.
+
+**Note**: To setup idms for ROSA HCP you first need to run ocp_config role to configure allowed registries.
+
 ### product_family
 Product family for ImageDigestMirrorSet configuration.
 
@@ -352,6 +385,46 @@ Enable parallel node updates during MachineConfig application.
 - `registry_private_ca_file`: CA certificate that triggers MachineConfig updates
 
 **Note**: **WARNING** - Only enable during initial setup when nodes are lightly loaded. In production, leave as `false` to ensure workload availability during node updates. MachineConfig changes cause node reboots.
+
+## Role Variables - ROSA HCP
+
+**Note**: Ensure you have rosa cli `1.2.61` or greater installed.
+
+### cluster_name
+The cluster name of the rosa hcp cluster.
+
+- **Required**
+- Environment Variable: `CLUSTER_NAME`
+
+**Purpose**: Needed for targetting the rosa hcp cluster via the rosa cli.
+
+**When to use**:
+- When running ocp_idms role for rosa-hcp cluster type.
+
+### ocp_idms_working_dir
+Temporary working directory to generate the idms yamls to be applied to the cluster.
+
+- **Optional**
+- Environment Variable: `OCP_IDMS_WORKING_DIR`
+- Default: `/tmp`
+
+**Purpose**: We are extracting the idms from the yml.j2 files so that we can loop over and apply them individually to the cluster.
+
+**When to use**:
+- When running ocp_idms role for rosa-hcp cluster type.
+
+**Note**: Ensure you have read and write access to the directory.
+
+### rosa_token
+Rosa login token for the rosa cli.
+
+- **Required**
+- Environment Variable: `ROSA_TOKEN`
+
+**Purpose**: Authenticates the rosa cli to the rosa cluster.
+
+**When to use**:
+- When running ocp_idms role for rosa-hcp cluster type.
 
 ## Example Playbook
 
