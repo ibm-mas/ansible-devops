@@ -7,6 +7,9 @@
 # - component_name: Name of the component (e.g., 'wsl', 'ccs')
 # - component_info: Component metadata from cpd_service_info
 
+- name: "Load OLM resource mappings"
+  include_vars: "{{ role_path }}/vars/olm-resource-mappings.yml"
+
 - name: "Get component metadata"
   set_fact:
     comp_info: "{{ dep_component_info | default(component_info, true) }}"
@@ -41,15 +44,22 @@
   fail:
     msg: "Chart {{ comp_chart_name }} version {{ comp_case_version }} not found in repository {{ cpd_helm_repo_name }}"
 
-# Airgap: the registry may store charts with a build-stamped version such as
-# "12.1.0+20260206.151111.23" or "12.1.0_20260220...".
-# Pass ~comp_case_version constraint so we resolve the matching build version
-# from the OCI registry rather than defaulting to the latest pushed tag.
+# Airgap: the registry stores charts with OCI tags using underscore instead of
+# plus (e.g. "5.4.0_20260605.041514.2261") because OCI tags cannot contain "+".
+# Helm maps these back to semver on pull (5.4.0+20260605.041514.2261).
+#
+# For analyticsengine, multiple major versions coexist in the registry
+# (e.g. 12.1.0_... for CPD 5.3.1 and 5.4.0_... for CPD 5.4.0). Without a
+# version constraint, Helm pulls the lexicographically first tag (12.1.0).
+# Pass "~{{ comp_case_version }}" as a semver tilde constraint to pin to the
+# correct major and resolve the full build-stamped version string.
+# All other components have a single chart version in the registry so no
+# version constraint is needed.
 - name: "Resolve chart version from OCI registry (airgap)"
   when: cpd_helm_airgap
   shell: >
     helm show chart {{ cpd_airgap_helm_repo_url }}/{{ comp_chart_name }}
-    {% if comp_case_version != '' %}--version "~{{ comp_case_version }}"{% endif %}
+    {% if comp_chart_name == 'analyticsengine' and comp_case_version != '' %}--version "~{{ comp_case_version }}"{% endif %}
     {{ helm_tls_flag }} 2>/dev/null
     | grep '^version:' | awk '{print $2}' | tr -d '"'
   register: chart_version_lookup
@@ -195,6 +205,37 @@
       - "✓ Namespace-scoped chart installed via Helm"
       - "✓ CRD established: {{ comp_crd_name }}"
       - "✓ CR will be created automatically by Helm"
+
+# The WML Helm chart (03-cr.yaml) does not expose runtimeresources in its template,
+# so passing it via helm_values has no effect. Instead, patch the live WmlBase CR
+# directly after Helm creates it. The WML operator (CPD >= 5.4.0) reads
+# spec.runtimeresources from the CR and applies the ephemeral storage limits to
+# wml-dep-py-rt251-* / wml-dep-py-rt241-* runtime pods, preventing Kubelet eviction
+# when large package extensions (aix360ts + aix360 + xgboost wheel cache ~3.6GB)
+# are installed during Predict explainability calls.
+- name: "Patch WmlBase CR with runtimeresources ephemeral storage limits"
+  when:
+    - component_name == 'wml'
+    - cpd_product_version is version('5.4.0', '>=')
+  kubernetes.core.k8s:
+    state: present
+    merge_type: merge
+    definition:
+      apiVersion: wml.cpd.ibm.com/v1beta1
+      kind: WmlBase
+      metadata:
+        name: wml-cr
+        namespace: "{{ cpd_instance_namespace }}"
+      spec:
+        runtimeresources:
+          runtime_251:
+            ephemeral:
+              request: "{{ cpd_wml_runtime_ephemeral_request }}"
+              limit: "{{ cpd_wml_runtime_ephemeral_limit }}"
+          runtime_241:
+            ephemeral:
+              request: "{{ cpd_wml_runtime_ephemeral_request }}"
+              limit: "{{ cpd_wml_runtime_ephemeral_limit }}"
 
 # During OLM→Helm migration cleanup deletes the component CR so Helm can adopt it.
 # However helm upgrade --install is a no-op when chart/values are unchanged, so
