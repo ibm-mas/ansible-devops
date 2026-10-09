@@ -1,4 +1,14 @@
 ---
+# Parameter Mapping
+# =============================================================================
+# Map migration parameters from CLI/Tekton naming to the names expected by
+# the migration tasks below (which uses db2_namespace and db2_instance_name)
+# =============================================================================
+- name: "Map migration parameters"
+  ansible.builtin.set_fact:
+    db2_namespace: "{{ db2_migration_namespace }}"
+    db2_instance_name: "{{ db2_migration_db2_cluster_name }}"
+
 # Db2uCluster to Db2uInstance Migration
 # =============================================================================
 # This task performs migration from deprecated Db2uCluster to Db2uInstance
@@ -9,6 +19,12 @@
 # - db2u_migrate CLI tool must be available on the local machine
 # - Db2uCluster must be v12.x (migration will fail otherwise)
 # - No Db2uInstance with the same name should exist
+#
+# Post-migration cleanup:
+# - The old Db2uCluster CR will be deleted if db2_migration_cleanup_old_db2_cluster=true
+#   (this is handled by passing --post-migration to db2u_migrate)
+# - If db2_migration_cleanup_old_db2_cluster=false (default), the old Db2uCluster
+#   CR is preserved after migration for manual inspection or rollback purposes
 #
 # =============================================================================
 
@@ -87,11 +103,11 @@
       Migration requires Db2uCluster to be v12.x
 
       Current version: {{ _db2_cluster_version }}
-      Required: v12.x (e.g., 12.0.0, s12.1.4.0)
+      Required: v12.x (e.g., 12.0.0, s12.1.4.0, s12.1.5.0-cn1)
 
       Please upgrade your Db2uCluster to v12 before attempting migration.
   when:
-    - not (_db2_cluster_version is match('^[^\d]*12[\.\d]*$'))
+    - not (_db2_cluster_version is match('^[^\d]*12[\.\d]*(-\S+)?$'))
 
 # 4. Check for existing Db2uInstance conflict
 # -----------------------------------------------------------------------------
@@ -127,6 +143,7 @@
       - "Target: Db2uInstance/{{ db2_instance_name }}"
       - "Namespace: {{ db2_namespace }}"
       - "Version: {{ _db2_cluster_version }}"
+      - "Cleanup old Db2uCluster: {{ 'Yes - Db2uCluster will be deleted after migration' if db2_migration_cleanup_old_db2_cluster | bool else 'No - Db2uCluster will be preserved after migration' }}"
       - ""
       - "=========================================="
 
@@ -134,7 +151,13 @@
 # -----------------------------------------------------------------------------
 - name: "Execute db2u_migrate command"
   ansible.builtin.command:
-    cmd: "db2u_migrate --namespace {{ db2_namespace }} --name {{ db2_instance_name | lower }}"
+    cmd: >-
+      db2u_migrate
+      --namespace {{ db2_namespace }}
+      --name {{ db2_instance_name | lower }}
+      --operator-namespace {{ db2_namespace }}
+      --confirm-backup-taken yes
+      {{ '--post-migration' if db2_migration_cleanup_old_db2_cluster | bool else '' }}
   register: _migrate_result
   changed_when: true
   failed_when: _migrate_result.rc != 0
