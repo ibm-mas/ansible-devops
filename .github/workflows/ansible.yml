@@ -7,6 +7,11 @@ on:
   release:
     types: [ published ]
 
+env:
+  IBM_CLOUD_APIKEY: ${{ secrets.IBM_CLOUD_APIKEY }}
+  ARTIFACTORY_SECRET_ID: ${{ secrets.ARTIFACTORY_SECRET_ID }}
+  SECRET_MANAGER_URL: ${{ secrets.SECRET_MANAGER_URL }}
+
 # Ensure only one build at a time for any branch, cancelling any in-progress builds
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -28,6 +33,9 @@ jobs:
         # Without this option, we don't get the tag information
         with:
           fetch-depth: 0
+
+      - name: Fetch Artifactory token from IBM Cloud Secrets Manager
+        uses: ./.github/actions/fetch-artifactory-token
 
       - name: Initialise the build system
         run: |
@@ -56,7 +64,6 @@ jobs:
       - name: Upload Ansible Collection to Artifactory
         env:
           ARTIFACTORY_GENERIC_RELEASE_URL: ${{ secrets.ARTIFACTORY_GENERIC_RELEASE_URL }}
-          ARTIFACTORY_TOKEN: ${{ secrets.ARTIFACTORY_TOKEN }}
         run: |
           echo "Copying $GITHUB_WORKSPACE/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz to $GITHUB_WORKSPACE/ibm/mas_devops/ibm-mas_devops.tar.gz ..."
           cp $GITHUB_WORKSPACE/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz $GITHUB_WORKSPACE/ibm/mas_devops/ibm-mas_devops.tar.gz
