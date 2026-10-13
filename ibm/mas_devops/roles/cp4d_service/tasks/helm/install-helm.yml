@@ -303,6 +303,20 @@
 
 # Upgrade CAServiceInstance CRs and sync zen metastore version (Cognos only)
 # -----------------------------------------------------------------------------
+- name: "Lookup olm-utils-cm to load cpd_components_meta (required for Cognos CA upgrade)"
+  when: cpd_service_name == 'ca'
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: "olm-utils-cm"
+    kind: ConfigMap
+    namespace: "{{ cpd_instance_namespace }}"
+  register: cpd_cm_info_helm
+
+- name: "Set cpd_components_meta from olm-utils-cm"
+  when: cpd_service_name == 'ca'
+  set_fact:
+    cpd_components_meta: "{{ cpd_cm_info_helm.resources[0].data.release_components_meta | from_yaml }}"
+
 - name: "Upgrade Cognos Analytics tenant instances and sync zen metastore"
   when: cpd_service_name == 'ca'
   include_tasks: "{{ role_path }}/tasks/upgrade-ca-instances.yml"
