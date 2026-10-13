@@ -73,16 +73,16 @@
 
 - name: "cis : exclude certs not for {{ instance_id }}"
   set_fact:
-    dedicated_list: "{{ _cis_certificates.stdout | from_json | selectattr('hosts','search','(^|\\.)' + instance_id + '\\.') }}"
+    dedicated_list: "{{ _cis_certificates.stdout | from_json | selectattr('hosts','search', instance_id | regex_escape) | selectattr('type', 'equalto', 'advanced') | list }}"
 
-- name: "cis : fallback - filter certs by cis_subdomain when mas_instance_id filter yields no results"
+- name: "cis : fallback - filter certs by cis_subdomain when instance_id filter yields no results"
   when:
     - dedicated_list | length == 0
     - cis_subdomain is defined and cis_subdomain != ''
   set_fact:
     dedicated_list: "{{ _cis_certificates.stdout | from_json | selectattr('hosts','search', cis_subdomain | regex_escape) | selectattr('type', 'equalto', 'advanced') | list }}"
 
-- name: "cis : fallback - filter certs by mas_domain when mas_instance_id and cis_subdomain filters yield no results"
+- name: "cis : fallback - filter certs by mas_domain when instance_id and cis_subdomain filters yield no results"
   when:
     - dedicated_list | length == 0
     - mas_domain is defined and mas_domain != ''
@@ -93,11 +93,11 @@
   debug:
     msg: >-
       Edge cert filter:
-      {%- if (_cis_certificates.stdout | from_json | selectattr('hosts','search','(^|\\.)' + mas_instance_id + '\\.') | selectattr('type', 'equalto', 'advanced') | list | length > 0) %}
-        mas_instance_id={{ mas_instance_id }}
+      {%- if (_cis_certificates.stdout | from_json | selectattr('hosts','search', instance_id | regex_escape) | selectattr('type', 'equalto', 'advanced') | list | length > 0) %}
+        instance_id={{ instance_id }}
       {%- elif (cis_subdomain is defined and cis_subdomain != '' and _cis_certificates.stdout | from_json | selectattr('hosts','search', cis_subdomain | regex_escape) | selectattr('type', 'equalto', 'advanced') | list | length > 0) %}
         cis_subdomain={{ cis_subdomain }}
-      {%- elif (mas_domain is defined and mas_domain != '') %}
+      {%- elif (mas_domain is defined and mas_domain != '' and _cis_certificates.stdout | from_json | selectattr('hosts','search', mas_domain | regex_escape) | selectattr('type', 'equalto', 'advanced') | list | length > 0) %}
         mas_domain={{ mas_domain }}
       {%- else %}
         no matching filter found
@@ -139,6 +139,8 @@
         ibmcloud_apikey: "{{ cis_apikey }}"
         edge_cert_entries: "{{ edge_cert_entries }}"
         instance_id: "{{ instance_id }}"
+        cis_subdomain: "{{ cis_subdomain | default('') }}"
+        mas_domain: "{{ mas_domain | default('') }}"
       register: edge_cert_output
 
     - name: "cis : dump output"
