@@ -121,6 +121,76 @@
       db2 update db cfg for {{ db2_dbname }} using WLM_CPU_LIMIT {{ db2_wlm_cpu_limit | int }}"
   register: _db2_wlm_cpu_limit_result
 
+# Per-tenant WLM service classes and workloads
+# -----------------------------------------------------------------------------
+# Read tenant IDs from the tenantgroup-ids ConfigMap that the tenantgroup-helper
+# job creates before the db2 install job runs. Each tenant gets:
+#   SERVICE CLASS  WLM_<TENANT_ID>_SC  (top-level superclass — Db2 does not allow
+#                                        user subclasses under default classes)
+#   WORKLOAD       WLM_<TENANT_ID>_WL  matching SYSTEM_USER('db2_<tenant_id>')
+# Both statements are idempotent (SQLSTATE 42710 / already exists = skip).
+- name: "Read tenantgroup-ids ConfigMap"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: "tenantgroup-ids"
+    namespace: "{{ db2_namespace }}"
+  register: _db2_wlm_tg_ids_cm
+  failed_when: false
+
+- name: "Parse tenant IDs from ConfigMap"
+  when: _db2_wlm_tg_ids_cm.resources | length > 0
+  set_fact:
+    _db2_wlm_tenant_ids: >-
+      {{
+        (_db2_wlm_tg_ids_cm.resources[0].data['id-json'] | from_json).tenantIds.values() | list
+      }}
+
+- name: "Debug - tenant IDs for per-tenant WLM setup"
+  debug:
+    msg:
+      - "Tenant IDs ............................. {{ _db2_wlm_tenant_ids | default([]) }}"
+
+- name: "Create per-tenant WLM service class and workload"
+  when: _db2_wlm_tenant_ids is defined
+  loop: "{{ _db2_wlm_tenant_ids }}"
+  loop_control:
+    loop_var: _wlm_tenant_id
+  kubernetes.core.k8s_exec:
+    namespace: "{{ db2_namespace }}"
+    pod: "{{ _db2_wlm_pod }}"
+    container: db2u
+    command: >-
+      bash -c "source ~db2inst1/sqllib/db2profile;
+      db2 connect to {{ db2_dbname }} > /dev/null || exit 1;
+      SC=WLM_$(echo '{{ _wlm_tenant_id }}' | tr '[:lower:]' '[:upper:]')_SC;
+      WL=WLM_$(echo '{{ _wlm_tenant_id }}' | tr '[:lower:]' '[:upper:]')_WL;
+      USER=db2_{{ _wlm_tenant_id }};
+      db2 \"CREATE SERVICE CLASS ${SC}\" 2>&1 | grep -v 'SQL0601N' || true;
+      db2 \"CREATE WORKLOAD ${WL} SYSTEM_USER ('${USER}') SERVICE CLASS ${SC} ENABLE\" 2>&1 | grep -v 'SQL0601N' || true;
+      db2 terminate > /dev/null; exit 0"
+  register: _db2_wlm_tenant_result
+
+- name: "Verify per-tenant WLM objects"
+  when: _db2_wlm_tenant_ids is defined
+  kubernetes.core.k8s_exec:
+    namespace: "{{ db2_namespace }}"
+    pod: "{{ _db2_wlm_pod }}"
+    container: db2u
+    command: >-
+      bash -c "source ~db2inst1/sqllib/db2profile;
+      db2 connect to {{ db2_dbname }} > /dev/null || exit 1;
+      db2 \"SELECT SERVICECLASSNAME, PARENTSERVICECLASSNAME FROM SYSCAT.SERVICECLASSES WHERE SERVICECLASSNAME LIKE 'WLM_%_SC'\";
+      db2 \"SELECT WORKLOADNAME, ENABLED FROM SYSCAT.WORKLOADS WHERE WORKLOADNAME LIKE 'WLM_%_WL'\";
+      db2 terminate > /dev/null; exit 0"
+  register: _db2_wlm_tenant_verify
+  changed_when: false
+
+- name: "Per-tenant WLM objects"
+  when: _db2_wlm_tenant_ids is defined
+  debug:
+    msg: "{{ _db2_wlm_tenant_verify.stdout_lines }}"
+
 # Verify
 # -----------------------------------------------------------------------------
 - name: "Verify workload manager settings"
