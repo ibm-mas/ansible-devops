@@ -31,7 +31,6 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `CPD_INSTALL_WSL` True/False - Set to true to install Watson Studio
 - `CPD_INSTALL_WML` True/False - Set to true to install Watson Machine Learning
 - `CPD_INSTALL_SPARK` True/False - Set to true to install Analytics Engine "Spark"
-- `CPD_INSTALL_OPENSCALE` True/False - Set to true to install AI Openscale
 - `CPD_INSTALL_DISCOVERY` True/False - Set to true to install Watson Discovery
 - `CPD_INSTALL_SPSS` True/False - Set to true to install SPSS Modeler
 
@@ -69,7 +68,6 @@ export CPD_INSTALL_COGNOS="true"
 export CPD_INSTALL_WSL="true"
 export CPD_INSTALL_WML="true"
 export CPD_INSTALL_SPARK="true"
-export CPD_INSTALL_OPENSCALE="true"
 export CPD_INSTALL_DISCOVERY="true"
 export CPD_INSTALL_SPSS="true"
 
