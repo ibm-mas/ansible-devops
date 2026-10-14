@@ -1,0 +1,99 @@
+---
+# Enable the Db2 adaptive workload manager (helm-based installation only)
+# -----------------------------------------------------------------------------
+# The Db2u operator does not appear to handle a Db2uInstance add-on for this
+# (spec.addOns.workloadManager), so it is enabled inside the database instead:
+#   1. CALL WLM_ENABLE_ADMISSION_CTRL('yes')  - prepares the database
+#   2. deactivate/activate the database       - applies it and sets WLM_ADMISSION_CTRL=YES
+#
+# Requires SHEAPTHRES_SHR and SORTHEAP to not be AUTOMATIC, otherwise the
+# procedure fails with SQL1668N.
+#
+# https://www.ibm.com/docs/en/db2/12.1.x?topic=wlm-enabling-adaptive-workload-manager
+# -----------------------------------------------------------------------------
+- name: "Set db2u pod name for WLM configuration"
+  set_fact:
+    _db2_wlm_pod: "c-{{ db2_instance_name | lower }}-db2u-0"
+
+- name: "Check current WLM_ADMISSION_CTRL setting"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ db2_namespace }}"
+    pod: "{{ _db2_wlm_pod }}"
+    container: db2u
+    command: >-
+      bash -c "source ~db2inst1/sqllib/db2profile;
+      db2 connect to {{ db2_dbname }} > /dev/null || exit 1;
+      db2 get db cfg for {{ db2_dbname }} | grep -i WLM_ADMISSION_CTRL;
+      rc=$?; db2 terminate > /dev/null; exit $rc"
+  register: _db2_wlm_status
+  changed_when: false
+
+- name: "Parse WLM_ADMISSION_CTRL setting"
+  set_fact:
+    _db2_wlm_admission_ctrl: "{{ (_db2_wlm_status.stdout | regex_search('WLM_ADMISSION_CTRL\\)\\s*=\\s*(\\S+)', '\\1') | default([], true)) | first | default('UNKNOWN') | upper }}"
+
+- name: "Debug - WLM_ADMISSION_CTRL"
+  debug:
+    msg:
+      - "Instance ............................... {{ db2_instance_name }}"
+      - "WLM_ADMISSION_CTRL ..................... {{ _db2_wlm_admission_ctrl }}"
+
+- name: "Enable adaptive workload manager on {{ db2_dbname }}"
+  when: _db2_wlm_admission_ctrl != 'YES'
+  block:
+    - name: "Prepare database for adaptive workload manager"
+      kubernetes.core.k8s_exec:
+        namespace: "{{ db2_namespace }}"
+        pod: "{{ _db2_wlm_pod }}"
+        container: db2u
+        command: >-
+          bash -c "source ~db2inst1/sqllib/db2profile;
+          db2 connect to {{ db2_dbname }} > /dev/null || exit 1;
+          db2 \"CALL WLM_ENABLE_ADMISSION_CTRL('yes')\";
+          rc=$?; db2 terminate > /dev/null; exit $rc"
+      register: _db2_wlm_enable
+
+    - name: "Debug - WLM_ENABLE_ADMISSION_CTRL output"
+      debug:
+        var: _db2_wlm_enable.stdout_lines
+
+    # Deactivation is refused while applications are connected. That is not
+    # fatal: the setting is then applied the next time the database is reactivated.
+    - name: "Reactivate database to apply adaptive workload manager"
+      kubernetes.core.k8s_exec:
+        namespace: "{{ db2_namespace }}"
+        pod: "{{ _db2_wlm_pod }}"
+        container: db2u
+        command: >-
+          bash -c "source ~db2inst1/sqllib/db2profile;
+          db2 deactivate db {{ db2_dbname }} && db2 activate db {{ db2_dbname }}"
+      register: _db2_wlm_reactivate
+      failed_when: false
+
+    - name: "Debug - database reactivation output"
+      debug:
+        var: _db2_wlm_reactivate.stdout_lines
+
+    - name: "Verify WLM_ADMISSION_CTRL"
+      kubernetes.core.k8s_exec:
+        namespace: "{{ db2_namespace }}"
+        pod: "{{ _db2_wlm_pod }}"
+        container: db2u
+        command: >-
+          bash -c "source ~db2inst1/sqllib/db2profile;
+          db2 connect to {{ db2_dbname }} > /dev/null || exit 1;
+          db2 get db cfg for {{ db2_dbname }} | grep -i WLM_ADMISSION_CTRL;
+          rc=$?; db2 terminate > /dev/null; exit $rc"
+      register: _db2_wlm_verify
+      changed_when: false
+
+    - name: "Adaptive workload manager status for {{ db2_instance_name }}"
+      debug:
+        msg:
+          - "{{ _db2_wlm_verify.stdout | trim }}"
+          - "{{ 'Adaptive workload manager is enabled' if 'YES' in (_db2_wlm_verify.stdout | upper) else 'WARNING: WLM_ADMISSION_CTRL is not YES yet. The database could not be reactivated (active connections?); it will be applied the next time the database is reactivated.' }}"
+
+- name: "Adaptive workload manager already enabled on {{ db2_dbname }}"
+  when: _db2_wlm_admission_ctrl == 'YES'
+  debug:
+    msg: "Skipping: WLM_ADMISSION_CTRL is already YES for {{ db2_instance_name }}"
