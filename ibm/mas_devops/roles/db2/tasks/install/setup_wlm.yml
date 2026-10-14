@@ -1,47 +1,68 @@
 ---
-# Enable the Db2 adaptive workload manager (helm-based installation only)
+# Configure the Db2 workload manager (helm-based installation only)
 # -----------------------------------------------------------------------------
 # The Db2u operator does not appear to handle a Db2uInstance add-on for this
-# (spec.addOns.workloadManager), so it is enabled inside the database instead:
-#   1. CALL WLM_ENABLE_ADMISSION_CTRL('yes')  - prepares the database
-#   2. deactivate/activate the database       - applies it and sets WLM_ADMISSION_CTRL=YES
+# (spec.addOns.workloadManager), so it is configured inside the database instead:
 #
-# Requires SHEAPTHRES_SHR and SORTHEAP to not be AUTOMATIC, otherwise the
-# procedure fails with SQL1668N.
+#   WLM_ADMISSION_CTRL  (db cfg)  db2_wlm_admission_ctrl  YES | NO
+#       YES: CALL WLM_ENABLE_ADMISSION_CTRL('yes') then deactivate/activate the database
+#       NO:  db2 update db cfg ... WLM_ADMISSION_CTRL NO, then deactivate/activate the database
+#   WLM_DISPATCHER      (dbm cfg) db2_wlm_dispatcher      YES | NO   (online)
+#   WLM_CPU_LIMIT       (db cfg)  db2_wlm_cpu_limit       0-100      (online, enforced by the dispatcher)
+#
+# Enabling admission control requires SHEAPTHRES_SHR and SORTHEAP to not be
+# AUTOMATIC, otherwise the procedure fails with SQL1668N.
 #
 # https://www.ibm.com/docs/en/db2/12.1.x?topic=wlm-enabling-adaptive-workload-manager
 # -----------------------------------------------------------------------------
+- name: "Validate workload manager settings"
+  assert:
+    that:
+      - db2_wlm_admission_ctrl in ['YES', 'NO']
+      - db2_wlm_dispatcher in ['YES', 'NO']
+      - (db2_wlm_cpu_limit | string) is match('^[0-9]{1,3}$')
+      - (db2_wlm_cpu_limit | int) >= 0
+      - (db2_wlm_cpu_limit | int) <= 100
+    fail_msg: "db2_wlm_admission_ctrl and db2_wlm_dispatcher must be YES or NO, and db2_wlm_cpu_limit must be an integer between 0 and 100"
+
 - name: "Set db2u pod name for WLM configuration"
   set_fact:
     _db2_wlm_pod: "c-{{ db2_instance_name | lower }}-db2u-0"
 
-- name: "Check current WLM_ADMISSION_CTRL setting"
+- name: "Read current workload manager settings"
   kubernetes.core.k8s_exec:
     namespace: "{{ db2_namespace }}"
     pod: "{{ _db2_wlm_pod }}"
     container: db2u
     command: >-
       bash -c "source ~db2inst1/sqllib/db2profile;
+      db2 get dbm cfg | grep -i WLM_DISPATCHER;
       db2 connect to {{ db2_dbname }} > /dev/null || exit 1;
-      db2 get db cfg for {{ db2_dbname }} | grep -i WLM_ADMISSION_CTRL;
-      rc=$?; db2 terminate > /dev/null; exit $rc"
+      db2 get db cfg for {{ db2_dbname }} | grep -iE 'WLM_ADMISSION_CTRL|WLM_CPU_LIMIT';
+      db2 terminate > /dev/null; exit 0"
   register: _db2_wlm_status
   changed_when: false
 
-- name: "Parse WLM_ADMISSION_CTRL setting"
+- name: "Parse current workload manager settings"
   set_fact:
-    _db2_wlm_admission_ctrl: "{{ (_db2_wlm_status.stdout | regex_search('WLM_ADMISSION_CTRL\\)\\s*=\\s*(\\S+)', '\\1') | default([], true)) | first | default('UNKNOWN') | upper }}"
+    _db2_wlm_cur_admission_ctrl: "{{ (_db2_wlm_status.stdout | regex_search('WLM_ADMISSION_CTRL\\)\\s*=\\s*(\\S+)', '\\1') | default([], true)) | first | default('UNKNOWN') | upper }}"
+    _db2_wlm_cur_dispatcher: "{{ (_db2_wlm_status.stdout | regex_search('WLM_DISPATCHER\\)\\s*=\\s*(\\S+)', '\\1') | default([], true)) | first | default('UNKNOWN') | upper }}"
+    _db2_wlm_cur_cpu_limit: "{{ (_db2_wlm_status.stdout | regex_search('WLM_CPU_LIMIT\\)\\s*=\\s*(\\S+)', '\\1') | default([], true)) | first | default('UNKNOWN') }}"
 
-- name: "Debug - WLM_ADMISSION_CTRL"
+- name: "Debug - workload manager settings"
   debug:
     msg:
       - "Instance ............................... {{ db2_instance_name }}"
-      - "WLM_ADMISSION_CTRL ..................... {{ _db2_wlm_admission_ctrl }}"
+      - "WLM_ADMISSION_CTRL ..................... current={{ _db2_wlm_cur_admission_ctrl }} desired={{ db2_wlm_admission_ctrl }}"
+      - "WLM_DISPATCHER ......................... current={{ _db2_wlm_cur_dispatcher }} desired={{ db2_wlm_dispatcher }}"
+      - "WLM_CPU_LIMIT .......................... current={{ _db2_wlm_cur_cpu_limit }} desired={{ db2_wlm_cpu_limit }}"
 
-- name: "Enable adaptive workload manager on {{ db2_dbname }}"
-  when: _db2_wlm_admission_ctrl != 'YES'
+# WLM_ADMISSION_CTRL
+# -----------------------------------------------------------------------------
+- name: "Set WLM_ADMISSION_CTRL on {{ db2_dbname }}"
+  when: _db2_wlm_cur_admission_ctrl != db2_wlm_admission_ctrl
   block:
-    - name: "Prepare database for adaptive workload manager"
+    - name: "Apply WLM_ADMISSION_CTRL {{ db2_wlm_admission_ctrl }}"
       kubernetes.core.k8s_exec:
         namespace: "{{ db2_namespace }}"
         pod: "{{ _db2_wlm_pod }}"
@@ -49,17 +70,17 @@
         command: >-
           bash -c "source ~db2inst1/sqllib/db2profile;
           db2 connect to {{ db2_dbname }} > /dev/null || exit 1;
-          db2 \"CALL WLM_ENABLE_ADMISSION_CTRL('yes')\";
+          {% if db2_wlm_admission_ctrl == 'YES' %}db2 \"CALL WLM_ENABLE_ADMISSION_CTRL('yes')\"{% else %}db2 update db cfg for {{ db2_dbname }} using WLM_ADMISSION_CTRL NO{% endif %};
           rc=$?; db2 terminate > /dev/null; exit $rc"
-      register: _db2_wlm_enable
+      register: _db2_wlm_admission_result
 
-    - name: "Debug - WLM_ENABLE_ADMISSION_CTRL output"
+    - name: "Debug - WLM_ADMISSION_CTRL output"
       debug:
-        var: _db2_wlm_enable.stdout_lines
+        var: _db2_wlm_admission_result.stdout_lines
 
     # Deactivation is refused while applications are connected. That is not
     # fatal: the setting is then applied the next time the database is reactivated.
-    - name: "Reactivate database to apply adaptive workload manager"
+    - name: "Reactivate database to apply WLM_ADMISSION_CTRL"
       kubernetes.core.k8s_exec:
         namespace: "{{ db2_namespace }}"
         pod: "{{ _db2_wlm_pod }}"
@@ -74,26 +95,53 @@
       debug:
         var: _db2_wlm_reactivate.stdout_lines
 
-    - name: "Verify WLM_ADMISSION_CTRL"
-      kubernetes.core.k8s_exec:
-        namespace: "{{ db2_namespace }}"
-        pod: "{{ _db2_wlm_pod }}"
-        container: db2u
-        command: >-
-          bash -c "source ~db2inst1/sqllib/db2profile;
-          db2 connect to {{ db2_dbname }} > /dev/null || exit 1;
-          db2 get db cfg for {{ db2_dbname }} | grep -i WLM_ADMISSION_CTRL;
-          rc=$?; db2 terminate > /dev/null; exit $rc"
-      register: _db2_wlm_verify
-      changed_when: false
+# WLM_DISPATCHER (instance level, online)
+# -----------------------------------------------------------------------------
+- name: "Set WLM_DISPATCHER {{ db2_wlm_dispatcher }}"
+  when: _db2_wlm_cur_dispatcher != db2_wlm_dispatcher
+  kubernetes.core.k8s_exec:
+    namespace: "{{ db2_namespace }}"
+    pod: "{{ _db2_wlm_pod }}"
+    container: db2u
+    command: >-
+      bash -c "source ~db2inst1/sqllib/db2profile;
+      db2 update dbm cfg using WLM_DISPATCHER {{ db2_wlm_dispatcher }}"
+  register: _db2_wlm_dispatcher_result
 
-    - name: "Adaptive workload manager status for {{ db2_instance_name }}"
-      debug:
-        msg:
-          - "{{ _db2_wlm_verify.stdout | trim }}"
-          - "{{ 'Adaptive workload manager is enabled' if 'YES' in (_db2_wlm_verify.stdout | upper) else 'WARNING: WLM_ADMISSION_CTRL is not YES yet. The database could not be reactivated (active connections?); it will be applied the next time the database is reactivated.' }}"
+# WLM_CPU_LIMIT (database level, online)
+# -----------------------------------------------------------------------------
+- name: "Set WLM_CPU_LIMIT {{ db2_wlm_cpu_limit }}"
+  when: (_db2_wlm_cur_cpu_limit | string) != (db2_wlm_cpu_limit | int | string)
+  kubernetes.core.k8s_exec:
+    namespace: "{{ db2_namespace }}"
+    pod: "{{ _db2_wlm_pod }}"
+    container: db2u
+    command: >-
+      bash -c "source ~db2inst1/sqllib/db2profile;
+      db2 update db cfg for {{ db2_dbname }} using WLM_CPU_LIMIT {{ db2_wlm_cpu_limit | int }}"
+  register: _db2_wlm_cpu_limit_result
 
-- name: "Adaptive workload manager already enabled on {{ db2_dbname }}"
-  when: _db2_wlm_admission_ctrl == 'YES'
+# Verify
+# -----------------------------------------------------------------------------
+- name: "Verify workload manager settings"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ db2_namespace }}"
+    pod: "{{ _db2_wlm_pod }}"
+    container: db2u
+    command: >-
+      bash -c "source ~db2inst1/sqllib/db2profile;
+      db2 get dbm cfg | grep -i WLM_DISPATCHER;
+      db2 connect to {{ db2_dbname }} > /dev/null || exit 1;
+      db2 get db cfg for {{ db2_dbname }} | grep -iE 'WLM_ADMISSION_CTRL|WLM_CPU_LIMIT';
+      db2 terminate > /dev/null; exit 0"
+  register: _db2_wlm_verify
+  changed_when: false
+
+- name: "Workload manager settings for {{ db2_instance_name }}"
   debug:
-    msg: "Skipping: WLM_ADMISSION_CTRL is already YES for {{ db2_instance_name }}"
+    msg: "{{ _db2_wlm_verify.stdout_lines }}"
+
+- name: "Warn if WLM_ADMISSION_CTRL has not been applied yet"
+  when: (_db2_wlm_verify.stdout | upper) is not search('WLM_ADMISSION_CTRL\)\s*=\s*' ~ db2_wlm_admission_ctrl)
+  debug:
+    msg: "WARNING: WLM_ADMISSION_CTRL is not {{ db2_wlm_admission_ctrl }} yet. The database could not be reactivated (active connections?); it will be applied the next time the database is reactivated."
