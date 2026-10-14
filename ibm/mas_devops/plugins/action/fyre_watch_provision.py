@@ -31,7 +31,13 @@ def checkStatus(username: str, password: str, clusterName: str, site: str, retry
     }
     auth = (username, password)
     url = f"https://ocpapi.svl.ibm.com/v1/ocp/{ clusterName }/status?site={ site }"
-    response = requests.get(url=url, headers=headers, auth=auth, verify=False)
+
+    try:
+        response = requests.get(url=url, headers=headers, auth=auth, verify=False, timeout=60)
+    except requests.exceptions.RequestException as e:
+        display.v(f" - Connection error while contacting Fyre API ({errorCount + 1}/5): {e}")
+        sleep(sleepTime)
+        return checkStatus(username, password, clusterName, site, retryCount + 1, errorCount + 1)
 
     # Example values for "details" field:
     # -------------------------------------------------------------------------
@@ -41,16 +47,17 @@ def checkStatus(username: str, password: str, clusterName: str, site: str, retry
 
     if response.status_code == 400:
         clusterDetails = response.json().get("details", None)
-        if "does not exist" in clusterDetails:
+        if clusterDetails and "does not exist" in clusterDetails:
             display.v(" - Cluster does not exist")
             sleep(sleepTime)
-            return checkStatus(username, password, clusterName, site, errorCount+1, errorCount+1)
+            return checkStatus(username, password, clusterName, site, retryCount + 1, errorCount + 1)
         else:
             display.v(f" - Fatal error: {clusterDetails}")
             return False
-    if response.status_code == 423:
-            display.v(f" - Fatal error: {clusterDetails}")
-            return False
+    elif response.status_code == 423:
+        clusterDetails = response.json().get("details", "User temporarily blocked due to too many requests")
+        display.v(f" - Fatal error: {clusterDetails}")
+        return False
     elif response.status_code == 200:
         clusterStatus = response.json().get("deployed_status", "unknown")
         if clusterStatus == "deployed":
@@ -59,9 +66,13 @@ def checkStatus(username: str, password: str, clusterName: str, site: str, retry
         else:
             display.v(f" - Cluster is in status '{clusterStatus}' - waiting 2m before checking again")
         sleep(sleepTime)
-        return checkStatus(username, password, clusterName, site, retryCount+1, errorCount)
+        return checkStatus(username, password, clusterName, site, retryCount + 1, errorCount)
     else:
-        display.v(f" - Unexpected return code ({response.status_code}): {response.json()}")
+        try:
+            err_msg = response.json()
+        except Exception:
+            err_msg = response.text
+        display.v(f" - Unexpected return code ({response.status_code}): {err_msg}")
         return False
 
 
