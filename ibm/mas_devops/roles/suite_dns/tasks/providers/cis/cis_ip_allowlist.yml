@@ -47,6 +47,32 @@
         msg: "No WAF allowlist rule found for '{{ _cis_allowlist_rule_desc }}', nothing to delete"
       when: _cis_allowlist_rule_id | trim | length == 0
 
+    # -------------------------------------------------------------------------
+    # Capture start timestamp and build base args before the CIS API call so
+    # IN_PROGRESS can be emitted with the correct deployment-start value.
+    # -------------------------------------------------------------------------
+    - name: "cis : ip-allowlist — capture deployment start timestamp (delete)"
+      ansible.builtin.set_fact:
+        _cis_allowlist_deployment_start: "{{ ansible_facts['date_time']['iso8601'] }}"
+      when:
+        - is_mas_mode
+        - _cis_allowlist_rule_id | trim | length > 0
+
+    - name: "cis : ip-allowlist — build status-update base args (delete)"
+      ansible.builtin.set_fact:
+        _cis_allowlist_status_base_args: >-
+          --region "{{ region_id }}"
+          --instance-id "{{ mas_instance_id }}"
+          --account "{{ account_id }}"
+          --cluster "{{ cluster_id }}"
+          --subscription-id "{{ subscription_id }}"
+          --type allow-list
+          --feature-details '{"ips": []}'
+          --deployment-start "{{ _cis_allowlist_deployment_start }}"
+      when:
+        - is_mas_mode
+        - _cis_allowlist_rule_id | trim | length > 0
+
     - name: "cis : ip-allowlist — status update: IN_PROGRESS (delete)"
       ansible.builtin.shell: |
         mas-devops-feature-status-update status-update \
@@ -102,23 +128,6 @@
       ansible.builtin.set_fact:
         _cis_allowlist_deployment_end: "{{ ansible_facts['date_time']['iso8601'] }}"
       when:
-        - _cis_allowlist_rule_id | trim | length > 0
-        - _cis_allowlist_delete_rc is defined
-        - _cis_allowlist_delete_rc == 0
-
-    - name: "cis : ip-allowlist — build status-update base args (delete)"
-      ansible.builtin.set_fact:
-        _cis_allowlist_status_base_args: >-
-          --region "{{ region_id }}"
-          --instance-id "{{ mas_instance_id }}"
-          --account "{{ account_id }}"
-          --cluster "{{ cluster_id }}"
-          --subscription-id "{{ subscription_id }}"
-          --type allow-list
-          --feature-details '{"ips": []}'
-          --deployment-start "{{ _cis_allowlist_deployment_end }}"
-      when:
-        - is_mas_mode
         - _cis_allowlist_rule_id | trim | length > 0
         - _cis_allowlist_delete_rc is defined
         - _cis_allowlist_delete_rc == 0
