@@ -47,6 +47,23 @@
         msg: "No WAF allowlist rule found for '{{ _cis_allowlist_rule_desc }}', nothing to delete"
       when: _cis_allowlist_rule_id | trim | length == 0
 
+    - name: "cis : ip-allowlist — status update: IN_PROGRESS (delete)"
+      ansible.builtin.shell: |
+        mas-devops-feature-status-update status-update \
+          {{ _cis_allowlist_status_base_args }} \
+          --status IN_PROGRESS \
+          --status-details '{"message": "Allow list deactivation in progress.", "request_configuration": ""}'
+      when:
+        - is_mas_mode
+        - _cis_allowlist_rule_id | trim | length > 0
+      failed_when: false
+      register: _cis_status_in_progress_delete_result
+
+    - name: "cis : ip-allowlist — status update: IN_PROGRESS delete (result)"
+      ansible.builtin.debug:
+        var: _cis_status_in_progress_delete_result
+      when: _cis_status_in_progress_delete_result is defined
+
     - name: "cis : ip-allowlist — delete existing WAF block rule"
       ansible.builtin.shell: |
         ibmcloud cis custom-waf rule-delete {{ _cis_domain_id }} \
