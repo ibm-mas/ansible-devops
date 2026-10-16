@@ -47,7 +47,6 @@
         msg: "No WAF allowlist rule found for '{{ _cis_allowlist_rule_desc }}', nothing to delete"
       when: _cis_allowlist_rule_id | trim | length == 0
 
-    # -------------------------------------------------------------------------
     # Capture start timestamp and build base args before the CIS API call so
     # IN_PROGRESS can be emitted with the correct deployment-start value.
     # -------------------------------------------------------------------------
@@ -169,7 +168,6 @@
         _cis_allowlist_expression: >-
           {{ '(not ip.src in {' + (_cis_normalised_ips | join(' ')) + '} and http.host contains "' + domain + '")' }}
 
-    # -------------------------------------------------------------------------
     # Fetch current expression BEFORE any status or API decision.
     # Set to empty string when no rule exists (create path) so the comparison
     # _cis_existing_expression != _cis_allowlist_expression is always true there.
@@ -198,7 +196,6 @@
           - "Existing Rule ID ......... {{ _cis_allowlist_rule_id | default('(none — will create)') }}"
           - "Config changed ........... {{ _cis_existing_expression != _cis_allowlist_expression }}"
 
-    # -------------------------------------------------------------------------
     # No-op: rule already exists with the same expression.
     # No CIS API call, no status update.
     # -------------------------------------------------------------------------
@@ -211,7 +208,6 @@
         - _cis_allowlist_rule_id | trim | length > 0
         - _cis_existing_expression == _cis_allowlist_expression
 
-    # -------------------------------------------------------------------------
     # Create path: no existing rule
     #   IN_PROGRESS → ibmcloud rule-create → ACTIVE / ERROR
     # -------------------------------------------------------------------------
@@ -290,7 +286,6 @@
         var: _cis_status_active_create_result
       when: _cis_status_active_create_result is defined
 
-    # -------------------------------------------------------------------------
     # Update path: rule exists AND expression has changed
     #   IN_PROGRESS → ibmcloud rule-update → ACTIVE / ERROR
     # When expression is unchanged: none of these tasks run (no API call, no status).

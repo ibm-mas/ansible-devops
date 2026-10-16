@@ -50,33 +50,7 @@
         msg: CIS enforce https {{_cis_https_rewrites_result}}
 
   rescue:
-
-    - name: "cis : capture failure message (domain setting)"
-      ansible.builtin.set_fact:
-        _cis_domain_setting_error_msg: "{{ ansible_failed_result.msg | default(ansible_failed_task.name + ' failed') | replace(\"'\", '') }}"
-
-    - name: "cis : status update: ERROR (domain setting)"
-      ansible.builtin.shell: |
-        mas-devops-feature-status-update status-update \
-          {{ _cis_allowlist_status_base_args }} \
-          --status ERROR \
-          --status-details '{
-            "message": "{{ _cis_domain_setting_error_msg }}",
-            "error_code": 1,
-            "error_source": {
-              "gitops_version": "{{ lookup("env", "GITOPS_VERSION") | default("", true) }}",
-              "filename": "cis_domain_setting.yml",
-              "log_file": "oc logs -n mas-{{ mas_instance_id }}-syncres {{ lookup("env", "HOSTNAME") }}",
-              "stacktrace": "{{ _cis_domain_setting_error_msg }}"
-            },
-            "request_configuration": "{{ _cis_normalised_ips | default([]) | join(", ") }}"
-          }' \
-          --deployment-end "{{ ansible_facts['date_time']['iso8601'] }}"
-      when:
-        - is_mas_mode
-        - _cis_allowlist_status_base_args is defined
-      failed_when: false
-
+    # handles mongo ERROR writes for any failure across the job.
     - name: "cis : re-raise failure (domain setting)"
       ansible.builtin.fail:
-        msg: "{{ _cis_domain_setting_error_msg }}"
+        msg: "{{ ansible_failed_result.msg | default(ansible_failed_task.name + ' failed') }}"
