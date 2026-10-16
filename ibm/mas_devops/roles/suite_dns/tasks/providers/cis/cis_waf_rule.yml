@@ -1,15 +1,6 @@
 ---
 # Disable WAF rule {{ item.rule_id }} in {{ item.rule_package_id }} in var/waf_rules_to_disable.ymal
 # -----------------------------------------------------------------------------
-
-# TODO: remove before release — simulates a soft failure in WAF rule disable
-- name: "cis : TEST — inject soft failure to verify error handling"
-  ansible.builtin.set_fact:
-    _cis_error:
-      rc: 1
-      msg: "TEST INJECTION: simulated WAF rule soft failure (429 Too Many Requests)"
-  when: mas_instance_id == "test19592"
-
 - name: "cis : Check whether WAF rule exists: {{ item.rule_id }}"
   ansible.builtin.shell: |
     if echo $(ibmcloud cis waf-rule {{_cis_domain_id}} {{ item.rule_package_id }} {{ item.rule_id }} -i "{{cis_service_name}}") | grep 'Invalid or missing WAF Rule ID'; then echo "not_exists"; else echo "exists"; fi
