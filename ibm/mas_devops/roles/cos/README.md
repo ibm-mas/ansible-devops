@@ -240,6 +240,17 @@ The IBM Cloud COS service plan tier.
 - Pricing is based on storage capacity, requests, and data transfer
 - Not applicable for OCS (`cos_type=ocs`)
 
+### cos_region
+The IBM Cloud COS region identifier.
+
+- **Optional** (IBM COS only)
+- Environment Variable: `COS_REGION`
+- Default Value: None
+
+**Purpose**: Specifies the geographic region for the IBM Cloud COS instance (e.g., `us-south`, `eu-de`, `us-east`). When provided, it is included in the secret and `ObjectStorageCfg` resource.
+
+**When to use**: Only relevant when `cos_type=ibm`. Use when targeting a specific COS region.
+
 ### cos_url
 The IBM Cloud COS regional endpoint URL for S3 API access.
 
