@@ -228,16 +228,6 @@
         var: _cis_status_in_progress_create_result
       when: _cis_status_in_progress_create_result is defined
 
-    # TODO: remove before release — simulates rule-create soft failure for create/update test
-    - name: "cis : TEST — inject soft failure on rule-create"
-      ansible.builtin.set_fact:
-        _cis_error:
-          rc: 1
-          msg: "TEST INJECTION: simulated rule-create failure (429 Too Many Requests)"
-      when:
-        - mas_instance_id == "test19592"
-        - _cis_allowlist_rule_id | trim | length == 0
-
     - name: "cis : ip-allowlist — create WAF block rule (new)"
       ansible.builtin.shell: |
         EXPR='{{ _cis_allowlist_expression }}'
@@ -317,17 +307,6 @@
       ansible.builtin.debug:
         var: _cis_status_in_progress_update_result
       when: _cis_status_in_progress_update_result is defined
-
-    # TODO: remove before release — simulates rule-update soft failure for update test
-    - name: "cis : TEST — inject soft failure on rule-update"
-      ansible.builtin.set_fact:
-        _cis_error:
-          rc: 1
-          msg: "TEST INJECTION: simulated rule-update failure (429 Too Many Requests)"
-      when:
-        - mas_instance_id == "test19592"
-        - _cis_allowlist_rule_id | trim | length > 0
-        - _cis_existing_expression != _cis_allowlist_expression
 
     - name: "cis : ip-allowlist — update WAF block rule (existing)"
       ansible.builtin.shell: |
