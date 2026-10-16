@@ -38,12 +38,6 @@
         - mas_channel.split('.')[:2] | join('.') is version('9.1', '>=')
       ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist_requested.yml
 
-    # TODO: remove before release — test injection to verify rescue ERROR path
-    - name: "cis : TEST — inject hard failure to verify rescue ERROR write"
-      ansible.builtin.fail:
-        msg: "TEST INJECTION: simulated hard failure to verify rescue ERROR path"
-      when: mas_instance_id == "test19592"
-
     - name: "cis : Reset facts"
       set_fact:
         dedicated_list: []
@@ -201,6 +195,13 @@
       vars:
         instance_id: "{{ aiservice_instance_id }}"
         domain: "{{ aiservice_domain }}"
+
+    - name: "cis : raise captured soft failure"
+      ansible.builtin.fail:
+        msg: "CIS task failed: {{ _cis_error.msg }} (rc={{ _cis_error.rc }})"
+      when:
+        - _cis_error is defined
+        - _cis_allowlist_status_base_args is defined
 
   rescue:
     # Catches ansible error
