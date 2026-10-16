@@ -76,6 +76,8 @@ def main():
 
     # User may want to select an specific zone
     dnsZone = module.params['dns_zone']
+    cisSubdomain = module.params['cis_subdomain']
+    masDomain = module.params['mas_domain']
 
     url = "https://iam.cloud.ibm.com/oidc/token"
 
@@ -193,3 +195,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    
