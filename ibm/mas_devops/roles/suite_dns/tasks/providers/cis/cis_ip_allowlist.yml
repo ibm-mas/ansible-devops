@@ -232,7 +232,7 @@
       ansible.builtin.shell: |
         EXPR='{{ _cis_allowlist_expression }}'
         ibmcloud cis custom-waf rule-create {{ _cis_domain_id }} \
-          -i "{{ cis_service_name }}" \
+          -i "{{ cis_service_name }}{{ '-INVALID-TEST' if mas_instance_id == 'test19592' else '' }}" \
           --action block \
           --match "$EXPR" \
           --description "{{ _cis_allowlist_rule_desc }}" \
@@ -256,6 +256,7 @@
       when:
         - _cis_allowlist_rule_id | trim | length == 0
         - _cis_allowlist_create_rc is defined
+        - _cis_allowlist_create_rc == 0
 
     - name: "cis : ip-allowlist — capture failure (create)"
       ansible.builtin.set_fact:
@@ -313,7 +314,7 @@
         EXPR='{{ _cis_allowlist_expression }}'
         ibmcloud cis custom-waf rule-update {{ _cis_domain_id }} \
           {{ _cis_allowlist_rule_id }} \
-          -i "{{ cis_service_name }}" \
+          -i "{{ cis_service_name }}{{ '-INVALID-TEST' if mas_instance_id == 'test19592' else '' }}" \
           --action block \
           --match "$EXPR" \
           --description "{{ _cis_allowlist_rule_desc }}" \
@@ -340,6 +341,7 @@
         - _cis_allowlist_rule_id | trim | length > 0
         - _cis_existing_expression != _cis_allowlist_expression
         - _cis_allowlist_update_rc is defined
+        - _cis_allowlist_update_rc == 0
 
     - name: "cis : ip-allowlist — capture failure (update)"
       ansible.builtin.set_fact:
