@@ -418,6 +418,76 @@
     label: "{{ item.kind }}/{{ item.metadata.name }}"
   failed_when: false
 
+# Pre-install upgrade patching: update existing CR specs to the target versions
+# to prevent Helm three-way merge conflicts from retaining stale OLM versions on upgrade.
+- name: "Upgrade OLM -> Helm: Check and patch existing custom resources for {{ comp_name }}"
+  when: comp_chart_name is defined and comp_chart_name != ""
+  block:
+    # --- 1. Handle Ibmcpd CR (cpd_platform component) ---
+    - name: "Upgrade OLM -> Helm: Lookup existing Ibmcpd CR"
+      when: comp_name == 'cpd_platform'
+      kubernetes.core.k8s_info:
+        api_version: cpd.ibm.com/v1
+        kind: Ibmcpd
+        name: "{{ cpd_platform_cr_name }}"
+        namespace: "{{ cpd_instance_namespace }}"
+      register: _existing_ibmcpd_lookup
+
+    - name: "Upgrade OLM -> Helm: Patch existing Ibmcpd CR version"
+      when:
+        - comp_name == 'cpd_platform'
+        - _existing_ibmcpd_lookup.resources | length > 0
+        - _existing_ibmcpd_lookup.resources[0].spec.version != cpd_components_meta.cpd_platform.cr_version
+      kubernetes.core.k8s:
+        state: patched
+        api_version: cpd.ibm.com/v1
+        kind: Ibmcpd
+        name: "{{ cpd_platform_cr_name }}"
+        namespace: "{{ cpd_instance_namespace }}"
+        definition:
+          spec:
+            version: "{{ cpd_components_meta.cpd_platform.cr_version }}"
+            non_olm: true
+
+    # --- 2. Handle ZenService CR (zen component) ---
+    - name: "Upgrade OLM -> Helm: Lookup existing ZenService CR"
+      when: comp_name == 'zen'
+      kubernetes.core.k8s_info:
+        api_version: zen.cpd.ibm.com/v1
+        kind: ZenService
+        name: "{{ zen_cr_name }}"
+        namespace: "{{ cpd_instance_namespace }}"
+      register: _existing_zenservice_lookup
+
+    - name: "Upgrade OLM -> Helm: Resolve target zen_pak_version from Helm chart"
+      when:
+        - comp_name == 'zen'
+        - _existing_zenservice_lookup.resources | length > 0
+      shell: >
+        helm show values {{ cpd_helm_repo_name }}/zen
+        --version {{ chart_version }}
+        {{ helm_tls_flag }}
+        | grep '^zen_pak_version:' | awk '{print $2}' | tr -d '"'
+      register: _target_zen_pak_version_lookup
+      changed_when: false
+
+    - name: "Upgrade OLM -> Helm: Patch existing ZenService CR version and zen_pak_version"
+      when:
+        - comp_name == 'zen'
+        - _existing_zenservice_lookup.resources | length > 0
+        - (_existing_zenservice_lookup.resources[0].spec.version != cpd_components_meta.zen.cr_version) or
+          (_target_zen_pak_version_lookup.stdout | default('') != '' and _existing_zenservice_lookup.resources[0].spec.zen_pak_version != _target_zen_pak_version_lookup.stdout | trim)
+      kubernetes.core.k8s:
+        state: patched
+        api_version: zen.cpd.ibm.com/v1
+        kind: ZenService
+        name: "{{ zen_cr_name }}"
+        namespace: "{{ cpd_instance_namespace }}"
+        definition:
+          spec:
+            version: "{{ cpd_components_meta.zen.cr_version }}"
+            zen_pak_version: "{{ _target_zen_pak_version_lookup.stdout | trim }}"
+
 # Install namespace-scoped chart (Operator, CR) using the native Ansible Helm module
 - name: "Install/Upgrade {{ comp_name }} namespace-scoped chart"
   when:
