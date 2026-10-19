@@ -459,12 +459,20 @@
         namespace: "{{ cpd_instance_namespace }}"
       register: _existing_zenservice_lookup
 
+    - name: "Upgrade OLM -> Helm: Delete stale zen-tab-container-extensions configmap"
+      when: comp_name == 'zen'
+      kubernetes.core.k8s:
+        state: absent
+        api_version: v1
+        kind: ConfigMap
+        name: zen-tab-container-extensions
+        namespace: "{{ cpd_instance_namespace }}"
+      failed_when: false
+
     - name: "Upgrade OLM -> Helm: Patch existing ZenService CR version and zen_pak_version"
       when:
         - comp_name == 'zen'
         - _existing_zenservice_lookup.resources | length > 0
-        - (_existing_zenservice_lookup.resources[0].spec.version != cpd_components_meta.zen.cr_version) or
-          (_existing_zenservice_lookup.resources[0].spec.zen_pak_version is defined and _existing_zenservice_lookup.resources[0].spec.zen_pak_version != cpd_components_meta.zen.cr_version)
       kubernetes.core.k8s:
         state: patched
         api_version: zen.cpd.ibm.com/v1
@@ -474,7 +482,8 @@
         definition:
           spec:
             version: "{{ cpd_components_meta.zen.cr_version }}"
-            zen_pak_version: "{{ cpd_components_meta.zen.cr_version }}"
+            zen_pak_version: "6.4.0"
+            non_olm: true
 
 # Install namespace-scoped chart (Operator, CR) using the native Ansible Helm module
 - name: "Install/Upgrade {{ comp_name }} namespace-scoped chart"
