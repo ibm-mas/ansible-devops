@@ -486,6 +486,54 @@
         namespace: "{{ cpd_instance_namespace }}"
       failed_when: false
 
+    - name: "Upgrade OLM -> Helm: Resolve target zen_pak_version from rendered chart manifests"
+      when:
+        - comp_name == 'zen'
+        - _existing_zenservice_lookup.resources | length > 0
+      set_fact:
+        _target_zen_pak_version: >-
+          {{
+            (
+              (
+                ns_chart_manifests.stdout
+                if (ns_chart_manifests is defined and ns_chart_manifests.stdout is defined and ns_chart_manifests.stdout != '')
+                else (ns_chart_manifests_airgap.stdout | default(''))
+              )
+              | from_yaml_all
+              | select('ne', None)
+              | selectattr('kind', 'defined')
+              | selectattr('kind', 'equalto', 'ZenService')
+              | map(attribute='spec.zen_pak_version')
+              | select('defined')
+              | first
+            ) | default('', true)
+          }}
+
+    - name: "Upgrade OLM -> Helm: Resolve fallback zen_pak_version from Helm chart values"
+      when:
+        - comp_name == 'zen'
+        - _existing_zenservice_lookup.resources | length > 0
+        - _target_zen_pak_version | default('') == ''
+      shell: >
+        helm show values {{ cpd_helm_repo_name if not cpd_helm_airgap else cpd_airgap_helm_repo_url }}/zen
+        --version {{ chart_version }}
+        {{ helm_tls_flag }}
+        | grep 'zen_pak_version:' | head -1 | awk '{print $2}' | tr -d '"'
+      register: _fallback_zen_pak_version_lookup
+      changed_when: false
+      failed_when: false
+
+    - name: "Upgrade OLM -> Helm: Set fallback zen_pak_version if needed"
+      when:
+        - comp_name == 'zen'
+        - _existing_zenservice_lookup.resources | length > 0
+        - _target_zen_pak_version | default('') == ''
+        - _fallback_zen_pak_version_lookup is defined
+        - _fallback_zen_pak_version_lookup.stdout is defined
+        - _fallback_zen_pak_version_lookup.stdout | trim != ''
+      set_fact:
+        _target_zen_pak_version: "{{ _fallback_zen_pak_version_lookup.stdout | trim }}"
+
     - name: "Upgrade OLM -> Helm: Patch existing ZenService CR version and zen_pak_version"
       when:
         - comp_name == 'zen'
@@ -502,11 +550,15 @@
               app.kubernetes.io/managed-by: Helm
               component-id: zen
               icpdsupport/addOnId: zen-lite
-          spec:
-            version: "{{ cpd_components_meta.zen.cr_version }}"
-            zen_pak_version: "6.4.0"
-            non_olm_deploy: true
-            non_olm: true
+          spec: >-
+            {{
+              {
+                'version': cpd_components_meta.zen.cr_version,
+                'non_olm_deploy': true,
+                'non_olm': true
+              }
+              | combine({'zen_pak_version': _target_zen_pak_version} if (_target_zen_pak_version | default('') != '') else {})
+            }}
 
 # Install namespace-scoped chart (Operator, CR) using the native Ansible Helm module
 - name: "Install/Upgrade {{ comp_name }} namespace-scoped chart"
