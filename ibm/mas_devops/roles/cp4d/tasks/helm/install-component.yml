@@ -437,7 +437,8 @@
       when:
         - comp_name == 'cpd_platform'
         - _existing_ibmcpd_lookup.resources | length > 0
-        - _existing_ibmcpd_lookup.resources[0].spec.version != cpd_components_meta.cpd_platform.cr_version
+        - (_existing_ibmcpd_lookup.resources[0].spec.version != cpd_components_meta.cpd_platform.cr_version) or
+          (_existing_ibmcpd_lookup.resources[0].spec.non_olm is not defined or not _existing_ibmcpd_lookup.resources[0].spec.non_olm)
       kubernetes.core.k8s:
         state: patched
         api_version: cpd.ibm.com/v1
@@ -458,6 +459,22 @@
         name: "{{ zen_cr_name }}"
         namespace: "{{ cpd_instance_namespace }}"
       register: _existing_zenservice_lookup
+
+    - name: "Upgrade OLM -> Helm: Strip legacy ownerReferences from ZenService CR"
+      when:
+        - comp_name == 'zen'
+        - _existing_zenservice_lookup.resources | length > 0
+        - _existing_zenservice_lookup.resources[0].metadata.ownerReferences is defined
+        - _existing_zenservice_lookup.resources[0].metadata.ownerReferences | length > 0
+      kubernetes.core.k8s_json_patch:
+        api_version: zen.cpd.ibm.com/v1
+        kind: ZenService
+        name: "{{ zen_cr_name }}"
+        namespace: "{{ cpd_instance_namespace }}"
+        patch:
+          - op: remove
+            path: /metadata/ownerReferences
+      failed_when: false
 
     - name: "Upgrade OLM -> Helm: Delete stale zen-tab-container-extensions configmap"
       when: comp_name == 'zen'
@@ -480,9 +497,15 @@
         name: "{{ zen_cr_name }}"
         namespace: "{{ cpd_instance_namespace }}"
         definition:
+          metadata:
+            labels:
+              app.kubernetes.io/managed-by: Helm
+              component-id: zen
+              icpdsupport/addOnId: zen-lite
           spec:
             version: "{{ cpd_components_meta.zen.cr_version }}"
             zen_pak_version: "6.4.0"
+            non_olm_deploy: true
             non_olm: true
 
 # Install namespace-scoped chart (Operator, CR) using the native Ansible Helm module
