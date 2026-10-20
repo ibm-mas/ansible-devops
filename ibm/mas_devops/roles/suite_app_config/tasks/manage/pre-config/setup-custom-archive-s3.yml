@@ -1,0 +1,18 @@
+---
+# Manage specific steps to configure a Customization archive stored in S3/COS
+# when S3 access credentials are provided, we create a secret and inject a
+# useS3 block into mas_app_settings_customization_list[0].
+# ------------------------------------------------------------------------
+- name: "Create secret containing S3 Customization Archive credentials"
+  kubernetes.core.k8s:
+    template: "templates/manage/custom-archive-s3creds.yml.j2"
+
+- name: "Merge useS3 block into customizationList"
+  set_fact:
+    mas_app_settings_customization_list: >-
+      {{ [ mas_app_settings_customization_list[0] | combine(mas_app_settings_customization_s3) ] }}
+  vars:
+    mas_app_settings_customization_s3:
+      useS3:
+        accessKey: "{{ mas_app_settings_customization_archive_s3_access_key }}"
+        secretName: "{{ mas_app_settings_customization_archive_s3_secret_name }}"

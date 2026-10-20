@@ -233,6 +233,13 @@ mas_app_settings_customization_archive_password: "{{ lookup('env', 'MAS_APP_SETT
 mas_app_settings_customization_archive_auth_no_challenge: "{{ lookup('env', 'MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_AUTH_NO_CHALLANGE') }}"
 mas_app_settings_customization_archive_secure_protocol: "{{ lookup('env', 'MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_SECURE_PROTOCOL') }}"
 
+# Customization Archive — S3 credentials (new CRD spec approach)
+# When set, injects a useS3 block into customizationList so the operator can
+# authenticate to S3 directly (no need for basic-auth credentials secret).
+mas_app_settings_customization_archive_s3_access_key: "{{ lookup('env', 'MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_S3_ACCESS_KEY') }}"
+mas_app_settings_customization_archive_s3_secret_access_key: "{{ lookup('env', 'MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_S3_SECRET_ACCESS_KEY') }}"
+mas_app_settings_customization_archive_s3_secret_name: "{{ lookup('env', 'MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_S3_SECRET_NAME') | default(mas_workspace_id + '-' + mas_app_id + '-cl0--s3creds--sn', true) }}"
+
 mas_app_settings_customization_list:
   - customizationArchiveName: "{{ mas_app_settings_customization_archive_name }}"
     customizationArchiveUrl: "{{ mas_app_settings_customization_archive_url }}"
@@ -241,6 +248,26 @@ mas_app_settings_customization_credentials_secret_name: "{{ mas_workspace_id }}-
 mas_app_settings_customization_credentials:
   customizationArchiveCredentials:
     secretName: "{{ mas_app_settings_customization_credentials_secret_name }}"
+
+
+# Attachment Provider (new CRD spec field — spec.settings.db.attachmentProvider)
+# When set, the operator writes COS/S3 properties to all bundle secrets automatically.
+# Supported provider values: "aws", "cos", "s3"
+# -----------------------------------------------------------------------------
+mas_app_settings_attachment_provider: "{{ lookup('env', 'MAS_MANAGE_ATTACHMENTS_PROVIDER') | default('', true) }}"
+mas_app_settings_attachment_provider_accesskey: "{{ lookup('env', 'MAS_MANAGE_ATTACHMENTS_ACCESSKEY') }}"
+mas_app_settings_attachment_provider_secret_access_key: "{{ lookup('env', 'MAS_MANAGE_ATTACHMENTS_SECRET_ACCESS_KEY') }}"
+mas_app_settings_attachment_provider_bucket: "{{ lookup('env', 'MAS_MANAGE_ATTACHMENTS_BUCKET') }}"
+mas_app_settings_attachment_provider_region: "{{ lookup('env', 'MAS_MANAGE_ATTACHMENTS_REGION') }}"
+mas_app_settings_attachment_provider_s3url: "{{ lookup('env', 'MAS_MANAGE_ATTACHMENTS_S3URL') }}"
+mas_app_settings_attachment_provider_secret_name: "{{ lookup('env', 'MAS_MANAGE_ATTACHMENTS_SECRET_NAME') | default(mas_workspace_id + '-' + mas_app_id + '-attachments-s3creds--sn', true) }}"
+
+
+# Default S3 Region (new CRD spec field — spec.defaultRegion)
+# Lowest-precedence fallback region for all S3 operations (attachments + logging).
+# Only written to the CR when non-empty.
+# -----------------------------------------------------------------------------
+mas_app_settings_default_s3_region: "{{ lookup('env', 'MAS_MANAGE_DEFAULT_S3_REGION') | default('', true) }}"
 
 
 # Pod Templates

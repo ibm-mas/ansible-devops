@@ -1,0 +1,19 @@
+---
+# Manage specific steps to configure the attachmentProvider CRD spec field
+# (spec.settings.db.attachmentProvider).  Creates the S3 credentials secret
+# that the operator will mount, then sets the mas_app_settings_attachment_provider_spec
+# fact so that defaultspecs/manage.yml includes it in the CR patch.
+# ------------------------------------------------------------------------
+- name: "Create secret containing Attachment Provider S3 credentials"
+  kubernetes.core.k8s:
+    template: "templates/manage/attachment-provider-s3creds.yml.j2"
+
+- name: "Set attachment provider spec fact"
+  set_fact:
+    mas_app_settings_attachment_provider_spec:
+      providerType: "{{ mas_app_settings_attachment_provider }}"
+      accessKey: "{{ mas_app_settings_attachment_provider_accesskey }}"
+      bucketName: "{{ mas_app_settings_attachment_provider_bucket }}"
+      region: "{{ mas_app_settings_attachment_provider_region }}"
+      secretName: "{{ mas_app_settings_attachment_provider_secret_name }}"
+      s3Url: "{{ mas_app_settings_attachment_provider_s3url if (mas_app_settings_attachment_provider_s3url is defined and mas_app_settings_attachment_provider_s3url | length > 0) else omit }}"
