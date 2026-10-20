@@ -47,107 +47,51 @@
         msg: "No WAF allowlist rule found for '{{ _cis_allowlist_rule_desc }}', nothing to delete"
       when: _cis_allowlist_rule_id | trim | length == 0
 
-    # Capture start timestamp and build base args before the CIS API call so
-    # IN_PROGRESS can be emitted with the correct deployment-start value.
-    # -------------------------------------------------------------------------
-    - name: "cis : ip-allowlist — capture deployment start timestamp (delete)"
-      ansible.builtin.set_fact:
-        _cis_allowlist_deployment_start: "{{ ansible_facts['date_time']['iso8601'] }}"
-      when:
-        - is_mas_mode
-        - _cis_allowlist_rule_id | trim | length > 0
-
-    - name: "cis : ip-allowlist — build status-update base args (delete)"
-      ansible.builtin.set_fact:
-        _cis_allowlist_status_base_args: >-
-          --region "{{ region_id }}"
-          --instance-id "{{ mas_instance_id }}"
-          --account "{{ account_id }}"
-          --cluster "{{ cluster_id }}"
-          --subscription-id "{{ subscription_id }}"
-          --type allow-list
-          --feature-details '{"ips": []}'
-          --deployment-start "{{ _cis_allowlist_deployment_start }}"
-      when:
-        - is_mas_mode
-        - _cis_allowlist_rule_id | trim | length > 0
-
-    - name: "cis : ip-allowlist — status update: IN_PROGRESS (delete)"
-      ansible.builtin.shell: |
-        mas-devops-feature-status-update status-update \
-          {{ _cis_allowlist_status_base_args }} \
-          --status IN_PROGRESS \
-          --status-details '{"message": "Allow list deactivation in progress.", "request_configuration": ""}'
-      when:
-        - is_mas_mode
-        - _cis_allowlist_rule_id | trim | length > 0
-      failed_when: false
-      register: _cis_status_in_progress_delete_result
-
-    - name: "cis : ip-allowlist — status update: IN_PROGRESS delete (result)"
-      ansible.builtin.debug:
-        var: _cis_status_in_progress_delete_result
-      when: _cis_status_in_progress_delete_result is defined
-
-    - name: "cis : ip-allowlist — delete existing WAF block rule"
-      ansible.builtin.shell: |
-        ibmcloud cis custom-waf rule-delete {{ _cis_domain_id }} \
-          {{ _cis_allowlist_rule_id }} \
-          -i "{{ cis_service_name }}" --force
-      register: _cis_allowlist_delete_result
-      retries: 5
-      delay: 30
-      until: _cis_allowlist_delete_result.rc == 0
-      failed_when: false
+    - name: "cis : ip-allowlist — delete existing rule"
       when: _cis_allowlist_rule_id | trim | length > 0
+      block:
 
-    - name: "cis : ip-allowlist — extract delete result rc"
-      ansible.builtin.set_fact:
-        _cis_allowlist_delete_rc: "{{ _cis_allowlist_delete_result.rc | default(0) | int }}"
-        _cis_allowlist_delete_msg: "{{ ((_cis_allowlist_delete_result.stdout_lines | default([])) + (_cis_allowlist_delete_result.stderr_lines | default([]))) | join(' ') | replace(\"'\", '') }}"
-      when: _cis_allowlist_delete_result is defined
+        # Start timestamp and base args are set before the CIS call so that
+        # IN_PROGRESS carries the correct deployment-start value.
+        - name: "cis : ip-allowlist — build status-update base args (delete)"
+          when: is_mas_mode
+          ansible.builtin.set_fact:
+            _cis_allowlist_status_base_args: >-
+              --region "{{ region_id }}"
+              --instance-id "{{ mas_instance_id }}"
+              --account "{{ account_id }}"
+              --cluster "{{ cluster_id }}"
+              --subscription-id "{{ subscription_id }}"
+              --type allow-list
+              --feature-details '{"ips": []}'
+              --deployment-start "{{ ansible_facts['date_time']['iso8601'] }}"
 
-    - name: "cis : ip-allowlist — capture failure (delete)"
-      ansible.builtin.set_fact:
-        _cis_error:
-          rc: "{{ _cis_allowlist_delete_rc }}"
-          msg: "{{ _cis_allowlist_delete_msg }}"
-      when:
-        - _cis_allowlist_delete_rc is defined
-        - _cis_allowlist_delete_rc != 0
+        - name: "cis : ip-allowlist — status update: IN_PROGRESS (delete)"
+          when: is_mas_mode
+          ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist_status.yml
+          vars:
+            allowlist_status: IN_PROGRESS
+            allowlist_status_message: "Allow list deactivation in progress."
 
-    - name: "cis : ip-allowlist — capture deployment end timestamp (delete)"
-      ansible.builtin.set_fact:
-        _cis_allowlist_deployment_end: "{{ ansible_facts['date_time']['iso8601'] }}"
-      when:
-        - _cis_allowlist_rule_id | trim | length > 0
-        - _cis_allowlist_delete_rc is defined
-        - _cis_allowlist_delete_rc == 0
+        - name: "cis : ip-allowlist — delete WAF rule"
+          ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist_waf_rule.yml
+          vars:
+            allowlist_action: delete
 
-    - name: "cis : ip-allowlist — status update: DEACTIVATED (delete)"
-      ansible.builtin.shell: |
-        mas-devops-feature-status-update status-update \
-          {{ _cis_allowlist_status_base_args }} \
-          --status DEACTIVATED \
-          --status-details '{"message": "Allow list has been deactivated.", "request_configuration": ""}' \
-          --deployment-end "{{ _cis_allowlist_deployment_end }}"
-      when:
-        - is_mas_mode
-        - _cis_allowlist_rule_id | trim | length > 0
-        - _cis_allowlist_delete_rc is defined
-        - _cis_allowlist_delete_rc == 0
-      failed_when: false
-      register: _cis_status_deactivated_result
+        - name: "cis : ip-allowlist — status update: DEACTIVATED (delete)"
+          when:
+            - is_mas_mode
+            - _cis_rule_result.rc == 0
+          ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist_status.yml
+          vars:
+            allowlist_status: DEACTIVATED
+            allowlist_status_message: "Allow list has been deactivated."
+            allowlist_deployment_end: "{{ _cis_allowlist_deployment_end }}"
 
-    - name: "cis : ip-allowlist — status update: DEACTIVATED (result)"
-      ansible.builtin.debug:
-        var: _cis_status_deactivated_result
-      when: _cis_status_deactivated_result is defined
-
-    - name: "cis : ip-allowlist — deletion confirmed"
-      ansible.builtin.debug:
-        msg: "WAF IP allowlist rule '{{ _cis_allowlist_rule_desc }}' deleted successfully for instance {{ instance_id }}"
-      when: _cis_allowlist_rule_id | trim | length > 0
+        - name: "cis : ip-allowlist — deletion confirmed"
+          when: _cis_rule_result.rc == 0
+          ansible.builtin.debug:
+            msg: "WAF IP allowlist rule '{{ _cis_allowlist_rule_desc }}' deleted successfully for instance {{ instance_id }}"
 
 - name: "cis : ip-allowlist — manage create/update (allow_list set)"
   when: cis_allowed_ips | trim | length > 0
@@ -168,22 +112,21 @@
         _cis_allowlist_expression: >-
           {{ '(not ip.src in {' + (_cis_normalised_ips | join(' ')) + '} and http.host contains "' + domain + '")' }}
 
-    # Fetch current expression BEFORE any status or API decision.
-    # Set to empty string when no rule exists (create path) so the comparison
-    # _cis_existing_expression != _cis_allowlist_expression is always true there.
-    # -------------------------------------------------------------------------
-    - name: "cis : ip-allowlist — fetch current rule expression (existing rule)"
+    # Existing expression is empty when no rule exists, so create always counts as a change.
+    - name: "cis : ip-allowlist — fetch current rule expression"
       ansible.builtin.set_fact:
         _cis_existing_expression: >-
-          {{ (_cis_custom_rules_result.stdout | from_json).get('rules', [])
-             | selectattr('description', 'equalto', _cis_allowlist_rule_desc)
-             | map(attribute='expression') | list | first | default('') }}
-      when: _cis_allowlist_rule_id | trim | length > 0
+          {{ ((_cis_custom_rules_result.stdout | from_json).get('rules', [])
+              | selectattr('description', 'equalto', _cis_allowlist_rule_desc)
+              | map(attribute='expression') | list | first | default(''))
+             if _cis_allowlist_rule_id | trim | length > 0 else '' }}
 
-    - name: "cis : ip-allowlist — set existing expression to empty (no rule yet)"
+    # create = no rule yet | update = rule exists and expression changed | noop = already up to date
+    - name: "cis : ip-allowlist — decide action"
       ansible.builtin.set_fact:
-        _cis_existing_expression: ""
-      when: _cis_allowlist_rule_id | trim | length == 0
+        _cis_allowlist_action: >-
+          {{ 'create' if _cis_allowlist_rule_id | trim | length == 0
+             else ('update' if _cis_existing_expression != _cis_allowlist_expression else 'noop') }}
 
     - name: "cis : ip-allowlist — show configuration"
       ansible.builtin.debug:
@@ -194,189 +137,47 @@
           - "WAF Expression ........... {{ _cis_allowlist_expression }}"
           - "Existing Expression ...... {{ _cis_existing_expression | default('(none)') }}"
           - "Existing Rule ID ......... {{ _cis_allowlist_rule_id | default('(none — will create)') }}"
-          - "Config changed ........... {{ _cis_existing_expression != _cis_allowlist_expression }}"
+          - "Action ................... {{ _cis_allowlist_action }}"
 
-    # No-op: rule already exists with the same expression.
-    # No CIS API call, no status update.
-    # -------------------------------------------------------------------------
     - name: "cis : ip-allowlist — no change detected, skipping"
+      when: _cis_allowlist_action == 'noop'
       ansible.builtin.debug:
         msg: >-
           WAF IP allowlist rule '{{ _cis_allowlist_rule_desc }}' is already up to date,
           no status update or CIS API call required for instance {{ instance_id }}
-      when:
-        - _cis_allowlist_rule_id | trim | length > 0
-        - _cis_existing_expression == _cis_allowlist_expression
 
-    # Create path: no existing rule
-    #   IN_PROGRESS → ibmcloud rule-create → ACTIVE / ERROR
-    # -------------------------------------------------------------------------
-    - name: "cis : ip-allowlist — status update: IN_PROGRESS (create)"
-      ansible.builtin.shell: |
-        mas-devops-feature-status-update status-update \
-          {{ _cis_allowlist_status_base_args }} \
-          --status IN_PROGRESS \
-          --status-details '{"message": "Allow list deployment in progress.", "request_configuration": "{{ _cis_normalised_ips | join(", ") }}"}'
-      when:
-        - is_mas_mode
-        - _cis_allowlist_rule_id | trim | length == 0
-      failed_when: false
-      register: _cis_status_in_progress_create_result
+    - name: "cis : ip-allowlist — {{ _cis_allowlist_action }} rule"
+      when: _cis_allowlist_action in ['create', 'update']
+      block:
 
-    - name: "cis : ip-allowlist — status update: IN_PROGRESS create (result)"
-      ansible.builtin.debug:
-        var: _cis_status_in_progress_create_result
-      when: _cis_status_in_progress_create_result is defined
+        - name: "cis : ip-allowlist — status update: IN_PROGRESS ({{ _cis_allowlist_action }})"
+          when: is_mas_mode
+          ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist_status.yml
+          vars:
+            allowlist_status: IN_PROGRESS
+            allowlist_status_message: "Allow list deployment in progress."
+            allowlist_status_request: "{{ _cis_normalised_ips | join(', ') }}"
 
-    - name: "cis : ip-allowlist — create WAF block rule (new)"
-      ansible.builtin.shell: |
-        EXPR='{{ _cis_allowlist_expression }}'
-        ibmcloud cis custom-waf rule-create {{ _cis_domain_id }} \
-          -i "{{ cis_service_name }}" \
-          --action block \
-          --match "$EXPR" \
-          --description "{{ _cis_allowlist_rule_desc }}" \
-          --enabled true
-      register: _cis_allowlist_create_result
-      retries: 5
-      delay: 30
-      until: _cis_allowlist_create_result.rc == 0
-      failed_when: false
-      when: _cis_allowlist_rule_id | trim | length == 0
+        - name: "cis : ip-allowlist — {{ _cis_allowlist_action }} WAF rule"
+          ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist_waf_rule.yml
+          vars:
+            allowlist_action: "{{ _cis_allowlist_action }}"
 
-    - name: "cis : ip-allowlist — extract create result rc"
-      ansible.builtin.set_fact:
-        _cis_allowlist_create_rc: "{{ _cis_allowlist_create_result.rc | default(0) | int }}"
-        _cis_allowlist_create_msg: "{{ ((_cis_allowlist_create_result.stdout_lines | default([])) + (_cis_allowlist_create_result.stderr_lines | default([]))) | join(' ') | replace(\"'\", '') }}"
-      when: _cis_allowlist_create_result is defined
+        - name: "cis : ip-allowlist — status update: ACTIVE ({{ _cis_allowlist_action }})"
+          when:
+            - is_mas_mode
+            - _cis_rule_result.rc == 0
+          ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist_status.yml
+          vars:
+            allowlist_status: ACTIVE
+            allowlist_status_message: "Allow list is active."
+            allowlist_status_request: "{{ _cis_normalised_ips | join(', ') }}"
+            allowlist_deployment_end: "{{ _cis_allowlist_deployment_end }}"
 
-    - name: "cis : ip-allowlist — capture deployment end timestamp (create)"
-      ansible.builtin.set_fact:
-        _cis_allowlist_deployment_end: "{{ ansible_facts['date_time']['iso8601'] }}"
-      when:
-        - _cis_allowlist_rule_id | trim | length == 0
-        - _cis_allowlist_create_rc is defined
-        - _cis_allowlist_create_rc == 0
-
-    - name: "cis : ip-allowlist — capture failure (create)"
-      ansible.builtin.set_fact:
-        _cis_error:
-          rc: "{{ _cis_allowlist_create_rc }}"
-          msg: "{{ _cis_allowlist_create_msg }}"
-      when:
-        - _cis_allowlist_create_rc is defined
-        - _cis_allowlist_create_rc != 0
-
-    - name: "cis : ip-allowlist — status update: ACTIVE (create)"
-      ansible.builtin.shell: |
-        mas-devops-feature-status-update status-update \
-          {{ _cis_allowlist_status_base_args }} \
-          --status ACTIVE \
-          --status-details '{"message": "Allow list is active.", "request_configuration": "{{ _cis_normalised_ips | join(", ") }}"}' \
-          --deployment-end "{{ _cis_allowlist_deployment_end }}"
-      when:
-        - is_mas_mode
-        - _cis_allowlist_rule_id | trim | length == 0
-        - _cis_allowlist_create_rc is defined
-        - _cis_allowlist_create_rc == 0
-      failed_when: false
-      register: _cis_status_active_create_result
-
-    - name: "cis : ip-allowlist — status update: ACTIVE create (result)"
-      ansible.builtin.debug:
-        var: _cis_status_active_create_result
-      when: _cis_status_active_create_result is defined
-
-    # Update path: rule exists AND expression has changed
-    #   IN_PROGRESS → ibmcloud rule-update → ACTIVE / ERROR
-    # When expression is unchanged: none of these tasks run (no API call, no status).
-    # -------------------------------------------------------------------------
-    - name: "cis : ip-allowlist — status update: IN_PROGRESS (update)"
-      ansible.builtin.shell: |
-        mas-devops-feature-status-update status-update \
-          {{ _cis_allowlist_status_base_args }} \
-          --status IN_PROGRESS \
-          --status-details '{"message": "Allow list deployment in progress.", "request_configuration": "{{ _cis_normalised_ips | join(", ") }}"}'
-      when:
-        - is_mas_mode
-        - _cis_allowlist_rule_id | trim | length > 0
-        - _cis_existing_expression != _cis_allowlist_expression
-      failed_when: false
-      register: _cis_status_in_progress_update_result
-
-    - name: "cis : ip-allowlist — status update: IN_PROGRESS update (result)"
-      ansible.builtin.debug:
-        var: _cis_status_in_progress_update_result
-      when: _cis_status_in_progress_update_result is defined
-
-    - name: "cis : ip-allowlist — update WAF block rule (existing)"
-      ansible.builtin.shell: |
-        EXPR='{{ _cis_allowlist_expression }}'
-        ibmcloud cis custom-waf rule-update {{ _cis_domain_id }} \
-          {{ _cis_allowlist_rule_id }} \
-          -i "{{ cis_service_name }}" \
-          --action block \
-          --match "$EXPR" \
-          --description "{{ _cis_allowlist_rule_desc }}" \
-          --enabled true
-      register: _cis_allowlist_update_result
-      retries: 5
-      delay: 30
-      until: _cis_allowlist_update_result.rc == 0
-      failed_when: false
-      when:
-        - _cis_allowlist_rule_id | trim | length > 0
-        - _cis_existing_expression != _cis_allowlist_expression
-
-    - name: "cis : ip-allowlist — extract update result rc"
-      ansible.builtin.set_fact:
-        _cis_allowlist_update_rc: "{{ _cis_allowlist_update_result.rc | default(0) | int }}"
-        _cis_allowlist_update_msg: "{{ ((_cis_allowlist_update_result.stdout_lines | default([])) + (_cis_allowlist_update_result.stderr_lines | default([]))) | join(' ') | replace(\"'\", '') }}"
-      when: _cis_allowlist_update_result is defined
-
-    - name: "cis : ip-allowlist — capture deployment end timestamp (update)"
-      ansible.builtin.set_fact:
-        _cis_allowlist_deployment_end: "{{ ansible_facts['date_time']['iso8601'] }}"
-      when:
-        - _cis_allowlist_rule_id | trim | length > 0
-        - _cis_existing_expression != _cis_allowlist_expression
-        - _cis_allowlist_update_rc is defined
-        - _cis_allowlist_update_rc == 0
-
-    - name: "cis : ip-allowlist — capture failure (update)"
-      ansible.builtin.set_fact:
-        _cis_error:
-          rc: "{{ _cis_allowlist_update_rc }}"
-          msg: "{{ _cis_allowlist_update_msg }}"
-      when:
-        - _cis_allowlist_update_rc is defined
-        - _cis_allowlist_update_rc != 0
-
-    - name: "cis : ip-allowlist — status update: ACTIVE (update)"
-      ansible.builtin.shell: |
-        mas-devops-feature-status-update status-update \
-          {{ _cis_allowlist_status_base_args }} \
-          --status ACTIVE \
-          --status-details '{"message": "Allow list is active.", "request_configuration": "{{ _cis_normalised_ips | join(", ") }}"}' \
-          --deployment-end "{{ _cis_allowlist_deployment_end }}"
-      when:
-        - is_mas_mode
-        - _cis_allowlist_rule_id | trim | length > 0
-        - _cis_existing_expression != _cis_allowlist_expression
-        - _cis_allowlist_update_rc is defined
-        - _cis_allowlist_update_rc == 0
-      failed_when: false
-      register: _cis_status_active_update_result
-
-    - name: "cis : ip-allowlist — status update: ACTIVE update (result)"
-      ansible.builtin.debug:
-        var: _cis_status_active_update_result
-      when: _cis_status_active_update_result is defined
-
-    - name: "cis : ip-allowlist — result"
-      ansible.builtin.debug:
-        msg: >-
-          WAF IP allowlist rule '{{ _cis_allowlist_rule_desc }}'
-          {{ 'created' if _cis_allowlist_rule_id | trim | length == 0 else 'updated' }}
-          successfully for instance {{ instance_id }}
-      when: _cis_existing_expression != _cis_allowlist_expression
+        - name: "cis : ip-allowlist — result"
+          when: _cis_rule_result.rc == 0
+          ansible.builtin.debug:
+            msg: >-
+              WAF IP allowlist rule '{{ _cis_allowlist_rule_desc }}'
+              {{ 'created' if _cis_allowlist_action == 'create' else 'updated' }}
+              successfully for instance {{ instance_id }}

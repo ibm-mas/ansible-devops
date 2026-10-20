@@ -1,7 +1,6 @@
 ---
 # Set allowlisting REQUESTED status in MongoDB.
 # Sets _cis_allowlist_status_base_args used by ALL downstream status
-# ─────────────────────────────────────────────────────────────────────────────
 - name: "cis : ip-allowlist — requested: get current WAF rules"
   ansible.builtin.shell: |
     ibmcloud cis custom-waf rules {{ _cis_domain_id }} \
@@ -78,17 +77,8 @@
 
 - name: "cis : ip-allowlist — requested: set REQUESTED status"
   when: _cis_preflight_existing_expr != _cis_preflight_expected_expr
-  block:
-
-    - name: "cis : ip-allowlist — status update: REQUESTED"
-      ansible.builtin.shell: |
-        mas-devops-feature-status-update status-update \
-          {{ _cis_allowlist_status_base_args }} \
-          --status REQUESTED \
-          --status-details '{"message": "Allow list request received.", "request_configuration": "{{ _cis_preflight_normalised_ips | join(", ") }}"}'
-      failed_when: false
-      register: _cis_status_requested_result
-
-    - name: "cis : ip-allowlist — status update: REQUESTED (result)"
-      ansible.builtin.debug:
-        var: _cis_status_requested_result
+  ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist_status.yml
+  vars:
+    allowlist_status: REQUESTED
+    allowlist_status_message: "Allow list request received."
+    allowlist_status_request: "{{ _cis_preflight_normalised_ips | join(', ') }}"
