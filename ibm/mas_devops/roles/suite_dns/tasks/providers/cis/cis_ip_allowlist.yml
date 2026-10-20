@@ -146,11 +146,11 @@
           WAF IP allowlist rule '{{ _cis_allowlist_rule_desc }}' is already up to date,
           no status update or CIS API call required for instance {{ instance_id }}
 
-    - name: "cis : ip-allowlist — {{ _cis_allowlist_action }} rule"
+    - name: "cis : ip-allowlist — create or update rule"
       when: _cis_allowlist_action in ['create', 'update']
       block:
 
-        - name: "cis : ip-allowlist — status update: IN_PROGRESS ({{ _cis_allowlist_action }})"
+        - name: "cis : ip-allowlist — status update: IN_PROGRESS (create/update)"
           when: is_mas_mode
           ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist_status.yml
           vars:
@@ -158,12 +158,12 @@
             allowlist_status_message: "Allow list deployment in progress."
             allowlist_status_request: "{{ _cis_normalised_ips | join(', ') }}"
 
-        - name: "cis : ip-allowlist — {{ _cis_allowlist_action }} WAF rule"
+        - name: "cis : ip-allowlist — create or update WAF rule"
           ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist_waf_rule.yml
           vars:
             allowlist_action: "{{ _cis_allowlist_action }}"
 
-        - name: "cis : ip-allowlist — status update: ACTIVE ({{ _cis_allowlist_action }})"
+        - name: "cis : ip-allowlist — status update: ACTIVE (create/update)"
           when:
             - is_mas_mode
             - _cis_rule_result.rc == 0
