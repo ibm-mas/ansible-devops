@@ -158,6 +158,75 @@ WatsonX AI project identifier.
 - Format is typically a UUID (e.g., `12345678-1234-1234-1234-123456789012`)
 - Project must exist before configuring AI Broker
 
+### aiservice_llm_provider
+Name of the LLM provider (for example `geap`).
+
+- Optional
+- Environment Variable: `AISERVICE_LLM_PROVIDER`
+- Default: None (empty string)
+
+**Purpose**: Identifies which provider the tenant's credentials are for when not using WatsonX.
+
+**When to use**: Only when using a provider other than WatsonX. Written to the tenant secret as `llm_provider` when set.
+
+### aiservice_llm_model_id
+Model identifier to use with the provider.
+
+- Optional
+- Environment Variable: `AISERVICE_LLM_MODEL_ID`
+- Default: None (empty string)
+
+**Purpose**: Selects the model used with the configured provider.
+
+**When to use**: Only when using a provider other than WatsonX. Written to the tenant secret as `llm_model_id` when set.
+
+### aiservice_llm_client_id
+OAuth client ID for a non-WatsonX provider.
+
+- Optional
+- Environment Variable: `AISERVICE_LLM_CLIENT_ID`
+- Default: None (empty string)
+
+**Purpose**: Provides OAuth credentials for a non-WatsonX provider such as Google GEAP.
+
+**When to use**: Only when using a provider other than WatsonX. When set, `llm_client_id`, `llm_client_secret`, `llm_refresh_token` and `llm_base_url` are written to the tenant secret together, so also set [`aiservice_llm_client_secret`](#aiservice_llm_client_secret), [`aiservice_llm_refresh_token`](#aiservice_llm_refresh_token) and [`aiservice_llm_base_url`](#aiservice_llm_base_url).
+
+**Notes**:
+- WatsonX and non-WatsonX credentials can be set at the same time; they are stored in the same secret
+
+### aiservice_llm_client_secret
+OAuth client secret for a non-WatsonX provider.
+
+- Optional
+- Environment Variable: `AISERVICE_LLM_CLIENT_SECRET`
+- Default: None (empty string)
+
+**When to use**: Required when [`aiservice_llm_client_id`](#aiservice_llm_client_id) is set. Stored as `llm_client_secret`.
+
+**Notes**:
+- **Security**: Store securely, never commit to version control
+
+### aiservice_llm_refresh_token
+OAuth refresh token for a non-WatsonX provider.
+
+- Optional
+- Environment Variable: `AISERVICE_LLM_REFRESH_TOKEN`
+- Default: None (empty string)
+
+**When to use**: Required when [`aiservice_llm_client_id`](#aiservice_llm_client_id) is set. Stored as `llm_refresh_token`.
+
+**Notes**:
+- **Security**: Store securely, never commit to version control
+
+### aiservice_llm_base_url
+Base URL of the non-WatsonX provider API.
+
+- Optional
+- Environment Variable: `AISERVICE_LLM_BASE_URL`
+- Default: None (empty string)
+
+**When to use**: Required when [`aiservice_llm_client_id`](#aiservice_llm_client_id) is set. Stored as `llm_base_url`.
+
 ## Entitlement Configuration
 Configure the tenant's entitlement to the AI Service for licensing and access control.
 
