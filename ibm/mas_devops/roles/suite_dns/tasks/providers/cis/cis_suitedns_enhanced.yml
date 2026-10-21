@@ -1,15 +1,4 @@
 ---
-# All CIS tasks are wrapped in a single block/rescue.
-# The rescue catches BOTH:
-#   - hard Ansible failures (e.g. edge cert 429, login failure) that would
-#     otherwise bypass any end-of-file error task
-#   - soft failures recorded via _cis_error by tasks using failed_when: false
-# ERROR is only written to MongoDB when:
-#   - is_mas_mode
-#   - allowlist was in flight (_cis_allowlist_status_base_args defined)
-#   - allowlist has not already succeeded (_cis_allowlist_deployment_end not defined)
-# The rescue always re-raises so the job exits non-zero.
-# -------------------------------------------------------------------------
 - name: "cis : suite dns — full CIS block"
   block:
 
@@ -204,12 +193,6 @@
         - _cis_allowlist_status_base_args is defined
 
   rescue:
-    # Catches ansible error
-    # failures recorded via _cis_error. Writes ERROR to MongoDB only when:
-    #   - MAS mode
-    #   - Allowlist was in flight (base args set by pre-flight or allowlist block)
-    #   - Allowlist had not already succeeded (deployment_end not set)
-    # -------------------------------------------------------------------------
     - name: "cis : status update: ERROR (rescue)"
       ansible.builtin.shell: |
         mas-devops-feature-status-update status-update \
