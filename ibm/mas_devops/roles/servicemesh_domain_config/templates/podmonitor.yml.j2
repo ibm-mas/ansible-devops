@@ -1,0 +1,28 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: istio-proxies-monitor
+  namespace: "{{ targetNamespace }}"
+spec:
+  selector:
+    matchExpressions:
+      - key: istio-prometheus-ignore
+        operator: DoesNotExist
+  podMetricsEndpoints:
+    - path: /stats/prometheus
+      interval: 30s
+      relabelings:
+        - action: replace
+          replacement: $1:15020
+          sourceLabels:
+            - __meta_kubernetes_pod_ip
+          targetLabel: __address__
+        - action: replace
+          sourceLabels:
+            - __meta_kubernetes_pod_namespace
+          targetLabel: namespace
+        - action: replace
+          sourceLabels:
+            - __meta_kubernetes_pod_name
+          targetLabel: pod

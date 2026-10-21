@@ -1,0 +1,22 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scraping
+  namespace: "{{ targetNamespace }}"
+spec:
+  podSelector: {}
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchExpressions:
+              - key: kubernetes.io/metadata.name
+                operator: In
+                values:
+                  - openshift-monitoring
+                  - openshift-user-workload-monitoring
+      ports:
+        - protocol: TCP
+          port: 15020
+  policyTypes:
+    - Ingress
