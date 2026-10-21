@@ -245,7 +245,7 @@ The IBM Cloud COS region identifier.
 
 - **Optional** (IBM COS only)
 - Environment Variable: `COS_REGION`
-- Default Value: None
+- Default Value: None (empty; region is omitted from the secret and `ObjectStorageCfg` when not set)
 
 **Purpose**: Specifies the geographic region for the IBM Cloud COS instance (e.g., `us-south`, `eu-de`, `us-east`). When provided, it is included in the secret and `ObjectStorageCfg` resource.
 
