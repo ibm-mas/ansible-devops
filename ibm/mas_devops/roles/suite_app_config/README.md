@@ -857,6 +857,13 @@ Sets the Manage server timezone. If you also want to have the Manage's DB2 datab
 - Environment Variable: `MAS_APP_SETTINGS_SERVER_TIMEZONE`
 - Default: `GMT`
 
+#### default_region
+Sets the global default region in `spec.settings.defaultRegion` on the ManageWorkspace CR. Injected as `mxe.defaults3region` in `maximo.properties` on disk by the operator.
+
+- **Optional**
+- Environment Variable: `DEFAULT_REGION`
+- Default: `""`
+
 ### Facilities Workspace Variables
 
 #### mas_ws_facilities_size

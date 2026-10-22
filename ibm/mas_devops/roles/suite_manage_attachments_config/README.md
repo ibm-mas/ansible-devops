@@ -140,6 +140,25 @@ ManageWorkspace custom resource name.
 
 **Note**: The default naming convention `{instance}-{workspace}` matches standard Manage deployments. Only override if you have custom CR names.
 
+### manage_attachments_secret_name
+Kubernetes Secret name storing attachment provider secret key.
+
+- **Optional**
+- Default: `{manage_workspace_cr_name}-manage-{mas_manage_attachments_provider}-access-key`
+
+**Purpose**: Specifies the name of the Kubernetes Secret created to store the secret access key (`accessSecretKey`) for the attachment provider when using CR configuration mode.
+
+**When to use**:
+- Used automatically when `mas_manage_attachment_configuration_mode=cr` with cloud storage (`ibm` or `aws`)
+
+**Valid values**: Valid Kubernetes Secret resource name
+
+**Impact**: Creates and links the Secret in `spec.settings.db.attachmentProvider` under `ManageWorkspace` CR.
+
+**Related variables**:
+- `manage_workspace_cr_name`: Parent ManageWorkspace CR name
+- `mas_manage_attachments_provider`: Provider type (`aws` or `ibm`)
+
 ### db2_instance_name
 Db2 Warehouse instance name.
 

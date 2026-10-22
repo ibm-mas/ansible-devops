@@ -73,10 +73,45 @@
 - debug:
     var: serverBundles
 
-# Configure Server bundle properties into Manage Workspace
+# Create Secret for Manage Attachment Provider Credentials
+# -----------------------------------------------------------------------------
+- name: "Create Secret for Manage Attachment Provider Credentials"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{ manage_attachments_secret_name }}"
+        namespace: "mas-{{ mas_instance_id }}-manage"
+        labels:
+          mas.ibm.com/instanceId: "{{ mas_instance_id }}"
+          mas.ibm.com/workspaceId: "{{ mas_workspace_id }}"
+          mas.ibm.com/applicationId: "{{ mas_app_id }}"
+      type: Opaque
+      stringData:
+        accessSecretKey: "{{ secretAccesskey }}"
+        secretKey: "{{ secretAccesskey }}"
+  when: mas_manage_attachments_provider in ['aws', 'ibm']
+
+- name: Set Attachment Provider dictionary
+  set_fact:
+    attachment_provider_config:
+      providerSourceType: "{{ mas_manage_attachments_provider }}"
+      "{{ mas_manage_attachments_provider }}":
+        providerCredentials:
+          accessKey: "{{ accessKey }}"
+          bucketName: "{{ bucketName }}"
+          region: "{{ cosRegion }}"
+          s3Url: "{{ cos_url | default(bucketEndpoint[mas_manage_attachments_provider], true) }}"
+          secretKey:
+            secretName: "{{ manage_attachments_secret_name }}"
+  when: mas_manage_attachments_provider in ['aws', 'ibm']
+
+# Configure Server bundle properties and Attachment Provider into Manage Workspace
 # -----------------------------------------------------------------------------
 - name: "Add the Server Bundle doclinks properties in ManageWorkspace CR"
   kubernetes.core.k8s:
+    merge_type: merge
     definition:
       apiVersion: apps.mas.ibm.com/v1
       kind: ManageWorkspace
@@ -88,6 +123,7 @@
           deployment:
             serverBundles: |
               {{ serverBundles }}
+          db: "{{ {'attachmentProvider': attachment_provider_config} if (attachment_provider_config is defined) else {} }}"
   register: managews_sb_output
 
 - name: "Debug information"
