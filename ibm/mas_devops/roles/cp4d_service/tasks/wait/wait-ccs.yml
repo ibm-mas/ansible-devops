@@ -171,13 +171,22 @@
         name: ccs-role
         namespace: "{{ cpd_instance_namespace }}"
       register: ccs_role_lookup
-      until: ccs_role_lookup.resources | length > 0
-      retries: 30 # approx 5 minutes before we give up waiting
+      until:
+        - ccs_role_lookup.resources is defined
+        - ccs_role_lookup.resources | length > 0
+      retries: 60 # approx 10 minutes before we give up waiting
       delay: 10 # seconds
       failed_when: false
 
+    - name: "wait-ccs : Warn if ccs-role was not found"
+      when: ccs_role_lookup.resources is not defined or ccs_role_lookup.resources | length == 0
+      debug:
+        msg: "WARNING: ccs-role not found in {{ cpd_instance_namespace }}; pods/exec patch skipped. If ccsStatus fails with 403 Forbidden on wdp-couchdb-0, add 'create' to the pods/exec rule of ccs-role manually."
+
     - name: "wait-ccs : Check whether ccs-role already allows 'create' on pods/exec"
-      when: ccs_role_lookup.resources | length > 0
+      when:
+        - ccs_role_lookup.resources is defined
+        - ccs_role_lookup.resources | length > 0
       set_fact:
         ccs_role_exec_ok: >-
           {%- set ns = namespace(ok=false) -%}
@@ -191,8 +200,9 @@
 
     - name: "wait-ccs : Add 'create' on pods/exec to ccs-role"
       when:
+        - ccs_role_lookup.resources is defined
         - ccs_role_lookup.resources | length > 0
-        - not (ccs_role_exec_ok | bool)
+        - not (ccs_role_exec_ok | default(false) | bool)
       kubernetes.core.k8s_json_patch:
         api_version: rbac.authorization.k8s.io/v1
         kind: Role
