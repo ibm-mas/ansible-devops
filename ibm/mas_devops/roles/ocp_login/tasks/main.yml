@@ -18,7 +18,12 @@
 
 # 3. Perform login using cluster specific login
 # -----------------------------------------------------------------------------
-- include_tasks: "tasks/login-{{ cluster_type }}.yml"
+- set_fact:
+    ocp_login_cluster_type: "{{ 'roks' if cluster_type == 'roks-vpc' else cluster_type }}"
+  when:
+    - cluster_type is defined and cluster_type != 'in-cluster'
+
+- include_tasks: "tasks/login-{{ ocp_login_cluster_type }}.yml"
   when:
     - cluster_type != 'in-cluster'
     - ocp_token is not defined or ocp_token == ""

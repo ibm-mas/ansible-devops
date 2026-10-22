@@ -1,0 +1,67 @@
+---
+# Create one subnet per zone (zones 1, 2, 3), attaching the pre-created public
+# gateway inline via --pgw per the IBM Cloud VPC tutorial ordering:
+# https://cloud.ibm.com/docs/openshift?topic=openshift-vpc_rh_tutorial
+# Depends on: roks_vpc_id (set by vpc.yml), roks_gateway_ids (set by gateway.yml)
+# Sets facts:
+#   roks_subnet_ids  - list of subnet IDs [zone-1, zone-2, zone-3]
+#   roks_subnet_id   - the zone-1 subnet ID (used by roks-vpc as the default worker pool subnet)
+
+- name: "roks-vpc-setup/subnet : List existing subnets in VPC"
+  shell: |
+    ibmcloud is subnets --vpc {{ roks_vpc_id }} --resource-group-name {{ ibmcloud_resourcegroup }} --output json
+  register: subnet_list_raw
+
+- name: "roks-vpc-setup/subnet : Ensure subnet exists in {{ ibmcloud_region }}-{{ item }}"
+  vars:
+    zone: "{{ ibmcloud_region }}-{{ item }}"
+    zone_index: "{{ item | int - 1 }}"
+    subnet_name: "{{ roks_vpc_name }}-subnet-{{ ibmcloud_region }}-{{ item }}"
+    gateway_id: "{{ roks_gateway_ids[zone_index | int] }}"
+    zone_has_subnet: "{{ subnet_list_raw.stdout | from_json | selectattr('zone.name', 'equalto', zone) | list | length > 0 }}"
+  shell: |
+    ibmcloud is subnet-create {{ subnet_name }} \
+      {{ roks_vpc_id }} \
+      --zone {{ zone }} \
+      --ipv4-address-count 256 \
+      --pgw {{ gateway_id }} \
+      --resource-group-name {{ ibmcloud_resourcegroup }} \
+      --output json
+  when: not zone_has_subnet
+  loop: [1, 2, 3]
+
+- name: "roks-vpc-setup/subnet : Refresh subnet list after creation"
+  shell: |
+    ibmcloud is subnets --vpc {{ roks_vpc_id }} --resource-group-name {{ ibmcloud_resourcegroup }} --output json
+  register: subnet_list_final_raw
+
+- name: "roks-vpc-setup/subnet : Build roks_subnet_ids list [zone-1, zone-2, zone-3]"
+  set_fact:
+    roks_subnet_ids: >-
+      {{
+        subnet_list_final_raw.stdout | from_json
+        | selectattr('zone.name', 'in', [
+            ibmcloud_region ~ '-1',
+            ibmcloud_region ~ '-2',
+            ibmcloud_region ~ '-3'
+          ])
+        | sort(attribute='zone.name')
+        | map(attribute='id')
+        | list
+      }}
+
+- name: "roks-vpc-setup/subnet : Set roks_subnet_id to zone-1 subnet"
+  set_fact:
+    roks_subnet_id: >-
+      {{
+        subnet_list_final_raw.stdout | from_json
+        | selectattr('zone.name', 'equalto', ibmcloud_region ~ '-1')
+        | map(attribute='id') | first
+      }}
+
+- name: "roks-vpc-setup/subnet : Debug subnet IDs"
+  debug:
+    msg:
+      - "Subnet {{ ibmcloud_region }}-1 ... {{ roks_subnet_ids[0] }}"
+      - "Subnet {{ ibmcloud_region }}-2 ... {{ roks_subnet_ids[1] }}"
+      - "Subnet {{ ibmcloud_region }}-3 ... {{ roks_subnet_ids[2] }}"

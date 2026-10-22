@@ -1,0 +1,58 @@
+---
+# Create a GPU worker pool and attach it to the target zone.
+# Only runs when ocp_provision_gpu is true.
+# Depends on: cluster_name, roks_zone, roks_subnet_id,
+#             gpu_workerpool_name, gpu_workers, gpu_flavor
+
+- name: "roks-vpc/gpu : Debug GPU worker pool information"
+  debug:
+    msg:
+      - "GPU worker pool name ......... {{ gpu_workerpool_name }}"
+      - "GPU workers per zone ......... {{ gpu_workers }}"
+      - "GPU flavor ................... {{ gpu_flavor }}"
+
+- name: "roks-vpc/gpu : Check if GPU worker pool already exists"
+  shell: |
+    ibmcloud oc worker-pool get --cluster {{ cluster_name }} --worker-pool {{ gpu_workerpool_name }} --output json
+  register: gpu_workerpool_lookup
+  failed_when: "gpu_workerpool_lookup.rc > 1"
+
+- name: "roks-vpc/gpu : Debug GPU worker pool status"
+  when: gpu_workerpool_lookup.rc == 0
+  debug:
+    msg: "GPU worker pool '{{ gpu_workerpool_name }}' already exists, skipping creation"
+
+- name: "roks-vpc/gpu : Create GPU worker pool"
+  when: gpu_workerpool_lookup.rc == 1
+  shell: >
+    ibmcloud oc worker-pool create vpc-gen2 \
+      --cluster {{ cluster_name }} \
+      --name {{ gpu_workerpool_name }} \
+      --flavor {{ gpu_flavor }} \
+      --size-per-zone {{ gpu_workers }} \
+      --entitlement ocp_entitled
+
+- name: "roks-vpc/gpu : Check if GPU worker pool zone is already configured"
+  when: gpu_workerpool_lookup.rc == 0
+  set_fact:
+    gpu_zone_already_added: >-
+      {{
+        (gpu_workerpool_lookup.stdout | from_json).zones
+        | selectattr('id', 'equalto', roks_zone)
+        | list | length > 0
+      }}
+
+- name: "roks-vpc/gpu : Add zone to GPU worker pool"
+  when: gpu_workerpool_lookup.rc == 1 or not (gpu_zone_already_added | default(false))
+  shell: >
+    ibmcloud oc zone add vpc-gen2 \
+      --zone {{ roks_zone }} \
+      --cluster {{ cluster_name }} \
+      --worker-pool {{ gpu_workerpool_name }} \
+      --subnet-id {{ roks_subnet_id }}
+
+- name: "roks-vpc/gpu : GPU worker pool provisioning will continue in the background"
+  debug:
+    msg: >-
+      GPU worker pool '{{ gpu_workerpool_name }}' has been created in zone '{{ roks_zone }}'
+      using flavor '{{ gpu_flavor }}'. Worker nodes can take 30-60 minutes to become ready.

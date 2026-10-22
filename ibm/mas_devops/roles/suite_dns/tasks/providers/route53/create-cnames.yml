@@ -37,14 +37,14 @@
     that: route53_lb_dnsname is defined and route53_lb_dnsname != ""
     fail_msg: "There is no Load Balancer DNS Name found for {{ cluster_ingress }}. Verify your AWS Route53 hosted zone '{{ route53_hosted_zone_name }}' and ensure there's an 'A type' entry for your cluster and a corresponding load balancer associated to it."
 
-- name: "aws-route53 : Generate CNAME json file in: {{ route53_cname_json_file_path_local }}/{{ mas_instance_id }}-{{ route53_hosted_zone_name }}-cnames.json"
+- name: "aws-route53 : Generate CNAME json file in: {{ route53_cname_json_file_path_local }}/{{ instance_id }}-{{ route53_hosted_zone_name }}-cnames.json"
   ansible.builtin.template:
     src: "{{ route53_cname_json_file_path_local }}/create-cnames.json.j2"
-    dest: "{{ route53_cname_json_file_path_local }}/{{ mas_instance_id }}-{{ route53_hosted_zone_name }}-cnames.json"
+    dest: "{{ route53_cname_json_file_path_local }}/{{ instance_id }}-{{ route53_hosted_zone_name }}-cnames.json"
     mode: "664"
 
 - name: "aws-route53 : Create CNAME records pointing to {{ route53_lb_dnsname }}"
   shell: |
-    aws route53 change-resource-record-sets --hosted-zone-id {{ route53_hosted_zone_id }} --change-batch file://{{ route53_cname_json_file_path_local }}/{{ mas_instance_id }}-{{ route53_hosted_zone_name }}-cnames.json
+    aws route53 change-resource-record-sets --hosted-zone-id {{ route53_hosted_zone_id }} --change-batch file://{{ route53_cname_json_file_path_local }}/{{ instance_id }}-{{ route53_hosted_zone_name }}-cnames.json
   register: aws_hosted_zone_loadbalancer_output
   failed_when: aws_hosted_zone_loadbalancer_output.rc > 0 and ('it already exists' in aws_hosted_zone_loadbalancer_output.stderr )

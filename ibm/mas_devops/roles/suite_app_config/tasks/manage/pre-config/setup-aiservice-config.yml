@@ -87,10 +87,18 @@
   when:
     - aiservice_tls_secret.resources is not defined or aiservice_tls_secret.resources | length == 0
 
-- name: "Extract AI Service TLS certificate"
+# ca.crt is present for self-signed certs; absent when a DNS-based certificate issuer is used
+- name: "Extract AI Service TLS certificate (ca.crt)"
   set_fact:
     mas_manage_aiservice_tls_crt:
       - "{{ aiservice_tls_secret.resources[0].data['ca.crt'] | b64decode }}"
+  when: "'ca.crt' in aiservice_tls_secret.resources[0].data"
+
+- name: "Extract AI Service TLS certificate (tls.crt fallback)"
+  set_fact:
+    mas_manage_aiservice_tls_crt:
+      - "{{ aiservice_tls_secret.resources[0].data['tls.crt'] | b64decode }}"
+  when: "'ca.crt' not in aiservice_tls_secret.resources[0].data"
 
 # Step 6: Verify AI Service is running and healthy
 # ------------------------------------------------------------------------
