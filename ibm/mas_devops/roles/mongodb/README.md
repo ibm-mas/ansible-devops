@@ -679,7 +679,7 @@ This section provides comprehensive information about MongoDB backup and restore
 
 The MongoDB backup operation creates a backup of your MongoDB instance and databases associated with your MAS instance:
 
-1. **Database Backup**: Uses `mongodump` to export databases with filter `"^(mas|iot|sls|ibm-sls)(_|-)({{ mas_instance_id }}|sls)_(?!.*monitor$)"` to match databases like `mas_<instance-id>_<app-id>` or `iot_<instance-id>_<app-id>` or `ibm-sls_sls_licensing` or `sls_<instance-id>_sls_licensing`.
+1. **Database Backup**: Uses `mongodump` to export databases with filter `"^(mas|iot|sls|ibm-sls)(_|-)({{ mas_instance_id }}|sls)_(?!.*monitor$)"` to match databases like `mas-<instance-id>_<app-id>` or `iot-<instance-id>_<app-id>` or `ibm-sls_sls_licensing` or `sls-<instance-id>_sls_licensing`.
 2. **Instance Resources** : Backs up Kubernetes resources including:
    - CustomResourceDefinition (CRD)
    - MongoDBCommunity Custom Resource (CR)
