@@ -727,7 +727,7 @@ When the allowlist is added, updated or removed, the role records the progress o
 
 - MAS mode is enabled
 - `cis_waf` is enabled and `mas_channel` is `9.1.x` or above
-- `devops_mongo_uri` is set (no status call is made when it is empty)
+- `devops_mongo_uri`, `account_id`, `cluster_id` and `region_id` are all set (no status call is made when any of them is empty)
 - The WAF rule in CIS differs from the requested `cis_allowed_ips` (no status call is made when the allowlist is already in the desired state)
 
 | Status | Written when |

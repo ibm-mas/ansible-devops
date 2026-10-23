@@ -1,9 +1,13 @@
 ---
 # Write one allowlist feature status to MongoDB (never fails the play).
 # Requires _cis_allowlist_status_base_args to be set by the caller.
-# Skipped when devops_mongo_uri is not set.
+# Skipped when devops_mongo_uri, account_id, cluster_id or region_id is not set.
 - name: "cis : ip-allowlist — status update: {{ allowlist_status }}"
-  when: devops_mongo_uri | length > 0
+  when:
+    - devops_mongo_uri | length > 0
+    - account_id | length > 0
+    - cluster_id | length > 0
+    - region_id | length > 0
   ansible.builtin.shell: |
     mas-devops-feature-status-update status-update \
       {{ _cis_allowlist_status_base_args }} \
@@ -13,6 +17,10 @@
   register: _cis_status_result
 
 - name: "cis : ip-allowlist — status update: {{ allowlist_status }} (result)"
-  when: devops_mongo_uri | length > 0
+  when:
+    - devops_mongo_uri | length > 0
+    - account_id | length > 0
+    - cluster_id | length > 0
+    - region_id | length > 0
   ansible.builtin.debug:
     var: _cis_status_result
