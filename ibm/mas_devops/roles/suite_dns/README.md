@@ -695,7 +695,7 @@ Comma-separated list of IP addresses or CIDR ranges (IPv4 and IPv6) that are per
 
 **Purpose**: Restricts access to MAS public routes by creating a CIS WAF custom rule with the expression:
 ```
-(not ip.src in {<ip1> <ip2> ...} and http.host contains "<mas_domain>")
+not ip.src in {<ip1> <ip2> ...} and http.host contains "<mas_domain>"
 ```
 
 **When to use**:
@@ -721,6 +721,54 @@ IP allowlisting requires MAS `9.1.x` or above. When `mas_channel` is `9.0.x` or 
 - `mas_channel`: Must be `9.1.x` or above for allowlisting to take effect
 
 **Note**: Requires `dns_provider=cis` and CIS enhanced security to be enabled. The Custom WAF rule is identified by the description `mas-ip-allowlist-<mas_domain>` and is created/updated/deleted automatically based on whether this variable is set.
+
+**Feature status reporting**:
+When the allowlist is added, updated or removed, the role records the progress of the change in the SaaS feature status MongoDB by calling `mas-devops-feature-status-update`. Status is written only when **all** of the following are true:
+
+- MAS mode is enabled
+- `cis_waf` is enabled and `mas_channel` is `9.1.x` or above
+- `devops_mongo_uri`, `account_id`, `cluster_id` and `region_id` are all set (no status call is made when any of them is empty)
+- The WAF rule in CIS differs from the requested `cis_allowed_ips` (no status call is made when the allowlist is already in the desired state)
+
+| Status | Written when |
+|---|---|
+| `REQUESTED` | An allowlist change is detected, before any other CIS work starts |
+| `IN_PROGRESS` | Just before the WAF rule is created, updated or deleted |
+| `ACTIVE` | The WAF rule was created or updated successfully |
+| `DEACTIVATED` | The WAF rule was deleted successfully (`cis_allowed_ips` unset or empty) |
+| `ERROR` | A failure occurs after `REQUESTED` and the allowlist change has not completed successfully, including a failed WAF rule call after its retries |
+
+The call made for each status is:
+
+```bash
+mas-devops-feature-status-update status-update \
+  --region "<region_id>" \
+  --instance-id "<mas_instance_id>" \
+  --account "<account_id>" \
+  --cluster "<cluster_id>" \
+  --subscription-id "<subscription_id>" \
+  --type allow-list \
+  --feature-details '{"ips": ["<ip1>", "<ip2>"]}' \
+  --deployment-start "<start timestamp>" \
+  --status <REQUESTED|IN_PROGRESS|ACTIVE|DEACTIVATED|ERROR> \
+  --status-details '{"message": "<message>", "request_configuration": "<ip1>, <ip2>"}' \
+  --deployment-end "<end timestamp>"
+```
+
+- `--feature-details` carries the requested IPs (`[]` when the allowlist is being removed).
+- `--deployment-start` is the time the change was detected and is passed on every call. When the allowlist is being removed, it is reset just before the `IN_PROGRESS` call.
+- `--deployment-end` is only passed for `ACTIVE`, `DEACTIVATED` and `ERROR`.
+- For `ERROR`, `--status-details` also includes `error_code` and an `error_source` object (`gitops_version`, `filename`, `log_file` and `stacktrace`).
+
+The following variables are used when writing the status:
+
+| Variable | Environment variable | Default |
+|---|---|---|
+| `devops_mongo_uri` | `DEVOPS_MONGO_URI` | None. Status updates are skipped when empty |
+| `account_id` | `ACCOUNT_ID` | None |
+| `cluster_id` | `CLUSTER_ID` | None |
+| `region_id` | `REGION_ID` | Value of `aws_region` |
+| `subscription_id` | `SLS_SUBSCRIPTION_ID` | None |
 
 ### AWS Route 53
 
