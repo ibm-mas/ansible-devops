@@ -695,7 +695,7 @@ Comma-separated list of IP addresses or CIDR ranges (IPv4 and IPv6) that are per
 
 **Purpose**: Restricts access to MAS public routes by creating a CIS WAF custom rule with the expression:
 ```
-(not ip.src in {<ip1> <ip2> ...} and http.host contains "<mas_domain>")
+not ip.src in {<ip1> <ip2> ...} and http.host contains "<mas_domain>"
 ```
 
 **When to use**:
