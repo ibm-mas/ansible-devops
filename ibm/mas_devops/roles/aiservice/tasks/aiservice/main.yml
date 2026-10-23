@@ -71,6 +71,38 @@
   kubernetes.core.k8s:
     state: present
     template: templates/aiservice/s3-secret.yml.j2
+  register: km_s3_secret_result
+
+# 6a. Restart km-controller if secret changed so pods immediately pick up new S3 credentials
+# (Kubernetes does NOT auto-restart pods when envFrom secret changes — pods must restart manually)
+# The operator will also trigger restarts on all 3 kmodels deployments (controller/store/watcher)
+# when the AIServiceApp CR s3.ca field changes (deployment spec diff → rolling restart).
+# This patch is the safety net for credential-only rotations where spec doesn't change
+# (e.g. same CA cert, only access/secret keys rotated).
+#
+# Only runs if:
+#   1. km-s3-secret actually changed (km_s3_secret_result.changed)
+#   2. The deployment already exists (fresh install: operator hasn't created it yet → skip)
+# -----------------------------------------------------------------------------
+- name: "Check if km-controller deployment exists"
+  when: km_s3_secret_result.changed
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: "{{ aiservice_instance_id }}-km-controller"
+    namespace: "{{ aiservice_namespace }}"
+  register: km_controller_deployment
+  failed_when: false
+
+- name: "Restart km-controller deployment to pick up new S3 credentials"
+  when:
+    - km_s3_secret_result.changed
+    - km_controller_deployment.resources is defined
+    - km_controller_deployment.resources | length > 0
+  shell: >
+    kubectl rollout restart deployment/{{ aiservice_instance_id }}-km-controller
+    -n {{ aiservice_namespace }}
+  ignore_errors: true
 
 # 7. Check if aiservice_watsonxai_ca_crt exist and if do - update aiservice_watsonxai_verify to true
 - name: "Check if aiservice_watsonxai_verify needs to be updated"
@@ -86,7 +118,6 @@
   kubernetes.core.k8s:
     state: present
     template: templates/aiservice/aiserviceapp.yml.j2
-
 
 # 9. Wait IBM Maximo AI Service custom resource to be complete
 # -----------------------------------------------------------------------------
