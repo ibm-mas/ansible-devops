@@ -1,0 +1,173 @@
+---
+# MongoDB Atlas Provider - On-Demand Backup Task
+# =============================================================================
+# This task triggers an on-demand snapshot backup of a MongoDB Atlas cluster
+# and stores the snapshot information in S3 for use during restore.
+
+# 1. Validate required variables
+# -----------------------------------------------------------------------------
+- name: "Fail if Atlas project ID is not provided"
+  assert:
+    that:
+      - atlas_project_id is defined and atlas_project_id != ""
+    fail_msg: "atlas_project_id is required for MongoDB Atlas backup"
+
+- name: "Fail if Atlas cluster name is not provided"
+  assert:
+    that:
+      - atlas_cluster_name is defined and atlas_cluster_name != ""
+    fail_msg: "atlas_cluster_name is required for MongoDB Atlas backup"
+
+- name: "Fail if catalog build ID is not provided"
+  assert:
+    that:
+      - catalog_build_id is defined and catalog_build_id != ""
+    fail_msg: "catalog_build_id is required to prefix the backup info in S3"
+
+# 2. Retrieve Atlas API credentials from AWS Secrets Manager
+# -----------------------------------------------------------------------------
+- name: "Retrieve Atlas credentials from AWS Secrets Manager"
+  when:
+    - atlas_account_id is defined
+    - atlas_account_id != ""
+    - atlas_aws_region is defined
+  block:
+    - name: "Check if AWS CLI is available"
+      command: which aws
+      register: aws_cli_check
+      failed_when: false
+      changed_when: false
+
+    - name: "Fail if AWS CLI is not installed"
+      fail:
+        msg: "AWS CLI is not installed or not in PATH."
+      when: aws_cli_check.rc != 0
+
+    - name: "Get Atlas API credentials from AWS Secrets Manager"
+      shell: |
+        aws secretsmanager get-secret-value \
+          --secret-id "{{ atlas_aws_secret_name }}" \
+          --region "{{ atlas_aws_region }}" \
+          --query SecretString \
+          --output text
+      register: atlas_secret_output
+      failed_when: atlas_secret_output.rc != 0
+      no_log: true
+
+    - name: "Parse Atlas credentials from secret"
+      set_fact:
+        atlas_credentials: "{{ atlas_secret_output.stdout | from_json }}"
+      no_log: true
+
+    - name: "Set Atlas API keys"
+      set_fact:
+        atlas_public_key: "{{ atlas_credentials.mongodb_atlas_api_pub_key }}"
+        atlas_private_key: "{{ atlas_credentials.mongodb_atlas_api_pri_key }}"
+      no_log: true
+
+  rescue:
+    - name: "Failed to retrieve Atlas credentials"
+      fail:
+        msg: "Failed to retrieve Atlas API credentials from AWS Secrets Manager."
+
+- name: "Fail if Atlas API credentials are not provided"
+  assert:
+    that:
+      - atlas_public_key is defined and atlas_public_key != ""
+      - atlas_private_key is defined and atlas_private_key != ""
+    fail_msg: "atlas_public_key and atlas_private_key are required. Provide them directly or via AWS Secrets Manager."
+
+# 3. Display backup configuration
+# -----------------------------------------------------------------------------
+- name: "MongoDB Atlas Backup Configuration"
+  debug:
+    msg:
+      - "=========================================="
+      - "MongoDB Atlas On-Demand Backup"
+      - "=========================================="
+      - "Atlas Project ID ............ {{ atlas_project_id }}"
+      - "Cluster Name ................ {{ atlas_cluster_name }}"
+      - "Catalog Build ID ............ {{ catalog_build_id }}"
+      - "=========================================="
+
+# 4. Trigger on-demand snapshot backup via Atlas API
+# -----------------------------------------------------------------------------
+- name: "Trigger on-demand snapshot backup"
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}/backup/snapshots"
+    method: POST
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    body:
+      description: "on-demand backup - {{ catalog_build_id }}"
+      retentionInDays: "{{ atlas_backup_retention_days | default(7) | int }}"
+    body_format: json
+    status_code: [200, 201]
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_snapshot_trigger
+  no_log: false
+
+- name: "Extract snapshot ID from response"
+  set_fact:
+    atlas_snapshot_id: "{{ atlas_snapshot_trigger.json.id }}"
+
+- name: "Debug snapshot trigger response"
+  debug:
+    msg:
+      - "Snapshot triggered successfully"
+      - "Snapshot ID ................. {{ atlas_snapshot_id }}"
+      - "Initial Status .............. {{ atlas_snapshot_trigger.json.status }}"
+
+# 5. Poll until snapshot is complete
+# -----------------------------------------------------------------------------
+- name: "Poll snapshot status until complete"
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}/backup/snapshots/{{ atlas_snapshot_id }}"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    status_code: 200
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_snapshot_status
+  retries: 60
+  delay: 30
+  until: atlas_snapshot_status.json.status == "completed"
+  failed_when: atlas_snapshot_status.json.status == "failed"
+
+- name: "Extract snapshot timestamp"
+  set_fact:
+    atlas_snapshot_timestamp: "{{ atlas_snapshot_status.json.createdAt }}"
+
+- name: "Debug completed snapshot details"
+  debug:
+    msg:
+      - "=========================================="
+      - "Snapshot completed successfully"
+      - "Snapshot ID ................. {{ atlas_snapshot_id }}"
+      - "Snapshot Timestamp .......... {{ atlas_snapshot_timestamp }}"
+      - "=========================================="
+
+# 6. Store backup info in S3
+# -----------------------------------------------------------------------------
+- name: "Store backup info in S3"
+  amazon.aws.s3_object:
+    bucket: "{{ atlas_backup_s3_bucket }}"         # TODO: confirm S3 bucket name with team
+    object: "{{ catalog_build_id }}/mongo-backup-info.txt"
+    content: "snapshot_id={{ atlas_snapshot_id }}\nsnapshot_timestamp={{ atlas_snapshot_timestamp }}\ncatalog_build_id={{ catalog_build_id }}\ncluster_name={{ atlas_cluster_name }}\nproject_id={{ atlas_project_id }}"
+    mode: put
+    # TODO: confirm endpoint_url (IBM COS or AWS S3) with team
+    # endpoint_url: "{{ atlas_backup_s3_endpoint }}"
+  register: atlas_s3_upload
+
+- name: "Backup info stored successfully"
+  debug:
+    msg:
+      - "=========================================="
+      - "MongoDB Atlas Backup Completed"
+      - "=========================================="
+      - "Snapshot ID ................. {{ atlas_snapshot_id }}"
+      - "Snapshot Timestamp .......... {{ atlas_snapshot_timestamp }}"
+      - "S3 Path ..................... {{ catalog_build_id }}/mongo-backup-info.txt"
+      - "=========================================="

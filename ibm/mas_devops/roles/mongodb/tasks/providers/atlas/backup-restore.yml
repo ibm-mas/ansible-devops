@@ -1,0 +1,168 @@
+---
+# MongoDB Atlas Provider - Native Snapshot Restore Task
+# =============================================================================
+# This task restores a MongoDB Atlas cluster to a previously taken on-demand
+# snapshot. It reads the snapshot info from S3 and triggers a native Atlas
+# restore via the Atlas API.
+
+# 1. Validate required variables
+# -----------------------------------------------------------------------------
+- name: "Fail if Atlas project ID is not provided"
+  assert:
+    that:
+      - atlas_project_id is defined and atlas_project_id != ""
+    fail_msg: "atlas_project_id is required for MongoDB Atlas restore"
+
+- name: "Fail if Atlas cluster name is not provided"
+  assert:
+    that:
+      - atlas_cluster_name is defined and atlas_cluster_name != ""
+    fail_msg: "atlas_cluster_name is required for MongoDB Atlas restore"
+
+- name: "Fail if catalog build ID is not provided"
+  assert:
+    that:
+      - catalog_build_id is defined and catalog_build_id != ""
+    fail_msg: "catalog_build_id is required to locate the backup info in S3"
+
+# 2. Retrieve Atlas API credentials from AWS Secrets Manager
+# -----------------------------------------------------------------------------
+- name: "Retrieve Atlas credentials from AWS Secrets Manager"
+  when:
+    - atlas_account_id is defined
+    - atlas_account_id != ""
+    - atlas_aws_region is defined
+  block:
+    - name: "Check if AWS CLI is available"
+      command: which aws
+      register: aws_cli_check
+      failed_when: false
+      changed_when: false
+
+    - name: "Fail if AWS CLI is not installed"
+      fail:
+        msg: "AWS CLI is not installed or not in PATH."
+      when: aws_cli_check.rc != 0
+
+    - name: "Get Atlas API credentials from AWS Secrets Manager"
+      shell: |
+        aws secretsmanager get-secret-value \
+          --secret-id "{{ atlas_aws_secret_name }}" \
+          --region "{{ atlas_aws_region }}" \
+          --query SecretString \
+          --output text
+      register: atlas_secret_output
+      failed_when: atlas_secret_output.rc != 0
+      no_log: true
+
+    - name: "Parse Atlas credentials from secret"
+      set_fact:
+        atlas_credentials: "{{ atlas_secret_output.stdout | from_json }}"
+      no_log: true
+
+    - name: "Set Atlas API keys"
+      set_fact:
+        atlas_public_key: "{{ atlas_credentials.mongodb_atlas_api_pub_key }}"
+        atlas_private_key: "{{ atlas_credentials.mongodb_atlas_api_pri_key }}"
+      no_log: true
+
+  rescue:
+    - name: "Failed to retrieve Atlas credentials"
+      fail:
+        msg: "Failed to retrieve Atlas API credentials from AWS Secrets Manager."
+
+- name: "Fail if Atlas API credentials are not provided"
+  assert:
+    that:
+      - atlas_public_key is defined and atlas_public_key != ""
+      - atlas_private_key is defined and atlas_private_key != ""
+    fail_msg: "atlas_public_key and atlas_private_key are required. Provide them directly or via AWS Secrets Manager."
+
+# 3. Read backup info from S3
+# -----------------------------------------------------------------------------
+- name: "Read backup info from S3"
+  amazon.aws.s3_object:
+    bucket: "{{ atlas_backup_s3_bucket }}"         # TODO: confirm S3 bucket name with team
+    object: "{{ catalog_build_id }}/mongo-backup-info.txt"
+    mode: getstr
+    # TODO: confirm endpoint_url (IBM COS or AWS S3) with team
+    # endpoint_url: "{{ atlas_backup_s3_endpoint }}"
+  register: atlas_s3_backup_info
+
+- name: "Parse snapshot ID from backup info"
+  set_fact:
+    atlas_restore_snapshot_id: >-
+      {{ atlas_s3_backup_info.contents
+         | regex_search('snapshot_id=([^\n]+)', '\1')
+         | first }}
+
+- name: "Debug restore configuration"
+  debug:
+    msg:
+      - "=========================================="
+      - "MongoDB Atlas Native Snapshot Restore"
+      - "=========================================="
+      - "Atlas Project ID ............ {{ atlas_project_id }}"
+      - "Cluster Name ................ {{ atlas_cluster_name }}"
+      - "Catalog Build ID ............ {{ catalog_build_id }}"
+      - "Snapshot ID ................. {{ atlas_restore_snapshot_id }}"
+      - "=========================================="
+
+# 4. Trigger native snapshot restore via Atlas API
+# -----------------------------------------------------------------------------
+- name: "Trigger native snapshot restore"
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}/backup/restoreJobs"
+    method: POST
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    body:
+      delivery:
+        methodName: "AUTOMATED_RESTORE"
+        targetClusterName: "{{ atlas_cluster_name }}"
+        targetGroupId: "{{ atlas_project_id }}"
+      snapshotId: "{{ atlas_restore_snapshot_id }}"
+    body_format: json
+    status_code: [200, 201]
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_restore_trigger
+
+- name: "Extract restore job ID"
+  set_fact:
+    atlas_restore_job_id: "{{ atlas_restore_trigger.json.id }}"
+
+- name: "Debug restore job triggered"
+  debug:
+    msg:
+      - "Restore job triggered successfully"
+      - "Restore Job ID .............. {{ atlas_restore_job_id }}"
+      - "Initial Status .............. {{ atlas_restore_trigger.json.status | default('queued') }}"
+
+# 5. Poll until restore is complete
+# -----------------------------------------------------------------------------
+- name: "Poll restore job status until complete"
+  uri:
+    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}/backup/restoreJobs/{{ atlas_restore_job_id }}"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    status_code: 200
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_restore_status
+  retries: 60
+  delay: 30
+  until: atlas_restore_status.json.status in ["completed", "COMPLETED"]
+  failed_when: atlas_restore_status.json.status in ["failed", "FAILED"]
+
+- name: "Restore completed successfully"
+  debug:
+    msg:
+      - "=========================================="
+      - "MongoDB Atlas Restore Completed"
+      - "=========================================="
+      - "Restore Job ID .............. {{ atlas_restore_job_id }}"
+      - "Snapshot ID ................. {{ atlas_restore_snapshot_id }}"
+      - "Cluster ..................... {{ atlas_cluster_name }}"
+      - "=========================================="
