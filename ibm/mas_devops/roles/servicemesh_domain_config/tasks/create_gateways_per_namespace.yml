@@ -1,40 +1,58 @@
 ---
-- set_fact:
-    targetNamespace: "mas-{{ mas_instance }}-{{ ns_suffix }}"
+# create_gateways_per_namespace.yml
+# Called once per MAS app namespace. Applies mesh networking resources and
+# creates a Gateway + VirtualService + Route for each routeref ConfigMap found.
+#
+# Input variables:
+#   ns_suffix   Namespace suffix (e.g. "manage", "core", "iot")
+# Sets:
+#   target_namespace  Fully-qualified namespace (mas-<instance>-<ns_suffix>)
+# -----------------------------------------------------------------------------
 
-- name: "Service Mesh Domain Config : Debug properties per namespace"
+# 1. Derive the fully-qualified target namespace
+# -----------------------------------------------------------------------------
+- name: "Set target_namespace for {{ ns_suffix }}"
+  set_fact:
+    target_namespace: "mas-{{ mas_instance }}-{{ ns_suffix }}"
+
+# 2. Log resolved namespace context
+# -----------------------------------------------------------------------------
+- name: "Debug: namespace context for {{ target_namespace }}"
   debug:
     msg:
-      - "MAS Suite Domain ......................... {{ mas_domain }}"
-      - "MAS Suite Instance ....................... {{ mas_instance }}"
-      - "Target namespace ......................... {{ targetNamespace }}"
-      - "Service Mesh Ingress namespace ........... {{ servicemesh_gateway_namespace }}"
-      - "Gateway Strategy ......................... {{ gateway_strategy }}"
+      - "Target namespace ..................... {{ target_namespace }}"
+      - "Gateway namespace .................... {{ servicemesh_gateway_namespace }}"
+      - "MAS domain ........................... {{ mas_domain }}"
+      - "Gateway strategy ..................... {{ gateway_strategy }}"
 
-# Get route references from the MAS core namespace to determine what routes we need to create.
+# 3. Discover routeref ConfigMaps in this namespace
 # -----------------------------------------------------------------------------
-- name: "Get Config Maps in {{targetNamespace}}"
+- name: "Fetch all ConfigMaps in {{ target_namespace }}"
   kubernetes.core.k8s_info:
     kind: ConfigMap
-    namespace: "{{ targetNamespace }}"
-  register: all_configmaps
+    namespace: "{{ target_namespace }}"
+  register: _all_configmaps
 
-- name: Extract and filter route references only
+- name: "Filter routeref ConfigMaps in {{ target_namespace }}"
   set_fact:
-    routeref_configmaps: "{{ all_configmaps.resources |
-                             selectattr('metadata.name', 'match', '^' + configmap_prefix) |
+    routeref_configmaps: "{{ _all_configmaps.resources |
+                             selectattr('metadata.name', 'match', '^routeref-') |
                              list }}"
-  vars:
-    configmap_prefix: "routeref-"
 
-- name: Display route references config maps
+- name: "Debug: routeref ConfigMaps found in {{ target_namespace }}"
   debug:
-    msg:
-      - "Creating Routes for these  route reference config maps: {{ routeref_configmaps | map(attribute='metadata.name') | list  }}"
+    msg: "Found {{ routeref_configmaps | length }} routeref ConfigMap(s): \
+          {{ routeref_configmaps | map(attribute='metadata.name') | list }}"
 
-- name: "Setup monitoring and network policies for {{ targetNamespace }}"
+# 4. Apply mesh network policies and PodMonitor (always — not gated on routes)
+# -----------------------------------------------------------------------------
+- name: "Configure network policies and monitoring for {{ target_namespace }}"
   include_tasks: "tasks/setup_namespace_monitoring.yml"
+  vars:
+    target_namespace: "{{ target_namespace }}"
 
-- name: Create Gateways according to {{ gateway_strategy }} strategy
+# 5. Create gateway resources for each routeref ConfigMap
+# -----------------------------------------------------------------------------
+- name: "Create gateways for {{ target_namespace }} using {{ gateway_strategy }} strategy"
   when: routeref_configmaps | length > 0
   include_tasks: "tasks/{{ gateway_strategy }}/create_gateways.yml"

@@ -1,45 +1,50 @@
 ---
+# route-reencrypt.yml.j2
+# OpenShift Route with TLS reencrypt termination.
+# The router terminates the inbound TLS connection and re-encrypts to the backend.
+# Optional cert fields (certificate, key, caCertificate, destinationCACertificate)
+# are applied when present in the routeref.
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: {{route}}
-  namespace: {{servicemesh_gateway_namespace}}
+  name: "{{ _route_name }}"
+  namespace: "{{ servicemesh_gateway_namespace }}"
   annotations:
-{% if route_annotations is defined and route_annotations %}
-{% for key, value in route_annotations.items() %}
+{% if _route_annotations is defined and _route_annotations %}
+{% for key, value in _route_annotations.items() %}
     {{ key }}: "{{ value }}"
 {% endfor %}
 {% else %}
     haproxy.router.openshift.io/timeout: 60s
 {% endif %}
 spec:
-  host: {{route_host}}
-  path: {{route_path}}
+  host: "{{ _route_host }}"
+  path: "{{ _route_path }}"
   port:
-    targetPort: {{ target_port_name }}
+    targetPort: "{{ _target_port_name }}"
   tls:
     termination: reencrypt
-{% if route_tls.insecureEdgeTerminationPolicy is defined %} 
-    insecureEdgeTerminationPolicy: {{route_tls.insecureEdgeTerminationPolicy}}
-{% endif %}    
-{% if route_tls.certificate is defined %} 
+{% if _route_tls.insecureEdgeTerminationPolicy is defined %}
+    insecureEdgeTerminationPolicy: "{{ _route_tls.insecureEdgeTerminationPolicy }}"
+{% endif %}
+{% if _route_tls.certificate is defined %}
     certificate: |
-      {{route_tls.certificate | replace('\\n', '\n') | indent(6, first=False)}}
+      {{ _route_tls.certificate | replace('\\n', '\n') | indent(6, first=False) }}
 {% endif %}
-{% if route_tls.key is defined %} 
+{% if _route_tls.key is defined %}
     key: |
-      {{route_tls.key | replace('\\n', '\n') | indent(6, first=False)}}
+      {{ _route_tls.key | replace('\\n', '\n') | indent(6, first=False) }}
 {% endif %}
-{% if route_tls.caCertificate is defined %}      
+{% if _route_tls.caCertificate is defined %}
     caCertificate: |
-      {{route_tls.caCertificate | replace('\\n', '\n') | indent(6, first=False)}}
+      {{ _route_tls.caCertificate | replace('\\n', '\n') | indent(6, first=False) }}
 {% endif %}
-{% if route_tls.destinationCACertificate is defined %}      
+{% if _route_tls.destinationCACertificate is defined %}
     destinationCACertificate: |
-      {{route_tls.destinationCACertificate | replace('\\n', '\n') | indent(6, first=False)}}
+      {{ _route_tls.destinationCACertificate | replace('\\n', '\n') | indent(6, first=False) }}
 {% endif %}
   to:
     kind: Service
-    name: {{gateway_service}}
+    name: "{{ _gateway_service }}"
     weight: 100
   wildcardPolicy: None

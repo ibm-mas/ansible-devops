@@ -1,24 +1,67 @@
 ---
-# Setup PodMonitor and NetworkPolicies for every mesh-enrolled namespace
+# setup_namespace_monitoring.yml
+# Applies all Istio-mandated network policies and the istio-proxy PodMonitor
+# to a mesh-enrolled namespace. Called for every MAS namespace including the
+# gateway namespace itself.
+#
+# Input variables:
+#   target_namespace  The namespace to configure
 # -----------------------------------------------------------------------------
-- name: "Apply PodMonitor in {{ targetNamespace }}"
+
+# 1. Scrape istio-proxy sidecar metrics via PodMonitor
+# -----------------------------------------------------------------------------
+- name: "Apply istio-proxy PodMonitor in {{ target_namespace }}"
   kubernetes.core.k8s:
     apply: yes
-    template: "templates/podmonitor.yml.j2"
+    template: "{{ role_path }}/../../common_templates/podmonitor-istio-proxy.yml.j2"
+  vars:
+    podmonitor_namespace: "{{ target_namespace }}"
 
-- name: "Apply Prometheus scraping NetworkPolicy in {{ targetNamespace }}"
+# 2. Allow Prometheus to scrape the istio-proxy metrics port (15020)
+# -----------------------------------------------------------------------------
+- name: "Apply Prometheus scraping NetworkPolicy in {{ target_namespace }}"
   kubernetes.core.k8s:
     apply: yes
-    template: "templates/networkpolicy-prometheus.yml.j2"
+    template: "{{ role_path }}/../../common_templates/networkpolicy-allow-ingress.yml.j2"
+  vars:
+    netpol_name: allow-prometheus-scraping
+    netpol_namespace: "{{ target_namespace }}"
+    netpol_pod_selector: {}
+    netpol_ingress_rules:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: openshift-monitoring
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: openshift-user-workload-monitoring
+        ports:
+          - port: 15020
+            protocol: TCP
 
-- name: "Apply istiod egress NetworkPolicy in {{ targetNamespace }}"
+# 3. Allow every pod to reach istiod:15012 for mTLS certificate bootstrapping
+# -----------------------------------------------------------------------------
+- name: "Apply istiod egress NetworkPolicy in {{ target_namespace }}"
   kubernetes.core.k8s:
     apply: yes
-    template: "templates/networkpolicy-istiod-egress.yml.j2"
+    template: "{{ role_path }}/../../common_templates/networkpolicy-allow-egress.yml.j2"
+  vars:
+    netpol_name: allow-istiod-egress
+    netpol_namespace: "{{ target_namespace }}"
+    netpol_pod_selector: {}
+    netpol_egress_rules:
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: "{{ servicemesh_namespace }}"
+        ports:
+          - port: 15012
+            protocol: TCP
 
-# Only the gateway namespace needs to accept traffic from the OpenShift router
-- name: "Apply OpenShift Ingress NetworkPolicy in {{ targetNamespace }}"
-  when: targetNamespace == servicemesh_gateway_namespace
+# 4. Allow OpenShift router ingress (gateway namespace only)
+# -----------------------------------------------------------------------------
+- name: "Apply OpenShift ingress NetworkPolicy in {{ target_namespace }}"
+  when: target_namespace == servicemesh_gateway_namespace
   kubernetes.core.k8s:
     apply: yes
     template: "templates/networkpolicy-openshift-ingress.yml.j2"

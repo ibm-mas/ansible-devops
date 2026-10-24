@@ -1,17 +1,31 @@
 ---
-# Configure mesh-wide Prometheus Telemetry, istiod ServiceMonitor, and Kiali RBAC
+# setup_mesh_observability.yml
+# Applies mesh-wide observability resources to the Istio control-plane namespace.
+# This runs once per role execution, not per MAS namespace.
+#
+# Resources created:
+#   - Telemetry       enables Prometheus metrics collection across the mesh
+#   - ServiceMonitor  scrapes istiod control-plane metrics
+#   - ClusterRoleBinding  grants Kiali read access to cluster monitoring
+# -----------------------------------------------------------------------------
+
+# 1. Enable Prometheus metrics collection across the mesh
 # -----------------------------------------------------------------------------
 - name: "Apply Telemetry resource in {{ servicemesh_namespace }}"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/telemetry.yml.j2"
 
+# 2. Scrape istiod control-plane metrics via ServiceMonitor
+# -----------------------------------------------------------------------------
 - name: "Apply istiod ServiceMonitor in {{ servicemesh_namespace }}"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/servicemonitor-istiod.yml.j2"
 
-- name: "Apply Kiali Cluster Monitoring RBAC"
+# 3. Grant Kiali read access to cluster monitoring data
+# -----------------------------------------------------------------------------
+- name: "Apply Kiali cluster-monitoring-view ClusterRoleBinding"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/rbac-kiali.yml.j2"

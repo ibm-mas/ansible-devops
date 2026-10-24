@@ -1,0 +1,45 @@
+---
+# common_templates/podmonitor-istio-proxy.yml.j2
+#
+# Reusable PodMonitor that scrapes istio-proxy sidecar metrics from every pod
+# in a namespace that does not carry the istio-prometheus-ignore label.
+# Metrics are collected on port 15020 (/stats/prometheus).
+#
+# Required variables:
+#   podmonitor_namespace   Namespace to deploy the PodMonitor in and scrape from
+#
+# Example usage:
+#   - name: "Apply istio-proxy PodMonitor"
+#     kubernetes.core.k8s:
+#       apply: yes
+#       template: "{{ role_path }}/../../common_templates/podmonitor-istio-proxy.yml.j2"
+#     vars:
+#       podmonitor_namespace: "{{ target_namespace }}"
+# -----------------------------------------------------------------------------
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: istio-proxies-monitor
+  namespace: "{{ podmonitor_namespace }}"
+spec:
+  selector:
+    matchExpressions:
+      - key: istio-prometheus-ignore
+        operator: DoesNotExist
+  podMetricsEndpoints:
+    - path: /stats/prometheus
+      interval: 30s
+      relabelings:
+        - action: replace
+          replacement: "$1:15020"
+          sourceLabels:
+            - __meta_kubernetes_pod_ip
+          targetLabel: __address__
+        - action: replace
+          sourceLabels:
+            - __meta_kubernetes_pod_namespace
+          targetLabel: namespace
+        - action: replace
+          sourceLabels:
+            - __meta_kubernetes_pod_name
+          targetLabel: pod
