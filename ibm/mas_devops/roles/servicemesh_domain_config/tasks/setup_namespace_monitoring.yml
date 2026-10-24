@@ -1,12 +1,24 @@
 ---
-# Setup PodMonitor and NetworkPolicy for Prometheus scraping in target namespace
+# Setup PodMonitor and NetworkPolicies for every mesh-enrolled namespace
 # -----------------------------------------------------------------------------
 - name: "Apply PodMonitor in {{ targetNamespace }}"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/podmonitor.yml.j2"
 
-- name: "Apply Prometheus NetworkPolicy in {{ targetNamespace }}"
+- name: "Apply Prometheus scraping NetworkPolicy in {{ targetNamespace }}"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/networkpolicy-prometheus.yml.j2"
+
+- name: "Apply istiod egress NetworkPolicy in {{ targetNamespace }}"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/networkpolicy-istiod-egress.yml.j2"
+
+# Only the gateway namespace needs to accept traffic from the OpenShift router
+- name: "Apply OpenShift Ingress NetworkPolicy in {{ targetNamespace }}"
+  when: targetNamespace == servicemesh_gateway_namespace
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/networkpolicy-openshift-ingress.yml.j2"
