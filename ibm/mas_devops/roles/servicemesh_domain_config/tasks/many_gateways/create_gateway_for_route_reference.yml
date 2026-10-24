@@ -1,64 +1,115 @@
 ---
-# 1. Create Gateway deployment, service etc
+# create_gateway_for_route_reference.yml
+# Called once per routeref ConfigMap. Derives port/protocol facts from the
+# route reference and creates the full gateway stack:
+#   ServiceAccount + RBAC → Deployment → Service → Gateway CR → VirtualService → Route
+#
+# Input variables:
+#   routeref_configmap   One item from the routeref_configmaps list
+#   ns_suffix            Namespace suffix (e.g. "manage")
+#   target_namespace     Fully-qualified app namespace
+#   servicemesh_gateway_namespace  Gateway namespace
+#   mas_instance, mas_domain
 # -----------------------------------------------------------------------------
-- name: "create gateway : Expand the route reference data"
-  set_fact:
-    route_reference: "{{ routeref_configmap.data['route.yml'] | from_yaml }}"
 
-- name: "create gateway : Determine gateway name"
+# 1. Parse the route reference ConfigMap into structured facts
+# -----------------------------------------------------------------------------
+- name: "Parse route reference from ConfigMap {{ routeref_configmap.metadata.name }}"
   set_fact:
-    gateway_name: "gateway-{{ route_reference.metadata.name }}"
+    _route_reference: "{{ routeref_configmap.data['route.yml'] | from_yaml }}"
 
-- debug:
+- name: "Derive gateway name from route reference"
+  set_fact:
+    _route_name: "{{ ns_suffix }}-{{ _route_reference.metadata.name | regex_replace(mas_instance + '-', '') }}"
+    _gateway_name: "gateway-{{ ns_suffix }}-{{ _route_reference.metadata.name | regex_replace(mas_instance + '-', '') }}"
+
+# 2. Resolve service target and TLS facts from the route reference
+# -----------------------------------------------------------------------------
+- name: "Resolve service and TLS facts"
+  set_fact:
+    _service_name: "{{ _route_reference.spec.to.name }}"
+    _service_namespace: "{{ _route_reference.metadata.namespace | default(target_namespace) }}"
+    _gateway_service: "{{ _gateway_name }}"
+    _route_host: "{{ _route_reference.spec.host }}"
+    _route_path: "{{ _route_reference.spec.path | default('') }}"
+    _route_tls: "{{ _route_reference.spec.tls }}"
+    _route_annotations: "{{ _route_reference.metadata.annotations | default({}) }}"
+    _target_port_name: "{{ _route_reference.spec.port.targetPort }}"
+
+# 3. Resolve port numbers from target port name
+# Each MAS protocol maps to a fixed port pair (port_number : target_port_number).
+# Default is HTTPS (443 → 8443). Override by target port name below.
+# -----------------------------------------------------------------------------
+- name: "Resolve port numbers for target port {{ _target_port_name }}"
+  set_fact:
+    _port_number: "{{ _port_map[_target_port_name | string]['port'] | default(443) }}"
+    _target_port_number: "{{ _port_map[_target_port_name | string]['target'] | default(8443) }}"
+  vars:
+    _port_map:
+      "mqtts":  { port: 8883, target: 8883 }
+      "http":   { port: 3000, target: 3000 }   # collaborateext
+      "3000":   { port: 3000, target: 3000 }
+      "9443":   { port: 9443, target: 9443 }   # monitor services
+
+# 4. Log resolved gateway facts
+# -----------------------------------------------------------------------------
+- name: "Debug: resolved gateway facts for {{ _gateway_name }}"
+  debug:
     msg:
-      - "gateway_name ..... {{ gateway_name }}"
+      - "_gateway_name ........... {{ _gateway_name }}"
+      - "_route_name ............. {{ _route_name }}"
+      - "_service_name ........... {{ _service_name }}"
+      - "_service_namespace ...... {{ _service_namespace }}"
+      - "_route_host ............. {{ _route_host }}"
+      - "_route_path ............. {{ _route_path }}"
+      - "_route_tls .............. {{ _route_tls.termination }}"
+      - "_target_port_name ....... {{ _target_port_name }}"
+      - "_port_number ............ {{ _port_number }}"
+      - "_target_port_number ..... {{ _target_port_number }}"
 
-- name: "create gateway : Set facts for Virtual Service"
-  set_fact:
-    route: "{{ route_reference.metadata.name | regex_replace('^'+mas_instance+'-', '') }}"
-    service_name: "{{ route_reference.spec.to.name }}"
-    service_namespace: "{{ route_reference.metadata.namespace }}"
-    gateway_service: "{{ gateway_name }}"
-    route_host: "{{ route_reference.spec.host }}"
-    route_path: "{{ route_reference.spec.path }}"
-    route_tls: "{{ route_reference.spec.tls }}"
+# 5. Create gateway RBAC (ServiceAccount, Role, RoleBinding) — once per namespace
+# -----------------------------------------------------------------------------
+- name: "Apply gateway RBAC in {{ servicemesh_gateway_namespace }}"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/gateway-rbac.yml.j2"
 
-- name: "create gateway : Create Service Mesh Gateway Deployment"
+# 6. Create gateway Deployment
+# -----------------------------------------------------------------------------
+- name: "Create gateway Deployment {{ _gateway_name }}"
   kubernetes.core.k8s:
     template: "templates/gateway-deployment.yml.j2"
     wait: yes
     wait_timeout: 300
 
-- name: "create gateway : Create Service Mesh Gateway Service"
+# 7. Create gateway Service
+# -----------------------------------------------------------------------------
+- name: "Create gateway Service {{ _gateway_name }}"
   kubernetes.core.k8s:
     template: "templates/gateway-service.yml.j2"
     wait: yes
     wait_timeout: 120
 
-- name: "create gateway : Create Service Mesh Gateway CR"
+# 8. Create Istio Gateway CR
+# -----------------------------------------------------------------------------
+- name: "Create Istio Gateway CR {{ _gateway_name }}"
   kubernetes.core.k8s:
     template: "templates/gateway-passthrough-cr.yml.j2"
     wait: yes
     wait_timeout: 120
 
-- name: "create gateway : Set facts for Virtual Service"
-  set_fact:
-    route: "{{ route_reference.metadata.name | regex_replace('^'+mas_instance+'-', '') }}"
-    service_name: "{{ route_reference.spec.to.name }}"
-    service_namespace: "{{ route_reference.metadata.namespace }}"
-    gateway_service: "{{ gateway_name }}"
-    route_host: "{{ route_reference.spec.host }}"
-    route_path: "{{ route_reference.spec.path }}"
-    route_tls: "{{ route_reference.spec.tls }}"
-
-- name: "create gateway : Create Virtual Service for {{route}} to {{service_name}}"
+# 9. Create Istio VirtualService
+# -----------------------------------------------------------------------------
+- name: "Create VirtualService {{ _route_name }} → {{ _service_name }}"
   kubernetes.core.k8s:
     template: "templates/virtual-service.yml.j2"
     wait: yes
     wait_timeout: 120
 
-- name: "create gateway : Create Route for {{route}} to gateway"
+# 10. Create OpenShift Route
+# -----------------------------------------------------------------------------
+- name: "Create Route {{ _route_name }} (tls: {{ _route_tls.termination }})"
   kubernetes.core.k8s:
-    template: "templates/route.yml.j2"
+    template: "templates/route-{{ _route_tls.termination }}.yml.j2"
     wait: yes
     wait_timeout: 120
