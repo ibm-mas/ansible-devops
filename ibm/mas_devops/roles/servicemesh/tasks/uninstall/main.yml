@@ -1,22 +1,28 @@
 ---
-# 1. Uninstall Service Mesh operator
+# uninstall/main.yml
+# Removes Red Hat OpenShift Service Mesh (OSSM v3), Kiali, and their
+# associated namespaces from the cluster.
+#
+# Steps:
+#   1. Delete the Kiali instance
+#   2. Delete the IstioCNI plugin instance
+#   3. Delete the Istio control-plane instance
+#   4. Remove OLM Subscriptions and CSVs for both operators
+#   5. Delete the Service Mesh namespaces
 # -----------------------------------------------------------------------------
-# - name: "uninstall : Uninstall Service Mesh"
-#   fail:
-#     msg: "Service Mesh uninstall is not implemented yet"
 
-# 2. Uninstall Kiali instance
+# 1. Delete the Kiali instance
 # -----------------------------------------------------------------------------
-- name: "uninstall : Kiali Instance"
+- name: "uninstall : Delete Kiali instance"
   kubernetes.core.k8s:
     state: absent
-    template: "templates//kiali.yml.j2"
+    template: "templates/kiali.yml.j2"
     wait: yes
     wait_timeout: 120
 
-# 3. Uninstall Service Mesh instance
+# 2. Delete the IstioCNI plugin instance
 # -----------------------------------------------------------------------------
-- name: "uninstall :  Service Mesh CNI"
+- name: "uninstall : Delete IstioCNI instance"
   kubernetes.core.k8s:
     api_version: sailoperator.io/v1
     kind: IstioCNI
@@ -25,17 +31,18 @@
     wait: yes
     wait_timeout: 120
 
-- name: "uninstall :  Service Mesh Instance"
+# 3. Delete the Istio control-plane instance
+# -----------------------------------------------------------------------------
+- name: "uninstall : Delete Istio control-plane instance"
   kubernetes.core.k8s:
-    template: "templates//istio.yml.j2"
+    template: "templates/istio.yml.j2"
     state: absent
     wait: yes
     wait_timeout: 120
 
-
-# 4. Uninstall Operators
+# 4. Remove OLM Subscriptions and CSVs
 # -----------------------------------------------------------------------------
-- name: "uninstall : Service Mesh Subscription"
+- name: "uninstall : Delete Service Mesh Subscription"
   kubernetes.core.k8s:
     api_version: operators.coreos.com/v1alpha1
     kind: Subscription
@@ -45,7 +52,7 @@
     wait: yes
     wait_timeout: 120
 
-- name: "uninstall : Service Mesh CSV"
+- name: "uninstall : Delete Service Mesh CSV"
   kubernetes.core.k8s:
     state: absent
     api_version: operators.coreos.com/v1alpha1
@@ -54,7 +61,7 @@
     label_selectors:
       - operators.coreos.com/servicemeshoperator3.openshift-operators
 
-- name: "uninstall : Kiali Subscription"
+- name: "uninstall : Delete Kiali Subscription"
   kubernetes.core.k8s:
     api_version: operators.coreos.com/v1alpha1
     kind: Subscription
@@ -64,7 +71,7 @@
     wait: yes
     wait_timeout: 120
 
-- name: "uninstall : Kiali CSV"
+- name: "uninstall : Delete Kiali CSV"
   kubernetes.core.k8s:
     state: absent
     api_version: operators.coreos.com/v1alpha1
@@ -73,9 +80,18 @@
     label_selectors:
       - operators.coreos.com/kiali-ossm.openshift-operators
 
-# 5. Delete namespaces
+# 5. Delete the Service Mesh namespaces
 # -----------------------------------------------------------------------------
-- name: "Delete Service Mesh Namespaces"
+- name: "uninstall : Delete Istio control-plane namespace {{ servicemesh_namespace }}"
   kubernetes.core.k8s:
     state: absent
-    template: "templates//namespaces.yml.j2"
+    template: "{{ role_path }}/../../common_templates/namespace.yml.j2"
+  vars:
+    namespace_name: "{{ servicemesh_namespace }}"
+
+- name: "uninstall : Delete Istio CNI namespace {{ servicemesh_cni_namespace }}"
+  kubernetes.core.k8s:
+    state: absent
+    template: "{{ role_path }}/../../common_templates/namespace.yml.j2"
+  vars:
+    namespace_name: "{{ servicemesh_cni_namespace }}"
