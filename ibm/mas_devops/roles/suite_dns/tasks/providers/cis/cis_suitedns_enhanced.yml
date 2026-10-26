@@ -18,13 +18,37 @@
         instance_id: "{{ mas_instance_id }}"
         edge_cert_entries: "{{ edge_cert_routes['mas'] }}"
 
+    # Decide once which allowlist passes apply, and whether feature status can be reported.
+    # Status reporting needs every variable below; subscription_id is optional and is only
+    # passed to the status call when set.
+    - name: "cis : ip-allowlist — work out what applies"
+      ansible.builtin.set_fact:
+        _cis_mas_allowlist_enabled: >-
+          {{ is_mas_mode and (cis_waf | bool)
+             and mas_channel is defined and mas_channel != ""
+             and mas_channel.split('.')[:2] | join('.') is version('9.1', '>=') }}
+        _cis_aiservice_allowlist_enabled: "{{ is_aiservice_mode and (cis_waf | bool) }}"
+        _cis_status_missing_vars: >-
+          {{ {'devops_mongo_uri': devops_mongo_uri,
+              'account_id': account_id,
+              'cluster_id': cluster_id,
+              'region_id': region_id}
+             | dict2items | selectattr('value', 'equalto', '') | map(attribute='key') | list }}
+
+    - name: "cis : ip-allowlist — feature status reporting"
+      ansible.builtin.set_fact:
+        _cis_status_enabled: "{{ is_mas_mode and _cis_status_missing_vars | length == 0 }}"
+
+    - name: "cis : ip-allowlist — feature status reporting disabled"
+      when:
+        - _cis_mas_allowlist_enabled | bool
+        - not (_cis_status_enabled | bool)
+      ansible.builtin.debug:
+        msg: "Allow-list feature status will not be written, these variables are not set: {{ _cis_status_missing_vars | join(', ') }}"
+
     # set REQUESTED if allowlist config changed (create / update / delete paths)
     - name: "cis : ip-allowlist — set REQUESTED status"
-      when:
-        - is_mas_mode
-        - cis_waf | bool
-        - mas_channel is defined and mas_channel != ""
-        - mas_channel.split('.')[:2] | join('.') is version('9.1', '>=')
+      when: _cis_mas_allowlist_enabled | bool
       ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist_requested.yml
 
     - name: "cis : Reset facts"
@@ -166,65 +190,58 @@
           {% endif %}
 
     - name: "cis : configure WAF IP allowlist for MAS"
-      when:
-        - cis_waf | bool
-        - is_mas_mode
-        - mas_channel is defined and mas_channel != ""
-        - mas_channel.split('.')[:2] | join('.') is version('9.1', '>=')
+      when: _cis_mas_allowlist_enabled | bool
       ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist.yml
       vars:
         instance_id: "{{ mas_instance_id }}"
         domain: "{{ mas_domain }}"
 
     - name: "cis : configure WAF IP allowlist for AI Service"
-      when:
-        - cis_waf | bool
-        - is_aiservice_mode
+      when: _cis_aiservice_allowlist_enabled | bool
       ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist.yml
       vars:
         instance_id: "{{ aiservice_instance_id }}"
         domain: "{{ aiservice_domain }}"
 
+    # Raised whether or not status reporting is active, so a failed CIS call always fails the job.
     - name: "cis : raise captured soft failure"
       ansible.builtin.fail:
         msg: "CIS task failed: {{ _cis_error.msg }} (rc={{ _cis_error.rc }})"
-      when:
-        - _cis_error is defined
-        - _cis_allowlist_status_base_args is defined
+      when: _cis_error is defined
 
   rescue:
+    # ERROR is only written when an allowlist change was requested for MAS and has not
+    # completed. A failure after the change completed leaves ACTIVE / DEACTIVATED untouched.
     - name: "cis : status update: ERROR (rescue)"
+      when:
+        - _cis_status_enabled | default(false) | bool
+        - _cis_allowlist_status_base_args is defined
+        - not (_cis_mas_allowlist_completed | default(false) | bool)
+      vars:
+        _cis_failure_message: "{{ ansible_failed_result.msg | default(_cis_error.msg | default('Unknown CIS error')) | string }}"
+        _cis_error_status_details: >-
+          {{ {'message': _cis_failure_message,
+              'error_code': (ansible_failed_result.rc | default(_cis_error.rc | default(-1))) | int,
+              'error_source': {
+                'gitops_version': lookup('env', 'GITOPS_VERSION') | default('', true),
+                'filename': 'cis_suitedns_enhanced.yml',
+                'log_file': 'oc logs -n mas-' ~ mas_instance_id ~ '-syncres ' ~ lookup('env', 'HOSTNAME'),
+                'stacktrace': _cis_failure_message
+              },
+              'request_configuration': _cis_normalised_ips | default([]) | join(', ')} }}
       ansible.builtin.shell: |
         mas-devops-feature-status-update status-update \
           {{ _cis_allowlist_status_base_args }} \
           --status ERROR \
-          --status-details '{
-            "message": "{{ ansible_failed_result.msg | default(_cis_error.msg | default("Unknown CIS error")) | replace("'", "") }}",
-            "error_code": {{ ansible_failed_result.rc | default(_cis_error.rc | default(-1)) }},
-            "error_source": {
-              "gitops_version": "{{ lookup("env", "GITOPS_VERSION") | default("", true) }}",
-              "filename": "cis_suitedns_enhanced.yml",
-              "log_file": "oc logs -n mas-{{ mas_instance_id }}-syncres {{ lookup("env", "HOSTNAME") }}",
-              "stacktrace": "{{ ansible_failed_result.msg | default(_cis_error.msg | default("")) | replace("'", "") }}"
-            },
-            "request_configuration": "{{ _cis_normalised_ips | default([]) | join(", ") }}"
-          }' \
-          --deployment-end "{{ ansible_facts['date_time']['iso8601'] }}"
-      when:
-        - is_mas_mode
-        - devops_mongo_uri | length > 0
-        - account_id | length > 0
-        - cluster_id | length > 0
-        - region_id | length > 0
-        - _cis_allowlist_status_base_args is defined
-        - _cis_allowlist_deployment_end is not defined
+          --status-details {{ _cis_error_status_details | to_json | quote }} \
+          --deployment-end {{ now(utc=true).strftime('%Y-%m-%dT%H:%M:%SZ') | quote }}
       failed_when: false
       register: _cis_status_error_rescue_result
 
     - name: "cis : status update: ERROR rescue (result)"
       ansible.builtin.debug:
         var: _cis_status_error_rescue_result
-      when: _cis_status_error_rescue_result is defined
+      when: _cis_status_error_rescue_result is not skipped
 
     - name: "cis : re-raise failure after ERROR status written"
       ansible.builtin.fail:
