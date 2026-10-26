@@ -1,5 +1,6 @@
 ---
 # Run one CIS custom WAF rule call (with retries) and record the outcome.
+# The failure is captured in _cis_error (raised at the end of cis_suitedns_enhanced.yml).
 - name: "cis : ip-allowlist — {{ allowlist_action }} WAF rule"
   ansible.builtin.shell: |
     EXPR='{{ _cis_allowlist_expression | default('') }}'
@@ -12,14 +13,23 @@
   until: _cis_rule_result.rc == 0
   failed_when: false
 
+# Evaluated when the task runs (not at fact-gathering time), so it reflects the real end time.
 - name: "cis : ip-allowlist — capture deployment end timestamp ({{ allowlist_action }})"
   ansible.builtin.set_fact:
-    _cis_allowlist_deployment_end: "{{ ansible_facts['date_time']['iso8601'] }}"
+    _cis_allowlist_deployment_end: "{{ now(utc=true).strftime('%Y-%m-%dT%H:%M:%SZ') }}"
   when: _cis_rule_result.rc == 0
+
+# Only a completed MAS change stops a later failure from being reported as ERROR.
+- name: "cis : ip-allowlist — mark MAS allowlist change completed ({{ allowlist_action }})"
+  ansible.builtin.set_fact:
+    _cis_mas_allowlist_completed: true
+  when:
+    - _cis_rule_result.rc == 0
+    - is_mas_mode
 
 - name: "cis : ip-allowlist — capture failure ({{ allowlist_action }})"
   ansible.builtin.set_fact:
     _cis_error:
       rc: "{{ _cis_rule_result.rc }}"
-      msg: "{{ ((_cis_rule_result.stdout_lines | default([])) + (_cis_rule_result.stderr_lines | default([]))) | join(' ') | replace(\"'\", '') }}"
+      msg: "{{ ((_cis_rule_result.stdout_lines | default([])) + (_cis_rule_result.stderr_lines | default([]))) | join(' ') }}"
   when: _cis_rule_result.rc != 0

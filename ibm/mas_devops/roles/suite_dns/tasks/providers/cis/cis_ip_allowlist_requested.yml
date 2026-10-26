@@ -1,84 +1,43 @@
 ---
-# Set allowlisting REQUESTED status in MongoDB.
-# Sets _cis_allowlist_status_base_args used by ALL downstream status
-- name: "cis : ip-allowlist — requested: get current WAF rules"
-  ansible.builtin.shell: |
-    ibmcloud cis custom-waf rules {{ _cis_domain_id }} \
-      -i "{{ cis_service_name }}" --output json
-  register: _cis_preflight_rules_result
-  failed_when: false
+# Detect an allowlist change for MAS and report the REQUESTED status.
+#
+# _cis_allowlist_status_base_args is built. It is only set when
+# the allowlist actually has to change, so a run with nothing to do writes no status, and every
+# later status call (IN_PROGRESS, ACTIVE, DEACTIVATED, ERROR) reuses these arguments.
+- name: "cis : ip-allowlist — requested: plan allowlist change (MAS)"
+  ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist_plan.yml
+  vars:
+    domain: "{{ mas_domain }}"
 
-# Build expected expression from cis_allowed_ips.
-# Empty string when cis_allowed_ips is unset or empty (deletion path).
-# ─────────────────────────────────────────────────────────────────────────────
-- name: "cis : ip-allowlist — requested: normalise requested IPs"
-  ansible.builtin.set_fact:
-    _cis_preflight_normalised_ips: >-
-      {{ cis_allowed_ips | default('')
-         | regex_replace('(^\[|\]$)', '')
-         | regex_replace(',', ' ')
-         | split()
-         | select('match', '.+')
-         | list }}
-
-- name: "cis : ip-allowlist — requested: build expected WAF expression"
-  ansible.builtin.set_fact:
-    _cis_preflight_expected_expr: >-
-      {{ 'not ip.src in {' + (_cis_preflight_normalised_ips | join(' ')) + '} and http.host contains "' + mas_domain + '"'
-         if _cis_preflight_normalised_ips | length > 0 else '' }}
-
-# Extract existing expression from CIS response
-# ─────────────────────────────────────────────────────────────────────────────
-- name: "cis : ip-allowlist — requested: extract existing expression from CIS"
-  ansible.builtin.set_fact:
-    _cis_preflight_existing_expr: >-
-      {{ (_cis_preflight_rules_result.stdout | from_json).get('rules', [])
-         | selectattr('description', 'equalto', 'mas-ip-allowlist-' + mas_domain)
-         | map(attribute='expression') | list | first | default('') }}
-  when:
-    - _cis_preflight_rules_result.rc == 0
-    - _cis_preflight_rules_result.stdout | trim | length > 0
-
-- name: "cis : ip-allowlist — requested: set existing expression empty (fetch failed or no rules)"
-  ansible.builtin.set_fact:
-    _cis_preflight_existing_expr: ""
-  when: >-
-    _cis_preflight_rules_result.rc != 0 or
-    _cis_preflight_rules_result.stdout | trim | length == 0
-
-# set base args — needed by downstream ERROR writes
-# ─────────────────────────────────────────────────────────────────────────────
-- name: "cis : ip-allowlist — requested: build status-update base args"
-  ansible.builtin.set_fact:
-    _cis_allowlist_status_base_args: >-
-      --region "{{ region_id }}"
-      --instance-id "{{ mas_instance_id }}"
-      --account "{{ account_id }}"
-      --cluster "{{ cluster_id }}"
-      --subscription-id "{{ subscription_id }}"
-      --type allow-list
-      --feature-details '{"ips": {{ _cis_preflight_normalised_ips | to_json }}}'
-      --deployment-start "{{ ansible_facts['date_time']['iso8601'] }}"
-  when: _cis_preflight_existing_expr != _cis_preflight_expected_expr
-
-# Compare: REQUESTED fires when existing != expected
-# ─────────────────────────────────────────────────────────────────────────────
 - name: "cis : ip-allowlist — requested: show pre-flight result"
   ansible.builtin.debug:
     msg:
-      - "Existing expression .. {{ _cis_preflight_existing_expr | default('(none)') }}"
-      - "Expected expression .. {{ _cis_preflight_expected_expr | default('(none)') }}"
-      - "Change needed ........ {{ _cis_preflight_existing_expr != _cis_preflight_expected_expr }}"
+      - "Existing expression .. {{ _cis_existing_expression | default('(none)', true) }}"
+      - "Expected expression .. {{ _cis_allowlist_expression | default('(none)', true) }}"
+      - "Action ............... {{ _cis_allowlist_action }}"
 
 - name: "cis : ip-allowlist — requested: no change, skipping REQUESTED"
   ansible.builtin.debug:
     msg: "Allow list already in desired state — skipping REQUESTED (no-op)"
-  when: _cis_preflight_existing_expr == _cis_preflight_expected_expr
+  when: _cis_allowlist_action == 'noop'
+
+- name: "cis : ip-allowlist — requested: build status-update base args"
+  when: _cis_allowlist_action != 'noop'
+  ansible.builtin.set_fact:
+    _cis_allowlist_status_base_args: >-
+      --region {{ region_id | quote }}
+      --instance-id {{ mas_instance_id | quote }}
+      --account {{ account_id | quote }}
+      --cluster {{ cluster_id | quote }}
+      {{ ('--subscription-id ' ~ (subscription_id | quote)) if subscription_id | length > 0 else '' }}
+      --type allow-list
+      --feature-details {{ {'ips': _cis_normalised_ips} | to_json | quote }}
+      --deployment-start {{ now(utc=true).strftime('%Y-%m-%dT%H:%M:%SZ') | quote }}
 
 - name: "cis : ip-allowlist — requested: set REQUESTED status"
-  when: _cis_preflight_existing_expr != _cis_preflight_expected_expr
+  when: _cis_allowlist_action != 'noop'
   ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist_status.yml
   vars:
     allowlist_status: REQUESTED
     allowlist_status_message: "Allow list request received."
-    allowlist_status_request: "{{ _cis_preflight_normalised_ips | join(', ') }}"
+    allowlist_status_request: "{{ _cis_normalised_ips | join(', ') }}"
