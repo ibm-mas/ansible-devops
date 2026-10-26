@@ -127,7 +127,9 @@
 # job creates before the db2 install job runs. Each tenant gets:
 #   SERVICE CLASS  WLM_<TENANT_ID>_SC  (top-level superclass — Db2 does not allow
 #                                        user subclasses under default classes)
-#   WORKLOAD       WLM_<TENANT_ID>_WL  matching SYSTEM_USER('db2_<tenant_id>')
+#   WORKLOAD       WLM_<TENANT_ID>_WL  matching SYSTEM_USER('DB2_<TENANT_ID>'). The value
+#                                        must be uppercase: Db2 stores it as written and
+#                                        authorization IDs are uppercase.
 # Both statements are idempotent (SQLSTATE 42710 / already exists = skip).
 - name: "Read tenantgroup-ids ConfigMap"
   kubernetes.core.k8s_info:
@@ -165,7 +167,7 @@
       db2 connect to {{ db2_dbname }} > /dev/null || exit 1;
       SC=WLM_$(echo '{{ _wlm_tenant_id }}' | tr '[:lower:]' '[:upper:]')_SC;
       WL=WLM_$(echo '{{ _wlm_tenant_id }}' | tr '[:lower:]' '[:upper:]')_WL;
-      USER=db2_{{ _wlm_tenant_id }};
+      USER=DB2_$(echo '{{ _wlm_tenant_id }}' | tr '[:lower:]' '[:upper:]');
       db2 \"CREATE SERVICE CLASS ${SC}\" 2>&1 | grep -v 'SQL0601N' || true;
       db2 \"CREATE WORKLOAD ${WL} SYSTEM_USER ('${USER}') SERVICE CLASS ${SC} ENABLE\" 2>&1 | grep -v 'SQL0601N' || true;
       db2 terminate > /dev/null; exit 0"
