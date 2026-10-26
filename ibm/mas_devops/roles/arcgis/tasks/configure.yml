@@ -1,0 +1,88 @@
+---
+# Configure ArcGIS Enterprise Organization
+# Called from main.yml after all pods are Running (step 10)
+# Skipped by default unless arcgis_configure_org=true
+#
+# The full arcgis setup/ tree is bundled inside this role under files/setup/
+# and is copied to the target host at runtime so configure.sh can resolve
+# its relative paths (.install/.config/setup-config.sh, resources/, etc.)
+# -----------------------------------------------------------------------------
+
+- name: "Skip configure if arcgis_configure_org is not enabled"
+  when: not arcgis_configure_org | default(false) | bool
+  debug:
+    msg: "arcgis_configure_org is not set — skipping ArcGIS Enterprise organization configuration"
+
+- name: "Fail if arcgis_license_file is not provided"
+  when: arcgis_configure_org | default(false) | bool
+  assert:
+    that:
+      - arcgis_license_file is defined
+      - arcgis_license_file != ""
+    fail_msg: "arcgis_license_file must be set when arcgis_configure_org=true"
+
+- name: "Fail if arcgis_admin_username is not provided"
+  when: arcgis_configure_org | default(false) | bool
+  assert:
+    that:
+      - arcgis_admin_username is defined
+      - arcgis_admin_username != ""
+    fail_msg: "arcgis_admin_username must be set when arcgis_configure_org=true"
+
+- name: "Fail if arcgis_storage_class is not provided"
+  when: arcgis_configure_org | default(false) | bool
+  assert:
+    that:
+      - arcgis_storage_class is defined
+      - arcgis_storage_class != ""
+    fail_msg: "arcgis_storage_class must be set when arcgis_configure_org=true"
+
+# Copy the bundled setup/ tree from the role's files/ directory to the target
+# host so that configure.sh can resolve all its relative sibling paths
+- name: "Copy arcgis setup scripts to target host"
+  when: arcgis_configure_org | default(false) | bool
+  ansible.builtin.copy:
+    src: "setup/"
+    dest: "{{ arcgis_configure_dest }}/setup/"
+    mode: preserve
+
+# Ensure all .sh files are executable after copy (preserve mode may not set +x
+# if the controller filesystem strips execute bits)
+- name: "Ensure configure.sh is executable"
+  when: arcgis_configure_org | default(false) | bool
+  ansible.builtin.file:
+    path: "{{ arcgis_configure_dest }}/setup/tools/configure/configure.sh"
+    mode: "0755"
+
+- name: "Write configure.properties from template"
+  when: arcgis_configure_org | default(false) | bool
+  template:
+    src: "configure.properties.j2"
+    dest: "{{ arcgis_configure_dest }}/setup/tools/configure/arcgis-configure-{{ mas_instance_id }}.properties"
+    mode: "0600"
+
+- name: "Run configure.sh to create ArcGIS Enterprise organization"
+  when: arcgis_configure_org | default(false) | bool
+  ansible.builtin.command:
+    argv:
+      - "{{ arcgis_configure_dest }}/setup/tools/configure/configure.sh"
+      - "-s"
+      - "-f"
+      - "{{ arcgis_configure_dest }}/setup/tools/configure/arcgis-configure-{{ mas_instance_id }}.properties"
+  environment:
+    HELM_DEPLOY: "true"
+    K8S_NAMESPACE: "{{ mas_arcgis_namespace }}"
+  register: configure_result
+  changed_when: configure_result.rc == 0
+
+- name: "Clean up generated configure.properties"
+  when: arcgis_configure_org | default(false) | bool
+  ansible.builtin.file:
+    path: "{{ arcgis_configure_dest }}/setup/tools/configure/arcgis-configure-{{ mas_instance_id }}.properties"
+    state: absent
+
+- name: "Clean up copied setup scripts"
+  when: arcgis_configure_org | default(false) | bool
+  ansible.builtin.file:
+    path: "{{ arcgis_configure_dest }}"
+    state: absent
