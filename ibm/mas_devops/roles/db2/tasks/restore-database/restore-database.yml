@@ -1,6 +1,20 @@
 ---
 # Check db2 Restore required variables
 # -----------------------------------------------------------------------------
+- name: "Set default db2_backup_version for profile-based restore"
+  set_fact:
+    db2_backup_version: >-
+      {{
+        backup_release_tag if (backup_retention_profile == 'release' and backup_release_tag != '')
+        else backup_ticket_id if (backup_retention_profile == 'adhoc' and backup_ticket_id != '')
+        else backup_retention_profile
+      }}
+  when:
+    - db2_backup_version is not defined or db2_backup_version == "" or db2_backup_version == "None"
+    - backup_retention_profile is defined
+    - backup_retention_profile != ""
+    - backup_retention_profile in ["daily", "adhoc", "golden", "release"]
+
 - name: Verify DB2 restore variables
   ibm.mas_devops.verify_backup_restore_vars:
     component: "db2"
@@ -37,6 +51,17 @@
       - "S3 BUCKET          : {{ backup_s3_bucket | default('UNDEFINED') }}"
       - "BACKUP DIR         : {{ mas_backup_dir | default('UNDEFINED') }}"
       - "================================================================================"
+
+# Pipeline-driven retention profile pre-processing (MASR-12127)
+# Run only when backup_vendor=s3 AND a retention profile is explicitly set.
+# -------------------------------------------------------------------------
+- name: "Run profile-based S3 routing for restore"
+  include_tasks: "{{ role_path }}/tasks/restore-database/restore-database-with-profile.yml"
+  when:
+    - backup_vendor == "s3"
+    - backup_retention_profile is defined
+    - backup_retention_profile != ""
+    - backup_retention_profile in ["daily", "adhoc", "golden", "release"]
 
 - name: "Run restore-db-from-disk.yml when backup vendor is disk"
   include_tasks: "{{ role_path }}/tasks/restore-database/restore-db-from-{{ backup_vendor }}.yml"

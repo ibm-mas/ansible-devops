@@ -32,3 +32,14 @@
 # -------------------------------------------------------------------------
 - name: "Start Database backup process."
   include_tasks: "tasks/backup-database/backup-database.yml"
+
+# Pipeline-driven retention profile post-processing (MASR-12127)
+# Run only when backup_vendor=s3 AND a retention profile is explicitly set.
+# -------------------------------------------------------------------------
+- name: "Run profile-based S3 routing and metadata manifest upload"
+  include_tasks: "tasks/backup-database/backup-database-with-profile.yml"
+  when:
+    - backup_vendor == "s3"
+    - backup_retention_profile is defined
+    - backup_retention_profile != ""
+    - backup_retention_profile in ["daily", "adhoc", "golden", "release"]

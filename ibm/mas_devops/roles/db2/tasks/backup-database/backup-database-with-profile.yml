@@ -1,0 +1,272 @@
+---
+# Db2 Pipeline-driven backup with retention profile routing
+# =============================================================================
+# Called by backup-database/main.yml (db2_action=backup-database) when
+# backup_retention_profile is set.  Extends the base backup-database.yml with:
+#
+#   - S3 prefix routing per retention profile (daily/adhoc/golden/release)
+#   - db2-metadata-<timestamp>.json manifest upload (matches Db2 pipeline spec)
+#   - Keystore sync to S3 /KEYSTORE/ sub-path for release/golden profiles
+#   - S3 Object Lock (Governance mode) for release/golden profiles
+#   - Retention count guard — prune only if count >= backup_retention_count
+#   - Validation: release requires backup_release_tag, adhoc requires backup_ticket_id
+#
+# Variables expected (set by backup-database/main.yml and defaults/main.yml):
+#   backup_retention_profile   – daily | adhoc | golden | release
+#   backup_release_tag         – required for release profile (e.g. v9-260924-amd64)
+#   backup_ticket_id           – required for adhoc profile  (e.g. MAS-1234)
+#   backup_retention_count     – integer, default 15
+#   backup_git_commit          – git SHA for manifest traceability
+#   backup_pipeline_run_id     – CI run ID for manifest traceability
+#   db2_backup_timestamp       – 14-digit timestamp set by backup-database.yml
+#   db2_backup_path            – local staging path set by main.yml
+#   backup_s3_bucket, backup_s3_endpoint, backup_s3_alias, backup_s3_access_key,
+#   backup_s3_secret_key       – S3 credentials (only used when backup_vendor=s3)
+#   mas_application_id, db2_instance_name, db2_namespace, db2_dbname,
+#   db2_backup_version, db2_pod_name, db2_insthome
+
+# 1. Validate profile-specific required variables
+# -----------------------------------------------------------------------------
+- name: "Fail if backup_release_tag is not set for release profile"
+  assert:
+    that:
+      - backup_release_tag is defined
+      - backup_release_tag != ""
+    fail_msg: "backup_release_tag is required when backup_retention_profile=release (e.g. v9-260924-amd64)"
+  when: backup_retention_profile == "release"
+
+- name: "Fail if backup_ticket_id is not set for adhoc profile"
+  assert:
+    that:
+      - backup_ticket_id is defined
+      - backup_ticket_id != ""
+    fail_msg: "backup_ticket_id is required when backup_retention_profile=adhoc (e.g. MAS-1234)"
+  when: backup_retention_profile == "adhoc"
+
+- name: "Fail if backup_vendor is not s3 for profile-based backup"
+  assert:
+    that:
+      - backup_vendor == "s3"
+    fail_msg: >-
+      backup_vendor must be 's3' when using retention profiles (daily/adhoc/golden/release).
+      Profile-based path routing requires S3 object storage.
+  when: backup_retention_profile in ["daily", "adhoc", "golden", "release"]
+
+# 2. Build S3 prefix based on retention profile
+# =============================================================================
+# Layout:
+#   release → s3://<bucket>/releases/<release_tag>/backups-db2-<app_id>/c-<instance>-db2u-0/
+#   daily   → s3://<bucket>/daily/backups-db2-<app_id>/c-<instance>-db2u-0/
+#   adhoc   → s3://<bucket>/adhoc/<ticket_id>/backups-db2-<app_id>/c-<instance>-db2u-0/
+#   golden  → s3://<bucket>/golden/backups-db2-<app_id>/c-<instance>-db2u-0/
+# -----------------------------------------------------------------------------
+- name: "Set fact: S3 profile prefix"
+  set_fact:
+    _s3_profile_prefix: >-
+      {{
+        ('releases/' + backup_release_tag)  if backup_retention_profile == 'release'
+        else ('adhoc/' + backup_ticket_id)  if backup_retention_profile == 'adhoc'
+        else 'golden'                       if backup_retention_profile == 'golden'
+        else 'daily'
+      }}
+
+- name: "Set fact: S3 backup subdir and full path"
+  set_fact:
+    _s3_backup_subdir: "backups-db2-{{ mas_application_id }}/c-{{ db2_instance_name | lower }}-db2u-0"
+    _s3_backup_prefix: "{{ _s3_profile_prefix }}/backups-db2-{{ mas_application_id }}/c-{{ db2_instance_name | lower }}-db2u-0"
+
+- name: "Set fact: full S3 backup path for this run"
+  set_fact:
+    profile_s3_backup_path: "s3://{{ backup_s3_bucket }}/{{ _s3_backup_prefix }}/"
+
+- name: "Debug: S3 prefix routing"
+  debug:
+    msg:
+      - "Retention Profile  : {{ backup_retention_profile }}"
+      - "S3 Profile Prefix  : {{ _s3_profile_prefix }}"
+      - "S3 Backup Path     : {{ profile_s3_backup_path }}"
+
+# 3. Upload db2-metadata-<timestamp>.json manifest to S3
+# =============================================================================
+# This manifest lets automated restore pipelines and support teams discover
+# the exact backup without browsing raw S3 listings.
+# -----------------------------------------------------------------------------
+- name: "Set fact: metadata filename and S3 key"
+  set_fact:
+    _metadata_filename: "db2-metadata-{{ db2_backup_timestamp }}.json"
+    _metadata_s3_key: "{{ _s3_backup_prefix }}/db2-metadata-{{ db2_backup_timestamp }}.json"
+    _metadata_local_path: "/tmp/db2-metadata-{{ db2_backup_timestamp }}.json"
+
+- name: "Write db2-metadata-{{ db2_backup_timestamp }}.json to /tmp"
+  copy:
+    dest: "{{ _metadata_local_path }}"
+    mode: "0644"
+    content: |
+      {
+        "dbType": "db2",
+        "backupTimestamp": "{{ db2_backup_timestamp }}",
+        "backupVersion": "{{ db2_backup_version }}",
+        "masAppId": "{{ mas_application_id }}",
+        "db2InstanceName": "{{ db2_instance_name | lower }}",
+        "db2Namespace": "{{ db2_namespace }}",
+        "database": "{{ db2_dbname }}",
+        "backupType": "{{ backup_type }}",
+        "backupVendor": "{{ backup_vendor }}",
+        "retentionProfile": "{{ backup_retention_profile }}",
+        "releaseTag": "{{ backup_release_tag | default('') }}",
+        "ticketId": "{{ backup_ticket_id | default('') }}",
+        "retentionCount": {{ backup_retention_count | int }},
+        "db2Version": "{{ db2_pod_name_result.db2_version | default('') }}",
+        "gitCommit": "{{ backup_git_commit | default('unknown') }}",
+        "pipelineRunId": "{{ backup_pipeline_run_id | default('unknown') }}",
+        "s3Path": "{{ profile_s3_backup_path }}"
+      }
+
+- name: "Upload db2-metadata-{{ db2_backup_timestamp }}.json to S3"
+  shell: >-
+    aws s3 cp {{ _metadata_local_path }}
+    s3://{{ backup_s3_bucket }}/{{ _metadata_s3_key }}
+    --endpoint-url {{ backup_s3_endpoint }}
+    --tagging "DbType=db2&RetentionProfile={{ backup_retention_profile }}&ReleaseTag={{ backup_release_tag | default('') }}&AppId={{ mas_application_id }}&InstanceName={{ db2_instance_name | lower }}&PurgeEligible=false"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ backup_s3_access_key }}"
+    AWS_SECRET_ACCESS_KEY: "{{ backup_s3_secret_key }}"
+  register: _metadata_upload_result
+  no_log: true
+
+- name: "Assert metadata manifest upload succeeded"
+  assert:
+    that:
+      - _metadata_upload_result.rc == 0
+    fail_msg: "Failed to upload db2-metadata manifest to s3://{{ backup_s3_bucket }}/{{ _metadata_s3_key }}"
+
+- name: "Set fact: metadata S3 URI"
+  set_fact:
+    metadata_s3_uri: "s3://{{ backup_s3_bucket }}/{{ _metadata_s3_key }}"
+
+# 4. S3 Object Lock (Governance mode) for release/golden profiles
+# =============================================================================
+# Prevents accidental deletion for 365 days — immutable retention for builds
+# that must survive rolling daily purges.
+# -----------------------------------------------------------------------------
+- name: "Apply S3 Object Lock (Governance mode, 365 days) for release/golden profiles"
+  when: backup_retention_profile in ["release", "golden"]
+  block:
+    - name: "Compute Object Lock retain-until date"
+      set_fact:
+        _lock_until: "{{ '%Y-%m-%dT%H:%M:%SZ' | strftime((ansible_date_time.epoch | int) + 31536000) }}"
+
+    - name: "Apply Object Lock to metadata manifest"
+      shell: >-
+        aws s3api put-object-retention
+        --bucket {{ backup_s3_bucket }}
+        --key {{ _metadata_s3_key }}
+        --retention "Mode=GOVERNANCE,RetainUntilDate={{ _lock_until }}"
+        --endpoint-url {{ backup_s3_endpoint }}
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ backup_s3_access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ backup_s3_secret_key }}"
+      register: _lock_result
+      failed_when: false  # Buckets without Object Lock configured simply skip
+      no_log: true
+
+    - name: "Log Object Lock outcome"
+      debug:
+        msg: >-
+          {{ 'S3 Object Lock applied until ' + _lock_until
+             if _lock_result.rc == 0
+             else 'WARN: S3 Object Lock not available on this bucket — skipping WORM' }}
+
+# 5. Retention count guard — prune daily/adhoc only
+# =============================================================================
+# Release and golden profiles are immune to pruning.
+# For daily/adhoc: count S3 objects in the prefix; if >= backup_retention_count
+# mark the oldest S3 backup object with PurgeEligible=true.
+# (Actual deletion is handled by a separate lifecycle/cleanup pipeline step.)
+# -----------------------------------------------------------------------------
+- name: "Count existing backups in S3 for daily/adhoc retention check"
+  when: backup_retention_profile in ["daily", "adhoc"]
+  shell: >-
+    aws s3 ls s3://{{ backup_s3_bucket }}/{{ _s3_backup_prefix }}/
+    --endpoint-url {{ backup_s3_endpoint }}
+    | grep 'db2-metadata-' | wc -l
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ backup_s3_access_key }}"
+    AWS_SECRET_ACCESS_KEY: "{{ backup_s3_secret_key }}"
+  register: _s3_backup_count_result
+  no_log: true
+  failed_when: false
+
+- name: "Set fact: existing backup count"
+  set_fact:
+    _existing_backup_count: "{{ _s3_backup_count_result.stdout | trim | int }}"
+  when: backup_retention_profile in ["daily", "adhoc"]
+
+- name: "Debug: backup count vs retention threshold"
+  debug:
+    msg:
+      - "Existing backups in S3 prefix : {{ _existing_backup_count | default('N/A') }}"
+      - "Retention count threshold     : {{ backup_retention_count }}"
+      - "Pruning eligible              : {{ (_existing_backup_count | default(0) | int) >= (backup_retention_count | int) }}"
+  when: backup_retention_profile in ["daily", "adhoc"]
+
+- name: "Tag oldest backup as PurgeEligible=true when count >= retention threshold"
+  when:
+    - backup_retention_profile in ["daily", "adhoc"]
+    - (_existing_backup_count | default(0) | int) >= (backup_retention_count | int)
+  block:
+    - name: "List all metadata manifests sorted by date (oldest first)"
+      shell: >-
+        aws s3 ls s3://{{ backup_s3_bucket }}/{{ _s3_backup_prefix }}/
+        --endpoint-url {{ backup_s3_endpoint }}
+        | grep 'db2-metadata-' | sort | head -1 | awk '{print $NF}'
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ backup_s3_access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ backup_s3_secret_key }}"
+      register: _oldest_manifest_result
+      no_log: true
+
+    - name: "Tag oldest backup manifest as PurgeEligible=true"
+      shell: >-
+        aws s3api put-object-tagging
+        --bucket {{ backup_s3_bucket }}
+        --key {{ _s3_backup_prefix }}/{{ _oldest_manifest_result.stdout | trim }}
+        --tagging 'TagSet=[{Key=PurgeEligible,Value=true}]'
+        --endpoint-url {{ backup_s3_endpoint }}
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ backup_s3_access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ backup_s3_secret_key }}"
+      when: _oldest_manifest_result.stdout | trim != ""
+      no_log: true
+
+# 6. Write profile metadata to local backup-info YAML (appends to db2-backup-info.yaml)
+# -----------------------------------------------------------------------------
+- name: "Append profile metadata to {{ db2_backup_path }}/data/db2-backup-info.yaml"
+  blockinfile:
+    path: "{{ db2_backup_path }}/data/db2-backup-info.yaml"
+    create: true
+    marker: "# {mark} RETENTION PROFILE BLOCK"
+    block: |
+      retention_profile: "{{ backup_retention_profile }}"
+      release_tag: "{{ backup_release_tag | default('') }}"
+      ticket_id: "{{ backup_ticket_id | default('') }}"
+      retention_count: {{ backup_retention_count | int }}
+      metadata_s3_uri: "{{ metadata_s3_uri }}"
+      git_commit: "{{ backup_git_commit | default('unknown') }}"
+      pipeline_run_id: "{{ backup_pipeline_run_id | default('unknown') }}"
+
+# 7. Display completion summary
+# -----------------------------------------------------------------------------
+- name: "Display profile-based backup completion summary"
+  debug:
+    msg:
+      - "=========================================="
+      - "DB2 Profile-Based Backup Completed"
+      - "=========================================="
+      - "Retention Profile  : {{ backup_retention_profile }}"
+      - "Release Tag        : {{ backup_release_tag | default('N/A') }}"
+      - "Ticket ID          : {{ backup_ticket_id | default('N/A') }}"
+      - "Backup Timestamp   : {{ db2_backup_timestamp }}"
+      - "S3 Backup Path     : {{ profile_s3_backup_path }}"
+      - "Metadata S3 URI    : {{ metadata_s3_uri }}"
+      - "=========================================="

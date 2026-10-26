@@ -1,0 +1,94 @@
+---
+# Db2 Pipeline-driven restore with retention profile routing
+# =============================================================================
+# Called by restore-database.yml when backup_retention_profile is set.
+# Calculates S3 prefix routing per retention profile (daily/adhoc/golden/release).
+# Automatically resolves between Ansible-style (backups-db2-...) and
+# Tekton-style (backups-...) prefixes by querying S3, ensuring full compatibility.
+#
+# Variables expected:
+#   backup_retention_profile   – daily | adhoc | golden | release
+#   backup_release_tag         – required for release profile (e.g. v9-260924-amd64)
+#   backup_ticket_id           – required for adhoc profile  (e.g. MAS-1234)
+#   backup_s3_bucket, backup_s3_alias, mas_application_id, db2_instance_name,
+#   backup_s3_endpoint, backup_s3_access_key, backup_s3_secret_key
+
+# 1. Validate profile-specific required variables
+# -----------------------------------------------------------------------------
+- name: "Fail if backup_release_tag is not set for release profile"
+  assert:
+    that:
+      - backup_release_tag is defined
+      - backup_release_tag != ""
+    fail_msg: "backup_release_tag is required when backup_retention_profile=release (e.g. v9-260924-amd64)"
+  when: backup_retention_profile == "release"
+
+- name: "Fail if backup_ticket_id is not set for adhoc profile"
+  assert:
+    that:
+      - backup_ticket_id is defined
+      - backup_ticket_id != ""
+    fail_msg: "backup_ticket_id is required when backup_retention_profile=adhoc (e.g. MAS-1234)"
+  when: backup_retention_profile == "adhoc"
+
+- name: "Fail if backup_vendor is not s3 for profile-based restore"
+  assert:
+    that:
+      - backup_vendor == "s3"
+    fail_msg: >-
+      backup_vendor must be 's3' when using retention profiles (daily/adhoc/golden/release).
+      Profile-based path routing requires S3 object storage.
+  when: backup_retention_profile in ["daily", "adhoc", "golden", "release"]
+
+# 2. Build S3 prefix options
+# -----------------------------------------------------------------------------
+- name: "Set fact: S3 profile prefix"
+  set_fact:
+    _s3_profile_prefix: >-
+      {{
+        ('releases/' + backup_release_tag)  if backup_retention_profile == 'release'
+        else ('adhoc/' + backup_ticket_id)  if backup_retention_profile == 'adhoc'
+        else 'golden'                       if backup_retention_profile == 'golden'
+        else 'daily'
+      }}
+
+- name: "Set fact: S3 backup prefixes to check"
+  set_fact:
+    _s3_prefix_ansible: "{{ _s3_profile_prefix }}/backups-db2-{{ mas_application_id }}/c-{{ db2_instance_name | lower }}-db2u-0"
+    _s3_prefix_tekton: "{{ _s3_profile_prefix }}/backups-{{ mas_application_id }}/c-{{ db2_instance_name | lower }}-db2u-0"
+
+# 3. Query S3 to check which prefix contains backup assets
+# -----------------------------------------------------------------------------
+- name: "Query S3 to verify Ansible-style prefix"
+  shell: >-
+    aws s3 ls s3://{{ backup_s3_bucket }}/{{ _s3_prefix_ansible }}/
+    --endpoint-url {{ backup_s3_endpoint }}
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ backup_s3_access_key }}"
+    AWS_SECRET_ACCESS_KEY: "{{ backup_s3_secret_key }}"
+  register: _ansible_prefix_check
+  failed_when: false
+  no_log: true
+
+# 4. Dynamically select the correct S3 backup prefix and path
+# -----------------------------------------------------------------------------
+- name: "Set fact: Chosen S3 backup prefix and path"
+  set_fact:
+    _s3_backup_prefix: >-
+      {{
+        _s3_prefix_ansible
+        if (_ansible_prefix_check.rc == 0 and _ansible_prefix_check.stdout != "")
+        else _s3_prefix_tekton
+      }}
+
+- name: "Set fact: S3 full backup path for Db2 storage alias restore"
+  set_fact:
+    s3_full_backup_path: "DB2REMOTE://{{ backup_s3_alias }}/{{ backup_s3_bucket }}/{{ _s3_backup_prefix }}"
+
+- name: "Debug: Chosen S3 prefix routing for restore"
+  debug:
+    msg:
+      - "Retention Profile  : {{ backup_retention_profile }}"
+      - "S3 Profile Prefix  : {{ _s3_profile_prefix }}"
+      - "S3 Backup Prefix   : {{ _s3_backup_prefix }}"
+      - "DB2REMOTE Path     : {{ s3_full_backup_path }}"
