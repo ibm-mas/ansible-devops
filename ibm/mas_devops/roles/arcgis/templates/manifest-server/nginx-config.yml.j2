@@ -1,0 +1,41 @@
+---
+# Minimal nginx.conf: listens on port 8080 (non-root), maps .dat → application/json.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "{{ arcgis_manifest_nginx_config_name }}"
+  namespace: "{{ mas_arcgis_namespace }}"
+  labels:
+    app: arcgis-manifest-server
+    managed-by: ibm-mas-arcgis
+data:
+  nginx.conf: |
+    worker_processes  1;
+    error_log  /dev/stderr warn;
+    pid        /tmp/nginx.pid;
+
+    events { worker_connections 1024; }
+
+    http {
+      client_body_temp_path  /tmp/nginx_client_temp;
+      proxy_temp_path        /tmp/nginx_proxy_temp;
+      fastcgi_temp_path      /tmp/nginx_fastcgi_temp;
+      uwsgi_temp_path        /tmp/nginx_uwsgi_temp;
+      scgi_temp_path         /tmp/nginx_scgi_temp;
+      access_log  /dev/stdout;
+
+      types {
+        text/html        html;
+        application/json json dat;
+      }
+      default_type application/octet-stream;
+
+      server {
+        listen 8080;
+        server_name _;
+        location / {
+          root   /usr/share/nginx/html;
+          autoindex off;
+        }
+      }
+    }

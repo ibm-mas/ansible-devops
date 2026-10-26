@@ -1,0 +1,68 @@
+---
+# nginx Deployment: serves the enriched esriManifest_120.dat as a static file.
+# The manifest data ConfigMap (esri-manifest-120) is populated by the initial
+# run of publish_manifest_to_cluster.py (using --registry <mirror>/cp) and
+# kept fresh by the CronJob.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ arcgis_manifest_deployment_name }}"
+  namespace: "{{ mas_arcgis_namespace }}"
+  labels:
+    app: arcgis-manifest-server
+    managed-by: ibm-mas-arcgis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: arcgis-manifest-server
+  template:
+    metadata:
+      labels:
+        app: arcgis-manifest-server
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nginx
+          image: "{{ mas_icr_cpopen }}/ubi9/nginx-122:latest"
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: manifest-data
+              mountPath: /usr/share/nginx/html
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          readinessProbe:
+            httpGet:
+              path: "/esriManifest_120.dat"
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: "{{ arcgis_manifest_nginx_config_name }}"
+            items:
+              - key: nginx.conf
+                path: nginx.conf
+        - name: manifest-data
+          configMap:
+            name: "{{ arcgis_manifest_configmap_name }}"
+      imagePullSecrets:
+        - name: ibm-entitlement

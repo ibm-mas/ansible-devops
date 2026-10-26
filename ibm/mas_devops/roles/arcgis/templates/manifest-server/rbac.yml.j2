@@ -1,0 +1,41 @@
+---
+# RBAC for the manifest refresher CronJob.
+# The job only needs get/create/patch/update on ConfigMaps in its own namespace.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: "{{ arcgis_manifest_cronjob_name }}"
+  namespace: "{{ mas_arcgis_namespace }}"
+  labels:
+    app: arcgis-manifest-server
+    managed-by: ibm-mas-arcgis
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: "{{ arcgis_manifest_cronjob_name }}"
+  namespace: "{{ mas_arcgis_namespace }}"
+  labels:
+    app: arcgis-manifest-server
+    managed-by: ibm-mas-arcgis
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "create", "update", "patch", "apply"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: "{{ arcgis_manifest_cronjob_name }}"
+  namespace: "{{ mas_arcgis_namespace }}"
+  labels:
+    app: arcgis-manifest-server
+    managed-by: ibm-mas-arcgis
+subjects:
+  - kind: ServiceAccount
+    name: "{{ arcgis_manifest_cronjob_name }}"
+    namespace: "{{ mas_arcgis_namespace }}"
+roleRef:
+  kind: Role
+  name: "{{ arcgis_manifest_cronjob_name }}"
+  apiGroup: rbac.authorization.k8s.io

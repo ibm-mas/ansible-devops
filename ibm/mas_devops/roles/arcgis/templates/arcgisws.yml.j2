@@ -8,4 +8,25 @@ metadata:
     labels:
         mas.ibm.com/applicationId: arcgis
         mas.ibm.com/instanceId: "{{ mas_instance_id }}"
-spec: {}
+spec:
+{% if mas_airgap_registry != '' or arcgis_version_manifest_url != '' %}
+  settings:
+{% if mas_airgap_registry != '' %}
+    # In airgap mode, ArcGIS Enterprise Manager makes direct HTTP calls to the
+    # CONTAINER_REGISTRY to verify image availability before applying updates.
+    # OCP's IDMS only intercepts CRI-O/Kubernetes pulls — not direct HTTP calls
+    # from inside the pod.  Point this at the airgap mirror path so the Manager
+    # UI can reach update images without hitting the public ICR.
+    containerRegistry: "{{ mas_airgap_registry }}/cp/arcgis"
+{% endif %}
+{% if arcgis_version_manifest_url != '' %}
+    # In airgap mode the Esri S3 manifest URL is unreachable.
+    # arcgis_version_manifest_url is set by deploy_manifest_server.yml to the
+    # in-cluster nginx Route URL (https://<route-host>/esriManifest_120.dat).
+    # The manifest served there has sha256 digests in every container entry so
+    # ArcGIS Manager uses digest-based pulls when applying upgrades.
+    # A CronJob refreshes the manifest weekly, checking the S3 ETag first so
+    # it only re-enriches when Esri has actually published a new build.
+    versionManifestUrl: "{{ arcgis_version_manifest_url }}"
+{% endif %}
+{% endif %}

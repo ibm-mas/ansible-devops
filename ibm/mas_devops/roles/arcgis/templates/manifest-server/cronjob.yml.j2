@@ -1,0 +1,149 @@
+---
+# CronJob: weekly manifest refresh.
+#
+# Runs on the schedule defined by arcgis_manifest_refresh_schedule (default:
+# every Monday 03:00 UTC, matching Esri's typical weekly release cadence).
+#
+# Logic:
+#   1. Fetch the S3 ETag header — a cheap HEAD request, no download needed.
+#   2. Compare it against the etag annotation on the existing ConfigMap.
+#   3. If the ETag is unchanged: exit 0 (nothing to do).
+#   4. If changed (or ConfigMap doesn't exist yet):
+#        a. Download the full manifest JSON.
+#        b. Run skopeo inspect for every unique image:tag to resolve sha256
+#           digests and write them into the checksum field.
+#        c. kubectl apply the updated ConfigMap.
+#        d. Annotate the ConfigMap with the new ETag so the next run can
+#           skip the download if nothing changed.
+#
+# The nginx pod automatically serves the updated ConfigMap content on the
+# next request — no pod restart required (ConfigMap volume mounts refresh
+# within ~60 s by default in Kubernetes).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: "{{ arcgis_manifest_cronjob_name }}"
+  namespace: "{{ mas_arcgis_namespace }}"
+  labels:
+    app: arcgis-manifest-server
+    managed-by: ibm-mas-arcgis
+spec:
+  schedule: "{{ arcgis_manifest_refresh_schedule }}"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          serviceAccountName: "{{ arcgis_manifest_cronjob_name }}"
+          containers:
+            - name: refresher
+              image: "{{ arcgis_manifest_job_image }}"
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              env:
+                # In airgap mode, skopeo must query the mirror registry (not ICR).
+                # mas_airgap_registry is derived from the IDMS annotations at deploy time.
+                - name: REGISTRY
+                  value: "{{ mas_airgap_registry }}/cp"
+                - name: MANIFEST_URL
+                  value: "https://arcgis-kubernetes.s3.amazonaws.com/12.0/manifest/esriManifest_120.dat"
+                - name: NAMESPACE
+                  value: "{{ mas_arcgis_namespace }}"
+                - name: CONFIGMAP_NAME
+                  value: "{{ arcgis_manifest_configmap_name }}"
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  set -euo pipefail
+
+                  # ── 1. Check ETag (cheap HEAD request) ────────────────────
+                  echo "Checking S3 ETag for ${MANIFEST_URL} ..."
+                  NEW_ETAG=$(curl -sI "${MANIFEST_URL}" | grep -i '^etag:' | tr -d '"' | awk '{print $2}' | tr -d '[:space:]')
+                  echo "  S3 ETag: ${NEW_ETAG}"
+
+                  CURRENT_ETAG=$(kubectl get configmap "${CONFIGMAP_NAME}" \
+                    -n "${NAMESPACE}" \
+                    -o jsonpath='{.metadata.annotations.arcgis\.ibm\.com/manifest-etag}' 2>/dev/null || true)
+                  echo "  Stored ETag: ${CURRENT_ETAG:-<none>}"
+
+                  if [[ -n "${NEW_ETAG}" && "${NEW_ETAG}" == "${CURRENT_ETAG}" ]]; then
+                    echo "ETag unchanged — manifest is up to date, nothing to do."
+                    exit 0
+                  fi
+
+                  # ── 2. Download full manifest ──────────────────────────────
+                  echo "Manifest has changed (or first run). Downloading ..."
+                  TMP=$(mktemp /tmp/esriManifest_XXXXXX.dat)
+                  curl -fsSL "${MANIFEST_URL}" -o "${TMP}"
+                  echo "  Downloaded $(wc -c < "${TMP}") bytes."
+
+                  # ── 3. Resolve sha256 digests via skopeo ──────────────────
+                  echo "Resolving digests from ${REGISTRY}/arcgis/ ..."
+                  python3 - "${TMP}" "${REGISTRY}" <<'PYEOF'
+                  import json, subprocess, sys
+                  src, registry = sys.argv[1], sys.argv[2]
+                  manifest = json.load(open(src))
+                  cache = {}
+                  for version in manifest.get("versions", []):
+                      seen = set()
+                      for c in version.get("containers", []):
+                          ref = c["image"]
+                          if ref in seen:
+                              c["checksum"] = cache.get(ref) or "N/A"
+                              continue
+                          seen.add(ref)
+                          if ref not in cache:
+                              name, tag = ref.split(":", 1)
+                              full = f"docker://{registry}/arcgis/{name}:{tag}"
+                              r = subprocess.run(
+                                  ["skopeo", "inspect", "--format", "{{.Digest}}", full],
+                                  capture_output=True, text=True, timeout=30)
+                              digest = r.stdout.strip() if r.returncode == 0 else None
+                              cache[ref] = digest
+                              print(f"  {full}  {digest[:25] + '...' if digest else 'WARN: skipped'}")
+                          c["checksum"] = cache[ref] or "N/A"
+                  with open(src, "w") as f:
+                      json.dump(manifest, f, indent=2)
+                  resolved = sum(1 for v in cache.values() if v)
+                  print(f"Resolved {resolved}/{len(cache)} digests.")
+                  PYEOF
+
+                  # ── 4. Build and apply updated ConfigMap ──────────────────
+                  echo "Applying updated ConfigMap ${CONFIGMAP_NAME} ..."
+                  MANIFEST_JSON=$(cat "${TMP}")
+
+                  # Patch data field in-place (preserves all other annotations)
+                  kubectl create configmap "${CONFIGMAP_NAME}" \
+                    -n "${NAMESPACE}" \
+                    --from-literal="esriManifest_120.dat=${MANIFEST_JSON}" \
+                    --dry-run=client -o yaml \
+                  | kubectl apply -f -
+
+                  # ── 5. Stamp the new ETag so next run can short-circuit ───
+                  kubectl annotate configmap "${CONFIGMAP_NAME}" \
+                    -n "${NAMESPACE}" \
+                    --overwrite \
+                    "arcgis.ibm.com/manifest-etag=${NEW_ETAG}"
+
+                  echo "Done. ConfigMap updated with ETag ${NEW_ETAG}."
+                  rm -f "${TMP}"
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "256Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "512Mi"
+          imagePullSecrets:
+            - name: ibm-entitlement

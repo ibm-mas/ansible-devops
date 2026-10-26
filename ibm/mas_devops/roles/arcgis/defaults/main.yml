@@ -36,3 +36,45 @@ artifactory_token: "{{ lookup('env', 'ARTIFACTORY_TOKEN') }}"
 # MAS Annotation block
 # -----------------------------------------------------------------------------
 mas_annotations: "{{ lookup('env', 'MAS_ANNOTATIONS') | default(None, true) }}"
+
+# Airgap / mirror registry settings
+# -----------------------------------------------------------------------------
+# mas_airgap_registry: auto-detected from the ImageDigestMirrorSet written by
+#   the ocp_idms role (label mas.ibm.com/idmsContent=ibm, annotations
+#   mas.ibm.com/idmsRegistryHost and mas.ibm.com/idmsRegistryPort).
+#   Queried at run-time in tasks/main.yml — starts empty here.
+#   When set, the ArcGISWorkspace CR's spec.settings.containerRegistry is
+#   set to "<mas_airgap_registry>/cp/arcgis" so that ArcGIS Enterprise
+#   Manager's direct HTTP image-availability checks reach the mirror instead
+#   of the public ICR (which is unreachable in airgap).
+mas_airgap_registry: ""
+
+# arcgis_version_manifest_url: URL for the Esri patch manifest consumed by
+#   ArcGIS Enterprise Manager's update-discovery feature.
+#   In airgap mode this S3 URL is unreachable; the deploy_manifest_server task
+#   captures the in-cluster Route hostname and sets this variable automatically.
+#   Override with ARCGIS_VERSION_MANIFEST_URL to point at any custom URL.
+#   Defaults to "" — the ws operator then falls back to the public S3 URL.
+arcgis_version_manifest_url: "{{ lookup('env', 'ARCGIS_VERSION_MANIFEST_URL') | default('', true) }}"
+
+# ------------------------------------
+# Airgap manifest server settings
+# ------------------------------------
+# These variables control the in-cluster nginx pod + CronJob deployed by
+# tasks/deploy_manifest_server.yml when mas_airgap_registry is set.
+# All resources live in mas_arcgis_namespace (mas-<instanceId>-arcgis).
+arcgis_manifest_configmap_name: "esri-manifest-120"
+arcgis_manifest_nginx_config_name: "arcgis-manifest-nginx-config"
+arcgis_manifest_deployment_name: "arcgis-manifest-server"
+arcgis_manifest_service_name: "arcgis-manifest-server"
+arcgis_manifest_route_name: "arcgis-manifest-server"
+arcgis_manifest_cronjob_name: "arcgis-manifest-refresher"
+
+# Schedule for the manifest refresh CronJob (default: every Monday at 03:00 UTC).
+# Esri typically publishes new builds weekly; this ensures the in-cluster copy
+# is refreshed before the week's update window.
+arcgis_manifest_refresh_schedule: "{{ lookup('env', 'ARCGIS_MANIFEST_REFRESH_SCHEDULE') | default('0 3 * * 1', true) }}"
+
+# The script image used by the CronJob.  Must have python3 + skopeo available.
+# Defaults to the UBI9 minimal image already present on the cluster.
+arcgis_manifest_job_image: "{{ lookup('env', 'ARCGIS_MANIFEST_JOB_IMAGE') | default('icr.io/cpopen/cpfs/ubi9-minimal:latest', true) }}"

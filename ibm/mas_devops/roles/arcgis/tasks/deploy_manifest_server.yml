@@ -1,0 +1,106 @@
+---
+# tasks/deploy_manifest_server.yml
+# =============================================================================
+# AIRGAP ONLY — called from tasks/main.yml when mas_airgap_registry is set.
+#
+# Deploys into mas_arcgis_namespace (mas-<instanceId>-arcgis):
+#   1. nginx ConfigMap (nginx.conf)
+#   2. nginx Deployment + Service + OCP Route  → serves esriManifest_120.dat
+#   3. ServiceAccount + Role + RoleBinding for the CronJob
+#   4. CronJob that re-runs publish_manifest_to_cluster.py weekly,
+#      short-circuiting via ETag when the S3 file hasn't changed
+#
+# Pre-requisite: scripts/publish_manifest_to_cluster.py must already have
+# been run once to seed the esri-manifest-120 ConfigMap before this task
+# deploys the nginx pod (which mounts that ConfigMap).  Use the mirror
+# registry derived from IDMS, e.g.:
+#   python scripts/publish_manifest_to_cluster.py \
+#     --registry <mas_airgap_registry>/cp \
+#     --namespace <mas_arcgis_namespace>
+#
+# After this task completes, the fact arcgis_version_manifest_url is set to
+# the Route HTTPS URL so that arcgisws.yml.j2 can write it into the CR.
+# =============================================================================
+
+# 1. nginx configuration ConfigMap
+# -----------------------------------------------------------------------------
+- name: "Create arcgis-manifest-server nginx ConfigMap"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/manifest-server/nginx-config.yml.j2"
+
+# 3. Deployment
+# -----------------------------------------------------------------------------
+- name: "Create arcgis-manifest-server Deployment"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/manifest-server/deployment.yml.j2"
+
+# 4. Service
+# -----------------------------------------------------------------------------
+- name: "Create arcgis-manifest-server Service"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/manifest-server/service.yml.j2"
+
+# 5. OCP Route
+# -----------------------------------------------------------------------------
+- name: "Create arcgis-manifest-server Route"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/manifest-server/route.yml.j2"
+
+# 6. RBAC for the CronJob's ServiceAccount
+# -----------------------------------------------------------------------------
+- name: "Create arcgis-manifest-refresher RBAC"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/manifest-server/rbac.yml.j2"
+
+# 7. CronJob — weekly ETag-gated manifest refresh
+# -----------------------------------------------------------------------------
+- name: "Create arcgis-manifest-refresher CronJob"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/manifest-server/cronjob.yml.j2"
+
+# 8. Wait for the nginx pod to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for arcgis-manifest-server Deployment to be ready"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: "{{ arcgis_manifest_deployment_name }}"
+    namespace: "{{ mas_arcgis_namespace }}"
+    wait: yes
+    wait_condition:
+      type: Available
+      status: "True"
+    wait_timeout: 120
+
+# 9. Capture Route hostname → set arcgis_version_manifest_url fact
+#    This fact is consumed by arcgisws.yml.j2 to write versionManifestUrl
+#    into spec.settings of the ArcGISWorkspace CR.
+# -----------------------------------------------------------------------------
+- name: "Lookup arcgis-manifest-server Route hostname"
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: "{{ arcgis_manifest_route_name }}"
+    namespace: "{{ mas_arcgis_namespace }}"
+  register: arcgis_manifest_route_lookup
+  retries: 12
+  delay: 10
+  until:
+    - arcgis_manifest_route_lookup.resources is defined
+    - arcgis_manifest_route_lookup.resources | length > 0
+    - arcgis_manifest_route_lookup.resources[0].spec.host is defined
+
+- name: "Set arcgis_version_manifest_url fact from in-cluster Route"
+  set_fact:
+    arcgis_version_manifest_url: >-
+      https://{{ arcgis_manifest_route_lookup.resources[0].spec.host }}/esriManifest_120.dat
+
+- name: "Debug: manifest server URL"
+  debug:
+    msg: "ArcGIS manifest server URL: {{ arcgis_version_manifest_url }}"

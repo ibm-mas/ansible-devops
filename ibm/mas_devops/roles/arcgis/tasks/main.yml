@@ -135,6 +135,40 @@
   retries: 45 # approx 45 minutes before we give up
   delay: 60 # 1 minute
 
+# 8a. Airgap auto-detection via IDMS
+# Query the ImageDigestMirrorSet written by ocp_idms (label mas.ibm.com/idmsContent=ibm).
+# If it exists the cluster is airgap; its annotations give us the mirror registry host.
+# If it doesn't exist the cluster is connected — skip manifest server entirely.
+# -----------------------------------------------------------------------------
+- name: "Query ImageDigestMirrorSet for airgap auto-detection"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: ImageDigestMirrorSet
+    label_selectors:
+      - "mas.ibm.com/idmsContent=ibm"
+  register: arcgis_idms_lookup
+
+- name: "Derive airgap registry from IDMS annotations"
+  when:
+    - arcgis_idms_lookup.resources is defined
+    - arcgis_idms_lookup.resources | length > 0
+  vars:
+    _idms: "{{ arcgis_idms_lookup.resources[0] }}"
+    _host: "{{ _idms.metadata.annotations['mas.ibm.com/idmsRegistryHost'] | default('') }}"
+    _port: "{{ _idms.metadata.annotations['mas.ibm.com/idmsRegistryPort'] | default('') }}"
+  set_fact:
+    mas_airgap_registry: "{{ _host }}{% if _port != '' %}:{{ _port }}{% endif %}"
+
+# 8b. Deploy in-cluster manifest server (airgap only)
+# Only runs when the IDMS query above found a mirror registry.
+# Sets arcgis_version_manifest_url so arcgisws.yml.j2 writes it into the CR.
+# In connected mode mas_airgap_registry stays '' → block skipped entirely
+# and VERSION_MANIFEST_URL falls back to the public S3 URL in the operator.
+# -----------------------------------------------------------------------------
+- name: "Deploy in-cluster manifest server (airgap)"
+  include_tasks: "{{ role_path }}/tasks/deploy_manifest_server.yml"
+  when: mas_airgap_registry != ''
+
 # 9. IBM Maximo Location Services workspace configuration
 # -----------------------------------------------------------------------------
 - name: Create ArcGISWorkspace apps.mas.ibm.com/v1 CR
