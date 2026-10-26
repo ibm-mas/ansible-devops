@@ -1,8 +1,6 @@
 ---
-# Work out what has to happen to the CIS allowlist WAF rule. This is the single place
-# where the rule, the requested IPs and the change (create / update / delete / noop)
-# are determined, so the status reporting and the WAF rule calls can never disagree.
-# MAS and AI Service are never enabled together, so this runs once per job.
+# Work out what has to happen to the CIS allowlist WAF rule. The requested IPs and the change (create / update / delete / noop) 
+# for custom waf rule are determined
 
 - name: "cis : ip-allowlist — get existing custom WAF rules"
   ansible.builtin.shell: |
@@ -64,10 +62,7 @@
          if _cis_normalised_ips | length > 0 else '' }}
 
 # create = no rule yet | update = expression changed | delete = no IPs requested but a rule exists
-# noop   = already up to date, or the existing rules could not be read (nothing is changed blind;
-#          the fetch failure is raised at the end of the play).
-# CIS may return the expression with or without the outer parentheses (rules created by earlier
-# versions of this role have them) and with different spacing, so a normalised form is compared.
+# noop   = already up to date
 - name: "cis : ip-allowlist — decide action"
   ansible.builtin.set_fact:
     _cis_allowlist_action: >-
