@@ -1304,7 +1304,7 @@ In OCP 4.12+, to avoid CIS webhook deployment failure at start up, this role wil
 <li><strong>Supported MAS versions</strong>: <code>9.1.x</code> and above only. This variable is ignored when <code>mas_channel</code> is set to <code>9.0.x</code> or earlier.</li>
 </ul>
 <p><strong>Purpose</strong>: Restricts access to MAS public routes by creating a CIS WAF custom rule with the expression:</p>
-<pre><code>(not ip.src in {&lt;ip1&gt; &lt;ip2&gt; ...} and http.host contains "&lt;mas_domain&gt;")
+<pre><code>not ip.src in {&lt;ip1&gt; &lt;ip2&gt; ...} and http.host contains "&lt;mas_domain&gt;"
 </code></pre>
 <p><strong>When to use</strong>:
 - Set when you want to restrict MAS access to specific IPs or corporate network ranges
@@ -1323,6 +1323,110 @@ IP allowlisting requires MAS <code>9.1.x</code> or above. When <code>mas_channel
 - <code>mas_domain</code>: Used to scope the WAF rule to the correct MAS instance domain
 - <code>mas_channel</code>: Must be <code>9.1.x</code> or above for allowlisting to take effect</p>
 <p><strong>Note</strong>: Requires <code>dns_provider=cis</code> and CIS enhanced security to be enabled. The Custom WAF rule is identified by the description <code>mas-ip-allowlist-&lt;mas_domain&gt;</code> and is created/updated/deleted automatically based on whether this variable is set.</p>
+<p><strong>Feature status reporting</strong>:
+When the allowlist is added, updated or removed, the role records the progress of the change in the SaaS feature status MongoDB by calling <code>mas-devops-feature-status-update</code>. Status is written only when <strong>all</strong> of the following are true:</p>
+<ul>
+<li>MAS mode is enabled</li>
+<li><code>cis_waf</code> is enabled and <code>mas_channel</code> is <code>9.1.x</code> or above</li>
+<li><code>devops_mongo_uri</code>, <code>account_id</code>, <code>cluster_id</code> and <code>region_id</code> are all set (no status call is made when any of them is empty)</li>
+<li>The WAF rule in CIS differs from the requested <code>cis_allowed_ips</code> (no status call is made when the allowlist is already in the desired state)</li>
+</ul>
+<p>Status is only ever written for the MAS instance. In AI Service mode the allowlist rule is still managed, but no status is written.</p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Written when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>REQUESTED</code></td>
+<td>An allowlist change is detected, before any other CIS work starts</td>
+</tr>
+<tr>
+<td><code>IN_PROGRESS</code></td>
+<td>Just before the WAF rule is created, updated or deleted</td>
+</tr>
+<tr>
+<td><code>ACTIVE</code></td>
+<td>The WAF rule was created or updated successfully</td>
+</tr>
+<tr>
+<td><code>DEACTIVATED</code></td>
+<td>The WAF rule was deleted successfully (<code>cis_allowed_ips</code> unset or empty)</td>
+</tr>
+<tr>
+<td><code>ERROR</code></td>
+<td>A failure occurs after <code>REQUESTED</code> and the allowlist change has not completed successfully, including a failed WAF rule call after its retries. A failure after <code>ACTIVE</code> / <code>DEACTIVATED</code> has been reached does not write <code>ERROR</code></td>
+</tr>
+</tbody>
+</table>
+<p>Whether or not status reporting is active, a failed CIS call (including a failed WAF rule create / update / delete after its retries) always fails the job.</p>
+<p>The call made for each status is:</p>
+<pre><code class="language-bash">mas-devops-feature-status-update status-update \
+  --region "&lt;region_id&gt;" \
+  --instance-id "&lt;mas_instance_id&gt;" \
+  --account "&lt;account_id&gt;" \
+  --cluster "&lt;cluster_id&gt;" \
+  --subscription-id "&lt;subscription_id&gt;" \
+  --type allow-list \
+  --feature-details '{"ips": ["&lt;ip1&gt;", "&lt;ip2&gt;"]}' \
+  --deployment-start "&lt;start timestamp&gt;" \
+  --status &lt;REQUESTED|IN_PROGRESS|ACTIVE|DEACTIVATED|ERROR&gt; \
+  --status-details '{"message": "&lt;message&gt;", "request_configuration": "&lt;ip1&gt;, &lt;ip2&gt;"}' \
+  --deployment-end "&lt;end timestamp&gt;"
+</code></pre>
+<ul>
+<li><code>--feature-details</code> carries the requested IPs (<code>[]</code> when the allowlist is being removed).</li>
+<li><code>--subscription-id</code> is optional and is only passed when <code>subscription_id</code> is set.</li>
+<li><code>--deployment-start</code> is the time the change was detected (taken when the change is detected, not when the play started) and is passed unchanged on every call.</li>
+<li><code>--deployment-end</code> is only passed for <code>ACTIVE</code>, <code>DEACTIVATED</code> and <code>ERROR</code>, and is taken when that status is written.</li>
+<li>The JSON passed to <code>--status-details</code> and <code>--feature-details</code> is built in Ansible and shell-quoted, so quotes, newlines and backslashes in CIS output are safe.</li>
+<li>For <code>ERROR</code>, <code>--status-details</code> also includes <code>error_code</code> and an <code>error_source</code> object (<code>gitops_version</code>, <code>filename</code>, <code>log_file</code> and <code>stacktrace</code>).</li>
+</ul>
+<p>The following variables are used when writing the status:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Environment variable</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>devops_mongo_uri</code></td>
+<td><code>DEVOPS_MONGO_URI</code></td>
+<td>None. Status updates are skipped when empty</td>
+</tr>
+<tr>
+<td><code>account_id</code></td>
+<td><code>ACCOUNT_ID</code></td>
+<td>None. Status updates are skipped when empty</td>
+</tr>
+<tr>
+<td><code>cluster_id</code></td>
+<td><code>CLUSTER_ID</code></td>
+<td>None. Status updates are skipped when empty</td>
+</tr>
+<tr>
+<td><code>region_id</code></td>
+<td><code>REGION_ID</code></td>
+<td>None. Status updates are skipped when empty</td>
+</tr>
+<tr>
+<td><code>subscription_id</code></td>
+<td><code>SLS_SUBSCRIPTION_ID</code></td>
+<td>None. Optional, <code>--subscription-id</code> is omitted when empty</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code>account_id</code>, <code>cluster_id</code>, <code>region_id</code> and <code>subscription_id</code> identify the <strong>MAS instance</strong> the status is recorded for. They are not the account, region or cluster of the CIS instance.</p>
+</div>
+<p><strong>Behaviour change</strong>: failures while disabling WAF rules (<code>cis_waf_rule.yml</code>) or managed ruleset rules (<code>cis_managed_ruleset.yml</code>) used to be tolerated and now fail the job in MAS mode, so that they are reported as <code>ERROR</code> and are not silently ignored.</p>
 <h3 id="aws-route-53">AWS Route 53<a class="headerlink" href="#aws-route-53" title="Permanent link">¤</a></h3>
 <p><strong>Prerequisites:</strong> To run this role successfully you must have already installed the <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">AWS CLI</a>.
 Also, you need to have AWS user credentials configured via <code>aws configure</code> command or simply export <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code> environment variables with your corresponding AWS username credentials prior running this role.</p>
