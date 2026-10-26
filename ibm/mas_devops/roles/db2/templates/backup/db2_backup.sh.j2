@@ -278,8 +278,13 @@ if [ ${VENDOR} = 's3' ] ; then
 	TARGET1=keystore.p12
 	TARGET2=keystore.sth
 
+	{% if backup_retention_profile is defined and backup_retention_profile != "" and backup_retention_profile in ["daily", "adhoc", "golden", "release"] %}
+	db2RemStgManager ALIAS PUT source=${KEYSTORE_LOC} target=${BACKUP_PATH}/KEYSTORE/${TARGET1}
+	db2RemStgManager ALIAS PUT source=${STH_LOC} target=${BACKUP_PATH}/KEYSTORE/${TARGET2}
+	{% else %}
 	db2RemStgManager ALIAS PUT source=${KEYSTORE_LOC} target=${BACKUP_PATH}/${TARGET1}
 	db2RemStgManager ALIAS PUT source=${STH_LOC} target=${BACKUP_PATH}/${TARGET2}
+	{% endif %}
 	set +x
 	echo "INFO: Keystore files copied to COS location successfully"
 else

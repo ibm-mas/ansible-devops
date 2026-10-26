@@ -122,22 +122,35 @@
         "s3Path": "{{ profile_s3_backup_path }}"
       }
 
-- name: "Upload db2-metadata-{{ db2_backup_timestamp }}.json to S3"
+- name: "Upload db2-metadata-{{ db2_backup_timestamp }}.json to S3 with tagging (AC 4.3)"
   shell: >-
-    aws s3 cp {{ _metadata_local_path }}
-    s3://{{ backup_s3_bucket }}/{{ _metadata_s3_key }}
-    --endpoint-url {{ backup_s3_endpoint }}
+    aws s3api put-object --bucket {{ backup_s3_bucket }} --key {{ _metadata_s3_key }} --body {{ _metadata_local_path }}
     --tagging "DbType=db2&RetentionProfile={{ backup_retention_profile }}&ReleaseTag={{ backup_release_tag | default('') }}&AppId={{ mas_application_id }}&InstanceName={{ db2_instance_name | lower }}&PurgeEligible=false"
+    --endpoint-url {{ backup_s3_endpoint }}
   environment:
     AWS_ACCESS_KEY_ID: "{{ backup_s3_access_key }}"
     AWS_SECRET_ACCESS_KEY: "{{ backup_s3_secret_key }}"
-  register: _metadata_upload_result
+  register: _metadata_upload_tagged_result
+  failed_when: false
   no_log: true
+
+- name: "Fallback: Upload db2-metadata-{{ db2_backup_timestamp }}.json to S3 without tagging if permissions are restricted"
+  shell: >-
+    aws s3api put-object --bucket {{ backup_s3_bucket }} --key {{ _metadata_s3_key }} --body {{ _metadata_local_path }}
+    --endpoint-url {{ backup_s3_endpoint }}
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ backup_s3_access_key }}"
+    AWS_SECRET_ACCESS_KEY: "{{ backup_s3_secret_key }}"
+  register: _metadata_upload_fallback_result
+  no_log: true
+  when:
+    - _metadata_upload_tagged_result is defined
+    - _metadata_upload_tagged_result.rc != 0
 
 - name: "Assert metadata manifest upload succeeded"
   assert:
     that:
-      - _metadata_upload_result.rc == 0
+      - (_metadata_upload_tagged_result.rc == 0) or (_metadata_upload_fallback_result is defined and _metadata_upload_fallback_result.rc == 0)
     fail_msg: "Failed to upload db2-metadata manifest to s3://{{ backup_s3_bucket }}/{{ _metadata_s3_key }}"
 
 - name: "Set fact: metadata S3 URI"

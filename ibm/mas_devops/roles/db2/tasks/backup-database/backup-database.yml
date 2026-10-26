@@ -39,10 +39,58 @@
     state: directory
     mode: "0755"
 
-- name: "Set fact backup_path for the backup script when backup vendor is s3"
+- name: "Configure S3 backup prefix and validate retention profile variables"
+  when:
+    - backup_vendor == "s3"
+    - backup_retention_profile is defined
+    - backup_retention_profile != ""
+    - backup_retention_profile in ["daily", "adhoc", "golden", "release"]
+  block:
+    - name: "Fail if backup_release_tag is not set for release profile"
+      assert:
+        that:
+          - backup_release_tag is defined
+          - backup_release_tag != ""
+        fail_msg: "backup_release_tag is required when backup_retention_profile=release (e.g. v9-260924-amd64)"
+      when: backup_retention_profile == "release"
+
+    - name: "Fail if backup_ticket_id is not set for adhoc profile"
+      assert:
+        that:
+          - backup_ticket_id is defined
+          - backup_ticket_id != ""
+        fail_msg: "backup_ticket_id is required when backup_retention_profile=adhoc (e.g. MAS-1234)"
+      when: backup_retention_profile == "adhoc"
+
+    - name: "Set fact: S3 profile prefix"
+      set_fact:
+        _s3_profile_prefix: >-
+          {{
+            ('releases/' + backup_release_tag)  if backup_retention_profile == 'release'
+            else ('adhoc/' + backup_ticket_id)  if backup_retention_profile == 'adhoc'
+            else 'golden'                       if backup_retention_profile == 'golden'
+            else 'daily'
+          }}
+
+    - name: "Set fact: S3 backup prefix"
+      set_fact:
+        _s3_backup_prefix: "{{ _s3_profile_prefix }}/backups-db2-{{ mas_application_id }}/c-{{ db2_instance_name | lower }}-db2u-0"
+
+    - name: "Set fact: S3 backup subdir"
+      set_fact:
+        _s3_backup_subdir: "backups-db2-{{ mas_application_id }}/c-{{ db2_instance_name | lower }}-db2u-0"
+
+    - name: "Set fact: full S3 backup path for profile-based backup"
+      set_fact:
+        profile_s3_backup_path: "s3://{{ backup_s3_bucket }}/{{ _s3_backup_prefix }}/"
+        full_backup_path: "DB2REMOTE://{{ backup_s3_alias }}/{{ backup_s3_bucket }}/{{ _s3_backup_prefix }}"
+
+- name: "Set default backup_path for non-profile S3 backups"
   set_fact:
     full_backup_path: "DB2REMOTE://{{ backup_s3_alias }}/{{ backup_s3_bucket }}/backups-db2-{{ mas_application_id }}/{{ db2_backup_version }}"
-  when: backup_vendor == "s3"
+  when:
+    - backup_vendor == "s3"
+    - full_backup_path is not defined or full_backup_path == ""
 
 - name: "Set fact backup_path for the backup script when backup vendor is disk"
   set_fact:
@@ -69,6 +117,27 @@
 - name: "Set fact db2_pod_name"
   set_fact:
     db2_pod_name: "{{ db2_pod_name_result.pod_name }}"
+
+# Check if the pod is an HADR Standby replica and bypass if so (AC 7.3)
+# -----------------------------------------------------------------------------
+- name: "Check if the database is an HADR Standby replica (AC 7.3)"
+  shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc 'db2pd -db {{ db2_dbname }} -hadr' db2inst1"
+  register: _hadr_check_result
+  failed_when: false
+
+- name: "Bypass backup if pod is an HADR Standby replica (AC 7.3)"
+  block:
+    - name: "Log HADR Standby status"
+      debug:
+        msg: "HADR_DB - No backup needed"
+
+    - name: "End host execution cleanly"
+      meta: end_host
+  when:
+    - _hadr_check_result is defined
+    - _hadr_check_result.rc == 0
+    - _hadr_check_result.stdout is defined
+    - "_hadr_check_result.stdout | regex_search('Role\\s*:\\s*STANDBY|HADR_ROLE\\s*=\\s*STANDBY|Role\\s+State\\n\\s*STANDBY|STANDBY', ignorecase=True)"
 
 - name: "Remove any existing files in /tmp/db2-scripts directory on localhost"
   ansible.builtin.file:
@@ -173,6 +242,21 @@
     msg: "{{ setup_s3_result.stdout_lines }}"
   when: backup_vendor == "s3"
 
+# Check for active backup utilities to prevent collisions (AC 2.1 & 2.2)
+# -----------------------------------------------------------------------------
+- name: "Wait for active DB2 backup utilities to complete (AC 2.1 & 2.2)"
+  shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc 'db2 list utilities show detail' db2inst1"
+  register: _active_utilities_result
+  until: "not (_active_utilities_result.stdout | regex_search('Type\\s*=\\s*BACKUP', ignorecase=True))"
+  retries: 20
+  delay: 30
+  failed_when: false
+
+- name: "Assert backup lock is released within 10 minutes (AC 2.2)"
+  assert:
+    that: "not (_active_utilities_result.stdout | regex_search('Type\\s*=\\s*BACKUP', ignorecase=True))"
+    fail_msg: "Backup aborted: Another backup is already active"
+
 # Execute db2_backup.sh in DB2 pod
 # -----------------------------------------------------------------------------
 - name: "Executing DB2 backup.."
@@ -195,7 +279,7 @@
 
     - name: Get backup file timestamp from db2_backup.log
       ansible.builtin.set_fact:
-        db2_backup_timestamp: "{{ (db2_backup_result.stdout | regex_search('BACKUP_FILE_TIMESTAMP=(.*)', '\\1'))[0] }}"
+        db2_backup_timestamp: "{{ ((db2_backup_result.stdout | regex_search('BACKUP_FILE_TIMESTAMP=(.*)', '\\1'))[0]) | trim }}"
       when:
         - db2_backup_result is defined
         - db2_backup_result.rc == 0
