@@ -1,9 +1,10 @@
 ---
-# MongoDB Atlas Provider - Native Snapshot Restore Task
+# MongoDB Atlas Provider - Collection-Level Snapshot Restore Task
 # =============================================================================
-# This task restores a MongoDB Atlas cluster to a previously taken on-demand
-# snapshot. It reads the snapshot info from S3 and triggers a native Atlas
-# restore via the Atlas API.
+# This task restores specific databases of a MongoDB Atlas cluster to a
+# previously taken on-demand snapshot. It reads the snapshot info from S3
+# and triggers a collection-level restore via the Atlas API, targeting only
+# databases matching the specified MAS instance (mas-<instance_name>-*).
 
 # 1. Validate required variables
 # -----------------------------------------------------------------------------
@@ -24,6 +25,12 @@
     that:
       - catalog_build_id is defined and catalog_build_id != ""
     fail_msg: "catalog_build_id is required to locate the backup info in S3"
+
+- name: "Fail if restore databases list is not provided"
+  assert:
+    that:
+      - atlas_restore_databases is defined and atlas_restore_databases | length > 0
+    fail_msg: "atlas_restore_databases is required - provide a list of database names to restore (e.g. mas-inst1-core,mas-inst1-manage)"
 
 # 2. Retrieve Atlas API credentials from AWS Secrets Manager
 # -----------------------------------------------------------------------------
@@ -82,11 +89,10 @@
 # -----------------------------------------------------------------------------
 - name: "Read backup info from S3"
   amazon.aws.s3_object:
-    bucket: "{{ atlas_backup_s3_bucket }}"         # TODO: confirm S3 bucket name with team
-    object: "{{ catalog_build_id }}/mongo-backup-info.txt"
+    bucket: "massaas-cos-saas-stable-as-s-dev-fra-backup"
+    object: "releases/{{ catalog_build_id }}/mongo/mongo-backup.txt"
     mode: getstr
-    # TODO: confirm endpoint_url (IBM COS or AWS S3) with team
-    # endpoint_url: "{{ atlas_backup_s3_endpoint }}"
+    region: "eu-central-1"
   register: atlas_s3_backup_info
 
 - name: "Parse snapshot ID from backup info"
@@ -96,35 +102,47 @@
          | regex_search('snapshot_id=([^\n]+)', '\1')
          | first }}
 
+# 4. Build databases list for restore
+# -----------------------------------------------------------------------------
+- name: "Build databases array for collection restore"
+  set_fact:
+    atlas_restore_databases_list: >-
+      {{ atlas_restore_databases.split(',')
+         | map('trim')
+         | map('regex_replace', '^(.+)$', {'sourceNamespace': '\1'})
+         | list }}
+
 - name: "Debug restore configuration"
   debug:
     msg:
       - "=========================================="
-      - "MongoDB Atlas Native Snapshot Restore"
+      - "MongoDB Atlas Collection-Level Restore"
       - "=========================================="
       - "Atlas Project ID ............ {{ atlas_project_id }}"
       - "Cluster Name ................ {{ atlas_cluster_name }}"
       - "Catalog Build ID ............ {{ catalog_build_id }}"
       - "Snapshot ID ................. {{ atlas_restore_snapshot_id }}"
+      - "Databases to Restore ........ {{ atlas_restore_databases }}"
       - "=========================================="
 
-# 4. Trigger native snapshot restore via Atlas API
+# 5. Trigger collection-level restore via Atlas API
 # -----------------------------------------------------------------------------
-- name: "Trigger native snapshot restore"
+- name: "Trigger collection-level snapshot restore"
   uri:
-    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}/backup/restoreJobs"
+    url: "{{ atlas_api_base_url | regex_replace('/v1.0$', '/v2') }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}/collectionRestoreJobs"
     method: POST
     user: "{{ atlas_public_key }}"
     password: "{{ atlas_private_key }}"
     force_basic_auth: no
     body:
-      delivery:
-        methodName: "AUTOMATED_RESTORE"
-        targetClusterName: "{{ atlas_cluster_name }}"
-        targetGroupId: "{{ atlas_project_id }}"
       snapshotId: "{{ atlas_restore_snapshot_id }}"
+      databases: "{{ atlas_restore_databases_list }}"
+      targetClusterName: "{{ atlas_cluster_name }}"
+      targetGroupId: "{{ atlas_project_id }}"
+      writeStrategy: "OVERWRITE_EXISTING"
+      indexStrategy: "ALL"
     body_format: json
-    status_code: [200, 201]
+    status_code: 201
     timeout: "{{ atlas_api_timeout }}"
   register: atlas_restore_trigger
 
@@ -137,13 +155,13 @@
     msg:
       - "Restore job triggered successfully"
       - "Restore Job ID .............. {{ atlas_restore_job_id }}"
-      - "Initial Status .............. {{ atlas_restore_trigger.json.status | default('queued') }}"
+      - "Initial State ............... {{ atlas_restore_trigger.json.state | default('INITIALIZING') }}"
 
-# 5. Poll until restore is complete
+# 6. Poll until restore is complete
 # -----------------------------------------------------------------------------
 - name: "Poll restore job status until complete"
   uri:
-    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}/backup/restoreJobs/{{ atlas_restore_job_id }}"
+    url: "{{ atlas_api_base_url | regex_replace('/v1.0$', '/v2') }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}/collectionRestoreJobs/{{ atlas_restore_job_id }}"
     method: GET
     user: "{{ atlas_public_key }}"
     password: "{{ atlas_private_key }}"
@@ -153,16 +171,19 @@
   register: atlas_restore_status
   retries: 60
   delay: 30
-  until: atlas_restore_status.json.status in ["completed", "COMPLETED"]
-  failed_when: atlas_restore_status.json.status in ["failed", "FAILED"]
+  until: atlas_restore_status.json.state in ["SUCCESSFUL", "FAILED", "CANCELED"]
+  failed_when: atlas_restore_status.json.state in ["FAILED", "CANCELED"]
 
 - name: "Restore completed successfully"
   debug:
     msg:
       - "=========================================="
-      - "MongoDB Atlas Restore Completed"
+      - "MongoDB Atlas Collection Restore Completed"
       - "=========================================="
       - "Restore Job ID .............. {{ atlas_restore_job_id }}"
       - "Snapshot ID ................. {{ atlas_restore_snapshot_id }}"
       - "Cluster ..................... {{ atlas_cluster_name }}"
+      - "Databases Restored .......... {{ atlas_restore_databases }}"
+      - "Final State ................. {{ atlas_restore_status.json.state }}"
+      - "Documents Restored .......... {{ atlas_restore_status.json.restoredDocuments | default('N/A') }}"
       - "=========================================="

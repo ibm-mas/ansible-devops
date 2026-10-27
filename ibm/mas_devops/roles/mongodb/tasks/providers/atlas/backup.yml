@@ -94,14 +94,14 @@
 # -----------------------------------------------------------------------------
 - name: "Trigger on-demand snapshot backup"
   uri:
-    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}/backup/snapshots"
+    url: "{{ atlas_api_base_url | regex_replace('/v1.0$', '/v2') }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}/backup/snapshots"
     method: POST
     user: "{{ atlas_public_key }}"
     password: "{{ atlas_private_key }}"
     force_basic_auth: no
     body:
       description: "on-demand backup - {{ catalog_build_id }}"
-      retentionInDays: "{{ atlas_backup_retention_days | default(7) | int }}"
+      retentionInDays: "{{ atlas_backup_retention_days | default(30) | int }}"
     body_format: json
     status_code: [200, 201]
     timeout: "{{ atlas_api_timeout }}"
@@ -123,7 +123,7 @@
 # -----------------------------------------------------------------------------
 - name: "Poll snapshot status until complete"
   uri:
-    url: "{{ atlas_api_base_url }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}/backup/snapshots/{{ atlas_snapshot_id }}"
+    url: "{{ atlas_api_base_url | regex_replace('/v1.0$', '/v2') }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}/backup/snapshots/{{ atlas_snapshot_id }}"
     method: GET
     user: "{{ atlas_public_key }}"
     password: "{{ atlas_private_key }}"
@@ -136,9 +136,12 @@
   until: atlas_snapshot_status.json.status == "completed"
   failed_when: atlas_snapshot_status.json.status == "failed"
 
-- name: "Extract snapshot timestamp"
+- name: "Extract snapshot details from response"
   set_fact:
     atlas_snapshot_timestamp: "{{ atlas_snapshot_status.json.createdAt }}"
+    atlas_snapshot_expires_at: "{{ atlas_snapshot_status.json.expiresAt }}"
+    atlas_snapshot_type: "{{ atlas_snapshot_status.json.snapshotType }}"
+    atlas_snapshot_mongod_version: "{{ atlas_snapshot_status.json.mongodVersion }}"
 
 - name: "Debug completed snapshot details"
   debug:
@@ -147,18 +150,20 @@
       - "Snapshot completed successfully"
       - "Snapshot ID ................. {{ atlas_snapshot_id }}"
       - "Snapshot Timestamp .......... {{ atlas_snapshot_timestamp }}"
+      - "Snapshot Expires At ......... {{ atlas_snapshot_expires_at }}"
+      - "Snapshot Type ............... {{ atlas_snapshot_type }}"
+      - "MongoDB Version ............. {{ atlas_snapshot_mongod_version }}"
       - "=========================================="
 
 # 6. Store backup info in S3
 # -----------------------------------------------------------------------------
 - name: "Store backup info in S3"
   amazon.aws.s3_object:
-    bucket: "{{ atlas_backup_s3_bucket }}"         # TODO: confirm S3 bucket name with team
-    object: "{{ catalog_build_id }}/mongo-backup-info.txt"
-    content: "snapshot_id={{ atlas_snapshot_id }}\nsnapshot_timestamp={{ atlas_snapshot_timestamp }}\ncatalog_build_id={{ catalog_build_id }}\ncluster_name={{ atlas_cluster_name }}\nproject_id={{ atlas_project_id }}"
+    bucket: "massaas-cos-saas-stable-as-s-dev-fra-backup"
+    object: "releases/{{ catalog_build_id }}/mongo/mongo-backup.txt"
+    content: "snapshot_id={{ atlas_snapshot_id }}\nsnapshot_timestamp={{ atlas_snapshot_timestamp }}\nexpires_at={{ atlas_snapshot_expires_at }}\nsnapshot_type={{ atlas_snapshot_type }}\nmongod_version={{ atlas_snapshot_mongod_version }}\ncatalog_build_id={{ catalog_build_id }}\ncluster_name={{ atlas_cluster_name }}\nproject_id={{ atlas_project_id }}"
     mode: put
-    # TODO: confirm endpoint_url (IBM COS or AWS S3) with team
-    # endpoint_url: "{{ atlas_backup_s3_endpoint }}"
+    region: "eu-central-1"
   register: atlas_s3_upload
 
 - name: "Backup info stored successfully"
@@ -169,5 +174,8 @@
       - "=========================================="
       - "Snapshot ID ................. {{ atlas_snapshot_id }}"
       - "Snapshot Timestamp .......... {{ atlas_snapshot_timestamp }}"
-      - "S3 Path ..................... {{ catalog_build_id }}/mongo-backup-info.txt"
+      - "Expires At .................. {{ atlas_snapshot_expires_at }}"
+      - "Snapshot Type ............... {{ atlas_snapshot_type }}"
+      - "MongoDB Version ............. {{ atlas_snapshot_mongod_version }}"
+      - "S3 Path ..................... releases/{{ catalog_build_id }}/mongo/mongo-backup.txt"
       - "=========================================="
