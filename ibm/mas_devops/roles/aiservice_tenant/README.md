@@ -189,7 +189,7 @@ OAuth client ID for a non-WatsonX provider.
 
 **Purpose**: Provides OAuth credentials for a non-WatsonX provider such as Google GEAP.
 
-**When to use**: Only when using a provider other than WatsonX. When set, `llm_client_id`, `llm_client_secret`, `llm_refresh_token` and `llm_base_url` are written to the tenant secret together, so also set [`aiservice_llm_client_secret`](#aiservice_llm_client_secret), [`aiservice_llm_refresh_token`](#aiservice_llm_refresh_token) and [`aiservice_llm_base_url`](#aiservice_llm_base_url).
+**When to use**: Only when using a provider other than WatsonX. When set, `llm_client_id`, `llm_client_secret` and `llm_refresh_token` are written to the tenant secret together with `wx_url` (from [`aiservice_watsonxai_url`](#aiservice_watsonxai_url)), so also set [`aiservice_llm_client_secret`](#aiservice_llm_client_secret) and [`aiservice_llm_refresh_token`](#aiservice_llm_refresh_token).
 
 **Notes**:
 - WatsonX and non-WatsonX credentials can be set at the same time; they are stored in the same secret
@@ -217,15 +217,6 @@ OAuth refresh token for a non-WatsonX provider.
 
 **Notes**:
 - **Security**: Store securely, never commit to version control
-
-### aiservice_llm_base_url
-Base URL of the non-WatsonX provider API.
-
-- Optional
-- Environment Variable: `AISERVICE_LLM_BASE_URL`
-- Default: None (empty string)
-
-**When to use**: Required when [`aiservice_llm_client_id`](#aiservice_llm_client_id) is set. Stored as `llm_base_url`.
 
 ## Entitlement Configuration
 Configure the tenant's entitlement to the AI Service for licensing and access control.
