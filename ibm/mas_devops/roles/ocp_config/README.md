@@ -331,7 +331,7 @@ Update allowed registries in the cluster.
 
 
 ### ocp_allowed_registries
-List of allowed registries to be added to the cluster.
+List allowed registries to be added to the cluster.
 
 - Optional
 - Environment Variable: `OCP_ALLOWED_REGISTRIES`
@@ -346,6 +346,7 @@ List of allowed registries to be added to the cluster.
 **Notes**:
 - **Important**: Currently works with ROSA HCP only
 - **Important**: Setting to `[]` does NOT remove allowed registries list
+- **Important**: When exporting OCP_ALLOWED_REGISTRIES use comma-separated string e.g. export OCP_ALLOWED_REGISTRIES=mas.ibm.com,abc.com
 - Required for disconnected/air-gapped MAS installations when using custom image registry
 
 
