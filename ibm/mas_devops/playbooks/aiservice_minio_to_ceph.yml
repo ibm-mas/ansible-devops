@@ -1,0 +1,164 @@
+---
+# Migrate the object storage of an AI Service instance from the in-cluster MinIO to ODF (Ceph/NooBaa)
+#
+# This is the same sequence "mas update --migrate-minio-to-ceph" runs:
+#   1. minio role,      MINIO_ACTION=backup          MinIO buckets -> $MAS_CONFIG_DIR/minio-backup
+#   2. cos_bucket role, COS_BUCKET_ACTION=restore    backup -> one ObjectBucketClaim per bucket in ODF
+#   3. aiservice role,  AISERVICE_ACTION=update      point the instance (and its tenants) at ODF
+#
+# Required:
+#   AISERVICE_INSTANCE_ID   the instance to migrate (run the playbook again for each further instance)
+#   MAS_CONFIG_DIR          directory used to hold the MinIO backup, it must have room for all of the MinIO data
+#
+# Optional:
+#   MINIO_NAMESPACE (minio), MINIO_INSTANCE_NAME (minio), ODF_BUCKET_NAMESPACE (openshift-storage)
+#   MINIO_ROOT_USER / MINIO_ROOT_PASSWORD, read from the MinIO deployment when not set
+#
+# ODF must already be installed. MinIO is NOT removed, remove it yourself once AI Service is verified:
+#   ROLE_NAME=minio MINIO_ACTION=uninstall MINIO_DELETE_PVC=true MINIO_DELETE_NAMESPACE=true
+- hosts: localhost
+  any_errors_fatal: true
+
+  vars:
+    aiservice_instance_id: "{{ lookup('env', 'AISERVICE_INSTANCE_ID') }}"
+    aiservice_namespace: "aiservice-{{ aiservice_instance_id }}"
+    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+    minio_namespace: "{{ lookup('env', 'MINIO_NAMESPACE') | default('minio', true) }}"
+    minio_instance_name: "{{ lookup('env', 'MINIO_INSTANCE_NAME') | default('minio', true) }}"
+    odf_namespace: "{{ lookup('env', 'ODF_BUCKET_NAMESPACE') | default('openshift-storage', true) }}"
+
+  pre_tasks:
+    - name: Important Notice
+      debug:
+        msg: |
+          *********************************************************************
+          ************************* IMPORTANT NOTICE **************************
+          *********************************************************************
+          *                                                                   *
+          *  These playbooks are samples to demonstrate how to use the roles  *
+          *  in this collection.                                              *
+          *                                                                   *
+          *  They are NOT INTENDED FOR PRODUCTION USE as-is, they are a       *
+          *  starting point for power users to aid in the development of      *
+          *  their own Ansible playbooks using the roles in this collection   *
+          *                                                                   *
+          *  The recommended way to migrate is the MAS CLI:                   *
+          *    mas update --migrate-minio-to-ceph                             *
+          *                                                                   *
+          *  https://ibm-mas.github.io/cli/                                   *
+          *                                                                   *
+          *********************************************************************
+
+    - name: Check for required environment variables
+      assert:
+        that:
+          - aiservice_instance_id != ""
+          - mas_config_dir != ""
+        fail_msg: "AISERVICE_INSTANCE_ID and MAS_CONFIG_DIR must be set"
+
+    # 1. Is there anything to do?
+    # -------------------------------------------------------------------------
+    - name: "Lookup AIServiceApp {{ aiservice_instance_id }}"
+      kubernetes.core.k8s_info:
+        api_version: aiservice.ibm.com/v1
+        kind: AIServiceApp
+        name: "{{ aiservice_instance_id }}"
+        namespace: "{{ aiservice_namespace }}"
+      register: _app
+
+    - name: Fail if the AIServiceApp was not found
+      assert:
+        that: _app.resources | length > 0
+        fail_msg: "AIServiceApp '{{ aiservice_instance_id }}' not found in namespace '{{ aiservice_namespace }}'"
+
+    # Same rule as the aiservice role (update action)
+    - name: Check whether the instance uses the in-cluster MinIO
+      set_fact:
+        migrate_s3: "{{ ('minio-service.' ~ minio_namespace ~ '.svc') in (_app.resources[0].spec.settings.s3.url | default('')) }}"
+
+    - name: Nothing to migrate
+      when: not (migrate_s3 | bool)
+      debug:
+        msg: "'{{ aiservice_instance_id }}' does not use the in-cluster MinIO ({{ _app.resources[0].spec.settings.s3.url | default('') }}), nothing to do"
+
+    # 2. Fail early, before anything is read from MinIO, if ODF is not usable
+    # -------------------------------------------------------------------------
+    - name: Check the ODF StorageCluster
+      when: migrate_s3 | bool
+      kubernetes.core.k8s_info:
+        api_version: ocs.openshift.io/v1
+        kind: StorageCluster
+        namespace: "{{ odf_namespace }}"
+      register: _storage_cluster
+
+    - name: Check noobaa-admin
+      when: migrate_s3 | bool
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        name: noobaa-admin
+        namespace: "{{ odf_namespace }}"
+      register: _noobaa_admin
+      no_log: true
+
+    - name: Verify ODF is ready
+      when: migrate_s3 | bool
+      assert:
+        that:
+          - _storage_cluster.resources | length > 0
+          - _storage_cluster.resources[0].status.phase == 'Ready'
+          - _noobaa_admin.resources | length > 0
+        fail_msg: "ODF is not ready in '{{ odf_namespace }}' (StorageCluster Ready and secret noobaa-admin are required). Install ODF first, MinIO has not been changed."
+
+## add ocs role if odf is not there
+
+    # 3. The minio role needs the MinIO root credentials, they are plain env vars on the MinIO deployment
+    # -------------------------------------------------------------------------
+    - name: Get the MinIO deployment
+      when: migrate_s3 | bool
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ minio_instance_name }}"
+        namespace: "{{ minio_namespace }}"
+      register: _minio_deployment
+      no_log: true
+
+    - name: Fail if the MinIO deployment was not found
+      when: migrate_s3 | bool
+      assert:
+        that: _minio_deployment.resources | length > 0
+        fail_msg: "MinIO deployment '{{ minio_instance_name }}' not found in namespace '{{ minio_namespace }}'"
+
+    # MINIO_ROOT_USER / MINIO_ROOT_PASSWORD in the environment win, otherwise they are read from the deployment.
+    # These facts override the defaults of the minio role, which read the same environment variables.
+    - name: Set the MinIO credentials
+      when: migrate_s3 | bool
+      no_log: true
+      vars:
+        _env: "{{ _minio_deployment.resources[0].spec.template.spec.containers[0].env | default([]) }}"
+      set_fact:
+        minio_root_user: >-
+          {{ lookup('env', 'MINIO_ROOT_USER')
+             | default(_env | selectattr('name', 'equalto', 'MINIO_ROOT_USER') | map(attribute='value') | first | default('minio', true), true) }}
+        minio_root_password: >-
+          {{ lookup('env', 'MINIO_ROOT_PASSWORD')
+             | default(_env | selectattr('name', 'equalto', 'MINIO_ROOT_PASSWORD') | map(attribute='value') | first | default('', true), true) }}
+
+  roles:
+    - role: ibm.mas_devops.minio
+      vars:
+        minio_action: backup
+      when: migrate_s3 | bool
+
+    - role: ibm.mas_devops.cos_bucket
+      vars:
+        cos_type: odf
+        cos_bucket_action: restore
+      when: migrate_s3 | bool
+
+    # The update action only switches instances that are still on MinIO
+    - role: ibm.mas_devops.aiservice
+      vars:
+        aiservice_action: update
+      when: migrate_s3 | bool

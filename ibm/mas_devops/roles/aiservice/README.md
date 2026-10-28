@@ -7,10 +7,35 @@ The role supports the following operations:
 - Manage AI Service API keys
 - Configure AWS S3 storage integration
 - Configure WatsonX AI integration
+- Update an existing instance in place (`aiservice_action=update`)
 
 ## Role Variables
 
 ### General Variables
+
+#### aiservice_action
+Action to perform on the AI Service instance.
+
+- **Optional**
+- Environment Variable: `AISERVICE_ACTION`
+- Default: `install`
+
+**Valid values**: `install`, `update`
+
+- `install`: Install and configure AI Service (the original behaviour of this role).
+- `update`: Change the configuration of an existing instance in place. The AIServiceApp is never re-rendered, every current value is read from the cluster, so no DRO, database or WatsonX inputs are needed and the action can be re-run. Requires `AISERVICE_INSTANCE_ID`.
+
+**What `update` does today**: if `spec.settings.s3.url` of the AIServiceApp points at the in-cluster MinIO (`minio-service.<MINIO_NAMESPACE>.svc`), the instance is switched to ODF (Ceph/NooBaa). Any other instance is left unchanged. The existing `bucketPrefix` and bucket names are kept. The switch:
+
+1. Verifies ODF is Ready, that the ODF buckets (named `bucketPrefix` + bucket) exist, and that `noobaa-admin` and `openshift-service-ca.crt` are present
+2. Updates `aiservice-s3cfg` and `km-s3-secret` (including the `ca.crt` key) with the ODF credentials and endpoint
+3. Copies `km-s3-secret` to every `AIServiceTenant` namespace of the instance
+4. Patches `spec.settings.s3.url` and `spec.settings.s3.ca` on the AIServiceApp (last, so a failed run can be repeated)
+5. Restarts the km deployments and waits for the AIServiceApp to be `Successful`
+
+The data must already be in ODF. Run the `minio` role (`MINIO_ACTION=backup`) and the `cos_bucket` role (`COS_TYPE=odf`, `COS_BUCKET_ACTION=restore`) first. `mas update --migrate-minio-to-ceph` does all three, and so does the sample playbook `playbooks/aiservice_minio_to_ceph.yml`. MinIO is not removed.
+
+**Related variables**: `MINIO_NAMESPACE` (default `minio`), `ODF_BUCKET_NAMESPACE` (default `openshift-storage`), `AISERVICE_UPDATE_S3_SETTLE_SECONDS` (default `60`).
 
 #### tenant_action
 Action to perform on AI Service tenant.

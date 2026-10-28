@@ -1,0 +1,285 @@
+---
+# Switch one AI Service instance from the in-cluster MinIO to ODF (NooBaa).
+#
+# The data must already be in ODF. That is done before this action runs, by:
+#   1. minio role,      MINIO_ACTION=backup          (MinIO -> $MAS_CONFIG_DIR/minio-backup)
+#   2. cos_bucket role, COS_BUCKET_ACTION=restore    (backup -> one ObjectBucketClaim per bucket)
+#
+# This only changes the S3 settings of the instance. It reads everything it needs from
+# the cluster and never re-renders the AIServiceApp.
+#
+# Bucket names, bucketPrefix and region are NOT changed. The restore creates every ODF bucket with
+# exactly the name it has in MinIO, so every existing reference keeps working.
+#
+# Order matters. The AIServiceApp is patched LAST, so a failed run leaves the instance on MinIO and
+# can simply be run again:
+#   1. pre-flight checks (ODF ready, buckets restored, credentials, service CA)
+#   2. update aiservice-s3cfg and km-s3-secret
+#   3. copy km-s3-secret to every tenant namespace
+#   4. patch spec.settings.s3 (url + ca) on the AIServiceApp
+#   5. restart the km deployments and wait for the AIServiceApp
+# -----------------------------------------------------------------------------
+
+# 1. Pre-flight
+# -----------------------------------------------------------------------------
+- name: "update s3 : Check ODF StorageCluster"
+  kubernetes.core.k8s_info:
+    api_version: ocs.openshift.io/v1
+    kind: StorageCluster
+    namespace: "{{ aiservice_odf_namespace }}"
+  register: aiservice_update_s3_storage_cluster
+
+- name: "update s3 : Verify ODF is ready"
+  assert:
+    that:
+      - aiservice_update_s3_storage_cluster.resources | length > 0
+      - aiservice_update_s3_storage_cluster.resources[0].status.phase == 'Ready'
+    fail_msg: "ODF StorageCluster in '{{ aiservice_odf_namespace }}' is not Ready. Install ODF (see the ocs role) before migrating."
+
+- name: "update s3 : Set the names of the buckets AI Service uses"
+  set_fact:
+    # The operator builds the real bucket name as bucketPrefix + bucket
+    aiservice_update_s3_tenants_obc: "{{ aiservice_update_s3_current.bucketPrefix | default('') }}{{ aiservice_update_s3_current.tenantsBucket }}"
+    aiservice_update_s3_templates_obc: "{{ aiservice_update_s3_current.bucketPrefix | default('') }}{{ aiservice_update_s3_current.templatesBucket }}"
+
+- name: "update s3 : Get the ConfigMap of the tenants bucket"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: "{{ aiservice_update_s3_tenants_obc }}"
+    namespace: "{{ aiservice_odf_namespace }}"
+  register: aiservice_update_s3_tenants_cm
+
+- name: "update s3 : Get the ConfigMap of the templates bucket"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: "{{ aiservice_update_s3_templates_obc }}"
+    namespace: "{{ aiservice_odf_namespace }}"
+  register: aiservice_update_s3_templates_cm
+
+- name: "update s3 : Verify the buckets were restored into ODF"
+  assert:
+    that:
+      - aiservice_update_s3_tenants_cm.resources | length > 0
+      - aiservice_update_s3_templates_cm.resources | length > 0
+    fail_msg: >-
+      The ODF buckets '{{ aiservice_update_s3_tenants_obc }}' and '{{ aiservice_update_s3_templates_obc }}' were not found
+      in '{{ aiservice_odf_namespace }}'. Back up MinIO (minio role, MINIO_ACTION=backup) and restore the backup into ODF
+      (cos_bucket role, COS_BUCKET_ACTION=restore) before switching AI Service to ODF.
+
+- name: "update s3 : Get noobaa-admin credentials"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: noobaa-admin
+    namespace: "{{ aiservice_odf_namespace }}"
+  register: aiservice_update_s3_noobaa_admin
+  no_log: true
+
+- name: "update s3 : Verify noobaa-admin exists"
+  assert:
+    that: aiservice_update_s3_noobaa_admin.resources | length > 0
+    fail_msg: "Secret 'noobaa-admin' not found in namespace '{{ aiservice_odf_namespace }}'"
+
+- name: "update s3 : Read the OpenShift service CA from {{ aiservice_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: openshift-service-ca.crt
+    namespace: "{{ aiservice_namespace }}"
+  register: aiservice_update_s3_service_ca
+
+- name: "update s3 : Verify the service CA exists"
+  assert:
+    that:
+      - aiservice_update_s3_service_ca.resources | length > 0
+      - (aiservice_update_s3_service_ca.resources[0].data['service-ca.crt'] | default('')) != ''
+    fail_msg: "ConfigMap 'openshift-service-ca.crt' with key 'service-ca.crt' not found in namespace '{{ aiservice_namespace }}'"
+
+- name: "update s3 : Set the ODF connection facts"
+  no_log: true
+  vars:
+    _data: "{{ aiservice_update_s3_tenants_cm.resources[0].data }}"
+  set_fact:
+    aiservice_update_s3_odf_access_key: "{{ aiservice_update_s3_noobaa_admin.resources[0].data.AWS_ACCESS_KEY_ID | b64decode }}"
+    aiservice_update_s3_odf_secret_key: "{{ aiservice_update_s3_noobaa_admin.resources[0].data.AWS_SECRET_ACCESS_KEY | b64decode }}"
+    aiservice_update_s3_host: "{{ _data.BUCKET_HOST }}"
+    aiservice_update_s3_port: "{{ _data.BUCKET_PORT }}"
+    aiservice_update_s3_url: "https://{{ _data.BUCKET_HOST }}:{{ _data.BUCKET_PORT }}"
+    aiservice_update_s3_ca: "{{ aiservice_update_s3_service_ca.resources[0].data['service-ca.crt'] }}"
+
+- name: "update s3 : Debug the new S3 configuration"
+  debug:
+    msg:
+      - "Tenants bucket ... {{ aiservice_update_s3_tenants_obc }}"
+      - "Templates bucket . {{ aiservice_update_s3_templates_obc }}"
+      - "S3 url ........... {{ aiservice_update_s3_url }}"
+      - "S3 host .......... {{ aiservice_update_s3_host }}"
+      - "S3 port .......... {{ aiservice_update_s3_port }}"
+      - "S3 CA bytes ...... {{ aiservice_update_s3_ca | length }}"
+
+# 2. Update the S3 secrets
+# -----------------------------------------------------------------------------
+- name: "update s3 : Update the {{ aiservice_update_s3_current.secretName | default('aiservice-s3cfg') }} secret"
+  no_log: true
+  kubernetes.core.k8s:
+    state: patched
+    api_version: v1
+    kind: Secret
+    name: "{{ aiservice_update_s3_current.secretName | default('aiservice-s3cfg') }}"
+    namespace: "{{ aiservice_namespace }}"
+    definition:
+      data:
+        access_key: "{{ aiservice_update_s3_odf_access_key | b64encode }}"
+        secret_key: "{{ aiservice_update_s3_odf_secret_key | b64encode }}"
+
+- name: "update s3 : Update km-s3-secret"
+  no_log: true
+  kubernetes.core.k8s:
+    state: patched
+    api_version: v1
+    kind: Secret
+    name: km-s3-secret
+    namespace: "{{ aiservice_namespace }}"
+    definition:
+      metadata:
+        annotations:
+          serving.kserve.io/s3-endpoint: "{{ aiservice_update_s3_host }}:{{ aiservice_update_s3_port }}"
+          serving.kserve.io/s3-usehttps: "1"
+      data:
+        AWS_ACCESS_KEY_ID: "{{ aiservice_update_s3_odf_access_key | b64encode }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aiservice_update_s3_odf_secret_key | b64encode }}"
+        S3_ACCESS_KEY: "{{ aiservice_update_s3_odf_access_key | b64encode }}"
+        S3_SECRET_KEY: "{{ aiservice_update_s3_odf_secret_key | b64encode }}"
+        S3_HOST: "{{ aiservice_update_s3_host | b64encode }}"
+        S3_PORT: "{{ aiservice_update_s3_port | b64encode }}"
+        S3_SSL: "{{ 'true' | b64encode }}"
+        ca.crt: "{{ aiservice_update_s3_ca | b64encode }}"
+
+- name: "update s3 : Get the updated km-s3-secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: km-s3-secret
+    namespace: "{{ aiservice_namespace }}"
+  register: aiservice_update_s3_km_secret
+  no_log: true
+
+# 3. Copy km-s3-secret into every tenant namespace of this instance
+# -----------------------------------------------------------------------------
+- name: "update s3 : Find the AIServiceTenant resources"
+  kubernetes.core.k8s_info:
+    api_version: aiservice.ibm.com/v1
+    kind: AIServiceTenant
+  register: aiservice_update_s3_tenants
+
+- name: "update s3 : Set the tenant namespaces of {{ aiservice_instance_id }}"
+  set_fact:
+    aiservice_update_s3_tenant_namespaces: >-
+      {{ aiservice_update_s3_tenants.resources
+         | selectattr('spec.settings.tenant.instanceId', 'defined')
+         | selectattr('spec.settings.tenant.instanceId', 'equalto', aiservice_instance_id)
+         | map(attribute='metadata.namespace') | unique | list }}
+
+- name: "update s3 : Debug tenant namespaces"
+  debug:
+    msg: "Tenant namespaces ... {{ aiservice_update_s3_tenant_namespaces | join(', ') if aiservice_update_s3_tenant_namespaces | length > 0 else 'None' }}"
+
+- name: "update s3 : Check that the tenant namespaces exist"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ item }}"
+  loop: "{{ aiservice_update_s3_tenant_namespaces }}"
+  register: aiservice_update_s3_tenant_ns_check
+
+- name: "update s3 : Copy km-s3-secret to the tenant namespaces"
+  no_log: true
+  when: item.resources | length > 0
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: "{{ aiservice_update_s3_km_secret.resources[0].type }}"
+      metadata:
+        name: km-s3-secret
+        namespace: "{{ item.item }}"
+        annotations: "{{ aiservice_update_s3_km_secret.resources[0].metadata.annotations | default({}) | dict2items | rejectattr('key', 'equalto', 'kubectl.kubernetes.io/last-applied-configuration') | items2dict }}"
+      data: "{{ aiservice_update_s3_km_secret.resources[0].data }}"
+  loop: "{{ aiservice_update_s3_tenant_ns_check.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+# 4. Switch the AIServiceApp to ODF
+# -----------------------------------------------------------------------------
+- name: "update s3 : Patch spec.settings.s3 of AIServiceApp {{ aiservice_instance_id }}"
+  kubernetes.core.k8s:
+    state: patched
+    api_version: aiservice.ibm.com/v1
+    kind: AIServiceApp
+    name: "{{ aiservice_instance_id }}"
+    namespace: "{{ aiservice_namespace }}"
+    definition:
+      spec:
+        settings:
+          s3:
+            url: "{{ aiservice_update_s3_url }}"
+            ca: "{{ aiservice_update_s3_ca | b64encode }}"
+
+# 5. Roll the km deployments so they pick up the new secret, then wait
+# -----------------------------------------------------------------------------
+- name: "update s3 : Restart the km deployments"
+  shell: >
+    oc rollout restart deployment/{{ aiservice_instance_id }}-{{ item }}
+    -n {{ aiservice_namespace }}
+  loop:
+    - km-controller
+    - km-store
+    - km-watcher
+  register: aiservice_update_s3_restart
+  failed_when: false
+  changed_when: aiservice_update_s3_restart.rc == 0
+
+- name: "update s3 : Give the operator time to start reconciling"
+  wait_for:
+    timeout: "{{ aiservice_update_s3_settle_seconds }}"
+
+- name: "update s3 : Wait for the km deployments to roll out"
+  shell: >
+    oc rollout status deployment/{{ aiservice_instance_id }}-{{ item.item }}
+    -n {{ aiservice_namespace }} --timeout=15m
+  loop: "{{ aiservice_update_s3_restart.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: item.rc == 0
+  changed_when: false
+
+- name: "update s3 : Wait for the AIServiceApp to be Successful"
+  kubernetes.core.k8s_info:
+    api_version: aiservice.ibm.com/v1
+    kind: AIServiceApp
+    name: "{{ aiservice_instance_id }}"
+    namespace: "{{ aiservice_namespace }}"
+  register: aiservice_update_s3_app_wait
+  until:
+    - aiservice_update_s3_app_wait.resources | length == 1
+    - aiservice_update_s3_app_wait.resources[0].status is defined
+    - aiservice_update_s3_app_wait.resources | json_query('[*].status.conditions[?type==`Successful`][].status') | select('match', 'True') | list | length == 1
+  retries: 20
+  delay: 60
+
+- name: "update s3 : Complete"
+  debug:
+    msg:
+      - "=========================================="
+      - "AI Service S3 migration complete"
+      - "=========================================="
+      - "Instance ............. {{ aiservice_instance_id }}"
+      - "New S3 url ........... {{ aiservice_update_s3_url }}"
+      - "Tenant namespaces .... {{ aiservice_update_s3_tenant_namespaces | length }}"
+      - ""
+      - "MinIO has NOT been removed. Once you have verified AI Service, remove it with:"
+      - "  ROLE_NAME=minio MINIO_ACTION=uninstall MINIO_DELETE_PVC=true MINIO_DELETE_NAMESPACE=true"
+      - "=========================================="

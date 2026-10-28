@@ -189,6 +189,36 @@ oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/aiservice.yml
 ```
 
+Migrate object storage from MinIO to Ceph
+-------------------------------------------------------------------------------
+Moves an existing AI Service instance from the in-cluster MinIO to ODF (Ceph). This is the same sequence that `mas update --migrate-minio-to-ceph` runs:
+
+1. `minio` role, `MINIO_ACTION=backup`: back up every MinIO bucket to `MAS_CONFIG_DIR/minio-backup`
+2. `cos_bucket` role, `COS_TYPE=odf` `COS_BUCKET_ACTION=restore`: restore the backup into ODF, one bucket per MinIO bucket
+3. `aiservice` role, `AISERVICE_ACTION=update`: point the instance and its tenants at ODF, then restart it
+
+ODF must already be installed. The playbook stops before touching MinIO if ODF is not ready, and does nothing for an instance that is not on the in-cluster MinIO. MinIO is **not** removed. The AI Service is unavailable while it restarts.
+
+```bash
+export AISERVICE_INSTANCE_ID="<instanceId>"
+# Needs room for all of the data in MinIO
+export MAS_CONFIG_DIR="/path/with/enough/space"
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook playbooks/aiservice_minio_to_ceph.yml
+```
+
+Optional: `MINIO_NAMESPACE` (default `minio`), `MINIO_INSTANCE_NAME` (default `minio`), `ODF_BUCKET_NAMESPACE` (default `openshift-storage`), `MINIO_ROOT_USER` and `MINIO_ROOT_PASSWORD` (read from the MinIO deployment when not set).
+
+Once AI Service is verified on Ceph, remove MinIO:
+
+```bash
+export ROLE_NAME="minio"
+export MINIO_ACTION="uninstall"
+export MINIO_DELETE_PVC="true"
+export MINIO_DELETE_NAMESPACE="true"
+ansible-playbook playbooks/run_role.yml
+```
+
 Create S3
 -------------------------------------------------------------------------------
 
