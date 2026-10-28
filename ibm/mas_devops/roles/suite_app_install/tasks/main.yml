@@ -54,6 +54,24 @@
         labels:
           istio-injection: "{{ mas_use_service_mesh | ternary ('enabled', 'disabled') }}"
 
+- name: "Apply istiod egress NetworkPolicy in {{ mas_app_namespace }}"
+  when: mas_use_service_mesh | bool
+  kubernetes.core.k8s:
+    apply: yes
+    template: "{{ role_path }}/../../common_templates/networkpolicy-allow-egress.yml.j2"
+  vars:
+    netpol_name: allow-istiod-egress
+    netpol_namespace: "{{ mas_app_namespace }}"
+    netpol_pod_selector: {}
+    netpol_egress_rules:
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: "{{ lookup('env', 'SERVICEMESH_NAMESPACE') | default('istio-system', true) }}"
+        ports:
+          - port: 15012
+            protocol: TCP
+
 # 4. Apply initial security context constraints
 # -----------------------------------------------------------------------------
 - name: "Apply initial security context constraints"
