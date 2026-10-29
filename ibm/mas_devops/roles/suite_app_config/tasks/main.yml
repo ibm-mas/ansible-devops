@@ -31,6 +31,16 @@
     - mas_app_settings_persistent_volumes_flag or mas_app_settings_server_bundles_size in ['jms','snojms']
   include_tasks: "tasks/determine-storage-classes.yml"
 
+# Monitor requires an RWX storage class to be explicitly set in the workspace spec.
+# The Monitor operator's built-in detection only knows Classic ROKS (ibm.io/ibmc-file)
+# and Ceph provisioners — it does not recognise vpc.file.csi.ibm.io (VPC file CSI).
+# We resolve the correct RWX class here so defaultspecs/monitor.yml can reference it.
+- name: Determine default storage classes for Monitor workspace
+  when:
+    - mas_appws_spec is not defined
+    - mas_app_id == 'monitor'
+  include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
+
 # Pre-config specific application settings before workspace CR be deployed
 - name: "Run Manage specific pre-configuration"
   when:
