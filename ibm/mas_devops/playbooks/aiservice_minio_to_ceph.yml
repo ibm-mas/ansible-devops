@@ -14,7 +14,9 @@
 #   MINIO_NAMESPACE (minio), MINIO_INSTANCE_NAME (minio), ODF_BUCKET_NAMESPACE (openshift-storage)
 #   MINIO_ROOT_USER / MINIO_ROOT_PASSWORD, read from the MinIO deployment when not set
 #
-# ODF must already be installed. MinIO is NOT removed, remove it yourself once AI Service is verified:
+# The ocs role installs ODF when it is not ready (LSO_DEVICE_PATH, default /dev/vdb, is the disk it uses).
+# The odf-console plugin is enabled in the OpenShift console.
+# MinIO is NOT removed, remove it yourself once AI Service is verified:
 #   ROLE_NAME=minio MINIO_ACTION=uninstall MINIO_DELETE_PVC=true MINIO_DELETE_NAMESPACE=true
 - hosts: localhost
   any_errors_fatal: true
@@ -81,7 +83,7 @@
       debug:
         msg: "'{{ aiservice_instance_id }}' does not use the in-cluster MinIO ({{ _app.resources[0].spec.settings.s3.url | default('') }}), nothing to do"
 
-    # 2. Fail early, before anything is read from MinIO, if ODF is not usable
+    # 2. Make sure ODF is usable before anything is read from MinIO
     # -------------------------------------------------------------------------
     - name: Check the ODF StorageCluster
       when: migrate_s3 | bool
@@ -91,6 +93,30 @@
         namespace: "{{ odf_namespace }}"
       register: _storage_cluster
 
+    # Same as the aiservice playbook: the ocs role installs ODF. It skips the installation by itself when the
+    # StorageCluster is already Ready, so it only runs here when ODF is not ready.
+    - name: Install ODF, it is not ready
+      when:
+        - migrate_s3 | bool
+        - (_storage_cluster.resources | length == 0) or (_storage_cluster.resources[0].status.phase | default('') != 'Ready')
+      include_role:
+        name: ibm.mas_devops.ocs
+
+    # The ocs role waits for the StorageCluster to be Available, the phase can take a little longer to become Ready
+    - name: Wait for the ODF StorageCluster to be Ready
+      when: migrate_s3 | bool
+      kubernetes.core.k8s_info:
+        api_version: ocs.openshift.io/v1
+        kind: StorageCluster
+        namespace: "{{ odf_namespace }}"
+      register: _storage_cluster
+      retries: 20
+      delay: 30
+      until:
+        - _storage_cluster.resources | length > 0
+        - _storage_cluster.resources[0].status.phase | default('') == 'Ready'
+      ignore_errors: true
+
     - name: Check noobaa-admin
       when: migrate_s3 | bool
       kubernetes.core.k8s_info:
@@ -99,6 +125,11 @@
         name: noobaa-admin
         namespace: "{{ odf_namespace }}"
       register: _noobaa_admin
+      # NooBaa can take a few minutes to create the secret after a fresh ODF install
+      retries: 20
+      delay: 30
+      until: _noobaa_admin.resources | length > 0
+      ignore_errors: true
       no_log: true
 
     - name: Verify ODF is ready
@@ -106,11 +137,33 @@
       assert:
         that:
           - _storage_cluster.resources | length > 0
-          - _storage_cluster.resources[0].status.phase == 'Ready'
+          - _storage_cluster.resources[0].status.phase | default('') == 'Ready'
           - _noobaa_admin.resources | length > 0
-        fail_msg: "ODF is not ready in '{{ odf_namespace }}' (StorageCluster Ready and secret noobaa-admin are required). Install ODF first, MinIO has not been changed."
+        fail_msg: "ODF is not ready in '{{ odf_namespace }}' (StorageCluster Ready and secret noobaa-admin are required). MinIO has not been changed."
 
-## add ocs role if odf is not there
+    # Without the odf-console plugin, buckets created in ODF are not visible in the OpenShift console on some clusters.
+    # spec.plugins is replaced as a whole by the merge patch, so the existing plugins are kept in the list.
+    - name: Get the console operator config
+      when: migrate_s3 | bool
+      kubernetes.core.k8s_info:
+        api_version: operator.openshift.io/v1
+        kind: Console
+        name: cluster
+      register: _console
+
+    - name: Enable the odf-console plugin
+      when:
+        - migrate_s3 | bool
+        - _console.resources | length > 0
+        - "'odf-console' not in (_console.resources[0].spec.plugins | default([], true))"
+      kubernetes.core.k8s:
+        api_version: operator.openshift.io/v1
+        kind: Console
+        name: cluster
+        merge_type: merge
+        definition:
+          spec:
+            plugins: "{{ (_console.resources[0].spec.plugins | default([], true)) + ['odf-console'] }}"
 
     # 3. The minio role needs the MinIO root credentials, they are plain env vars on the MinIO deployment
     # -------------------------------------------------------------------------

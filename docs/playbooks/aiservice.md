@@ -197,7 +197,7 @@ Moves an existing AI Service instance from the in-cluster MinIO to ODF (Ceph). T
 2. `cos_bucket` role, `COS_TYPE=odf` `COS_BUCKET_ACTION=restore`: restore the backup into ODF, one bucket per MinIO bucket
 3. `aiservice` role, `AISERVICE_ACTION=update`: point the instance and its tenants at ODF, then restart it
 
-ODF must already be installed. The playbook stops before touching MinIO if ODF is not ready, and does nothing for an instance that is not on the in-cluster MinIO. MinIO is **not** removed. The AI Service is unavailable while it restarts.
+If ODF is not ready, the playbook runs the `ocs` role to install it (`LSO_DEVICE_PATH` is the disk it uses, default `/dev/vdb`), then stops before touching MinIO if ODF is still not ready. It also adds `odf-console` to the OpenShift console plugins when it is missing, so the buckets show up in the console. The playbook does nothing for an instance that is not on the in-cluster MinIO. MinIO is **not** removed. The AI Service is unavailable while it restarts.
 
 ```bash
 export AISERVICE_INSTANCE_ID="<instanceId>"
