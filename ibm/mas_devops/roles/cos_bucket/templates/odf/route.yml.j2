@@ -1,0 +1,23 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ odf_bucket_route_name }}
+  namespace: {{ odf_bucket_namespace }}
+  labels:
+    app: rook-ceph-rgw
+    bucket: {{ cos_bucket_name }}
+{% if custom_labels is defined and custom_labels is not none and custom_labels | length > 0 %}
+{{ custom_labels | to_nice_yaml(indent=2) | indent(4, first=False) }}
+{% endif %}
+spec:
+  host: {{ cos_bucket_route_host }}
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  to:
+    kind: Service
+    name: {{ odf_bucket_service_name }}
+    weight: 100
+  wildcardPolicy: None
