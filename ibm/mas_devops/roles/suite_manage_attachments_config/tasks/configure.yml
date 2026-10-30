@@ -15,6 +15,14 @@
   include_tasks: "configure-bundles.yml"
   when: mas_manage_attachment_configuration_mode == 'cr'
 
+# secret: ManageWorkspace reads credentials from the K8s secret directly (9.2.x+)
+# The K8s secret (cos-attachments) is already synced from AWS SM by AVP at ArgoCD
+# sync time. No further Ansible action is required in this mode.
+- name: "Secret mode - no bundle patching required (9.2.x+)"
+  debug:
+    msg: "mas_manage_attachment_configuration_mode=secret: credentials are read by the operator from the '{{ mas_manage_attachments_secret_name | default('cos-attachments') }}' K8s secret. No bundle patching performed."
+  when: mas_manage_attachment_configuration_mode == 'secret'
+
 # Restart Manage bundle pods to pick up the storage provider configuration
 - name: Restart Manage bundles to pick up the storage provider configuration
   include_tasks: "tasks/common/restart-manage-server.yml"
