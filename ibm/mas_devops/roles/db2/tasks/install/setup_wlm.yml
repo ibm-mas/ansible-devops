@@ -122,32 +122,20 @@
       [ $rc -eq 2 ] && exit 0 || exit $rc"
   register: _db2_wlm_cpu_limit_result
 
-# Per-tenant WLM service classes and workloads
+# Per-workload WLM service classes and workloads
 # -----------------------------------------------------------------------------
-# Read tenant IDs from the tenantgroup-ids ConfigMap that the tenantgroup-helper
-# job creates before the db2 install job runs. Each tenant gets:
-#   SERVICE CLASS  WLM_<TENANT_ID>_SC  (top-level superclass — Db2 does not allow
-#                                        user subclasses under default classes)
-#   WORKLOAD       WLM_<TENANT_ID>_WL  matching SYSTEM_USER('DB2_<TENANT_ID>'). The value
-#                                        must be uppercase: Db2 stores it as written and
-#                                        authorization IDs are uppercase.
+# For each workload ID supplied via db2_wlm_workloads, a top-level service class
+# and a matching workload are created inside Db2:
+#   SERVICE CLASS  WLM_<WORKLOAD_ID>_SC  (top-level superclass — Db2 does not allow
+#                                          user subclasses under default classes)
+#   WORKLOAD       WLM_<WORKLOAD_ID>_WL  matching SYSTEM_USER('DB2_<WORKLOAD_ID>'). The value
+#                                          must be uppercase: Db2 stores it as written and
+#                                          authorization IDs are uppercase.
 # Both statements are idempotent (SQLSTATE 42710 / already exists = skip).
-- name: "Read tenantgroup-ids ConfigMap"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: ConfigMap
-    name: "tenantgroup-ids"
-    namespace: "{{ db2_namespace }}"
-  register: _db2_wlm_tg_ids_cm
-  failed_when: false
-
-- name: "Parse tenant IDs from ConfigMap"
-  when: _db2_wlm_tg_ids_cm.resources | length > 0
+- name: "Set workload IDs for per-workload WLM setup"
   set_fact:
-    _db2_wlm_tenant_ids: >-
-      {{
-        (_db2_wlm_tg_ids_cm.resources[0].data['id-json'] | from_json).tenantIds.values() | list
-      }}
+    _db2_wlm_tenant_ids: "{{ db2_wlm_workloads }}"
+  when: db2_wlm_workloads | length > 0
 
 - name: "Debug - tenant IDs for per-tenant WLM setup"
   debug:
