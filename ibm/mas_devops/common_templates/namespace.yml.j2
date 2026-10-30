@@ -1,0 +1,42 @@
+---
+{#
+  common_templates/namespace.yml.j2
+
+  Reusable Namespace template. Creates a single Kubernetes Namespace with an
+  optional set of labels.
+
+  Required variables:
+    namespace_name     Name of the namespace to create
+
+  Optional variables:
+    namespace_labels   Dict of labels to apply (default: no labels)
+
+  Example — plain namespace:
+    vars:
+      namespace_name: "{{ minio_namespace }}"
+
+  Example — namespace with Istio injection labels:
+    vars:
+      namespace_name: "{{ servicemesh_gateway_namespace }}"
+      namespace_labels:
+        istio-injection: enabled
+        istio.io/rev: default
+        istio-discovery: enabled
+
+  Example — namespace with app labels:
+    vars:
+      namespace_name: "{{ eso_namespace }}"
+      namespace_labels:
+        app.kubernetes.io/name: eso
+        app.kubernetes.io/managed-by: ansible
+#}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: "{{ namespace_name }}"
+{% if namespace_labels is defined and namespace_labels %}
+  labels:
+{% for key, value in namespace_labels.items() %}
+    {{ key }}: "{{ value }}"
+{% endfor %}
+{% endif %}
