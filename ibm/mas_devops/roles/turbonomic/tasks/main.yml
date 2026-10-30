@@ -142,3 +142,26 @@
     - kubeturbo_cr_result.resources is defined and kubeturbo_cr_result.resources | length > 0
   retries: 10 # approx 10 minutes before we give up
   delay: 60 # 1 minute
+
+
+# 10. Wait for the Kubeturbo deployment to be ready
+# -----------------------------------------------------------------------------
+# The operator creates the deployment after reconciling the CR.  If the operator
+# and the kubeturbo image are incompatible the pod will crash-loop and never
+# become ready, so fail here rather than reporting a false success.
+- name: "Wait for kubeturbo deployment to be ready (30s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: kubeturbo
+    namespace: "{{ kubeturbo_namespace }}"
+  register: kubeturbo_deployment
+  until:
+    - kubeturbo_deployment.resources is defined
+    - kubeturbo_deployment.resources | length > 0
+    - kubeturbo_deployment.resources[0].status is defined
+    - kubeturbo_deployment.resources[0].status.replicas is defined
+    - kubeturbo_deployment.resources[0].status.readyReplicas is defined
+    - kubeturbo_deployment.resources[0].status.readyReplicas == kubeturbo_deployment.resources[0].status.replicas
+  retries: 20 # approx 10 minutes before we give up
+  delay: 30 # 30 seconds
