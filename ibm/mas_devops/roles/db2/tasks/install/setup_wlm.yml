@@ -45,9 +45,9 @@
 
 - name: "Parse current workload manager settings"
   set_fact:
-    _db2_wlm_cur_admission_ctrl: "{{ (_db2_wlm_status.stdout | regex_search('WLM_ADMISSION_CTRL\\)\\s*=\\s*(\\S+)', '\\1') | default([], true)) | first | default('UNKNOWN') | upper }}"
-    _db2_wlm_cur_dispatcher: "{{ (_db2_wlm_status.stdout | regex_search('WLM_DISPATCHER\\)\\s*=\\s*(\\S+)', '\\1') | default([], true)) | first | default('UNKNOWN') | upper }}"
-    _db2_wlm_cur_cpu_limit: "{{ (_db2_wlm_status.stdout | regex_search('WLM_CPU_LIMIT\\)\\s*=\\s*(\\S+)', '\\1') | default([], true)) | first | default('UNKNOWN') }}"
+    _db2_wlm_cur_admission_ctrl: "{{ (_db2_wlm_status.stdout | regex_search('WLM_ADMISSION_CTRL\\)\\s*=\\s*(\\S+)', '\\1') | default('', true)) | default('UNKNOWN') | upper }}"
+    _db2_wlm_cur_dispatcher: "{{ (_db2_wlm_status.stdout | regex_search('WLM_DISPATCHER\\)\\s*=\\s*(\\S+)', '\\1') | default('', true)) | default('UNKNOWN') | upper }}"
+    _db2_wlm_cur_cpu_limit: "{{ (_db2_wlm_status.stdout | regex_search('WLM_CPU_LIMIT\\)\\s*=\\s*(\\S+)', '\\1') | default('', true)) | default('UNKNOWN') }}"
 
 - name: "Debug - workload manager settings"
   debug:
@@ -121,66 +121,6 @@
       db2 update db cfg for {{ db2_dbname }} using WLM_CPU_LIMIT {{ db2_wlm_cpu_limit | int }}; rc=$?;
       [ $rc -eq 2 ] && exit 0 || exit $rc"
   register: _db2_wlm_cpu_limit_result
-
-# Per-workload WLM service classes and workloads
-# -----------------------------------------------------------------------------
-# For each workload ID supplied via db2_wlm_workloads, a top-level service class
-# and a matching workload are created inside Db2:
-#   SERVICE CLASS  WLM_<WORKLOAD_ID>_SC  (top-level superclass — Db2 does not allow
-#                                          user subclasses under default classes)
-#   WORKLOAD       WLM_<WORKLOAD_ID>_WL  matching SYSTEM_USER('DB2_<WORKLOAD_ID>'). The value
-#                                          must be uppercase: Db2 stores it as written and
-#                                          authorization IDs are uppercase.
-# Both statements are idempotent (SQLSTATE 42710 / already exists = skip).
-- name: "Set workload IDs for per-workload WLM setup"
-  set_fact:
-    _db2_wlm_tenant_ids: "{{ db2_wlm_workloads }}"
-  when: db2_wlm_workloads | length > 0
-
-- name: "Debug - tenant IDs for per-tenant WLM setup"
-  debug:
-    msg:
-      - "Tenant IDs ............................. {{ _db2_wlm_tenant_ids | default([]) }}"
-
-- name: "Create per-tenant WLM service class and workload"
-  when: _db2_wlm_tenant_ids is defined
-  loop: "{{ _db2_wlm_tenant_ids }}"
-  loop_control:
-    loop_var: _wlm_tenant_id
-  kubernetes.core.k8s_exec:
-    namespace: "{{ db2_namespace }}"
-    pod: "{{ _db2_wlm_pod }}"
-    container: db2u
-    command: >-
-      bash -c "source ~db2inst1/sqllib/db2profile;
-      db2 connect to {{ db2_dbname }} > /dev/null || exit 1;
-      SC=WLM_$(echo '{{ _wlm_tenant_id }}' | tr '[:lower:]' '[:upper:]')_SC;
-      WL=WLM_$(echo '{{ _wlm_tenant_id }}' | tr '[:lower:]' '[:upper:]')_WL;
-      USER=DB2_$(echo '{{ _wlm_tenant_id }}' | tr '[:lower:]' '[:upper:]');
-      db2 \"CREATE SERVICE CLASS ${SC}\" 2>&1 | grep -v 'SQL0601N' || true;
-      db2 \"CREATE WORKLOAD ${WL} SYSTEM_USER ('${USER}') SERVICE CLASS ${SC} ENABLE\" 2>&1 | grep -v 'SQL0601N' || true;
-      db2 terminate > /dev/null; exit 0"
-  register: _db2_wlm_tenant_result
-
-- name: "Verify per-tenant WLM objects"
-  when: _db2_wlm_tenant_ids is defined
-  kubernetes.core.k8s_exec:
-    namespace: "{{ db2_namespace }}"
-    pod: "{{ _db2_wlm_pod }}"
-    container: db2u
-    command: >-
-      bash -c "source ~db2inst1/sqllib/db2profile;
-      db2 connect to {{ db2_dbname }} > /dev/null || exit 1;
-      db2 \"SELECT SERVICECLASSNAME, PARENTSERVICECLASSNAME FROM SYSCAT.SERVICECLASSES WHERE SERVICECLASSNAME LIKE 'WLM_%_SC'\";
-      db2 \"SELECT WORKLOADNAME, ENABLED FROM SYSCAT.WORKLOADS WHERE WORKLOADNAME LIKE 'WLM_%_WL'\";
-      db2 terminate > /dev/null; exit 0"
-  register: _db2_wlm_tenant_verify
-  changed_when: false
-
-- name: "Per-tenant WLM objects"
-  when: _db2_wlm_tenant_ids is defined
-  debug:
-    msg: "{{ _db2_wlm_tenant_verify.stdout_lines }}"
 
 # Verify
 # -----------------------------------------------------------------------------
