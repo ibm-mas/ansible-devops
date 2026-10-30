@@ -56,18 +56,21 @@ Configuration method for attachment properties.
 **When to use**:
 - Use `db` (default) for direct database configuration (faster, simpler)
 - Use `cr` for GitOps workflows or when database access is restricted
+- Use `secret` for Manage 9.2.x+ deployments where credentials are read directly from a K8s secret by the operator
 
-**Valid values**: `db`, `cr`
+**Valid values**: `db`, `cr`, `secret`
 
 **Impact**:
 - `db`: Updates attachment properties via SQL directly in Manage database (requires `db2_instance_name`, `db2_namespace`, `db2_dbname`)
 - `cr`: Updates attachment properties in ManageWorkspace custom resource under `bundleProperties` (requires `manage_workspace_cr_name`)
+- `secret`: No bundle patching is performed; the ManageWorkspace operator reads COS credentials directly from the K8s secret referenced by `doclinksSecret.secretName`. The K8s secret must already exist (synced from AWS Secrets Manager by AVP at ArgoCD sync time).
 
 **Related variables**:
 - `db2_instance_name`: Required when mode is `db`
 - `manage_workspace_cr_name`: Required when mode is `cr`
+- `mas_manage_attachments_secret_name`: Used when mode is `secret` (defaults to `cos-attachments`)
 
-**Note**: The `db` mode is recommended for most deployments as it's more direct. Use `cr` mode for declarative/GitOps approaches.
+**Note**: The `db` mode is recommended for most deployments as it's more direct. Use `cr` mode for declarative/GitOps approaches. Use `secret` mode for Manage 9.2.x+ to avoid exposing credentials as plain text on the ManageWorkspace CR.
 
 ### mas_instance_id
 MAS instance identifier.
@@ -139,6 +142,23 @@ ManageWorkspace custom resource name.
 - `mas_workspace_id`: Used in default name construction
 
 **Note**: The default naming convention `{instance}-{workspace}` matches standard Manage deployments. Only override if you have custom CR names.
+
+### mas_manage_attachments_secret_name
+Kubernetes secret name for Manage doclinks COS credentials (9.2.x+).
+
+- **Optional** (Used when `mas_manage_attachment_configuration_mode=secret`)
+- Default: `cos-attachments`
+
+**Purpose**: The name of the Kubernetes secret in the Manage namespace (`mas-<instance>-manage`) that contains the COS credentials for doclinks. The operator reads this secret directly via `spec.settings.deployment.doclinksSecret.secretName` on the ManageWorkspace CR.
+
+**When to use**:
+- Only relevant when `mas_manage_attachment_configuration_mode=secret` (Manage 9.2.x+)
+- The secret must already exist in the namespace, populated by AVP from AWS Secrets Manager at ArgoCD sync time
+
+**Valid values**: Valid Kubernetes secret name (e.g., `cos-attachments`)
+
+**Related variables**:
+- `mas_manage_attachment_configuration_mode`: Must be `secret` for this to be used
 
 ### db2_instance_name
 Db2 Warehouse instance name.

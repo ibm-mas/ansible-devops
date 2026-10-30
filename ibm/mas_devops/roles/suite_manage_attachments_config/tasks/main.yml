@@ -13,7 +13,7 @@
 - name: "Fail if mas_manage_attachment_configuration_mode is not provided"
   assert:
     that:
-      - mas_manage_attachment_configuration_mode is defined and mas_manage_attachment_configuration_mode in ['cr', 'db']
+      - mas_manage_attachment_configuration_mode is defined and mas_manage_attachment_configuration_mode in ['cr', 'db', 'secret']
     fail_msg: "mas_manage_attachment_configuration_mode property is required and must be set to one of the supported configuraton modes: {{ mas_manage_attachment_configuration_mode_supported }}"
 
 # Assertion: mas_instance_id is required in order to be able to lookup for manage application resources
@@ -75,11 +75,13 @@
       - ""
       - "{{ (mas_manage_attachments_provider_current == mas_manage_attachments_provider) | ternary('Manage attachments provider has not changed, therefore skipping as there is no further actions needed','Manage attachments provider has either changed or never configured, therefore it will be configured now...') }}"
 
-# Setup Attachments based on configuration mode (cr or db)
+# Setup Attachments based on configuration mode (cr, db, or secret)
 # -----------------------------------------------------------------------------
 - name: "Setup Attachments based on configuration mode"
   include_tasks: "configure.yml"
-  when: mas_manage_attachments_provider_current != mas_manage_attachments_provider # only configure when attachments are not setup yet
+  when:
+    - mas_manage_attachments_provider_current != mas_manage_attachments_provider # only configure when attachments are not setup yet
+    - mas_manage_attachment_configuration_mode != 'secret'
 
 # Set CM: config map once with used provider once everything is successfully done (keep idempotency of ansible role)
 # -----------------------------------------------------------------------------
