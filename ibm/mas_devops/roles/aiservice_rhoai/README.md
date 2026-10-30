@@ -50,6 +50,18 @@ When installing RHOAI, this role automatically:
 - Retains all user data and configurations
 - Typically completes in 10-12 minutes
 
+## RHOAI v2 to v3 Upgrade
+
+RHOAI does not support an in-place upgrade from v2 to v3. When `rhoai_channel` is a v3 channel (for example `stable-3.x`) and an installed `rhods-operator` v2 CSV is detected, the install action:
+
+1. **Detects** the installed RHOAI major version from the `rhods-operator` Subscription
+2. **Uninstalls** RHOAI v2 (DataScienceCluster, DSCInitialization, operator, Authorino, and Serverless/ServiceMesh when in serverless mode)
+3. **Installs** RHOAI v3 from the requested channel
+
+Model serving is unavailable while the upgrade runs. InferenceServices must be checked after the upgrade, as the v3 operator recreates the serving components.
+
+This runs automatically from `mas update` when RHOAI v2 is detected.
+
 ## Role Variables
 
 ### tenantName
