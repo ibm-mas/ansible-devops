@@ -1,0 +1,562 @@
+
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>MAS UMS Meter Definitions</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; font-size: 14px; line-height: 1.6; background: #ffffff; color: #1f2328; padding: 32px; max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { color: #57606a; font-size: 13px; margin-bottom: 28px; }
+  h2 { font-size: 16px; font-weight: 600; margin: 28px 0 12px; color: #1f2328; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
+  h3 { font-size: 13px; font-weight: 600; margin: 16px 0 6px; color: #3b82d4; text-transform: uppercase; letter-spacing: 0.04em; }
+  .card { border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 20px; overflow: hidden; }
+  .card-header { background: #f7f8fa; padding: 10px 14px; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; gap: 10px; }
+  .card-header .name { font-weight: 600; font-size: 13px; }
+  .card-header .type { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+  .type-contractual { background: #dbeafe; color: #1e40af; }
+  .type-adoption { background: #d1fae5; color: #065f46; }
+  .type-lowlevel { background: #fef3c7; color: #92400e; }
+  .card-body { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .panel { padding: 12px 14px; }
+  .panel:first-child { border-right: 1px solid #e5e7eb; }
+  .panel-title { font-size: 11px; font-weight: 600; color: #57606a; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  pre { font-family: "SF Mono", "Fira Code", "Consolas", monospace; font-size: 11.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; background: #f7f8fa; border-radius: 4px; padding: 10px 12px; border: 1px solid #e5e7eb; overflow: auto; }
+  .note { background: #fff8e1; border-left: 3px solid #f59e0b; padding: 8px 12px; border-radius: 0 4px 4px 0; font-size: 12.5px; margin: 10px 0; color: #78350f; }
+  .mapping-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 10px 0 20px; }
+  .mapping-table th { background: #f7f8fa; text-align: left; padding: 6px 10px; border: 1px solid #e5e7eb; font-weight: 600; color: #57606a; }
+  .mapping-table td { padding: 6px 10px; border: 1px solid #e5e7eb; vertical-align: top; }
+  .mapping-table tr:hover td { background: #f9fafb; }
+  code { font-family: "SF Mono", "Fira Code", monospace; font-size: 11.5px; background: #f0f1f3; padding: 1px 4px; border-radius: 3px; }
+  .section-intro { color: #57606a; font-size: 13px; margin-bottom: 14px; }
+  footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #57606a; }
+</style>
+</head>
+<body>
+
+<h1>MAS → UMS: IBMServiceMeterDefinition CRs &amp; JSON Payloads</h1>
+<p class="subtitle">Derived from existing MAS Segment/BAS payloads. The <code>unit</code> field in MAS payloads maps to <code>metricName</code> in UMS.</p>
+
+
+<h2>Field Mapping: MAS payload → UMS IBMServiceMeterDefinition</h2>
+<p class="section-intro">Every MAS event has a <code>unit</code> property that becomes the UMS <code>metricName</code>. Other fields map as follows:</p>
+<table class="mapping-table">
+  <tr><th>MAS payload field</th><th>UMS CR field</th><th>UMS JSON payload field</th><th>Notes</th></tr>
+  <tr><td><code>unit</code></td><td><code>spec.data.metricName</code></td><td>—</td><td>Core mapping. e.g. <code>AppPoints</code>, <code>Licenses</code>, <code>Users</code>, <code>Capability Values</code></td></tr>
+  <tr><td><code>unitDescription</code></td><td><code>spec.data.metricDescription</code></td><td>—</td><td>Human-readable description from MAS</td></tr>
+  <tr><td><code>productId</code></td><td><code>spec.data.productId</code></td><td>—</td><td>e.g. <code>5737-M66</code> or <code>5900-AMG</code></td></tr>
+  <tr><td><code>productTitle</code></td><td><code>spec.data.productName</code></td><td>—</td><td>e.g. <code>Maximo Application Suite</code></td></tr>
+  <tr><td><code>instanceId</code></td><td><code>spec.data.instanceId</code></td><td>—</td><td>Unique MAS instance identifier</td></tr>
+  <tr><td><code>quantity</code></td><td>—</td><td><code>metricQuantity</code></td><td>Actual measured value, sent hourly</td></tr>
+  <tr><td><code>unitMetadata.data.*</code></td><td><code>spec.breakdownDefs</code></td><td><code>breakdowns</code> or extra fields</td><td>Sub-metric breakdown data (user types, capability sub-metrics)</td></tr>
+  <tr><td><code>frequency: Hourly</code></td><td><code>processing: MAX</code> or <code>ADD</code></td><td>—</td><td>Determines daily aggregation strategy</td></tr>
+</table>
+
+
+<h2>1. Contractual Metrics</h2>
+<p class="section-intro">Reported as <code>Account Contractual Usage</code> events. These appear in compliance/audit snapshots. MAS reports <code>AppPoints</code> as the contractual unit.</p>
+
+
+<div class="card">
+  <div class="card-header">
+    <div class="name">AppPoints — Account Level</div>
+    <div class="type type-contractual">CONTRACTUAL</div>
+  </div>
+  <div class="card-body">
+    <div class="panel">
+      <div class="panel-title">IBMServiceMeterDefinition CR</div>
+      <pre>apiVersion: operator.ibm.com/v1
+kind: IBMServiceMeterDefinition
+metadata:
+  name: mas-apppoints-metering-definition
+  namespace: mas-inst1-core   # product namespace
+spec:
+  mappingId: mas-apppoints-5737m66-inst1
+  processing: MAX             # high-water mark per hour
+  data:
+    instanceId: "&lt;source&gt;-&lt;instanceName&gt;"  # e.g. a2d89e0861e6-a311671
+    productId: 5737-M66
+    productName: Maximo Application Suite
+    metricName: AppPoints
+    metricDescription: Account level AppPoint usage
+    metricType: CONTRACTUAL</pre>
+    </div>
+    <div class="panel">
+      <div class="panel-title">JSON Payload (POST /api/v1/event)</div>
+      <pre>[
+  {
+    "mappingId": "mas-apppoints-5737m66-inst1",
+    "instances": [
+      {
+        "metrics": [
+          {
+            "measurementTimestamp": "2025-12-12T21:00:20Z",
+            "metricQuantity": 10,
+            "quantityEntitled": 68
+          }
+        ]
+      }
+    ]
+  }
+]</pre>
+      <div class="note"><strong>Note:</strong> <code>quantity</code> from MAS = active AppPoints used. <code>quantityEntitled</code> is included for context. Processing <code>MAX</code> takes the peak hourly value as the daily metric.</div>
+    </div>
+  </div>
+</div>
+
+
+<div class="card">
+  <div class="card-header">
+    <div class="name">AppPoints — AI Service</div>
+    <div class="type type-contractual">CONTRACTUAL</div>
+  </div>
+  <div class="card-body">
+    <div class="panel">
+      <div class="panel-title">IBMServiceMeterDefinition CR</div>
+      <pre>apiVersion: operator.ibm.com/v1
+kind: IBMServiceMeterDefinition
+metadata:
+  name: mas-aiservice-apppoints-definition
+  namespace: mas-inst1-core
+spec:
+  mappingId: mas-apppoints-aiservice-5737m66-inst1
+  processing: MAX
+  data:
+    instanceId: "&lt;source&gt;-&lt;instanceName&gt;"
+    productId: 5737M66
+    productName: Maximo AI Service
+    metricName: AppPoints
+    metricDescription: Account level AppPoint usage
+    metricType: CONTRACTUAL</pre>
+    </div>
+    <div class="panel">
+      <div class="panel-title">JSON Payload</div>
+      <pre>[
+  {
+    "mappingId": "mas-apppoints-aiservice-5737m66-inst1",
+    "instances": [
+      {
+        "metrics": [
+          {
+            "measurementTimestamp": "2025-12-14T23:30:53Z",
+            "metricQuantity": 0,
+            "quantityEntitled": 500
+          }
+        ]
+      }
+    ]
+  }
+]</pre>
+    </div>
+  </div>
+</div>
+
+
+<h2>2. Adoption Metrics</h2>
+<p class="section-intro">Reported as <code>Account Adoption Usage</code> events. Not in compliance snapshots — used for product telemetry, usage tracking, and dashboards. Three metric units: <code>Licenses</code>, <code>Users</code>, and <code>Capability Values</code>.</p>
+
+
+<div class="card">
+  <div class="card-header">
+    <div class="name">Licenses — Account Level License Usage</div>
+    <div class="type type-adoption">ADOPTION</div>
+  </div>
+  <div class="card-body">
+    <div class="panel">
+      <div class="panel-title">IBMServiceMeterDefinition CR</div>
+      <pre>apiVersion: operator.ibm.com/v1
+kind: IBMServiceMeterDefinition
+metadata:
+  name: mas-licenses-metering-definition
+  namespace: mas-inst1-core
+spec:
+  mappingId: mas-licenses-5737m66-inst1
+  processing: MAX
+  breakdownDefs:
+    - breakdownBy:
+        name: licenseTypeBreakdown
+      groupBy:
+        - licenseType
+      source: licenseCount
+      processing: MAX
+  data:
+    instanceId: "&lt;source&gt;-&lt;instanceName&gt;"
+    productId: 5737-M66
+    productName: Maximo Application Suite
+    metricName: Licenses
+    metricDescription: Account level License usage
+    metricType: ADOPTION</pre>
+    </div>
+    <div class="panel">
+      <div class="panel-title">JSON Payload (with per-type breakdown)</div>
+      <pre>[
+  {
+    "mappingId": "mas-licenses-5737m66-inst1",
+    "instances": [
+      {
+        "metrics": [
+          {
+            "measurementTimestamp": "2025-12-12T21:00:19Z",
+            "metricQuantity": 45,
+            "masAdminBase": 1,
+            "masUsersBase": 2,
+            "masUsersLite": 3,
+            "masAdminPremium": 0,
+            "masUsersPremium": 0,
+            "masUsersLiteAuthorized": 0,
+            "masUsersBaseAuthorized": 0,
+            "masUsersPremiumAuthorized": 0,
+            "masAPIBase": 0,
+            "masAPILite": 0,
+            "masAPIPremium": 0,
+            "masSelfService": 0,
+            "masServerBase": 0,
+            "masServerLite": 0,
+            "masServerPremium": 0,
+            "masAddonBase": 0,
+            "masAddonLite": 0,
+            "masAddonPremium": 0
+          }
+        ]
+      }
+    ]
+  }
+]</pre>
+      <div class="note"><strong>Note:</strong> <code>metricQuantity</code> = total licensed users. The per-type counts from <code>unitMetadata.data</code> are passed as flat fields for breakdown grouping.</div>
+    </div>
+  </div>
+</div>
+
+
+<div class="card">
+  <div class="card-header">
+    <div class="name">Users — Unique Users per Capability</div>
+    <div class="type type-adoption">ADOPTION</div>
+  </div>
+  <div class="card-body">
+    <div class="panel">
+      <div class="panel-title">IBMServiceMeterDefinition CR</div>
+      <pre>apiVersion: operator.ibm.com/v1
+kind: IBMServiceMeterDefinition
+metadata:
+  name: mas-users-manage-definition
+  namespace: mas-inst1-core
+spec:
+  mappingId: mas-users-manage-5900amg-inst1
+  processing: MAX             # peak concurrent users in the hour
+  data:
+    instanceId: "&lt;source&gt;-&lt;instanceName&gt;"
+    productId: 5900-AMG
+    productName: Maximo Application Suite SaaS
+    metricName: Users
+    metricDescription: Unique users per capability
+    metricType: ADOPTION</pre>
+      <div class="note"><strong>Note:</strong> One CR per <code>subProductTitle</code> (capability). Repeat for manage, monitor, health, visual-inspection, etc.</div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">JSON Payload</div>
+      <pre>[
+  {
+    "mappingId": "mas-users-manage-5900amg-inst1",
+    "instances": [
+      {
+        "metrics": [
+          {
+            "measurementTimestamp": "2025-03-09T02:01:07Z",
+            "metricQuantity": 0
+          }
+        ]
+      }
+    ]
+  }
+]</pre>
+    </div>
+  </div>
+</div>
+
+
+<div class="card">
+  <div class="card-header">
+    <div class="name">Capability Values — Manage</div>
+    <div class="type type-adoption">ADOPTION</div>
+  </div>
+  <div class="card-body">
+    <div class="panel">
+      <div class="panel-title">IBMServiceMeterDefinition CR</div>
+      <pre>apiVersion: operator.ibm.com/v1
+kind: IBMServiceMeterDefinition
+metadata:
+  name: mas-capvalues-manage-definition
+  namespace: mas-inst1-core
+spec:
+  mappingId: mas-capvalues-manage-5737m66-inst1
+  processing: MAX
+  data:
+    instanceId: "&lt;source&gt;-&lt;instanceName&gt;"
+    productId: 5737-M66
+    productName: Maximo Application Suite
+    metricName: Capability Values
+    metricDescription: Account level Capability Valuemetrics usage
+    metricType: ADOPTION</pre>
+    </div>
+    <div class="panel">
+      <div class="panel-title">JSON Payload (Manage sub-metrics)</div>
+      <pre>[
+  {
+    "mappingId": "mas-capvalues-manage-5737m66-inst1",
+    "instances": [
+      {
+        "metrics": [
+          {
+            "measurementTimestamp": "2025-12-12T22:10:44Z",
+            "metricQuantity": 0,
+            "Install": 1,
+            "AIInferencesApplied": 0,
+            "AIInferencesPerformed": 0,
+            "Database-replicas": 0,
+            "MobileUserCountWithAccessToApp": 0,
+            "SKDProject": 0,
+            "SKDProjectDashboard": 0
+          }
+        ]
+      }
+    ]
+  }
+]</pre>
+    </div>
+  </div>
+</div>
+
+
+<div class="card">
+  <div class="card-header">
+    <div class="name">Capability Values — Monitor</div>
+    <div class="type type-adoption">ADOPTION</div>
+  </div>
+  <div class="card-body">
+    <div class="panel">
+      <div class="panel-title">IBMServiceMeterDefinition CR</div>
+      <pre>apiVersion: operator.ibm.com/v1
+kind: IBMServiceMeterDefinition
+metadata:
+  name: mas-capvalues-monitor-definition
+  namespace: mas-inst1-core
+spec:
+  mappingId: mas-capvalues-monitor-5737m66-inst1
+  processing: MAX
+  data:
+    instanceId: "&lt;source&gt;-&lt;instanceName&gt;"
+    productId: 5737-M66
+    productName: Maximo Application Suite
+    metricName: Capability Values
+    metricDescription: Account level Capability Valuemetrics usage
+    metricType: ADOPTION</pre>
+    </div>
+    <div class="panel">
+      <div class="panel-title">JSON Payload (Monitor sub-metrics)</div>
+      <pre>[
+  {
+    "mappingId": "mas-capvalues-monitor-5737m66-inst1",
+    "instances": [
+      {
+        "metrics": [
+          {
+            "measurementTimestamp": "2025-12-12T21:00:18Z",
+            "metricQuantity": 0,
+            "Install": 0,
+            "IOPoints": 0,
+            "KPIPoints": 0,
+            "NumOfAssets": 0,
+            "NumOfBatchKPIs": 0,
+            "NumOfBatchPipelines": 0,
+            "NumOfLocations": 0,
+            "NumOfRegisteredDevices": 0,
+            "NumOfStreamingPipelines": 0
+          }
+        ]
+      }
+    ]
+  }
+]</pre>
+    </div>
+  </div>
+</div>
+
+
+<div class="card">
+  <div class="card-header">
+    <div class="name">Capability Values — Workday / Spatial / SAP Adapters</div>
+    <div class="type type-adoption">ADOPTION</div>
+  </div>
+  <div class="card-body">
+    <div class="panel">
+      <div class="panel-title">IBMServiceMeterDefinition CR (pattern, one per add-on)</div>
+      <pre>apiVersion: operator.ibm.com/v1
+kind: IBMServiceMeterDefinition
+metadata:
+  name: mas-capvalues-workday-definition  # or spatial, sapadapter
+  namespace: mas-inst1-core
+spec:
+  mappingId: mas-capvalues-workday-5737m66-inst1
+  processing: MAX
+  data:
+    instanceId: "&lt;source&gt;-&lt;instanceName&gt;"
+    productId: 5737-M66
+    productName: Maximo Application Suite
+    metricName: Capability Values
+    metricDescription: Account level Capability Valuemetrics usage
+    metricType: ADOPTION</pre>
+    </div>
+    <div class="panel">
+      <div class="panel-title">JSON Payload (simple Install flag only)</div>
+      <pre>[
+  {
+    "mappingId": "mas-capvalues-workday-5737m66-inst1",
+    "instances": [
+      {
+        "metrics": [
+          {
+            "measurementTimestamp": "2025-12-12T21:00:19Z",
+            "metricQuantity": 0,
+            "Install": 0
+          }
+        ]
+      }
+    ]
+  }
+]</pre>
+      <div class="note">Use separate <code>mappingId</code> per add-on (<code>workday</code>, <code>spatial</code>, <code>sapadapter</code>). Only field in <code>unitMetadata.data</code> for these is <code>Install</code>.</div>
+    </div>
+  </div>
+</div>
+
+
+<h2>3. Low-Level Adoption Events (Object-Level)</h2>
+<p class="section-intro">Fired on user actions — object creates/updates in Manage. These have <strong>no <code>unit</code> or <code>quantity</code> field</strong> — they are count-based events. The <code>objectType</code> becomes the metric name.</p>
+
+
+<div class="card">
+  <div class="card-header">
+    <div class="name">Object Events — Work Order / Material Receipt / Purchase Order / Inspection / etc.</div>
+    <div class="type type-lowlevel">LOW-LEVEL ADOPTION</div>
+  </div>
+  <div class="card-body">
+    <div class="panel">
+      <div class="panel-title">IBMServiceMeterDefinition CR (Work Order example)</div>
+      <pre>apiVersion: operator.ibm.com/v1
+kind: IBMServiceMeterDefinition
+metadata:
+  name: mas-workorder-events-definition
+  namespace: mas-inst1-core
+spec:
+  mappingId: mas-workorder-5900amg-inst1
+  processing: ADD             # count is cumulative per day
+  data:
+    instanceId: "&lt;source&gt;-&lt;instanceName&gt;"
+    productId: 5900-AMG
+    productName: Maximo Application Suite SaaS
+    metricName: Work Order    # objectType from MAS payload
+    metricDescription: Work Orders created or updated in Manage
+    metricType: ADOPTION</pre>
+      <div class="note">Create one CR per <code>objectType</code>: <code>Work Order</code>, <code>Material Receipt</code>, <code>Purchase Order</code>, <code>Inspection</code>, <code>Issues and Transfers</code>, <code>Workflow</code>. Use <code>ADD</code> since each event = +1 occurrence.</div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">JSON Payload (one event = quantity 1)</div>
+      <pre>[
+  {
+    "mappingId": "mas-workorder-5900amg-inst1",
+    "instances": [
+      {
+        "metrics": [
+          {
+            "measurementTimestamp": "2025-12-12T20:24:49Z",
+            "metricQuantity": 1,
+            "processType": "mobile"
+          }
+        ]
+      }
+    ]
+  }
+]</pre>
+      <div class="note"><strong>Batching:</strong> Accumulate events over the reporting interval and send <code>metricQuantity: N</code> (count) per batch, rather than one call per event. Include <code>processType</code> only when present (e.g. <code>"mobile"</code> for mobile work orders/inspections).</div>
+    </div>
+  </div>
+</div>
+
+
+<h2>4. Lifecycle / Milestone Events</h2>
+<p class="section-intro"><code>Created Object</code> events for users and applications (install/activate/deactivate). No <code>unit</code> field — use the <code>objectType</code> or <code>milestoneName</code> as the metric name.</p>
+
+<div class="card">
+  <div class="card-header">
+    <div class="name">User Created + Application Milestone (Installed/Activated/Deactivated)</div>
+    <div class="type type-lowlevel">LOW-LEVEL ADOPTION</div>
+  </div>
+  <div class="card-body">
+    <div class="panel">
+      <div class="panel-title">IBMServiceMeterDefinition CR — User</div>
+      <pre>apiVersion: operator.ibm.com/v1
+kind: IBMServiceMeterDefinition
+metadata:
+  name: mas-user-created-definition
+  namespace: mas-inst1-core
+spec:
+  mappingId: mas-user-created-5900amg-inst1
+  processing: ADD
+  data:
+    instanceId: "&lt;source&gt;-&lt;instanceName&gt;"
+    productId: 5900-AMG
+    productName: Maximo Application Suite SaaS
+    metricName: USER
+    metricDescription: Users created in MAS
+    metricType: ADOPTION</pre>
+    </div>
+    <div class="panel">
+      <div class="panel-title">IBMServiceMeterDefinition CR — App Milestone</div>
+      <pre>apiVersion: operator.ibm.com/v1
+kind: IBMServiceMeterDefinition
+metadata:
+  name: mas-app-milestone-definition
+  namespace: mas-inst1-core
+spec:
+  mappingId: mas-app-milestone-5900amg-inst1
+  processing: LAST
+  data:
+    instanceId: "&lt;source&gt;-&lt;instanceName&gt;"
+    productId: 5900-AMG
+    productName: Maximo Application Suite SaaS
+    metricName: Application Milestone
+    metricDescription: Application installed/activated/deactivated in MAS
+    metricType: ADOPTION</pre>
+    </div>
+  </div>
+</div>
+
+
+<h2>CR Naming &amp; mappingId Convention</h2>
+<table class="mapping-table">
+  <tr><th>Metric</th><th>CR name</th><th>mappingId</th><th>processing</th></tr>
+  <tr><td>AppPoints (MAS on-prem)</td><td><code>mas-apppoints-metering-definition</code></td><td><code>mas-apppoints-5737m66-&lt;instanceName&gt;</code></td><td>MAX</td></tr>
+  <tr><td>AppPoints (AI Service)</td><td><code>mas-aiservice-apppoints-definition</code></td><td><code>mas-apppoints-aiservice-5737m66-&lt;instanceName&gt;</code></td><td>MAX</td></tr>
+  <tr><td>Licenses</td><td><code>mas-licenses-metering-definition</code></td><td><code>mas-licenses-5737m66-&lt;instanceName&gt;</code></td><td>MAX</td></tr>
+  <tr><td>Users (per capability)</td><td><code>mas-users-&lt;capability&gt;-definition</code></td><td><code>mas-users-&lt;capability&gt;-5900amg-&lt;instanceName&gt;</code></td><td>MAX</td></tr>
+  <tr><td>Capability Values — Manage</td><td><code>mas-capvalues-manage-definition</code></td><td><code>mas-capvalues-manage-5737m66-&lt;instanceName&gt;</code></td><td>MAX</td></tr>
+  <tr><td>Capability Values — Monitor</td><td><code>mas-capvalues-monitor-definition</code></td><td><code>mas-capvalues-monitor-5737m66-&lt;instanceName&gt;</code></td><td>MAX</td></tr>
+  <tr><td>Capability Values — Workday/Spatial/SAP</td><td><code>mas-capvalues-&lt;addon&gt;-definition</code></td><td><code>mas-capvalues-&lt;addon&gt;-5737m66-&lt;instanceName&gt;</code></td><td>MAX</td></tr>
+  <tr><td>Work Order / object events</td><td><code>mas-&lt;objecttype&gt;-events-definition</code></td><td><code>mas-&lt;objecttype&gt;-5900amg-&lt;instanceName&gt;</code></td><td>ADD</td></tr>
+  <tr><td>User Created</td><td><code>mas-user-created-definition</code></td><td><code>mas-user-created-5900amg-&lt;instanceName&gt;</code></td><td>ADD</td></tr>
+  <tr><td>App Milestone</td><td><code>mas-app-milestone-definition</code></td><td><code>mas-app-milestone-5900amg-&lt;instanceName&gt;</code></td><td>LAST</td></tr>
+</table>
+
+<div class="note" style="margin-top:0">
+  <strong>Key design decisions:</strong><br />
+  • <strong>unit → metricName</strong>: The MAS <code>unit</code> field (<code>AppPoints</code>, <code>Licenses</code>, <code>Users</code>, <code>Capability Values</code>) maps directly to <code>spec.data.metricName</code> in the CR.<br />
+  • <strong>Contractual vs Adoption</strong>: Only <code>AppPoints</code> events (<code>Account Contractual Usage</code>) use <code>metricType: CONTRACTUAL</code> — everything else is <code>ADOPTION</code>.<br />
+  • <strong>Low-level events have no unit</strong>: Use <code>objectType</code> as <code>metricName</code> with <code>processing: ADD</code> and batch-count per interval.<br />
+  • <strong>One CR per distinct metric+capability combination</strong>: Capability Values for Manage and Monitor have different <code>unitMetadata.data</code> keys, so they need separate CRs/mappingIds.<br />
+  • <strong>instanceId</strong>: Set to the MAS payload's <code>instanceId</code> field (<code>&lt;source&gt;-&lt;instanceName&gt;</code>).
+</div>
+
+<footer>Made with IBM Bob</footer>
+</body>
+</html>

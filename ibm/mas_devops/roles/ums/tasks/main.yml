@@ -1,0 +1,26 @@
+---
+# 1. Validate chosen action
+# -----------------------------------------------------------------------------
+- name: Validate UMS_ACTION value
+  assert:
+    that:
+      - ums_action is defined
+      - ums_action | length > 0
+      - ums_action in ["install", "uninstall", "skip"]
+    fail_msg: "Incorrect value set for UMS_ACTION, supported actions are install, uninstall, and skip"
+
+
+# 2. Run the defined action
+# -----------------------------------------------------------------------------
+- name: install/uninstall UMS
+  include_tasks: "tasks/{{ ums_action }}/main.yml"
+  when: ums_action in ["install", "uninstall"]
+
+
+# 3. Generate the UMS configuration for MAS
+# -----------------------------------------------------------------------------
+- name: gencfg for new installation
+  include_tasks: tasks/gencfg/main.yml
+  when:
+    - ums_action not in ["uninstall", "skip"]
+    - mas_config_dir is defined and mas_config_dir != ""

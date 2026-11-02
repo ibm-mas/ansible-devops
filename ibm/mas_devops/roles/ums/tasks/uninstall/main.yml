@@ -1,0 +1,96 @@
+---
+# 1. Delete IBMUsageMetering CR first (before operator) to avoid finalizer deadlock
+# -----------------------------------------------------------------------------
+- name: "Get UMS Subscription"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ ums_namespace }}"
+    label_selectors:
+      - "app.kubernetes.io/name = ibm-usage-metering-operator"
+  register: ums_subscription
+
+- name: "uninstall : Delete IBMUsageMetering CR"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operator.ibm.com/v1
+    kind: IBMUsageMetering
+    namespace: "{{ ums_namespace }}"
+    name: ibm-usage-metering-instance
+    wait: yes
+    wait_timeout: 300
+  when: (ums_subscription.resources is defined) and (ums_subscription.resources | length == 1)
+
+# 2. Delete CSV and Subscription
+# -----------------------------------------------------------------------------
+- name: "uninstall : Delete ibm-usage-metering-operator CSV"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ ums_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/ibm-usage-metering-operator.{{ ums_namespace }}"
+    wait: yes
+    wait_timeout: 300
+  when: (ums_subscription.resources is defined) and (ums_subscription.resources | length == 1)
+
+- name: "uninstall : Delete ibm-usage-metering-operator Subscription"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: ibm-usage-metering-operator
+    namespace: "{{ ums_namespace }}"
+    wait: yes
+    wait_timeout: 300
+  when: (ums_subscription.resources is defined) and (ums_subscription.resources | length == 1)
+
+# 3. Delete CatalogSource
+# -----------------------------------------------------------------------------
+- name: "uninstall : Delete UMS CatalogSource"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: CatalogSource
+    namespace: "{{ ums_namespace }}"
+    name: ibm-usage-metering-catalog
+
+# 4. Delete secrets
+# -----------------------------------------------------------------------------
+- name: "uninstall : Delete ibm-entitlement-key pull secret"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Secret
+    namespace: "{{ ums_namespace }}"
+    name: ibm-entitlement-key
+
+- name: "uninstall : Delete UMS upload token secrets"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    namespace: "{{ ums_namespace }}"
+    label_selectors:
+      - "app.kubernetes.io/managed-by = ibm-usage-metering-operator"
+  register: ums_token_secrets
+
+- name: "uninstall : Remove all UMS-managed secrets"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Secret
+    namespace: "{{ ums_namespace }}"
+    name: "{{ item.metadata.name }}"
+  loop: "{{ ums_token_secrets.resources }}"
+  when: ums_token_secrets.resources is defined and ums_token_secrets.resources | length > 0
+
+# 5. Delete OperatorGroup
+# -----------------------------------------------------------------------------
+- name: "uninstall : Delete UMS OperatorGroup"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1
+    kind: OperatorGroup
+    namespace: "{{ ums_namespace }}"
+    name: ibm-usage-metering-operatorgroup

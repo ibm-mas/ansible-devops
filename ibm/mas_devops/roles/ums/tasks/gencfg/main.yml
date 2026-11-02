@@ -1,0 +1,120 @@
+---
+# 1. Validate UMS contact info
+# -----------------------------------------------------------------------------
+- name: "umscfg : Fail if UMS contact information has not been provided"
+  assert:
+    that:
+      - ums_contact.email is defined and ums_contact.email != ""
+      - ums_contact.first_name is defined and ums_contact.first_name != ""
+      - ums_contact.last_name is defined and ums_contact.last_name != ""
+    fail_msg: "One or more required environment variables are not defined [UMS_CONTACT_EMAIL, UMS_CONTACT_FIRSTNAME, UMS_CONTACT_LASTNAME]"
+
+
+# 2. Lookup the UMS endpoint route
+# -----------------------------------------------------------------------------
+- name: "umscfg : Get ibm-usage-metering-instance route"
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: ibm-usage-metering-instance
+    namespace: "{{ ums_namespace }}"
+  register: ums_route
+
+- name: "umscfg : Assert that ibm-usage-metering-instance route exists"
+  ansible.builtin.assert:
+    that:
+      - ums_route is defined
+      - ums_route.resources is defined
+      - ums_route.resources | length == 1
+    fail_msg: "Route not found: ibm-usage-metering-instance in namespace {{ ums_namespace }}"
+
+- name: "umscfg : Set UMS endpoint URL"
+  set_fact:
+    ums_endpoint_url: "https://{{ ums_route.resources[0].spec.host }}"
+  when: ums_route.resources | length == 1
+
+
+# 3. Lookup the UMS API token
+# -----------------------------------------------------------------------------
+- name: "umscfg : Get UMS upload token secret name from IBMUsageMetering CR"
+  kubernetes.core.k8s_info:
+    api_version: operator.ibm.com/v1
+    kind: IBMUsageMetering
+    name: ibm-usage-metering-instance
+    namespace: "{{ ums_namespace }}"
+  register: ums_cr_info
+
+- name: "umscfg : Set UMS token secret name"
+  set_fact:
+    ums_token_secret_name: "{{ ums_cr_info.resources[0].spec.secrets.uploadTokenSecretName | default('ibm-usage-metering-upload-token') }}"
+  when:
+    - ums_cr_info.resources is defined
+    - ums_cr_info.resources | length == 1
+
+- name: "umscfg : Wait for UMS upload token secret to be populated"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ ums_token_secret_name }}"
+    namespace: "{{ ums_namespace }}"
+  register: ums_token_secret
+  until:
+    - ums_token_secret.resources is defined
+    - ums_token_secret.resources | length == 1
+    - ums_token_secret.resources[0].data is defined
+    - ums_token_secret.resources[0].data.token is defined
+  retries: 30
+  delay: 10
+  failed_when: ums_token_secret.resources | length == 0
+
+- name: "umscfg : Set UMS API token"
+  set_fact:
+    ums_api_token: "{{ ums_token_secret.resources[0].data.token | b64decode }}"
+  when:
+    - ums_token_secret.resources | length == 1
+  no_log: true
+
+
+# 4. Lookup the cluster ingress certificates
+# -----------------------------------------------------------------------------
+- name: "umscfg : Lookup the default cluster ingress secret"
+  include_tasks: "{{ role_path }}/../../common_tasks/get_ingress_cert.yml"
+
+- name: "umscfg : Set UMS cert variable"
+  set_fact:
+    ums_tls_crt: "{{ cluster_ingress_tls_crt }}"
+  no_log: true
+
+- name: "umscfg : Build UMS certs list from cluster ingress"
+  set_fact:
+    ums_certs: "{{ lookup('ansible.builtin.template', 'templates/ums-certs.yml.j2') }}"
+  when:
+    - ums_tls_crt is defined
+    - ums_tls_crt | length > 0
+
+- name: "umscfg : Fail if ums_tls_crt has not been set"
+  assert:
+    that: ums_tls_crt is defined and ums_tls_crt | length > 0
+    fail_msg: "ums_tls_crt has not been set — cluster ingress certificate could not be retrieved"
+
+
+# 5. Debug generated config
+# -----------------------------------------------------------------------------
+- name: "umscfg : Debug generated config"
+  debug:
+    msg:
+      - "UMS URL ............................ {{ ums_endpoint_url }}"
+      - "UMS Contact First Name ............. {{ ums_contact.first_name | default('<undefined>', True) }}"
+      - "UMS Contact Last Name .............. {{ ums_contact.last_name | default('<undefined>', True) }}"
+      - "UMS Contact e-mail ................. {{ ums_contact.email | default('<undefined>', True) }}"
+
+
+# 6. Generate BasCfg for MAS (pointing to UMS)
+# -----------------------------------------------------------------------------
+- name: "umscfg : Copy BasCfg (UMS) to filesystem"
+  ansible.builtin.template:
+    src: ums-bascfg.yml.j2
+    dest: "{{ mas_config_dir }}/ums.yml"
+    mode: "664"
+  when:
+    - mas_instance_id is defined

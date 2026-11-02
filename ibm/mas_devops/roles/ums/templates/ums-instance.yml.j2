@@ -1,0 +1,25 @@
+---
+apiVersion: operator.ibm.com/v1
+kind: IBMUsageMetering
+metadata:
+  name: ibm-usage-metering-instance
+  namespace: "{{ ums_namespace }}"
+  labels:
+    app.kubernetes.io/managed-by: ansible
+    app.kubernetes.io/name: ibm-usage-metering-operator
+{% if custom_labels is defined and custom_labels.items() %}
+{% for key, value in custom_labels.items() %}
+    "{{ key }}": "{{ value }}"
+{% endfor %}
+{% endif %}
+spec:
+  license:
+    accept: true
+{% if ums_software_central_enable | bool %}
+  sender:
+    softwareCentral:
+      enable: true
+      entitlementKeySecret: ibm-entitlement-key
+      frequency: "{{ ums_software_central_frequency }}"
+      anonymize: {{ ums_software_central_anonymize | bool | lower }}
+{% endif %}

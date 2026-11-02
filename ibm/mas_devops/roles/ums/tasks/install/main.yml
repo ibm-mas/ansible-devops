@@ -1,0 +1,224 @@
+---
+# 1. Check for MAS ImageContentSourcePolicy (airgap)
+# -----------------------------------------------------------------------------
+- name: "Determine whether this is an airgap environment"
+  include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
+
+
+# 2. Display UMS deployment details
+# -----------------------------------------------------------------------------
+- name: "UMS Deployment details"
+  debug:
+    msg:
+      - "UMS Namespace ...................... {{ ums_namespace }}"
+      - "UMS Catalog Image .................. {{ ums_catalog_image }}"
+      - "Migrate from DRO ................... {{ ums_migrate_from_dro }}"
+      - "DRO Namespace ...................... {{ dro_namespace }}"
+      - "MAS Instance ID .................... {{ mas_instance_id | default('<undefined>', True) }}"
+      - "MAS Config Directory ............... {{ mas_config_dir | default('<undefined>', True) }}"
+      - "UMS Contact First Name ............. {{ ums_contact.first_name | default('<undefined>', True) }}"
+      - "UMS Contact Last Name .............. {{ ums_contact.last_name | default('<undefined>', True) }}"
+      - "UMS Contact e-mail ................. {{ ums_contact.email | default('<undefined>', True) }}"
+
+
+# 3. Migrate from DRO (if requested and DRO is present)
+# -----------------------------------------------------------------------------
+- name: "Check if DRO subscription exists (migration check)"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: ibm-data-reporter-operator
+    namespace: "{{ dro_namespace }}"
+  register: dro_subscription_check
+  when: ums_migrate_from_dro | bool
+
+- name: "DRO migration: DRO installation detected"
+  debug:
+    msg: "DRO subscription found in namespace '{{ dro_namespace }}' — proceeding with uninstall before installing UMS"
+  when:
+    - ums_migrate_from_dro | bool
+    - dro_subscription_check.resources is defined
+    - dro_subscription_check.resources | length > 0
+
+- name: "DRO migration: Uninstall DRO"
+  include_tasks: "{{ role_path }}/../dro/tasks/uninstall/main.yml"
+  when:
+    - ums_migrate_from_dro | bool
+    - dro_subscription_check.resources is defined
+    - dro_subscription_check.resources | length > 0
+
+
+# 4. Check IBM Entitlement Key
+# -----------------------------------------------------------------------------
+- name: Check IBM Entitlement Key
+  ansible.builtin.assert:
+    that:
+      - ibm_entitlement_key is defined
+      - ibm_entitlement_key | length != 0
+    fail_msg: "IBM Entitlement Key is required. Obtain it from https://myibm.ibm.com/products-services/containerlibrary"
+
+
+# 5. Create UMS namespace and OperatorGroup
+# -----------------------------------------------------------------------------
+- name: "Check if OperatorGroup exists in {{ ums_namespace }}"
+  kubernetes.core.k8s_info:
+    namespace: "{{ ums_namespace }}"
+    kind: OperatorGroup
+  register: ums_og_info
+
+- name: "Create Namespace and OperatorGroup in {{ ums_namespace }}"
+  kubernetes.core.k8s:
+    template: "templates/ums-operatorgroup.yml.j2"
+
+- name: "Patch {{ ums_namespace }} namespace with ibm.com/kyverno: audit label"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ ums_namespace }}"
+        labels:
+          "ibm.com/kyverno": audit
+
+
+# 6. Create IBM Entitlement Key pull secret
+# -----------------------------------------------------------------------------
+- name: "Get ibm-entitlement-key secret in {{ ums_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: ibm-entitlement-key
+    namespace: "{{ ums_namespace }}"
+  register: ums_pull_secret
+
+- name: "Create ibm-entitlement-key pull secret"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: ibm-entitlement-key
+        namespace: "{{ ums_namespace }}"
+      data:
+        .dockerconfigjson: "{{ {'auths': {'icr.io': {'auth': ('iamapikey:' + ibm_entitlement_key) | b64encode}}} | to_json | b64encode }}"
+      type: kubernetes.io/dockerconfigjson
+  when: (ums_pull_secret.resources is defined) and (ums_pull_secret.resources | length == 0)
+
+
+# 7. Load PodTemplates configuration
+# -----------------------------------------------------------------------------
+- name: "Load podTemplates configuration"
+  include_tasks: "{{ role_path }}/../../common_tasks/pod_templates/main.yml"
+  vars:
+    config_files: ["ibm-mas-umscfg.yml"]
+
+
+# 8. Install UMS CatalogSource
+# -----------------------------------------------------------------------------
+- name: "Get UMS CatalogSource"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: CatalogSource
+    name: ibm-usage-metering-catalog
+    namespace: "{{ ums_namespace }}"
+  register: ums_catalog_source
+
+- name: "Create UMS CatalogSource"
+  kubernetes.core.k8s:
+    template: "templates/ums-catalogsource.yml.j2"
+  when: (ums_catalog_source.resources is defined) and (ums_catalog_source.resources | length == 0)
+
+
+# 9. Install ibm-usage-metering-operator via OLM Subscription
+# -----------------------------------------------------------------------------
+- name: "Get UMS Subscription"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: ibm-usage-metering-operator
+    namespace: "{{ ums_namespace }}"
+  register: ums_subscription
+
+- name: "Get ibm-usage-metering-operator PackageManifest"
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: ibm-usage-metering-operator
+    namespace: openshift-marketplace
+  register: ums_manifest
+  when: (ums_subscription.resources is defined) and (ums_subscription.resources | length == 0)
+
+- name: "Assert that UMS PackageManifest exists"
+  ansible.builtin.assert:
+    that:
+      - ums_manifest is defined
+      - ums_manifest.resources is defined
+      - ums_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: ibm-usage-metering-operator. Ensure the CatalogSource is ready."
+  when: (ums_subscription.resources is defined) and (ums_subscription.resources | length == 0)
+
+- name: "Set UMS subscription channel from PackageManifest"
+  set_fact:
+    ums_source: "{{ ums_manifest.resources[0].status.catalogSource }}"
+    ums_source_namespace: "{{ ums_manifest.resources[0].status.catalogSourceNamespace }}"
+    ums_default_channel: "{{ ums_manifest.resources[0].status.defaultChannel }}"
+  when: (ums_subscription.resources is defined) and (ums_subscription.resources | length == 0)
+
+- name: "Create UMS Subscription"
+  kubernetes.core.k8s:
+    template: "templates/ums-subscription.yml.j2"
+    wait: yes
+    wait_timeout: 60
+  when: (ums_subscription.resources is defined) and (ums_subscription.resources | length == 0)
+
+
+# 10. Wait until the IBMUsageMetering CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the IBMUsageMetering CRD is available"
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: ibmusagemeterings.operator.ibm.com
+
+
+# 11. Apply IBMUsageMetering CR
+# -----------------------------------------------------------------------------
+- name: "Create IBMUsageMetering CR"
+  kubernetes.core.k8s:
+    template: "templates/ums-instance.yml.j2"
+
+
+# 12. Check deployment status
+# -----------------------------------------------------------------------------
+- name: "Wait for the ibm-usage-metering-operator controller to be ready"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: ibm-usage-metering-operator-controller-manager
+    namespace: "{{ ums_namespace }}"
+    kind: Deployment
+  register: ums_operator_deploy
+  until:
+    - ums_operator_deploy.resources is defined
+    - ums_operator_deploy.resources | length == 1
+    - ums_operator_deploy.resources[0].status is defined
+    - ums_operator_deploy.resources[0].status.readyReplicas is defined
+    - ums_operator_deploy.resources[0].status.readyReplicas >= 1
+  retries: 30
+  delay: 20
+
+- name: "Wait for the ibm-usage-metering-instance operand to be ready"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: ibm-usage-metering-instance
+    namespace: "{{ ums_namespace }}"
+    kind: Deployment
+  register: ums_operand_deploy
+  until:
+    - ums_operand_deploy.resources is defined
+    - ums_operand_deploy.resources | length == 1
+    - ums_operand_deploy.resources[0].status is defined
+    - ums_operand_deploy.resources[0].status.readyReplicas is defined
+    - ums_operand_deploy.resources[0].status.readyReplicas >= 1
+  retries: 30
+  delay: 20
