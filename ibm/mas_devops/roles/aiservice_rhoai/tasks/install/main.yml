@@ -56,7 +56,31 @@
           - "Proceeding with RHOAI installation..."
           - "=============================================="
 
-# 3. Install RHOAI
+# 3. If RHOAI v2 is installed and v3 is requested, remove v2 first
+# -----------------------------------------------------------------------------
+# RHOAI does not support an in-place upgrade from v2 to v3, so v2 is uninstalled
+# and v3 is installed from scratch.
+- include_tasks: detect-rhoai-version.yml
+
+- name: "RHOAI Install : Uninstall RHOAI v2 before installing v3"
+  when: rhoai_v2_to_v3_upgrade | bool
+  block:
+    - name: "RHOAI Install : RHOAI v2 detected - performing reinstall as v3"
+      debug:
+        msg:
+          - "=============================================="
+          - "RHOAI v2 Detected - Upgrade to v3 Required"
+          - "=============================================="
+          - "RHOAI v2 operator ({{ rhoai_installed_csv }}) will be uninstalled"
+          - "RHOAI v3 (channel {{ rhoai_channel }}) will then be installed"
+          - "  - DSCInitialization and DataScienceCluster will be deleted and recreated"
+          - "  - Model serving will be unavailable during the upgrade"
+          - "=============================================="
+
+    - name: "RHOAI Install : Call RHOAI uninstall"
+      include_tasks: tasks/uninstall/main.yml
+
+# 4. Install RHOAI
 # -----------------------------------------------------------------------------
 - name: "RHOAI Install : Starting RHOAI installation"
   debug:
@@ -69,7 +93,7 @@
 
 - include_tasks: install-rhoai.yml
 
-# 4. Installation complete
+# 5. Installation complete
 # -----------------------------------------------------------------------------
 - name: "RHOAI Install : Complete"
   debug:
@@ -77,7 +101,7 @@
       - "=============================================="
       - "RHOAI Installation Complete!"
       - "=============================================="
-      - "{% if odh_installed | default(false) %}Migration from ODH to RHOAI successful{% else %}RHOAI installed successfully{% endif %}"
+      - "{% if odh_installed | default(false) %}Migration from ODH to RHOAI successful{% elif rhoai_v2_to_v3_upgrade | default(false) %}Upgrade from RHOAI v2 to v3 successful{% else %}RHOAI installed successfully{% endif %}"
       - "RHOAI operator: Installed"
       - "DataScienceCluster: Ready"
       - "Model serving: Available"

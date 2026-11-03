@@ -1,0 +1,37 @@
+---
+# aiservice_rhoai/tasks/install/detect-rhoai-version.yml
+# =============================================================================
+# Detect if an RHOAI v2 operator is installed while the requested channel is v3.
+# RHOAI cannot be upgraded in place from v2 to v3, so this triggers a
+# reinstall (uninstall v2, install v3).
+
+- name: "RHOAI Install : Get RHOAI subscription"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: rhods-operator
+    namespace: "{{ rhoai_namespace }}"
+  register: rhoai_subscription
+
+# CSV names look like rhods-operator.2.25.0 (or rhods-operator.v2.25.0)
+- name: "RHOAI Install : Determine installed and target RHOAI major versions"
+  set_fact:
+    rhoai_installed_csv: "{{ (rhoai_subscription.resources[0].status.installedCSV | default('')) if (rhoai_subscription.resources | length > 0) else '' }}"
+    rhoai_target_major: "{{ 3 if ('-3.' in rhoai_channel) else 2 }}"
+
+- name: "RHOAI Install : Determine installed RHOAI major version"
+  set_fact:
+    rhoai_installed_major: "{{ ((rhoai_installed_csv.split('.')[1] | default('0')) | replace('v', '')) | int(0) if ('.' in rhoai_installed_csv) else 0 }}"
+
+- name: "RHOAI Install : Set RHOAI v2 to v3 upgrade flag"
+  set_fact:
+    rhoai_v2_to_v3_upgrade: "{{ (rhoai_installed_major | int) == 2 and (rhoai_target_major | int) == 3 }}"
+
+- name: "RHOAI Install : Display RHOAI version detection result"
+  debug:
+    msg:
+      - "RHOAI Version Detection Result:"
+      - "  Installed CSV ........ {{ rhoai_installed_csv | default('none', true) }}"
+      - "  Installed major ...... {{ rhoai_installed_major }}"
+      - "  Target channel ....... {{ rhoai_channel }} (major {{ rhoai_target_major }})"
+      - "  {% if rhoai_v2_to_v3_upgrade %}RHOAI v2 will be removed and v3 installed{% else %}No RHOAI v2 to v3 reinstall required{% endif %}"
