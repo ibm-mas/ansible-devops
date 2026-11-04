@@ -53,12 +53,10 @@
   when:
     - manage_workspace_cr.resources is not defined or manage_workspace_cr.resources | length == 0
 
+# Fallback matches the name used by the GitOps charts / live clusters: <workspaceId>-manage-encryption-secret
 - name: "Set fact: Manage encryption secret name"
   set_fact:
-    manage_encryptionsecret_name: "{{ manage_workspace_cr.resources[0].spec.settings.db.encryptionSecret | default(mas_workspace_id + '-manage-encryptionsecret', true) }}"
-  when:
-    - manage_workspace_cr.resources[0].spec is defined
-    - manage_workspace_cr.resources[0].spec.settings is defined
+    manage_encryptionsecret_name: "{{ ((((manage_workspace_cr.resources[0].spec | default({})).settings | default({})).db | default({})).encryptionSecret) | default(mas_workspace_id + '-manage-encryption-secret', true) }}"
 
 - name: "Debug: Manage encryption secret name"
   debug:
@@ -69,7 +67,7 @@
 # will be automatically picked up. We only need to define secrets in the fact below
 # that are not referenced by a resource or not having the key secretName
 # -----------------------------------------------------------------------------
-- name: "Set fact: Manage namespace resources"
+- name: "Set fact: Manage namespace resources (non-strict mode)"
   set_fact:
     manage_namespace_resources:
       # Core Manage CRs
@@ -100,11 +98,160 @@
         name: ibm-mas-manage
       - kind: OperatorGroup
         api_version: operators.coreos.com/v1
-        name: operatorgroup
+        name: "{{ mas_app_namespace }}-operator-group"
       # IBM entitlement secret
       - kind: Secret
         api_version: v1
         name: ibm-entitlement
+  when: not (strict_named_only | bool)
+
+# Strict mode: exact Manage inventory from the MASCORE-20742 POC (backup-suite-manage.sh allowlist, de-duplicated,
+# and the confirmed resource inventory). "required" resources fail the backup when missing.
+- name: "Set fact: Manage namespace resources (strict named-only mode)"
+  set_fact:
+    manage_namespace_resources:
+      # OLM (GitOps-installed names)
+      - kind: Project
+        api_version: project.openshift.io/v1
+        name: "{{ mas_app_namespace }}"
+      - kind: Subscription
+        api_version: operators.coreos.com/v1alpha1
+        name: ibm-mas-manage
+      - kind: OperatorGroup
+        api_version: operators.coreos.com/v1
+        name: "{{ mas_app_namespace }}-operator-group"
+      # Manage CRs
+      - kind: ManageApp
+        api_version: apps.mas.ibm.com/v1
+        name: "{{ mas_instance_id }}"
+      - kind: ManageWorkspace
+        api_version: apps.mas.ibm.com/v1
+        name: "{{ manage_workspace_cr_name }}"
+        required: true
+      # Mandatory DR secrets: encryption keys
+      - kind: Secret
+        api_version: v1
+        name: "{{ manage_encryptionsecret_name }}"
+        required: true
+      - kind: Secret
+        api_version: v1
+        name: "{{ manage_encryptionsecret_name }}-operator"
+        required: true
+      # Recommended continuity / optional safeguard secrets
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_instance_id }}-keys-ltpa"
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-jdbccfg-workspace-application-binding"
+      # Other POC-allowlisted Manage secrets
+      - kind: Secret
+        api_version: v1
+        name: ibm-entitlement
+      - kind: Secret
+        api_version: v1
+        name: cos-logging
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_workspace_id }}-manage-d--sb0--asc--sn"
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_workspace_id }}-manage-d--sb1--asc--sn"
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_instance_id }}-coreidp-system-binding"
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_instance_id }}-credentials-oauth-manage"
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_instance_id }}-internal-manage-tls"
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_instance_id }}-internal-mobile-encryption"
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-cert-public-81"
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-internal-maximoproperty-secret"
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-manage-truststorepasswd"
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-truststore"
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_instance_id }}-suite-system-binding"
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_instance_id }}-workspaceagent-tls"
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_workspace_id }}-default-bundleproperty"
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_workspace_id }}-default-nonsystemproperty"
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_workspace_id }}-foundation-bundleproperty"
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_workspace_id }}-foundation-nonsystemproperty"
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_workspace_id }}-jmsserver-bundleproperty"
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_workspace_id }}-smtp-oauth-properties"
+      # Manage ConfigMaps (POC-observed)
+      - kind: ConfigMap
+        api_version: v1
+        name: "{{ mas_instance_id }}-coreidp-binding-reconcile"
+      - kind: ConfigMap
+        api_version: v1
+        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-aicfg-binding-reconcile"
+      - kind: ConfigMap
+        api_version: v1
+        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-instance-monitor-cfg"
+      - kind: ConfigMap
+        api_version: v1
+        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-jdbccfg-binding-reconcile"
+      - kind: ConfigMap
+        api_version: v1
+        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-optimizerworkspace-binding-reconcile"
+      - kind: ConfigMap
+        api_version: v1
+        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-server-monitor-cfg"
+      - kind: ConfigMap
+        api_version: v1
+        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-smtpcfg-binding-reconcile"
+      - kind: ConfigMap
+        api_version: v1
+        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-supported-pod-keys"
+      - kind: ConfigMap
+        api_version: v1
+        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-truststore-cfg"
+      - kind: ConfigMap
+        api_version: v1
+        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-truststore-tsmcfg"
+      - kind: ConfigMap
+        api_version: v1
+        name: "{{ mas_instance_id }}-manage-install-placeholder"
+      - kind: ConfigMap
+        api_version: v1
+        name: "{{ mas_instance_id }}-manage-{{ mas_workspace_id }}-config-placeholder"
+      - kind: ConfigMap
+        api_version: v1
+        name: "{{ mas_instance_id }}-suite-binding-reconcile"
+      - kind: ConfigMap
+        api_version: v1
+        name: maximo-config
+      - kind: ConfigMap
+        api_version: v1
+        name: "pre-jreporter-app-install-manage-{{ mas_instance_id }}-synctime"
+  when: strict_named_only | bool
 
 - name: "Set fact: Manage backup resources"
   set_fact:
@@ -112,13 +259,28 @@
       - namespace: "{{ mas_app_namespace }}"
         resources: "{{ manage_namespace_resources }}"
 
+# Strict mode: back up the explicitly named Manage CRDs (cluster-scoped). See manage_backup_crds in defaults.
+- name: "Add explicitly named Manage CRDs to backup resources (strict named-only)"
+  set_fact:
+    manage_backup_resources: "{{ manage_backup_resources + [{'resources': manage_backup_crds}] }}"
+  when: strict_named_only | bool
+
 # 7. Backup Manage namespace resources
 # -----------------------------------------------------------------------------
 - name: "Backup Manage namespace resources (referenced secrets are auto-discovered)"
   ibm.mas_devops.backup_resource:
     backup_resources: "{{ manage_backup_resources }}"
     backup_path: "{{ manage_backup_path }}"
+    strict_named_only: "{{ strict_named_only | bool }}"
+    auto_discover_secrets: "{{ auto_discover_secrets | bool }}"
   register: manage_backup_result
+
+# 7.1 Environment configuration snapshot (saas-envs instance folder, gitops-envs if one is provided)
+# -----------------------------------------------------------------------------
+- name: "Snapshot environment configuration"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_env_snapshot.yml"
+  vars:
+    env_snapshot_backup_path: "{{ manage_backup_path }}"
 
 # 8. Display backup results
 # -----------------------------------------------------------------------------
@@ -129,6 +291,7 @@
       - "Total resources backed up: {{ manage_backup_result.backed_up_count }}"
       - "Total resources failed: {{ manage_backup_result.failed_count }}"
       - "Resources not found: {{ manage_backup_result.not_found_count }}"
+      - "Not found (named resources): {{ manage_backup_result.not_found_resources | to_json }}"
       - "Secrets auto-discovered: {{ manage_backup_result.discovered_secrets_count }}"
       - "Backup location: {{ manage_backup_path }}"
 

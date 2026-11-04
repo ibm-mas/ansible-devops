@@ -1,0 +1,278 @@
+---
+# Back up one instance: resolve its ENVS folders and workspace ID, verify it exists on the cluster, snapshot the
+# ENVS folders and back up the named OpenShift resources with the existing strict-mode roles.
+#
+# Input: _sb_inst (instance ID). Output: appends to _sb_instance_results.
+# Every failure is fatal; nothing here is allowed to be skipped silently.
+# -----------------------------------------------------------------------------
+- name: "[{{ _sb_inst }}] Resolve saas-envs and gitops-envs candidate folders"
+  ansible.builtin.set_fact:
+    _si_saas_dir: "{{ _sb_saas_cluster_dir }}/{{ _sb_inst }}"
+    _si_gitops_root: "{{ _sb_repos.gitops_envs.path | default('') }}"
+    _si_gitops_candidates:
+      - "{{ _sb_repos.gitops_envs.path | default('') }}/{{ saas_backup_account }}/{{ saas_backup_region }}/{{ saas_backup_cluster }}/{{ _sb_inst }}"
+      - "{{ _sb_repos.gitops_envs.path | default('') }}/{{ saas_backup_account }}/{{ saas_backup_cluster }}/{{ _sb_inst }}"
+
+- name: "[{{ _sb_inst }}] Stat saas-envs instance folder"
+  ansible.builtin.stat:
+    path: "{{ _si_saas_dir }}"
+  register: _si_saas_stat
+
+- name: "[{{ _sb_inst }}] Fail if the instance has no folder in saas-envs"
+  ansible.builtin.fail:
+    msg: >-
+      Instance '{{ _sb_inst }}' has no folder in the saas-envs repository: expected
+      gitops/{{ saas_backup_account }}/{{ saas_backup_region }}/{{ saas_backup_cluster }}/{{ _sb_inst }}
+  when: not (_si_saas_stat.stat.exists and _si_saas_stat.stat.isdir)
+
+- name: "[{{ _sb_inst }}] Stat gitops-envs candidate folders"
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: "{{ _si_gitops_candidates if _sb_gitops_supplied | bool else [] }}"
+  register: _si_gitops_stats
+
+- name: "[{{ _sb_inst }}] Select the gitops-envs folder"
+  ansible.builtin.set_fact:
+    _si_gitops_found: >-
+      {{ _si_gitops_stats.results | default([]) | selectattr('stat.exists') | selectattr('stat.isdir') | map(attribute='item') | list }}
+
+- name: "[{{ _sb_inst }}] Fail if the gitops-envs folder is ambiguous"
+  ansible.builtin.fail:
+    msg: "Instance '{{ _sb_inst }}' matches more than one gitops-envs folder: {{ _si_gitops_found }}"
+  when: _si_gitops_found | length > 1
+
+- name: "[{{ _sb_inst }}] Fail if the instance has no folder in gitops-envs and that was not explicitly allowed"
+  ansible.builtin.fail:
+    msg: >-
+      Instance '{{ _sb_inst }}' has no folder in the gitops-envs repository (looked for
+      {{ _si_gitops_candidates | map('replace', _si_gitops_root ~ '/', '') | list }}).
+      Set SAAS_BACKUP_ALLOW_MISSING_GITOPS_ENVS=true to explicitly accept a backup without it.
+  when:
+    - _sb_gitops_supplied | bool
+    - _si_gitops_found | length == 0
+    - not (saas_backup_allow_missing_gitops_envs | bool)
+
+- name: "[{{ _sb_inst }}] Record the gitops-envs folder"
+  ansible.builtin.set_fact:
+    _si_gitops_dir: "{{ _si_gitops_found[0] if _si_gitops_found | length == 1 else '' }}"
+    _si_gitops_rel: "{{ _si_gitops_found[0] | replace(_si_gitops_root ~ '/', '') if _si_gitops_found | length == 1 else '' }}"
+
+# Uncommitted changes would make the recorded commit SHA misdescribe an existing checkout
+# -----------------------------------------------------------------------------
+- name: "[{{ _sb_inst }}] Check existing checkouts for uncommitted changes in the snapshotted folders"
+  ansible.builtin.command:
+    argv: ["git", "-C", "{{ item.root }}", "status", "--porcelain", "--untracked-files=all", "--", "{{ item.path }}"]
+  loop: >-
+    {{ ([{'label': 'saas_envs', 'root': _sb_repos.saas_envs.path, 'path': _si_saas_dir}] if _sb_repos.saas_envs.source == 'checkout' else [])
+       + ([{'label': 'gitops_envs', 'root': _sb_repos.gitops_envs.path, 'path': _si_gitops_dir}]
+          if (_si_gitops_dir | length > 0 and _sb_repos.gitops_envs.source == 'checkout') else []) }}
+  loop_control:
+    label: "{{ item.label }}"
+  register: _si_dirty
+  changed_when: false
+  failed_when: _si_dirty.rc != 0
+
+- name: "[{{ _sb_inst }}] Fail if an existing checkout has uncommitted changes and that was not explicitly allowed"
+  ansible.builtin.fail:
+    msg: >-
+      The {{ item.item.label }} checkout has uncommitted changes under the snapshotted folder, so its commit SHA would not describe
+      the backed up files. Commit or discard them, or set SAAS_BACKUP_ALLOW_DIRTY_CHECKOUT=true to accept (it is recorded in metadata.json).
+  loop: "{{ _si_dirty.results }}"
+  loop_control:
+    label: "{{ item.item.label }}"
+  when:
+    - item.stdout | length > 0
+    - not (saas_backup_allow_dirty_checkout | bool)
+
+# Workspace ID: explicit input first, otherwise saas-envs. Never guessed.
+# -----------------------------------------------------------------------------
+- name: "[{{ _sb_inst }}] Read saas-envs mas-instance-params.yaml and mas-apps-params.yaml"
+  ansible.builtin.set_fact:
+    _si_instance_params: "{{ lookup('file', _si_saas_dir ~ '/mas-instance-params.yaml', errors='ignore') | default('', true) | from_yaml | default({}, true) }}"
+    _si_apps_params: "{{ lookup('file', _si_saas_dir ~ '/mas-apps-params.yaml', errors='ignore') | default('', true) | from_yaml | default({}, true) }}"
+
+- name: "[{{ _sb_inst }}] Resolve workspace ID"
+  ansible.builtin.set_fact:
+    _si_workspace_id: "{{ _sb_ws_overrides[_sb_inst] | default(_si_instance_params.mas_workspaces.id | default('', true), true) }}"
+    _si_workspace_source: "{{ 'SAAS_BACKUP_WORKSPACE_IDS' if _sb_inst in _sb_ws_overrides else 'saas-envs mas-instance-params.yaml (mas_workspaces.id)' }}"
+
+- name: "[{{ _sb_inst }}] Fail if the instance ID or workspace ID cannot be resolved"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - _si_workspace_id | string is match('^[a-z][a-z0-9]{2,11}$')
+      - _si_instance_params.mas_instance.id | default('') == _sb_inst
+    fail_msg: >-
+      Unable to resolve '{{ _sb_inst }}' / its workspace ID from saas-envs (workspace ID '{{ _si_workspace_id }}',
+      mas_instance.id '{{ _si_instance_params.mas_instance.id | default('missing') }}'). Set the workspace ID explicitly with
+      SAAS_BACKUP_WORKSPACE_IDS={{ _sb_inst }}=<workspace-id>, or fix mas-instance-params.yaml in saas-envs.
+
+- name: "[{{ _sb_inst }}] Determine applications"
+  ansible.builtin.set_fact:
+    _si_has_manage: "{{ 'manage' in _si_apps_params }}"
+    _si_other_apps: "{{ _si_apps_params.keys() | list | difference(['manage']) }}"
+
+# The instance must exist on the logged in cluster
+# -----------------------------------------------------------------------------
+- name: "[{{ _sb_inst }}] Get the Suite and Workspace custom resources"
+  kubernetes.core.k8s_info:
+    api_version: core.mas.ibm.com/v1
+    kind: "{{ item.kind }}"
+    name: "{{ item.name }}"
+    namespace: "mas-{{ _sb_inst }}-core"
+  loop:
+    - { kind: Suite, name: "{{ _sb_inst }}" }
+    - { kind: Workspace, name: "{{ _sb_inst }}-{{ _si_workspace_id }}" }
+  loop_control:
+    label: "{{ item.kind }}/{{ item.name }}"
+  register: _si_core_crs
+  failed_when: false
+
+- name: "[{{ _sb_inst }}] Fail if the Suite or Workspace cannot be read"
+  ansible.builtin.fail:
+    msg: >-
+      Cannot read {{ item.item.kind }}/{{ item.item.name }} in namespace mas-{{ _sb_inst }}-core
+      ({{ item.msg | default('not found') }}). The namespace may not exist, may be inaccessible to the current oc user,
+      or the workspace ID may be wrong.
+  loop: "{{ _si_core_crs.results }}"
+  loop_control:
+    label: "{{ item.item.kind }}/{{ item.item.name }}"
+  when: item.failed | default(false) or item.resources | default([]) | length == 0
+
+- name: "[{{ _sb_inst }}] Read the core operator subscription"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: ibm-mas-operator
+    namespace: "mas-{{ _sb_inst }}-core"
+  register: _si_core_sub
+  failed_when: false
+
+- name: "[{{ _sb_inst }}] Read the ManageApp custom resource"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: ManageApp
+    name: "{{ _sb_inst }}"
+    namespace: "mas-{{ _sb_inst }}-manage"
+  register: _si_manage_cr
+  failed_when: false
+  when: _si_has_manage | bool
+
+# Snapshot the ENVS folders. manual-certs holds plaintext private keys and is excluded unless explicitly requested.
+# -----------------------------------------------------------------------------
+- name: "[{{ _sb_inst }}] Snapshot saas-envs instance folder"
+  ansible.builtin.copy:
+    src: "{{ _si_saas_dir }}/"
+    dest: "{{ _sb_staging }}/saas-envs/gitops/{{ saas_backup_account }}/{{ saas_backup_region }}/{{ saas_backup_cluster }}/{{ _sb_inst }}/"
+    remote_src: true
+    mode: "u=rwX,go="
+    directory_mode: "0700"
+
+- name: "[{{ _sb_inst }}] Remove manual-certs (plaintext private keys) from the snapshot"
+  ansible.builtin.file:
+    path: "{{ _sb_staging }}/saas-envs/gitops/{{ saas_backup_account }}/{{ saas_backup_region }}/{{ saas_backup_cluster }}/{{ _sb_inst }}/manual-certs"
+    state: absent
+  when: not (saas_backup_include_manual_certs | bool)
+
+- name: "[{{ _sb_inst }}] Snapshot gitops-envs instance folder"
+  ansible.builtin.copy:
+    src: "{{ _si_gitops_dir }}/"
+    dest: "{{ _sb_staging }}/gitops-envs/{{ _si_gitops_rel }}/"
+    remote_src: true
+    mode: "u=rwX,go="
+    directory_mode: "0700"
+  when: _si_gitops_dir | length > 0
+
+# OpenShift resources: the existing strict named-only roles, one run per instance
+# -----------------------------------------------------------------------------
+- name: "[{{ _sb_inst }}] Create the OpenShift backup directory"
+  ansible.builtin.file:
+    path: "{{ _sb_staging }}/openshift/{{ _sb_inst }}"
+    state: directory
+    mode: "0700"
+
+- name: "[{{ _sb_inst }}] Back up Suite (core) resources"
+  ansible.builtin.include_role:
+    name: ibm.mas_devops.suite_backup
+  vars:
+    mas_instance_id: "{{ _sb_inst }}"
+    mas_workspace_id: "{{ _si_workspace_id }}"
+    mas_backup_dir: "{{ _sb_staging }}/openshift/{{ _sb_inst }}"
+    suite_backup_version: "{{ _sb_ts }}"
+    strict_named_only: true
+    auto_discover_secrets: false
+    include_ca_keys: false
+    env_snapshot_saas_envs_dir: ""
+    env_snapshot_gitops_envs_dir: ""
+
+- name: "[{{ _sb_inst }}] Record the Suite backup result"
+  ansible.builtin.set_fact:
+    _si_suite_result:
+      backed_up_count: "{{ backup_result.backed_up_count }}"
+      failed_count: "{{ backup_result.failed_count }}"
+      not_found_resources: "{{ backup_result.not_found_resources | default([]) }}"
+      backup_path: "{{ suite_backup_path }}"
+
+- name: "[{{ _sb_inst }}] Back up Manage resources"
+  ansible.builtin.include_role:
+    name: ibm.mas_devops.suite_app_backup
+  vars:
+    mas_instance_id: "{{ _sb_inst }}"
+    mas_workspace_id: "{{ _si_workspace_id }}"
+    mas_app_id: manage
+    mas_backup_dir: "{{ _sb_staging }}/openshift/{{ _sb_inst }}"
+    mas_app_backup_version: "{{ _sb_ts }}"
+    mas_app_backup_include_pvc: false
+    strict_named_only: true
+    auto_discover_secrets: false
+    env_snapshot_saas_envs_dir: ""
+    env_snapshot_gitops_envs_dir: ""
+  when: _si_has_manage | bool
+
+- name: "[{{ _sb_inst }}] Record the Manage backup result"
+  ansible.builtin.set_fact:
+    _si_manage_result:
+      backed_up_count: "{{ manage_backup_result.backed_up_count }}"
+      failed_count: "{{ manage_backup_result.failed_count }}"
+      not_found_resources: "{{ manage_backup_result.not_found_resources | default([]) }}"
+      backup_path: "{{ manage_backup_path }}"
+  when: _si_has_manage | bool
+
+# The roles write an environment/ENVIRONMENT_SNAPSHOT.yaml saying "not configured" because the ENVS folders are
+# snapshotted above, under saas-envs/ and gitops-envs/. Remove it so that the archive is not misleading.
+- name: "[{{ _sb_inst }}] Remove the per-role placeholder environment snapshot"
+  ansible.builtin.file:
+    path: "{{ item }}/environment"
+    state: absent
+  loop: "{{ [_si_suite_result.backup_path] + ([_si_manage_result.backup_path] if _si_has_manage | bool else []) }}"
+
+- name: "[{{ _sb_inst }}] Record the instance result"
+  ansible.builtin.set_fact:
+    _sb_instance_results: >-
+      {{ _sb_instance_results | default([]) + [{
+           'instance_id': _sb_inst,
+           'workspace_id': _si_workspace_id,
+           'workspace_id_source': _si_workspace_source,
+           'applications_backed_up': ['core'] + (['manage'] if _si_has_manage | bool else []),
+           'namespaces': {'core': 'mas-' ~ _sb_inst ~ '-core', 'manage': ('mas-' ~ _sb_inst ~ '-manage') if _si_has_manage | bool else none},
+           'saas_envs_folder': 'gitops/' ~ saas_backup_account ~ '/' ~ saas_backup_region ~ '/' ~ saas_backup_cluster ~ '/' ~ _sb_inst,
+           'gitops_envs_folder': _si_gitops_rel if _si_gitops_rel | length > 0 else none,
+           'versions': {
+             'suite_reconciled': _si_core_crs.results[0].resources[0].status.versions.reconciled | default('unavailable'),
+             'suite_operator_installed_csv': (_si_core_sub.resources[0].status.installedCSV | default('unavailable')) if (_si_core_sub.resources | default([]) | length > 0) else 'unavailable',
+             'manage_reconciled': (_si_manage_cr.resources[0].status.versions.reconciled | default('unavailable')) if (_si_has_manage | bool and _si_manage_cr.resources | default([]) | length > 0) else ('unavailable' if _si_has_manage | bool else 'not_applicable')
+           },
+           'openshift': {
+             'suite': {
+               'backup_path': 'openshift/' ~ _sb_inst ~ '/' ~ (_si_suite_result.backup_path | basename),
+               'resources_backed_up': _si_suite_result.backed_up_count | int,
+               'named_resources_not_found': _si_suite_result.not_found_resources
+             },
+             'manage': ({
+               'backup_path': 'openshift/' ~ _sb_inst ~ '/' ~ (_si_manage_result.backup_path | basename),
+               'resources_backed_up': _si_manage_result.backed_up_count | int,
+               'named_resources_not_found': _si_manage_result.not_found_resources
+             } if _si_has_manage | bool else {'status': 'not_backed_up', 'reason': 'saas-envs mas-apps-params.yaml declares no manage application'})
+           },
+           'other_applications_declared_in_saas_envs_not_backed_up': _si_other_apps
+         }] }}

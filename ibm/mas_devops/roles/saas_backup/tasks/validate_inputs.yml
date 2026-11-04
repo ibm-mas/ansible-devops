@@ -1,0 +1,117 @@
+---
+# Validate and normalise the inputs. Nothing outside of this host is touched here.
+# -----------------------------------------------------------------------------
+- name: "Normalise list inputs"
+  ansible.builtin.set_fact:
+    _sb_instances: >-
+      {{ (saas_backup_instances | default('', true)).split(',') if (saas_backup_instances | default('', true)) is string
+         else saas_backup_instances }}
+    _sb_aws_secret_ids: >-
+      {{ (saas_backup_aws_secret_ids | default('', true)).split(',') if (saas_backup_aws_secret_ids | default('', true)) is string
+         else saas_backup_aws_secret_ids }}
+
+- name: "Trim list inputs"
+  ansible.builtin.set_fact:
+    _sb_instances: "{{ _sb_instances | map('string') | map('trim') | reject('equalto', '') | list }}"
+    _sb_aws_secret_ids: "{{ _sb_aws_secret_ids | map('string') | map('trim') | reject('equalto', '') | list }}"
+
+- name: "Validate selection (account, region, cluster, instances)"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - saas_backup_account | default('', true) is match('^[A-Za-z0-9][A-Za-z0-9._-]*$')
+      - saas_backup_region | default('', true) is match('^[A-Za-z0-9][A-Za-z0-9._-]*$')
+      - saas_backup_cluster | default('', true) is match('^[A-Za-z0-9][A-Za-z0-9._-]*$')
+      - "'..' not in saas_backup_account"
+      - "'..' not in saas_backup_region"
+      - "'..' not in saas_backup_cluster"
+    fail_msg: >-
+      SAAS_BACKUP_ACCOUNT, SAAS_BACKUP_REGION and SAAS_BACKUP_CLUSTER are all required and may only contain
+      letters, digits, '.', '_' and '-' (account='{{ saas_backup_account }}', region='{{ saas_backup_region }}',
+      cluster='{{ saas_backup_cluster }}')
+
+- name: "Validate instance list"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - _sb_instances | length > 0
+      - _sb_instances | unique | length == _sb_instances | length
+      - _sb_instances | select('match', '^[A-Za-z0-9][A-Za-z0-9-]*$') | list | length == _sb_instances | length
+    fail_msg: >-
+      SAAS_BACKUP_INSTANCES must list at least one instance ID, without duplicates, using only letters, digits and '-'
+      (got: {{ _sb_instances }})
+
+- name: "Validate output directory"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - saas_backup_output_dir | default('', true) is match('^/')
+    fail_msg: "SAAS_BACKUP_OUTPUT_DIR is required and must be an absolute path"
+
+- name: "Validate SaaS ENVS repository inputs"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - (saas_envs_repo_url | default('', true) | length > 0) != (saas_envs_checkout | default('', true) | length > 0)
+      - saas_envs_repo_url | default('', true) | length == 0 or saas_envs_branch | default('', true) | length > 0
+    fail_msg: >-
+      Provide exactly one of SAAS_ENVS_REPO_URL (cloned at backup time, requires SAAS_ENVS_BRANCH) or
+      SAAS_ENVS_CHECKOUT (path of an existing checkout)
+
+- name: "Determine whether GitOps ENVS is being snapshotted"
+  ansible.builtin.set_fact:
+    _sb_gitops_supplied: "{{ (gitops_envs_repo_url | default('', true) | length > 0) or (gitops_envs_checkout | default('', true) | length > 0) }}"
+
+- name: "Validate GitOps ENVS repository inputs"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - (gitops_envs_repo_url | default('', true) | length > 0) != (gitops_envs_checkout | default('', true) | length > 0)
+      - gitops_envs_repo_url | default('', true) | length == 0 or gitops_envs_branch | default('', true) | length > 0
+    fail_msg: >-
+      Provide exactly one of GITOPS_ENVS_REPO_URL (cloned at backup time, requires GITOPS_ENVS_BRANCH) or
+      GITOPS_ENVS_CHECKOUT (path of an existing checkout)
+  when: _sb_gitops_supplied | bool
+
+- name: "Fail if no GitOps ENVS repository was supplied and that was not explicitly allowed"
+  ansible.builtin.fail:
+    msg: >-
+      No GitOps ENVS repository was supplied. Set GITOPS_ENVS_REPO_URL (+ GITOPS_ENVS_BRANCH) or GITOPS_ENVS_CHECKOUT,
+      or set SAAS_BACKUP_ALLOW_MISSING_GITOPS_ENVS=true to explicitly accept a backup without a GitOps ENVS snapshot.
+  when:
+    - not (_sb_gitops_supplied | bool)
+    - not (saas_backup_allow_missing_gitops_envs | bool)
+
+# Workspace IDs: explicit overrides only, everything else is read from saas-envs later
+# -----------------------------------------------------------------------------
+- name: "Parse explicit workspace IDs"
+  ansible.builtin.set_fact:
+    _sb_ws_overrides: "{{ saas_backup_workspace_ids if (saas_backup_workspace_ids is mapping) else {} }}"
+
+- name: "Parse explicit workspace IDs (instance=workspace list)"
+  ansible.builtin.set_fact:
+    _sb_ws_overrides: >-
+      {{ _sb_ws_overrides | combine({ (item.split('=')[0] | trim): (item.split('=')[1:] | join('=') | trim) }) }}
+  loop: "{{ saas_backup_workspace_ids.split(',') | map('trim') | reject('equalto', '') | list }}"
+  when:
+    - saas_backup_workspace_ids is string
+    - saas_backup_workspace_ids | length > 0
+
+- name: "Validate explicit workspace IDs"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - item.key in _sb_instances
+      - item.value is match('^[a-z0-9][a-z0-9-]*$')
+    fail_msg: >-
+      SAAS_BACKUP_WORKSPACE_IDS entry '{{ item.key }}={{ item.value }}' is invalid: it must be instance=workspace
+      for an instance listed in SAAS_BACKUP_INSTANCES
+  loop: "{{ _sb_ws_overrides | dict2items }}"
+
+- name: "Validate AWS secret IDs"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - _sb_aws_secret_ids | select('match', '^[A-Za-z0-9/_+=.@:-]+$') | list | length == _sb_aws_secret_ids | length
+      - _sb_aws_secret_ids | unique | length == _sb_aws_secret_ids | length
+    fail_msg: "SAAS_BACKUP_AWS_SECRET_IDS must be unique secret names/ARNs using only letters, digits and / _ + = . @ : -"

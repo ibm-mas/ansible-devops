@@ -54,6 +54,41 @@ If you plan to install a new DRO in any recovery action then you should set this
 - Default: `true`
 - Environment Variable: `INCLUDE_DRO`
 
+### mas_workspace_id
+The workspace ID of the Maximo Application Suite installation to include in strict named-only backup (for backing up Workspace and wsapp JdbcCfg CRs).
+
+- **Optional**
+- Default: None
+- Environment Variable: `MAS_WORKSPACE_ID`
+
+### strict_named_only
+Enforce strict named-only backup mode (fails if any resource definition lacks an explicit name, preventing unnamed namespace-wide queries).
+In strict mode `mas_workspace_id` is required, Secret auto-discovery is forced off, and the backup fails with a clear error if the installed `mas-devops` library does not support strict behavior (it never falls back to broad queries). Explicitly named CRDs (`suite_backup_crds`) and ConfigMaps are included.
+
+- **Optional**
+- Default: `false`
+- Environment Variable: `STRICT_NAMED_ONLY`
+
+### include_ca_keys
+Opt-in for exporting CA key-pair Secrets (`tls.key`/`tls.crt`). Never exported by default. Setting this to `true` currently fails the role, because no backup-encryption mechanism has been approved to store CA private keys (MASCORE-20742).
+
+- **Optional**
+- Default: `false`
+- Environment Variable: `INCLUDE_CA_KEYS`
+
+### saas_envs_instance_dir / gitops_envs_instance_dir
+Explicit environment-configuration folders copied into `<backup>/environment/` with owner-only permissions, plus an `ENVIRONMENT_SNAPSHOT.yaml` manifest. Leave `GITOPS_ENVS_INSTANCE_DIR` empty when no matching gitops-envs folder exists; the manifest records `no_matching_folder`.
+
+- **Optional**
+- Environment Variables: `SAAS_ENVS_INSTANCE_DIR`, `GITOPS_ENVS_INSTANCE_DIR`
+
+### auto_discover_secrets
+Controls whether secret references found in custom resource specs are automatically discovered and backed up.
+
+- **Optional**
+- Default: `true`
+- Environment Variable: `AUTO_DISCOVER_SECRETS`
+
 
 ## Backup Operations
 -------------------------------------------------------------------------------

@@ -1,0 +1,210 @@
+---
+# SaaS backup: one account/region/cluster, one or more instances, one .tar.gz
+# =============================================================================
+# Collects (1) the SaaS ENVS and GitOps ENVS repository folders, (2) the strict named-only OpenShift resources
+# using the existing suite_backup and suite_app_backup roles, and (3) optionally the explicitly listed AWS
+# Secrets Manager secrets; then packages everything with metadata.json and SHA256SUMS.
+#
+# Nothing is restored, uploaded or discovered. Any failure aborts the run and removes the partial work directory,
+# so a partial backup is never left behind looking like a complete one.
+
+# 1. Inputs
+# -----------------------------------------------------------------------------
+- name: "Validate inputs"
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_inputs.yml"
+
+- name: "Set facts: timestamp, archive name and work directories"
+  ansible.builtin.set_fact:
+    _sb_ts: "{{ lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ') }}"
+
+- name: "Set facts: paths"
+  ansible.builtin.set_fact:
+    _sb_name: "saas-backup-{{ saas_backup_account }}-{{ saas_backup_region }}-{{ saas_backup_cluster }}-{{ _sb_ts }}"
+    _sb_work_dir: "{{ saas_backup_output_dir | regex_replace('/+$', '') }}/.work-{{ _sb_ts }}"
+
+- name: "Set facts: staging directory and archive path"
+  ansible.builtin.set_fact:
+    _sb_staging: "{{ _sb_work_dir }}/{{ _sb_name }}"
+    _sb_archive: "{{ saas_backup_output_dir | regex_replace('/+$', '') }}/{{ _sb_name }}.tar.gz"
+
+# 2. Preflight: oc authentication and the logged in cluster
+# -----------------------------------------------------------------------------
+- name: "Check oc is logged in"
+  ansible.builtin.command:
+    argv: [oc, whoami]
+  register: _sb_oc_whoami
+  changed_when: false
+  failed_when: false
+
+- name: "Fail if oc is not available or not logged in"
+  ansible.builtin.fail:
+    msg: >-
+      'oc whoami' failed (rc={{ _sb_oc_whoami.rc | default('n/a') }}): {{ _sb_oc_whoami.stderr | default(_sb_oc_whoami.msg | default('oc not found')) | truncate(300) }}.
+      Log in to the {{ saas_backup_cluster }} cluster with 'oc login' (or set KUBECONFIG) before running this backup.
+  when: _sb_oc_whoami.rc | default(1) != 0
+
+- name: "Read the cluster API server URL"
+  ansible.builtin.command:
+    argv: [oc, whoami, --show-server]
+  register: _sb_oc_server
+  changed_when: false
+  failed_when: _sb_oc_server.rc != 0
+
+# 3. Create the work directory, then run everything that can fail inside a block so that it is cleaned up
+# -----------------------------------------------------------------------------
+- name: "Create the output and work directories"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0700"
+  loop:
+    - "{{ saas_backup_output_dir | regex_replace('/+$', '') }}"
+    - "{{ _sb_work_dir }}"
+    - "{{ _sb_work_dir }}/clones"
+    - "{{ _sb_staging }}"
+
+- name: "Collect and package the backup"
+  block:
+    # 4. ENVS repositories
+    # ---------------------------------------------------------------------------
+    - name: "Prepare the SaaS ENVS repository"
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/prepare_repo.yml"
+      vars:
+        _pr_label: saas_envs
+        _pr_url: "{{ saas_envs_repo_url | default('', true) }}"
+        _pr_branch: "{{ saas_envs_branch | default('', true) }}"
+        _pr_checkout: "{{ saas_envs_checkout | default('', true) }}"
+
+    - name: "Prepare the GitOps ENVS repository"
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/prepare_repo.yml"
+      vars:
+        _pr_label: gitops_envs
+        _pr_url: "{{ gitops_envs_repo_url | default('', true) }}"
+        _pr_branch: "{{ gitops_envs_branch | default('', true) }}"
+        _pr_checkout: "{{ gitops_envs_checkout | default('', true) }}"
+      when: _sb_gitops_supplied | bool
+
+    # 5. Cluster level configuration in saas-envs, and that the logged in cluster is the requested one
+    # ---------------------------------------------------------------------------
+    - name: "Locate the cluster folder in saas-envs"
+      ansible.builtin.set_fact:
+        _sb_saas_cluster_dir: "{{ _sb_repos.saas_envs.path }}/gitops/{{ saas_backup_account }}/{{ saas_backup_region }}/{{ saas_backup_cluster }}"
+
+    - name: "Read saas-envs cluster-params.yaml"
+      ansible.builtin.slurp:
+        src: "{{ _sb_saas_cluster_dir }}/cluster-params.yaml"
+      register: _sb_cluster_params_raw
+      failed_when: false
+
+    - name: "Fail if the cluster has no cluster-params.yaml in saas-envs"
+      ansible.builtin.fail:
+        msg: >-
+          saas-envs has no gitops/{{ saas_backup_account }}/{{ saas_backup_region }}/{{ saas_backup_cluster }}/cluster-params.yaml
+          (branch {{ _sb_repos.saas_envs.branch }}, commit {{ _sb_repos.saas_envs.commit }}). Check account, region and cluster.
+      when: _sb_cluster_params_raw.content is not defined
+
+    - name: "Parse cluster-params.yaml"
+      ansible.builtin.set_fact:
+        _sb_cluster_params: "{{ _sb_cluster_params_raw.content | b64decode | from_yaml }}"
+
+    - name: "Fail if the logged in cluster is not the requested cluster"
+      ansible.builtin.assert:
+        quiet: true
+        that:
+          - _sb_cluster_params.cluster.url | default('') | regex_replace('/+$', '') == _sb_oc_server.stdout | trim | regex_replace('/+$', '')
+        fail_msg: >-
+          The oc session is connected to {{ _sb_oc_server.stdout | trim }} but saas-envs declares cluster.url
+          {{ _sb_cluster_params.cluster.url | default('missing') }} for {{ saas_backup_cluster }}. Log in to the right cluster, or set
+          SAAS_BACKUP_SKIP_CLUSTER_URL_CHECK=true to explicitly skip this check.
+      when: not (saas_backup_skip_cluster_url_check | bool)
+
+    # 6. Each instance
+    # ---------------------------------------------------------------------------
+    - name: "Back up instance"
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/backup_instance.yml"
+      vars:
+        _sb_inst: "{{ inst }}"
+      loop: "{{ _sb_instances }}"
+      loop_control:
+        loop_var: inst
+        label: "{{ inst }}"
+
+    # 7. Optional explicit AWS secrets
+    # ---------------------------------------------------------------------------
+    - name: "Collect explicitly listed AWS secrets"
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/aws_secrets.yml"
+      when: _sb_aws_secret_ids | length > 0
+
+    # 8. Metadata, checksums, archive
+    # ---------------------------------------------------------------------------
+    - name: "Build the manifest warnings"
+      ansible.builtin.set_fact:
+        _sb_warnings: >-
+          {{ ([] if saas_backup_include_manual_certs | bool else ['saas-envs manual-certs folders (plaintext TLS private keys) were excluded; set SAAS_BACKUP_INCLUDE_MANUAL_CERTS=true to include them'])
+             + ([] if _sb_aws_secret_ids | length > 0 else ['no AWS Secrets Manager secrets were collected: SAAS_BACKUP_AWS_SECRET_IDS was empty and the required secret list is not defined'])
+             + ([] if _sb_gitops_supplied | bool else ['no GitOps ENVS repository was supplied (SAAS_BACKUP_ALLOW_MISSING_GITOPS_ENVS=true)'])
+             + (['gitops-envs: ' ~ (_sb_instance_results | selectattr('gitops_envs_folder', 'none') | map(attribute='instance_id') | list | join(', ')) ~ ' have no folder (SAAS_BACKUP_ALLOW_MISSING_GITOPS_ENVS=true)']
+                if (_sb_gitops_supplied | bool and _sb_instance_results | selectattr('gitops_envs_folder', 'none') | list | length > 0) else [])
+             + (['uncommitted changes were allowed in existing checkouts (SAAS_BACKUP_ALLOW_DIRTY_CHECKOUT=true); the recorded commit SHAs may not describe the snapshotted files']
+                if saas_backup_allow_dirty_checkout | bool else [])
+             + (['cluster URL check skipped (SAAS_BACKUP_SKIP_CLUSTER_URL_CHECK=true)'] if saas_backup_skip_cluster_url_check | bool else []) }}
+
+    - name: "Record repository details for the manifest (without local paths)"
+      ansible.builtin.set_fact:
+        _sb_repos_meta: "{{ _sb_repos_meta | default({}) | combine({item.key: item.value | dict2items | rejectattr('key', 'equalto', 'path') | list | items2dict}) }}"
+      loop: "{{ _sb_repos | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
+    - name: "Package the backup (metadata.json, SHA256SUMS, tar.gz)"
+      ibm.mas_devops.package_saas_backup:
+        staging_dir: "{{ _sb_staging }}"
+        archive_path: "{{ _sb_archive }}"
+        metadata:
+          schema_version: 1
+          backup_type: saas-named-resources
+          created_utc: "{{ _sb_ts }}"
+          account: "{{ saas_backup_account }}"
+          region: "{{ saas_backup_region }}"
+          cluster: "{{ saas_backup_cluster }}"
+          cluster_api_server: "{{ _sb_oc_server.stdout | trim }}"
+          instances: "{{ _sb_instances }}"
+          repositories: "{{ _sb_repos_meta }}"
+          instance_details: "{{ _sb_instance_results }}"
+          aws_secrets: "{{ _sb_aws_collected | default({'status': 'not_collected', 'reason': 'SAAS_BACKUP_AWS_SECRET_IDS was empty'}) }}"
+          scope:
+            mode: strict named-only
+            auto_discover_secrets: false
+            ca_private_keys_exported: false
+            persistent_volume_data: false
+            saas_envs_manual_certs_included: "{{ saas_backup_include_manual_certs | bool }}"
+            restore_included: false
+          warnings: "{{ _sb_warnings }}"
+      register: _sb_package
+
+  rescue:
+    - name: "Remove the partial work directory (a partial backup must not look like a complete one)"
+      ansible.builtin.file:
+        path: "{{ _sb_work_dir }}"
+        state: absent
+
+    - name: "Fail: the backup did not complete"
+      ansible.builtin.fail:
+        msg: "SaaS backup FAILED, no archive was produced and the work directory was removed. Cause: {{ (ansible_failed_result.results | default([]) | selectattr('msg', 'defined') | map(attribute='msg') | list | join(' | ')) or ansible_failed_result.msg | default('see the failed task above') }}"
+
+# 9. Success: remove the work directory (clones + staging) and show the result. Secret contents are never printed.
+# -----------------------------------------------------------------------------
+- name: "Remove the work directory"
+  ansible.builtin.file:
+    path: "{{ _sb_work_dir }}"
+    state: absent
+
+- name: "Backup complete"
+  ansible.builtin.debug:
+    msg:
+      - "SaaS backup completed: {{ saas_backup_account }}/{{ saas_backup_region }}/{{ saas_backup_cluster }} instances {{ _sb_instances | join(', ') }}"
+      - "Archive: {{ _sb_package.archive_path }}"
+      - "Archive size: {{ _sb_package.archive_size }} bytes, {{ _sb_package.file_count }} files"
+      - "Archive SHA-256: {{ _sb_package.archive_sha256 }} (also in {{ _sb_package.archive_checksum_file }})"
+      - "Warnings: {{ _sb_warnings | length }}"
+      - "{{ _sb_warnings }}"

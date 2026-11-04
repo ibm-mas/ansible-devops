@@ -1,0 +1,87 @@
+---
+# Make one ENVS repository available locally (clone at backup time, or use an existing checkout) and record
+# where it came from. Never reports success when the repository cannot be read.
+#
+# Inputs: _pr_label (saas_envs|gitops_envs), _pr_url, _pr_branch, _pr_checkout
+# Output: _sb_repos[_pr_label] = {source, url, branch, commit, path}
+# -----------------------------------------------------------------------------
+- name: "Repo {{ _pr_label }}: clone {{ _pr_branch }} (credentials in the URL are never logged)"
+  ansible.builtin.command:
+    argv:
+      - git
+      - clone
+      - --quiet
+      - --depth
+      - "1"
+      - --branch
+      - "{{ _pr_branch }}"
+      - --
+      - "{{ _pr_url }}"
+      - "{{ _sb_work_dir }}/clones/{{ _pr_label }}"
+  environment:
+    GIT_TERMINAL_PROMPT: "0"
+  register: _pr_clone
+  changed_when: true
+  failed_when: false
+  no_log: true
+  when: _pr_url | length > 0
+
+- name: "Repo {{ _pr_label }}: fail if the clone failed"
+  ansible.builtin.fail:
+    msg: >-
+      Unable to clone {{ _pr_label }} repository {{ _pr_url | regex_replace('(://)[^/@]+@', '\\1***@') }}
+      (branch {{ _pr_branch }}): {{ _pr_clone.stderr | default(_pr_clone.msg, true) | regex_replace('(://)[^/@]+@', '\\1***@') }}
+  when:
+    - _pr_url | length > 0
+    - _pr_clone.rc | default(1) != 0
+
+- name: "Repo {{ _pr_label }}: resolve checkout path"
+  ansible.builtin.set_fact:
+    _pr_path: "{{ _sb_work_dir ~ '/clones/' ~ _pr_label if _pr_url | length > 0 else _pr_checkout }}"
+
+- name: "Repo {{ _pr_label }}: resolve repository root"
+  ansible.builtin.command:
+    argv: [git, -C, "{{ _pr_path }}", rev-parse, --show-toplevel]
+  register: _pr_root
+  changed_when: false
+  failed_when: false
+
+- name: "Repo {{ _pr_label }}: fail if the path is not a git repository"
+  ansible.builtin.fail:
+    msg: "{{ _pr_label }} checkout '{{ _pr_path }}' is not a git working tree: {{ _pr_root.stderr | default(_pr_root.msg, true) }}"
+  when: _pr_root.rc != 0
+
+- name: "Repo {{ _pr_label }}: read commit, branch and origin"
+  ansible.builtin.command:
+    argv: "{{ item.argv }}"
+  loop:
+    - { key: commit, argv: [git, -C, "{{ _pr_root.stdout }}", rev-parse, HEAD] }
+    - { key: branch, argv: [git, -C, "{{ _pr_root.stdout }}", rev-parse, --abbrev-ref, HEAD] }
+    - { key: origin, argv: [git, -C, "{{ _pr_root.stdout }}", remote, get-url, origin] }
+  loop_control:
+    label: "{{ item.key }}"
+  register: _pr_git
+  changed_when: false
+  failed_when: false
+  no_log: true
+
+- name: "Repo {{ _pr_label }}: fail if the commit cannot be read"
+  ansible.builtin.fail:
+    msg: "Unable to read the HEAD commit of {{ _pr_label }} repository '{{ _pr_root.stdout }}'"
+  when: _pr_git.results[0].rc != 0
+
+- name: "Repo {{ _pr_label }}: record repository details"
+  ansible.builtin.set_fact:
+    _sb_repos: >-
+      {{ _sb_repos | default({}) | combine({
+           _pr_label: {
+             'source': 'clone' if _pr_url | length > 0 else 'checkout',
+             'url': (_pr_url if _pr_url | length > 0 else (_pr_git.results[2].stdout if _pr_git.results[2].rc == 0 else 'unknown'))
+                    | regex_replace('(://)[^/@]+@', '\\1***@'),
+             'name': ((_pr_url if _pr_url | length > 0 else (_pr_git.results[2].stdout if _pr_git.results[2].rc == 0 else _pr_root.stdout))
+                      | regex_replace('/+$', '') | regex_replace('\\.git$', '') | basename),
+             'branch': _pr_branch if _pr_url | length > 0 else _pr_git.results[1].stdout,
+             'commit': _pr_git.results[0].stdout,
+             'path': _pr_root.stdout
+           }
+         }) }}

@@ -534,3 +534,24 @@ For detailed information about individual backup and restore operations, refer t
 - [Manage Application Backup](../roles/suite_app_backup.md)
 - [Manage Application Restore](../roles/suite_app_restore.md)
 
+
+SaaS Backup (single archive)
+===============================================================================
+
+## Overview
+`br_saas_backup` backs up one SaaS cluster and one or more of its MAS instances into a single `.tar.gz` containing `metadata.json` and `SHA256SUMS`:
+the saas-envs and gitops-envs instance folders (with repository, branch and commit SHA recorded), the strict named-only OpenShift resources of Suite
+and Manage (reusing the `suite_backup` and `suite_app_backup` roles once per instance), and optionally explicitly listed AWS Secrets Manager secrets.
+It runs locally, needs no Tekton, and does not restore or upload anything.
+
+```bash
+export SAAS_BACKUP_ACCOUNT=aws-dev SAAS_BACKUP_REGION=us-east-2 SAAS_BACKUP_CLUSTER=fvtsaas SAAS_BACKUP_INSTANCES=fvtsaas,fvtsaas2
+export SAAS_BACKUP_OUTPUT_DIR=/var/backups/mas
+export SAAS_ENVS_REPO_URL=<saas-envs git url> SAAS_ENVS_BRANCH=<branch>
+export GITOPS_ENVS_REPO_URL=<gitops-envs git url> GITOPS_ENVS_BRANCH=<branch>
+oc login ...
+ansible-playbook ibm.mas_devops.br_saas_backup
+```
+
+Inputs, prerequisites, archive layout, how to inspect and verify the archive, failure behaviour and known limitations are documented in the
+[saas_backup role](../roles/saas_backup.md).

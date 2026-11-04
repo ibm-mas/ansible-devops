@@ -1,6 +1,9 @@
 ---
 mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
 
+# Optional: Workspace ID for workspace-scoped CR backups in strict mode
+mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') }}"
+
 mas_backup_dir: "{{ lookup('env', 'MAS_BACKUP_DIR') }}"
 suite_backup_version: "{{ lookup('env', 'SUITE_BACKUP_VERSION') }}"
 
@@ -9,3 +12,30 @@ include_sls: "{{ lookup('env', 'INCLUDE_SLS') | default('true', true) | bool }}"
 
 # Include DRO (BAS) configuration from backup in backup
 include_dro: "{{ lookup('env', 'INCLUDE_DRO') | default('true', true) | bool }}"
+
+# Strict named-only backup mode (fails if any resource definition lacks an explicit name)
+strict_named_only: "{{ lookup('env', 'STRICT_NAMED_ONLY') | default('false', true) | bool }}"
+
+# Auto-discover secret references in resource specs
+auto_discover_secrets: "{{ lookup('env', 'AUTO_DISCOVER_SECRETS') | default('true', true) | bool }}"
+
+# Include CA key-pair Secrets (tls.key/tls.crt) in the backup. Opt-in only (MASCORE-20742 CA policy):
+# the role fails if this is true, because no backup-encryption mechanism has been approved to store CA private keys.
+include_ca_keys: "{{ lookup('env', 'INCLUDE_CA_KEYS') | default('false', true) | bool }}"
+
+# Environment configuration snapshot (explicit folders only; nothing is discovered)
+# saas-envs instance folder, e.g. <saas-envs>/gitops/aws-dev/us-east-2/fvtsaas/fvtsaas
+env_snapshot_saas_envs_dir: "{{ lookup('env', 'SAAS_ENVS_INSTANCE_DIR') }}"
+# gitops-envs instance folder; leave empty when there is no matching staging folder (recorded in the snapshot manifest)
+env_snapshot_gitops_envs_dir: "{{ lookup('env', 'GITOPS_ENVS_INSTANCE_DIR') }}"
+
+# Explicit CustomResourceDefinition object names backed up in strict named-only mode.
+# Verified against a live cluster (oc get crd); these are CRD names, not CR kinds.
+suite_backup_crds:
+  - { kind: CustomResourceDefinition, api_version: apiextensions.k8s.io/v1, name: suites.core.mas.ibm.com }
+  - { kind: CustomResourceDefinition, api_version: apiextensions.k8s.io/v1, name: workspaces.core.mas.ibm.com }
+  - { kind: CustomResourceDefinition, api_version: apiextensions.k8s.io/v1, name: bascfgs.config.mas.ibm.com }
+  - { kind: CustomResourceDefinition, api_version: apiextensions.k8s.io/v1, name: genericaddons.addons.mas.ibm.com }
+  - { kind: CustomResourceDefinition, api_version: apiextensions.k8s.io/v1, name: jdbccfgs.config.mas.ibm.com }
+  - { kind: CustomResourceDefinition, api_version: apiextensions.k8s.io/v1, name: mongocfgs.config.mas.ibm.com }
+  - { kind: CustomResourceDefinition, api_version: apiextensions.k8s.io/v1, name: slscfgs.config.mas.ibm.com }

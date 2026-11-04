@@ -1,0 +1,90 @@
+---
+# Environment configuration snapshot for backup roles
+# =============================================================================
+# Copies the explicitly provided environment configuration folders into the backup
+# and writes a manifest recording what was (and was not) captured. Nothing is
+# discovered: only the folders named by env_snapshot_saas_envs_dir and
+# env_snapshot_gitops_envs_dir are copied.
+#
+# Inputs:
+#   env_snapshot_backup_path        - backup base directory (required)
+#   env_snapshot_saas_envs_dir      - saas-envs instance folder, e.g. <saas-envs>/gitops/aws-dev/us-east-2/fvtsaas/fvtsaas
+#   env_snapshot_gitops_envs_dir    - gitops-envs instance folder; leave empty when no matching staging folder exists
+#
+# The snapshot can contain sensitive material (manual-certs private keys, secret
+# references) so it is written with owner-only permissions.
+
+- name: "Environment snapshot: resolve sources"
+  set_fact:
+    _env_snapshot_saas_dir: "{{ env_snapshot_saas_envs_dir | default('', true) | regex_replace('/+$', '') }}"
+    _env_snapshot_gitops_dir: "{{ env_snapshot_gitops_envs_dir | default('', true) | regex_replace('/+$', '') }}"
+    _env_snapshot_dest: "{{ env_snapshot_backup_path }}/environment"
+
+- name: "Environment snapshot: stat saas-envs instance folder"
+  stat:
+    path: "{{ _env_snapshot_saas_dir }}"
+  register: _env_snapshot_saas_stat
+  when: _env_snapshot_saas_dir != ""
+
+- name: "Environment snapshot: fail if saas-envs folder was provided but does not exist"
+  fail:
+    msg: "saas-envs instance folder '{{ _env_snapshot_saas_dir }}' does not exist or is not a directory"
+  when:
+    - _env_snapshot_saas_dir != ""
+    - not (_env_snapshot_saas_stat.stat.exists and _env_snapshot_saas_stat.stat.isdir)
+
+- name: "Environment snapshot: stat gitops-envs instance folder"
+  stat:
+    path: "{{ _env_snapshot_gitops_dir }}"
+  register: _env_snapshot_gitops_stat
+  when: _env_snapshot_gitops_dir != ""
+
+- name: "Environment snapshot: fail if gitops-envs folder was provided but does not exist"
+  fail:
+    msg: "gitops-envs instance folder '{{ _env_snapshot_gitops_dir }}' does not exist or is not a directory"
+  when:
+    - _env_snapshot_gitops_dir != ""
+    - not (_env_snapshot_gitops_stat.stat.exists and _env_snapshot_gitops_stat.stat.isdir)
+
+- name: "Environment snapshot: create destination directory"
+  file:
+    path: "{{ _env_snapshot_dest }}"
+    state: directory
+    mode: "0700"
+
+- name: "Environment snapshot: copy saas-envs instance folder"
+  copy:
+    src: "{{ _env_snapshot_saas_dir }}/"
+    dest: "{{ _env_snapshot_dest }}/saas-envs/"
+    remote_src: true
+    mode: "u=rwX,go="
+  when: _env_snapshot_saas_dir != ""
+
+- name: "Environment snapshot: copy gitops-envs instance folder"
+  copy:
+    src: "{{ _env_snapshot_gitops_dir }}/"
+    dest: "{{ _env_snapshot_dest }}/gitops-envs/"
+    remote_src: true
+    mode: "u=rwX,go="
+  when: _env_snapshot_gitops_dir != ""
+
+- name: "Environment snapshot: write manifest"
+  copy:
+    dest: "{{ _env_snapshot_dest }}/ENVIRONMENT_SNAPSHOT.yaml"
+    mode: "0600"
+    content: "{{ _env_snapshot_manifest | to_nice_yaml }}"
+  vars:
+    _env_snapshot_manifest:
+      saas_envs:
+        status: "{{ 'captured' if _env_snapshot_saas_dir != '' else 'not_configured' }}"
+        source: "{{ _env_snapshot_saas_dir if _env_snapshot_saas_dir != '' else 'SAAS_ENVS_INSTANCE_DIR was not provided' }}"
+      gitops_envs:
+        status: "{{ 'captured' if _env_snapshot_gitops_dir != '' else 'no_matching_folder' }}"
+        source: "{{ _env_snapshot_gitops_dir if _env_snapshot_gitops_dir != '' else 'no matching gitops-envs staging folder was provided; nothing was captured' }}"
+
+- name: "Environment snapshot: summary"
+  debug:
+    msg:
+      - "saas-envs snapshot: {{ 'captured from ' + _env_snapshot_saas_dir if _env_snapshot_saas_dir != '' else 'NOT CONFIGURED (set SAAS_ENVS_INSTANCE_DIR)' }}"
+      - "gitops-envs snapshot: {{ 'captured from ' + _env_snapshot_gitops_dir if _env_snapshot_gitops_dir != '' else 'no matching gitops-envs staging folder provided - nothing captured' }}"
+      - "Snapshot location: {{ _env_snapshot_dest }}"

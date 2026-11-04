@@ -1,0 +1,50 @@
+---
+# Selection: <account>/<region>/<cluster> and the instances on that cluster
+# -----------------------------------------------------------------------------
+saas_backup_account: "{{ lookup('env', 'SAAS_BACKUP_ACCOUNT') }}"
+saas_backup_region: "{{ lookup('env', 'SAAS_BACKUP_REGION') }}"
+saas_backup_cluster: "{{ lookup('env', 'SAAS_BACKUP_CLUSTER') }}"
+# Comma separated list (or a YAML list when passed with -e)
+saas_backup_instances: "{{ lookup('env', 'SAAS_BACKUP_INSTANCES') }}"
+
+# Optional: explicit workspace IDs as "instance=workspace,instance2=workspace2".
+# When an instance is not listed the workspace ID is read from mas_workspaces.id in the
+# instance's mas-instance-params.yaml in saas-envs. Workspace IDs are never guessed.
+saas_backup_workspace_ids: "{{ lookup('env', 'SAAS_BACKUP_WORKSPACE_IDS') }}"
+
+# Output
+# -----------------------------------------------------------------------------
+# Directory that receives the single .tar.gz archive (and its .sha256 sidecar). Must be an absolute path.
+saas_backup_output_dir: "{{ lookup('env', 'SAAS_BACKUP_OUTPUT_DIR') }}"
+
+# SaaS ENVS repository: provide exactly one of the URL (cloned at backup time) or an existing checkout
+# -----------------------------------------------------------------------------
+saas_envs_repo_url: "{{ lookup('env', 'SAAS_ENVS_REPO_URL') }}"
+saas_envs_branch: "{{ lookup('env', 'SAAS_ENVS_BRANCH') }}"
+saas_envs_checkout: "{{ lookup('env', 'SAAS_ENVS_CHECKOUT') }}"
+
+# GitOps ENVS repository: provide exactly one of the URL or an existing checkout
+# -----------------------------------------------------------------------------
+gitops_envs_repo_url: "{{ lookup('env', 'GITOPS_ENVS_REPO_URL') }}"
+gitops_envs_branch: "{{ lookup('env', 'GITOPS_ENVS_BRANCH') }}"
+gitops_envs_checkout: "{{ lookup('env', 'GITOPS_ENVS_CHECKOUT') }}"
+
+# Explicit opt-outs. Every one of these is recorded in metadata.json.
+# -----------------------------------------------------------------------------
+# Allow the backup to proceed when no GitOps ENVS repository is supplied or the instance has no folder in it
+saas_backup_allow_missing_gitops_envs: "{{ lookup('env', 'SAAS_BACKUP_ALLOW_MISSING_GITOPS_ENVS') | default('false', true) | bool }}"
+# Allow uncommitted changes under the snapshotted paths of an existing checkout (the commit SHA would not describe them)
+saas_backup_allow_dirty_checkout: "{{ lookup('env', 'SAAS_BACKUP_ALLOW_DIRTY_CHECKOUT') | default('false', true) | bool }}"
+# Skip the check that the logged in cluster API URL matches cluster.url in saas-envs cluster-params.yaml
+saas_backup_skip_cluster_url_check: "{{ lookup('env', 'SAAS_BACKUP_SKIP_CLUSTER_URL_CHECK') | default('false', true) | bool }}"
+# Include the saas-envs manual-certs folder (certificate private keys, in plaintext, in git) in the snapshot.
+# Excluded by default because no backup encryption mechanism has been approved (see suite_backup include_ca_keys).
+saas_backup_include_manual_certs: "{{ lookup('env', 'SAAS_BACKUP_INCLUDE_MANUAL_CERTS') | default('false', true) | bool }}"
+
+# AWS Secrets Manager (optional, explicit)
+# -----------------------------------------------------------------------------
+# Comma separated list (or YAML list) of full AWS Secrets Manager secret IDs/ARNs to collect. Nothing is collected
+# when this is empty. The list of required secrets is not defined anywhere in the repositories, so it is never inferred.
+# Requires the cluster's saas-envs cluster-params.yaml to declare secrets.avp_type: aws.
+# The credentials used to run the aws CLI come from the ambient AWS environment and are never stored in the archive.
+saas_backup_aws_secret_ids: "{{ lookup('env', 'SAAS_BACKUP_AWS_SECRET_IDS') }}"
