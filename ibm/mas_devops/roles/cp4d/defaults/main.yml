@@ -65,7 +65,10 @@ cpd_olm_utils_image_digest: "{{ lookup('env', 'CPD_OLM_UTILS_IMAGE_DIGEST') | de
 cpd_platform_components:
   - name: ibm_licensing
     assembly_name: ibmLicensing
-    helm_chart_name: ""  # Only cluster-scoped chart for licensing
+    # CPD 5.4.0 (licensing 4.2.23): only the cluster-scoped chart exists, and it includes the operator Deployment.
+    # CPD 5.4.8+ (licensing 4.2.25+): the cluster-scoped chart is RBAC/CRDs only, the operator Deployment and
+    # IBMLicensing CR moved to the ibm-licensing namespace-scoped chart.
+    helm_chart_name: "{{ 'ibm-licensing' if cpd_product_version is version('5.4.8', '>=') else '' }}"
     helm_cluster_chart: ibm-licensing-cluster-scoped
     crd_name: ibmlicensings.operator.ibm.com
     case_version: "{{ cpd_components_meta.ibm_licensing.case_version }}"
