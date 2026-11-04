@@ -147,20 +147,83 @@
       - ""
       - "=========================================="
 
-# 6. Execute db2u_migrate command
+# 6. Block client connections and execute db2u_migrate command
 # -----------------------------------------------------------------------------
-- name: "Execute db2u_migrate command"
-  ansible.builtin.command:
-    cmd: >-
-      db2u_migrate
-      --namespace {{ db2_namespace }}
-      --name {{ db2_instance_name | lower }}
-      --operator-namespace {{ db2_namespace }}
-      --confirm-backup-taken yes
-      {{ '--post-migration' if db2_migration_cleanup_old_db2_cluster | bool else '' }}
-  register: _migrate_result
-  changed_when: true
-  failed_when: _migrate_result.rc != 0
+# Active client connections can break db2u_migrate. A temporary NetworkPolicy
+# denies ingress to the Db2 pods from outside the namespace, then any existing
+# connections are forced off. The NetworkPolicy is always removed afterwards
+# (success or failure) so clients are never left locked out. If the run is
+# killed before cleanup, remove it manually:
+#   oc delete networkpolicy {{ _db2_migrate_netpol_name }} -n {{ db2_namespace }}
+- name: "Set migration NetworkPolicy name"
+  ansible.builtin.set_fact:
+    _db2_migrate_netpol_name: "db2u-migrate-block-clients-{{ db2_instance_name | lower }}"
+
+- name: "Block client connections and run db2u_migrate"
+  block:
+    - name: "Create NetworkPolicy {{ _db2_migrate_netpol_name }} to block external client connections"
+      kubernetes.core.k8s:
+        apply: true
+        definition:
+          apiVersion: networking.k8s.io/v1
+          kind: NetworkPolicy
+          metadata:
+            name: "{{ _db2_migrate_netpol_name }}"
+            namespace: "{{ db2_namespace }}"
+          spec:
+            podSelector:
+              matchLabels:
+                formation_id: "{{ db2_instance_name | lower }}"
+                type: engine
+            policyTypes:
+              - Ingress
+            ingress:
+              # Only allow traffic from pods in the same namespace (operator, LDAP, etc).
+              # Kubelet probes are not subject to NetworkPolicy.
+              - from:
+                  - podSelector: {}
+
+    # Close any connections that were already established. A non-zero return
+    # code (e.g. no active connections or database manager not started) is tolerated.
+    - name: "Force all Db2 applications off c-{{ db2_instance_name | lower }}-db2u-0"
+      kubernetes.core.k8s_exec:
+        namespace: "{{ db2_namespace }}"
+        pod: "c-{{ db2_instance_name | lower }}-db2u-0"
+        container: db2u
+        command: >
+          su - db2inst1 -c "db2 force applications all"
+      register: _force_apps_result
+      changed_when: _force_apps_result.rc == 0
+      failed_when: false
+
+    - name: "Display force applications output"
+      ansible.builtin.debug:
+        msg:
+          - "Return code: {{ _force_apps_result.rc | default('unknown') }}"
+          - "Output: {{ _force_apps_result.stdout | default('') }}"
+          - "Errors: {{ _force_apps_result.stderr | default('') }}"
+
+    - name: "Execute db2u_migrate command"
+      ansible.builtin.command:
+        cmd: >-
+          db2u_migrate
+          --namespace {{ db2_namespace }}
+          --name {{ db2_instance_name | lower }}
+          --operator-namespace {{ db2_namespace }}
+          --confirm-backup-taken yes
+          {{ '--post-migration' if db2_migration_cleanup_old_db2_cluster | bool else '' }}
+      register: _migrate_result
+      changed_when: true
+      failed_when: _migrate_result.rc != 0
+
+  always:
+    - name: "Remove NetworkPolicy {{ _db2_migrate_netpol_name }} to restore client connections"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: networking.k8s.io/v1
+        kind: NetworkPolicy
+        name: "{{ _db2_migrate_netpol_name }}"
+        namespace: "{{ db2_namespace }}"
 
 - name: "Display migration command output"
   ansible.builtin.debug:
