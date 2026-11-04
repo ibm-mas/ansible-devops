@@ -15,7 +15,6 @@ This playbook can be ran against any OCP cluster regardless of its type; whether
   - Install Watson Studio (~3 hours)
   - Install Watson Machine Learning (~2 1/2 hours)
   - Install Spark (~30 minutes)
-  - Install Openscale (~1 hour)
   - Install SPSS
 - Install Predict application:
   - Install application (~15 Minutes)
@@ -54,7 +53,6 @@ As of MAS 8.10, predict 8.8.0 will start to support SPSS Modeler, to install SPS
 - `CPD_INSTALL_WSL` True/False - If you HAVE Watson Studio already installed in your cluster you can skip this variable as `False` is set default
 - `CPD_INSTALL_WML` True/False - If you HAVE Watson Machine Learning already installed in your cluster you can skip this variable as `False` is set default
 - `CPD_INSTALL_SPARK` True/False - If you HAVE Spark already installed in your cluster you can skip this variable as `False` is set default
-- `CPD_INSTALL_OPENSCALE` True/False - If you HAVE Openscale already installed in your cluster you can skip this variable as `False` is set default
 - `CPD_INSTALL_SPSS` True/False - If you HAVE SPSS Modeler already installed in your cluster you can skip this variable as `False` is set default
 
 
@@ -99,7 +97,6 @@ export CPD_INSTALL_PLATFORM="true"
 export CPD_INSTALL_WSL="true"
 export CPD_INSTALL_WML="true"
 export CPD_INSTALL_SPARK="true"
-export CPD_INSTALL_OPENSCALE="true"
 export CPD_INSTALL_DISCOVERY="true"
 export CPD_INSTALL_SPSS="true"
 export CPD_WSL_PROJECT_ID="xxxx"

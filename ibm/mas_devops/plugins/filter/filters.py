@@ -316,14 +316,14 @@ def setManageBirtProperties(data, rptRoute, rptServerBundleName):
   return sb_list
 
 
-def setManageDoclinksProperties(data, doclinkPath01, bucketName, accessKey, secretAccesskey, bucketEndpoint):
+def setManageDoclinksProperties(data, doclinkPath01, bucketName, accessKey, secretAccesskey, bucketEndpoint, cosRegion=''):
   sb_list = []
   for sb in data:
     if 'bundleLevelProperties' in sb:
       if 'mxe.doclink.doctypes.topLevelPaths' not in sb['bundleLevelProperties'] and 'mxe.doclink.doctypes.defpath' not in sb['bundleLevelProperties'] and 'mxe.doclink.path01' not in sb['bundleLevelProperties'] and 'mxe.doclink.securedAttachment' not in sb['bundleLevelProperties']:
-        sb['bundleLevelProperties']+=f"\nmxe.doclink.doctypes.topLevelPaths=cos:doclinks\nmxe.doclink.doctypes.defpath=cos:doclinks/default\nmxe.doclink.path01=cos:doclinks={doclinkPath01}\nmxe.doclink.securedAttachment=true\nmxe.cosbucketname={bucketName}\nmxe.cosaccesskey={accessKey}\nmxe.cossecretkey={secretAccesskey}\nmxe.cosendpointuri={bucketEndpoint}\nmxe.attachmentstorage=com.ibm.tivoli.maximo.oslc.provider.COSAttachmentStorage"
+        sb['bundleLevelProperties']+=f"\nmxe.doclink.doctypes.topLevelPaths=cos:doclinks\nmxe.doclink.doctypes.defpath=cos:doclinks/default\nmxe.doclink.path01=cos:doclinks={doclinkPath01}\nmxe.doclink.securedAttachment=true\nmxe.cosbucketname={bucketName}\nmxe.cosaccesskey={accessKey}\nmxe.cossecretkey={secretAccesskey}\nmxe.cosendpointuri={bucketEndpoint}\nmxe.cosregion={cosRegion}\nmxe.attachmentstorage=com.ibm.tivoli.maximo.oslc.provider.COSAttachmentStorage"
     else:
-      sb['bundleLevelProperties']=f"mxe.doclink.doctypes.topLevelPaths=cos:doclinks\nmxe.doclink.doctypes.defpath=cos:doclinks/default\nmxe.doclink.path01=cos:doclinks={doclinkPath01}\nmxe.doclink.securedAttachment=true\nmxe.cosbucketname={bucketName}\nmxe.cosaccesskey={accessKey}\nmxe.cossecretkey={secretAccesskey}\nmxe.cosendpointuri={bucketEndpoint}\nmxe.attachmentstorage=com.ibm.tivoli.maximo.oslc.provider.COSAttachmentStorage"
+      sb['bundleLevelProperties']=f"mxe.doclink.doctypes.topLevelPaths=cos:doclinks\nmxe.doclink.doctypes.defpath=cos:doclinks/default\nmxe.doclink.path01=cos:doclinks={doclinkPath01}\nmxe.doclink.securedAttachment=true\nmxe.cosbucketname={bucketName}\nmxe.cosaccesskey={accessKey}\nmxe.cossecretkey={secretAccesskey}\nmxe.cosendpointuri={bucketEndpoint}\nmxe.cosregion={cosRegion}\nmxe.attachmentstorage=com.ibm.tivoli.maximo.oslc.provider.COSAttachmentStorage"
     sb_list.append(sb)
   return sb_list
 
