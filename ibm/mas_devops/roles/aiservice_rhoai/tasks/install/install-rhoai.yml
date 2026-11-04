@@ -42,6 +42,30 @@
 
 # 3. Create DSCInitialization instance
 # -----------------------------------------------------------------------------
+# With Ceph (ODF) the S3 endpoint is signed by the OpenShift service CA. Read it into aiservice_s3_ca_crt 
+# so default-dsci.yml.j2 can put it in spec.trustedCABundle.customCABundle.
+- name: 'Check for an ODF StorageCluster'
+  kubernetes.core.k8s_info:
+    api_version: ocs.openshift.io/v1
+    kind: StorageCluster
+    namespace: "{{ rhoai_odf_namespace }}"
+  register: rhoai_odf_storage_cluster
+  failed_when: false
+
+- name: 'Read the OpenShift service CA'
+  when: rhoai_odf_storage_cluster.resources | default([]) | length > 0
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: openshift-service-ca.crt
+    namespace: "{{ rhoai_odf_namespace }}"
+  register: rhoai_odf_service_ca
+
+- name: 'Set the service CA'
+  when: rhoai_odf_service_ca.resources | default([]) | length > 0
+  set_fact:
+    aiservice_s3_ca_crt: "{{ rhoai_odf_service_ca.resources[0].data['service-ca.crt'] }}"
+
 - name: 'Create DSCInitialization instance'
   kubernetes.core.k8s:
     apply: yes
