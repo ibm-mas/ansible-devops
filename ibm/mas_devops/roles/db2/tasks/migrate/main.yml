@@ -151,39 +151,79 @@
 
 # 6. Block client connections and execute db2u_migrate command
 # -----------------------------------------------------------------------------
-# Active client connections can break db2u_migrate. A temporary NetworkPolicy
-# denies ingress to the Db2 pods from outside the namespace, then any existing
-# connections are forced off. The NetworkPolicy is always removed afterwards
-# (success or failure) so clients are never left locked out. If the run is
-# killed before cleanup, remove it manually:
-#   oc delete networkpolicy {{ _db2_migrate_netpol_name }} -n {{ db2_namespace }}
-- name: "Set migration NetworkPolicy name"
+# db2u_migrate must deactivate the database, which fails (SQL1495W) if any client
+# is connected. Db2 consumers (Manage, other applications, in any namespace) are
+# not known to this role, and the operator-managed NetworkPolicy
+# "c-<name>-ext" allows ports 50000/50001/50052 from every source, so a
+# namespaced NetworkPolicy cannot block them. Instead a cluster-scoped
+# AdminNetworkPolicy, which is evaluated before all NetworkPolicies, allows
+# ingress to the Db2 engine pods only from the Db2 namespace and denies all
+# other sources. Existing connections are then forced off.
+#
+# The AdminNetworkPolicy is always removed afterwards (success or failure) so
+# clients are never left locked out. If the run is killed before cleanup,
+# remove it manually:
+#   oc delete adminnetworkpolicy {{ _db2_migrate_anp_name }}
+#
+# Requires the AdminNetworkPolicy API (policy.networking.k8s.io) and permission
+# to create cluster-scoped resources. Consumers deployed in the Db2 namespace
+# are not blocked.
+- name: "Set migration AdminNetworkPolicy name"
   ansible.builtin.set_fact:
-    _db2_migrate_netpol_name: "db2u-migrate-block-clients-{{ db2_instance_name | lower }}"
+    _db2_migrate_anp_name: "db2u-migrate-block-clients-{{ db2_namespace }}-{{ db2_instance_name | lower }}"
+
+- name: "Check AdminNetworkPolicy API is available"
+  kubernetes.core.k8s_info:
+    api_version: policy.networking.k8s.io/v1alpha1
+    kind: AdminNetworkPolicy
+  register: _anp_api_check
+  failed_when: false
+
+- name: "Fail if AdminNetworkPolicy API is not available"
+  ansible.builtin.fail:
+    msg: |
+      The AdminNetworkPolicy API (policy.networking.k8s.io/v1alpha1) is not available on this cluster
+      or cannot be accessed with the current credentials.
+
+      It is required to block Db2 client connections during migration, as db2u_migrate
+      cannot deactivate the database while clients are connected.
+  when: not (_anp_api_check.api_found | default(false))
 
 - name: "Block client connections and run db2u_migrate"
   block:
-    - name: "Create NetworkPolicy {{ _db2_migrate_netpol_name }} to block external client connections"
+    - name: "Create AdminNetworkPolicy {{ _db2_migrate_anp_name }} to block client connections"
       kubernetes.core.k8s:
         apply: true
         definition:
-          apiVersion: networking.k8s.io/v1
-          kind: NetworkPolicy
+          apiVersion: policy.networking.k8s.io/v1alpha1
+          kind: AdminNetworkPolicy
           metadata:
-            name: "{{ _db2_migrate_netpol_name }}"
-            namespace: "{{ db2_namespace }}"
+            name: "{{ _db2_migrate_anp_name }}"
           spec:
-            podSelector:
-              matchLabels:
-                formation_id: "{{ db2_instance_name | lower }}"
-                type: engine
-            policyTypes:
-              - Ingress
+            # Lower number = higher precedence; evaluated before any NetworkPolicy
+            priority: 10
+            subject:
+              pods:
+                namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: "{{ db2_namespace }}"
+                podSelector:
+                  matchLabels:
+                    formation_id: "{{ db2_instance_name | lower }}"
+                    type: engine
             ingress:
-              # Only allow traffic from pods in the same namespace (operator, LDAP, etc).
-              # Kubelet probes are not subject to NetworkPolicy.
-              - from:
-                  - podSelector: {}
+              # Operator, LDAP, etc. in the Db2 namespace
+              - name: allow-db2-namespace
+                action: Allow
+                from:
+                  - namespaces:
+                      matchLabels:
+                        kubernetes.io/metadata.name: "{{ db2_namespace }}"
+              # Everything else (any namespace, any application)
+              - name: deny-all-other-sources
+                action: Deny
+                from:
+                  - namespaces: {}
 
     # Close any connections that were already established. A non-zero return
     # code (e.g. no active connections or database manager not started) is tolerated.
@@ -205,6 +245,32 @@
           - "Output: {{ _force_apps_result.stdout | default('') }}"
           - "Errors: {{ _force_apps_result.stderr | default('') }}"
 
+    # db2u_migrate modifies the cluster (finalizer, PVC/PV protection, secrets)
+    # before it deactivates the database, so fail early if clients are still
+    # connected. Db2 internal agents (application id *LOCAL.*) are ignored.
+    - name: "Wait for all client connections to be closed"
+      kubernetes.core.k8s_exec:
+        namespace: "{{ db2_namespace }}"
+        pod: "c-{{ db2_instance_name | lower }}-db2u-0"
+        container: db2u
+        command: >
+          su - db2inst1 -c "db2 list applications | grep -E '^[A-Z0-9]' | grep -vE '^(Auth|SQL)' | grep -v 'LOCAL'"
+      register: _client_apps_result
+      until: _client_apps_result.stdout_lines | default([]) | length == 0
+      retries: 6
+      delay: 10
+      changed_when: false
+      failed_when: false
+
+    - name: "Fail if client connections remain"
+      ansible.builtin.fail:
+        msg: |
+          Client connections to the Db2 database are still open, db2u_migrate would fail
+          when deactivating the database. Remaining connections:
+
+          {{ _client_apps_result.stdout_lines | join('\n') }}
+      when: _client_apps_result.stdout_lines | default([]) | length > 0
+
     - name: "Execute db2u_migrate command"
       ansible.builtin.command:
         cmd: >-
@@ -219,13 +285,12 @@
       failed_when: _migrate_result.rc != 0
 
   always:
-    - name: "Remove NetworkPolicy {{ _db2_migrate_netpol_name }} to restore client connections"
+    - name: "Remove AdminNetworkPolicy {{ _db2_migrate_anp_name }} to restore client connections"
       kubernetes.core.k8s:
         state: absent
-        api_version: networking.k8s.io/v1
-        kind: NetworkPolicy
-        name: "{{ _db2_migrate_netpol_name }}"
-        namespace: "{{ db2_namespace }}"
+        api_version: policy.networking.k8s.io/v1alpha1
+        kind: AdminNetworkPolicy
+        name: "{{ _db2_migrate_anp_name }}"
 
 - name: "Display migration command output"
   ansible.builtin.debug:
