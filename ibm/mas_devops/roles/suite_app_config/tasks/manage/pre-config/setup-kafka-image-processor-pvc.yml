@@ -1,6 +1,8 @@
 ---
 # 1. Lookup Manage application version
 # ------------------------------------------------------------------------
+# The operator may report Ready before it has populated status.versions.reconciled,
+# so wait for it to be set. Failures are reported by the assertions below.
 - name: "Get ManageApp CR to check version"
   kubernetes.core.k8s_info:
     api_version: apps.mas.ibm.com/v1
@@ -8,6 +10,13 @@
     name: "{{ mas_instance_id }}"
     namespace: "mas-{{ mas_instance_id }}-manage"
   register: manage_app_info
+  retries: 30
+  delay: 10
+  until:
+    - manage_app_info.resources is defined
+    - manage_app_info.resources | length > 0
+    - (((manage_app_info.resources[0].status | default({})).versions | default({})).reconciled | default('')) | length > 0
+  failed_when: false
 
 - name: "Fail if ManageApp CR not found"
   assert:
@@ -22,6 +31,7 @@
       - manage_app_info.resources[0].status is defined
       - manage_app_info.resources[0].status.versions is defined
       - manage_app_info.resources[0].status.versions.reconciled is defined
+      - manage_app_info.resources[0].status.versions.reconciled | length > 0
     fail_msg: "ManageApp CR '{{ mas_instance_id }}' does not have version information in status.versions.reconciled. Cannot determine if Kafka Image Processor PVC configuration is required for Civil component."
 
 - name: "Extract Manage version"
