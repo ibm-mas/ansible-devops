@@ -1,4 +1,111 @@
 ---
+# Auto-detect ODF/NooBaa buckets and fetch credentials from OBC ConfigMaps.
+#
+# When ODF buckets are in use, the OBC ConfigMap (created by NooBaa when the
+# OBC is Bound) already contains the correct host, port and bucket name.
+# We read those values directly — no hardcoding needed.
+#
+# Flow:
+#   1. Check both OBC ConfigMaps exist in openshift-storage          → use_odf_buckets
+#   2. Read host/port/bucket-name from the tenants OBC ConfigMap
+#   3. Read noobaa-admin credentials
+#   4. set_fact all S3 connection vars from the discovered values
+#   5. Read the OpenShift service CA cert (needed because NooBaa HTTPS
+#      uses a cluster-internal cert signed by the service CA)
+# -----------------------------------------------------------------------------
+- name: "Check if ODF tenants bucket ConfigMap exists"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: "{{ aiservice_s3_tenants_bucket }}"
+    namespace: openshift-storage
+  register: tenants_bucket_configmap
+  failed_when: false
+
+- name: "Check if ODF templates bucket ConfigMap exists"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: "{{ aiservice_s3_templates_bucket }}"
+    namespace: openshift-storage
+  register: templates_bucket_configmap
+  failed_when: false
+
+- name: "Set ODF bucket detection flag"
+  set_fact:
+    use_odf_buckets: "{{ (tenants_bucket_configmap.resources | default([]) | length > 0) and (templates_bucket_configmap.resources | default([]) | length > 0) }}"
+
+- name: "Debug: ODF bucket detection"
+  debug:
+    msg:
+      - "ODF buckets detected ............... {{ use_odf_buckets }}"
+      - "{{ aiservice_s3_tenants_bucket }} ConfigMap exists .. {{ tenants_bucket_configmap.resources | default([]) | length > 0 }}"
+      - "{{ aiservice_s3_templates_bucket }} ConfigMap exists  {{ templates_bucket_configmap.resources | default([]) | length > 0 }}"
+
+- name: "Get ODF bucket configuration"
+  when: use_odf_buckets
+  block:
+    - name: "Get noobaa-admin credentials for ODF bucket access"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        name: noobaa-admin
+        namespace: openshift-storage
+      register: noobaa_admin_secret
+
+    # Read host/port directly from the OBC ConfigMap — NooBaa populates these
+    # when the OBC is Bound.  On a standard ODF install the values are:
+    #   BUCKET_HOST → s3.openshift-storage.svc
+    #   BUCKET_PORT → 443
+    # We derive the remaining connection vars from these to avoid any hardcoding.
+    - name: "Set S3 connection vars from OBC ConfigMap and noobaa-admin credentials"
+      when:
+        - tenants_bucket_configmap.resources | length > 0
+        - templates_bucket_configmap.resources | length > 0
+        - noobaa_admin_secret.resources | length > 0
+      vars:
+        _obc_host: "{{ tenants_bucket_configmap.resources[0].data.BUCKET_HOST }}"
+        _obc_port: "{{ tenants_bucket_configmap.resources[0].data.BUCKET_PORT }}"
+      set_fact:
+        aiservice_s3_tenants_bucket: "{{ tenants_bucket_configmap.resources[0].data.BUCKET_NAME }}"
+        aiservice_s3_templates_bucket: "{{ templates_bucket_configmap.resources[0].data.BUCKET_NAME }}"
+        aiservice_s3_accesskey: "{{ noobaa_admin_secret.resources[0].data.AWS_ACCESS_KEY_ID | b64decode }}"
+        aiservice_s3_secretkey: "{{ noobaa_admin_secret.resources[0].data.AWS_SECRET_ACCESS_KEY | b64decode }}"
+        aiservice_s3_host: "{{ _obc_host }}"
+        aiservice_s3_port: "{{ _obc_port }}"
+        aiservice_s3_ssl: true
+        cos_bucket_needs_ca_cert: true
+        aiservice_s3_host_with_port: "{{ _obc_host }}:{{ _obc_port }}"
+        aiservice_s3_url: "https://{{ _obc_host }}:{{ _obc_port }}"
+
+    - name: "Debug: ODF bucket configuration"
+      debug:
+        msg:
+          - "Tenants bucket ..................... {{ aiservice_s3_tenants_bucket }}"
+          - "Templates bucket .................. {{ aiservice_s3_templates_bucket }}"
+          - "S3 host (from OBC ConfigMap) ....... {{ aiservice_s3_host }}"
+          - "S3 port (from OBC ConfigMap) ....... {{ aiservice_s3_port }}"
+          - "S3 SSL ............................. {{ aiservice_s3_ssl }}"
+          - "S3 URL ............................. {{ aiservice_s3_url }}"
+          - "Using noobaa-admin credentials for bucket access"
+
+    - name: "Read OpenShift Service CA certificate for S3"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: ConfigMap
+        name: openshift-service-ca.crt
+        namespace: "{{ aiservice_namespace }}"
+      register: service_ca_configmap
+
+    - name: "Extract and set S3 CA certificate content"
+      when: service_ca_configmap.resources | length > 0
+      set_fact:
+        aiservice_s3_ca_crt: "{{ service_ca_configmap.resources[0].data['service-ca.crt'] }}"
+
+    - name: "Debug: S3 CA certificate"
+      debug:
+        msg: "S3 CA certificate extracted ({{ aiservice_s3_ca_crt | length }} bytes)"
+
 - name: "Create secret for S3 credentials"
   kubernetes.core.k8s:
     apply: yes

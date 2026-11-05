@@ -1,0 +1,52 @@
+---
+# Update an existing AI Service instance in place.
+#
+# Unlike the install action this never re-renders the AIServiceApp. Every current value is read from the
+# cluster, so it needs no DRO, database or WatsonX inputs and can be run again at any time.
+#
+# Each update is its own task file and decides by itself whether it has anything to do:
+#   - s3.yml : switch the S3 storage of the instance from the in-cluster MinIO to ODF (NooBaa/Ceph)
+# -----------------------------------------------------------------------------
+- name: "update : Fail if the AI Service instance id is not set"
+  assert:
+    that: aiservice_instance_id is defined and aiservice_instance_id != ""
+    fail_msg: "aiservice_instance_id (AISERVICE_INSTANCE_ID) is required"
+
+- name: "update : Lookup AIServiceApp {{ aiservice_instance_id }}"
+  kubernetes.core.k8s_info:
+    api_version: aiservice.ibm.com/v1
+    kind: AIServiceApp
+    name: "{{ aiservice_instance_id }}"
+    namespace: "{{ aiservice_namespace }}"
+  register: aiservice_update_app
+
+- name: "update : Fail if the AIServiceApp was not found"
+  assert:
+    that: aiservice_update_app.resources | length > 0
+    fail_msg: "AIServiceApp '{{ aiservice_instance_id }}' not found in namespace '{{ aiservice_namespace }}'"
+
+# S3: MinIO -> ODF
+# -----------------------------------------------------------------------------
+- name: "update : Determine the current S3 provider"
+  set_fact:
+    aiservice_update_s3_current: "{{ aiservice_update_app.resources[0].spec.settings.s3 }}"
+    aiservice_update_s3_on_minio: "{{ aiservice_update_minio_service_marker in (aiservice_update_app.resources[0].spec.settings.s3.url | default('')) }}"
+
+- name: "update : Debug the current S3 configuration"
+  debug:
+    msg:
+      - "AI Service instance ......... {{ aiservice_instance_id }}"
+      - "S3 url ...................... {{ aiservice_update_s3_current.url | default('') }}"
+      - "S3 bucket prefix ............ {{ aiservice_update_s3_current.bucketPrefix | default('') }}"
+      - "Templates bucket ............ {{ aiservice_update_s3_current.templatesBucket | default('') }}"
+      - "Tenants bucket .............. {{ aiservice_update_s3_current.tenantsBucket | default('') }}"
+      - "Uses in-cluster MinIO ....... {{ aiservice_update_s3_on_minio }}"
+
+- name: "update : S3 is not on the in-cluster MinIO, nothing to do"
+  when: not aiservice_update_s3_on_minio
+  debug:
+    msg: "'{{ aiservice_instance_id }}' does not use the in-cluster MinIO ({{ aiservice_update_minio_service_marker }}), S3 is left unchanged"
+
+- name: "update : Switch S3 storage to ODF"
+  when: aiservice_update_s3_on_minio
+  include_tasks: tasks/update/s3.yml

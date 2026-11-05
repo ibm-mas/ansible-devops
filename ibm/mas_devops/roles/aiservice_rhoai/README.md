@@ -5,7 +5,7 @@ This role provides support to deploy rhoai components for AI Broker Application:
 * Install Red Hat OpenShift Service Mesh Operator
 * Install Authorino Operator
 * Install Red Hat OpenShift AI Operator
-* Create DSCInitialization instance
+* Create DSCInitialization instance. When ODF (Ceph) is on the cluster, the OpenShift service CA that signs its S3 endpoint is added to `spec.trustedCABundle.customCABundle`, so RHOAI trusts `https://s3.openshift-storage.svc`. The ODF namespace is `ODF_BUCKET_NAMESPACE` (default `openshift-storage`).
 * Create Data Science Cluster
 * Create Create Data Science Pipelines Application
 
