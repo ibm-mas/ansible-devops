@@ -14,7 +14,7 @@
 # Order matters. The AIServiceApp is patched LAST, so a failed run leaves the instance on MinIO and
 # can simply be run again:
 #   1. pre-flight checks (ODF ready, buckets restored, credentials, service CA)
-#   2. update aiservice-s3cfg and km-s3-secret
+#   2. update aiservice-s3cfg and km-s3-secret, add the service CA to the RHOAI trusted CA bundle
 #   3. copy km-s3-secret to every tenant namespace
 #   4. patch spec.settings.s3 (url + ca) on the AIServiceApp
 #   5. restart the km deployments and wait for the AIServiceApp
@@ -165,6 +165,34 @@
     namespace: "{{ aiservice_namespace }}"
   register: aiservice_update_s3_km_secret
   no_log: true
+
+# RHOAI has to trust the ODF S3 endpoint too, it is signed by the same service CA. New installs get the CA from the
+# aiservice_rhoai role, an existing DSCInitialization gets it here. The bundle is shared by the whole cluster, so a CA
+# that is already in it is kept and the service CA is only appended when it is missing.
+- name: "update s3 : Get the DSCInitialization"
+  kubernetes.core.k8s_info:
+    api_version: dscinitialization.opendatahub.io/v1
+    kind: DSCInitialization
+    name: default-dsci
+  register: aiservice_update_s3_dsci
+  failed_when: false
+
+- name: "update s3 : Add the service CA to the DSCInitialization trusted CA bundle"
+  when:
+    - aiservice_update_s3_dsci.resources | default([]) | length > 0
+    - (aiservice_update_s3_ca | trim) not in aiservice_update_s3_dsci_ca_bundle
+  vars:
+    aiservice_update_s3_dsci_ca_bundle: "{{ (((aiservice_update_s3_dsci.resources[0].spec | default({})).trustedCABundle | default({})).customCABundle) | default('', true) }}"
+  kubernetes.core.k8s:
+    state: patched
+    api_version: dscinitialization.opendatahub.io/v1
+    kind: DSCInitialization
+    name: default-dsci
+    definition:
+      spec:
+        trustedCABundle:
+          customCABundle: "{{ ([aiservice_update_s3_dsci_ca_bundle, aiservice_update_s3_ca] | map('trim') | select | join('\n')) ~ '\n' }}"
+          managementState: Managed
 
 # 3. Copy km-s3-secret into every tenant namespace of this instance
 # -----------------------------------------------------------------------------

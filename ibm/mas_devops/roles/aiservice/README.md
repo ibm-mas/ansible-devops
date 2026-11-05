@@ -29,9 +29,10 @@ Action to perform on the AI Service instance.
 
 1. Verifies ODF is Ready, that the ODF buckets (named `bucketPrefix` + bucket) exist, and that `noobaa-admin` and `openshift-service-ca.crt` are present
 2. Updates `aiservice-s3cfg` and `km-s3-secret` (including the `ca.crt` key) with the ODF credentials and endpoint
-3. Copies `km-s3-secret` to every `AIServiceTenant` namespace of the instance
-4. Patches `spec.settings.s3.url` and `spec.settings.s3.ca` on the AIServiceApp (last, so a failed run can be repeated)
-5. Restarts the km deployments and waits for the AIServiceApp to be `Successful`
+3. Adds the ODF service CA to `spec.trustedCABundle.customCABundle` of the RHOAI `default-dsci` if it is not already there (skipped when the DSCInitialization does not exist)
+4. Copies `km-s3-secret` to every `AIServiceTenant` namespace of the instance
+5. Patches `spec.settings.s3.url` and `spec.settings.s3.ca` on the AIServiceApp (last, so a failed run can be repeated)
+6. Restarts the km deployments and waits for the AIServiceApp to be `Successful`
 
 The data must already be in ODF. Run the `minio` role (`MINIO_ACTION=backup`) and the `cos_bucket` role (`COS_TYPE=odf`, `COS_BUCKET_ACTION=restore`) first. `mas update --migrate-minio-to-ceph` does all three, and so does the sample playbook `playbooks/aiservice_minio_to_ceph.yml`. MinIO is not removed.
 
