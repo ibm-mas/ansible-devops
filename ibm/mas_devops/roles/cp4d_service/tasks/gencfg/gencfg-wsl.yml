@@ -80,9 +80,43 @@
       - "Project Storage Guid ........... {{ cpd_wsl_project_storage_guid }}"
       - "CPD Admin User Name ............ {{ cpd_admin_username }}"
 
+# Newer Zen versions (CPD 5.4.8 / Zen 6.10.8) already grant create_project to zen_administrator_role and
+# reject updates to it with a 403 ("Renaming another role as Administrator is prohibited"), so only
+# update the role when the permission is actually missing.
+- name: "gencfg-wsl : Look up Zen roles"
+  when:
+    - wsl_project_id is not defined or wsl_project_id == ""
+  uri:
+    url: "{{ cpd_admin_url }}/usermgmt/v1/roles"
+    validate_certs: no
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cpd_bearer_token }}"
+      cache-control: "no-cache"
+      Content-Type: "application/json"
+    status_code: 200
+    timeout: 30
+  register: lookup_zen_roles
+
+- name: "gencfg-wsl : Check whether the Zen administrator role can already create projects"
+  when:
+    - wsl_project_id is not defined or wsl_project_id == ""
+  set_fact:
+    zen_admin_can_create_project: >-
+      {{
+        'create_project' in (
+          lookup_zen_roles.json.rows
+          | selectattr('id', 'equalto', 'zen_administrator_role')
+          | map(attribute='doc.permissions')
+          | first
+          | default([])
+        )
+      }}
+
 - name: "gencfg-wsl : Guarantee that admin user has permission to create projects, if needed"
   when:
     - wsl_project_id is not defined or wsl_project_id == ""
+    - not (zen_admin_can_create_project | bool)
   uri:
     url: "{{ cpd_admin_url }}/usermgmt/v1/role/zen_administrator_role"
     validate_certs: no
