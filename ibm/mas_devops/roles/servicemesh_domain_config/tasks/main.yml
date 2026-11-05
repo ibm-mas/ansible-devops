@@ -5,10 +5,7 @@
 # mesh-wide observability, per-namespace network policies, and a Gateway +
 # VirtualService + Route stack for every routeref ConfigMap it finds.
 #
-# This role is a no-op unless mas_use_service_mesh is true.
-#
 # Required variables:
-#   mas_use_service_mesh      Must be true for the role to take any action
 #   mas_instance              MAS instance ID
 #   mas_domain                MAS domain (auto-resolved from cluster if empty)
 #   mas_app_id                Scope to one app namespace only (empty = all apps)
@@ -17,87 +14,79 @@
 #   gateway_strategy          Gateway creation strategy (default: many_gateways)
 # -----------------------------------------------------------------------------
 
-- name: Debug no-op mode
-  when: not mas_use_service_mesh
+# 1. Resolve MAS domain from the cluster if not supplied
+# -----------------------------------------------------------------------------
+- name: "Resolve cluster subdomain"
+  when: mas_domain == ""
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: _cluster_subdomain
+
+- name: "Set mas_domain from cluster subdomain"
+  when: mas_domain == ""
+  set_fact:
+    mas_domain: "{{ mas_instance }}.{{ _cluster_subdomain.resources[0].spec.domain }}"
+
+# 2. Log resolved configuration
+# -----------------------------------------------------------------------------
+- name: "Debug: resolved configuration"
   debug:
-    msg: "mas_use_service_mesh is not true, so this role will take no action"
+    msg:
+      - "MAS instance ......................... {{ mas_instance }}"
+      - "MAS domain ........................... {{ mas_domain }}"
+      - "Service mesh namespace ............... {{ servicemesh_namespace }}"
+      - "Gateway namespace .................... {{ servicemesh_gateway_namespace }}"
+      - "Target app ........................... {{ mas_app_id | default('(all)', true) }}"
+      - "Gateway strategy ..................... {{ gateway_strategy }}"
 
-- name: "Configure service mesh domain routing"
-  when: mas_use_service_mesh
-  block:
-    # 1. Resolve MAS domain from the cluster if not supplied
-    # -------------------------------------------------------------------------
-    - name: "Resolve cluster subdomain"
-      when: mas_domain == ""
-      kubernetes.core.k8s_info:
-        api_version: config.openshift.io/v1
-        kind: Ingress
-        name: cluster
-      register: _cluster_subdomain
+# 3. Create the dedicated gateway namespace with Istio injection labels
+# -----------------------------------------------------------------------------
+- name: "Create gateway namespace {{ servicemesh_gateway_namespace }}"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "{{ role_path }}/../../common_templates/namespace.yml.j2"
+  vars:
+    namespace_name: "{{ servicemesh_gateway_namespace }}"
+    namespace_labels:
+      istio-injection: enabled
+      istio.io/rev: default
+      istio-discovery: enabled
 
-    - name: "Set mas_domain from cluster subdomain"
-      when: mas_domain == ""
-      set_fact:
-        mas_domain: "{{ mas_instance }}.{{ _cluster_subdomain.resources[0].spec.domain }}"
+# 4. Apply mesh-wide observability resources (Telemetry, ServiceMonitor, Kiali RBAC)
+# -----------------------------------------------------------------------------
+- name: "Configure mesh-wide observability"
+  include_tasks: "tasks/setup_mesh_observability.yml"
 
-    # 2. Log resolved configuration
-    # -------------------------------------------------------------------------
-    - name: "Debug: resolved configuration"
-      debug:
-        msg:
-          - "MAS instance ......................... {{ mas_instance }}"
-          - "MAS domain ........................... {{ mas_domain }}"
-          - "Service mesh namespace ............... {{ servicemesh_namespace }}"
-          - "Gateway namespace .................... {{ servicemesh_gateway_namespace }}"
-          - "Target app ........................... {{ mas_app_id | default('(all)', true) }}"
-          - "Gateway strategy ..................... {{ gateway_strategy }}"
+# 5. Apply per-namespace network policies and PodMonitor for the gateway namespace
+# -----------------------------------------------------------------------------
+- name: "Configure network policies and monitoring for gateway namespace"
+  include_tasks: "tasks/setup_namespace_monitoring.yml"
+  vars:
+    target_namespace: "{{ servicemesh_gateway_namespace }}"
 
-    # 3. Create the dedicated gateway namespace with Istio injection labels
-    # -------------------------------------------------------------------------
-    - name: "Create gateway namespace {{ servicemesh_gateway_namespace }}"
-      kubernetes.core.k8s:
-        apply: yes
-        template: "{{ role_path }}/../../common_templates/namespace.yml.j2"
-      vars:
-        namespace_name: "{{ servicemesh_gateway_namespace }}"
-        namespace_labels:
-          istio-injection: enabled
-          istio.io/rev: default
-          istio-discovery: enabled
+# 6a. Configure a single target app namespace (when mas_app_id is set)
+# -----------------------------------------------------------------------------
+- name: "Configure gateways for namespace: mas-{{ mas_instance }}-{{ mas_app_id }}"
+  when: mas_app_id != ""
+  include_tasks: "tasks/create_gateways_per_namespace.yml"
+  vars:
+    ns_suffix: "{{ mas_app_id }}"
 
-    # 4. Apply mesh-wide observability resources (Telemetry, ServiceMonitor, Kiali RBAC)
-    # -------------------------------------------------------------------------
-    - name: "Configure mesh-wide observability"
-      include_tasks: "tasks/setup_mesh_observability.yml"
-
-    # 5. Apply per-namespace network policies and PodMonitor for the gateway namespace
-    # -------------------------------------------------------------------------
-    - name: "Configure network policies and monitoring for gateway namespace"
-      include_tasks: "tasks/setup_namespace_monitoring.yml"
-      vars:
-        target_namespace: "{{ servicemesh_gateway_namespace }}"
-
-    # 6a. Configure a single target app namespace (when mas_app_id is set)
-    # -------------------------------------------------------------------------
-    - name: "Configure gateways for namespace: mas-{{ mas_instance }}-{{ mas_app_id }}"
-      when: mas_app_id != ""
-      include_tasks: "tasks/create_gateways_per_namespace.yml"
-      vars:
-        ns_suffix: "{{ mas_app_id }}"
-
-    # 6b. Configure all standard MAS app namespaces (when mas_app_id is not set)
-    # -------------------------------------------------------------------------
-    - name: "Configure gateways for all MAS namespaces"
-      when: mas_app_id == ""
-      include_tasks: "tasks/create_gateways_per_namespace.yml"
-      loop:
-        - core
-        - facilities
-        - iot
-        - manage
-        - monitor
-        - optimizer
-        - predict
-      loop_control:
-        loop_var: ns_suffix
-        label: "mas-{{ mas_instance }}-{{ ns_suffix }}"
+# 6b. Configure all standard MAS app namespaces (when mas_app_id is not set)
+# -----------------------------------------------------------------------------
+- name: "Configure gateways for all MAS namespaces"
+  when: mas_app_id == ""
+  include_tasks: "tasks/create_gateways_per_namespace.yml"
+  loop:
+    - core
+    - facilities
+    - iot
+    - manage
+    - monitor
+    - optimizer
+    - predict
+  loop_control:
+    loop_var: ns_suffix
+    label: "mas-{{ mas_instance }}-{{ ns_suffix }}"
