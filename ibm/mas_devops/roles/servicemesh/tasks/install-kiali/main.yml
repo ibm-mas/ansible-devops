@@ -7,7 +7,8 @@
 # Steps:
 #   1. Subscribe to the Kiali operator via OLM
 #   2. Ensure the Istio control-plane namespace exists
-#   3. Create the Kiali instance
+#   3. Wait until the Kiali CRD is available
+#   4. Create the Kiali instance
 # -----------------------------------------------------------------------------
 
 # 1. Subscribe to the Kiali operator via OLM
@@ -32,13 +33,24 @@
     kind: Namespace
     name: "{{ servicemesh_namespace }}"
 
-# 3. Create the Kiali instance
+# 3. Wait until the Kiali CRD is available
+# -----------------------------------------------------------------------------
+- name: "install-kiali : Wait until the Kiali CRD is available"
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: kialis.kiali.io
+
+# 4. Create the Kiali instance
 # -----------------------------------------------------------------------------
 - name: "install-kiali : Apply Kiali instance"
   kubernetes.core.k8s:
     template: "templates/kiali.yml.j2"
     wait: yes
-    wait_timeout: 120
+    wait_timeout: 300
     wait_condition:
       status: "True"
       type: Successful
+  register: _kiali_apply
+  retries: 5
+  delay: 30 # seconds
+  until: _kiali_apply is succeeded
