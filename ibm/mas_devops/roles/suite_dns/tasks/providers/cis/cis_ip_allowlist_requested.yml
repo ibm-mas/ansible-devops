@@ -1,0 +1,39 @@
+---
+# Detect an allowlist change for MAS and report the REQUESTED status.
+- name: "cis : ip-allowlist — requested: plan allowlist change (MAS)"
+  ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist_plan.yml
+  vars:
+    domain: "{{ mas_domain }}"
+
+- name: "cis : ip-allowlist — requested: show pre-flight result"
+  ansible.builtin.debug:
+    msg:
+      - "Existing expression .. {{ _cis_existing_expression | default('(none)', true) }}"
+      - "Expected expression .. {{ _cis_allowlist_expression | default('(none)', true) }}"
+      - "Action ............... {{ _cis_allowlist_action }}"
+
+- name: "cis : ip-allowlist — requested: no change, skipping REQUESTED"
+  ansible.builtin.debug:
+    msg: "Allow list already in desired state — skipping REQUESTED (no-op)"
+  when: _cis_allowlist_action == 'noop'
+
+- name: "cis : ip-allowlist — requested: build status-update base args"
+  when: _cis_allowlist_action != 'noop'
+  ansible.builtin.set_fact:
+    _cis_allowlist_status_base_args: >-
+      --region {{ region_id | quote }}
+      --instance-id {{ mas_instance_id | quote }}
+      --account {{ account_id | quote }}
+      --cluster {{ cluster_id | quote }}
+      {{ ('--subscription-id ' ~ (subscription_id | quote)) if subscription_id | length > 0 else '' }}
+      --type allow-list
+      --feature-details {{ {'ips': _cis_normalised_ips} | to_json | quote }}
+      --deployment-start {{ now(utc=true).strftime('%Y-%m-%dT%H:%M:%SZ') | quote }}
+
+- name: "cis : ip-allowlist — requested: set REQUESTED status"
+  when: _cis_allowlist_action != 'noop'
+  ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist_status.yml
+  vars:
+    allowlist_status: REQUESTED
+    allowlist_status_message: "Allow list request received."
+    allowlist_status_request: "{{ _cis_normalised_ips | join(', ') }}"
