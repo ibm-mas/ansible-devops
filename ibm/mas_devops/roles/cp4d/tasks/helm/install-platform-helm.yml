@@ -233,9 +233,13 @@
 
 # Step 1c: Uninstall any failed/partial Helm releases from previous upgrade attempts
 # so that the install-component loop can start fresh with `helm upgrade -i`
+# Release name and namespace must match install-component.yml (release = component name with '_' -> '-',
+# namespace = component namespace). ibm-licensing lives in cpd_ibm_licensing_namespace, not cpd_operators_namespace.
 - name: "Uninstall failed Helm releases from previous upgrade attempts"
-  command: helm uninstall {{ item }} -n {{ cpd_operators_namespace }}
-  loop: "{{ cpd_platform_components | selectattr('helm_chart_name', 'ne', '') | map(attribute='helm_chart_name') | list }}"
+  command: helm uninstall {{ item.name | replace('_', '-') }} -n {{ item.namespace }}
+  loop: "{{ cpd_platform_components | selectattr('helm_chart_name', 'ne', '') | list }}"
+  loop_control:
+    label: "{{ item.name }}"
   failed_when: false
   changed_when: false
 
