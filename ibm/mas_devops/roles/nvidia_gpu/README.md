@@ -39,13 +39,13 @@ NVIDIA GPU Operator subscription channel.
 
 - **Optional**
 - Environment Variable: `GPU_CHANNEL`
-- Default: `v26.3`
+- Default: `v26.3` (OpenShift >= 4.21) or `v25.3` (OpenShift < 4.21)
 
-**Purpose**: Determines which version stream of the NVIDIA GPU Operator will be installed from OperatorHub.
+**Purpose**: Determines which version stream of the NVIDIA GPU Operator will be installed from OperatorHub. If not specified via `GPU_CHANNEL`, the role automatically detects the cluster's OpenShift version and selects `v26.3` for OCP 4.21+ or `v25.3` for OCP < 4.21.
 
-**When to use**: Use default for latest stable version. Specify older channel for compatibility with specific OpenShift versions or when stability is prioritized over features.
+**When to use**: Use default for automatic selection based on OpenShift version. Specify a channel explicitly if you need to override the default or pin to a specific version.
 
-**Valid values**: Valid GPU Operator channel versions (e.g., `v24.9`, `v24.6`, `v23.9`)
+**Valid values**: Valid GPU Operator channel versions (e.g., `v26.3`, `v25.3`, `v24.9`, `v24.6`)
 
 **Impact**: Controls which operator version is installed and which features are available. Newer channels may require newer OpenShift versions.
 
