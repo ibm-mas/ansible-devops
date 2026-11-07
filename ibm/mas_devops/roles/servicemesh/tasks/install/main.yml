@@ -13,13 +13,27 @@
 
 # 1. Subscribe to the Service Mesh operator via OLM
 # -----------------------------------------------------------------------------
+# On a disconnected cluster the mirrored catalog may not have been indexed yet, so
+# wait for the PackageManifest before subscribing
+- name: "install : Wait for the servicemeshoperator3 PackageManifest"
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: servicemeshoperator3
+    namespace: "{{ servicemesh_catalog_source_namespace }}"
+  register: _servicemesh_manifest
+  until: _servicemesh_manifest.resources | default([]) | length > 0
+  retries: 30
+  delay: 20 # seconds
+
+# catalog_source is omitted when not set, so it is detected from the PackageManifest
 - name: "install : Create Service Mesh {{ servicemesh_channel }} Subscription"
   ibm.mas_devops.apply_subscription:
     namespace: "openshift-operators"
     package_name: servicemeshoperator3
     package_channel: "{{ servicemesh_channel }}"
-    catalog_source: redhat-operators
-    catalog_source_namespace: openshift-marketplace
+    catalog_source: "{{ servicemesh_catalog_source | default(omit, true) }}"
+    catalog_source_namespace: "{{ servicemesh_catalog_source_namespace }}"
     starting_csv: "{{ servicemesh_starting_csv }}"
     install_plan_approval: Automatic
   register: subscription
