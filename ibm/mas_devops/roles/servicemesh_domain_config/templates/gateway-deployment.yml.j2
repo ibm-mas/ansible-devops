@@ -1,86 +1,60 @@
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: secret-reader
-  namespace: {{servicemesh_gateway_namespace}}
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: secret-reader
-  namespace: {{servicemesh_gateway_namespace}}
-rules:
-  - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["get", "watch", "list"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name:  secret-reader
-  namespace: {{servicemesh_gateway_namespace}}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: secret-reader
-subjects:
-  - kind: ServiceAccount
-    name:  secret-reader
----
+# Gateway Deployment — one per routeref (_gateway_name is unique per route).
+# Uses Istio inject.istio.io/templates: gateway so the sidecar acts as a
+# standalone gateway proxy rather than an app sidecar.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{gateway_name}}
-  namespace: {{servicemesh_gateway_namespace}}
+  name: "{{ _gateway_name }}"
+  namespace: "{{ servicemesh_gateway_namespace }}"
 spec:
   selector:
     matchLabels:
-      istio: {{gateway_name}}
+      istio: "{{ _gateway_name }}"
   template:
     metadata:
       annotations:
         inject.istio.io/templates: gateway
       labels:
-        istio: {{gateway_name}}
+        istio: "{{ _gateway_name }}"
         sidecar.istio.io/inject: "true"
     spec:
+      serviceAccountName: secret-reader
+      securityContext:
+        sysctls:
+          - name: net.ipv4.ip_unprivileged_port_start
+            value: "0"
       containers:
         - name: istio-proxy
           image: auto
           securityContext:
             capabilities:
               drop:
-              - ALL
+                - ALL
             allowPrivilegeEscalation: false
             privileged: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
           ports:
-          - name: http-envoy-prom
-            containerPort: 15090
-            protocol: TCP
-          - name: http2
-            containerPort: 8080
-            protocol: TCP
-          - name: https
-            containerPort: 8443
-            protocol: TCP
+            - name: http-envoy-prom
+              containerPort: 15090
+              protocol: TCP
+            - name: http2
+              containerPort: 8080
+              protocol: TCP
+            - name: https
+              containerPort: 8443
+              protocol: TCP
           resources:
-            limits:
-              cpu: 2000m
-              memory: 1024Mi
             requests:
               cpu: 100m
               memory: 128Mi
+            limits:
+              cpu: 2000m
+              memory: 1024Mi
           volumeMounts:
             - name: backend-ca-cert
-              mountPath: /etc/istio/backend-ca      
-      securityContext:
-        sysctls:
-        - name: net.ipv4.ip_unprivileged_port_start
-          value: "0"
-      serviceAccountName: secret-reader
+              mountPath: /etc/istio/backend-ca
       volumes:
         - name: backend-ca-cert
           secret:

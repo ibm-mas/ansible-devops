@@ -1,9 +1,12 @@
 ---
+# kiali.yml.j2
+# Kiali instance for service mesh topology visualisation.
+# Configured to use Thanos/OpenShift monitoring as its Prometheus backend.
 apiVersion: kiali.io/v1alpha1
 kind: Kiali
 metadata:
   name: kiali
-  namespace: {{servicemesh_namespace}}
+  namespace: "{{ servicemesh_namespace }}"
 spec:
   auth:
     strategy: openshift
@@ -16,7 +19,7 @@ spec:
     cluster_wide_access: true
     instance_name: kiali
     secret_name: kiali
-    namespace: {{servicemesh_namespace}}
+    namespace: "{{ servicemesh_namespace }}"
     replicas: 1
     view_only_mode: false
   external_services:
@@ -46,7 +49,9 @@ spec:
       cache_enabled: true
       cache_expiration: 300
       is_core: true
-      url: {{ prometheus_url }}
+      thanos_proxy:
+        enabled: true
+      url: "{{ prometheus_url }}"
       auth:
         type: bearer
         use_kiali_token: true

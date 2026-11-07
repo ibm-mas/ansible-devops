@@ -25,6 +25,8 @@ Action to perform on Service Mesh installation.
 - `uninstall`: Removes Service Mesh and Kiali operators and instances
 
 **Related variables**:
+- `servicemesh_catalog_source`: CatalogSource to install the Service Mesh and Kiali operators from (`SERVICEMESH_CATALOG_SOURCE`). When empty (the default) it is detected from the PackageManifest, so the role works with the built-in `redhat-operators` catalog and with a mirrored catalog on a disconnected (airgap) cluster
+- `servicemesh_catalog_source_namespace`: Namespace of the CatalogSource (`SERVICEMESH_CATALOG_SOURCE_NAMESPACE`, default `openshift-marketplace`)
 - `servicemesh_channel`: Catalog channel to install from (defaults if not provided)
 - `servicemesh_starting_csv`: Specific CSV to install (defaults if not provided)
 - `kiali_channel`: Catalog channel to install Kiali from (defaults if not provided)

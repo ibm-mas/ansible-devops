@@ -1,0 +1,28 @@
+---
+# route-passthrough.yml.j2
+# OpenShift Route with TLS passthrough termination.
+# The router forwards the TLS session unchanged to the backend — no cert
+# inspection or re-encryption happens at the router. Certificate fields are
+# therefore not applicable and are intentionally absent from this template.
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: "{{ _route_name }}"
+  namespace: "{{ servicemesh_gateway_namespace }}"
+  annotations:
+    haproxy.router.openshift.io/timeout: 60s
+spec:
+  host: "{{ _route_host }}"
+  path: "{{ _route_path }}"
+  port:
+    targetPort: "{{ _target_port_name }}"
+  tls:
+    termination: passthrough
+{% if _route_tls.insecureEdgeTerminationPolicy is defined %}
+    insecureEdgeTerminationPolicy: "{{ _route_tls.insecureEdgeTerminationPolicy }}"
+{% endif %}
+  to:
+    kind: Service
+    name: "{{ _gateway_service }}"
+    weight: 100
+  wildcardPolicy: None

@@ -1,0 +1,32 @@
+---
+# Gateway RBAC — ServiceAccount, Role, RoleBinding
+# Applied once per gateway namespace (idempotent via apply: yes).
+# The secret-reader SA allows gateway pods to read TLS secrets for backend CA.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: secret-reader
+  namespace: "{{ servicemesh_gateway_namespace }}"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: secret-reader
+  namespace: "{{ servicemesh_gateway_namespace }}"
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: secret-reader
+  namespace: "{{ servicemesh_gateway_namespace }}"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: secret-reader
+subjects:
+  - kind: ServiceAccount
+    name: secret-reader
