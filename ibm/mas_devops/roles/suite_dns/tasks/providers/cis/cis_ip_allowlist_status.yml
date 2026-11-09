@@ -1,0 +1,31 @@
+---
+# Write allowlist feature status to MongoDB
+- name: "cis : ip-allowlist — status update: {{ allowlist_status }} (skipped)"
+  when:
+    - _cis_allowlist_status_base_args is defined
+    - not (_cis_status_enabled | default(false) | bool)
+  ansible.builtin.debug:
+    msg: >-
+      Skipping allow-list status update {{ allowlist_status }}: feature status reporting is not enabled.
+      Missing variables: {{ _cis_status_missing_vars | default([]) | join(', ') | default('none', true) }}
+
+- name: "cis : ip-allowlist — status update: {{ allowlist_status }}"
+  when:
+    - _cis_allowlist_status_base_args is defined
+    - _cis_status_enabled | default(false) | bool
+  vars:
+    _cis_status_details:
+      message: "{{ allowlist_status_message }}"
+      request_configuration: "{{ allowlist_status_request | default('') }}"
+  ansible.builtin.shell: |
+    mas-devops-feature-status-update status-update \
+      {{ _cis_allowlist_status_base_args }} \
+      --status {{ allowlist_status }} \
+      --status-details {{ _cis_status_details | to_json | quote }} {{ ('--deployment-end ' ~ (allowlist_deployment_end | quote)) if allowlist_deployment_end | default('') | length > 0 else '' }}
+  failed_when: false
+  register: _cis_status_result
+
+- name: "cis : ip-allowlist — status update: {{ allowlist_status }} (result)"
+  when: _cis_status_result is not skipped
+  ansible.builtin.debug:
+    var: _cis_status_result

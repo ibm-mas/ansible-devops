@@ -2,6 +2,25 @@
 # Helm Installation Path for CPD Services
 # This is the main entry point for Helm-based installations
 
+# 0. Ensure olm-utils-cm exists and load cpd_components_meta (matches cp4d role pattern)
+# -----------------------------------------------------------------------------
+- name: "Create olm-utils-cm configmap for CPD {{ cpd_product_version }}"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "{{ role_path }}/../cp4d/templates/config_maps/olm-utils-cm-{{ cpd_product_version }}.yml.j2"
+
+- name: "Lookup olm-utils-cm to load version metadata for CPD {{ cpd_product_version }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: "olm-utils-cm"
+    kind: ConfigMap
+    namespace: "{{ cpd_instance_namespace }}"
+  register: cpd_cm_info
+
+- name: "Set cpd_components_meta from olm-utils-cm"
+  set_fact:
+    cpd_components_meta: "{{ cpd_cm_info.resources[0].data.release_components_meta | from_yaml }}"
+
 - name: "Setup Helm repository"
   include_tasks: "setup-helm-repo.yml"
 
@@ -207,35 +226,40 @@
       changed_when: false
       failed_when: false
 
-    - name: "Parse existing releases (name and chart version)"
+    - name: "Parse existing releases as a dict keyed by release name to app_version"
       set_fact:
-        # helm list --output json: each entry has 'name' and 'chart' (e.g. "ccs-12.1.0+20260220.163654.253")
-        installed_release_versions: "{{ dict((existing_releases.stdout | from_json | map(attribute='name')) | zip(existing_releases.stdout | from_json | map(attribute='chart'))) if existing_releases.rc == 0 else {} }}"
+        installed_releases_map: >-
+          {{
+            dict(
+              (existing_releases.stdout | from_json | map(attribute='name') | list)
+              | zip(existing_releases.stdout | from_json | map(attribute='app_version') | list)
+            ) if existing_releases.rc == 0 else {}
+          }}
 
-    - name: "Initialise dependency install list"
+    - name: "Initialise dependencies_to_install as empty list"
       set_fact:
         dependencies_to_install: []
 
-    # Include a dependency if:
-    #   (a) it has no Helm release at all, OR
-    #   (b) its installed chart string does not contain the expected case_version
-    #       (catches wrong-version installs, e.g. 13.0.0 present when 12.1.0 is required)
-    - name: "Collect dependencies that need installation or version correction"
+    - name: "Collect dependencies that need installation or upgrade"
+      # Appends dep to dependencies_to_install when:
+      # - dep.name is not yet installed (new install), OR
+      # - dep.case_version differs from the installed app_version (upgrade needed)
       set_fact:
-        dependencies_to_install: "{{ dependencies_to_install + [dep_check] }}"
+        dependencies_to_install: >-
+          {{
+            dependencies_to_install + [item]
+            if (item.name not in installed_releases_map
+                or item.case_version != installed_releases_map[item.name])
+            else dependencies_to_install
+          }}
       loop: "{{ component_info.helm_dependencies }}"
-      loop_control:
-        loop_var: dep_check
-        label: "{{ dep_check.name }}"
-      when: >-
-        dep_check.name not in installed_release_versions
-        or (dep_check.case_version | default('')) not in (installed_release_versions[dep_check.name] | default(''))
 
     - name: "Debug: Dependencies status"
       debug:
         msg:
           - "Total dependencies: {{ component_info.helm_dependencies | length }}"
           - "To be installed/upgraded: {{ dependencies_to_install | map(attribute='name') | list }}"
+          - "Already up-to-date: {{ component_info.helm_dependencies | map(attribute='name') | reject('in', dependencies_to_install | map(attribute='name') | list) | list }}"
 
     - name: "Install dependency components"
       include_tasks: "install-component.yml"
@@ -289,6 +313,75 @@
   vars:
     component_name: "{{ cpd_service_name }}"
     component_info: "{{ cpd_service_info[cpd_service_name] }}"
+
+# Airgap + spark: operator digests.yaml is out of sync with the mirrored CASE bundle.
+# Override spec.image_digests from the images.csv so operator-created pods use the
+# registry-correct digests instead of the baked-in ones.
+- name: "Patch spark AnalyticsEngine CR image_digests from CASE images.csv (airgap)"
+  when:
+    - cpd_helm_airgap
+    - cpd_service_name == 'spark'
+    - cpd_product_version is version('5.4.0', '>=')
+  block:
+    - name: "Download ibm-analyticsengine CASE bundle"
+      command: >
+        oc ibm-pak get ibm-analyticsengine
+        --version {{ cpd_components_meta.analyticsengine.case_version }}
+        --skip-dependencies
+      environment:
+        IBMPAK_HTTP_TIMEOUT: "600"
+        IBMPAK_HTTP_RETRY: "10"
+      changed_when: false
+
+    - name: "Locate ibm-analyticsengine images.csv for CASE version {{ cpd_components_meta.analyticsengine.case_version }}"
+      find:
+        paths: "{{ ansible_env.HOME }}/.ibm-pak/data/cases/ibm-analyticsengine"
+        patterns: "ibm-analyticsengine-{{ cpd_components_meta.analyticsengine.case_version }}*-images.csv"
+        recurse: true
+      register: _ae_csv_find
+
+    - name: "Fail if images.csv not found"
+      fail:
+        msg: >
+          Could not find ibm-analyticsengine images.csv matching version
+          {{ cpd_components_meta.analyticsengine.case_version }} under ~/.ibm-pak/data/cases/ibm-analyticsengine
+      when: _ae_csv_find.files | length == 0
+
+    - name: "Parse image digests from CASE images.csv and patch AnalyticsEngine CR"
+      vars:
+        _csv_path: "{{ _ae_csv_find.files[0].path }}"
+        _rows: "{{ lookup('file', _csv_path).splitlines() | select('match', '^cp\\.icr\\.io,cp/cpd/ibm-lh-spark-') | map('split', ',') | list }}"
+        # Single-tag images: name → digest
+        _single: >-
+          {{
+            dict(
+              _rows | rejectattr('1', 'match', '.*(miniforge|miniconda)-runtimes.*')
+              | map(attribute='1') | map('regex_replace', '^cp/cpd/', '') | list
+              | zip(_rows | rejectattr('1', 'match', '.*(miniforge|miniconda)-runtimes.*') | map(attribute='3') | list)
+            )
+          }}
+        # Multi-version runtimes: name-v35 (tag starts with 3.) or name-v40 (tag starts with 4.)
+        _multi: >-
+          {{
+            dict(
+              _rows | selectattr('1', 'match', '.*(miniforge|miniconda)-runtimes.*')
+              | map(attribute='1') | map('regex_replace', '^cp/cpd/', '')
+              | zip(_rows | selectattr('1', 'match', '.*(miniforge|miniconda)-runtimes.*') | map(attribute='2') | list)
+              | map('join', '|')
+              | map('regex_replace', '\\|3\\.\\S+', '-v35')
+              | map('regex_replace', '\\|4\\.\\S+', '-v40') | list
+              | zip(_rows | selectattr('1', 'match', '.*(miniforge|miniconda)-runtimes.*') | map(attribute='3') | list)
+            )
+          }}
+      kubernetes.core.k8s:
+        state: patched
+        api_version: ae.cpd.ibm.com/v1
+        kind: AnalyticsEngine
+        name: "{{ cpd_service_info.spark.cr_name }}"
+        namespace: "{{ cpd_instance_namespace }}"
+        definition:
+          spec:
+            image_digests: "{{ _single | combine(_multi) }}"
 
 - name: "Installation complete"
   debug:

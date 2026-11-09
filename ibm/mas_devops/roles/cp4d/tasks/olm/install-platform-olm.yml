@@ -1,0 +1,63 @@
+---
+# OLM Platform Installation Path for CPD (pre-5.4.0)
+# This file isolates all OLM-specific platform installation tasks.
+
+# 1. Load Cloud Pak for Data extra catalog source specs (OLM only)
+# -----------------------------------------------------------------------------
+- name: "Load Cloud Pak for Data extra catalog source specs for version {{ cpd_product_version }}"
+  include_tasks: "../load-catalog-source-definitions.yml"
+
+# 2. Create olm-utils config map (OLM only)
+# -----------------------------------------------------------------------------
+- name: "Create olm-utils config map"
+  include_tasks: "../create-olm-utils.yml"
+
+# 3. Check prerequisites (OLM only)
+# -----------------------------------------------------------------------------
+- name: "Check Cloud Pak for Data pre-requisites"
+  include_tasks: "../prereq-check/main.yml"
+
+# 4. Disable CPFS v3 (OLM only)
+# -----------------------------------------------------------------------------
+- include_tasks: "../prereqs/disable-cpfs-v3.yml"
+  when:
+    - cpfs_installed_version is defined
+    - cpfs_installed_version is version(cpd_cpfs_minimum_csv_version, '<=') # this is true if CPFS v3 is installed
+
+# 5. Determine storage classes
+# -----------------------------------------------------------------------------
+- name: "Determine storage classes"
+  include_tasks: "../determine-storage-classes.yml"
+
+# 6. Authorizing a user to act as an IBM Cloud Pak for Data instance administrator
+# -----------------------------------------------------------------------------
+- name: "Grant permissions to {{ cpd_admin_login_sa }} service account in Cloud Pak For Data namespaces"
+  include_tasks: "../authorize-user-cpd-admin.yml"
+
+# 7. Install specific catalog sources
+# -----------------------------------------------------------------------------
+- include_tasks: "../create-catalog-sources.yml"
+
+# 8. Install NamespaceScope
+# -----------------------------------------------------------------------------
+- include_tasks: "../prereqs/install-ibm-namespace-scope.yml"
+
+# 9. Install IBM Licensing
+# -----------------------------------------------------------------------------
+- include_tasks: "../prereqs/install-ibm-licensing.yml"
+
+# 10. Install Cloud Pak Foundational Services
+# -----------------------------------------------------------------------------
+- include_tasks: "../prereqs/install-cpfs.yml"
+  when:
+    - cpfs_installed_version is not defined or cpfs_installed_version != cpfs_version
+
+# 11. Install Cloud Pak for Data subscription/operator
+# -----------------------------------------------------------------------------
+- name: "Create Cloud Pak for Data Subscription"
+  include_tasks: "../create-subscriptions.yml"
+
+# 12. Install and Configure Cloud Pak For Data (shared tasks)
+# -----------------------------------------------------------------------------
+- name: "Install and Configure Cloud Pak For Data (shared tasks)"
+  include_tasks: "../install-cp4d.yml"

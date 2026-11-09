@@ -34,7 +34,10 @@ class ActionModule(ActionBase):
           notAtLatest = []
 
           for subscription in subs.items:
-            state = subscription.status.state
+            # A newly created Subscription has no status until OLM reconciles it
+            state = getattr(subscription.status, 'state', None) if subscription.status else None
+            if state is None:
+              state = "Pending (no status yet)"
             installPlanApproval = getattr(subscription.spec, 'installPlanApproval', 'Automatic')
             display.v(f"* {subscription.metadata.namespace}/{subscription.metadata.name} = {state} (approval: {installPlanApproval})")
             

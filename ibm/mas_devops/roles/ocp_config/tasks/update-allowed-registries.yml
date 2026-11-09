@@ -45,7 +45,7 @@
 
     # 1.5 Verify registries in cluster
     # -----------------------------------------------------------------------------
-    - name: "ROSA HCP: Lookup 'cluster' Image resource"
+    - name: "ROSA HCP: Verify allowedRegistries in 'cluster' Image resource"
       kubernetes.core.k8s_info:
         api_version: config.openshift.io/v1
         kind: Image
@@ -53,6 +53,6 @@
       register: cluster_image_lookup
       until:
         - cluster_image_lookup.resources[0].spec.registrySources.allowedRegistries is defined
-        - ocp_allowed_registries | difference(cluster_image_lookup.resources[0].spec.registrySources.allowedRegistries) | length == 0
+        - ocp_allowed_registries is subset(cluster_image_lookup.resources[0].spec.registrySources.allowedRegistries)
       retries: 5
       delay: 10
