@@ -3,6 +3,13 @@
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/nfd_setup.yml
 
+# 1.1 Set default GPU channel based on OpenShift version if not explicitly set
+# -----------------------------------------------------------------------------
+- name: "Set default GPU channel based on OpenShift version"
+  when: gpu_channel is not defined or gpu_channel == ""
+  set_fact:
+    gpu_channel: "{{ (ocp_version_num is defined and ocp_version_num is version('4.21', '<')) | ternary('v25.3', 'v26.3') }}"
+
 # 2. Lookup the packagemanifest for gpu-operator-certified
 # -----------------------------------------------------------------------------
 - name: Get gpu-operator-certified package manifest
