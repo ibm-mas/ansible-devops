@@ -102,6 +102,7 @@ ROLES = [
     "suite_backup",
     "suite_restore",
     "saas_backup",
+    "saas_restore",
     "turbonomic",
 ]
 

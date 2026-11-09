@@ -20,6 +20,8 @@ MAS Devops Collection includes playbooks/guidance for backing up and restoring M
 - [MAS Core](#mas-core-backup-and-restore)
 - [Db2 Backup and Restore](#db2-backup-and-restore)
 - [Manage Application](#manage-application-backup-and-restore)
+- [SaaS Backup](#saas-backup-single-archive)
+- [SaaS Restore](#saas-restore-encrypted-archive)
 
 **Roles Supporting Backup/Restore:**
 - [`ibm.mas_devops.cert_manager`](../roles/cert_manager.md)
@@ -31,6 +33,8 @@ MAS Devops Collection includes playbooks/guidance for backing up and restoring M
 - [`ibm.mas_devops.suite_restore`](../roles/suite_restore.md)
 - [`ibm.mas_devops.suite_app_backup`](../roles/suite_app_backup.md)
 - [`ibm.mas_devops.suite_app_restore`](../roles/suite_app_restore.md)
+- [`ibm.mas_devops.saas_backup`](../roles/saas_backup.md)
+- [`ibm.mas_devops.saas_restore`](../roles/saas_restore.md)
 
 MongoDB Community Backup and Restore
 ===============================================================================
@@ -553,7 +557,7 @@ oc login ...
 ansible-playbook ibm.mas_devops.br_saas_backup
 ```
 
-Inputs, prerequisites, archive layout, how to inspect and verify the archive, failure behaviour and known limitations are documented in the
+Inputs, prerequisites, archive layout, how to inspect and verify the archive, failure behaviour, testing status and known limitations are documented in the
 [saas_backup role](../roles/saas_backup.md).
 
 
@@ -577,5 +581,9 @@ oc login ...
 ansible-playbook ibm.mas_devops.br_saas_restore                      # full_restore
 ```
 
-The saas-envs/gitops-envs folders and AWS secrets in the archive are not restored. Requirements (OpenSSL 3.5+), variables, security and recovery notes and
-limitations are documented in the [saas_restore role](../roles/saas_restore.md).
+The saas-envs/gitops-envs folders and AWS secrets in the archive are not restored. Requirements (OpenSSL 3.5+), variables, security and recovery notes,
+testing status and limitations are documented in the [saas_restore role](../roles/saas_restore.md).
+
+!!! warning
+
+    `decrypt_only` has been verified against an actual encrypted Noble8 backup. `full_restore` has **not** been validated against a live OpenShift cluster.

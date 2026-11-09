@@ -92,8 +92,18 @@ Scope and limitations
 - `suite_restore` settings (for example `MAS_DOMAIN`, `SLS_URL`, `BAS_URL`, and the SLS/DRO from-backup switches) keep their own defaults and environment
   variables; review [suite_restore](suite_restore.md) before a real restore. A SaaS backup is `strict_named_only`, so it holds fewer resource kinds than a
   full `suite_backup`
-- A real `full_restore` has not yet been validated against a live cluster. The `decrypt_only` mode, the integrity checks and the failure behaviour are
-  covered by unit and playbook-level tests with a mocked OpenSSL
+- `full_restore` has **not** been validated against a live OpenShift cluster. Do not rely on it for disaster recovery until it has been tested
+
+Testing status
+-------------------------------------------------------------------------------
+### Tested
+- `decrypt_only` was run successfully against an actual encrypted Noble8 backup produced by [saas_backup](saas_backup.md). The recap was
+  `ok=14 changed=0 failed=0 skipped=3`. The encrypted archive checksum, ML-KEM decapsulation, AES-256-GCM authentication and all 114 internal
+  `SHA256SUMS` entries were verified, and the decrypted archive contained 115 files.
+- The integrity checks and failure behaviour are covered by unit and playbook-level tests with a mocked OpenSSL.
+
+### Not tested
+- `full_restore` against a live OpenShift cluster has **not** been tested.
 
 License
 -------------------------------------------------------------------------------

@@ -19,10 +19,9 @@ What is collected:
 
 !!! warning
 
-    This role has only been exercised against stubbed `oc`/Kubernetes modules and local git repositories. It has not been validated against a real cluster, a
-    staging pipeline or real AWS Secrets Manager.
-
     The list of AWS secrets that are *required* for a SaaS backup is not defined in the repositories, so none are collected unless you list them. Nothing is inferred.
+
+    See [Testing status](#testing-status) for what has and has not been validated.
 
 Command
 -------------------------------------------------------------------------------
@@ -155,10 +154,25 @@ The run stops with a clear message for: missing/invalid inputs, `oc` missing or 
 that cannot be cloned or read, a missing saas-envs (or gitops-envs) instance folder, an unresolved instance/workspace ID, a missing `Suite`/`Workspace`,
 namespaces that cannot be read, any failed or missing required OpenShift resource (from the reused roles), and any AWS secret that cannot be read.
 
+Testing status
+-------------------------------------------------------------------------------
+### Tested
+- Unit and static tests with stubbed `oc`/Kubernetes modules and local git repositories.
+- An actual backup of the Noble8 cluster with encryption enabled completed successfully. The playbook recap was `ok=124 changed=13 failed=0`.
+  The encrypted archive was generated and verified, and the plaintext archive and its sidecar were removed after successful encryption.
+- An actual `decrypt_only` restore of that Noble8 encrypted backup (see [saas_restore](saas_restore.md)) completed successfully with recap
+  `ok=14 changed=0 failed=0 skipped=3`. The encrypted archive checksum, ML-KEM decapsulation, AES-256-GCM authentication and all 114 internal
+  `SHA256SUMS` entries were verified. The decrypted archive contained 115 files.
+
+### Not tested
+- `full_restore` against a live OpenShift cluster has **not** been tested, so restoring a SaaS backup onto a cluster is not validated.
+- The Noble8 results above do not cover other clusters, other environments, or backups taken without encryption.
+- Collecting AWS Secrets Manager secrets (`SAAS_BACKUP_AWS_SECRET_IDS`) against real AWS Secrets Manager is not covered by the verified results listed above.
+
 Known limitations
 -------------------------------------------------------------------------------
 - Only core and Manage are backed up. Other applications declared in saas-envs (for example Facilities) are listed in `metadata.json` as not backed up.
-- No restore, no upload, no persistent volume data and no CA private keys.
+- This role does not restore (see [saas_restore](saas_restore.md)), does not upload, and does not back up persistent volume data or CA private keys.
 - Operator/product versions are best effort: if the core `Subscription` or `ManageApp` cannot be read the version is recorded as `unavailable` and the backup continues. Every other read is required.
 - The required AWS secret list is not defined; the gitops-envs folder layout is not uniform across environments, so both `<account>/<region>/<cluster>/<instance>`
   and `<account>/<cluster>/<instance>` are tried and an ambiguous match fails.
