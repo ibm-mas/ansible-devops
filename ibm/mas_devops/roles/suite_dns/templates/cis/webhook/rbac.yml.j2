@@ -7,6 +7,25 @@ metadata:
     app: "cert-manager-webhook-ibm-cis"
 
 ---
+# Grant cert-manager permission to validate using our apiserver
+# The Role must be created before the RoleBinding that references it, otherwise
+# the RBAC escalation check fails for callers that are not cluster-admin.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: "cert-manager-webhook-ibm-cis"
+  namespace: "{{ cert_manager_namespace }}"
+  labels:
+    app: "cert-manager-webhook-ibm-cis"
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - 'secrets'
+    verbs:
+      - 'get'
+
+---
 # Grant the webhook permission to read the ConfigMap containing the Kubernetes
 # apiserver's requestheader-ca-certificate.
 # This ConfigMap is automatically created by the Kubernetes apiserver.
@@ -26,23 +45,6 @@ subjects:
     kind: ServiceAccount
     name: "cert-manager-webhook-ibm-cis"
     namespace: {{ cert_manager_namespace }}
-
----
-# Grant cert-manager permission to validate using our apiserver
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: "cert-manager-webhook-ibm-cis"
-  namespace: "{{ cert_manager_namespace }}"
-  labels:
-    app: "cert-manager-webhook-ibm-cis"
-rules:
-  - apiGroups:
-      - ''
-    resources:
-      - 'secrets'
-    verbs:
-      - 'get'
 
 ---
 # Grant the webhook permission to read the ConfigMap containing the Kubernetes
