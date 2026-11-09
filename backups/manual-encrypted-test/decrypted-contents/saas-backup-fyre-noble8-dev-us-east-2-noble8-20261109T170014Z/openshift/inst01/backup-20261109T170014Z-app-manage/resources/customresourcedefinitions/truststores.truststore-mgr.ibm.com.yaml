@@ -1,0 +1,158 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    app.kubernetes.io/instance: ibm-truststore-mgr
+    app.kubernetes.io/managed-by: olm
+    app.kubernetes.io/name: ibm-truststore-mgr
+    olm.managed: 'true'
+    operators.coreos.com/ibm-truststore-mgr.mas-0x1-bedd3ceac223-sls: ''
+    operators.coreos.com/ibm-truststore-mgr.mas-inst01-core: ''
+    operators.coreos.com/ibm-truststore-mgr.mas-inst01-manage: ''
+    operators.coreos.com/ibm-truststore-mgr.mas-inst01-monitor: ''
+    operators.coreos.com/ibm-truststore-mgr.mas-inst01-sls: ''
+    operators.coreos.com/ibm-truststore-mgr.mas-inst03-core: ''
+    operators.coreos.com/ibm-truststore-mgr.mas-inst03-facilities: ''
+    operators.coreos.com/ibm-truststore-mgr.mas-inst03-manage: ''
+  name: truststores.truststore-mgr.ibm.com
+spec:
+  conversion:
+    strategy: None
+  group: truststore-mgr.ibm.com
+  names:
+    kind: Truststore
+    listKind: TruststoreList
+    plural: truststores
+    singular: truststore
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The version of IBM Truststore Manager that processed the truststore
+      jsonPath: .status.versions.reconciled
+      name: version
+      type: string
+    - description: Overall status of the truststore
+      jsonPath: .status.conditions[?(@.type=='Ready')].reason
+      name: status
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: age
+      type: date
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: Truststore is the Schema for the truststores API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the desired state of Truststore
+            properties:
+              certificates:
+                items:
+                  properties:
+                    alias:
+                      description: Alias of the certificate to install into the truststore.
+                        The behavious is undefined if you include two certificates
+                        with the same alias in this list.
+                      type: string
+                    crt:
+                      description: A public certificate to install into the truststore
+                      type: string
+                  required:
+                  - alias
+                  - crt
+                  type: object
+                type: array
+              includeDefaultCAs:
+                type: boolean
+              license:
+                properties:
+                  accept:
+                    type: boolean
+                required:
+                - accept
+                type: object
+              servers:
+                items:
+                  description: Server identity (in the format "host:port")
+                  type: string
+                type: array
+              settings:
+                description: Optional settings to tweak the behaviour of the operator
+                properties:
+                  imagePullPolicy:
+                    description: Provide an alternative image pull policy for worker
+                      job (defaults to IfNotPresent)
+                    type: string
+                  imagePullSecret:
+                    description: Provide the name of a docker secret to use to pull
+                      worker image from an alternative registry (not required with
+                      icr.io)
+                    type: string
+                  registry:
+                    description: Alternative registry to pull worker container image
+                      (defaults to icr.io)
+                    type: string
+                type: object
+            required:
+            - license
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+          status:
+            description: Status defines the observed state of Truststore
+            properties:
+              managedResources:
+                items:
+                  type: string
+                type: array
+              truststore:
+                properties:
+                  fips:
+                    type: boolean
+                  jks:
+                    properties:
+                      checksum:
+                        description: SHA256 checksum for the truststore
+                        type: string
+                      content:
+                        description: Textual description of the contents of the truststore
+                        type: string
+                    type: object
+                  p12:
+                    properties:
+                      checksum:
+                        description: SHA256 checksum for the truststore
+                        type: string
+                      content:
+                        description: Textual description of the contents of the truststore
+                        type: string
+                    type: object
+                  secret:
+                    description: Name of the secret containing the truststore
+                    type: string
+                type: object
+              versions:
+                properties:
+                  reconciled:
+                    type: string
+                required:
+                - reconciled
+                type: object
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

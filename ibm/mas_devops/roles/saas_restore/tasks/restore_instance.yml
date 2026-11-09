@@ -1,0 +1,26 @@
+---
+# Restore one instance from the extracted archive with the existing restore roles.
+# The extracted layout matches what suite_backup / suite_app_backup wrote, so the roles consume it unchanged:
+#   <extract_root>/openshift/<instance>/backup-<created_utc>-suite
+#   <extract_root>/openshift/<instance>/backup-<created_utc>-app-manage
+# -----------------------------------------------------------------------------
+- name: "[{{ _sr_inst }}] Restore Suite (core) resources"
+  ansible.builtin.include_role:
+    name: ibm.mas_devops.suite_restore
+  vars:
+    mas_instance_id: "{{ _sr_inst }}"
+    mas_backup_dir: "{{ _sr_decrypt.extract_root }}/openshift/{{ _sr_inst }}"
+    suite_backup_version: "{{ _sr_decrypt.backup_metadata.created_utc }}"
+
+- name: "[{{ _sr_inst }}] Restore Manage resources"
+  ansible.builtin.include_role:
+    name: ibm.mas_devops.suite_app_restore
+  vars:
+    mas_instance_id: "{{ _sr_inst }}"
+    mas_workspace_id: "{{ _sr_details.workspace_id | default('', true) }}"
+    mas_app_id: manage
+    mas_backup_dir: "{{ _sr_decrypt.extract_root }}/openshift/{{ _sr_inst }}"
+    mas_app_backup_version: "{{ _sr_decrypt.backup_metadata.created_utc }}"
+    # The SaaS backup never includes persistent volume data
+    mas_app_restore_include_pvc: false
+  when: _sr_details.manage_backup_path | default(none) is not none

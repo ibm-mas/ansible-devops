@@ -48,3 +48,15 @@ saas_backup_include_manual_certs: "{{ lookup('env', 'SAAS_BACKUP_INCLUDE_MANUAL_
 # Requires the cluster's saas-envs cluster-params.yaml to declare secrets.avp_type: aws.
 # The credentials used to run the aws CLI come from the ambient AWS environment and are never stored in the archive.
 saas_backup_aws_secret_ids: "{{ lookup('env', 'SAAS_BACKUP_AWS_SECRET_IDS') }}"
+
+# Backup encryption (optional, ML-KEM-768 + HKDF-SHA256 + AES-256-GCM, performed on the Ansible controller)
+# -----------------------------------------------------------------------------
+# When true the finished .tar.gz is encrypted to <archive>.tar.gz.enc (+ .sha256). The plaintext .tar.gz and its
+# .sha256 sidecar are automatically removed after encryption and verification succeed. If encryption fails,
+# the plaintext archive is retained for recovery/debugging.
+# Requires the 'cryptography' Python package and OpenSSL 3.5+ with ML-KEM-768 on the machine running ansible-playbook.
+saas_backup_encryption_enabled: "{{ lookup('env', 'SAAS_BACKUP_ENCRYPTION_ENABLED') | default('false', true) | bool }}"
+# Absolute path of the persistent ML-KEM-768 PUBLIC key (PEM). The private key is never needed by the backup.
+saas_backup_encryption_public_key_path: "{{ lookup('env', 'SAAS_BACKUP_ENCRYPTION_PUBLIC_KEY_PATH') }}"
+# Encrypted output file, must end with .tar.gz.enc. Empty means the archive path plus '.enc'.
+saas_backup_encryption_output_path: "{{ lookup('env', 'SAAS_BACKUP_ENCRYPTION_OUTPUT_PATH') }}"

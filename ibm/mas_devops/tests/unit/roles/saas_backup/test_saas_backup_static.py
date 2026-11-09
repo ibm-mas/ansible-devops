@@ -6,9 +6,11 @@ explicit workspace ID, nothing is auto-discovered, failures are never swallowed,
 archive is produced by the packaging plugin after all collection steps.
 """
 
+import ast
 from pathlib import Path
 from typing import Any, Dict, List
 
+import jinja2
 import pytest
 import yaml
 
@@ -140,7 +142,8 @@ def test_no_task_swallows_a_failure_without_a_matching_fail():
                 registered = task["register"]
                 if registered in VERSION_ONLY_REGISTERS:
                     continue
-                following = tasks[index + 1 :]
+                next_index = index + 1
+                following = tasks[next_index:]
                 registered = CHECKED_VIA_SUMMARY.get(registered, registered)
                 assert any(
                     registered in str(t) for t in following if "ansible.builtin.fail" in t or "ansible.builtin.assert" in t or "failed_when" in t
@@ -172,7 +175,8 @@ def test_packaging_is_the_last_collection_step_and_cleanup_follows_success():
 
     GIVEN main.yml
     WHEN the block order is inspected
-    THEN packaging happens after the instance and AWS collection, the rescue removes the work directory and fails the play,
+    THEN packaging happens after the instance and AWS collection, optional encryption and verification follow it inside the block,
+         the rescue removes the work directory and fails the play,
          and the work directory is only removed after the block succeeds.
     """
     main = loadYaml(ROLE / "tasks" / "main.yml")
@@ -181,7 +185,10 @@ def test_packaging_is_the_last_collection_step_and_cleanup_follows_success():
     package = next(t for t in block["block"] if "ibm.mas_devops.package_saas_backup" in t)
 
     assert names.index("Back up instance") < names.index("Collect explicitly listed AWS secrets") < names.index(package["name"])
-    assert names.index(package["name"]) == len(names) - 1
+    encrypt = next(t for t in block["block"] if "ibm.mas_devops.encrypt_saas_backup" in t)
+    assert names.index(encrypt["name"]) == names.index(package["name"]) + 1
+    assert encrypt["when"] == "saas_backup_encryption_enabled | bool"
+    assert encrypt["register"] == "_sb_encryption"
     assert [list(t)[1] for t in block["rescue"]] == ["ansible.builtin.file", "ansible.builtin.fail"]
     assert main.index(block) < next(i for i, t in enumerate(main) if t.get("name") == "Remove the work directory")
     assert package["ibm.mas_devops.package_saas_backup"]["metadata"]["scope"]["auto_discover_secrets"] is False
@@ -238,3 +245,216 @@ def test_aws_secrets_only_read_explicit_ids_and_check_cluster_provider():
     assert argv[:3] == ["aws", "secretsmanager", "get-secret-value"]
     assert "list-secrets" not in yaml.dump(tasks)
     assert any("avp_type" in c and "'aws'" in c for c in asserted)
+
+
+def test_encryption_is_opt_in_and_never_needs_the_private_key():
+    """Test the encryption defaults and wiring.
+
+    GIVEN the role defaults and main.yml
+    WHEN the encryption variables and task are inspected
+    THEN encryption defaults to false, only a public key is configured, and the output defaults to the archive plus .enc.
+    """
+    defaults = loadYaml(ROLE / "defaults" / "main.yml")
+    main = loadYaml(ROLE / "tasks" / "main.yml")
+    block = next(t for t in main if "block" in t)
+    encrypt = next(t for t in block["block"] if "ibm.mas_devops.encrypt_saas_backup" in t)
+    args = encrypt["ibm.mas_devops.encrypt_saas_backup"]
+
+    assert "SAAS_BACKUP_ENCRYPTION_ENABLED" in defaults["saas_backup_encryption_enabled"]
+    assert "default('false', true) | bool" in defaults["saas_backup_encryption_enabled"]
+    assert "SAAS_BACKUP_ENCRYPTION_PUBLIC_KEY_PATH" in defaults["saas_backup_encryption_public_key_path"]
+    assert not [k for k in defaults if "private" in k]
+    assert set(args) == {"archive_path", "public_key_path", "output_path"}
+    assert args["archive_path"] == "{{ _sb_package.archive_path }}"
+    assert "_sb_package.archive_path ~ '.enc'" in args["output_path"]
+    assert "private" not in yaml.dump(encrypt).lower()
+
+
+def test_post_encryption_verification_validates_existence_non_empty_and_checksum_match():
+    """Test post-encryption verification tasks before plaintext removal.
+
+    GIVEN main.yml
+    WHEN the post-encryption verification tasks are inspected
+    THEN stat and slurp tasks verify the encrypted archive and sidecar exist, size is > 0, and checksums match before cleanup.
+    """
+    main = loadYaml(ROLE / "tasks" / "main.yml")
+    block = next(t for t in main if "block" in t)
+    tasks = block["block"]
+
+    stat_enc = findTask(tasks, "Stat the encrypted archive for post-encryption verification")
+    stat_sidecar = findTask(tasks, "Stat the encrypted archive checksum sidecar")
+    read_sidecar = findTask(tasks, "Read the encrypted archive checksum sidecar")
+    verify = findTask(tasks, "Verify encrypted archive and checksum sidecar before removing plaintext")
+
+    assert stat_enc["ansible.builtin.stat"]["path"] == "{{ _sb_encryption.encrypted_archive_path }}"
+    assert stat_enc["ansible.builtin.stat"]["get_checksum"] is True
+    assert stat_enc["when"] == "saas_backup_encryption_enabled | bool"
+
+    assert stat_sidecar["ansible.builtin.stat"]["path"] == "{{ _sb_encryption.encrypted_archive_checksum_file }}"
+    assert stat_sidecar["when"] == "saas_backup_encryption_enabled | bool"
+
+    assert read_sidecar["ansible.builtin.slurp"]["src"] == "{{ _sb_encryption.encrypted_archive_checksum_file }}"
+
+    asserted = verify["ansible.builtin.assert"]["that"]
+    assert any("not (_sb_encryption.failed" in c for c in asserted)
+    assert any("_sb_enc_stat.stat.exists" in c for c in asserted)
+    assert any("_sb_enc_stat.stat.isreg" in c for c in asserted)
+    assert any("_sb_enc_stat.stat.size" in c and "> 0" in c for c in asserted)
+    assert any("_sb_enc_sidecar_stat.stat.exists" in c for c in asserted)
+    assert any("_sb_enc_sidecar_stat.stat.isreg" in c for c in asserted)
+    assert any("_sb_enc_stat.stat.checksum" in c and "_sb_encryption.encrypted_archive_sha256" in c for c in asserted)
+    assert any("_sb_enc_sidecar_raw.content" in c and "_sb_encryption.encrypted_archive_sha256" in c for c in asserted)
+
+
+def test_successful_encryption_removes_exact_plaintext_archive_and_sidecar():
+    """Test plaintext cleanup upon successful encryption.
+
+    GIVEN main.yml
+    WHEN the plaintext cleanup task is inspected
+    THEN it runs only after verification and deletes exactly the plaintext archive and sidecar.
+    """
+    main = loadYaml(ROLE / "tasks" / "main.yml")
+    block = next(t for t in main if "block" in t)
+    tasks = block["block"]
+    names = [t["name"] for t in tasks]
+
+    verify_idx = names.index("Verify encrypted archive and checksum sidecar before removing plaintext")
+    cleanup = findTask(tasks, "Remove the plaintext backup archive and checksum")
+    cleanup_idx = names.index(cleanup["name"])
+
+    assert cleanup_idx > verify_idx
+    assert cleanup["when"] == "saas_backup_encryption_enabled | bool"
+    assert cleanup["ansible.builtin.file"]["state"] == "absent"
+    assert cleanup["loop"] == ["{{ _sb_package.archive_path }}", "{{ _sb_package.archive_checksum_file }}"]
+
+
+def test_cleanup_is_restricted_to_exact_current_backup_paths_without_wildcards():
+    """Test that cleanup never uses wildcards and targets only current backup paths.
+
+    GIVEN main.yml
+    WHEN all file deletion tasks are inspected
+    THEN no task uses wildcards in deletion paths, and only exact paths are targeted.
+    """
+    tasks = taskFile("main.yml")
+    deletion_tasks = [t for t in tasks if t.get("ansible.builtin.file", {}).get("state") == "absent"]
+
+    for task in deletion_tasks:
+        file_args = task["ansible.builtin.file"]
+        path = str(file_args.get("path", ""))
+        loop = str(task.get("loop", ""))
+        assert "*" not in path and "?" not in path
+        assert "*" not in loop and "?" not in loop
+
+
+def test_encrypted_archive_and_sidecar_are_never_deleted():
+    """Test that encrypted output files are never targeted for deletion.
+
+    GIVEN main.yml
+    WHEN all file deletion tasks and loops are inspected
+    THEN none of them reference _sb_encryption or .tar.gz.enc paths with state: absent.
+    """
+    tasks = taskFile("main.yml")
+    deletion_tasks = [t for t in tasks if t.get("ansible.builtin.file", {}).get("state") == "absent"]
+
+    for task in deletion_tasks:
+        serialized = yaml.dump(task)
+        assert "_sb_encryption" not in serialized
+        assert ".enc" not in serialized
+
+
+def test_encryption_and_verification_failure_preserves_plaintext_archive():
+    """Test error handling when encryption or verification fails.
+
+    GIVEN main.yml
+    WHEN the rescue block is inspected
+    THEN only the temporary work directory is removed, and plaintext archive paths are never removed in rescue.
+    """
+    main = loadYaml(ROLE / "tasks" / "main.yml")
+    block = next(t for t in main if "block" in t)
+    rescue_tasks = block["rescue"]
+
+    deleted_paths = [t["ansible.builtin.file"]["path"] for t in rescue_tasks if t.get("ansible.builtin.file", {}).get("state") == "absent"]
+    assert deleted_paths == ["{{ _sb_work_dir }}"]
+    fail_task = next(t for t in rescue_tasks if "ansible.builtin.fail" in t)
+    assert "_sb_archive ~ ' was retained)'" in fail_task["ansible.builtin.fail"]["msg"]
+
+
+def test_summary_reports_encrypted_archive_and_plaintext_cleanup_confirmation():
+    """Test summary reporting when encryption is enabled.
+
+    GIVEN main.yml
+    WHEN the final debug summary task is inspected
+    THEN it reports encrypted archive path, size, sha256, and confirms plaintext cleanup when encryption is enabled.
+    """
+    task = findTask(taskFile("main.yml"), "Backup complete")
+    msg = task["ansible.builtin.debug"]["msg"]
+
+    assert "_sb_encryption.encrypted_archive_path" in msg
+    assert "_sb_encryption.encrypted_archive_size" in msg
+    assert "_sb_encryption.encrypted_archive_sha256" in msg
+    assert "Plaintext cleanup:" in msg
+
+
+def test_original_plaintext_sha256_is_preserved_before_cleanup_as_digest_only():
+    """Test the plaintext digest is captured before the plaintext files are removed.
+
+    GIVEN main.yml
+    WHEN the digest-preservation task and the cleanup task are inspected
+    THEN the digest is stored as a fact from the packaging result before cleanup, and no file copy is made.
+    """
+    block = next(t for t in loadYaml(ROLE / "tasks" / "main.yml") if "block" in t)
+    tasks = block["block"]
+    names = [t["name"] for t in tasks]
+
+    preserve = findTask(tasks, "Preserve the original plaintext archive SHA-256")
+    cleanup = findTask(tasks, "Remove the plaintext backup archive and checksum")
+
+    assert names.index(preserve["name"]) < names.index(cleanup["name"])
+    assert preserve["ansible.builtin.set_fact"] == {"_sb_plaintext_sha256": "{{ _sb_package.archive_sha256 }}"}
+    assert preserve["when"] == "saas_backup_encryption_enabled | bool"
+    assert not any(k in preserve for k in ("ansible.builtin.copy", "ansible.builtin.file"))
+
+
+def test_summary_reports_original_sha256_after_plaintext_cleanup():
+    """Test the rendered final summary after the plaintext files no longer exist.
+
+    GIVEN the "Backup complete" message template and facts as they exist after plaintext cleanup
+    WHEN the template is rendered
+    THEN it contains the original plaintext SHA-256, encrypted path, size, SHA-256 and the cleanup status.
+    """
+    msg = findTask(taskFile("main.yml"), "Backup complete")["ansible.builtin.debug"]["msg"]
+    plain_sha = "a" * 64
+    enc_sha = "b" * 64
+    variables = {
+        "saas_backup_account": "acc",
+        "saas_backup_region": "reg",
+        "saas_backup_cluster": "cl",
+        "saas_backup_encryption_enabled": True,
+        "_sb_instances": ["inst01"],
+        "_sb_warnings": [],
+        "_sb_plaintext_sha256": plain_sha,
+        "_sb_package": {
+            "archive_path": "/out/x.tar.gz",
+            "archive_checksum_file": "/out/x.tar.gz.sha256",
+            "archive_sha256": plain_sha,
+        },
+        "_sb_encryption": {
+            "encrypted_archive_path": "/out/x.tar.gz.enc",
+            "encrypted_archive_size": 1234,
+            "encrypted_archive_sha256": enc_sha,
+            "encrypted_archive_checksum_file": "/out/x.tar.gz.enc.sha256",
+            "key_encapsulation_algorithm": "ML-KEM-768",
+            "key_derivation_algorithm": "HKDF-SHA256",
+            "encryption_algorithm": "AES-256-GCM",
+        },
+    }
+    env = jinja2.Environment(undefined=jinja2.StrictUndefined)
+    env.filters["bool"] = bool
+    lines = ast.literal_eval(env.from_string(msg).render(**variables))
+    text = "\n".join(str(line) for line in lines)
+
+    assert f"Original plaintext archive SHA-256: {plain_sha}" in text
+    assert "Encrypted archive: /out/x.tar.gz.enc" in text
+    assert "Encrypted archive size: 1234 bytes" in text
+    assert f"Encrypted archive SHA-256: {enc_sha}" in text
+    assert "Plaintext cleanup: plaintext archive /out/x.tar.gz and sidecar removed" in text

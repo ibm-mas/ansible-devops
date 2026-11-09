@@ -1,0 +1,395 @@
+apiVersion: v1
+data:
+  supportedApplications.yaml: |
+    # Important: releases should always be written as a string ("8.0", not 8.0)
+    # - Releases are abstract concepts: 8.0, 8.1, 9.0
+    # - Support is defined at a release level: 8.0 being supported means all 8.0.x versions are supported
+    #
+    # Config scopes:
+    # - system = GET https://api.masdomain/config/id
+    # - application = GET https://api.masdomain/applications/appId/config/id
+    # - workspace = GET https://api.masdomain/workspaces/wsId/config/id
+    # - workspace-application = GET https://api.masdomain/workspaces/wsId/applications/appId/config/id
+
+    # Certificate configuration scope:
+    # - application = One or multiple secrets managed by the application main operator
+    # - workspace = One or multiple secrets managed by the application workspace operator
+    # Certificate configuration variables:
+    # inst01: This var will be replaced by ibm-mas-operator automatically
+    # WORKSPACE_ID: This var will be replaced by coreapi on the fly to split the secret in multiple
+    #               instances depending on the workspaces available in the environment.
+    #e.:
+    # certificates:
+    #     application:
+    #         public:
+    #             secretNames:
+    #             - "inst01-public-tls"
+    #     workspace:
+    #         public:
+    #             secretNames:
+    #             - "inst01-WORKSPACE_ID-public-tls"
+
+    # IoT
+    # -----------------------------------------------------------------------------
+    iot:
+      id: iot
+      name: IoT
+      category: tool
+      crds:
+        application: iots.iot.ibm.com
+        workspace: iotworkspaces.iot.ibm.com
+      supportedReleases:
+        - release: "9.1"
+          config:
+            - id: mongo
+              scope: system
+              required: true
+            - id: kafka
+              scope: system
+              required: true
+            - id: jdbc
+              scope: system
+              required: true
+          integratesWith:
+            - appId: monitor
+              required: false
+              supportedReleases:
+                - "9.0"
+                - "9.1"
+        - release: "9.2"
+          config:
+            - id: mongo
+              scope: system
+              required: true
+            - id: kafka
+              scope: system
+              required: true
+            - id: jdbc
+              scope: system
+              required: true
+          integratesWith:
+            - appId: monitor
+              required: true
+              supportedReleases:
+                - "9.2"
+          certificates:
+            application:
+              public:
+                secretNames:
+                  - "inst01-public-tls"
+    # Health
+    # -----------------------------------------------------------------------------
+    health:
+      id: health
+      name: Health
+      category: application
+      crds:
+        application: healthapps.apps.mas.ibm.com
+        workspace: healthworkspaces.apps.mas.ibm.com
+      supportedReleases:
+        - release: "9.1"
+          integratesWith:
+            - appId: optimizer
+              required: false
+              supportedReleases:
+                - "8.2"
+                - "8.3"
+                - "8.4"
+                - "9.0"
+          certificates:
+            workspace:
+              public:
+                secretNames:
+                  - "inst01-WORKSPACE_ID-cert-public-81"
+        - release: "9.2"
+          integratesWith:
+            - appId: optimizer
+              required: false
+              supportedReleases:
+                - "8.2"
+                - "8.3"
+                - "8.4"
+                - "9.0"
+          certificates:
+            workspace:
+              public:
+                secretNames:
+                  - "inst01-WORKSPACE_ID-cert-public-81"
+    # Manage
+    # -----------------------------------------------------------------------------
+    manage:
+      id: manage
+      name: Manage
+      category: application
+      crds:
+        application: manageapps.apps.mas.ibm.com
+        workspace: manageworkspaces.apps.mas.ibm.com
+      supportedReleases:
+        - release: "9.1"
+          integratesWith:
+            - appId: optimizer
+              required: false
+              supportedReleases:
+                - "8.3"
+                - "8.4"
+                - "9.0"
+          certificates:
+            workspace:
+              public:
+                secretNames:
+                  - "inst01-WORKSPACE_ID-cert-public-81"
+        - release: "9.2"
+          integratesWith:
+            - appId: optimizer
+              required: false
+              supportedReleases:
+                - "8.3"
+                - "8.4"
+                - "9.0"
+          certificates:
+            workspace:
+              public:
+                secretNames:
+                  - "inst01-WORKSPACE_ID-cert-public-81"
+    # Monitor
+    # -----------------------------------------------------------------------------
+    monitor:
+      id: monitor
+      name: Monitor
+      category: application
+      crds:
+        application: monitorapps.apps.mas.ibm.com
+        workspace: monitorworkspaces.apps.mas.ibm.com
+      supportedReleases:
+        - release: "9.1"
+          config:
+            - id: mongo
+              scope: system
+              required: true
+            - id: kafka
+              scope: system
+              required: true
+            - id: jdbc
+              scope: system
+              required: true
+          integratesWith:
+            - appId: iot
+              required: true
+              supportedReleases:
+                - "9.0"
+                - "9.1"
+          certificates:
+            application:
+              public:
+                secretNames:
+                  - "inst01-public-tls"
+        - release: "9.2"
+          config:
+            - id: mongo
+              scope: system
+              required: true
+            - id: kafka
+              scope: system
+              required: false
+            - id: jdbc
+              scope: system
+              required: true
+          integratesWith:
+            - appId: iot
+              required: false
+              supportedReleases:
+                - "9.1"
+                - "9.2"
+          certificates:
+            application:
+              public:
+                secretNames:
+                  - "inst01-public-tls"
+
+    # Predict
+    # -----------------------------------------------------------------------------
+    predict:
+      id: predict
+      name: Predict
+      category: application
+      crds:
+        application: predictapps.apps.mas.ibm.com
+        workspace: predictworkspaces.apps.mas.ibm.com
+      supportedReleases:
+        - release: "9.1"
+          config:
+            - id: jdbc
+              scope: system
+              required: true
+          integratesWith:
+            - appId: health
+              required: true
+              supportedReleases:
+                - "8.7"
+                - "9.0"
+                - "9.1"
+            - appId: monitor
+              required: true
+              supportedReleases:
+                - "8.11"
+                - "9.0"
+                - "9.1"
+          certificates:
+            application:
+              public:
+                secretNames:
+                  - "inst01-public-predict-tls"
+        - release: "9.2"
+          config:
+            - id: jdbc
+              scope: system
+              required: true
+          integratesWith:
+            - appId: health
+              required: true
+              supportedReleases:
+                - "8.7"
+                - "9.0"
+                - "9.1"
+                - "9.2"
+            - appId: monitor
+              required: true
+              supportedReleases:
+                - "8.11"
+                - "9.0"
+                - "9.1"
+                - "9.2"
+          certificates:
+            application:
+              public:
+                secretNames:
+                  - "inst01-public-predict-tls"
+    # Facilities
+    # ------------------------------------------------------------------------------
+    facilities:
+      id: facilities
+      name: Facilities
+      category: application
+      crds:
+        application: facilitiesapps.apps.mas.ibm.com
+        workspace: facilitiesworkspaces.apps.mas.ibm.com
+      supportedReleases:
+        - release: "9.1"
+          certificates:
+            workspace:
+              public:
+                secretNames:
+                  - "inst01-WORKSPACE_ID-public-facilities-tls"
+        - release: "9.2"
+          certificates:
+            workspace:
+              public:
+                secretNames:
+                  - "inst01-WORKSPACE_ID-public-facilities-tls"
+    # Visual Inspection
+    # -----------------------------------------------------------------------------
+    visualinspection:
+      id: visualinspection
+      name: Visual Inspection
+      category: application
+      crds:
+        application: visualinspectionapps.apps.mas.ibm.com
+        workspace: visualinspectionappworkspaces.apps.mas.ibm.com
+      supportedReleases:
+        - release: "9.1"
+          config:
+            - id: edge
+              scope: application
+              required: false
+            - id: mongo
+              scope: system
+              required: true
+          certificates:
+            application:
+              public:
+                secretNames:
+                  - "public-visualinspection-tls"
+        - release: "9.2"
+          config:
+            - id: edge
+              scope: application
+              required: false
+            - id: mongo
+              scope: system
+              required: true
+          certificates:
+            application:
+              public:
+                secretNames:
+                  - "public-visualinspection-tls"
+
+    # Assist
+    # -----------------------------------------------------------------------------
+    assist:
+      id: assist
+      name: Assist
+      category: application
+      crds:
+        application: assistapps.apps.mas.ibm.com
+        workspace: assistworkspaces.apps.mas.ibm.com
+      supportedReleases:
+        - release: "9.0"
+          config:
+            - id: objectstorage
+              scope: system
+              required: true
+          certificates:
+            application:
+              public:
+                secretNames:
+                  - "public-assist-tls"
+        - release: "9.1"
+          config:
+            - id: objectstorage
+              scope: system
+              required: true
+          certificates:
+            application:
+              public:
+                secretNames:
+                  - "public-assist-tls"
+
+    # Maximo Optimizer
+    # -----------------------------------------------------------------------------
+    optimizer:
+      id: optimizer
+      name: Optimizer
+      category: application
+      crds:
+        application: optimizerapps.apps.mas.ibm.com
+        workspace: optimizerworkspaces.apps.mas.ibm.com
+      supportedReleases:
+        - release: "9.1"
+          config:
+            - id: mongo
+              scope: system
+              required: true
+          certificates:
+            application:
+              public:
+                secretNames:
+                  - "inst01-cert-optimizer-public"
+        - release: "9.2"
+          config:
+            - id: mongo
+              scope: system
+              required: true
+          certificates:
+            application:
+              public:
+                secretNames:
+                  - "inst01-cert-optimizer-public"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: inst01
+    app.kubernetes.io/managed-by: ibm-mas
+    app.kubernetes.io/name: ibm-mas
+    mas.ibm.com/instanceId: inst01
+  name: inst01-supported-applications
+  namespace: mas-inst01-core

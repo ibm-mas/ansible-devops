@@ -1,0 +1,101 @@
+---
+# SaaS restore: verify, decrypt and (optionally) restore an encrypted backup produced by br_saas_backup
+# =============================================================================
+# decrypt_only: checksum -> ML-KEM-768 decapsulation + AES-256-GCM authentication -> SHA256SUMS manifest -> metadata report.
+#               OpenShift is never contacted and nothing is restored.
+# full_restore: the same validation first, then the existing suite_restore / suite_app_restore roles restore the OpenShift
+#               resources of each selected instance from the validated, extracted archive.
+#
+# All decrypted data lives in a private (0700) work directory that is always removed at the end of the run, also on failure.
+# The encrypted backup, its sidecar and the private key are never modified or deleted.
+
+# 1. Inputs
+# -----------------------------------------------------------------------------
+- name: "Validate inputs"
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_inputs.yml"
+
+- name: "Check the encrypted backup, its sidecar and the private key exist"
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ saas_restore_encrypted_archive_path }}"
+    - "{{ saas_restore_encrypted_archive_path }}.sha256"
+    - "{{ saas_restore_private_key_path }}"
+  register: _sr_input_stat
+
+- name: "Fail if an input file is missing"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - item.stat.exists
+      - item.stat.isreg
+    fail_msg: "Required input file '{{ item.item }}' does not exist or is not a regular file"
+  loop: "{{ _sr_input_stat.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+# 2. Verify, decrypt, validate (and extract for full_restore); the work directory is removed in 'always'
+# -----------------------------------------------------------------------------
+- name: "Decrypt, validate and restore"
+  block:
+    - name: "Verify the checksum, decrypt, authenticate and validate the backup"
+      ibm.mas_devops.decrypt_saas_backup:
+        encrypted_archive_path: "{{ saas_restore_encrypted_archive_path }}"
+        private_key_path: "{{ saas_restore_private_key_path }}"
+        output_dir: "{{ saas_restore_output_dir | default('', true) }}"
+        extract: "{{ saas_restore_mode == 'full_restore' }}"
+      register: _sr_decrypt
+
+    - name: "Assert that every integrity check passed and the backup matches the request"
+      ansible.builtin.assert:
+        quiet: true
+        that:
+          - _sr_decrypt.integrity_verified | default(false)
+          - _sr_decrypt.authentication_verified | default(false)
+          - saas_restore_cluster | default('', true) | length == 0 or saas_restore_cluster == _sr_decrypt.backup_metadata.cluster
+          - _sr_instances | difference(_sr_decrypt.backup_metadata.instances) | length == 0
+        fail_msg: >-
+          The backup does not match the request: it is for cluster '{{ _sr_decrypt.backup_metadata.cluster | default('unknown') }}' with
+          instances {{ _sr_decrypt.backup_metadata.instances | default([]) }}, but SAAS_RESTORE_CLUSTER='{{ saas_restore_cluster }}' and
+          SAAS_RESTORE_INSTANCES={{ _sr_instances }}. Nothing was restored.
+
+    - name: "Report the verified backup"
+      ansible.builtin.debug:
+        msg:
+          - "Encrypted archive: {{ saas_restore_encrypted_archive_path }}"
+          - "Encrypted archive SHA-256 (matches sidecar): {{ _sr_decrypt.encrypted_archive_sha256 }}"
+          - "AES-256-GCM authentication: verified"
+          - "Decrypted archive SHA-256: {{ _sr_decrypt.decrypted_archive_sha256 }} ({{ _sr_decrypt.decrypted_archive_size }} bytes)"
+          - "SHA256SUMS manifest: {{ _sr_decrypt.manifest_file_count }} files verified"
+          - "Backup: {{ _sr_decrypt.backup_metadata.backup_type }} created {{ _sr_decrypt.backup_metadata.created_utc }}"
+          - "Account/region/cluster: {{ _sr_decrypt.backup_metadata.account }}/{{ _sr_decrypt.backup_metadata.region }}/{{ _sr_decrypt.backup_metadata.cluster }}"
+          - "Cluster API server: {{ _sr_decrypt.backup_metadata.cluster_api_server }}"
+          - "Instances: {{ _sr_decrypt.backup_metadata.instances | join(', ') }}"
+          - "Applications backed up per instance (same order): {{ _sr_decrypt.backup_metadata.instance_details | map(attribute='applications_backed_up') | list }}"
+          - "Contents: {{ _sr_decrypt.contents.file_count }} files, {{ _sr_decrypt.contents.files_by_section }}"
+          - "Warnings recorded at backup time: {{ _sr_decrypt.backup_metadata.warnings }}"
+
+    - name: "Restore the OpenShift resources (full_restore only)"
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/restore.yml"
+      when: saas_restore_mode == 'full_restore'
+
+  always:
+    - name: "Remove the decrypted plaintext work directory"
+      ibm.mas_devops.decrypt_saas_backup:
+        state: absent
+        work_dir: "{{ _sr_decrypt.work_dir }}"
+      when: _sr_decrypt.work_dir | default('', true) | length > 0
+
+# 3. Success summary (only reached when every step above succeeded)
+# -----------------------------------------------------------------------------
+- name: "SaaS restore complete"
+  ansible.builtin.debug:
+    msg: >-
+      {{
+        ['SaaS restore mode ' ~ saas_restore_mode ~ ' completed for ' ~ saas_restore_encrypted_archive_path]
+        + (['Restored OpenShift resources of instances ' ~ (_sr_instances | join(', ')) ~ ' using suite_restore and suite_app_restore.',
+            'NOT restored (no existing restore procedure): saas-envs and gitops-envs folders, AWS Secrets Manager secrets. They remain in the encrypted backup.']
+           if saas_restore_mode == 'full_restore' else
+           ['Decrypt-only: OpenShift was not contacted and nothing was restored.'])
+        + ['Decrypted plaintext removed; the encrypted backup and the private key were not modified.']
+      }}

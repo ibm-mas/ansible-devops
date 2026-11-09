@@ -1,0 +1,32 @@
+---
+# Mode
+# -----------------------------------------------------------------------------
+# decrypt_only (default): verify, decrypt, validate and report the backup. Nothing is restored and OpenShift is never contacted.
+# full_restore: do everything decrypt_only does, then restore the OpenShift resources with the existing suite_restore and
+#               suite_app_restore roles. Nothing is restored unless every integrity check passed.
+saas_restore_mode: "{{ lookup('env', 'SAAS_RESTORE_MODE') | default('decrypt_only', true) }}"
+
+# Inputs
+# -----------------------------------------------------------------------------
+# Absolute path of the encrypted backup (.tar.gz.enc) produced by br_saas_backup. Its .sha256 sidecar must sit next to it.
+saas_restore_encrypted_archive_path: "{{ lookup('env', 'SAAS_RESTORE_ENCRYPTED_ARCHIVE_PATH') }}"
+# Absolute path of the ML-KEM-768 PRIVATE key (PEM, unencrypted) matching the public key used for the backup.
+# Only the path is used; the key content is never read into Ansible variables, logged or copied.
+saas_restore_private_key_path: "{{ lookup('env', 'SAAS_RESTORE_PRIVATE_KEY_PATH') }}"
+
+# Directory that holds the private (0700) temporary work directory for decrypted data. Must exist and be an absolute path.
+# Empty means the system temporary directory. The work directory is always removed at the end of the run.
+saas_restore_output_dir: "{{ lookup('env', 'SAAS_RESTORE_OUTPUT_DIR') }}"
+
+# Selection
+# -----------------------------------------------------------------------------
+# Cluster ID expected in the backup. Required for full_restore; when set in decrypt_only it must match the backup.
+saas_restore_cluster: "{{ lookup('env', 'SAAS_RESTORE_CLUSTER') }}"
+# Comma separated list (or YAML list) of instance IDs to restore. Required for full_restore and every entry must be in the backup.
+# When set in decrypt_only it must be a subset of the backup's instances.
+saas_restore_instances: "{{ lookup('env', 'SAAS_RESTORE_INSTANCES') }}"
+
+# Explicit opt-out (full_restore only)
+# -----------------------------------------------------------------------------
+# Skip the check that the logged in cluster API URL equals cluster_api_server recorded in the backup metadata.
+saas_restore_skip_cluster_url_check: "{{ lookup('env', 'SAAS_RESTORE_SKIP_CLUSTER_URL_CHECK') | default('false', true) | bool }}"

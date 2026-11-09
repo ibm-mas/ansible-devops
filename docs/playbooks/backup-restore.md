@@ -555,3 +555,27 @@ ansible-playbook ibm.mas_devops.br_saas_backup
 
 Inputs, prerequisites, archive layout, how to inspect and verify the archive, failure behaviour and known limitations are documented in the
 [saas_backup role](../roles/saas_backup.md).
+
+
+SaaS Restore (encrypted archive)
+===============================================================================
+
+## Overview
+`br_saas_restore` works on the encrypted `.tar.gz.enc` produced by `br_saas_backup` with encryption enabled. It verifies the checksum, decrypts with the
+ML-KEM-768 private key, authenticates the data (AES-256-GCM) and verifies the internal `SHA256SUMS` before anything else happens.
+
+- `decrypt_only` (default): reports the backup contents and removes the plaintext. OpenShift is never contacted
+- `full_restore`: after all checks pass, restores the OpenShift resources with the existing `suite_restore` and `suite_app_restore` roles
+
+```bash
+export SAAS_RESTORE_ENCRYPTED_ARCHIVE_PATH=/var/backups/mas/saas-backup-aws-dev-us-east-2-fvtsaas-<timestamp>.tar.gz.enc
+export SAAS_RESTORE_PRIVATE_KEY_PATH=/secure/mlkem-private.pem
+ansible-playbook ibm.mas_devops.br_saas_restore                      # decrypt_only
+
+export SAAS_RESTORE_MODE=full_restore SAAS_RESTORE_CLUSTER=fvtsaas SAAS_RESTORE_INSTANCES=fvtsaas
+oc login ...
+ansible-playbook ibm.mas_devops.br_saas_restore                      # full_restore
+```
+
+The saas-envs/gitops-envs folders and AWS secrets in the archive are not restored. Requirements (OpenSSL 3.5+), variables, security and recovery notes and
+limitations are documented in the [saas_restore role](../roles/saas_restore.md).

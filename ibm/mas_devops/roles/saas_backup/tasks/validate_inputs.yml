@@ -115,3 +115,24 @@
       - _sb_aws_secret_ids | select('match', '^[A-Za-z0-9/_+=.@:-]+$') | list | length == _sb_aws_secret_ids | length
       - _sb_aws_secret_ids | unique | length == _sb_aws_secret_ids | length
     fail_msg: "SAAS_BACKUP_AWS_SECRET_IDS must be unique secret names/ARNs using only letters, digits and / _ + = . @ : -"
+
+- name: "Validate backup encryption inputs"
+  when: saas_backup_encryption_enabled | bool
+  block:
+    - name: "Check the encryption public key file exists"
+      ansible.builtin.stat:
+        path: "{{ saas_backup_encryption_public_key_path }}"
+      register: _sb_enc_key_stat
+      when: saas_backup_encryption_public_key_path | default('', true) is match('^/')
+
+    - name: "Validate encryption public key and output path"
+      ansible.builtin.assert:
+        quiet: true
+        that:
+          - saas_backup_encryption_public_key_path | default('', true) is match('^/')
+          - _sb_enc_key_stat.stat.isreg | default(false)
+          - saas_backup_encryption_output_path | default('', true) | length == 0 or saas_backup_encryption_output_path is match('^/.*\.tar\.gz\.enc$')
+        fail_msg: >-
+          SAAS_BACKUP_ENCRYPTION_ENABLED is true, so SAAS_BACKUP_ENCRYPTION_PUBLIC_KEY_PATH must be the absolute path of an existing
+          ML-KEM-768 public key file (got '{{ saas_backup_encryption_public_key_path | default('', true) }}'), and
+          SAAS_BACKUP_ENCRYPTION_OUTPUT_PATH, when set, must be an absolute path ending in .tar.gz.enc

@@ -1,0 +1,51 @@
+---
+# Validate and normalise the inputs. Nothing outside of this host is touched here and no key content is read.
+# -----------------------------------------------------------------------------
+- name: "Validate mode"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - saas_restore_mode in ['decrypt_only', 'full_restore']
+    fail_msg: "SAAS_RESTORE_MODE must be 'decrypt_only' (default) or 'full_restore' (got '{{ saas_restore_mode }}')"
+
+- name: "Normalise list inputs"
+  ansible.builtin.set_fact:
+    _sr_instances: >-
+      {{ (saas_restore_instances | default('', true)).split(',') if (saas_restore_instances | default('', true)) is string
+         else saas_restore_instances }}
+
+- name: "Trim list inputs"
+  ansible.builtin.set_fact:
+    _sr_instances: "{{ _sr_instances | map('string') | map('trim') | reject('equalto', '') | list }}"
+
+- name: "Validate paths"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - saas_restore_encrypted_archive_path | default('', true) is match('^/.*\.tar\.gz\.enc$')
+      - saas_restore_private_key_path | default('', true) is match('^/')
+      - saas_restore_output_dir | default('', true) | length == 0 or saas_restore_output_dir is match('^/')
+    fail_msg: >-
+      SAAS_RESTORE_ENCRYPTED_ARCHIVE_PATH must be an absolute path ending in .tar.gz.enc, SAAS_RESTORE_PRIVATE_KEY_PATH must be an
+      absolute path, and SAAS_RESTORE_OUTPUT_DIR, when set, must be an absolute path
+
+- name: "Validate selection"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - saas_restore_cluster | default('', true) | length == 0 or saas_restore_cluster is match('^[A-Za-z0-9][A-Za-z0-9._-]*$')
+      - _sr_instances | unique | length == _sr_instances | length
+      - _sr_instances | select('match', '^[A-Za-z0-9][A-Za-z0-9-]*$') | list | length == _sr_instances | length
+    fail_msg: >-
+      SAAS_RESTORE_CLUSTER may only contain letters, digits, '.', '_' and '-'; SAAS_RESTORE_INSTANCES must list unique instance IDs
+      using only letters, digits and '-' (got: {{ _sr_instances }})
+
+- name: "Validate that a full restore names its cluster and instances"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - saas_restore_cluster | default('', true) | length > 0
+      - _sr_instances | length > 0
+    fail_msg: >-
+      SAAS_RESTORE_MODE=full_restore requires SAAS_RESTORE_CLUSTER and SAAS_RESTORE_INSTANCES so that exactly what is restored is explicit
+  when: saas_restore_mode == 'full_restore'

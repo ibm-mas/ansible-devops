@@ -1,0 +1,332 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    app.kubernetes.io/instance: ibm-mas
+    app.kubernetes.io/managed-by: olm
+    app.kubernetes.io/name: ibm-mas
+    olm.managed: 'true'
+    operators.coreos.com/ibm-mas.mas-inst01-core: ''
+    operators.coreos.com/ibm-mas.mas-inst03-core: ''
+  name: slscfgs.config.mas.ibm.com
+spec:
+  conversion:
+    strategy: None
+  group: config.mas.ibm.com
+  names:
+    kind: SlsCfg
+    listKind: SlsCfgList
+    plural: slscfgs
+    singular: slscfg
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The version of the SLSCfg
+      jsonPath: .status.versions.reconciled
+      name: version
+      type: string
+    - description: Indicates the SLS integration operational status
+      jsonPath: .status.conditions[?(@.type=='Ready')].reason
+      name: status
+      type: string
+    - description: Indicates if a SLS client has been registered for MAS
+      jsonPath: .status.conditions[?(@.type=='Registered')].reason
+      name: registered
+      type: string
+    - description: Indicates if the license key for MAS is valid
+      jsonPath: .status.conditions[?(@.type=='LicenseKeyValid')].reason
+      name: licensekeyvalid
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: age
+      type: date
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: SlsCfg is the Schema for the slscfgs API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              certificates:
+                description: A list of aliases and PEM-formatted certificates representing
+                  a complete chain of trust for the host. Only necessary if the host
+                  presents a certificate signed by a CA that is not already trusted
+                  by MAS.
+                items:
+                  properties:
+                    alias:
+                      description: A human-readable alias for the certificate. Must
+                        be unique wrt the other aliases in this request.
+                      example: intermediate
+                      type: string
+                    crt:
+                      description: A SINGLE PEM-formatted certificate.
+                      example: '-----BEGIN CERTIFICATE-----MIIGxTCCBa2g...<snip>-----END
+                        CERTIFICATE-----'
+                      type: string
+                  required:
+                  - alias
+                  - crt
+                  type: object
+                type: array
+              config:
+                properties:
+                  credentials:
+                    properties:
+                      secretName:
+                        description: Name of the secret containing the key 'registrationKey'
+                        minLength: 1
+                        type: string
+                    required:
+                    - secretName
+                    type: object
+                  syncFrequency:
+                    description: The frequency at which the licensing sync CronJob
+                      should run.
+                    type: string
+                  syncSuspend:
+                    description: Indicates if the licensing sync CronJob should be
+                      turned off or suspended.
+                    type: boolean
+                  syncUserBatchSize:
+                    description: Licensing sync CronJob obtains all users by leveraging
+                      pagination supported by the users api. This parameter defines
+                      the batch size that should be returned by each call to the users
+                      api.
+                    type: integer
+                  url:
+                    description: SLS API URL
+                    type: string
+                required:
+                - url
+                - credentials
+                type: object
+              displayName:
+                description: Display name for the SLS configuration
+                maxLength: 160
+                minLength: 3
+                type: string
+              podTemplates:
+                description: Define desired state for pods.
+                items:
+                  properties:
+                    affinity:
+                      properties:
+                        nodeAffinity:
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                        podAffinity:
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                        podAntiAffinity:
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                      type: object
+                    containers:
+                      items:
+                        properties:
+                          name:
+                            description: Container name
+                            type: string
+                          resources:
+                            properties:
+                              limits:
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                              requests:
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
+                        type: object
+                      type: array
+                    hostAliases:
+                      description: Network configuration for hostname IP mapping.
+                      items:
+                        properties:
+                          hostnames:
+                            items:
+                              description: List of hostnames mapped to the specified
+                                IP address.
+                              type: string
+                            type: array
+                          ip:
+                            description: IP address to map the hostnames.
+                            type: string
+                        type: object
+                      type: array
+                    initContainers:
+                      items:
+                        properties:
+                          name:
+                            description: InitContainer name
+                            type: string
+                          resources:
+                            properties:
+                              limits:
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                              requests:
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
+                        type: object
+                      type: array
+                    name:
+                      description: Pod name
+                      type: string
+                    replicas:
+                      description: Pod replicas size
+                      type: integer
+                    tolerations:
+                      items:
+                        properties:
+                          key:
+                            type: string
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      type: array
+                  required:
+                  - name
+                  type: object
+                type: array
+            required:
+            - displayName
+            - config
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+          status:
+            description: Status defines the observed state of SlsCfg
+            properties:
+              config:
+                properties:
+                  clientId:
+                    description: SLS Client ID
+                    type: string
+                  credentials:
+                    properties:
+                      secretName:
+                        description: Name of the secret that holds SLS certificates
+                          for mutual TLS
+                        type: string
+                    required:
+                    - secretName
+                    type: object
+                  url:
+                    description: SLS API URL
+                    type: string
+                required:
+                - url
+                - clientId
+                - credentials
+                type: object
+              podTemplates:
+                description: Define desired state for pods.
+                items:
+                  properties:
+                    affinity:
+                      properties:
+                        nodeAffinity:
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                        podAffinity:
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                        podAntiAffinity:
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                      type: object
+                    containers:
+                      items:
+                        properties:
+                          name:
+                            description: Container name
+                            type: string
+                          resources:
+                            properties:
+                              limits:
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                              requests:
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
+                        type: object
+                      type: array
+                    hostAliases:
+                      description: Network configuration for hostname IP mapping.
+                      items:
+                        properties:
+                          hostnames:
+                            items:
+                              description: List of hostnames mapped to the specified
+                                IP address.
+                              type: string
+                            type: array
+                          ip:
+                            description: IP address to map the hostnames.
+                            type: string
+                        type: object
+                      type: array
+                    initContainers:
+                      items:
+                        properties:
+                          name:
+                            description: InitContainer name
+                            type: string
+                          resources:
+                            properties:
+                              limits:
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                              requests:
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
+                        type: object
+                      type: array
+                    name:
+                      description: Pod name
+                      type: string
+                    replicas:
+                      description: Pod replicas size
+                      type: integer
+                    tolerations:
+                      items:
+                        properties:
+                          key:
+                            type: string
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      type: array
+                  required:
+                  - name
+                  type: object
+                type: array
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+        required:
+        - apiVersion
+        - kind
+        - metadata
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

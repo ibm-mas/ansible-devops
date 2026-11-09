@@ -18,6 +18,31 @@ if plugins_action_path not in sys.path:
     sys.path.insert(0, plugins_action_path)
 
 
+# Make the collection's module_utils importable under their collection path
+# (ansible_collections.ibm.mas_devops.plugins.module_utils.<name>) as action plugins import them.
+def _register_module_utils(name):
+    import importlib.util
+    import types
+    full_name = f'ansible_collections.ibm.mas_devops.plugins.module_utils.{name}'
+    if full_name in sys.modules:
+        return
+    path = os.path.abspath(os.path.join(os.path.dirname(__file__), f'../../../../plugins/module_utils/{name}.py'))
+    parts = full_name.split('.')
+    for i in range(1, len(parts)):
+        parent = '.'.join(parts[:i])
+        if parent not in sys.modules:
+            pkg = types.ModuleType(parent)
+            pkg.__path__ = []
+            sys.modules[parent] = pkg
+    spec = importlib.util.spec_from_file_location(full_name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[full_name] = module
+    spec.loader.exec_module(module)
+
+
+_register_module_utils('saas_backup_encryption')
+
+
 @pytest.fixture
 def action_module_base(mock_task):
     """

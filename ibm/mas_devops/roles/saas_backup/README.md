@@ -49,6 +49,8 @@ Prerequisites
 - The Ansible collection `kubernetes.core` and its Python client
 - `aws` CLI with credentials in the environment, only when `SAAS_BACKUP_AWS_SECRET_IDS` is set
 - `tar` is not required to create the archive; it is used below to inspect it
+- Only when `SAAS_BACKUP_ENCRYPTION_ENABLED=true`: on the machine running `ansible-playbook`, the Python package `cryptography` (>= 42.0.0, see `requirements.txt`) and
+  **OpenSSL 3.5 or later with ML-KEM-768 support** (`openssl list -kem-algorithms` must list `ML-KEM-768` and `openssl pkeyutl -help` must list `-encap`). The run fails with a clear error otherwise
 
 Role Variables
 -------------------------------------------------------------------------------
@@ -77,6 +79,31 @@ Provide exactly one of the URL or the checkout for each repository. A URL requir
 
 For an existing checkout the commit SHA and branch are read from it, and the run fails when the snapshotted folder has uncommitted changes.
 
+### Encryption (optional)
+
+| Variable (environment variable) | Default | Description |
+| --- | --- | --- |
+| `saas_backup_encryption_enabled` (`SAAS_BACKUP_ENCRYPTION_ENABLED`) | `false` | Encrypt the finished archive to `<archive>.tar.gz.enc` |
+| `saas_backup_encryption_public_key_path` (`SAAS_BACKUP_ENCRYPTION_PUBLIC_KEY_PATH`) | | Required when enabled. Absolute path of the persistent ML-KEM-768 **public** key (PEM) |
+| `saas_backup_encryption_output_path` (`SAAS_BACKUP_ENCRYPTION_OUTPUT_PATH`) | archive path + `.enc` | Optional absolute path ending in `.tar.gz.enc` |
+
+Encryption runs on the Ansible controller inside the same block as packaging, immediately after it, so a failure fails the backup. It uses ML-KEM-768
+(OpenSSL `pkeyutl -encap`), HKDF-SHA256 and AES-256-GCM in 1 MiB chunks; the whole header is authenticated as GCM additional data. `<archive>.tar.gz.enc` and
+`<archive>.tar.gz.enc.sha256` are created with mode 0600 and never overwrite existing files.
+After encryption succeeds, the encrypted archive and its checksum sidecar are verified (non-empty, existing, matching SHA-256 checksum). Once verified, the
+original plaintext `.tar.gz` archive and its `.sha256` sidecar are **automatically removed** to ensure encryption at rest. If encryption or post-encryption
+verification fails, the plaintext archive and sidecar are preserved on disk for recovery/debugging, and the playbook fails.
+The backup needs only the public key; the private key is never read, copied into the archive or required. Generate one persistent key pair once and keep the
+private key outside the backup host, for example:
+
+```bash
+openssl genpkey -algorithm ML-KEM-768 -out mlkem-private.pem
+openssl pkey -in mlkem-private.pem -pubout -out mlkem-public.pem
+```
+
+Decryption, verification and restoration are provided by the [saas_restore](saas_restore.md) role (`br_saas_restore` playbook), which uses `decryptArchive`
+from `plugins/module_utils/saas_backup_encryption.py`.
+
 ### Explicit opt-outs (all default `false`, all recorded in `metadata.json` `warnings`)
 
 | Variable | Effect |
@@ -94,6 +121,7 @@ declared by `secrets.avp_aws_secret_region` in saas-envs `cluster-params.yaml` (
 Output
 -------------------------------------------------------------------------------
 `<output_dir>/saas-backup-<account>-<region>-<cluster>-<UTC timestamp>.tar.gz` plus `<archive>.sha256` (the archive checksum, kept outside the archive), both mode 0600.
+With encryption enabled, `<archive>.tar.gz.enc` and `<archive>.tar.gz.enc.sha256` are written next to it, and upon successful verification the plaintext `.tar.gz` and `.tar.gz.sha256` are removed.
 The run refuses to overwrite an existing archive. On any failure the work directory is removed and no archive is left.
 
 ```

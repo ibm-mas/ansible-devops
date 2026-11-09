@@ -1,0 +1,661 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    app.kubernetes.io/instance: ibm-mas
+    app.kubernetes.io/managed-by: olm
+    app.kubernetes.io/name: ibm-mas
+    olm.managed: 'true'
+    operators.coreos.com/ibm-mas.mas-inst01-core: ''
+    operators.coreos.com/ibm-mas.mas-inst03-core: ''
+  name: suites.core.mas.ibm.com
+spec:
+  conversion:
+    strategy: None
+  group: core.mas.ibm.com
+  names:
+    kind: Suite
+    listKind: SuiteList
+    plural: suites
+    singular: suite
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The version of the MAS installation
+      jsonPath: .status.versions.reconciled
+      name: version
+      type: string
+    - description: Overall status of the suite installation
+      jsonPath: .status.conditions[?(@.type=='Ready')].reason
+      name: status
+      type: string
+    - description: Status of the suite configuration of the system Database
+      jsonPath: .status.conditions[?(@.type=='SystemDatabaseReady')].reason
+      name: SystemDB
+      type: string
+    - description: Status of the suite integration with Behaviour Analytics Service
+      jsonPath: .status.conditions[?(@.type=='BASIntegrationReady')].reason
+      name: UDS
+      type: string
+    - description: Status of the suite integration with Suite License Service
+      jsonPath: .status.conditions[?(@.type=='SLSIntegrationReady')].reason
+      name: SLS
+      type: string
+    - description: Status of the OpenShift Routes for the suite
+      jsonPath: .status.conditions[?(@.type=='RoutesReady')].reason
+      name: Routes
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: age
+      type: date
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: Suite represents the installation of Maximo application suite
+          core systems
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the desired state of Suite
+            properties:
+              certManagerNamespace:
+                description: |
+                  the namespace that the cert-manager operator has been deployed to.  If not provided, a default value of 'ibm-common-services' will be assumed
+                type: string
+              certificateIssuer:
+                description: |
+                  Configure an existing cert-manager ClusterIssuer or Issuer to issue certificates for the suite, if not provided then MAS will create a self-signed issuer automatically using the scope that matches the active permission mode.
+                properties:
+                  duration:
+                    description: Declare the validity period for all generated certificates
+                    minLength: 1
+                    type: string
+                  name:
+                    description: The name of the cert-manager ClusterIssuer or Issuer
+                      that will issue certificates for the suite
+                    minLength: 1
+                    type: string
+                  renewBefore:
+                    description: Declare how long before a certificate expires to
+                      renew it
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                - renewBefore
+                - duration
+                type: object
+              domain:
+                description: Declares the top level domain that will be used for configuring
+                  all Routes in this deployment
+                minLength: 1
+                type: string
+              internalCertificateAuthority:
+                description: Name of the certificate authority that will issue internal
+                  certificates
+                type: string
+              license:
+                properties:
+                  accept:
+                    type: boolean
+                required:
+                - accept
+                type: object
+              podTemplates:
+                description: Define desired state for pods.
+                items:
+                  properties:
+                    affinity:
+                      properties:
+                        nodeAffinity:
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                        podAffinity:
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                        podAntiAffinity:
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                      type: object
+                    containers:
+                      items:
+                        properties:
+                          name:
+                            description: Container name
+                            type: string
+                          resources:
+                            properties:
+                              limits:
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                              requests:
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
+                        type: object
+                      type: array
+                    hostAliases:
+                      description: Network configuration for hostname IP mapping.
+                      items:
+                        properties:
+                          hostnames:
+                            items:
+                              description: List of hostnames mapped to the specified
+                                IP address.
+                              type: string
+                            type: array
+                          ip:
+                            description: IP address to map the hostnames.
+                            type: string
+                        type: object
+                      type: array
+                    initContainers:
+                      items:
+                        properties:
+                          name:
+                            description: InitContainer name
+                            type: string
+                          resources:
+                            properties:
+                              limits:
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                              requests:
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
+                        type: object
+                      type: array
+                    name:
+                      description: Pod name
+                      type: string
+                    replicas:
+                      description: Pod replicas size
+                      type: integer
+                    tolerations:
+                      items:
+                        properties:
+                          key:
+                            type: string
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      type: array
+                  required:
+                  - name
+                  type: object
+                type: array
+              settings:
+                properties:
+                  authServiceClient:
+                    description: Optional performance tuning parameters for AuthServiceClient
+                      HTTP calls to Manage APIs
+                    properties:
+                      manageConnectTimeout:
+                        description: Connect timeout in seconds for Manage API HTTP
+                          calls (default 120)
+                        type: integer
+                      manageReadTimeout:
+                        description: Read timeout in seconds for Manage API HTTP calls
+                          (default 120)
+                        type: integer
+                    type: object
+                  certManager:
+                    description: Settings for cert-manager resources
+                    properties:
+                      certificates:
+                        description: Settings for Certificate resources
+                        properties:
+                          privateKey:
+                            description: Private key settings for Certificate resources
+                            properties:
+                              size:
+                                description: Private key size for Certificate resources
+                                enum:
+                                - 2048
+                                - 4096
+                                - 8192
+                                type: integer
+                            required:
+                            - size
+                            type: object
+                        required:
+                        - privateKey
+                        type: object
+                    required:
+                    - certificates
+                    type: object
+                  cors:
+                    properties:
+                      allowCredentials:
+                        description: A boolean that indicates if the user credentials
+                          can be included in the request.
+                        type: boolean
+                      allowedHeaders:
+                        description: A comma-separated list of HTTP headers that are
+                          allowed to be used by the origin domain when making requests
+                          to the configured domain. If this is set to "*", it indicates
+                          the request can include any HTTP headers.
+                        items:
+                          description: An HTTP header that can be used in a CORS request.
+                          type: string
+                        type: array
+                      allowedMethods:
+                        description: A comma-separated list of HTTP methods allowed
+                          for CORS requests.
+                        items:
+                          description: An HTTP method that is allowed for CORS requests.
+                          enum:
+                          - GET
+                          - POST
+                          - PUT
+                          - DELETE
+                          - OPTIONS
+                          type: string
+                        type: array
+                      allowedOrigins:
+                        description: The list of domains for which CORS support will
+                          be enabled for Suite administration APIs
+                        items:
+                          description: A domain for which CORS will be enabled.
+                          type: string
+                        type: array
+                      exposeHeaders:
+                        description: A comma-separated list of HTTP headers that are
+                          safe to expose to the calling API.
+                        items:
+                          description: An HTTP header that will be exposed in the
+                            response.
+                          type: string
+                        type: array
+                      maxAge:
+                        description: The maximum time, in seconds, that the results
+                          of a preflight request can be cached by the browser.
+                        example: 3600
+                        minimum: 0
+                        type: number
+                    type: object
+                  customUserDataModel:
+                    description: Custom information used to override MAS User default
+                      values
+                    properties:
+                      emailTypes:
+                        description: Custom email types used to replace current MAS
+                          default values, [work, home]
+                        items:
+                          properties:
+                            id:
+                              description: |
+                                ID is used by MAS UI for translation, translated values are [work, home] other values will show up without translation as it is defined in this field
+                              type: string
+                            value:
+                              description: Value is the actual data stored in the
+                                User mongo collection, same one sent to user sync
+                                process
+                              type: string
+                          type: object
+                        type: array
+                      phoneTypes:
+                        description: Custom phone types used to replace current MAS
+                          default values, [work, mobile]
+                        items:
+                          properties:
+                            id:
+                              description: |
+                                ID is used by MAS UI for translation, translated values are [work, mobile] other values will show up without translation as it is defined in this field
+                              type: string
+                            value:
+                              description: Value is the actual data stored in the
+                                User mongo collection, same one sent to user sync
+                                process
+                              type: string
+                          type: object
+                        type: array
+                    type: object
+                  icr:
+                    properties:
+                      cp:
+                        description: Configure the IBM Container registry for cp content
+                          (defaults to cp.icr.io/cp)
+                        type: string
+                      cpopen:
+                        description: Configure the IBM Container registry for cpopen
+                          content (defaults to icr.io/cpopen)
+                        type: string
+                    required:
+                    - cp
+                    - cpopen
+                    type: object
+                  ingressControllerName:
+                    description: Name of the Ingress Controller that controls routes
+                      for this suite. Defaults to "default"
+                    type: string
+                  issuerKind:
+                    description: Specifies the kind of certificate issuer to use (ClusterIssuer
+                      or Issuer). Defaults to ClusterIssuer if not specified.
+                    enum:
+                    - ClusterIssuer
+                    - Issuer
+                    type: string
+                  locale:
+                    properties:
+                      country:
+                        description: Defaults to "GB"
+                        type: string
+                      language:
+                        description: Defaults to "en"
+                        type: string
+                    required:
+                    - language
+                    - country
+                    type: object
+                  manualCertMgmt:
+                    description: Indicator whether to manage public certificate.
+                    type: boolean
+                  manualRouteMgmt:
+                    default: false
+                    description: Indicator to stop routes being automatically created.
+                      Defaults to "false".
+                    type: boolean
+                  metricCollection:
+                    description: Configuration for metric collection settings
+                    properties:
+                      contractPerformance:
+                        description: Flag to control appPoints, elements used to compute
+                          appPoints, and metrics used to assess contract compliance.
+                        type: boolean
+                      deploymentProgression:
+                        description: Flag to control metrics used to understand progression
+                          of tasks and workflows within the product.
+                        type: boolean
+                      featureUse:
+                        description: Flag to control feature adoption metrics used
+                          to understand feature usage and improve the product.
+                        type: boolean
+                      usability:
+                        description: Flag to control user interface interaction metrics
+                          to improve usability.
+                        type: boolean
+                    type: object
+                  mobile:
+                    description: Mobile application settings
+                    properties:
+                      quickSetup:
+                        description: Quick setup configuration for mobile apps
+                        properties:
+                          appStoreLink:
+                            description: App store links for Maximo Mobile
+                            properties:
+                              apple:
+                                description: Apple App Store link to Maximo Mobile
+                                type: string
+                              google:
+                                description: Google Play Store link to Maximo Mobile
+                                type: string
+                              microsoft:
+                                description: Microsoft app store link to Maximo Mobile
+                                type: string
+                            type: object
+                          enabled:
+                            description: Enable or disable mobile quick setup
+                            type: boolean
+                        type: object
+                    type: object
+                  passwordPolicy:
+                    properties:
+                      secretName:
+                        description: the secret holding the password policy for this
+                          instance.
+                        type: string
+                    type: object
+                  qualtrics:
+                    properties:
+                      enabled:
+                        description: Enable/disable Qualtrics
+                        type: boolean
+                    type: object
+                  readOnlyRootFilesystem:
+                    default: true
+                    description: Flag to enable or disable read-only mode.
+                    type: boolean
+                  routingMode:
+                    description: Configure routing mode for the suite. Defaults to
+                      "subdomain".
+                    enum:
+                    - subdomain
+                    - path
+                    type: string
+                  services:
+                    description: Properties for services in the suite
+                    properties:
+                      ipFamilies:
+                        description: IP Families
+                        items:
+                          description: IP family name, e.g. IPv4, IPv6
+                          type: string
+                        type: array
+                      ipFamilyPolicy:
+                        description: IP family policy
+                        enum:
+                        - SingleStack
+                        - PreferDualStack
+                        - RequireDualStack
+                        type: string
+                    required:
+                    - ipFamilyPolicy
+                    - ipFamilies
+                    type: object
+                  sso:
+                    properties:
+                      accessTokenTimeout:
+                        description: OIDC access token timeout. Defaults to "12h"
+                        type: string
+                      allowCustomCacheKey:
+                        type: boolean
+                      allowDefaultSsoCookieName:
+                        description: When set to true allow to use default sso cookie
+                          name
+                        type: boolean
+                      customLoginPage:
+                        description: Configurable env var for custom login page
+                        type: string
+                      defaultIDP:
+                        description: This route will appear as the primary option
+                          to users on the Suite login page.
+                        type: string
+                      disableLtpaCookie:
+                        description: When set to true disable Ltpa cookie for Saml
+                        type: boolean
+                      idleTimeout:
+                        description: Cross Application idletimeout - client side.
+                          Defaults to "30" minutes
+                        type: number
+                      idp:
+                        properties:
+                          enabled:
+                            description: To make identity provider enable/disable
+                            type: boolean
+                          visible:
+                            description: To make identity provider visible/hidden
+                            type: boolean
+                        type: object
+                      idpSessionTimeout:
+                        description: CoreIdp session timeout. Defaults to "12h"
+                        type: string
+                      localLoginCacheEnabled:
+                        type: boolean
+                      localLoginCacheTimeout:
+                        type: string
+                      refreshTokenTimeout:
+                        description: OIDC refresh token timeout. Defaults to "168h"
+                        type: string
+                      seamlessLogin:
+                        description: When enabled, users will be routed to the default
+                          IdP to authenticate without first seeing the Suite login
+                          page.
+                        type: boolean
+                      ssoCookieName:
+                        description: Customized cookie name for sso
+                        type: string
+                      useOnlyCustomCookieName:
+                        description: When set to true only use cookie name specified
+                          in ssoCookieName
+                        type: boolean
+                    type: object
+                  trustDefaultCAs:
+                    description: Indicator whether to include well known Certificate
+                      Authorities in the Suite Truststores.
+                    type: boolean
+                  userDataObfuscation:
+                    properties:
+                      obfuscateDataOnDeletion:
+                        description: Value defines the default behavior of the user
+                          deletion api
+                        type: boolean
+                    type: object
+                  userDataPrivacyAccess:
+                    description: User data privacy access for non user admins
+                    enum:
+                    - ALL
+                    - NON_SENSITIVE_DATA
+                    - NO_ACCESS
+                    type: string
+                  userDataValidation:
+                    properties:
+                      allowSpecialChars:
+                        description: If set to true, special characters are allowed
+                          in userids and usernames. Default to false
+                        type: boolean
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  walkme:
+                    description: enable/disable walkme mode for UI
+                    type: string
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              version:
+                description: Set the version of the suite entity manager. Should be
+                  one of status.versions.supported and is used for rollback. Defaults
+                  to controller version.
+                type: string
+            required:
+            - domain
+            - license
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+          status:
+            description: Status defines the observed state of Suite
+            properties:
+              internalCertificateAuthority:
+                description: Name of the certificate authority that will issue internal
+                  certificates
+                type: string
+              podTemplates:
+                description: Define desired state for pods.
+                items:
+                  properties:
+                    affinity:
+                      properties:
+                        nodeAffinity:
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                        podAffinity:
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                        podAntiAffinity:
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                      type: object
+                    containers:
+                      items:
+                        properties:
+                          name:
+                            description: Container name
+                            type: string
+                          resources:
+                            properties:
+                              limits:
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                              requests:
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
+                        type: object
+                      type: array
+                    hostAliases:
+                      description: Network configuration for hostname IP mapping.
+                      items:
+                        properties:
+                          hostnames:
+                            items:
+                              description: List of hostnames mapped to the specified
+                                IP address.
+                              type: string
+                            type: array
+                          ip:
+                            description: IP address to map the hostnames.
+                            type: string
+                        type: object
+                      type: array
+                    initContainers:
+                      items:
+                        properties:
+                          name:
+                            description: InitContainer name
+                            type: string
+                          resources:
+                            properties:
+                              limits:
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                              requests:
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
+                        type: object
+                      type: array
+                    name:
+                      description: Pod name
+                      type: string
+                    replicas:
+                      description: Pod replicas size
+                      type: integer
+                    tolerations:
+                      items:
+                        properties:
+                          key:
+                            type: string
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      type: array
+                  required:
+                  - name
+                  type: object
+                type: array
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+        required:
+        - apiVersion
+        - kind
+        - metadata
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

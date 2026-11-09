@@ -182,6 +182,72 @@
           warnings: "{{ _sb_warnings }}"
       register: _sb_package
 
+    # 9. Optional encryption of the finished archive (ML-KEM-768 + AES-256-GCM, on the controller).
+    # Inside this block so a failure triggers the rescue below. The plaintext archive is retained if encryption or verification fails.
+    # ---------------------------------------------------------------------------
+    - name: "Encrypt the backup archive (.tar.gz.enc)"
+      ibm.mas_devops.encrypt_saas_backup:
+        archive_path: "{{ _sb_package.archive_path }}"
+        public_key_path: "{{ saas_backup_encryption_public_key_path }}"
+        output_path: "{{ saas_backup_encryption_output_path | default('', true) or (_sb_package.archive_path ~ '.enc') }}"
+      register: _sb_encryption
+      when: saas_backup_encryption_enabled | bool
+
+    - name: "Stat the encrypted archive for post-encryption verification"
+      ansible.builtin.stat:
+        path: "{{ _sb_encryption.encrypted_archive_path }}"
+        checksum_algorithm: sha256
+        get_checksum: true
+      register: _sb_enc_stat
+      when: saas_backup_encryption_enabled | bool
+
+    - name: "Stat the encrypted archive checksum sidecar"
+      ansible.builtin.stat:
+        path: "{{ _sb_encryption.encrypted_archive_checksum_file }}"
+      register: _sb_enc_sidecar_stat
+      when: saas_backup_encryption_enabled | bool
+
+    - name: "Read the encrypted archive checksum sidecar"
+      ansible.builtin.slurp:
+        src: "{{ _sb_encryption.encrypted_archive_checksum_file }}"
+      register: _sb_enc_sidecar_raw
+      when:
+        - saas_backup_encryption_enabled | bool
+        - _sb_enc_sidecar_stat.stat.exists | default(false)
+
+    - name: "Verify encrypted archive and checksum sidecar before removing plaintext"
+      ansible.builtin.assert:
+        quiet: true
+        that:
+          - not (_sb_encryption.failed | default(false))
+          - _sb_enc_stat.stat.exists | default(false)
+          - _sb_enc_stat.stat.isreg | default(false)
+          - _sb_enc_stat.stat.size | default(0) > 0
+          - _sb_enc_sidecar_stat.stat.exists | default(false)
+          - _sb_enc_sidecar_stat.stat.isreg | default(false)
+          - _sb_enc_stat.stat.checksum | default('') == _sb_encryption.encrypted_archive_sha256
+          - (_sb_enc_sidecar_raw.content | default('') | b64decode | trim).split()[0] == _sb_encryption.encrypted_archive_sha256
+          - (_sb_enc_sidecar_raw.content | default('') | b64decode | trim).split()[0] == _sb_enc_stat.stat.checksum
+        fail_msg: >-
+          Encrypted archive verification failed: output '{{ _sb_encryption.encrypted_archive_path | default('missing') }}' or its sidecar
+          '{{ _sb_encryption.encrypted_archive_checksum_file | default('missing') }}' is missing, empty, or has a mismatched checksum.
+          The plaintext archive '{{ _sb_package.archive_path }}' has been preserved.
+      when: saas_backup_encryption_enabled | bool
+
+    - name: "Preserve the original plaintext archive SHA-256 for the final summary (digest only, no file is kept)"
+      ansible.builtin.set_fact:
+        _sb_plaintext_sha256: "{{ _sb_package.archive_sha256 }}"
+      when: saas_backup_encryption_enabled | bool
+
+    - name: "Remove the plaintext backup archive and checksum (encryption at rest)"
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ _sb_package.archive_path }}"
+        - "{{ _sb_package.archive_checksum_file }}"
+      when: saas_backup_encryption_enabled | bool
+
   rescue:
     - name: "Remove the partial work directory (a partial backup must not look like a complete one)"
       ansible.builtin.file:
@@ -190,9 +256,9 @@
 
     - name: "Fail: the backup did not complete"
       ansible.builtin.fail:
-        msg: "SaaS backup FAILED, no archive was produced and the work directory was removed. Cause: {{ (ansible_failed_result.results | default([]) | selectattr('msg', 'defined') | map(attribute='msg') | list | join(' | ')) or ansible_failed_result.msg | default('see the failed task above') }}"
+        msg: "SaaS backup FAILED, {{ ('encryption or verification failed, so no valid encrypted archive was produced (the plaintext archive ' ~ _sb_archive ~ ' was retained)') if (saas_backup_encryption_enabled | bool and _sb_package is defined) else 'no archive was produced' }} and the work directory was removed. Cause: {{ (ansible_failed_result.results | default([]) | selectattr('msg', 'defined') | map(attribute='msg') | list | join(' | ')) or ansible_failed_result.msg | default('see the failed task above') }}"
 
-# 9. Success: remove the work directory (clones + staging) and show the result. Secret contents are never printed.
+# 10. Success: remove the work directory (clones + staging) and show the result. Secret contents are never printed.
 # -----------------------------------------------------------------------------
 - name: "Remove the work directory"
   ansible.builtin.file:
@@ -201,10 +267,25 @@
 
 - name: "Backup complete"
   ansible.builtin.debug:
-    msg:
-      - "SaaS backup completed: {{ saas_backup_account }}/{{ saas_backup_region }}/{{ saas_backup_cluster }} instances {{ _sb_instances | join(', ') }}"
-      - "Archive: {{ _sb_package.archive_path }}"
-      - "Archive size: {{ _sb_package.archive_size }} bytes, {{ _sb_package.file_count }} files"
-      - "Archive SHA-256: {{ _sb_package.archive_sha256 }} (also in {{ _sb_package.archive_checksum_file }})"
-      - "Warnings: {{ _sb_warnings | length }}"
-      - "{{ _sb_warnings }}"
+    msg: >-
+      {{
+        [
+          'SaaS backup completed: ' ~ saas_backup_account ~ '/' ~ saas_backup_region ~ '/' ~ saas_backup_cluster ~ ' instances ' ~ (_sb_instances | join(', '))
+        ]
+        + ([
+          'Original plaintext archive SHA-256: ' ~ _sb_plaintext_sha256 ~ ' (' ~ _sb_package.archive_path ~ ', removed)',
+          'Encrypted archive: ' ~ _sb_encryption.encrypted_archive_path,
+          'Encrypted archive size: ' ~ _sb_encryption.encrypted_archive_size ~ ' bytes',
+          'Encrypted archive SHA-256: ' ~ _sb_encryption.encrypted_archive_sha256 ~ ' (also in ' ~ _sb_encryption.encrypted_archive_checksum_file ~ ')',
+          'Encryption: ' ~ _sb_encryption.key_encapsulation_algorithm ~ ' + ' ~ _sb_encryption.key_derivation_algorithm ~ ' + ' ~ _sb_encryption.encryption_algorithm,
+          'Plaintext cleanup: plaintext archive ' ~ _sb_package.archive_path ~ ' and sidecar removed after successful encryption and verification'
+        ] if saas_backup_encryption_enabled | bool else [
+          'Archive: ' ~ _sb_package.archive_path,
+          'Archive size: ' ~ _sb_package.archive_size ~ ' bytes, ' ~ _sb_package.file_count ~ ' files',
+          'Archive SHA-256: ' ~ _sb_package.archive_sha256 ~ ' (also in ' ~ _sb_package.archive_checksum_file ~ ')'
+        ])
+        + [
+          'Warnings: ' ~ (_sb_warnings | length),
+          _sb_warnings
+        ]
+      }}

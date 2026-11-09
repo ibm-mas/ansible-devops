@@ -1,0 +1,46 @@
+---
+# Full restore: only included when saas_restore_mode == 'full_restore', after the decrypt/validate task succeeded.
+# Restore logic lives in the existing suite_restore and suite_app_restore roles; nothing is re-implemented here.
+# The saas-envs and gitops-envs folders are git repositories and AWS secrets live in AWS: no existing restore procedure
+# exists for them, so they are not touched (they stay in the extracted archive until the work directory is removed).
+# -----------------------------------------------------------------------------
+- name: "Check oc is logged in"
+  ansible.builtin.command:
+    argv: [oc, whoami]
+  register: _sr_oc_whoami
+  changed_when: false
+  failed_when: false
+
+- name: "Fail if oc is not available or not logged in"
+  ansible.builtin.fail:
+    msg: >-
+      'oc whoami' failed (rc={{ _sr_oc_whoami.rc | default('n/a') }}). Log in to the {{ saas_restore_cluster }} cluster with 'oc login'
+      (or set KUBECONFIG) before running a full restore. Nothing was restored.
+  when: _sr_oc_whoami.rc | default(1) != 0
+
+- name: "Read the cluster API server URL"
+  ansible.builtin.command:
+    argv: [oc, whoami, --show-server]
+  register: _sr_oc_server
+  changed_when: false
+
+- name: "Fail if the logged in cluster is not the cluster the backup was taken from"
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - _sr_decrypt.backup_metadata.cluster_api_server | default('') | regex_replace('/+$', '') == _sr_oc_server.stdout | trim | regex_replace('/+$', '')
+    fail_msg: >-
+      The oc session is connected to {{ _sr_oc_server.stdout | trim }} but the backup was taken from
+      {{ _sr_decrypt.backup_metadata.cluster_api_server | default('unknown') }}. Log in to the right cluster, or set
+      SAAS_RESTORE_SKIP_CLUSTER_URL_CHECK=true to explicitly skip this check. Nothing was restored.
+  when: not (saas_restore_skip_cluster_url_check | bool)
+
+- name: "Restore instance"
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/restore_instance.yml"
+  vars:
+    _sr_inst: "{{ inst }}"
+    _sr_details: "{{ _sr_decrypt.backup_metadata.instance_details | selectattr('instance_id', 'equalto', inst) | first }}"
+  loop: "{{ _sr_instances }}"
+  loop_control:
+    loop_var: inst
+    label: "{{ inst }}"
