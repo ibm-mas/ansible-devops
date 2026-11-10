@@ -1,10 +1,12 @@
 ---
 # MongoDB Atlas Provider - Collection-Level Snapshot Restore Task
 # =============================================================================
-# This task restores specific databases of a MongoDB Atlas cluster to a
-# previously taken on-demand snapshot. It reads the snapshot info from S3
-# and triggers a collection-level restore via the Atlas API, targeting only
-# databases matching the specified MAS instance (mas-<instance_name>-*).
+# This task restores the databases of one MAS instance in a MongoDB Atlas
+# cluster to a previously taken on-demand snapshot. It reads the snapshot info
+# (snapshot ID and SLS database name) from S3, lists the databases that exist
+# in that snapshot, keeps those that belong to the instance (full-name match
+# only) plus the stored SLS database, and triggers a collection-level restore
+# via the Atlas API.
 
 # 1. Validate required variables
 # -----------------------------------------------------------------------------
@@ -26,11 +28,11 @@
       - catalog_build_id is defined and catalog_build_id != ""
     fail_msg: "catalog_build_id is required to locate the backup info in S3"
 
-- name: "Fail if restore databases list is not provided"
+- name: "Fail if MAS instance ID is not provided"
   assert:
     that:
-      - atlas_restore_databases is defined and atlas_restore_databases | length > 0
-    fail_msg: "atlas_restore_databases is required - provide a list of database names to restore (e.g. mas-inst1-core,mas-inst1-manage)"
+      - mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id is required to select the databases to restore"
 
 # 2. Retrieve Atlas API credentials from AWS Secrets Manager
 # -----------------------------------------------------------------------------
@@ -89,7 +91,7 @@
 # -----------------------------------------------------------------------------
 - name: "Read backup info from S3"
   amazon.aws.s3_object:
-    bucket: "massaas-cos-saas-stable-as-s-dev-fra-backup"
+    bucket: "mref-backflow-test-bucket"
     object: "releases/{{ catalog_build_id }}/mongo/mongo-backup.txt"
     mode: getstr
     region: "eu-central-1"
@@ -102,14 +104,87 @@
          | regex_search('snapshot_id=([^\n]+)', '\1')
          | first }}
 
-# 4. Build databases list for restore
+- name: "Parse SLS database name from backup info"
+  set_fact:
+    atlas_restore_sls_database: >-
+      {{ atlas_s3_backup_info.contents
+         | regex_findall('(?m)^sls_database=(.+)$')
+         | first
+         | default('')
+         | trim }}
+
+- name: "Fail if backup info has no SLS database name"
+  assert:
+    that:
+      - atlas_restore_sls_database != ""
+    fail_msg: "mongo-backup.txt for catalog build {{ catalog_build_id }} has no sls_database entry. The SLS database is required, so this backup cannot be restored."
+
+# 4. List the databases that exist in the snapshot
 # -----------------------------------------------------------------------------
+- name: "List databases in snapshot (page 1)"
+  uri:
+    url: "{{ atlas_api_base_url | regex_replace('/v1.0$', '/v2') }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}/backup/snapshots/{{ atlas_restore_snapshot_id }}/databases?itemsPerPage=500&pageNum=1"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    headers:
+      Accept: "application/vnd.atlas.2025-03-12+json"
+    status_code: 200
+    timeout: "{{ atlas_api_timeout }}"
+  register: atlas_snapshot_dbs_page1
+
+- name: "List databases in snapshot (remaining pages)"
+  uri:
+    url: "{{ atlas_api_base_url | regex_replace('/v1.0$', '/v2') }}/groups/{{ atlas_project_id }}/clusters/{{ atlas_cluster_name }}/backup/snapshots/{{ atlas_restore_snapshot_id }}/databases?itemsPerPage=500&pageNum={{ item }}"
+    method: GET
+    user: "{{ atlas_public_key }}"
+    password: "{{ atlas_private_key }}"
+    force_basic_auth: no
+    headers:
+      Accept: "application/vnd.atlas.2025-03-12+json"
+    status_code: 200
+    timeout: "{{ atlas_api_timeout }}"
+  loop: "{{ range(2, ((atlas_snapshot_dbs_page1.json.totalCount | int) / 500) | round(0, 'ceil') | int + 1) | list }}"
+  register: atlas_snapshot_dbs_more
+
+- name: "Collect snapshot database names"
+  set_fact:
+    atlas_snapshot_db_names: >-
+      {{ (atlas_snapshot_dbs_page1.json.results
+          + (atlas_snapshot_dbs_more.results | map(attribute='json.results') | flatten))
+         | map(attribute='name') | list }}
+
+# 5. Select the databases to restore (full-name match only)
+# -----------------------------------------------------------------------------
+# Instance databases are mas_<id>_<app> or mas-<id>-<app>, where <app> is a
+# single word without "_" or "-". The SLS database name comes from S3.
+- name: "Select databases belonging to the MAS instance"
+  vars:
+    _id: "{{ mas_instance_id | regex_escape }}"
+    _pattern: "^mas(_{{ _id }}_|-{{ _id }}-)[^_-]+$"
+  set_fact:
+    atlas_restore_db_names: >-
+      {{ (atlas_snapshot_db_names | select('match', _pattern) | list
+          + [atlas_restore_sls_database]) | unique | list }}
+    atlas_required_db_names:
+      - "mas_{{ mas_instance_id }}_core"
+      - "mas_{{ mas_instance_id }}_catalog"
+      - "mas_{{ mas_instance_id }}_adoptionusage"
+      - "{{ atlas_restore_sls_database }}"
+
+- name: "Fail if required databases are missing from the snapshot"
+  assert:
+    that:
+      - (atlas_required_db_names | difference(atlas_snapshot_db_names)) | length == 0
+    fail_msg: "Snapshot {{ atlas_restore_snapshot_id }} is missing required database(s): {{ atlas_required_db_names | difference(atlas_snapshot_db_names) }}"
+
 - name: "Build databases array for collection restore"
   set_fact:
     atlas_restore_databases_list: >-
-      {{ atlas_restore_databases.split(',')
-         | map('trim')
-         | map('regex_replace', '^(.+)$', {'sourceNamespace': '\1'})
+      {{ atlas_restore_db_names
+         | map('regex_replace', '^(.*)$', '{"sourceNamespace": "\\1"}')
+         | map('from_json')
          | list }}
 
 - name: "Debug restore configuration"
@@ -121,11 +196,13 @@
       - "Atlas Project ID ............ {{ atlas_project_id }}"
       - "Cluster Name ................ {{ atlas_cluster_name }}"
       - "Catalog Build ID ............ {{ catalog_build_id }}"
+      - "MAS Instance ID ............. {{ mas_instance_id }}"
       - "Snapshot ID ................. {{ atlas_restore_snapshot_id }}"
-      - "Databases to Restore ........ {{ atlas_restore_databases }}"
+      - "SLS Database ................ {{ atlas_restore_sls_database }}"
+      - "Databases to Restore ........ {{ atlas_restore_db_names }}"
       - "=========================================="
 
-# 5. Trigger collection-level restore via Atlas API
+# 6. Trigger collection-level restore via Atlas API
 # -----------------------------------------------------------------------------
 - name: "Trigger collection-level snapshot restore"
   uri:
@@ -160,7 +237,7 @@
       - "Restore Job ID .............. {{ atlas_restore_job_id }}"
       - "Initial State ............... {{ atlas_restore_trigger.json.state | default('INITIALIZING') }}"
 
-# 6. Poll until restore is complete
+# 7. Poll until restore is complete
 # -----------------------------------------------------------------------------
 - name: "Poll restore job status until complete"
   uri:
@@ -188,7 +265,7 @@
       - "Restore Job ID .............. {{ atlas_restore_job_id }}"
       - "Snapshot ID ................. {{ atlas_restore_snapshot_id }}"
       - "Cluster ..................... {{ atlas_cluster_name }}"
-      - "Databases Restored .......... {{ atlas_restore_databases }}"
+      - "Databases Restored .......... {{ atlas_restore_db_names }}"
       - "Final State ................. {{ atlas_restore_status.json.state }}"
       - "Documents Restored .......... {{ atlas_restore_status.json.restoredDocuments | default('N/A') }}"
       - "=========================================="
