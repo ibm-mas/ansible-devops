@@ -179,13 +179,14 @@
       - (atlas_required_db_names | difference(atlas_snapshot_db_names)) | length == 0
     fail_msg: "Snapshot {{ atlas_restore_snapshot_id }} is missing required database(s): {{ atlas_required_db_names | difference(atlas_snapshot_db_names) }}"
 
+- name: "Start with an empty databases list"
+  set_fact:
+    atlas_restore_databases_list: []
+
 - name: "Build databases array for collection restore"
   set_fact:
-    atlas_restore_databases_list: >-
-      {{ atlas_restore_db_names
-         | map('regex_replace', '^(.*)$', '{"sourceNamespace": "\\1"}')
-         | map('from_json')
-         | list }}
+    atlas_restore_databases_list: "{{ atlas_restore_databases_list + [{'sourceNamespace': item}] }}"
+  loop: "{{ atlas_restore_db_names }}"
 
 - name: "Debug restore configuration"
   debug:
