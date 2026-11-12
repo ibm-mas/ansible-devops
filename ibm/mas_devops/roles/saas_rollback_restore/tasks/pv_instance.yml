@@ -1,0 +1,43 @@
+---
+# PV restore for one instance. Loop var: inst
+# =============================================================================
+
+- name: "[{{ inst }}] Set workspace id and archive directories"
+  ansible.builtin.set_fact:
+    _rr_ws: "{{ _rr_ws_map[inst] | default(_rr_manifest.instances | selectattr('id', 'equalto', inst) | map(attribute='workspace') | first | default('main')) }}"
+    _rr_pv_manage_dir: "{{ _rr_bwork }}/roles/backup-{{ _rr_manifest.backupId }}-app-manage/data"
+    _rr_pv_fac_dir: "{{ _rr_bwork }}/roles/backup-{{ _rr_manifest.backupId }}-app-facilities/data"
+
+# Manage: PVCs and mount paths come from the backed-up ManageWorkspace CR
+# -----------------------------------------------------------------------------
+- name: "[{{ inst }}] Read the Manage persistent volumes from the backed-up CR"
+  ansible.builtin.set_fact:
+    _rr_manage_pvs: >-
+      {{ (lookup('ansible.builtin.file', _rr_raw ~ '/cr__manageworkspaces.apps.mas.ibm.com.json') | from_json)
+         | selectattr('metadata.name', 'equalto', inst ~ '-' ~ _rr_ws)
+         | map(attribute='spec.settings.deployment.persistentVolumes') | first | default([], true) }}
+
+- name: "[{{ inst }}] Manage PV restore"
+  ansible.builtin.include_tasks: pv_restore.yml
+  vars:
+    _pv_ns: "mas-{{ inst }}-manage"
+    _pv_items: "{{ _rr_manage_pvs }}"
+    _pv_dir: "{{ _rr_pv_manage_dir }}"
+  when: _rr_manage_pvs | length > 0
+
+# Facilities: archives are named after the PVC
+# -----------------------------------------------------------------------------
+- name: "[{{ inst }}] Find Facilities PVC archives"
+  ansible.builtin.find:
+    paths: "{{ _rr_pv_fac_dir }}"
+    patterns: ["*.tar.gz"]
+  register: _rr_fac_archives
+  failed_when: false
+
+- name: "[{{ inst }}] Facilities PV restore"
+  ansible.builtin.include_tasks: pv_restore_facilities.yml
+  when: _rr_fac_archives.files | default([]) | length > 0
+
+- name: "[{{ inst }}] Show"
+  ansible.builtin.debug:
+    msg: "PV data for {{ inst }}: Manage PVCs {{ _rr_manage_pvs | length }}, Facilities archives {{ _rr_fac_archives.files | default([]) | length }}. {{ 'Dry run, nothing written.' if saas_rollback_dry_run else '' }}"

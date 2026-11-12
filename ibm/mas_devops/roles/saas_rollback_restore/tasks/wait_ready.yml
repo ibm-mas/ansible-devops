@@ -1,0 +1,20 @@
+---
+# Wait until every object of the given kinds in one namespace has Ready=True (read-only on the cluster)
+# Inputs: _rr_w_kinds (comma list), _rr_w_ns, _rr_w_label
+# =============================================================================
+
+- name: "{{ _rr_w_label }}"
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ role_path }}/files/rr_helper.py"
+      - not-ready
+      - --kinds
+      - "{{ _rr_w_kinds }}"
+      - --namespace
+      - "{{ _rr_w_ns }}"
+  register: _rr_nr
+  changed_when: false
+  until: (_rr_nr.stdout | from_json).notReady | length == 0
+  retries: "{{ (saas_rollback_timeout | int / 30) | int }}"
+  delay: 30

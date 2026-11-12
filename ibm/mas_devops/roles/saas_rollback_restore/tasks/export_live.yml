@@ -1,0 +1,22 @@
+---
+# Export the live objects in the same layout as the backup raw/ (read-only on the cluster). Replaces the target directory.
+# Inputs: _rr_ex_dir
+# =============================================================================
+
+- name: "Remove any earlier export in {{ _rr_ex_dir }}"
+  ansible.builtin.file:
+    path: "{{ _rr_ex_dir }}"
+    state: absent
+
+- name: "Export the live objects to {{ _rr_ex_dir }}"
+  ansible.builtin.include_tasks: helper.yml
+  vars:
+    _rr_h_name: "Export live objects"
+    _rr_h_args:
+      - export
+      - --out
+      - "{{ _rr_ex_dir }}"
+      - --namespaces
+      - "{{ _rr_ns_csv | trim }}"
+      - --namespace-regex
+      - "{{ _rr_ns_regex | trim }}"

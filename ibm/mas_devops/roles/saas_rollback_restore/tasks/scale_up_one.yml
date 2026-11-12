@@ -1,0 +1,19 @@
+---
+# Scale one namespace back up. Loop var: rep (stat result), inst
+# A recorded Deployment that no longer exists (an operator that was reinstalled gets a new Deployment) is reported, not fatal.
+# =============================================================================
+
+- name: "[{{ inst }}] Scale mas-{{ inst }}-{{ rep.item }} back up"
+  ansible.builtin.include_tasks: helper.yml
+  vars:
+    _rr_h_name: "[{{ inst }}] Scale mas-{{ inst }}-{{ rep.item }} back up"
+    _rr_h_args: >-
+      {{ ['scale', '--ns', 'mas-' ~ inst ~ '-' ~ rep.item, '--record', rep.stat.path, '--restore']
+         + (['--operators-only'] if rep.item in ['manage', 'facilities'] else []) }}
+    _rr_h_ok_rc: [0, 1]
+    _rr_h_fail_on_errors: false
+
+- name: "[{{ inst }}] Report workloads that could not be scaled"
+  ansible.builtin.debug:
+    msg: "mas-{{ inst }}-{{ rep.item }}: could not scale {{ _rr_out.restored | rejectattr('ok') | map(attribute='object') | list }}"
+  when: _rr_out.restored | default([]) | rejectattr('ok') | list | length > 0

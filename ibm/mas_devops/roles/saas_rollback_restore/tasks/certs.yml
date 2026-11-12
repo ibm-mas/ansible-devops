@@ -1,0 +1,40 @@
+---
+# Phase S5: cert-manager ClusterIssuer, Issuer, Certificate (03 section 7, cluster-first only).
+# In git-first they are recreated by ArgoCD from the reverted Git using the CA Secret restored in the objects phase.
+# =============================================================================
+
+- name: "[certs] Restore Issuers and Certificates for each instance"
+  ansible.builtin.include_tasks: helper.yml
+  vars:
+    _rr_h_name: "[{{ inst }}] Issuers and Certificates"
+    _rr_h_args: >-
+      {{ ['apply', '--file', _rr_raw ~ '/cluster__clusterissuer.json', _rr_raw ~ '/all__issuer.json', _rr_raw ~ '/all__certificate.json',
+          '--cluster-scoped', '--name-regex', inst ~ '|db2u|sls|mas-' ~ inst]
+         + (['--dry-run'] if saas_rollback_dry_run else [])
+         + ['--report', _rr_rwork ~ '/record/apply-certs-' ~ inst ~ '.json'] }}
+    _rr_h_ok_rc: [0, 1]
+  loop: "{{ _rr_inst_list }}"
+  loop_control:
+    loop_var: inst
+
+- name: "[certs] Gate: issuers Ready, no Certificate re-issued"
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ role_path }}/files/rr_helper.py"
+      - certs-check
+      - --raw
+      - "{{ _rr_raw }}"
+      - --name-regex
+      - "{{ _rr_inst_list | join('|') }}|db2u|sls"
+  register: _rr_certs
+  changed_when: false
+  failed_when: false
+  when: not saas_rollback_dry_run
+
+- name: "[certs] Fail on a re-issued Certificate or a not-ready issuer"
+  ansible.builtin.assert:
+    that: (_rr_certs.stdout | from_json).problems | length == 0
+    fail_msg: "{{ (_rr_certs.stdout | from_json).problems }} A higher revision means a new key: usually a missing CA Secret."
+    quiet: true
+  when: not saas_rollback_dry_run

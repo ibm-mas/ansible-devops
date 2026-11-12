@@ -1,0 +1,69 @@
+---
+# Read the backup set and compute the run context
+# =============================================================================
+
+- name: "Read manifest.json"
+  ansible.builtin.set_fact:
+    _rr_manifest: "{{ lookup('ansible.builtin.file', saas_rollback_backup_dir ~ '/manifest.json') | from_json }}"
+
+- name: "Set phase list for the chosen approach"
+  ansible.builtin.set_fact:
+    _rr_phases: "{{ _rr_phases_git_first if saas_rollback_approach == 'git-first' else _rr_phases_cluster_first }}"
+
+- name: "Compute the active phases"
+  ansible.builtin.set_fact:
+    _rr_skip: "{{ saas_rollback_skip_phases | split(',') | map('trim') | reject('equalto', '') | list }}"
+    _rr_from: "{{ _rr_phases.index(saas_rollback_start_at) if saas_rollback_start_at | length > 0 else 0 }}"
+    _rr_to: "{{ _rr_phases.index(saas_rollback_stop_after) if saas_rollback_stop_after | length > 0 else (_rr_phases | length - 1) }}"
+
+- name: "Set run context"
+  ansible.builtin.set_fact:
+    _rr_active: "{{ _rr_phases[_rr_from | int : (_rr_to | int) + 1] | reject('in', _rr_skip) | list }}"
+    _rr_bwork: "{{ saas_rollback_backup_dir | regex_replace('/+$', '') }}"
+    _rr_rid: "{{ saas_rollback_run_id if saas_rollback_run_id | length > 0 else ('rb-' ~ saas_rollback_cluster ~ '-' ~ lookup('pipe', 'date -u +%Y%m%d-%H%M%S')) }}"
+    _rr_inst_list: "{{ saas_rollback_instances | split(',') | map('trim') | reject('equalto', '') | list }}"
+    _rr_ws_map: >-
+      {{ dict(saas_rollback_workspace_ids | split(',') | map('trim') | reject('equalto', '') | map('split', '=') | list) }}
+
+- name: "Set derived paths (a dry run writes under /tmp so the backup set stays untouched)"
+  ansible.builtin.set_fact:
+    _rr_rwork: "{{ ('/tmp/' ~ _rr_rid ~ '-work') if saas_rollback_dry_run else (_rr_bwork ~ '/restore/' ~ _rr_rid) }}"
+    _rr_raw: "{{ _rr_bwork }}/raw"
+    _rr_rec: "{{ _rr_bwork }}/record"
+    _rr_cfg_repo_url: "{{ saas_rollback_git_repo_url if saas_rollback_git_repo_url | length > 0 else (_rr_manifest.git.configRepo.url | default('')) }}"
+    _rr_cfg_repo_branch: "{{ saas_rollback_git_branch if saas_rollback_git_branch | length > 0 else (_rr_manifest.git.configRepo.branch | default('')) }}"
+    _rr_cfg_repo_path: "{{ saas_rollback_git_path if saas_rollback_git_path | length > 0 else (_rr_manifest.git.configRepo.path | default('')) }}"
+    _rr_cfg_repo_sha: "{{ _rr_manifest.git.configRepo.sha | default('') }}"
+    _rr_levers: >-
+      {{ saas_rollback_levers_json | from_json if saas_rollback_levers_json | length > 0
+         else (_rr_levers_aws_saas if saas_rollback_env_type == 'aws-saas' else _rr_levers_gitops_envs) }}
+
+- name: "Set the Git working directory (dry run uses /tmp so the backup set stays untouched)"
+  ansible.builtin.set_fact:
+    _rr_gitdir: "{{ ('/tmp/' ~ _rr_rid ~ '-git') if saas_rollback_dry_run else (_rr_rwork ~ '/git') }}"
+
+- name: "Set namespace lists"
+  ansible.builtin.set_fact:
+    _rr_ns_csv: >-
+      {% for i in _rr_inst_list %}mas-{{ i }}-core,mas-{{ i }}-sls,mas-{{ i }}-manage,mas-{{ i }}-facilities,db2u-{{ i }},{% endfor %}{{ _rr_cluster_ns }}
+    _rr_ns_regex: >-
+      ^({% for i in _rr_inst_list %}mas-{{ i }}-|db2u-{{ i }}$|{% endfor %}ibm-software-central$|cert-manager|openshift-gitops|openshift-marketplace)
+
+- name: "Create the restore working directories"
+  ansible.builtin.file:
+    path: "{{ _rr_rwork }}/{{ item }}"
+    state: directory
+    mode: "0700"
+  loop: [record, before, after, logs]
+
+- name: "Show the run context"
+  ansible.builtin.debug:
+    msg:
+      - "Backup id ........ {{ _rr_manifest.backupId }}"
+      - "Restore run id ... {{ _rr_rid }}"
+      - "Cluster .......... {{ saas_rollback_cluster }}{{ ' (' ~ saas_rollback_account ~ '/' ~ saas_rollback_region ~ ')' if saas_rollback_account | length > 0 else '' }}"
+      - "Instances ........ {{ _rr_inst_list | join(', ') }}"
+      - "Approach ......... {{ saas_rollback_approach }}"
+      - "Git revert ....... {{ saas_rollback_git_revert_mode }}"
+      - "Dry run .......... {{ saas_rollback_dry_run }}"
+      - "Active phases .... {{ _rr_active | join(' > ') }}"

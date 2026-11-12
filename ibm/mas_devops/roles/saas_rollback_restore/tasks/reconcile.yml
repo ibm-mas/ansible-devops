@@ -1,0 +1,39 @@
+---
+# cluster-first B5: the old operators are installed. Let them reconcile the restored CR specs and put back the Secrets and
+# ConfigMaps that lost their owner when the operators recreated children (03 section 10.2). Changes state unless dry run.
+# =============================================================================
+
+- name: "[reconcile] Scale the stopped operators and Core/SLS workloads back up"
+  ansible.builtin.include_tasks: scale_up.yml
+  loop: "{{ _rr_inst_list }}"
+  loop_control:
+    loop_var: inst
+  when: not saas_rollback_dry_run
+
+- name: "[reconcile] Wait for SLS, Suite and Workspace, then the Manage and Facilities applications"
+  ansible.builtin.include_tasks: wait_ready.yml
+  vars:
+    _rr_w_label: "[{{ item.0 }}] Wait for {{ item.1.label }}"
+    _rr_w_kinds: "{{ item.1.kinds }}"
+    _rr_w_ns: "mas-{{ item.0 }}-{{ item.1.ns }}"
+  loop: >-
+    {{ _rr_inst_list | product([
+         {'label': 'SLS', 'kinds': _rr_wait_sls, 'ns': 'sls'},
+         {'label': 'Core', 'kinds': _rr_wait_core, 'ns': 'core'},
+         {'label': 'ManageApp', 'kinds': 'manageapp.apps.mas.ibm.com', 'ns': 'manage'},
+         {'label': 'FacilitiesApp', 'kinds': 'facilitiesapp.apps.mas.ibm.com', 'ns': 'facilities'}]) | list }}
+  loop_control:
+    label: "{{ item.0 }} {{ item.1.label }}"
+  when: not saas_rollback_dry_run
+
+- name: "[reconcile] Put the Secrets and ConfigMaps back again (re-attaches owner references)"
+  ansible.builtin.include_tasks: helper.yml
+  vars:
+    _rr_h_name: "[reconcile] Secrets and ConfigMaps"
+    _rr_h_args: >-
+      {{ ['apply', '--file']
+         + ((_rr_ns_csv | trim).split(',') | map('regex_replace', '^(.*)$', _rr_raw ~ '/\1__*.json') | list)
+         + ['--namespaces', _rr_ns_csv | trim, '--filter', 'all']
+         + (['--dry-run'] if saas_rollback_dry_run else [])
+         + ['--report', _rr_rwork ~ '/record/apply-reconcile.json'] }}
+    _rr_h_ok_rc: [0, 1]

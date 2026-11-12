@@ -1,0 +1,145 @@
+---
+# S12: verification X1 to X18 (03 section 12). Read-only. Run after the start phase and again after the resume phase.
+# Fails on the first check that does not pass; re-run with SAAS_ROLLBACK_RUN_ID=<id> SAAS_ROLLBACK_START_AT=verify_post.
+# =============================================================================
+
+- name: "[verify_post] Dry run: nothing to verify, the cluster was not changed"
+  ansible.builtin.debug:
+    msg: "Dry run: would run checks X1 to X18 against the cluster."
+  when: saas_rollback_dry_run
+
+- name: "[verify_post] Run the checks"
+  when: not saas_rollback_dry_run
+  block:
+    # X1 operators equal the record
+    - name: "[verify_post] X1 Operators equal the record"
+      ansible.builtin.command:
+        argv: ["python3", "{{ role_path }}/files/rr_helper.py", "ops-diff", "--record", "{{ _rr_rec }}/subscriptions.json"]
+      register: _rr_x1
+      changed_when: false
+
+    - name: "[verify_post] X1 Fail if an operator is not at the recorded CSV and channel"
+      ansible.builtin.assert:
+        that: (_rr_x1.stdout | from_json).differing | rejectattr('ns', 'match', saas_rollback_operator_exclude_ns_regex) | list | length == 0
+        fail_msg: "X1: {{ (_rr_x1.stdout | from_json).differing | rejectattr('ns', 'match', saas_rollback_operator_exclude_ns_regex) | list }}"
+        quiet: true
+
+    # X2 catalog equals the record
+    - name: "[verify_post] X2 Catalog"
+      ansible.builtin.command:
+        argv: ["python3", "{{ role_path }}/files/rr_helper.py", "catalog-state", "--name", "{{ saas_rollback_catalog_source_name }}", "--ns", "{{ saas_rollback_catalog_source_ns }}"]
+      register: _rr_x2
+      changed_when: false
+
+    - name: "[verify_post] X2 Fail if the catalog is not READY at the recorded image"
+      ansible.builtin.assert:
+        that:
+          - (_rr_x2.stdout | from_json).state | default('') == 'READY'
+          - (_rr_x2.stdout | from_json).image | default('') in [_rr_catalog.target | default(''), _rr_catalog.specImage | default('')]
+        fail_msg: "X2: catalog is {{ _rr_x2.stdout | from_json }}; recorded {{ _rr_catalog | default('catalog phase not run in this execution') }}"
+        quiet: true
+      when: _rr_catalog is defined
+
+    # X3 and X18 Secrets, ConfigMaps, CR specs equal the backup; leftovers
+    - name: "[verify_post] X3 and X18 Compare the live state with the backup"
+      ansible.builtin.include_tasks: leftovers.yml
+
+    - name: "[verify_post] X3 Fail if Secrets, ConfigMaps or CR specs differ from the backup"
+      ansible.builtin.assert:
+        that: (_rr_out.changed | length + _rr_out.onlyInA | length) == 0 or saas_rollback_allow_drift
+        fail_msg: "X3: differ {{ _rr_out.changed[:40] }}; missing {{ _rr_out.onlyInA[:40] }}. SAAS_ROLLBACK_ALLOW_DRIFT=true accepts them after review."
+        quiet: true
+
+    # Per instance: X4 critical, X5 certificates, X6 Ready, X7 versions, X8 ping, X10 to X15
+    - name: "[verify_post] Per-instance checks"
+      ansible.builtin.include_tasks: verify_post_instance.yml
+      loop: "{{ _rr_inst_list }}"
+      loop_control:
+        loop_var: inst
+
+    # X5 certificates (cluster-wide issuers)
+    - name: "[verify_post] X5 Certificates not re-issued, issuers Ready"
+      ansible.builtin.command:
+        argv: ["python3", "{{ role_path }}/files/rr_helper.py", "certs-check", "--raw", "{{ _rr_raw }}", "--name-regex", "{{ _rr_inst_list | join('|') }}|db2u|sls"]
+      register: _rr_x5
+      changed_when: false
+
+    - name: "[verify_post] X5 Fail on a re-issued Certificate or a not-ready issuer"
+      ansible.builtin.assert:
+        that: (_rr_x5.stdout | from_json).problems | length == 0
+        fail_msg: "X5: {{ (_rr_x5.stdout | from_json).problems }}"
+        quiet: true
+
+    # X16 ArgoCD policies (only meaningful once the resume phase has passed, in this run or an earlier one)
+    - name: "[verify_post] X16 Has the resume phase passed"
+      ansible.builtin.stat:
+        path: "{{ _rr_rwork }}/record/phase-resume.done"
+      register: _rr_resume_stat
+
+    - name: "[verify_post] X16 Decide"
+      ansible.builtin.set_fact:
+        _rr_x16_run: "{{ _rr_resume_stat.stat.exists or (_rr_resume_done | default(false)) }}"
+
+    - name: "[verify_post] X16 ArgoCD sync policies equal the record"
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ role_path }}/files/rr_helper.py"
+          - argo-policy
+          - --check
+          - --ns
+          - "{{ saas_rollback_argo_ns }}"
+          - --root
+          - "{{ saas_rollback_argo_root_app }}"
+          - --summary
+          - "{{ _rr_bwork }}/argocd/applications-summary.json"
+          - --appsets
+          - "{{ _rr_bwork }}/argocd/appset-generators.json"
+      register: _rr_x16
+      changed_when: false
+      when: _rr_x16_run
+
+    - name: "[verify_post] X16 Fail if a policy differs from the record"
+      ansible.builtin.assert:
+        that: (_rr_x16.stdout | from_json).differs | length == 0
+        fail_msg: "X16: {{ (_rr_x16.stdout | from_json).differs }}"
+        quiet: true
+      when: _rr_x16_run
+
+    - name: "[verify_post] X16 Applications Synced and Healthy"
+      ansible.builtin.include_tasks: helper.yml
+      vars:
+        _rr_h_name: "[verify_post] argo-unsynced"
+        _rr_h_args: ["argo-unsynced", "--ns", "{{ saas_rollback_argo_ns }}", "--name-regex", "\\.{{ saas_rollback_cluster }}(\\.|$)"]
+      when: _rr_x16_run
+
+    - name: "[verify_post] X16 Fail if an Application is not Synced and Healthy"
+      ansible.builtin.assert:
+        that: _rr_out.notSyncedOrHealthy | rejectattr('name', 'search', _rr_sync_exclude) | list | length == 0 or saas_rollback_allow_outofsync
+        fail_msg: "X16: {{ _rr_out.notSyncedOrHealthy | rejectattr('name', 'search', _rr_sync_exclude) | list }}"
+        quiet: true
+      when: _rr_x16_run
+
+    # X17 Git
+    - name: "[verify_post] X17 Root Application revision"
+      ansible.builtin.command:
+        argv: ["oc", "get", "application", "{{ saas_rollback_argo_root_app }}", "-n", "{{ saas_rollback_argo_ns }}", "-o", "jsonpath={.status.sync.revision}"]
+      register: _rr_x17
+      changed_when: false
+
+    - name: "[verify_post] X17 Read the recorded rollback commit"
+      ansible.builtin.stat:
+        path: "{{ _rr_rwork }}/record/git-rollback-sha.txt"
+      register: _rr_x17_rec
+
+    - name: "[verify_post] X17 Fail if the root Application is not at the rollback commit"
+      ansible.builtin.assert:
+        that: _rr_x17.stdout | trim == (lookup('ansible.builtin.file', _rr_rwork ~ '/record/git-rollback-sha.txt') | trim)
+        fail_msg: "X17: root revision {{ _rr_x17.stdout }} is not the rollback commit."
+        quiet: true
+      when: _rr_x17_rec.stat.exists
+
+- name: "[verify_post] Summary"
+  ansible.builtin.debug:
+    msg: "Verification passed (X1 to X18). Results and exports: {{ _rr_rwork }}/after/"
+  when: not saas_rollback_dry_run

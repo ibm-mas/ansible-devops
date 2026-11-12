@@ -1,0 +1,18 @@
+---
+# Run one phase. Loop var: phase
+# =============================================================================
+
+- name: "===== Phase {{ phase }} ({{ _rr_active.index(phase) + 1 }} of {{ _rr_active | length }}) ====="
+  ansible.builtin.set_fact:
+    _rr_current_phase: "{{ phase }}"
+    _rr_destructive_started: "{{ _rr_destructive_started | default(false) or (phase in ['mongo', 'db2', 'pv'] and not saas_rollback_dry_run) }}"
+
+- name: "[{{ phase }}] Run"
+  ansible.builtin.include_tasks: "{{ phase }}.yml"
+
+- name: "[{{ phase }}] Record that the phase passed"
+  ansible.builtin.copy:
+    content: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}\n"
+    dest: "{{ _rr_rwork }}/record/phase-{{ phase }}.done"
+    mode: "0600"
+  when: not saas_rollback_dry_run

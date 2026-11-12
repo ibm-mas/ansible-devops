@@ -1,0 +1,54 @@
+---
+# Validate the inputs that need the manifest and the phase list (runs after init.yml)
+# =============================================================================
+
+- name: "Fail if a phase name is unknown for the chosen approach"
+  ansible.builtin.assert:
+    that:
+      - saas_rollback_start_at == '' or saas_rollback_start_at in _rr_phases
+      - saas_rollback_stop_after == '' or saas_rollback_stop_after in _rr_phases
+      - _rr_skip is subset(_rr_phases)
+    fail_msg: "START_AT / STOP_AFTER / SKIP_PHASES must be phase names of the chosen approach: {{ _rr_phases | join(', ') }}."
+    quiet: true
+
+- name: "Fail if the destructive run is not authorised"
+  ansible.builtin.assert:
+    that:
+      - saas_rollback_change_ticket | length > 0
+      - saas_rollback_approved_by | length > 0
+      - saas_rollback_confirm == _rr_manifest.backupId
+      - saas_rollback_pre_rollback_backup_done or saas_rollback_skip_pre_rollback_backup
+    fail_msg: >-
+      A live run (SAAS_ROLLBACK_DRY_RUN=false) needs SAAS_ROLLBACK_CHANGE_TICKET, SAAS_ROLLBACK_APPROVED_BY,
+      SAAS_ROLLBACK_CONFIRM equal to the backup id ({{ _rr_manifest.backupId }}), and either
+      SAAS_ROLLBACK_PRE_ROLLBACK_BACKUP_DONE=true or SAAS_ROLLBACK_SKIP_PRE_ROLLBACK_BACKUP=true (03 RC2 step 3).
+    quiet: true
+  when: not saas_rollback_dry_run
+
+- name: "Fail if Git credentials are missing for the automated revert"
+  ansible.builtin.assert:
+    that:
+      - saas_rollback_git_user | length > 0
+      - saas_rollback_git_token | length > 0
+    fail_msg: "SAAS_ROLLBACK_GIT_USER and SAAS_ROLLBACK_GIT_TOKEN are required for SAAS_ROLLBACK_GIT_REVERT_MODE=automated."
+    quiet: true
+  when:
+    - saas_rollback_git_revert_mode == 'automated'
+    - "'git_revert' in _rr_active"
+    - not saas_rollback_dry_run
+
+- name: "Fail if required tools are missing"
+  ansible.builtin.command:
+    argv: ["sh", "-c", "command -v {{ item }}"]
+  loop: "{{ ['oc', 'jq', 'yq', 'git', 'python3', 'aws', 'ansible-playbook'] }}"
+  register: _rr_tool
+  changed_when: false
+  failed_when: _rr_tool.rc != 0
+  loop_control:
+    label: "{{ item }}"
+
+- name: "Fail if the cluster is not reachable with oc"
+  ansible.builtin.command:
+    argv: ["oc", "whoami", "--show-server"]
+  register: _rr_oc_server
+  changed_when: false

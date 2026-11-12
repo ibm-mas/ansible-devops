@@ -1,0 +1,97 @@
+---
+# Static data for saas_rollback_restore
+
+# Phases in execution order, per approach (03 sections 4 and 10)
+_rr_phases_git_first:
+  - verify
+  - freeze
+  - snapshot
+  - stop
+  - objects
+  - mongo
+  - db2
+  - pv
+  - git_revert
+  - catalog
+  - crs
+  - operators
+  - sync_core
+  - start
+  - sync_apps
+  - drift
+  - external
+  - verify_post
+  - resume
+_rr_phases_cluster_first:
+  - verify
+  - freeze
+  - snapshot
+  - stop
+  - objects
+  - certs
+  - mongo
+  - db2
+  - pv
+  - catalog
+  - crs
+  - operators
+  - reconcile
+  - start
+  - git_revert
+  - prove
+  - external
+  - verify_post
+  - resume
+
+# Custom resources in dependency order (03 section 10.2 step B3). Files are relative to raw/.
+# scope cluster: restored once; scope instance: once per instance with {inst} replaced.
+_rr_cr_steps:
+  - { id: sls, scope: instance, ns: 'mas-{inst}-sls', files: ['cr__licenseservices.*', 'cr__licenseclients.*'], transform: [] }
+  - { id: core_addons, scope: instance, ns: 'mas-{inst}-core', files: ['cr__*.addons.mas.ibm.com.json'], transform: [] }
+  - { id: core_cfg, scope: instance, ns: 'mas-{inst}-core', files: ['cr__*.config.mas.ibm.com.json'], transform: [] }
+  - { id: coreidp, scope: instance, ns: 'mas-{inst}-core', files: ['cr__coreidps.*'], transform: [] }
+  - { id: suite, scope: instance, ns: 'mas-{inst}-core', files: ['cr__suites.core.mas.ibm.com.json'], transform: [] }
+  - { id: workspace, scope: instance, ns: 'mas-{inst}-core', files: ['cr__workspaces.core.mas.ibm.com.json'], transform: [] }
+  - { id: manage_app, scope: instance, ns: 'mas-{inst}-manage', files: ['cr__manageapps.*'], transform: [] }
+  - { id: manage_workspace, scope: instance, ns: 'mas-{inst}-manage', files: ['cr__manageworkspaces.*'], transform: ['manage-down'] }
+  - { id: facilities_app, scope: instance, ns: 'mas-{inst}-facilities', files: ['cr__facilitiesapps.*'], transform: [] }
+  - { id: facilities_workspace, scope: instance, ns: 'mas-{inst}-facilities', files: ['cr__facilitiesworkspaces.*'], transform: ['facilities-zero'] }
+
+# Upgrade levers (03 section 10.0). file is relative to the config-repo path; {inst} is replaced.
+_rr_levers_aws_saas:
+  - { file: 'cluster-params.yaml', paths: ['catalog.version', 'catalog.image'] }
+  - { file: '{inst}/mas-instance-params.yaml', key_suffix: '(^|_)channel$' }
+  - { file: '{inst}/mas-apps-params.yaml', key_suffix: '(^|_)channel$' }
+_rr_levers_gitops_envs:
+  - { file: 'ibm-operator-catalog.yaml', key_suffix: '^mas_catalog_(version|image)$' }
+  - { file: '{inst}/*.yaml', key_suffix: '(^|_)channel$' }
+
+# Namespaces whose Secrets and ConfigMaps are exported/restored (03 S4)
+_rr_cluster_ns: "ibm-software-central,cert-manager,cert-manager-operator,{{ saas_rollback_mongo_namespace }},{{ saas_rollback_argo_ns }}"
+
+# Operator namespaces ordered for the return (03 section 11 step 4): cluster-wide, SLS, Core, Manage, Facilities
+_rr_operator_order_regex:
+  - '^(ibm-common-services|ibm-software-central|ibm-.*truststore.*)$'
+  - '^ibm-sls$|-sls$'
+  - '-core$'
+  - '-manage$'
+  - '-facilities$'
+
+# Mongo collections the Community restore script skips (03 section 3 item 7); {inst} is replaced
+_rr_mongo_default_exclusions:
+  - 'mas_{inst}_adoptionusage.*'
+  - 'mas_{inst}_catalog.*'
+  - 'mas_{inst}_core.OauthClient'
+  - 'mas_{inst}_core.OauthToken'
+  - 'mas_{inst}_core.bindings'
+  - 'mas_{inst}_core.workspaces'
+
+# Instance Applications that are never synced by the rollback (CP4D and its services are out of scope)
+_rr_sync_exclude: 'cp4d|cognos|spark|spss|wml|wsl|cs-control|sync-jobs-cp4d'
+
+# Kinds waited on (Ready=True), per namespace suffix
+_rr_wait_core: 'suite.core.mas.ibm.com,workspace.core.mas.ibm.com'
+_rr_wait_sls: 'licenseservice.sls.ibm.com'
+_rr_wait_manage: 'manageapp.apps.mas.ibm.com,manageworkspace.apps.mas.ibm.com'
+_rr_wait_facilities: 'facilitiesapp.apps.mas.ibm.com,facilitiesworkspace.apps.mas.ibm.com'
+_rr_cfg_kinds: 'jdbccfg.config.mas.ibm.com,mongocfg.config.mas.ibm.com,slscfg.config.mas.ibm.com,bascfg.config.mas.ibm.com'

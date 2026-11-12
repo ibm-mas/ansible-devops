@@ -1,0 +1,32 @@
+---
+# Failure reporter. Read-only: it reports the state and the way forward. It never resumes ArgoCD, never starts Manage and never scales anything.
+# Resuming ArgoCD onto a half-restored cluster re-applies the upgrade (03 section 14).
+# =============================================================================
+
+- name: "[report] ArgoCD state"
+  ansible.builtin.command:
+    argv: ["python3", "{{ role_path }}/files/rr_helper.py", "argo-state", "--ns", "{{ saas_rollback_argo_ns }}"]
+  register: _rr_rep_argo
+  changed_when: false
+  failed_when: false
+
+- name: "[report] Operator state"
+  ansible.builtin.command:
+    argv: ["python3", "{{ role_path }}/files/rr_helper.py", "ops-diff", "--record", "{{ _rr_rec }}/subscriptions.json"]
+  register: _rr_rep_ops
+  changed_when: false
+  failed_when: false
+
+- name: "[report] Where the run stopped and what to do"
+  ansible.builtin.debug:
+    msg:
+      - "ROLLBACK STOPPED in phase '{{ _rr_current_phase | default('before the first phase') }}' (run id {{ _rr_rid }}, dry run {{ saas_rollback_dry_run }})."
+      - "Completed phases: see {{ _rr_rwork }}/record/phase-*.done"
+      - "ArgoCD: {{ (_rr_rep_argo.stdout | from_json).automatedCount | default('?') }} Application(s) with automated sync. It was NOT resumed."
+      - "Operators differing from the record: {{ ((_rr_rep_ops.stdout | from_json).differing | length) if _rr_rep_ops.rc == 0 else '?' }}"
+      - >-
+        {{ 'Databases or PV data were already replaced. Do NOT resume ArgoCD. Fix the cause and re-run with SAAS_ROLLBACK_RUN_ID=' ~ _rr_rid ~ ' SAAS_ROLLBACK_START_AT=' ~ (_rr_current_phase | default('verify'))
+           ~ ' (every phase is safe to repeat), or use the pre-rollback backup and the snapshot in ' ~ _rr_rwork ~ '/before to go back (03 section 14).'
+           if (_rr_destructive_started | default(false)) else
+           'Nothing was overwritten yet. Fix the cause and re-run with SAAS_ROLLBACK_RUN_ID=' ~ _rr_rid ~ ' SAAS_ROLLBACK_START_AT=' ~ (_rr_current_phase | default('verify'))
+           ~ '. To abandon the rollback, re-apply the recorded policies from ' ~ _rr_rwork ~ '/before/applications.yaml and scale from ' ~ _rr_rwork ~ '/before/replicas-*.json.' }}

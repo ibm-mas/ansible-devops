@@ -1,0 +1,22 @@
+---
+# Put back one instance's custom resources in dependency order. Loop var: inst
+# =============================================================================
+
+- name: "[{{ inst }}] Put back each step"
+  ansible.builtin.include_tasks: helper.yml
+  vars:
+    _rr_h_name: "[{{ inst }}] {{ item.id }}"
+    _rr_h_args: >-
+      {{ ['apply', '--file'] + (item.files | map('regex_replace', '^(.*)$', _rr_raw ~ '/\1') | list)
+         + ['--namespaces', item.ns | replace('{inst}', inst)]
+         + (['--transform'] + item.transform if item.transform | length > 0 else [])
+         + (['--dry-run'] if saas_rollback_dry_run else [])
+         + ['--report', _rr_rwork ~ '/record/apply-cr-' ~ inst ~ '-' ~ item.id ~ '.json'] }}
+    _rr_h_ok_rc: [0, 1]
+  loop: "{{ _rr_cr_steps | selectattr('scope', 'equalto', 'instance') | list }}"
+  loop_control:
+    label: "{{ item.id }}"
+
+- name: "[{{ inst }}] Note"
+  ansible.builtin.debug:
+    msg: "CR specs for {{ inst }}: {{ 'dry run, nothing written' if saas_rollback_dry_run else 'put back (see ' ~ _rr_rwork ~ '/record/apply-cr-' ~ inst ~ '-*.json)' }}. Waits for Ready happen after the operators return."

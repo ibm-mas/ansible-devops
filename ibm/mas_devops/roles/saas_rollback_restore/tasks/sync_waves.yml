@@ -1,0 +1,44 @@
+---
+# Manually sync the Applications of one instance in sync-wave order. Loop var: inst
+# Inputs: _rr_sw_min, _rr_sw_max (wave range). No prune. CP4D Applications are skipped (_rr_sync_exclude).
+# Application names are <app>.<cluster>.<instance> (gitops/root-applications/ibm-mas-instance-root). [V] on the AWS clusters.
+# =============================================================================
+
+- name: "[{{ inst }}] List the Applications in waves {{ _rr_sw_min }} to {{ _rr_sw_max }}"
+  ansible.builtin.include_tasks: helper.yml
+  vars:
+    _rr_h_name: "[{{ inst }}] List Applications"
+    _rr_h_args:
+      - argo-list
+      - --ns
+      - "{{ saas_rollback_argo_ns }}"
+      - --name-regex
+      - "\\.{{ saas_rollback_cluster }}\\.{{ inst }}$"
+      - --exclude-regex
+      - "{{ _rr_sync_exclude }}"
+      - --min-wave
+      - "{{ _rr_sw_min }}"
+      - --max-wave
+      - "{{ _rr_sw_max }}"
+
+- name: "[{{ inst }}] Sync order"
+  ansible.builtin.set_fact:
+    _rr_sw_apps: "{{ _rr_out.apps }}"
+
+- name: "[{{ inst }}] Show"
+  ansible.builtin.debug:
+    msg: "{{ _rr_sw_apps | map(attribute='wave') | zip(_rr_sw_apps | map(attribute='name')) | map('join', ' ') | list }}"
+
+- name: "[{{ inst }}] Fail if no Application was found (the name pattern does not match this cluster)"
+  ansible.builtin.assert:
+    that: _rr_sw_apps | length > 0
+    fail_msg: "No Application matches '.{{ saas_rollback_cluster }}.{{ inst }}' in waves {{ _rr_sw_min }} to {{ _rr_sw_max }}. Check SAAS_ROLLBACK_CLUSTER and the Application names."
+    quiet: true
+
+- name: "[{{ inst }}] Refresh and sync each Application, one at a time"
+  ansible.builtin.include_tasks: sync_one.yml
+  loop: "{{ _rr_sw_apps }}"
+  loop_control:
+    loop_var: app
+    label: "{{ app.wave }} {{ app.name }}"
+  when: not saas_rollback_dry_run

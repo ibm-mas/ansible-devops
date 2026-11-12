@@ -1,0 +1,46 @@
+---
+# Per-instance Mongo pre-check. Read-only. Loop var: inst
+# Atlas: the snapshot named in mongo-backup.txt must still exist (retention), the file must be the one this backup wrote,
+# and the stored SLS database must be the one the manifest recorded.
+# =============================================================================
+
+- name: "[{{ inst }}] Select the manifest entry"
+  ansible.builtin.set_fact:
+    _rr_i: "{{ _rr_manifest.instances | selectattr('id', 'equalto', inst) | first }}"
+
+- name: "[{{ inst }}] Check the Atlas backup info in S3"
+  when: _rr_i.db.mongo.variant | default('') == 'atlas'
+  block:
+    - name: "[{{ inst }}] Read mongo-backup.txt"
+      ansible.builtin.command:
+        argv:
+          - aws
+          - s3
+          - cp
+          - "s3://{{ saas_rollback_atlas_info_bucket }}/releases/{{ _rr_i.db.mongo.catalogBuildId }}/mongo/mongo-backup.txt"
+          - "-"
+          - --region
+          - "{{ saas_rollback_atlas_info_region }}"
+      register: _rr_atlas_info
+      changed_when: false
+      failed_when: _rr_atlas_info.rc != 0
+
+    - name: "[{{ inst }}] Parse it"
+      ansible.builtin.set_fact:
+        _rr_atlas_kv: >-
+          {{ dict(_rr_atlas_info.stdout_lines | select('search', '=') | map('regex_replace', '^([^=]+)=(.*)$', '\1|\2') | map('split', '|') | list) }}
+
+    - name: "[{{ inst }}] The info file is this backup's and the snapshot has not expired"
+      ansible.builtin.assert:
+        that:
+          - _rr_atlas_kv.snapshot_id | default('') | length > 0
+          - _rr_atlas_kv.sls_database | default('') | length > 0
+          - _rr_atlas_kv.mas_instance_id | default('') == inst
+          - _rr_i.db.mongo.snapshotId | default(_rr_atlas_kv.snapshot_id) == _rr_atlas_kv.snapshot_id
+          - _rr_i.db.mongo.slsDatabase | default(_rr_atlas_kv.sls_database) == _rr_atlas_kv.sls_database
+          - (_rr_atlas_kv.expires_at[:19] | to_datetime('%Y-%m-%dT%H:%M:%S')) > (now(utc=true).replace(tzinfo=None))
+        fail_msg: >-
+          mongo-backup.txt for build {{ _rr_i.db.mongo.catalogBuildId }} does not match the manifest, belongs to another instance, has no
+          sls_database, or the snapshot expired ({{ _rr_atlas_kv.expires_at | default('no expires_at') }}). Found: {{ _rr_atlas_kv | default({}) | dict2items | rejectattr('key', 'search', 'password') | items2dict }}.
+          The file is overwritten when a backup runs again with the same catalog_build_id.
+        quiet: true

@@ -1,0 +1,22 @@
+---
+# Restore Facilities PVCs: one helper pod per archive (same method as suite_app_restore facilities/restore-pv.yml)
+# Archive name = PVC name. Facilities pods are already at replicas 0 (stop phase), so the RWO volumes are free.
+# Inputs: inst, _rr_ws, _rr_fac_archives
+# =============================================================================
+
+- name: "[{{ inst }}] Facilities: list the PVC names"
+  ansible.builtin.set_fact:
+    _rr_fac_pvcs: "{{ _rr_fac_archives.files | map(attribute='path') | map('basename') | map('regex_replace', '\\.tar\\.gz$', '') | list }}"
+
+- name: "[{{ inst }}] Facilities: check the archives are readable"
+  ansible.builtin.command:
+    argv: ["tar", "-tzf", "{{ _rr_pv_fac_dir }}/{{ item }}.tar.gz"]
+  changed_when: false
+  loop: "{{ _rr_fac_pvcs }}"
+
+- name: "[{{ inst }}] Facilities: restore each PVC"
+  ansible.builtin.include_tasks: pv_restore_facilities_one.yml
+  loop: "{{ _rr_fac_pvcs }}"
+  loop_control:
+    loop_var: pvc
+  when: not saas_rollback_dry_run

@@ -1,0 +1,160 @@
+---
+# saas_rollback_restore - default variables
+# =============================================================================
+# Every input is read from an environment variable (same convention as saas_backup).
+# Secrets (tokens, passwords) are only ever read from the environment or from a vars file named by the
+# environment, and are never printed.
+
+# ----------------------------------------------------------------------------
+# Backup set (output of the backup runbook, 02-backup-process.md)
+# ----------------------------------------------------------------------------
+# Absolute path of the backup directory (contains manifest.json, SHA256SUMS, raw/, record/, argocd/, db/, roles/)
+saas_rollback_backup_dir: "{{ lookup('env', 'SAAS_ROLLBACK_BACKUP_DIR') }}"
+# Cluster id; must equal manifest.cluster
+saas_rollback_cluster: "{{ lookup('env', 'SAAS_ROLLBACK_CLUSTER') }}"
+# Comma-separated MAS instance ids to restore (all must be in manifest.instances)
+saas_rollback_instances: "{{ lookup('env', 'SAAS_ROLLBACK_INSTANCES') }}"
+# Optional: inst=workspace,... (default workspace id is "main" unless the manifest says otherwise)
+saas_rollback_workspace_ids: "{{ lookup('env', 'SAAS_ROLLBACK_WORKSPACE_IDS') | default('', true) }}"
+# Optional account and region, used only in messages
+saas_rollback_account: "{{ lookup('env', 'SAAS_ROLLBACK_ACCOUNT') | default('', true) }}"
+saas_rollback_region: "{{ lookup('env', 'SAAS_ROLLBACK_REGION') | default('', true) }}"
+
+# ----------------------------------------------------------------------------
+# Run control
+# ----------------------------------------------------------------------------
+# Restore run id. Use the SAME value when you re-run after a failure so the records are reused.
+saas_rollback_run_id: "{{ lookup('env', 'SAAS_ROLLBACK_RUN_ID') | default('', true) }}"
+# git-first (Approach A, default) or cluster-first (Approach B)
+saas_rollback_approach: "{{ lookup('env', 'SAAS_ROLLBACK_APPROACH') | default('git-first', true) }}"
+# manual (verify only; a person merges the pull request) or automated (push the lever values to the branch)
+saas_rollback_git_revert_mode: "{{ lookup('env', 'SAAS_ROLLBACK_GIT_REVERT_MODE') | default('manual', true) }}"
+# Change record and approver (required when dry run is off)
+saas_rollback_change_ticket: "{{ lookup('env', 'SAAS_ROLLBACK_CHANGE_TICKET') }}"
+saas_rollback_approved_by: "{{ lookup('env', 'SAAS_ROLLBACK_APPROVED_BY') }}"
+# Destructive confirmation. Must equal manifest.backupId when dry run is off.
+saas_rollback_confirm: "{{ lookup('env', 'SAAS_ROLLBACK_CONFIRM') | default('', true) }}"
+# Dry run (default true): read-only checks and a printed plan. Nothing is written to the cluster, Git or S3.
+saas_rollback_dry_run: "{{ lookup('env', 'SAAS_ROLLBACK_DRY_RUN') | default('true', true) | bool }}"
+# Phase control. Phases (in order for the chosen approach) are listed in tasks/init.yml.
+saas_rollback_start_at: "{{ lookup('env', 'SAAS_ROLLBACK_START_AT') | default('', true) }}"
+saas_rollback_stop_after: "{{ lookup('env', 'SAAS_ROLLBACK_STOP_AFTER') | default('', true) }}"
+saas_rollback_skip_phases: "{{ lookup('env', 'SAAS_ROLLBACK_SKIP_PHASES') | default('', true) }}"
+# 03 RC2 (3): a backup of the post-upgrade databases must exist before the rollback drops them.
+# Set PRE_ROLLBACK_BACKUP_DONE=true once it is taken, or SKIP_PRE_ROLLBACK_BACKUP=true to accept that risk (requester decision).
+saas_rollback_pre_rollback_backup_done: "{{ lookup('env', 'SAAS_ROLLBACK_PRE_ROLLBACK_BACKUP_DONE') | default('false', true) | bool }}"
+saas_rollback_skip_pre_rollback_backup: "{{ lookup('env', 'SAAS_ROLLBACK_SKIP_PRE_ROLLBACK_BACKUP') | default('false', true) | bool }}"
+# Seconds to wait for each long operation (CR ready, Manage down/up, operator CSV, ArgoCD sync)
+saas_rollback_timeout: "{{ lookup('env', 'SAAS_ROLLBACK_TIMEOUT') | default('3600', true) | int }}"
+
+# ----------------------------------------------------------------------------
+# Checks that can be switched off (fail-fast by default)
+# ----------------------------------------------------------------------------
+saas_rollback_skip_sha_check: "{{ lookup('env', 'SAAS_ROLLBACK_SKIP_SHA_CHECK') | default('false', true) | bool }}"
+saas_rollback_skip_cluster_url_check: "{{ lookup('env', 'SAAS_ROLLBACK_SKIP_CLUSTER_URL_CHECK') | default('false', true) | bool }}"
+saas_rollback_skip_s3_check: "{{ lookup('env', 'SAAS_ROLLBACK_SKIP_S3_CHECK') | default('false', true) | bool }}"
+saas_rollback_allow_missing_named: "{{ lookup('env', 'SAAS_ROLLBACK_ALLOW_MISSING_NAMED') | default('false', true) | bool }}"
+saas_rollback_allow_crd_gate_failure: "{{ lookup('env', 'SAAS_ROLLBACK_ALLOW_CRD_GATE_FAILURE') | default('false', true) | bool }}"
+saas_rollback_allow_keystore_mismatch: "{{ lookup('env', 'SAAS_ROLLBACK_ALLOW_KEYSTORE_MISMATCH') | default('false', true) | bool }}"
+saas_rollback_allow_outofsync: "{{ lookup('env', 'SAAS_ROLLBACK_ALLOW_OUTOFSYNC') | default('false', true) | bool }}"
+saas_rollback_allow_drift: "{{ lookup('env', 'SAAS_ROLLBACK_ALLOW_DRIFT') | default('false', true) | bool }}"
+saas_rollback_fail_on_leftovers: "{{ lookup('env', 'SAAS_ROLLBACK_FAIL_ON_LEFTOVERS') | default('false', true) | bool }}"
+saas_rollback_skip_manage_ping: "{{ lookup('env', 'SAAS_ROLLBACK_SKIP_MANAGE_PING') | default('false', true) | bool }}"
+
+# ----------------------------------------------------------------------------
+# ArgoCD
+# ----------------------------------------------------------------------------
+saas_rollback_argo_ns: "{{ lookup('env', 'SAAS_ROLLBACK_ARGO_NS') | default('openshift-gitops', true) }}"
+# Root Application name, e.g. root.fyre-noble10-dev (noble10) or root.<account> (AWS)
+saas_rollback_argo_root_app: "{{ lookup('env', 'SAAS_ROLLBACK_ARGO_ROOT_APP') }}"
+# Seconds the freeze must hold before the restore starts (03 RC1 gate)
+saas_rollback_freeze_hold_seconds: "{{ lookup('env', 'SAAS_ROLLBACK_FREEZE_HOLD_SECONDS') | default('120', true) | int }}"
+
+# ----------------------------------------------------------------------------
+# Git revert of the upgrade levers (03 section 10.0)
+# ----------------------------------------------------------------------------
+# aws-saas: saas-envs layout (cluster-params.yaml, <inst>/mas-instance-params.yaml, <inst>/mas-apps-params.yaml)
+# gitops-envs: noble10 layout (ibm-operator-catalog.yaml, <inst>/ibm-mas-suite.yaml, ...)
+saas_rollback_env_type: "{{ lookup('env', 'SAAS_ROLLBACK_ENV_TYPE') | default('aws-saas', true) }}"
+# Optional JSON list that replaces the built-in lever definition:
+#   [{"file":"cluster-params.yaml","paths":["catalog.version","catalog.image"]},
+#    {"file":"{inst}/mas-apps-params.yaml","key_suffix":"^app_channel$"}]
+saas_rollback_levers_json: "{{ lookup('env', 'SAAS_ROLLBACK_LEVERS_JSON') | default('', true) }}"
+# Defaults come from manifest.git.configRepo (url, branch, path)
+saas_rollback_git_repo_url: "{{ lookup('env', 'SAAS_ROLLBACK_GIT_REPO_URL') | default('', true) }}"
+saas_rollback_git_branch: "{{ lookup('env', 'SAAS_ROLLBACK_GIT_BRANCH') | default('', true) }}"
+saas_rollback_git_path: "{{ lookup('env', 'SAAS_ROLLBACK_GIT_PATH') | default('', true) }}"
+# Credentials (HTTPS). Required for automated mode and whenever the repository is private.
+saas_rollback_git_user: "{{ lookup('env', 'SAAS_ROLLBACK_GIT_USER') | default('', true) }}"
+saas_rollback_git_token: "{{ lookup('env', 'SAAS_ROLLBACK_GIT_TOKEN') | default('', true) }}"
+saas_rollback_git_author_name: "{{ lookup('env', 'SAAS_ROLLBACK_GIT_AUTHOR_NAME') | default('saas-rollback', true) }}"
+saas_rollback_git_author_email: "{{ lookup('env', 'SAAS_ROLLBACK_GIT_AUTHOR_EMAIL') | default('saas-rollback@localhost', true) }}"
+# Manual mode: commit SHA of the merged rollback pull request (recorded; HEAD must contain it)
+saas_rollback_git_rollback_sha: "{{ lookup('env', 'SAAS_ROLLBACK_GIT_ROLLBACK_SHA') | default('', true) }}"
+
+# ----------------------------------------------------------------------------
+# Catalog and operators (03 section 11)
+# ----------------------------------------------------------------------------
+saas_rollback_catalog_source_name: "{{ lookup('env', 'SAAS_ROLLBACK_CATALOG_SOURCE_NAME') | default('ibm-operator-catalog', true) }}"
+saas_rollback_catalog_source_ns: "{{ lookup('env', 'SAAS_ROLLBACK_CATALOG_SOURCE_NS') | default('openshift-marketplace', true) }}"
+# If the catalog tag moved since the backup, pin the recorded digest
+saas_rollback_catalog_pin_digest: "{{ lookup('env', 'SAAS_ROLLBACK_CATALOG_PIN_DIGEST') | default('true', true) | bool }}"
+# Subscriptions in these namespaces are never reinstalled (platform operators)
+saas_rollback_operator_exclude_ns_regex: "{{ lookup('env', 'SAAS_ROLLBACK_OPERATOR_EXCLUDE_NS_REGEX') | default('^(openshift-.*|cert-manager-operator)$', true) }}"
+saas_rollback_ca_namespace: "{{ lookup('env', 'SAAS_ROLLBACK_CA_NAMESPACE') | default('cert-manager', true) }}"
+
+# ----------------------------------------------------------------------------
+# Mongo (03 section 8)
+# ----------------------------------------------------------------------------
+saas_rollback_mongo_namespace: "{{ lookup('env', 'SAAS_ROLLBACK_MONGO_NAMESPACE') | default('mongoce', true) }}"
+saas_rollback_mongo_instance_name: "{{ lookup('env', 'SAAS_ROLLBACK_MONGO_INSTANCE_NAME') | default('mas-mongo-ce', true) }}"
+# DocumentDB and IBM Cloud logical restore (mongorestore)
+saas_rollback_mongo_host: "{{ lookup('env', 'SAAS_ROLLBACK_MONGO_HOST') | default('', true) }}"
+saas_rollback_mongo_port: "{{ lookup('env', 'SAAS_ROLLBACK_MONGO_PORT') | default('27017', true) }}"
+saas_rollback_mongo_user: "{{ lookup('env', 'SAAS_ROLLBACK_MONGO_USER') | default('', true) }}"
+saas_rollback_mongo_password: "{{ lookup('env', 'SAAS_ROLLBACK_MONGO_PASSWORD') | default('', true) }}"
+saas_rollback_mongo_tls_ca_file: "{{ lookup('env', 'SAAS_ROLLBACK_MONGO_TLS_CA_FILE') | default('', true) }}"
+saas_rollback_mongo_retry_writes: "{{ lookup('env', 'SAAS_ROLLBACK_MONGO_RETRY_WRITES') | default('false', true) | bool }}"
+# IBM Cloud Databases for MongoDB: new-service (M1) or logical-dump (M2)
+saas_rollback_ibm_mongo_method: "{{ lookup('env', 'SAAS_ROLLBACK_IBM_MONGO_METHOD') | default('logical-dump', true) }}"
+saas_rollback_ibm_mongo_restored_service_name: "{{ lookup('env', 'SAAS_ROLLBACK_IBM_MONGO_RESTORED_SERVICE_NAME') | default('', true) }}"
+# M1 only: set true after MongoCfg, the Mongo Secrets and the AWS Secrets Manager entry point at the new service
+saas_rollback_ibm_mongo_repoint_done: "{{ lookup('env', 'SAAS_ROLLBACK_IBM_MONGO_REPOINT_DONE') | default('false', true) | bool }}"
+
+# MongoDB Atlas (mongodb role, provider atlas, branch mascore-20279): native snapshot, collection-level restore of one instance
+# The role takes catalog_build_id and the API keys only as Ansible extra vars; this role writes them to a mode 0600 file for the run.
+# Project and cluster default to the manifest (instances[].db.mongo.projectId, clusterName).
+saas_rollback_atlas_project_id: "{{ lookup('env', 'SAAS_ROLLBACK_ATLAS_PROJECT_ID') | default('', true) }}"
+saas_rollback_atlas_cluster_name: "{{ lookup('env', 'SAAS_ROLLBACK_ATLAS_CLUSTER_NAME') | default('', true) }}"
+# API keys: either both keys here, or the AWS account id and region so the role reads <account>/mongodb-atlas from Secrets Manager
+saas_rollback_atlas_public_key: "{{ lookup('env', 'SAAS_ROLLBACK_ATLAS_PUBLIC_KEY') | default('', true) }}"
+saas_rollback_atlas_private_key: "{{ lookup('env', 'SAAS_ROLLBACK_ATLAS_PRIVATE_KEY') | default('', true) }}"
+saas_rollback_atlas_account_id: "{{ lookup('env', 'SAAS_ROLLBACK_ATLAS_ACCOUNT_ID') | default('', true) }}"
+saas_rollback_atlas_aws_region: "{{ lookup('env', 'SAAS_ROLLBACK_ATLAS_AWS_REGION') | default('', true) }}"
+# Where the mongodb role keeps mongo-backup.txt. Both are hardcoded in providers/atlas/backup.yml and backup-restore.yml
+# (bucket mref-backflow-test-bucket, region eu-central-1). They are used here only for the read-only check in the verify phase;
+# change them if the role changes.
+saas_rollback_atlas_info_bucket: "{{ lookup('env', 'SAAS_ROLLBACK_ATLAS_INFO_BUCKET') | default('mref-backflow-test-bucket', true) }}"
+saas_rollback_atlas_info_region: "{{ lookup('env', 'SAAS_ROLLBACK_ATLAS_INFO_REGION') | default('eu-central-1', true) }}"
+
+# ----------------------------------------------------------------------------
+# Databases (03 section 9)
+# ----------------------------------------------------------------------------
+# Checkout of ssp-mas-sre-automation on the branch that has mas_db_restore.yaml (mascore-20278-db2-backup-restore)
+saas_rollback_ssp_dir: "{{ lookup('env', 'SAAS_ROLLBACK_SSP_DIR') | default('', true) }}"
+# Cloud type the ssp playbooks use to log in: ibm, aws, fyre, mcsp_aws (RDS)
+saas_rollback_db2_cloud: "{{ lookup('env', 'SAAS_ROLLBACK_DB2_CLOUD') | default('', true) }}"
+# YAML/JSON vars file passed to the ssp playbooks with -e @file (credentials: ibmcloud_api_key, aws_access_key_id, ...)
+saas_rollback_ssp_vars_file: "{{ lookup('env', 'SAAS_ROLLBACK_SSP_VARS_FILE') | default('', true) }}"
+# S3 endpoint for the Db2 images and the keystore (the ssp playbooks read BACKUP_S3_ENDPOINT too)
+saas_rollback_db2_s3_endpoint: "{{ lookup('env', 'SAAS_ROLLBACK_DB2_S3_ENDPOINT') | default('https://s3.amazonaws.com', true) }}"
+# Image of the helper pod that mounts the Manage and Facilities PVCs for the file restore (needs sh and tar)
+saas_rollback_helper_pod_image: "{{ lookup('env', 'SAAS_ROLLBACK_HELPER_POD_IMAGE') | default('registry.redhat.io/ubi9/ubi:latest', true) }}"
+
+# ----------------------------------------------------------------------------
+# External systems (03 section 13)
+# ----------------------------------------------------------------------------
+# Compare AWS Secrets Manager versions with external/aws-secretsmanager/. Writing back needs RESTORE_SECRETS_MANAGER=true.
+saas_rollback_check_secrets_manager: "{{ lookup('env', 'SAAS_ROLLBACK_CHECK_SECRETS_MANAGER') | default('false', true) | bool }}"
+saas_rollback_restore_secrets_manager: "{{ lookup('env', 'SAAS_ROLLBACK_RESTORE_SECRETS_MANAGER') | default('false', true) | bool }}"
+saas_rollback_aws_region: "{{ lookup('env', 'SAAS_ROLLBACK_AWS_REGION') | default(lookup('env', 'AWS_DEFAULT_REGION'), true) }}"

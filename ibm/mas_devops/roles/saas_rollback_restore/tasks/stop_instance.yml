@@ -1,0 +1,106 @@
+---
+# Stop the writers of one instance. Loop var: inst
+# =============================================================================
+
+- name: "[{{ inst }}] Set workspace id"
+  ansible.builtin.set_fact:
+    _rr_ws: "{{ _rr_ws_map[inst] | default(_rr_manifest.instances | selectattr('id', 'equalto', inst) | map(attribute='workspace') | first | default('main')) }}"
+
+# 1. Manage down (quiesce_db=false: the database is dropped later)
+# -----------------------------------------------------------------------------
+- name: "[{{ inst }}] Does the ManageWorkspace exist"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: ManageWorkspace
+    namespace: "mas-{{ inst }}-manage"
+    name: "{{ inst }}-{{ _rr_ws }}"
+  register: _rr_mw
+
+- name: "[{{ inst }}] Record the current Manage mode"
+  ansible.builtin.copy:
+    content: "{{ _rr_mw.resources[0].spec.settings.deployment.mode | default('') }}\n"
+    dest: "{{ _rr_rwork }}/before/manage-mode-{{ inst }}.txt"
+    mode: "0600"
+    force: false
+  when: _rr_mw.resources | length > 0
+
+- name: "[{{ inst }}] Set Manage mode to down"
+  kubernetes.core.k8s_json_patch:
+    api_version: apps.mas.ibm.com/v1
+    kind: ManageWorkspace
+    namespace: "mas-{{ inst }}-manage"
+    name: "{{ inst }}-{{ _rr_ws }}"
+    patch:
+      - op: add
+        path: /spec/settings/deployment/mode
+        value: down
+  when: _rr_mw.resources | length > 0
+
+- name: "[{{ inst }}] Wait for Manage to report not ready"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: ManageWorkspace
+    namespace: "mas-{{ inst }}-manage"
+    name: "{{ inst }}-{{ _rr_ws }}"
+  register: _rr_mw_wait
+  until:
+    - _rr_mw_wait.resources | length > 0
+    - (_rr_mw_wait.resources[0].status.conditions | default([]) | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | first | default('False')) == 'False'
+  delay: 30
+  retries: "{{ (saas_rollback_timeout | int / 30) | int }}"
+  when: _rr_mw.resources | length > 0
+
+# 2. Facilities replicas 0 (the value to restore comes from the backup record, not from here)
+# -----------------------------------------------------------------------------
+- name: "[{{ inst }}] Set Facilities podTemplates replicas to 0"
+  ansible.builtin.include_tasks: helper.yml
+  vars:
+    _rr_h_name: "[{{ inst }}] Facilities replicas 0"
+    _rr_h_args: ["fac-replicas", "--ns", "mas-{{ inst }}-facilities", "--name", "{{ inst }}-{{ _rr_ws }}", "--zero"]
+    _rr_h_ok_rc: [0, 1]
+
+# 3. Db2 CronJobs suspended
+# -----------------------------------------------------------------------------
+- name: "[{{ inst }}] List Db2 CronJobs"
+  kubernetes.core.k8s_info:
+    api_version: batch/v1
+    kind: CronJob
+    namespace: "db2u-{{ inst }}"
+  register: _rr_cj
+
+- name: "[{{ inst }}] Suspend Db2 CronJobs"
+  kubernetes.core.k8s_json_patch:
+    api_version: batch/v1
+    kind: CronJob
+    namespace: "db2u-{{ inst }}"
+    name: "{{ item.metadata.name }}"
+    patch:
+      - op: add
+        path: /spec/suspend
+        value: true
+  loop: "{{ _rr_cj.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+
+# 4. Scale MAS operators and Core/SLS/Manage/Facilities workloads to 0 (replicas recorded first; a re-run keeps the first record)
+# -----------------------------------------------------------------------------
+- name: "[{{ inst }}] Scale workloads to 0"
+  ansible.builtin.include_tasks: helper.yml
+  vars:
+    _rr_h_name: "[{{ inst }}] Scale {{ ns }} to 0"
+    _rr_h_args: ["scale", "--ns", "{{ ns }}", "--record", "{{ _rr_rwork }}/before/replicas-{{ ns }}.json"]
+  loop: "{{ ['core', 'sls', 'manage', 'facilities'] | map('regex_replace', '^(.*)$', 'mas-' ~ inst ~ '-\\1') | list }}"
+  loop_control:
+    loop_var: ns
+
+# 5. Prove it
+# -----------------------------------------------------------------------------
+- name: "[{{ inst }}] Wait until no pod is running in the four namespaces"
+  ansible.builtin.command:
+    argv: ["python3", "{{ role_path }}/files/rr_helper.py", "pods", "--ns", "{{ item }}"]
+  register: _rr_pods
+  changed_when: false
+  until: (_rr_pods.stdout | from_json).count | int == 0
+  retries: 40
+  delay: 15
+  loop: "{{ ['core', 'sls', 'manage', 'facilities'] | map('regex_replace', '^(.*)$', 'mas-' ~ inst ~ '-\\1') | list }}"

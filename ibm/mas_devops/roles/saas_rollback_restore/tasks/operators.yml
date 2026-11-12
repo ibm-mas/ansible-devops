@@ -1,0 +1,87 @@
+---
+# Operators back to the recorded CSVs (03 section 11). Cluster-wide, once. Changes state unless dry run.
+# Data (Secrets, Mongo, Db2, PV) and the backed-up CR specs are already in place, so the old operator starts against old data.
+# =============================================================================
+
+- name: "[operators] Gate: the CRDs allow the old CSVs (go/no-go)"
+  ansible.builtin.command:
+    argv: ["python3", "{{ role_path }}/files/rr_helper.py", "crd-gate", "--saved", "{{ _rr_raw }}/crds.json"]
+  register: _rr_crd
+  changed_when: false
+
+- name: "[operators] Show CRD gate problems"
+  ansible.builtin.debug:
+    msg: "{{ (_rr_crd.stdout | from_json).problems }}"
+  when: (_rr_crd.stdout | from_json).problems | length > 0
+
+- name: "[operators] Stop if the CRD gate fails"
+  ansible.builtin.assert:
+    that: (_rr_crd.stdout | from_json).problems | length == 0 or saas_rollback_allow_crd_gate_failure
+    fail_msg: >-
+      The upgrade added or changed CRD versions that the old CSV cannot install over (03 section 11 step 3). A rollback may not be safe.
+      Decide with the product team; SAAS_ROLLBACK_ALLOW_CRD_GATE_FAILURE=true overrides after that decision.
+    quiet: true
+
+- name: "[operators] Find the Subscriptions that differ from the record"
+  ansible.builtin.command:
+    argv: >-
+      {{ ['python3', role_path ~ '/files/rr_helper.py', 'ops-diff', '--record', _rr_rec ~ '/subscriptions.json']
+         + (_rr_operator_order_regex | map('regex_replace', '^(.*)$', '--order-regex=\1') | list) }}
+  register: _rr_opd
+  changed_when: false
+
+- name: "[operators] Select what to reinstall"
+  ansible.builtin.set_fact:
+    _rr_ops: "{{ (_rr_opd.stdout | from_json).differing | rejectattr('ns', 'match', saas_rollback_operator_exclude_ns_regex) | list }}"
+
+- name: "[operators] Show the plan"
+  ansible.builtin.debug:
+    msg:
+      - "{{ _rr_ops | length }} operator(s) differ from the record, in this order:"
+      - "{{ _rr_ops | map(attribute='ns') | zip(_rr_ops | map(attribute='name'), _rr_ops | map(attribute='liveCSV'), _rr_ops | map(attribute='recordedCSV')) | map('join', ' | ') | list }}"
+
+- name: "[operators] Reinstall each operator at its recorded CSV, in order"
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ role_path }}/files/rr_helper.py"
+      - op-return
+      - --ns
+      - "{{ item.ns }}"
+      - --name
+      - "{{ item.name }}"
+      - --record
+      - "{{ _rr_rec }}/subscriptions.json"
+      - --raw-subs
+      - "{{ _rr_raw }}/all__subscription.operators.coreos.com.json"
+      - --timeout
+      - "{{ saas_rollback_timeout }}"
+  register: _rr_opr
+  changed_when: true
+  loop: "{{ _rr_ops }}"
+  loop_control:
+    label: "{{ item.ns }}/{{ item.name }} {{ item.liveCSV | default('-') }} -> {{ item.recordedCSV }}"
+  when: not saas_rollback_dry_run
+
+- name: "[operators] Gate: installed state equals the record"
+  ansible.builtin.command:
+    argv: >-
+      {{ ['python3', role_path ~ '/files/rr_helper.py', 'ops-diff', '--record', _rr_rec ~ '/subscriptions.json'] }}
+  register: _rr_opd2
+  changed_when: false
+  when: not saas_rollback_dry_run
+
+- name: "[operators] Fail if an operator is not at the recorded CSV"
+  ansible.builtin.assert:
+    that: >-
+      (_rr_opd2.stdout | from_json).differing | rejectattr('ns', 'match', saas_rollback_operator_exclude_ns_regex) | list | length == 0
+    fail_msg: "Operators not at the recorded CSV: {{ (_rr_opd2.stdout | from_json).differing | rejectattr('ns', 'match', saas_rollback_operator_exclude_ns_regex) | list }}"
+    quiet: true
+  when: not saas_rollback_dry_run
+
+- name: "[operators] Save the final state"
+  ansible.builtin.copy:
+    content: "{{ _rr_opd2.stdout }}"
+    dest: "{{ _rr_rwork }}/after/operators-diff.json"
+    mode: "0600"
+  when: not saas_rollback_dry_run

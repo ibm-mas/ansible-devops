@@ -1,0 +1,17 @@
+---
+# S9 and S10: start Manage and Facilities (03 section 4). Changes state unless dry run.
+# Core and SLS were scaled back up in sync_core (git-first) or reconcile (cluster-first) and are Ready.
+# Manage mode and Facilities replicas come from the backup record, not from the stop-phase values.
+# =============================================================================
+
+- name: "[start] Start each instance"
+  ansible.builtin.include_tasks: start_instance.yml
+  loop: "{{ _rr_inst_list }}"
+  loop_control:
+    loop_var: inst
+  when: not saas_rollback_dry_run
+
+- name: "[start] Dry run: nothing changed"
+  ansible.builtin.debug:
+    msg: "Dry run: would set ManageWorkspace mode to the recorded value, restore the Facilities replicas from the record and wait for Ready."
+  when: saas_rollback_dry_run

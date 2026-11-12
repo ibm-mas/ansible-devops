@@ -1,0 +1,68 @@
+---
+# Phase S4: namespaces, Secrets, ConfigMaps from raw/ (03 section 7). Changes state unless dry run.
+# Approach git-first restores only objects without an ArgoCD tracking-id; cluster-first restores all.
+# =============================================================================
+
+- name: "[objects] Choose the filter"
+  ansible.builtin.set_fact:
+    _rr_obj_filter: "{{ 'nogit' if saas_rollback_approach == 'git-first' else 'all' }}"
+    _rr_obj_ns: "{{ _rr_ns_csv | trim }}"
+
+- name: "[objects] Create missing namespaces from raw/cluster__namespace.json"
+  ansible.builtin.include_tasks: helper.yml
+  vars:
+    _rr_h_name: "[objects] Namespaces"
+    _rr_h_args: >-
+      {{ ['apply', '--file', _rr_raw ~ '/cluster__namespace.json', '--cluster-scoped', '--create-only']
+         + (['--dry-run'] if saas_rollback_dry_run else [])
+         + ['--report', _rr_rwork ~ '/record/apply-namespaces.json'] }}
+    _rr_h_ok_rc: [0, 1]
+
+- name: "[objects] Show namespace result"
+  ansible.builtin.debug:
+    var: _rr_out.summary
+
+- name: "[objects] Restore Secrets and ConfigMaps"
+  ansible.builtin.include_tasks: helper.yml
+  vars:
+    _rr_h_name: "[objects] Secrets and ConfigMaps ({{ _rr_obj_filter }})"
+    _rr_h_args: >-
+      {{ ['apply', '--file']
+         + (_rr_obj_ns.split(',') | map('regex_replace', '^(.*)$', _rr_raw ~ '/\1__*.json') | list)
+         + ['--namespaces', _rr_obj_ns, '--filter', _rr_obj_filter]
+         + (['--dry-run'] if saas_rollback_dry_run else [])
+         + ['--report', _rr_rwork ~ '/record/apply-objects.json'] }}
+    _rr_h_ok_rc: [0, 1]
+
+- name: "[objects] Show result"
+  ansible.builtin.debug:
+    msg:
+      - "Summary: {{ _rr_out.summary }}"
+      - "Errors: {{ _rr_out.errors }}"
+
+- name: "[objects] Fail if any object could not be written"
+  ansible.builtin.assert:
+    that: _rr_out.errors == 0
+    fail_msg: "Objects failed: {{ _rr_out.failed }}. 'put' is idempotent: fix and re-run with SAAS_ROLLBACK_RUN_ID={{ _rr_rid }} SAAS_ROLLBACK_START_AT=objects."
+    quiet: true
+
+- name: "[objects] Critical objects must exist and equal the backup (03 S4 rule 4)"
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ role_path }}/files/rr_helper.py"
+      - critical
+      - --raw
+      - "{{ _rr_raw }}"
+      - --inst
+      - "{{ inst }}"
+      - --ca-namespace
+      - "{{ saas_rollback_ca_namespace }}"
+  register: _rr_crit
+  changed_when: false
+  failed_when: (_rr_crit.stdout | from_json).bad | length > 0
+  loop: "{{ _rr_inst_list }}"
+  loop_control:
+    loop_var: inst
+    label: "{{ inst }}"
+  when: not saas_rollback_dry_run

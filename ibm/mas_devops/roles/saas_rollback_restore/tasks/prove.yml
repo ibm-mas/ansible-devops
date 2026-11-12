@@ -1,0 +1,44 @@
+---
+# cluster-first B8: prove the cluster equals Git before ArgoCD resumes (03 section 10.2). Read-only.
+# Every Application must be Synced and Healthy after the Git revert and the refresh; objects that exist only now are listed (B-extra).
+# =============================================================================
+
+- name: "[prove] Hard-refresh every Application of the cluster so the new revision is compared"
+  ansible.builtin.include_tasks: helper.yml
+  vars:
+    _rr_h_name: "[prove] List Applications"
+    _rr_h_args: ["argo-list", "--ns", "{{ saas_rollback_argo_ns }}", "--name-regex", "\\.{{ saas_rollback_cluster }}(\\.|$)", "--exclude-regex", "{{ _rr_sync_exclude }}"]
+
+- name: "[prove] Refresh"
+  ansible.builtin.include_tasks: helper.yml
+  vars:
+    _rr_h_name: "[prove] Refresh {{ item.name }}"
+    _rr_h_args: ["argo-refresh", "--ns", "{{ saas_rollback_argo_ns }}", "--app", "{{ item.name }}"]
+  loop: "{{ _rr_out.apps }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: not saas_rollback_dry_run
+
+- name: "[prove] Wait for the refresh"
+  ansible.builtin.pause:
+    seconds: 60
+  when: not saas_rollback_dry_run
+
+- name: "[prove] Applications that are not Synced and Healthy"
+  ansible.builtin.include_tasks: helper.yml
+  vars:
+    _rr_h_name: "[prove] argo-unsynced"
+    _rr_h_args: ["argo-unsynced", "--ns", "{{ saas_rollback_argo_ns }}", "--name-regex", "\\.{{ saas_rollback_cluster }}(\\.|$)"]
+
+- name: "[prove] Keep the ones in scope"
+  ansible.builtin.set_fact:
+    _rr_unsynced: "{{ _rr_out.notSyncedOrHealthy | rejectattr('name', 'search', _rr_sync_exclude) | list }}"
+
+- name: "[prove] Fail if the cluster does not equal Git (resolve each: fix the cluster or fix Git)"
+  ansible.builtin.assert:
+    that: _rr_unsynced | length == 0 or saas_rollback_allow_outofsync or saas_rollback_dry_run
+    fail_msg: "{{ _rr_unsynced | length }} Application(s) not Synced and Healthy: {{ _rr_unsynced }}. Run 'argocd app diff <app>' for each. SAAS_ROLLBACK_ALLOW_OUTOFSYNC=true accepts them after review."
+    quiet: true
+
+- name: "[prove] Objects that exist now but not in the backup (B-extra)"
+  ansible.builtin.include_tasks: leftovers.yml

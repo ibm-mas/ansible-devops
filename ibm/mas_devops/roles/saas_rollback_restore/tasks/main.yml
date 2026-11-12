@@ -1,0 +1,58 @@
+---
+# SaaS upgrade rollback: restore a cluster and its MAS instances to the state held in a backup set
+# =============================================================================
+# Design: saas-tekton/docs/upgrade-rollback/03-restore-process.md
+# Phases (git-first):     verify, freeze, snapshot, stop, objects, mongo, db2, pv, git_revert, catalog, crs, operators,
+#                         sync_core, start, sync_apps, drift, external, verify_post, resume
+# Phases (cluster-first): verify, freeze, snapshot, stop, objects, certs, mongo, db2, pv, catalog, crs, operators,
+#                         reconcile, start, git_revert, prove, external, verify_post, resume
+#
+# Dry run is the default: every phase prints its plan and reads the cluster, and nothing is written to the cluster, Git or S3.
+# A failure stops the run, reports the state and leaves ArgoCD frozen. Re-run with the same SAAS_ROLLBACK_RUN_ID and
+# SAAS_ROLLBACK_START_AT=<failed phase>; every phase can be repeated.
+
+# 1. Inputs
+# -----------------------------------------------------------------------------
+- name: "Validate inputs"
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_inputs.yml"
+
+# 2. Backup set, approach and phase list
+# -----------------------------------------------------------------------------
+- name: "Read the backup set and compute the run context"
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/init.yml"
+
+# 3. Checks that need the run context: phase names, authorisation, tools, oc login
+# -----------------------------------------------------------------------------
+- name: "Validate the run"
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_run.yml"
+
+# 4. Phases
+# -----------------------------------------------------------------------------
+- name: "Run the phases"
+  block:
+    - name: "Run each active phase in order"
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/run_phase.yml"
+      loop: "{{ _rr_active }}"
+      loop_control:
+        loop_var: phase
+        label: "{{ phase }}"
+
+  rescue:
+    - name: "Report the state (never resumes ArgoCD)"
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/report_state.yml"
+
+    - name: "Fail: the rollback did not complete"
+      ansible.builtin.fail:
+        msg: >-
+          Rollback FAILED in phase '{{ _rr_current_phase | default('none') }}' (run id {{ _rr_rid }}).
+          Cause: {{ ansible_failed_result.msg | default('see the failed task above') }}.
+          Re-run with SAAS_ROLLBACK_RUN_ID={{ _rr_rid }} SAAS_ROLLBACK_START_AT={{ _rr_current_phase | default('verify') }}.
+
+# 5. Done
+# -----------------------------------------------------------------------------
+- name: "Rollback complete"
+  ansible.builtin.debug:
+    msg:
+      - "{{ 'DRY RUN complete: nothing was changed.' if saas_rollback_dry_run else 'Rollback complete.' }} Backup {{ _rr_manifest.backupId }}, cluster {{ saas_rollback_cluster }}, instances {{ _rr_inst_list | join(', ') }}."
+      - "Phases run: {{ _rr_active | join(' > ') }}"
+      - "Records and exports: {{ _rr_rwork }}"

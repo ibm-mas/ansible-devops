@@ -1,0 +1,96 @@
+---
+# Phase RC1: freeze ArgoCD top-down (03 section 5, 02 B2). Changes state unless dry run.
+# =============================================================================
+
+- name: "[freeze] Record the current ArgoCD objects (before the freeze)"
+  ansible.builtin.shell: |
+    set -o pipefail
+    oc get application -n {{ saas_rollback_argo_ns }} -o yaml > '{{ _rr_rwork }}/before/applications.yaml'
+    oc get applicationset -n {{ saas_rollback_argo_ns }} -o yaml > '{{ _rr_rwork }}/before/applicationsets.yaml'
+  args:
+    executable: /bin/bash
+    creates: "{{ _rr_rwork }}/before/applicationsets.yaml"
+  when: not saas_rollback_dry_run
+
+- name: "[freeze] Read the current state"
+  ansible.builtin.include_tasks: helper.yml
+  vars:
+    _rr_h_name: "[freeze] Count Applications with automated sync and running operations"
+    _rr_h_args: ["argo-state", "--ns", "{{ saas_rollback_argo_ns }}"]
+
+- name: "[freeze] Show the current state"
+  ansible.builtin.debug:
+    msg: "{{ _rr_out.total }} Applications, {{ _rr_out.automatedCount }} with automated sync, {{ _rr_out.runningCount }} running an operation."
+
+- name: "[freeze] Freeze, top-down, and confirm"
+  when: not saas_rollback_dry_run
+  block:
+    - name: "[freeze] Terminate running operations"
+      ansible.builtin.include_tasks: helper.yml
+      vars:
+        _rr_h_name: "[freeze] Terminate running operations"
+        _rr_h_args: ["argo-freeze", "--ns", "{{ saas_rollback_argo_ns }}", "--step", "terminate"]
+
+    - name: "[freeze] Pause the root Application"
+      ansible.builtin.include_tasks: helper.yml
+      vars:
+        _rr_h_name: "[freeze] Pause the root Application"
+        _rr_h_args: ["argo-freeze", "--ns", "{{ saas_rollback_argo_ns }}", "--step", "root", "--root", "{{ saas_rollback_argo_root_app }}"]
+
+    - name: "[freeze] Pause every ApplicationSet template"
+      ansible.builtin.include_tasks: helper.yml
+      vars:
+        _rr_h_name: "[freeze] Pause every ApplicationSet template"
+        _rr_h_args: ["argo-freeze", "--ns", "{{ saas_rollback_argo_ns }}", "--step", "appsets"]
+
+    - name: "[freeze] Wait until the AppSet controller has pushed the change (children owned by AppSets)"
+      ansible.builtin.command:
+        argv: ["python3", "{{ role_path }}/files/rr_helper.py", "argo-state", "--ns", "{{ saas_rollback_argo_ns }}"]
+      register: _rr_wait
+      changed_when: false
+      until: (_rr_wait.stdout | from_json).appsetOwnedAutomatedCount | int == 0
+      retries: 30
+      delay: 10
+
+    - name: "[freeze] Pause every remaining Application"
+      ansible.builtin.include_tasks: helper.yml
+      vars:
+        _rr_h_name: "[freeze] Pause every remaining Application"
+        _rr_h_args: ["argo-freeze", "--ns", "{{ saas_rollback_argo_ns }}", "--step", "apps"]
+
+    - name: "[freeze] Gate: zero automated, none running"
+      ansible.builtin.include_tasks: helper.yml
+      vars:
+        _rr_h_name: "[freeze] Gate 1"
+        _rr_h_args: ["argo-state", "--ns", "{{ saas_rollback_argo_ns }}"]
+
+    - name: "[freeze] Fail if anything is still automated or running"
+      ansible.builtin.assert:
+        that:
+          - _rr_out.automatedCount == 0
+          - _rr_out.runningCount == 0
+        fail_msg: "Still automated: {{ _rr_out.automated }}; running: {{ _rr_out.running }}. Repeat from the parent down (02 B2.5)."
+        quiet: true
+
+    - name: "[freeze] Hold {{ saas_rollback_freeze_hold_seconds }} s and check again"
+      ansible.builtin.pause:
+        seconds: "{{ saas_rollback_freeze_hold_seconds }}"
+
+    - name: "[freeze] Gate: still zero after the hold"
+      ansible.builtin.include_tasks: helper.yml
+      vars:
+        _rr_h_name: "[freeze] Gate 2"
+        _rr_h_args: ["argo-state", "--ns", "{{ saas_rollback_argo_ns }}"]
+
+    - name: "[freeze] Fail if the freeze did not hold"
+      ansible.builtin.assert:
+        that:
+          - _rr_out.automatedCount == 0
+          - _rr_out.runningCount == 0
+        fail_msg: "The freeze did not hold: automated={{ _rr_out.automated }}, running={{ _rr_out.running }}. A parent still renders a policy."
+        quiet: true
+
+- name: "[freeze] Dry run: nothing changed"
+  ansible.builtin.debug:
+    msg: "Dry run: would terminate operations and set syncPolicy.automated=null on the root, every ApplicationSet template and every Application."
+  when: saas_rollback_dry_run

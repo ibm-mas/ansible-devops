@@ -1,0 +1,17 @@
+---
+# Phase RC3: stop the writers (03 section 6). Downtime starts here.
+# Order: supported levers first (Manage mode, Facilities replicas, CronJobs), then scale operators and Core/SLS workloads to 0.
+# Never touches the Db2u operator, Db2 pods, the Mongo operator or Mongo pods.
+# =============================================================================
+
+- name: "[stop] Dry run: nothing changed"
+  ansible.builtin.debug:
+    msg: "Dry run: would stop Manage ({{ _rr_inst_list | join(', ') }}), set Facilities replicas to 0, suspend Db2 CronJobs and scale Core/SLS workloads and MAS operators to 0."
+  when: saas_rollback_dry_run
+
+- name: "[stop] Stop each instance"
+  ansible.builtin.include_tasks: stop_instance.yml
+  loop: "{{ _rr_inst_list }}"
+  loop_control:
+    loop_var: inst
+  when: not saas_rollback_dry_run

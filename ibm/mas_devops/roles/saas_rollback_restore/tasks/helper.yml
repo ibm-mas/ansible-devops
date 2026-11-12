@@ -1,0 +1,22 @@
+---
+# Run rr_helper.py with the arguments in _rr_h_args and leave the parsed JSON in _rr_out.
+# Inputs:  _rr_h_args (list of strings), _rr_h_ok_rc (list, default [0]), _rr_h_name (task label)
+# Output:  _rr_out (dict), _rr_h_rc (int)
+- name: "{{ _rr_h_name | default('rr_helper') }}"
+  ansible.builtin.command:
+    argv: "{{ ['python3', role_path ~ '/files/rr_helper.py'] + (_rr_h_args | map('string') | list) }}"
+  register: _rr_h
+  changed_when: false
+  failed_when: _rr_h.rc not in (_rr_h_ok_rc | default([0]))
+
+- name: "Parse helper output"
+  ansible.builtin.set_fact:
+    _rr_out: "{{ _rr_h.stdout | from_json }}"
+    _rr_h_rc: "{{ _rr_h.rc }}"
+
+- name: "Fail if the helper reported object errors"
+  ansible.builtin.assert:
+    that: _rr_out.errors | default(0) | int == 0
+    fail_msg: "{{ _rr_h_name | default('rr_helper') }}: {{ _rr_out.failed | default([]) }}. 'put' is idempotent: fix the cause and re-run the phase."
+    quiet: true
+  when: _rr_h_fail_on_errors | default(true) | bool

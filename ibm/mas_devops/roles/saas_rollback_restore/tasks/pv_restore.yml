@@ -1,0 +1,137 @@
+---
+# Restore Manage persistent volumes through one helper pod (same method as suite_app_restore manage/restore-pv.yml)
+# Inputs: _pv_ns, _pv_items (backed-up persistentVolumes list: pvcName, mountPath), _pv_dir (archive directory), inst, _rr_ws
+# The PVCs already exist (Manage is scaled to 0, not deleted). A missing PVC fails the run: creating PVCs is an operator job.
+# =============================================================================
+
+- name: "[{{ inst }}] Check the archives exist"
+  ansible.builtin.stat:
+    path: "{{ _pv_dir }}/{{ item.pvcName }}.tar.gz"
+  register: _rr_pv_arc
+  failed_when: not _rr_pv_arc.stat.exists
+  loop: "{{ _pv_items }}"
+  loop_control:
+    label: "{{ item.pvcName }}"
+
+- name: "[{{ inst }}] Check the archives are readable"
+  ansible.builtin.command:
+    argv: ["tar", "-tzf", "{{ _pv_dir }}/{{ item.pvcName }}.tar.gz"]
+  register: _rr_pv_tl
+  changed_when: false
+  loop: "{{ _pv_items }}"
+  loop_control:
+    label: "{{ item.pvcName }}"
+
+- name: "[{{ inst }}] Restore the volumes"
+  when: not saas_rollback_dry_run
+  vars:
+    _rr_pod: "{{ inst }}-rollback-pv-manage"
+  block:
+    - name: "[{{ inst }}] Check every PVC exists"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: PersistentVolumeClaim
+        namespace: "{{ _pv_ns }}"
+        name: "{{ inst }}-{{ _rr_ws }}-{{ item.pvcName }}"
+      register: _rr_pvc
+      failed_when: _rr_pvc.resources | length == 0
+      loop: "{{ _pv_items }}"
+      loop_control:
+        label: "{{ item.pvcName }}"
+
+    - name: "[{{ inst }}] Build the volume and mount lists"
+      ansible.builtin.set_fact:
+        _rr_vols: >-
+          {{ _pv_items | map(attribute='pvcName')
+             | map('regex_replace', '^(.*)$', inst ~ '-' ~ _rr_ws ~ '-\1') | list }}
+
+    - name: "[{{ inst }}] Create the helper pod"
+      kubernetes.core.k8s:
+        state: present
+        wait: true
+        wait_condition:
+          type: Ready
+          status: "True"
+        wait_timeout: 600
+        definition:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: "{{ _rr_pod }}"
+            namespace: "{{ _pv_ns }}"
+            labels:
+              app: rollback-pv-restore
+              mas.ibm.com/instanceId: "{{ inst }}"
+          spec:
+            restartPolicy: Never
+            containers:
+              - name: restore-container
+                image: "{{ saas_rollback_helper_pod_image }}"
+                command: ["/bin/sh", "-c", "sleep infinity"]
+                volumeMounts: "{{ _rr_mounts }}"
+            volumes: "{{ _rr_volumes }}"
+      vars:
+        _rr_mounts: >-
+          {%- set out = [] -%}
+          {%- for pv in _pv_items -%}{%- set _ = out.append({'name': 'v' ~ loop.index0, 'mountPath': pv.mountPath}) -%}{%- endfor -%}
+          {{ out }}
+        _rr_volumes: >-
+          {%- set out = [] -%}
+          {%- for pv in _pv_items -%}{%- set _ = out.append({'name': 'v' ~ loop.index0, 'persistentVolumeClaim': {'claimName': _rr_vols[loop.index0]}}) -%}{%- endfor -%}
+          {{ out }}
+
+    - name: "[{{ inst }}] Copy each archive into the pod"
+      ansible.builtin.command:
+        argv: ["oc", "cp", "--retries=50", "{{ _pv_dir }}/{{ item.pvcName }}.tar.gz", "{{ _pv_ns }}/{{ _rr_pod }}:/tmp/{{ item.pvcName }}.tar.gz", "-c", "restore-container"]
+      changed_when: true
+      loop: "{{ _pv_items }}"
+      loop_control:
+        label: "{{ item.pvcName }}"
+
+    - name: "[{{ inst }}] Clear and extract each volume (03 9.4: clear, then tar -xzf --no-same-owner)"
+      ansible.builtin.command:
+        argv:
+          - oc
+          - exec
+          - -n
+          - "{{ _pv_ns }}"
+          - "{{ _rr_pod }}"
+          - -c
+          - restore-container
+          - --
+          - sh
+          - -c
+          - "rm -rf '{{ item.mountPath }}'/* '{{ item.mountPath }}'/.[!.]* 2>/dev/null; tar -xzf /tmp/{{ item.pvcName }}.tar.gz -C '{{ item.mountPath }}' --no-same-owner && rm -f /tmp/{{ item.pvcName }}.tar.gz"
+      changed_when: true
+      loop: "{{ _pv_items }}"
+      loop_control:
+        label: "{{ item.pvcName }}"
+
+    - name: "[{{ inst }}] Gate: file count in the volume equals the archive listing"
+      ansible.builtin.shell: |
+        set -o pipefail
+        N_ARC=$(tar -tzf '{{ _pv_dir }}/{{ item.pvcName }}.tar.gz' | wc -l)
+        N_VOL=$(oc exec -n {{ _pv_ns }} {{ _rr_pod }} -c restore-container -- sh -c "find '{{ item.mountPath }}' | wc -l")
+        echo "archive=$N_ARC volume=$N_VOL"
+      args:
+        executable: /bin/bash
+      register: _rr_pv_gate
+      changed_when: false
+      loop: "{{ _pv_items }}"
+      loop_control:
+        label: "{{ item.pvcName }}"
+
+    - name: "[{{ inst }}] Show the counts (the volume count includes the mount root and may differ by the entries tar lists for it)"
+      ansible.builtin.debug:
+        msg: "{{ _rr_pv_gate.results | map(attribute='stdout') | list }}"
+
+  always:
+    - name: "[{{ inst }}] Delete the helper pod"
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Pod
+        name: "{{ _rr_pod }}"
+        namespace: "{{ _pv_ns }}"
+        state: absent
+        wait: true
+        wait_timeout: 300

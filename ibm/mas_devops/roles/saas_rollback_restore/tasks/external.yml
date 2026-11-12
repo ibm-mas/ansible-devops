@@ -1,0 +1,42 @@
+---
+# S11: external systems (03 section 13). Reports; writes only when asked and not a dry run.
+# =============================================================================
+
+- name: "[external] Compare AWS Secrets Manager versions with the backup"
+  when: saas_rollback_check_secrets_manager
+  block:
+    - name: "[external] Compare"
+      ansible.builtin.include_tasks: helper.yml
+      vars:
+        _rr_h_name: "[external] Secrets Manager compare"
+        _rr_h_args: >-
+          {{ ['secrets-manager', '--dir', _rr_bwork ~ '/external/aws-secretsmanager']
+             + (['--region', saas_rollback_aws_region] if saas_rollback_aws_region | length > 0 else [])
+             + (['--restore'] if saas_rollback_restore_secrets_manager and not saas_rollback_dry_run else []) }}
+
+    - name: "[external] Show"
+      ansible.builtin.debug:
+        msg:
+          - "{{ _rr_out.secrets | length }} secret(s) checked."
+          - "Not the backed-up version: {{ _rr_out.notSame }}"
+
+    - name: "[external] Fail if a secret is not at the backed-up version"
+      ansible.builtin.assert:
+        that: _rr_out.notSame | length == 0 or saas_rollback_dry_run
+        fail_msg: >-
+          {{ _rr_out.notSame }}. Writing the backed-up version back changes a shared service: get approval, then set
+          SAAS_ROLLBACK_RESTORE_SECRETS_MANAGER=true and re-run with SAAS_ROLLBACK_START_AT=external.
+        quiet: true
+
+- name: "[external] Look for the CIS records in the backup set"
+  ansible.builtin.stat:
+    path: "{{ _rr_bwork }}/external/cis/dns-records.json"
+  register: _rr_cis
+
+- name: "[external] Manual items (not automated)"
+  ansible.builtin.debug:
+    msg:
+      - "IBM CIS DNS and edge certificates: {{ ('compare ' ~ _rr_bwork ~ '/external/cis/dns-records.json with ibmcloud cis dns-records') if _rr_cis.stat.exists else 'no CIS record in the backup set' }}."
+      - "Manage attachment and logging buckets: not backed up; attachments written after the backup remain (03 section 13, open item 7)."
+      - "Db2 backup bucket: leave the images in place until the rollback is accepted."
+      - "IBM Cloud Mongo new service (method new-service): delete the superseded service only after acceptance."

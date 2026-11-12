@@ -1,0 +1,32 @@
+---
+# Validate the inputs that need no backup-set data (runs before init.yml)
+# =============================================================================
+
+- name: "Fail if required inputs are missing"
+  ansible.builtin.assert:
+    that:
+      - saas_rollback_backup_dir | length > 0
+      - saas_rollback_cluster | length > 0
+      - saas_rollback_instances | length > 0
+      - saas_rollback_argo_root_app | length > 0
+    fail_msg: >-
+      SAAS_ROLLBACK_BACKUP_DIR, SAAS_ROLLBACK_CLUSTER, SAAS_ROLLBACK_INSTANCES and SAAS_ROLLBACK_ARGO_ROOT_APP are required.
+    quiet: true
+
+- name: "Fail if the backup directory is not absolute or does not exist"
+  ansible.builtin.stat:
+    path: "{{ saas_rollback_backup_dir }}/manifest.json"
+  register: _rr_manifest_stat
+  failed_when: not saas_rollback_backup_dir.startswith('/') or not _rr_manifest_stat.stat.exists
+
+- name: "Fail if a choice input has an unknown value"
+  ansible.builtin.assert:
+    that:
+      - saas_rollback_approach in ['git-first', 'cluster-first']
+      - saas_rollback_git_revert_mode in ['manual', 'automated']
+      - saas_rollback_env_type in ['aws-saas', 'gitops-envs']
+      - saas_rollback_ibm_mongo_method in ['logical-dump', 'new-service']
+    fail_msg: >-
+      Allowed: SAAS_ROLLBACK_APPROACH git-first|cluster-first; SAAS_ROLLBACK_GIT_REVERT_MODE manual|automated;
+      SAAS_ROLLBACK_ENV_TYPE aws-saas|gitops-envs; SAAS_ROLLBACK_IBM_MONGO_METHOD logical-dump|new-service.
+    quiet: true

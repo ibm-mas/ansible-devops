@@ -1,0 +1,45 @@
+---
+# Per-instance S3 check for Db2 images and keystore (P3). Read-only.
+# Loop var: inst
+# =============================================================================
+
+- name: "[{{ inst }}] Select the manifest entry"
+  ansible.builtin.set_fact:
+    _rr_i: "{{ _rr_manifest.instances | selectattr('id', 'equalto', inst) | first }}"
+
+- name: "[{{ inst }}] Check each Db2 backup image is present in S3"
+  ansible.builtin.command:
+    argv:
+      - aws
+      - s3
+      - ls
+      - "{{ _rr_i.db[item].adhocPath }}"
+      - --recursive
+      - --endpoint-url
+      - "{{ saas_rollback_db2_s3_endpoint }}"
+  environment:
+    AWS_DEFAULT_REGION: "{{ saas_rollback_aws_region }}"
+  register: _rr_s3ls
+  changed_when: false
+  failed_when: _rr_s3ls.rc != 0 or (_rr_i.db[item].timestamp | string) not in _rr_s3ls.stdout
+  loop: "{{ _rr_i.db | dict2items | selectattr('value.variant', 'equalto', 'db2u') | map(attribute='key') | list }}"
+  loop_control:
+    label: "{{ inst }}/{{ item }}"
+
+- name: "[{{ inst }}] Check the keystore copy is present (Db2u)"
+  ansible.builtin.command:
+    argv:
+      - aws
+      - s3
+      - ls
+      - "{{ _rr_i.db[item].keystoreS3 }}"
+      - --endpoint-url
+      - "{{ saas_rollback_db2_s3_endpoint }}"
+  environment:
+    AWS_DEFAULT_REGION: "{{ saas_rollback_aws_region }}"
+  register: _rr_s3ks
+  changed_when: false
+  failed_when: _rr_s3ks.rc != 0
+  loop: "{{ _rr_i.db | dict2items | selectattr('value.variant', 'equalto', 'db2u') | selectattr('value.keystoreS3', 'defined') | map(attribute='key') | list }}"
+  loop_control:
+    label: "{{ inst }}/{{ item }}"

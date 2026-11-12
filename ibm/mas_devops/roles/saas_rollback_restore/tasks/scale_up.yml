@@ -1,0 +1,19 @@
+---
+# Scale the stopped workloads of one instance back to the replicas recorded in the stop phase. Loop var: inst
+# Core and SLS: every Deployment and StatefulSet. Manage and Facilities: only the operators (the applications are started
+# by the start phase from the ManageWorkspace mode and the Facilities podTemplates).
+# A re-run of the stop phase keeps the first record, so the values here are the ones from before the stop.
+# =============================================================================
+
+- name: "[{{ inst }}] Find the replica records written by the stop phase"
+  ansible.builtin.stat:
+    path: "{{ _rr_rwork }}/before/replicas-mas-{{ inst }}-{{ item }}.json"
+  loop: [core, sls, manage, facilities]
+  register: _rr_rep
+
+- name: "[{{ inst }}] Scale back up"
+  ansible.builtin.include_tasks: scale_up_one.yml
+  loop: "{{ _rr_rep.results | selectattr('stat.exists') | list }}"
+  loop_control:
+    loop_var: rep
+    label: "{{ rep.item }}"

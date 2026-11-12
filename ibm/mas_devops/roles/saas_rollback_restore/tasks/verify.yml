@@ -1,0 +1,89 @@
+---
+# Phase 0 (RC0): verify the backup set and the cluster. Read-only.
+# 03-restore-process.md section 5 and section 2 (P1 to P8)
+# =============================================================================
+
+- name: "[verify] Check SHA256SUMS of the backup set (P1)"
+  ansible.builtin.command:
+    argv: ["sh", "-c", "cd '{{ _rr_bwork }}' && sha256sum -c --quiet SHA256SUMS 2>&1 | head -20"]
+  register: _rr_sha
+  changed_when: false
+  failed_when: _rr_sha.stdout | length > 0 or _rr_sha.rc != 0
+  when: not saas_rollback_skip_sha_check
+
+- name: "[verify] Check the manifest names this cluster and these instances (P8)"
+  ansible.builtin.assert:
+    that:
+      - _rr_manifest.cluster == saas_rollback_cluster
+      - _rr_inst_list is subset(_rr_manifest.instances | map(attribute='id') | list)
+    fail_msg: >-
+      The manifest is for cluster '{{ _rr_manifest.cluster }}' with instances {{ _rr_manifest.instances | map(attribute='id') | list }};
+      the run asks for '{{ saas_rollback_cluster }}' and {{ _rr_inst_list }}. A restore to another cluster or instance is out of scope.
+    quiet: true
+
+- name: "[verify] Read the cluster URL recorded at backup time"
+  ansible.builtin.set_fact:
+    _rr_backup_server: "{{ (lookup('ansible.builtin.file', _rr_rec ~ '/run.json') | from_json).ocServer | default('') }}"
+
+- name: "[verify] Check oc is logged in to the cluster that was backed up"
+  ansible.builtin.assert:
+    that:
+      - _rr_backup_server | length > 0
+      - _rr_oc_server.stdout | trim == _rr_backup_server
+    fail_msg: "oc points at '{{ _rr_oc_server.stdout | trim }}', the backup was taken on '{{ _rr_backup_server }}' (record/run.json)."
+    quiet: true
+  when: not saas_rollback_skip_cluster_url_check
+
+- name: "[verify] Check for named objects missing at backup time"
+  ansible.builtin.stat:
+    path: "{{ _rr_raw }}/_missing.txt"
+  register: _rr_missing_stat
+
+- name: "[verify] Read the missing-object list"
+  ansible.builtin.set_fact:
+    _rr_missing: "{{ lookup('ansible.builtin.file', _rr_raw ~ '/_missing.txt').splitlines() | select('match', '^MISSING') | list }}"
+  when: _rr_missing_stat.stat.exists
+
+- name: "[verify] Fail on a missing critical object (03 RC0)"
+  ansible.builtin.assert:
+    that: _rr_missing | default([]) | length == 0
+    fail_msg: "The backup is incomplete: {{ _rr_missing | default([]) }}. Set SAAS_ROLLBACK_ALLOW_MISSING_NAMED=true only after review."
+    quiet: true
+  when: not saas_rollback_allow_missing_named
+
+- name: "[verify] Check the Db2 images and keystore are still in S3 (P3)"
+  ansible.builtin.include_tasks: verify_s3.yml
+  loop: "{{ _rr_inst_list }}"
+  loop_control:
+    loop_var: inst
+  when: not saas_rollback_skip_s3_check
+
+- name: "[verify] Check the Mongo backup of each instance"
+  ansible.builtin.include_tasks: verify_mongo.yml
+  loop: "{{ _rr_inst_list }}"
+  loop_control:
+    loop_var: inst
+  when: not saas_rollback_skip_s3_check
+
+- name: "[verify] Check the Git working tree inputs for the revert"
+  ansible.builtin.assert:
+    that:
+      - _rr_cfg_repo_url | length > 0
+      - _rr_cfg_repo_branch | length > 0
+      - _rr_cfg_repo_path | length > 0
+    fail_msg: "Config repo url/branch/path are not in manifest.git.configRepo; set SAAS_ROLLBACK_GIT_REPO_URL, _BRANCH and _PATH."
+    quiet: true
+  when: "'git_revert' in _rr_active"
+
+- name: "[verify] Show cluster version"
+  ansible.builtin.command:
+    argv: ["oc", "get", "clusterversion", "version", "-o", "jsonpath={.status.desired.version}"]
+  register: _rr_ocp
+  changed_when: false
+  failed_when: false
+
+- name: "[verify] Summary"
+  ansible.builtin.debug:
+    msg:
+      - "Backup set verified: {{ _rr_manifest.backupId }}"
+      - "OpenShift {{ _rr_ocp.stdout | default('?') }}, server {{ _rr_oc_server.stdout | trim }}"

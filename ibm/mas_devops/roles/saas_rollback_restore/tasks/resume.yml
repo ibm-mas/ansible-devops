@@ -1,0 +1,108 @@
+---
+# Resume ArgoCD bottom-up (03 section 12, 02 B7.4). Changes state unless dry run.
+# Pass 1 re-applies the recorded policies with prune off; pass 2 restores prune as recorded, after everything is Synced.
+# Only runs when every earlier active phase has passed. The failure handler never runs this phase.
+# =============================================================================
+
+- name: "[resume] Dry run: nothing changed"
+  ansible.builtin.debug:
+    msg: "Dry run: would re-apply the recorded sync policies from argocd/ (leaves, AppSet templates, root), prune off first."
+  when: saas_rollback_dry_run
+
+- name: "[resume] Re-apply the recorded policies"
+  when: not saas_rollback_dry_run
+  block:
+    - name: "[resume] Pass 1: recorded policies with prune off"
+      ansible.builtin.include_tasks: helper.yml
+      vars:
+        _rr_h_name: "[resume] argo-policy (no prune)"
+        _rr_h_args:
+          - argo-policy
+          - --ns
+          - "{{ saas_rollback_argo_ns }}"
+          - --root
+          - "{{ saas_rollback_argo_root_app }}"
+          - --summary
+          - "{{ _rr_bwork }}/argocd/applications-summary.json"
+          - --appsets
+          - "{{ _rr_bwork }}/argocd/appset-generators.json"
+          - --no-prune
+        _rr_h_ok_rc: [0, 1]
+        _rr_h_fail_on_errors: false
+
+    - name: "[resume] Pass 1 result"
+      ansible.builtin.assert:
+        that: _rr_out.failed | length == 0
+        fail_msg: "Could not re-apply: {{ _rr_out.failed }}"
+        quiet: true
+
+    - name: "[resume] Wait for ArgoCD to compare the cluster with Git"
+      ansible.builtin.pause:
+        seconds: 120
+
+    - name: "[resume] Applications that are not Synced and Healthy"
+      ansible.builtin.include_tasks: helper.yml
+      vars:
+        _rr_h_name: "[resume] argo-unsynced"
+        _rr_h_args: ["argo-unsynced", "--ns", "{{ saas_rollback_argo_ns }}", "--name-regex", "\\.{{ saas_rollback_cluster }}(\\.|$)"]
+
+    - name: "[resume] Stop before enabling prune if anything is OutOfSync (check 'argocd app diff' first)"
+      ansible.builtin.assert:
+        that: _rr_out.notSyncedOrHealthy | rejectattr('name', 'search', _rr_sync_exclude) | list | length == 0 or saas_rollback_allow_outofsync
+        fail_msg: >-
+          {{ _rr_out.notSyncedOrHealthy | rejectattr('name', 'search', _rr_sync_exclude) | list }} are not Synced and Healthy.
+          Prune is still off. Resolve them, then re-run with SAAS_ROLLBACK_RUN_ID={{ _rr_rid }} SAAS_ROLLBACK_START_AT=resume.
+        quiet: true
+
+    - name: "[resume] Pass 2: recorded policies including prune"
+      ansible.builtin.include_tasks: helper.yml
+      vars:
+        _rr_h_name: "[resume] argo-policy (prune as recorded)"
+        _rr_h_args:
+          - argo-policy
+          - --ns
+          - "{{ saas_rollback_argo_ns }}"
+          - --root
+          - "{{ saas_rollback_argo_root_app }}"
+          - --summary
+          - "{{ _rr_bwork }}/argocd/applications-summary.json"
+          - --appsets
+          - "{{ _rr_bwork }}/argocd/appset-generators.json"
+        _rr_h_ok_rc: [0, 1]
+        _rr_h_fail_on_errors: false
+
+    - name: "[resume] Pass 2 result"
+      ansible.builtin.assert:
+        that: _rr_out.failed | length == 0
+        fail_msg: "Could not re-apply: {{ _rr_out.failed }}"
+        quiet: true
+
+    - name: "[resume] Mark the resume as done (verify_post then checks X16)"
+      ansible.builtin.set_fact:
+        _rr_resume_done: true
+
+- name: "[resume] X16 ArgoCD sync policies equal the record"
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ role_path }}/files/rr_helper.py"
+      - argo-policy
+      - --check
+      - --ns
+      - "{{ saas_rollback_argo_ns }}"
+      - --root
+      - "{{ saas_rollback_argo_root_app }}"
+      - --summary
+      - "{{ _rr_bwork }}/argocd/applications-summary.json"
+      - --appsets
+      - "{{ _rr_bwork }}/argocd/appset-generators.json"
+  register: _rr_x16r
+  changed_when: false
+  when: not saas_rollback_dry_run
+
+- name: "[resume] X16 Fail if a policy differs from the record"
+  ansible.builtin.assert:
+    that: (_rr_x16r.stdout | from_json).differs | length == 0
+    fail_msg: "X16: {{ (_rr_x16r.stdout | from_json).differs }}"
+    quiet: true
+  when: not saas_rollback_dry_run

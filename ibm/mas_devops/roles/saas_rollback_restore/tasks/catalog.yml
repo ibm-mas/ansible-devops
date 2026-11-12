@@ -1,0 +1,113 @@
+---
+# Catalog pin (03 section 11 steps 1 and 2): cluster-wide, once.
+# git-first: ArgoCD syncs only the catalog Application after the Git revert.
+# cluster-first: the CatalogSource is put back from raw/all__catalogsource.json.
+# =============================================================================
+
+- name: "[catalog] Read the recorded catalog image and digest"
+  ansible.builtin.command:
+    argv: ["python3", "{{ role_path }}/files/rr_helper.py", "catalog-pin", "--record", "{{ _rr_rec }}/catalog-image.txt"]
+  register: _rr_pin_plain
+  changed_when: false
+  when: not saas_rollback_catalog_pin_digest
+
+- name: "[catalog] Read the recorded catalog image and digest (pin the digest)"
+  ansible.builtin.command:
+    argv: ["python3", "{{ role_path }}/files/rr_helper.py", "catalog-pin", "--record", "{{ _rr_rec }}/catalog-image.txt", "--digest"]
+  register: _rr_pin_dig
+  changed_when: false
+  when: saas_rollback_catalog_pin_digest
+
+- name: "[catalog] Set the target image"
+  ansible.builtin.set_fact:
+    _rr_catalog: "{{ (_rr_pin_dig.stdout if saas_rollback_catalog_pin_digest else _rr_pin_plain.stdout) | from_json }}"
+
+- name: "[catalog] Fail if the digest is ambiguous"
+  ansible.builtin.assert:
+    that: not (_rr_catalog.ambiguous | default(false))
+    fail_msg: "record/catalog-image.txt lists several digests: {{ _rr_catalog.digests }}. Set SAAS_ROLLBACK_CATALOG_PIN_DIGEST=false or edit the record after review."
+    quiet: true
+
+- name: "[catalog] Show the target"
+  ansible.builtin.debug:
+    msg: "CatalogSource {{ saas_rollback_catalog_source_name }} -> {{ _rr_catalog.target }}"
+
+# cluster-first only: put the CatalogSource back and pin it
+# -----------------------------------------------------------------------------
+- name: "[catalog] Put the CatalogSource back (cluster-first)"
+  when: saas_rollback_approach == 'cluster-first' and not saas_rollback_dry_run
+  block:
+    - name: "[catalog] Put raw/all__catalogsource.json"
+      ansible.builtin.include_tasks: helper.yml
+      vars:
+        _rr_h_name: "[catalog] CatalogSource"
+        _rr_h_args: "{{ ['apply', '--file', _rr_raw ~ '/all__catalogsource.json', '--namespaces', saas_rollback_catalog_source_ns, '--name-regex', '^' ~ saas_rollback_catalog_source_name ~ '$', '--report', _rr_rwork ~ '/record/apply-catalog.json'] }}"
+        _rr_h_ok_rc: [0, 1]
+
+    - name: "[catalog] Pin the image"
+      kubernetes.core.k8s_json_patch:
+        api_version: operators.coreos.com/v1alpha1
+        kind: CatalogSource
+        namespace: "{{ saas_rollback_catalog_source_ns }}"
+        name: "{{ saas_rollback_catalog_source_name }}"
+        patch:
+          - op: replace
+            path: /spec/image
+            value: "{{ _rr_catalog.target }}"
+
+# git-first: sync the catalog Application (cluster wave 000)
+# -----------------------------------------------------------------------------
+- name: "[catalog] Sync the catalog Application (git-first)"
+  when: saas_rollback_approach == 'git-first' and not saas_rollback_dry_run
+  block:
+    - name: "[catalog] Find the catalog Application"
+      ansible.builtin.include_tasks: helper.yml
+      vars:
+        _rr_h_name: "[catalog] List"
+        _rr_h_args: ["argo-list", "--ns", "{{ saas_rollback_argo_ns }}", "--name-regex", "^operator-catalog\\.{{ saas_rollback_cluster }}$"]
+
+    - name: "[catalog] Sync it"
+      ansible.builtin.include_tasks: helper.yml
+      vars:
+        _rr_h_name: "[catalog] Sync {{ _rr_out.apps[0].name }}"
+        _rr_h_args: ["argo-sync", "--ns", "{{ saas_rollback_argo_ns }}", "--app", "{{ _rr_out.apps[0].name }}", "--timeout", "{{ saas_rollback_timeout }}"]
+      when: _rr_out.apps | length > 0
+
+# Gate: catalog serves the recorded image and is READY
+# -----------------------------------------------------------------------------
+- name: "[catalog] Gate: CatalogSource READY at the recorded image"
+  ansible.builtin.command:
+    argv: ["python3", "{{ role_path }}/files/rr_helper.py", "catalog-state", "--name", "{{ saas_rollback_catalog_source_name }}", "--ns", "{{ saas_rollback_catalog_source_ns }}"]
+  register: _rr_cat
+  changed_when: false
+  until:
+    - (_rr_cat.stdout | from_json).state | default('') == 'READY'
+    - (_rr_cat.stdout | from_json).image | default('') == _rr_catalog.target or (_rr_cat.stdout | from_json).image | default('') == _rr_catalog.specImage
+  retries: 60
+  delay: 20
+  when: not saas_rollback_dry_run
+
+# The recorded CSVs must exist in the served catalog (check only; no change)
+# -----------------------------------------------------------------------------
+- name: "[catalog] The recorded CSV of every Subscription is in the PackageManifest"
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ role_path }}/files/rr_helper.py"
+      - op-return
+      - --ns
+      - "{{ item.ns }}"
+      - --name
+      - "{{ item.name }}"
+      - --record
+      - "{{ _rr_rec }}/subscriptions.json"
+      - --raw-subs
+      - "{{ _rr_raw }}/all__subscription.operators.coreos.com.json"
+      - --check-only
+  register: _rr_pm
+  changed_when: false
+  failed_when: _rr_pm.rc != 0
+  loop: "{{ lookup('ansible.builtin.file', _rr_rec ~ '/subscriptions.json') | from_json | selectattr('installedCSV', 'defined') | rejectattr('installedCSV', 'none') | rejectattr('ns', 'match', saas_rollback_operator_exclude_ns_regex) | list }}"
+  loop_control:
+    label: "{{ item.ns }}/{{ item.name }} {{ item.installedCSV }}"
+  when: not saas_rollback_dry_run

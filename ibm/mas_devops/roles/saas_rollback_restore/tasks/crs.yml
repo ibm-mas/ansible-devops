@@ -1,0 +1,12 @@
+---
+# Custom resource specs back, BEFORE any old operator starts (03 sections 10.1 A4a and 10.2 B3). Changes state unless dry run.
+# Every operator is still the new CSV at 0 replicas, so nothing reconciles these objects yet.
+# DRO objects were put back in the mongo phase (03 8.4). Order is the dependency order of _rr_cr_steps (vars/main.yml): SLS, Core addons, *Cfg, CoreIDP, Suite, Workspace,
+# Manage (mode down), Facilities (replicas 0).
+# =============================================================================
+
+- name: "[crs] Put back each instance's custom resources in dependency order"
+  ansible.builtin.include_tasks: crs_instance.yml
+  loop: "{{ _rr_inst_list }}"
+  loop_control:
+    loop_var: inst

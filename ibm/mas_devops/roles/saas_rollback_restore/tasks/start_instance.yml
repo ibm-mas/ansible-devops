@@ -1,0 +1,76 @@
+---
+# Start Manage and Facilities of one instance. Loop var: inst
+# =============================================================================
+
+- name: "[{{ inst }}] Select the manifest entry and the workspace id"
+  ansible.builtin.set_fact:
+    _rr_i: "{{ _rr_manifest.instances | selectattr('id', 'equalto', inst) | first }}"
+    _rr_ws: "{{ _rr_ws_map[inst] | default(_rr_manifest.instances | selectattr('id', 'equalto', inst) | map(attribute='workspace') | first | default('main')) }}"
+
+- name: "[{{ inst }}] Read the recorded Manage mode"
+  ansible.builtin.command:
+    argv: ["cat", "{{ _rr_rec }}/manage-mode.txt"]
+  register: _rr_mode_file
+  changed_when: false
+  failed_when: false
+  when: _rr_i.quiesce.manageMode is not defined
+
+- name: "[{{ inst }}] Set the Manage mode to start"
+  ansible.builtin.set_fact:
+    _rr_manage_mode: "{{ _rr_i.quiesce.manageMode | default((_rr_mode_file.stdout | default('')) | trim, true) | default('up', true) }}"
+
+- name: "[{{ inst }}] Does the ManageWorkspace exist"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: ManageWorkspace
+    namespace: "mas-{{ inst }}-manage"
+    name: "{{ inst }}-{{ _rr_ws }}"
+  register: _rr_mw
+
+- name: "[{{ inst }}] Set the Manage mode to {{ _rr_manage_mode }}"
+  kubernetes.core.k8s_json_patch:
+    api_version: apps.mas.ibm.com/v1
+    kind: ManageWorkspace
+    namespace: "mas-{{ inst }}-manage"
+    name: "{{ inst }}-{{ _rr_ws }}"
+    patch:
+      - op: add
+        path: /spec/settings/deployment/mode
+        value: "{{ _rr_manage_mode }}"
+  when: _rr_mw.resources | length > 0
+
+- name: "[{{ inst }}] Wait for ManageApp and ManageWorkspace to be Ready"
+  ansible.builtin.include_tasks: wait_ready.yml
+  vars:
+    _rr_w_label: "[{{ inst }}] Wait for Manage"
+    _rr_w_kinds: "{{ _rr_wait_manage }}"
+    _rr_w_ns: "mas-{{ inst }}-manage"
+  when: _rr_mw.resources | length > 0
+
+- name: "[{{ inst }}] Is there a recorded Facilities pod template list"
+  ansible.builtin.stat:
+    path: "{{ _rr_bwork }}/{{ _rr_i.quiesce.facilitiesPodTemplates | default('record/fac-podtemplates.json') }}"
+  register: _rr_fac_rec
+
+- name: "[{{ inst }}] Does the FacilitiesWorkspace exist"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: FacilitiesWorkspace
+    namespace: "mas-{{ inst }}-facilities"
+    name: "{{ inst }}-{{ _rr_ws }}"
+  register: _rr_fw
+
+- name: "[{{ inst }}] Restore the Facilities replicas from the record"
+  ansible.builtin.include_tasks: helper.yml
+  vars:
+    _rr_h_name: "[{{ inst }}] Facilities replicas back"
+    _rr_h_args: ["fac-replicas", "--ns", "mas-{{ inst }}-facilities", "--name", "{{ inst }}-{{ _rr_ws }}", "--record", "{{ _rr_fac_rec.stat.path }}"]
+  when: _rr_fw.resources | length > 0 and _rr_fac_rec.stat.exists
+
+- name: "[{{ inst }}] Wait for FacilitiesApp and FacilitiesWorkspace to be Ready"
+  ansible.builtin.include_tasks: wait_ready.yml
+  vars:
+    _rr_w_label: "[{{ inst }}] Wait for Facilities"
+    _rr_w_kinds: "{{ _rr_wait_facilities }}"
+    _rr_w_ns: "mas-{{ inst }}-facilities"
+  when: _rr_fw.resources | length > 0

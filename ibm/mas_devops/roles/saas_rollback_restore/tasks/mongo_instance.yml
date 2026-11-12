@@ -1,0 +1,246 @@
+---
+# Mongo restore for one instance. Loop var: inst
+# manifest.instances[].db.mongo:
+#   community : {variant, backupId}
+#   documentdb: {variant, dumpPath}
+#   ibm-cloud : {variant, backupId}
+#   atlas     : {variant, catalogBuildId, projectId, clusterName, slsDatabase}
+# =============================================================================
+
+- name: "[{{ inst }}] Select the manifest entry"
+  ansible.builtin.set_fact:
+    _rr_i: "{{ _rr_manifest.instances | selectattr('id', 'equalto', inst) | first }}"
+
+- name: "[{{ inst }}] Check the Mongo variant"
+  ansible.builtin.assert:
+    that: _rr_i.db.mongo.variant | default('') in ['community', 'documentdb', 'ibm-cloud', 'atlas']
+    fail_msg: "manifest.instances[{{ inst }}].db.mongo.variant must be community, documentdb, ibm-cloud or atlas (found '{{ _rr_i.db.mongo.variant | default('') }}')."
+    quiet: true
+
+# 1. In-cluster Mongo CE: playbook ibm.mas_devops.br_mongodb, restore-database (03 8.1)
+# -----------------------------------------------------------------------------
+- name: "[{{ inst }}] Restore Mongo CE with br_mongodb"
+  when: _rr_i.db.mongo.variant == 'community'
+  block:
+    - name: "[{{ inst }}] Set the backup version the mongodb role wrote"
+      ansible.builtin.set_fact:
+        _rr_mongo_ver: "{{ _rr_i.db.mongo.backupId | default(_rr_manifest.backupId, true) }}"
+
+    - name: "[{{ inst }}] Check the dump and the info file exist"
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      register: _rr_mongo_files
+      failed_when: not _rr_mongo_files.stat.exists
+      loop:
+        - "{{ _rr_bwork }}/roles/backup-{{ _rr_mongo_ver }}-mongoce/data/mongodump-{{ _rr_mongo_ver }}.tar.gz"
+        - "{{ _rr_bwork }}/roles/backup-{{ _rr_mongo_ver }}-mongoce/data/mongodb-info.yaml"
+
+    - name: "[{{ inst }}] Run the br_mongodb playbook (MONGODB_ACTION=restore-database)"
+      ansible.builtin.command:
+        argv: ["ansible-playbook", "ibm.mas_devops.br_mongodb"]
+      environment:
+        MONGODB_ACTION: restore-database
+        MAS_INSTANCE_ID: "{{ inst }}"
+        MAS_BACKUP_DIR: "{{ _rr_bwork }}/roles"
+        MONGODB_BACKUP_VERSION: "{{ _rr_mongo_ver }}"
+        MONGODB_NAMESPACE: "{{ saas_rollback_mongo_namespace }}"
+        MONGODB_INSTANCE_NAME: "{{ saas_rollback_mongo_instance_name }}"
+      register: _rr_mongo_ce
+      changed_when: true
+      failed_when: _rr_mongo_ce.rc != 0 or 'DATABASERESTOREstatus-SUCCESS' not in _rr_mongo_ce.stdout
+      when: not saas_rollback_dry_run
+
+# 2. AWS DocumentDB and IBM Cloud logical dump: mongorestore (03 8.2, 8.3 M2)
+# -----------------------------------------------------------------------------
+- name: "[{{ inst }}] Restore with mongorestore"
+  when: >-
+    _rr_i.db.mongo.variant == 'documentdb' or
+    (_rr_i.db.mongo.variant == 'ibm-cloud' and saas_rollback_ibm_mongo_method == 'logical-dump')
+  block:
+    - name: "[{{ inst }}] Check the inputs"
+      ansible.builtin.assert:
+        that:
+          - saas_rollback_mongo_host | length > 0
+          - saas_rollback_mongo_user | length > 0
+          - saas_rollback_mongo_password | length > 0
+        fail_msg: "SAAS_ROLLBACK_MONGO_HOST, _USER and _PASSWORD are required for DocumentDB and the IBM Cloud logical dump."
+        quiet: true
+
+    - name: "[{{ inst }}] Find the dump archive"
+      ansible.builtin.set_fact:
+        _rr_dump_tgz: >-
+          {{ _rr_bwork ~ '/' ~ (_rr_i.db.mongo.dumpPath | default('db/docdb/mongodb-backup.tar.gz' if _rr_i.db.mongo.variant == 'documentdb' else 'db/ibm-mongo/mongodump.tar.gz')) }}
+        _rr_dump_dir: "{{ _rr_rwork }}/mongo-{{ inst }}"
+
+    - name: "[{{ inst }}] Check the archive exists"
+      ansible.builtin.stat:
+        path: "{{ _rr_dump_tgz }}"
+      register: _rr_dump_stat
+      failed_when: not _rr_dump_stat.stat.exists
+
+    - name: "[{{ inst }}] Create the extract directory"
+      ansible.builtin.file:
+        path: "{{ _rr_dump_dir }}"
+        state: directory
+        mode: "0700"
+      when: not saas_rollback_dry_run
+
+    - name: "[{{ inst }}] Extract the dump"
+      ansible.builtin.unarchive:
+        src: "{{ _rr_dump_tgz }}"
+        dest: "{{ _rr_dump_dir }}"
+        remote_src: true
+      when: not saas_rollback_dry_run
+
+    - name: "[{{ inst }}] List the databases that belong to this instance and SLS"
+      ansible.builtin.find:
+        paths: "{{ _rr_dump_dir }}"
+        file_type: directory
+        patterns: ["mas_{{ inst }}_*", "sls*"]
+        use_regex: false
+      register: _rr_dump_dbs
+      when: not saas_rollback_dry_run
+
+    - name: "[{{ inst }}] Fail if the dump holds no database for this instance"
+      ansible.builtin.assert:
+        that: _rr_dump_dbs.files | length > 0
+        fail_msg: "No mas_{{ inst }}_* directory in {{ _rr_dump_tgz }}."
+        quiet: true
+      when: not saas_rollback_dry_run
+
+    - name: "[{{ inst }}] Build the mongorestore options"
+      ansible.builtin.set_fact:
+        _rr_mr_opts: >-
+          --host "$RR_MONGO_HOST" --ssl
+          {{ '--sslCAFile "$RR_MONGO_CA"' if saas_rollback_mongo_tls_ca_file | length > 0 else '' }}
+          {{ '' if saas_rollback_mongo_retry_writes else '--retryWrites=false' }}
+          -u "$RR_MONGO_USER" -p "$RR_MONGO_PASSWORD" --authenticationDatabase admin --gzip --drop
+          {{ _rr_mongo_default_exclusions | map('replace', '{inst}', inst) | map('regex_replace', '^(.*)$', '--nsExclude="\\1"') | join(' ') }}
+
+    - name: "[{{ inst }}] mongorestore --drop, one database at a time (the password goes through the environment and is not printed)"
+      ansible.builtin.command:
+        argv: ["sh", "-c", "mongorestore {{ _rr_mr_opts }} --db \"{{ item.path | basename }}\" \"{{ item.path }}\""]
+      environment:
+        RR_MONGO_HOST: "{{ saas_rollback_mongo_host }}:{{ saas_rollback_mongo_port }}"
+        RR_MONGO_USER: "{{ saas_rollback_mongo_user }}"
+        RR_MONGO_PASSWORD: "{{ saas_rollback_mongo_password }}"
+        RR_MONGO_CA: "{{ saas_rollback_mongo_tls_ca_file }}"
+      no_log: true
+      changed_when: true
+      loop: "{{ _rr_dump_dbs.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      when: not saas_rollback_dry_run
+
+# 3. IBM Cloud, new service (M1): restore, then a person repoints the consumers (03 8.3)
+# -----------------------------------------------------------------------------
+- name: "[{{ inst }}] IBM Cloud Mongo: restore into a new service (M1)"
+  when: _rr_i.db.mongo.variant == 'ibm-cloud' and saas_rollback_ibm_mongo_method == 'new-service'
+  block:
+    - name: "[{{ inst }}] Check the inputs"
+      ansible.builtin.assert:
+        that:
+          - _rr_i.db.mongo.backupId | default('') | length > 0
+          - saas_rollback_ibm_mongo_restored_service_name | length > 0
+        fail_msg: "manifest db.mongo.backupId and SAAS_ROLLBACK_IBM_MONGO_RESTORED_SERVICE_NAME are required for the new-service method."
+        quiet: true
+
+    - name: "[{{ inst }}] Restore into a new deployment (mongodb role, provider ibm)"
+      ansible.builtin.command:
+        argv: ["ansible-playbook", "ibm.mas_devops.run_role"]
+      environment:
+        ROLE_NAME: mongodb
+        MONGODB_PROVIDER: ibm
+        MONGODB_ACTION: restore
+        MAS_INSTANCE_ID: "{{ inst }}"
+        IBM_MONGO_BACKUP_ID: "{{ _rr_i.db.mongo.backupId }}"
+        RESTORED_MONGO_SERVICE_NAME: "{{ saas_rollback_ibm_mongo_restored_service_name }}"
+      changed_when: true
+      when: not saas_rollback_dry_run
+
+    - name: "[{{ inst }}] Stop until the consumers are repointed (MongoCfg, system/mas mongo credentials, SLS Mongo Secret, Secrets Manager entry)"
+      ansible.builtin.assert:
+        that: saas_rollback_ibm_mongo_repoint_done or saas_rollback_dry_run
+        fail_msg: >-
+          The new service {{ saas_rollback_ibm_mongo_restored_service_name }} is restored. Repoint every consumer to it, then re-run with
+          SAAS_ROLLBACK_RUN_ID={{ _rr_rid }} SAAS_ROLLBACK_START_AT=db2 SAAS_ROLLBACK_IBM_MONGO_REPOINT_DONE=true.
+        quiet: true
+
+# 4. MongoDB Atlas: mongodb role, provider atlas, action restore (branch mascore-20279) (03 8.6)
+# -----------------------------------------------------------------------------
+# Collection-level restore of this instance's databases (mas_<id>_* plus the stored SLS database) from the on-demand snapshot
+# named in releases/<catalogBuildId>/mongo/mongo-backup.txt, writeStrategy OVERWRITE_EXISTING. The role takes catalog_build_id and
+# the API keys only as extra vars, so they go in a mode 0600 file that is removed afterwards. Keys never reach argv or the environment.
+- name: "[{{ inst }}] Restore Atlas with the mongodb role"
+  when: _rr_i.db.mongo.variant == 'atlas'
+  block:
+    - name: "[{{ inst }}] Set the Atlas inputs"
+      ansible.builtin.set_fact:
+        _rr_atlas_bid: "{{ _rr_i.db.mongo.catalogBuildId | default('', true) }}"
+        _rr_atlas_project: "{{ saas_rollback_atlas_project_id if saas_rollback_atlas_project_id | length > 0 else (_rr_i.db.mongo.projectId | default('', true)) }}"
+        _rr_atlas_cluster: "{{ saas_rollback_atlas_cluster_name if saas_rollback_atlas_cluster_name | length > 0 else (_rr_i.db.mongo.clusterName | default('', true)) }}"
+        _rr_atlas_xv: "{{ _rr_rwork }}/atlas-extra-vars-{{ inst }}.json"
+
+    - name: "[{{ inst }}] Check the Atlas inputs"
+      ansible.builtin.assert:
+        that:
+          - _rr_atlas_bid | length > 0
+          - _rr_atlas_project | length > 0
+          - _rr_atlas_cluster | length > 0
+          - (saas_rollback_atlas_public_key | length > 0 and saas_rollback_atlas_private_key | length > 0) or (saas_rollback_atlas_account_id | length > 0 and saas_rollback_atlas_aws_region | length > 0)
+        fail_msg: >-
+          Atlas needs manifest db.mongo.catalogBuildId (the value passed as catalog_build_id at backup time), a project id and a cluster name
+          (manifest db.mongo.projectId and clusterName or SAAS_ROLLBACK_ATLAS_PROJECT_ID and _CLUSTER_NAME), and the API keys
+          (SAAS_ROLLBACK_ATLAS_PUBLIC_KEY and _PRIVATE_KEY, or SAAS_ROLLBACK_ATLAS_ACCOUNT_ID and _AWS_REGION to read <account>/mongodb-atlas from AWS Secrets Manager).
+        quiet: true
+
+    - name: "[{{ inst }}] Restore"
+      when: not saas_rollback_dry_run
+      block:
+        - name: "[{{ inst }}] Write the extra vars file (mode 0600)"
+          ansible.builtin.copy:
+            content: >-
+              {{ ({'catalog_build_id': _rr_atlas_bid, 'atlas_project_id': _rr_atlas_project, 'atlas_cluster_name': _rr_atlas_cluster}
+                   | combine({'atlas_public_key': saas_rollback_atlas_public_key, 'atlas_private_key': saas_rollback_atlas_private_key}
+                               if saas_rollback_atlas_public_key | length > 0 else {})
+                   | combine({'atlas_account_id': saas_rollback_atlas_account_id, 'atlas_aws_region': saas_rollback_atlas_aws_region}
+                               if saas_rollback_atlas_account_id | length > 0 else {})) | to_json }}
+            dest: "{{ _rr_atlas_xv }}"
+            mode: "0600"
+          no_log: true
+
+        - name: "[{{ inst }}] Run the mongodb role (provider atlas, action restore)"
+          ansible.builtin.command:
+            argv: ["ansible-playbook", "ibm.mas_devops.run_role", "-e", "@{{ _rr_atlas_xv }}"]
+          environment:
+            ROLE_NAME: mongodb
+            MONGODB_PROVIDER: atlas
+            MONGODB_ACTION: restore
+            MAS_INSTANCE_ID: "{{ inst }}"
+          register: _rr_atlas
+          changed_when: true
+          failed_when: _rr_atlas.rc != 0 or 'MongoDB Atlas Collection Restore Completed' not in _rr_atlas.stdout
+
+      always:
+        - name: "[{{ inst }}] Remove the extra vars file"
+          ansible.builtin.file:
+            path: "{{ _rr_atlas_xv }}"
+            state: absent
+
+# 5. DRO custom resources (03 8.4): the DRO operator keeps running
+# -----------------------------------------------------------------------------
+- name: "[{{ inst }}] Put back the DRO custom resources"
+  ansible.builtin.include_tasks: helper.yml
+  vars:
+    _rr_h_name: "[{{ inst }}] DRO custom resources"
+    _rr_h_args: >-
+      {{ ['apply', '--file', _rr_raw ~ '/cr__marketplaceconfigs.*.json', _rr_raw ~ '/cr__datareporterconfigs.*.json',
+          '--namespaces', 'ibm-software-central']
+         + (['--dry-run'] if saas_rollback_dry_run else [])
+         + ['--report', _rr_rwork ~ '/record/apply-dro-' ~ inst ~ '.json'] }}
+    _rr_h_ok_rc: [0, 1]
+  when: inst == _rr_inst_list[0]
+
+- name: "[{{ inst }}] Show"
+  ansible.builtin.debug:
+    msg: "Mongo for {{ inst }} ({{ _rr_i.db.mongo.variant }}): {{ 'dry run, nothing written' if saas_rollback_dry_run else 'restored' }}."

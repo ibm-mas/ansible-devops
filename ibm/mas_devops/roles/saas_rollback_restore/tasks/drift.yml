@@ -1,0 +1,67 @@
+---
+# git-first A6: drift pass for what Git does not own (03 section 10.1). Changes state unless dry run.
+# Rebuild the index from the live cluster and compare it with the backup raw/ (Secret and ConfigMap .data, CR .spec).
+# Objects that differ or are missing are put back from the backup. Objects that exist only now are listed (not deleted).
+# No transform here: the operators are running, so ManageWorkspace and FacilitiesWorkspace go back with the backed-up values.
+# =============================================================================
+
+- name: "[drift] Export the live state"
+  ansible.builtin.include_tasks: export_live.yml
+  vars:
+    _rr_ex_dir: "{{ _rr_rwork }}/after/raw-drift"
+
+- name: "[drift] Compare with the backup"
+  ansible.builtin.include_tasks: helper.yml
+  vars:
+    _rr_h_name: "[drift] diff-index"
+    _rr_h_args: ["diff-index", "--a", "{{ _rr_raw }}", "--b", "{{ _rr_rwork }}/after/raw-drift", "--namespaces", "{{ _rr_ns_csv | trim }}"]
+
+- name: "[drift] Keep the result"
+  ansible.builtin.set_fact:
+    _rr_drift: "{{ _rr_out }}"
+    _rr_drift_fix: "{{ _rr_out.changed + _rr_out.onlyInA }}"
+
+- name: "[drift] Show"
+  ansible.builtin.debug:
+    msg:
+      - "{{ _rr_drift.changed | length }} object(s) differ from the backup, {{ _rr_drift.onlyInA | length }} are missing, {{ _rr_drift.onlyInB | length }} exist only now."
+      - "Differ: {{ _rr_drift.changed[:40] }}"
+      - "Missing: {{ _rr_drift.onlyInA[:40] }}"
+
+- name: "[drift] Put the differing and missing objects back from the backup"
+  ansible.builtin.include_tasks: helper.yml
+  vars:
+    _rr_h_name: "[drift] apply --only"
+    _rr_h_args: >-
+      {{ ['apply', '--file', _rr_raw ~ '/*__secrets.json', _rr_raw ~ '/*__configmaps.json', _rr_raw ~ '/cr__*.json',
+          '--namespaces', _rr_ns_csv | trim, '--report', _rr_rwork ~ '/record/apply-drift.json']
+         + (['--dry-run'] if saas_rollback_dry_run else [])
+         + ['--only'] + _rr_drift_fix }}
+    _rr_h_ok_rc: [0, 1]
+  when: _rr_drift_fix | length > 0
+
+- name: "[drift] Compare again"
+  when: _rr_drift_fix | length > 0 and not saas_rollback_dry_run
+  block:
+    - name: "[drift] Wait for the operators to settle"
+      ansible.builtin.pause:
+        seconds: 60
+
+    - name: "[drift] Export the live state again"
+      ansible.builtin.include_tasks: export_live.yml
+      vars:
+        _rr_ex_dir: "{{ _rr_rwork }}/after/raw-drift2"
+
+    - name: "[drift] Compare with the backup"
+      ansible.builtin.include_tasks: helper.yml
+      vars:
+        _rr_h_name: "[drift] diff-index (second pass)"
+        _rr_h_args: ["diff-index", "--a", "{{ _rr_raw }}", "--b", "{{ _rr_rwork }}/after/raw-drift2", "--namespaces", "{{ _rr_ns_csv | trim }}"]
+
+    - name: "[drift] Fail if objects still differ (an operator or job rewrites them)"
+      ansible.builtin.assert:
+        that: (_rr_out.changed | length + _rr_out.onlyInA | length) == 0 or saas_rollback_allow_drift
+        fail_msg: >-
+          Still different after the put: {{ _rr_out.changed[:40] }}; missing: {{ _rr_out.onlyInA[:40] }}.
+          An operator or a job rewrites them. Investigate each one; SAAS_ROLLBACK_ALLOW_DRIFT=true accepts the remaining differences.
+        quiet: true

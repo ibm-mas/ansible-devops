@@ -1,0 +1,136 @@
+---
+# Verification checks for one instance. Loop var: inst. Read-only.
+# =============================================================================
+
+- name: "[{{ inst }}] Select the manifest entry and the workspace id"
+  ansible.builtin.set_fact:
+    _rr_i: "{{ _rr_manifest.instances | selectattr('id', 'equalto', inst) | first }}"
+    _rr_ws: "{{ _rr_ws_map[inst] | default(_rr_manifest.instances | selectattr('id', 'equalto', inst) | map(attribute='workspace') | first | default('main')) }}"
+
+# X4 critical objects
+- name: "[{{ inst }}] X4 Critical Secrets exist and equal the backup"
+  ansible.builtin.command:
+    argv: ["python3", "{{ role_path }}/files/rr_helper.py", "critical", "--raw", "{{ _rr_raw }}", "--inst", "{{ inst }}", "--ca-namespace", "{{ saas_rollback_ca_namespace }}"]
+  register: _rr_x4
+  changed_when: false
+  failed_when: (_rr_x4.stdout | from_json).bad | length > 0
+
+# X6 Ready
+- name: "[{{ inst }}] X6 Custom resources Ready"
+  ansible.builtin.include_tasks: wait_ready.yml
+  vars:
+    _rr_w_label: "[{{ inst }}] X6 {{ item.label }}"
+    _rr_w_kinds: "{{ item.kinds }}"
+    _rr_w_ns: "mas-{{ inst }}-{{ item.ns }}"
+  loop:
+    - { label: SLS, kinds: "{{ _rr_wait_sls }}", ns: sls }
+    - { label: Core, kinds: "{{ _rr_wait_core }}", ns: core }
+    - { label: Manage, kinds: "{{ _rr_wait_manage }}", ns: manage }
+    - { label: Facilities, kinds: "{{ _rr_wait_facilities }}", ns: facilities }
+    - { label: Config, kinds: "{{ _rr_cfg_kinds }}", ns: core }
+  loop_control:
+    label: "{{ item.label }}"
+
+# X7 versions equal the record
+- name: "[{{ inst }}] X7 Versions equal the record"
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ role_path }}/files/rr_helper.py"
+      - versions-diff
+      - --saved
+      - "{{ _rr_rec }}/{{ item.file }}"
+      - --kind
+      - "{{ item.kind }}"
+      - --namespace
+      - "{{ item.ns }}"
+      - --name
+      - "{{ item.name }}"
+  register: _rr_x7
+  changed_when: false
+  failed_when: (_rr_x7.stdout | from_json).differs | default(true)
+  loop:
+    - { file: suite-status.json, kind: suite.core.mas.ibm.com, ns: "mas-{{ inst }}-core", name: "{{ inst }}" }
+    - { file: workspace-status.json, kind: workspace.core.mas.ibm.com, ns: "mas-{{ inst }}-core", name: "{{ inst }}-{{ _rr_ws }}" }
+    - { file: manage-status.json, kind: manageapp.apps.mas.ibm.com, ns: "mas-{{ inst }}-manage", name: "{{ inst }}" }
+    - { file: manage-status.json, kind: manageworkspace.apps.mas.ibm.com, ns: "mas-{{ inst }}-manage", name: "{{ inst }}-{{ _rr_ws }}" }
+  loop_control:
+    label: "{{ item.kind }}"
+
+# X8 Manage answers
+- name: "[{{ inst }}] X8 Manage /maximo/ping answers"
+  when: not saas_rollback_skip_manage_ping
+  ansible.builtin.shell: |
+    set -o pipefail
+    HOST=$(oc get route -n mas-{{ inst }}-manage -o json | jq -r '[.items[].spec.host | select(startswith("{{ _rr_ws }}.manage."))] | first // empty')
+    [ -n "$HOST" ] || { echo "no route host for workspace {{ _rr_ws }}"; exit 2; }
+    curl -ksS -o /dev/null -w '%{http_code}' --max-time 30 "https://$HOST/maximo/ping"
+  args:
+    executable: /bin/bash
+  register: _rr_x8
+  changed_when: false
+  until: _rr_x8.rc == 0 and _rr_x8.stdout == '200'
+  retries: 20
+  delay: 30
+
+# X14 Db2 CronJobs back to the recorded suspend values
+- name: "[{{ inst }}] X14 Db2 CronJobs equal the record"
+  ansible.builtin.command:
+    argv: ["oc", "get", "cronjob", "{{ item.name }}", "-n", "db2u-{{ inst }}", "-o", "jsonpath={.spec.suspend}"]
+  register: _rr_x14
+  changed_when: false
+  failed_when: false
+  loop: "{{ lookup('ansible.builtin.file', _rr_bwork ~ '/' ~ (_rr_i.quiesce.db2CronJobs | default('record/db2-cronjobs.json'))) | from_json }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: "[{{ inst }}] X14 Fail if a CronJob suspend value differs"
+  ansible.builtin.assert:
+    that: >-
+      (item.stdout | default('false') | trim | default('false', true) | bool) == (item.item.suspend | default(false) | bool)
+    fail_msg: "X14: CronJob {{ item.item.name }} suspend is '{{ item.stdout }}', recorded {{ item.item.suspend }}."
+    quiet: true
+  loop: "{{ _rr_x14.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when: item.rc == 0
+
+# X15 Facilities replicas equal the record
+- name: "[{{ inst }}] X15 Facilities replicas equal the record"
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ role_path }}/files/rr_helper.py"
+      - fac-replicas
+      - --check
+      - --ns
+      - "mas-{{ inst }}-facilities"
+      - --name
+      - "{{ inst }}-{{ _rr_ws }}"
+      - --record
+      - "{{ _rr_bwork }}/{{ _rr_i.quiesce.facilitiesPodTemplates | default('record/fac-podtemplates.json') }}"
+  register: _rr_x15
+  changed_when: false
+  failed_when: false
+
+- name: "[{{ inst }}] X15 Fail if the Facilities replicas differ"
+  ansible.builtin.assert:
+    that: _rr_x15.rc == 0 and (_rr_x15.stdout | from_json).differs | length == 0
+    fail_msg: "X15: {{ _rr_x15.stdout | default(_rr_x15.stderr) }}"
+    quiet: true
+  when: _rr_x15.rc == 0 or (_rr_x15.stdout | default('') | length > 0)
+
+# X15 Manage mode
+- name: "[{{ inst }}] X15 Manage mode equals the record"
+  ansible.builtin.command:
+    argv: ["oc", "get", "manageworkspace", "{{ inst }}-{{ _rr_ws }}", "-n", "mas-{{ inst }}-manage", "-o", "jsonpath={.spec.settings.deployment.mode}"]
+  register: _rr_x15m
+  changed_when: false
+  failed_when: false
+
+- name: "[{{ inst }}] X15 Fail if the Manage mode differs from the record"
+  ansible.builtin.assert:
+    that: _rr_x15m.stdout | trim == (lookup('ansible.builtin.file', _rr_rec ~ '/manage-mode.txt') | trim)
+    fail_msg: "X15: Manage mode is '{{ _rr_x15m.stdout }}', recorded '{{ lookup('ansible.builtin.file', _rr_rec ~ '/manage-mode.txt') | trim }}'."
+    quiet: true
+  when: _rr_x15m.rc == 0

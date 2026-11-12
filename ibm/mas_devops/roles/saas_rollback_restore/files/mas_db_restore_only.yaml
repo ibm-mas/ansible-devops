@@ -1,0 +1,108 @@
+---
+# Db2u restore WITHOUT the Manage stop and start (03 section 9.2, option W).
+# ssp-mas-sre-automation/mas_db_restore.yaml always stops Manage first and always starts it at the end.
+# During a rollback the Manage operator is still the new version, so starting Manage here would let the new operator act
+# on the old schema. This wrapper runs the same pre-restore steps and the same role task, and nothing else.
+#
+# Run from the ssp-mas-sre-automation checkout so its roles are found:
+#   cd <ssp-mas-sre-automation> && ANSIBLE_ROLES_PATH=$PWD/roles ansible-playbook <this file> -e @vars.yml -e ...
+#
+# Required extra vars: k8s_cluster_name, mas_instance_id, cloud, application, app_type, restore_timestamp,
+#   db2_restore_timestamp, s3_bucket, test_framework_s3_path
+# Credentials (ibmcloud_api_key / rosa_login_token / aws_access_key_id / aws_secret_access_key) come from the vars file.
+- name: Restore a Db2u database without touching Manage (rollback)
+  hosts: localhost
+  gather_facts: true
+
+  environment: "{{ {'K8S_AUTH_SSL_CA_CERT': k8s_ssl_ca_cert} if k8s_ssl_ca_cert | default('') | length > 0 else {} }}"
+
+  vars:
+    mas_instance_id: ""
+    k8s_cluster_name: ""
+    cloud: ""
+    application: manage
+    app_type: manage
+    ibmcloud_api_key: ""
+    rosa_login_token: ""
+    aws_access_key_id: ""
+    aws_secret_access_key: ""
+    k8s_namespace: "mas-{{ mas_instance_id }}-manage"
+    preserve_grants: "true"
+    download_path_in_target_restore: /mnt/backup/db2inst1/mas_restore
+    restore_timestamp: ""
+    db2_restore_timestamp: ""
+    s3_bucket: ""
+    test_framework_s3_path: ""
+    test_framework_s3_dest: "{{ test_framework_s3_path | default('') | regex_replace('/+$', '') }}/"
+    backup_s3_bucket: "{{ s3_bucket }}"
+    backup_s3_endpoint: "{{ lookup('env', 'BACKUP_S3_ENDPOINT') | default('https://s3.amazonaws.com', true) }}"
+    _tf_aws_env: "{{ {'AWS_ACCESS_KEY_ID': aws_access_key_id, 'AWS_SECRET_ACCESS_KEY': aws_secret_access_key} if (aws_access_key_id | length > 0 and aws_secret_access_key | length > 0) else {} }}"
+
+  tasks:
+    - name: Restore database
+      block:
+        - name: Check the inputs
+          ansible.builtin.assert:
+            that:
+              - mas_instance_id | length > 0
+              - k8s_cluster_name | length > 0
+              - cloud in ['ibm', 'aws', 'fyre']
+              - restore_timestamp | string | length > 0
+              - db2_restore_timestamp | string | length > 0
+              - s3_bucket | length > 0
+              - test_framework_s3_path is match('^s3://' ~ s3_bucket ~ '/adhoc/.+')
+            fail_msg: "mas_instance_id, k8s_cluster_name, cloud (ibm|aws|fyre), restore_timestamp, db2_restore_timestamp, s3_bucket and an adhoc test_framework_s3_path are required."
+            quiet: true
+
+        - name: Disable SPID alerts
+          ansible.builtin.include_role:
+            name: spid_alerting
+            tasks_from: disable_alerts
+
+        - name: Cluster authentication
+          ansible.builtin.import_role:
+            name: ibmcloud_auth
+
+        - name: Retrieve DB2 information
+          ansible.builtin.include_role:
+            name: mas_db_connection
+            tasks_from: get_db_connection_info
+
+        - name: Copy backup files from the adhoc path back to the default location
+          ansible.builtin.shell: >-
+            aws s3 cp {{ test_framework_s3_dest }} s3://{{ s3_bucket }}/backups-manage/{{ jdbc_catalog_pod }}/
+            --recursive --exclude "*" --include "*{{ db2_restore_timestamp }}*" --endpoint-url {{ backup_s3_endpoint }}
+          environment: "{{ _tf_aws_env }}"
+
+        - name: Restore database
+          ansible.builtin.include_role:
+            name: mas_db_restore
+            tasks_from: restore_database.yaml
+          vars:
+            job_name: "MAS Restore (rollback)"
+
+        - name: Fail if the restore did not succeed
+          ansible.builtin.assert:
+            that: restore_success | default(false) | bool
+            fail_msg: "Database restore failed for {{ mas_instance_id }}/{{ application }} at {{ db2_restore_timestamp }}. See the role log above."
+            quiet: true
+
+      always:
+        - name: Enable SPID alerts
+          ansible.builtin.include_role:
+            name: spid_alerting
+            tasks_from: enable_alerts
+
+        - name: Cleanup KubeConfig
+          ansible.builtin.file:
+            path: "{{ kubeconfig_path }}"
+            state: absent
+          when: kubeconfig_path is defined
+          failed_when: false
+
+        - name: Cleanup temp files
+          ansible.builtin.file:
+            path: "{{ cert_pem.path }}"
+            state: absent
+          when: cert_pem.path is defined
+          failed_when: false

@@ -1,0 +1,155 @@
+---
+# Db2 restore for one instance. Loop var: inst
+# manifest.instances[].db.<manage|facilities>:
+#   Db2u: {variant: db2u, adhocPath, timestamp, type: full, keystoreS3, s3Bucket}
+#   RDS : {variant: rds, s3Bucket, s3Prefix}
+# =============================================================================
+
+- name: "[{{ inst }}] Select the manifest entry"
+  ansible.builtin.set_fact:
+    _rr_i: "{{ _rr_manifest.instances | selectattr('id', 'equalto', inst) | first }}"
+    _rr_db_apps: "{{ (_rr_manifest.instances | selectattr('id', 'equalto', inst) | first).db | dict2items | selectattr('key', 'in', ['manage', 'facilities']) | map(attribute='key') | list }}"
+
+- name: "[{{ inst }}] Check the inputs for the Db2 restore"
+  ansible.builtin.assert:
+    that:
+      - saas_rollback_ssp_dir | length > 0
+      - saas_rollback_db2_cloud | length > 0
+      - _rr_db_apps | length > 0
+    fail_msg: "SAAS_ROLLBACK_SSP_DIR (checkout of ssp-mas-sre-automation, branch mascore-20278-db2-backup-restore), SAAS_ROLLBACK_DB2_CLOUD and a db.manage or db.facilities entry in the manifest are required."
+    quiet: true
+
+- name: "[{{ inst }}] Check the ssp playbooks exist"
+  ansible.builtin.stat:
+    path: "{{ saas_rollback_ssp_dir }}/{{ item }}"
+  register: _rr_ssp
+  failed_when: not _rr_ssp.stat.exists
+  loop: [mas_db_restore.yaml, roles/mas_db_restore/tasks/restore_database.yaml]
+
+# 1. Pre-checks (03 9.1)
+# -----------------------------------------------------------------------------
+- name: "[{{ inst }}] Engine version equals the backup"
+  ansible.builtin.command:
+    argv: ["python3", "{{ role_path }}/files/rr_helper.py", "db2-version", "--record", "{{ _rr_rec }}/db2u-cr.json", "--ns", "db2u-{{ inst }}"]
+  register: _rr_db2ver
+  changed_when: false
+  when: _rr_i.db[_rr_db_apps[0]].variant == 'db2u'
+
+- name: "[{{ inst }}] Fail if the Db2 CR version changed since the backup"
+  ansible.builtin.assert:
+    that: not (_rr_db2ver.stdout | from_json).differs
+    fail_msg: "Db2 version differs: {{ _rr_db2ver.stdout }}. A Db2 engine change in the same window is not allowed (01 G10)."
+    quiet: true
+  when: _rr_i.db[_rr_db_apps[0]].variant == 'db2u'
+
+- name: "[{{ inst }}] Keystore in the pod equals the keystore copy in S3 (Db2u)"
+  ansible.builtin.shell: |
+    set -o pipefail
+    POD=c-db2wh-{{ inst }}-{{ item }}-db2u-0
+    LIVE=$(oc exec -n db2u-{{ inst }} "$POD" -c db2u -- cat /mnt/blumeta0/db2/keystore/keystore.p12 | sha256sum | cut -d' ' -f1)
+    SAVED=$(aws s3 cp '{{ _rr_i.db[item].keystoreS3 | regex_replace('/+$', '') }}/keystore.p12' - --endpoint-url '{{ saas_rollback_db2_s3_endpoint }}' | sha256sum | cut -d' ' -f1)
+    echo "live=$LIVE saved=$SAVED"
+    [ "$LIVE" = "$SAVED" ]
+  args:
+    executable: /bin/bash
+  register: _rr_ks
+  changed_when: false
+  failed_when: _rr_ks.rc != 0 and not saas_rollback_allow_keystore_mismatch
+  loop: "{{ _rr_db_apps }}"
+  when: _rr_i.db[item].variant == 'db2u' and _rr_i.db[item].keystoreS3 is defined and not saas_rollback_skip_s3_check
+
+# 2. Restore
+# -----------------------------------------------------------------------------
+- name: "[{{ inst }}] Restore Db2u databases (wrapper: no Manage stop or start)"
+  ansible.builtin.command:
+    argv: >-
+      {{ ['ansible-playbook', role_path ~ '/files/mas_db_restore_only.yaml',
+          '-e', 'k8s_cluster_name=' ~ saas_rollback_cluster,
+          '-e', 'mas_instance_id=' ~ inst,
+          '-e', 'cloud=' ~ saas_rollback_db2_cloud,
+          '-e', 'application=' ~ item,
+          '-e', 'app_type=' ~ item,
+          '-e', 'restore_timestamp=' ~ _rr_i.db[item].timestamp,
+          '-e', 'db2_restore_timestamp=' ~ _rr_i.db[item].timestamp,
+          '-e', 's3_bucket=' ~ _rr_i.db[item].s3Bucket,
+          '-e', 'test_framework_s3_path=' ~ _rr_i.db[item].adhocPath,
+          '-e', 'preserve_grants=true']
+         + (['-e', '@' ~ saas_rollback_ssp_vars_file] if saas_rollback_ssp_vars_file | length > 0 else []) }}
+    chdir: "{{ saas_rollback_ssp_dir }}"
+  environment:
+    ANSIBLE_ROLES_PATH: "{{ saas_rollback_ssp_dir }}/roles"
+    BACKUP_S3_ENDPOINT: "{{ saas_rollback_db2_s3_endpoint }}"
+  register: _rr_db2
+  changed_when: true
+  failed_when: _rr_db2.rc != 0 or 'Database restore is done successfully' not in _rr_db2.stdout
+  no_log: true
+  loop: "{{ _rr_db_apps }}"
+  loop_control:
+    label: "{{ inst }}/{{ item }}"
+  when: _rr_i.db[item].variant == 'db2u' and not saas_rollback_dry_run
+
+- name: "[{{ inst }}] Restore RDS Db2 databases (mas_db_restore.yaml, cloud=mcsp_aws)"
+  ansible.builtin.command:
+    argv: >-
+      {{ ['ansible-playbook', 'mas_db_restore.yaml',
+          '-e', 'k8s_cluster_name=' ~ saas_rollback_cluster,
+          '-e', 'mas_instance_id=' ~ inst,
+          '-e', 'cloud=mcsp_aws',
+          '-e', 'rds_app_type=' ~ item,
+          '-e', 'app_type=' ~ item,
+          '-e', 's3_bucket=' ~ _rr_i.db[item].s3Bucket,
+          '-e', 's3_prefix=' ~ _rr_i.db[item].s3Prefix,
+          '-e', 'drop_if_exists=true',
+          '-e', 'create_target_backup=true',
+          '-e', 'rollback_on_failure=true']
+         + (['-e', '@' ~ saas_rollback_ssp_vars_file] if saas_rollback_ssp_vars_file | length > 0 else []) }}
+    chdir: "{{ saas_rollback_ssp_dir }}"
+  environment:
+    ANSIBLE_ROLES_PATH: "{{ saas_rollback_ssp_dir }}/roles"
+  register: _rr_rds
+  changed_when: true
+  failed_when: _rr_rds.rc != 0 or 'restore completed successfully' not in _rr_rds.stdout
+  no_log: true
+  loop: "{{ _rr_db_apps }}"
+  loop_control:
+    label: "{{ inst }}/{{ item }}"
+  when: _rr_i.db[item].variant == 'rds' and not saas_rollback_dry_run
+
+# 3. Gate (Db2u): connect, encrypted, no backup pending
+# -----------------------------------------------------------------------------
+- name: "[{{ inst }}] Gate: database connects, is encrypted and has no backup pending"
+  ansible.builtin.shell: |
+    set -o pipefail
+    POD=c-db2wh-{{ inst }}-{{ item }}-db2u-0
+    oc exec -n db2u-{{ inst }} "$POD" -c db2u -- su -lc "db2 connect to BLUDB >/dev/null && db2 get db cfg for BLUDB | grep -Ei 'Encrypted database|Backup pending'" db2inst1
+  args:
+    executable: /bin/bash
+  register: _rr_gate
+  changed_when: false
+  failed_when: _rr_gate.rc != 0 or 'YES' not in (_rr_gate.stdout_lines | select('search', 'Encrypted database') | first | default('')) or (_rr_gate.stdout_lines | select('search', 'Backup pending') | select('search', 'YES') | list | length > 0)
+  loop: "{{ _rr_db_apps }}"
+  loop_control:
+    label: "{{ inst }}/{{ item }}"
+  when: _rr_i.db[item].variant == 'db2u' and not saas_rollback_dry_run
+
+# 4. Db2 CronJobs back to the recorded suspend values
+# -----------------------------------------------------------------------------
+- name: "[{{ inst }}] Restore the Db2 CronJob suspend values"
+  kubernetes.core.k8s_json_patch:
+    api_version: batch/v1
+    kind: CronJob
+    namespace: "db2u-{{ inst }}"
+    name: "{{ item.name }}"
+    patch:
+      - op: add
+        path: /spec/suspend
+        value: "{{ item.suspend | default(false) }}"
+  loop: "{{ lookup('ansible.builtin.file', _rr_bwork ~ '/' ~ (_rr_i.quiesce.db2CronJobs | default('record/db2-cronjobs.json'))) | from_json }}"
+  loop_control:
+    label: "{{ item.name }}"
+  failed_when: false
+  when: not saas_rollback_dry_run
+
+- name: "[{{ inst }}] Show"
+  ansible.builtin.debug:
+    msg: "Db2 for {{ inst }} ({{ _rr_db_apps | join(', ') }}): {{ 'dry run, nothing written' if saas_rollback_dry_run else 'restored' }}."

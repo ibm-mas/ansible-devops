@@ -1,0 +1,32 @@
+---
+# git-first A5, part 1: bring the operators up, then sync the instance Applications up to the workspace (waves 0 to 299:
+# SLS, Db2u, Db2 database, Mongo config, config charts, Suite, Workspace). Changes state unless dry run.
+# The Manage and Facilities waves (300 and up) run in sync_apps after the start phase.
+# =============================================================================
+
+- name: "[sync_core] Scale the stopped operators and Core/SLS workloads back up"
+  ansible.builtin.include_tasks: scale_up.yml
+  loop: "{{ _rr_inst_list }}"
+  loop_control:
+    loop_var: inst
+  when: not saas_rollback_dry_run
+
+- name: "[sync_core] Sync the instance Applications in wave order"
+  ansible.builtin.include_tasks: sync_waves.yml
+  vars:
+    _rr_sw_min: 0
+    _rr_sw_max: 299
+  loop: "{{ _rr_inst_list }}"
+  loop_control:
+    loop_var: inst
+
+- name: "[sync_core] Wait for SLS, Suite and Workspace to be Ready"
+  ansible.builtin.include_tasks: wait_ready.yml
+  vars:
+    _rr_w_label: "[{{ item.0 }}] Wait for {{ item.1.label }}"
+    _rr_w_kinds: "{{ item.1.kinds }}"
+    _rr_w_ns: "mas-{{ item.0 }}-{{ item.1.ns }}"
+  loop: "{{ _rr_inst_list | product([{'label': 'SLS', 'kinds': _rr_wait_sls, 'ns': 'sls'}, {'label': 'Core', 'kinds': _rr_wait_core, 'ns': 'core'}]) | list }}"
+  loop_control:
+    label: "{{ item.0 }} {{ item.1.label }}"
+  when: not saas_rollback_dry_run

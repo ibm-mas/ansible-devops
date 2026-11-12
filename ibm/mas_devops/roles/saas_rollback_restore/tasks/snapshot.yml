@@ -1,0 +1,50 @@
+---
+# Phase RC2: snapshot the post-upgrade state into restore/<run id>/before (03 section 6). Read-only on the cluster.
+# =============================================================================
+
+- name: "[snapshot] Dry run: nothing written"
+  ansible.builtin.debug:
+    msg: "Dry run: would export Secrets, ConfigMaps, CRs, CRDs and OLM objects to {{ _rr_rwork }}/before/raw and record the current operators."
+  when: saas_rollback_dry_run
+
+- name: "[snapshot] Write the post-upgrade state"
+  when: not saas_rollback_dry_run
+  block:
+    - name: "[snapshot] Export the objects (same layout as the backup raw/)"
+      ansible.builtin.include_tasks: helper.yml
+      vars:
+        _rr_h_name: "[snapshot] Export raw objects"
+        _rr_h_args:
+          - export
+          - --out
+          - "{{ _rr_rwork }}/before/raw"
+          - --namespaces
+          - "{{ _rr_ns_csv | trim }}"
+          - --namespace-regex
+          - "{{ _rr_ns_regex | trim }}"
+
+    - name: "[snapshot] Record operators, CSVs, install plans, catalog and CRD versions as they are now"
+      ansible.builtin.shell: |
+        set -o pipefail
+        cd '{{ _rr_rwork }}/before'
+        oc get subscription.operators.coreos.com -A -o json | jq '[.items[]|{ns:.metadata.namespace,name:.metadata.name,channel:.spec.channel,approval:.spec.installPlanApproval,startingCSV:.spec.startingCSV,installedCSV:.status.installedCSV,state:.status.state}]' > subscriptions.json
+        oc get csv -A -o json | jq '[.items[]|{ns:.metadata.namespace,name:.metadata.name,version:.spec.version,replaces:.spec.replaces,phase:.status.phase}]' > csvs.json
+        oc get installplan -A -o json | jq '[.items[]|{ns:.metadata.namespace,name:.metadata.name,csv:.spec.clusterServiceVersionNames,phase:.status.phase,approval:.spec.approval}]' > installplans.json
+        oc get catalogsource -A -o yaml > catalogsources.yaml
+        oc get crd -o json | jq '[.items[]|select(.spec.group|test("mas.ibm.com|sls.ibm.com|db2u.databases.ibm.com|marketplace.redhat.com"))|{name:.metadata.name,stored:.status.storedVersions,versions:[.spec.versions[]|{name,served,storage}]}]' > crd-versions.json
+      args:
+        executable: /bin/bash
+        creates: "{{ _rr_rwork }}/before/crd-versions.json"
+      changed_when: false
+
+    - name: "[snapshot] Index of the post-upgrade state"
+      ansible.builtin.include_tasks: helper.yml
+      vars:
+        _rr_h_name: "[snapshot] Index"
+        _rr_h_args: ["index", "--dir", "{{ _rr_rwork }}/before/raw", "--out", "{{ _rr_rwork }}/before/export-index.tsv"]
+
+- name: "[snapshot] Warn about the pre-rollback database backup (03 RC2 step 3)"
+  ansible.builtin.debug:
+    msg: >-
+      {{ 'The pre-rollback database backup is confirmed taken.' if saas_rollback_pre_rollback_backup_done
+         else 'SKIPPED by SAAS_ROLLBACK_SKIP_PRE_ROLLBACK_BACKUP: the post-upgrade databases are NOT backed up and will be dropped.' }}

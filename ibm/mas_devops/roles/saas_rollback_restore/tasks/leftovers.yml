@@ -1,0 +1,35 @@
+---
+# List the Secrets, ConfigMaps and custom resources that exist now but were not in the backup (03 B-extra and X18). Read-only.
+# Nothing is deleted. Operator-created Secrets and ConfigMaps appear here too, so the list is for review.
+# =============================================================================
+
+- name: "[leftovers] Export the live state"
+  ansible.builtin.include_tasks: export_live.yml
+  vars:
+    _rr_ex_dir: "{{ _rr_rwork }}/after/raw-final"
+
+- name: "[leftovers] Compare with the backup"
+  ansible.builtin.include_tasks: helper.yml
+  vars:
+    _rr_h_name: "[leftovers] diff-index"
+    _rr_h_args: ["diff-index", "--a", "{{ _rr_raw }}", "--b", "{{ _rr_rwork }}/after/raw-final", "--namespaces", "{{ _rr_ns_csv | trim }}"]
+
+- name: "[leftovers] Keep the result"
+  ansible.builtin.copy:
+    content: "{{ _rr_out | to_nice_json }}"
+    dest: "{{ _rr_rwork }}/after/leftovers.json"
+    mode: "0600"
+
+- name: "[leftovers] Show"
+  ansible.builtin.debug:
+    msg:
+      - "{{ _rr_out.onlyInB | length }} object(s) exist only now (full list in {{ _rr_rwork }}/after/leftovers.json)."
+      - "Custom resources among them: {{ _rr_out.onlyInB | reject('match', '^(Secret|ConfigMap)/') | list }}"
+      - "{{ _rr_out.changed | length }} object(s) still differ from the backup; {{ _rr_out.onlyInA | length }} are missing."
+
+- name: "[leftovers] Fail on leftovers custom resources when asked"
+  ansible.builtin.assert:
+    that: _rr_out.onlyInB | reject('match', '^(Secret|ConfigMap)/') | list | length == 0
+    fail_msg: "Custom resources that the backup does not have: {{ _rr_out.onlyInB | reject('match', '^(Secret|ConfigMap)/') | list }}. Delete only what the old version does not have; never a database or PVC."
+    quiet: true
+  when: saas_rollback_fail_on_leftovers and not saas_rollback_dry_run

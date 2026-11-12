@@ -1,0 +1,98 @@
+---
+# Restore one Facilities PVC through a helper pod. Loop var: pvc (PVC name = archive name)
+# Same method as suite_app_restore facilities/restore-single-pvc-data.yml: the archive holds home/wiotp/{config,userfiles};
+# it is extracted under the mount, copied to the real directories, ownership is kept from the existing files, and the temporary
+# home directory is removed. The role's layout assumptions are copied, not verified [V]: check on the first test.
+# =============================================================================
+
+- name: "[{{ inst }}] [{{ pvc }}] Work out the directories"
+  ansible.builtin.set_fact:
+    _rr_fpod: "{{ inst }}-rollback-pv-fac-{{ pvc | regex_replace('[^a-z0-9-]', '-') | truncate(40, true, '') }}"
+    _rr_fcomp: "{{ pvc.split('-')[3:] | join('-') if pvc.startswith('userfiles-') else pvc.split('-')[2] }}"
+
+- name: "[{{ inst }}] [{{ pvc }}] Set the config directory"
+  ansible.builtin.set_fact:
+    _rr_fcfg: >-
+      {{ '/mnt/pvc/configs/' ~ (pvc | regex_replace('^userfiles-', '')) if (_rr_fcomp is search('-[0-9]+$')) else '/mnt/pvc/configs/' ~ _rr_fcomp }}
+
+- name: "[{{ inst }}] [{{ pvc }}] Restore"
+  block:
+    - name: "[{{ inst }}] [{{ pvc }}] Create the helper pod"
+      kubernetes.core.k8s:
+        state: present
+        wait: true
+        wait_condition:
+          type: Ready
+          status: "True"
+        wait_timeout: 600
+        definition:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: "{{ _rr_fpod }}"
+            namespace: "mas-{{ inst }}-facilities"
+            labels:
+              app: rollback-pv-restore
+              mas.ibm.com/instanceId: "{{ inst }}"
+          spec:
+            restartPolicy: Never
+            containers:
+              - name: restore-container
+                image: "{{ saas_rollback_helper_pod_image }}"
+                command: ["/bin/sh", "-c", "sleep infinity"]
+                volumeMounts:
+                  - { name: pvc-mount, mountPath: /mnt/pvc }
+            volumes:
+              - name: pvc-mount
+                persistentVolumeClaim:
+                  claimName: "{{ pvc }}"
+
+    - name: "[{{ inst }}] [{{ pvc }}] Copy the archive into the pod"
+      ansible.builtin.command:
+        argv: ["oc", "cp", "--retries=50", "{{ _rr_pv_fac_dir }}/{{ pvc }}.tar.gz", "mas-{{ inst }}-facilities/{{ _rr_fpod }}:/tmp/{{ pvc }}.tar.gz", "-c", "restore-container"]
+      changed_when: true
+
+    - name: "[{{ inst }}] [{{ pvc }}] Clear, extract, copy back, fix ownership, remove the temporary home"
+      ansible.builtin.command:
+        argv:
+          - oc
+          - exec
+          - -n
+          - "mas-{{ inst }}-facilities"
+          - "{{ _rr_fpod }}"
+          - -c
+          - restore-container
+          - --
+          - sh
+          - -c
+          - |
+            set -e
+            CFG='{{ _rr_fcfg }}'
+            OWN=$(find "$CFG" -type f 2>/dev/null | head -1 | xargs -r stat -c '%u:%g' 2>/dev/null || true)
+            [ -n "$OWN" ] || OWN='1000:1000'
+            rm -rf "$CFG"/* "$CFG"/.[!.]* /mnt/pvc/userfiles/* /mnt/pvc/userfiles/.[!.]* 2>/dev/null || true
+            tar -pxzf /tmp/{{ pvc }}.tar.gz -C /mnt/pvc
+            mkdir -p "$CFG" /mnt/pvc/userfiles
+            [ -d /mnt/pvc/home/wiotp/config ] && cp -r /mnt/pvc/home/wiotp/config/* "$CFG"/ 2>/dev/null || true
+            chown -R "$OWN" "$CFG"
+            [ -d /mnt/pvc/home/wiotp/userfiles ] && cp -r /mnt/pvc/home/wiotp/userfiles/* /mnt/pvc/userfiles/ 2>/dev/null || true
+            chown -R "$OWN" /mnt/pvc/userfiles
+            rm -rf /mnt/pvc/home /tmp/{{ pvc }}.tar.gz
+            echo "restored $CFG owner=$OWN"
+      register: _rr_fres
+      changed_when: true
+
+    - name: "[{{ inst }}] [{{ pvc }}] Result"
+      ansible.builtin.debug:
+        msg: "{{ _rr_fres.stdout_lines }}"
+
+  always:
+    - name: "[{{ inst }}] [{{ pvc }}] Delete the helper pod"
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Pod
+        name: "{{ _rr_fpod }}"
+        namespace: "mas-{{ inst }}-facilities"
+        state: absent
+        wait: true
+        wait_timeout: 300

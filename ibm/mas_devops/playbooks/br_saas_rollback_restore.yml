@@ -1,0 +1,36 @@
+---
+# Upgrade rollback: restore a MAS SaaS cluster and its instances to the state held in a backup set
+# =================================================================================================
+# Reads the backup set written by the backup runbook (manifest.json, raw/, record/, argocd/, db/, roles/,
+# config-repo/, external/) and returns the cluster, the instances and their databases to that state.
+# Design: saas-tekton/docs/upgrade-rollback/03-restore-process.md
+#
+# THIS IS DESTRUCTIVE. It drops and recreates the Manage and Facilities databases and overwrites Mongo
+# collections. It runs in dry-run mode unless SAAS_ROLLBACK_DRY_RUN=false.
+#
+# Required (see the role README for the full list):
+#   SAAS_ROLLBACK_BACKUP_DIR, SAAS_ROLLBACK_CLUSTER, SAAS_ROLLBACK_INSTANCES, SAAS_ROLLBACK_APPROACH,
+#   SAAS_ROLLBACK_GIT_REVERT_MODE, SAAS_ROLLBACK_CHANGE_TICKET, SAAS_ROLLBACK_APPROVED_BY,
+#   SAAS_ROLLBACK_ARGO_ROOT_APP
+#
+# Usage:
+#   export SAAS_ROLLBACK_BACKUP_DIR=/work/backups/upg-noble10-20261104-101500
+#   export SAAS_ROLLBACK_CLUSTER=noble10
+#   export SAAS_ROLLBACK_INSTANCES=test20414
+#   ...
+#   ansible-playbook ibm.mas_devops.br_saas_rollback_restore
+- hosts: localhost
+  any_errors_fatal: true
+
+  pre_tasks:
+    - name: "IMPORTANT NOTICE"
+      ansible.builtin.debug:
+        msg:
+          - "SaaS upgrade rollback - restore"
+          - "This playbook is NOT part of a supported IBM release; it implements saas-tekton/docs/upgrade-rollback/03-restore-process.md."
+          - "It has NOT been run against a cluster. Run it with SAAS_ROLLBACK_DRY_RUN=true (the default) first."
+          - "With SAAS_ROLLBACK_DRY_RUN=false it freezes ArgoCD, stops Manage, Facilities, Core and SLS, drops and restores databases,"
+          - "replaces Secrets, ConfigMaps and custom resources, and reinstalls operators at their recorded versions."
+
+  roles:
+    - ibm.mas_devops.saas_rollback_restore

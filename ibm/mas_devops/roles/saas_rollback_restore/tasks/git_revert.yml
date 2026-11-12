@@ -1,0 +1,177 @@
+---
+# Git revert of the upgrade levers (03 section 10.0). Both approaches. Loop is per instance.
+# manual:    compare the clone with the saved lever files and either wait for the merged pull request (rollback SHA given) or stop with the diff.
+# automated: write only the recorded lever values with yq, guard the diff, commit and push.
+# Only the recorded levers change. Never `git revert` or `git checkout <sha> -- file`.
+# =============================================================================
+
+- name: "[git_revert] Clone the config repository (read-only credentials are enough for the comparison)"
+  ansible.builtin.shell: |
+    set -e
+    rm -rf '{{ _rr_gitdir }}'
+    git clone --quiet --branch '{{ _rr_cfg_repo_branch }}' '{{ _rr_cfg_repo_url }}' '{{ _rr_gitdir }}'
+    git -C '{{ _rr_gitdir }}' rev-parse HEAD
+  args:
+    executable: /bin/bash
+  environment:
+    GIT_ASKPASS: "{{ role_path }}/files/git_askpass.sh"
+    GIT_TERMINAL_PROMPT: "0"
+    RR_GIT_USER: "{{ saas_rollback_git_user }}"
+    RR_GIT_TOKEN: "{{ saas_rollback_git_token }}"
+  register: _rr_clone
+  changed_when: true
+  no_log: true
+
+- name: "[git_revert] Does the backup SHA still exist in the clone"
+  ansible.builtin.command:
+    argv: ["git", "-C", "{{ _rr_gitdir }}", "cat-file", "-e", "{{ _rr_cfg_repo_sha }}^{commit}"]
+  register: _rr_sha_exists
+  changed_when: false
+  failed_when: false
+  when: _rr_cfg_repo_sha | length > 0
+
+- name: "[git_revert] Compare the saved lever files with the clone"
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ role_path }}/files/rr_helper.py"
+      - levers
+      - --saved
+      - "{{ _rr_bwork }}/config-repo"
+      - --clone
+      - "{{ _rr_gitdir }}"
+      - --path
+      - "{{ _rr_cfg_repo_path }}"
+      - --inst
+      - "{{ inst }}"
+      - --levers
+      - "{{ _rr_levers | to_json }}"
+  register: _rr_lev
+  changed_when: false
+  loop: "{{ _rr_inst_list }}"
+  loop_control:
+    loop_var: inst
+    label: "{{ inst }}"
+
+- name: "[git_revert] Collect the levers"
+  ansible.builtin.set_fact:
+    _rr_lever_all: "{{ _rr_lev.results | map(attribute='stdout') | map('from_json') | map(attribute='levers') | flatten }}"
+
+- name: "[git_revert] Fail if a saved lever file is missing (the config-repo/ copy of 02 B1.2 is the source of truth)"
+  ansible.builtin.assert:
+    that: (_rr_lever_all | selectattr('status', 'in', ['no-saved-copy', 'no-file-in-clone']) | list | length) == 0
+    fail_msg: "Saved lever file missing: {{ _rr_lever_all | selectattr('status', 'in', ['no-saved-copy', 'no-file-in-clone']) | list }}"
+    quiet: true
+
+- name: "[git_revert] Levers that differ"
+  ansible.builtin.set_fact:
+    _rr_lever_diff: "{{ _rr_lever_all | selectattr('differs', 'defined') | selectattr('differs') | list }}"
+
+- name: "[git_revert] Show"
+  ansible.builtin.debug:
+    msg: "{{ ((_rr_lever_diff | length) ~ ' lever(s) differ from the backup:') if _rr_lever_diff | length > 0 else 'All levers already equal the backup.' }} {{ _rr_lever_diff | map('to_json') | list }}"
+
+# Manual mode
+# -----------------------------------------------------------------------------
+- name: "[git_revert] Manual mode"
+  when: saas_rollback_git_revert_mode == 'manual'
+  block:
+    - name: "[git_revert] Stop if levers differ and no merged rollback commit is given"
+      ansible.builtin.assert:
+        that: (_rr_lever_diff | length == 0) or (saas_rollback_git_rollback_sha | length > 0 and saas_rollback_dry_run)
+        fail_msg: >-
+          {{ _rr_lever_diff | length }} lever(s) still differ from the backup. Revert them by pull request (03 section 10.0, manual), merge it,
+          then re-run with SAAS_ROLLBACK_RUN_ID={{ _rr_rid }} SAAS_ROLLBACK_START_AT=git_revert. Differences: {{ _rr_lever_diff | map('to_json') | list }}
+        quiet: true
+      when: not saas_rollback_dry_run
+
+    - name: "[git_revert] Record the rollback commit"
+      ansible.builtin.copy:
+        content: "{{ _rr_git_head }}\n"
+        dest: "{{ _rr_rwork }}/record/git-rollback-sha.txt"
+        mode: "0600"
+      vars:
+        _rr_git_head: "{{ _rr_clone.stdout_lines | last }}"
+      when: not saas_rollback_dry_run
+
+# Automated mode
+# -----------------------------------------------------------------------------
+- name: "[git_revert] Automated mode"
+  when: saas_rollback_git_revert_mode == 'automated' and _rr_lever_diff | length > 0
+  block:
+    - name: "[git_revert] Dry run: show what would be written"
+      ansible.builtin.debug:
+        msg: "Dry run: would set {{ _rr_lever_diff | map(attribute='file') | unique | list }} and push to {{ _rr_cfg_repo_branch }}."
+      when: saas_rollback_dry_run
+
+    - name: "[git_revert] Write only the recorded lever values"
+      ansible.builtin.command:
+        argv: ["yq", "-i", "{{ item.yq }} = {{ (item.saved | to_json) if item.saved is not string else ('\"' ~ item.saved ~ '\"') }}", "{{ _rr_gitdir }}/{{ _rr_cfg_repo_path }}/{{ item.file }}"]
+      changed_when: true
+      loop: "{{ _rr_lever_diff | selectattr('presentInClone') | list }}"
+      loop_control:
+        label: "{{ item.file }} {{ item.path }}"
+      when: not saas_rollback_dry_run
+
+    - name: "[git_revert] Fail if a lever key is absent from the clone (cannot be reverted by value)"
+      ansible.builtin.assert:
+        that: (_rr_lever_diff | rejectattr('presentInClone') | list | length) == 0
+        fail_msg: "Keys missing from the current file: {{ _rr_lever_diff | rejectattr('presentInClone') | list }}. Use the manual path."
+        quiet: true
+
+    - name: "[git_revert] Guard: only the lever files changed"
+      ansible.builtin.shell: |
+        set -o pipefail
+        cd '{{ _rr_gitdir }}'
+        CHANGED=$(git diff --name-only | sort)
+        ALLOWED=$(printf '%s\n' {% for f in _rr_lever_diff | map(attribute='file') | unique %}'{{ _rr_cfg_repo_path }}/{{ f }}' {% endfor %}| sort)
+        [ "$CHANGED" = "$ALLOWED" ] || { echo "files changed: $CHANGED"; exit 1; }
+        # every changed line must contain a lever key
+        git diff -U0 | grep -E '^[+-][^+-]' | grep -vE 'channel|catalog|version|image' && { echo "unexpected line changed"; exit 1; }
+        exit 0
+      args:
+        executable: /bin/bash
+      register: _rr_guard
+      changed_when: false
+      failed_when: _rr_guard.rc != 0
+      when: not saas_rollback_dry_run
+
+    - name: "[git_revert] Commit and push"
+      ansible.builtin.shell: |
+        set -e
+        cd '{{ _rr_gitdir }}'
+        git -c user.name='{{ saas_rollback_git_author_name }}' -c user.email='{{ saas_rollback_git_author_email }}' \
+          commit -am 'Rollback {{ saas_rollback_change_ticket }}: restore channel and catalog to backup {{ _rr_manifest.backupId }}'
+        git push origin HEAD:'{{ _rr_cfg_repo_branch }}'
+        git rev-parse HEAD > '{{ _rr_rwork }}/record/git-rollback-sha.txt'
+        cat '{{ _rr_rwork }}/record/git-rollback-sha.txt'
+      args:
+        executable: /bin/bash
+      environment:
+        GIT_ASKPASS: "{{ role_path }}/files/git_askpass.sh"
+        GIT_TERMINAL_PROMPT: "0"
+        RR_GIT_USER: "{{ saas_rollback_git_user }}"
+        RR_GIT_TOKEN: "{{ saas_rollback_git_token }}"
+      register: _rr_push
+      changed_when: true
+      no_log: true
+      when: not saas_rollback_dry_run
+
+# Both modes: refresh ArgoCD so the new revision is seen even though auto-sync is off
+# -----------------------------------------------------------------------------
+- name: "[git_revert] Hard-refresh the root Application"
+  ansible.builtin.include_tasks: helper.yml
+  vars:
+    _rr_h_name: "[git_revert] Refresh {{ saas_rollback_argo_root_app }}"
+    _rr_h_args: ["argo-refresh", "--ns", "{{ saas_rollback_argo_ns }}", "--app", "{{ saas_rollback_argo_root_app }}"]
+  when: not saas_rollback_dry_run
+
+- name: "[git_revert] Gate: root Application revision equals the branch head"
+  ansible.builtin.command:
+    argv: ["oc", "get", "application", "{{ saas_rollback_argo_root_app }}", "-n", "{{ saas_rollback_argo_ns }}", "-o", "jsonpath={.status.sync.revision}"]
+  register: _rr_root_rev
+  changed_when: false
+  until: _rr_root_rev.stdout | trim == (lookup('ansible.builtin.file', _rr_rwork ~ '/record/git-rollback-sha.txt') | trim)
+  retries: 30
+  delay: 20
+  when: not saas_rollback_dry_run and (saas_rollback_git_revert_mode == 'automated' or saas_rollback_git_rollback_sha | length > 0)
