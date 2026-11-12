@@ -258,6 +258,14 @@
         name: "{{ mas_instance_id }}-addons-production-database-access"
   when: strict_named_only | bool
 
+# The SlsCfg (backed up via config_resources) references this Secret; it is added by exact name only
+- name: "Add SLS credentials Secret to strict backup resources"
+  set_fact:
+    mas_core_namespace_resources: "{{ mas_core_namespace_resources + [{'kind': 'Secret', 'api_version': 'v1', 'name': mas_instance_id + '-sls-system-credentials'}] }}"
+  when:
+    - strict_named_only | bool
+    - include_sls | bool
+
 - name: "Combine core namespace resources with config resources"
   set_fact:
     mas_core_namespace_resources: "{{ mas_core_namespace_resources + config_resources }}"

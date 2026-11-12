@@ -137,7 +137,7 @@ def test_strict_append_tasks_set_explicit_names():
         for t in loadTasks(SUITE_BACKUP_TASKS)
         if isStrictOnly(t) and "set_fact" in t and any(isinstance(v, str) and "+ [" in v and "'kind'" in v for v in t["set_fact"].values())
     ]
-    assert len(appendTasks) == 2  # BasCfg, SlsCfg
+    assert len(appendTasks) == 3  # BasCfg, SlsCfg, SLS credentials Secret
     for task in appendTasks:
         value = next(iter(task["set_fact"].values()))
         assert "'name':" in value, f"{task['name']} appends a resource without a name"

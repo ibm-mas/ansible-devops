@@ -492,3 +492,72 @@ def test_summary_reports_original_sha256_after_plaintext_cleanup():
     assert "Encrypted archive size: 1234 bytes" in text
     assert f"Encrypted archive SHA-256: {enc_sha}" in text
     assert "Plaintext cleanup: plaintext archive /out/x.tar.gz and sidecar removed" in text
+
+
+SUITE_BACKUP_TASKS = _COLLECTION / "roles" / "suite_backup" / "tasks" / "main.yml"
+SLS_SECRET_TASK = "Add SLS credentials Secret to strict backup resources"
+
+
+def slsSecretResources(strict: bool, includeSls: bool, instance: str) -> List[Dict[str, Any]]:
+    """Evaluate the SLS credentials Secret task and return the SLS Secret entries it leaves in the core resource list.
+
+    The task's when conditions and set_fact expression are taken from suite_backup/tasks/main.yml and rendered
+    with Jinja2, starting from an empty resource list.
+    """
+    task = findTask(flatten(loadYaml(SUITE_BACKUP_TASKS)), SLS_SECRET_TASK)
+    env = jinja2.Environment(undefined=jinja2.StrictUndefined)
+    context = {"strict_named_only": strict, "include_sls": includeSls, "mas_instance_id": instance, "mas_core_namespace_resources": []}
+    env.filters["bool"] = bool
+    if not all(env.compile_expression(condition)(**context) for condition in task["when"]):
+        return []
+    expression = task["set_fact"]["mas_core_namespace_resources"]
+    return ast.literal_eval(env.from_string(expression).render(**context))
+
+
+@pytest.mark.parametrize("instance", ["inst01", "fvtsaas"])
+def test_sls_credentials_secret_is_added_in_strict_mode_with_sls_and_named_from_instance_id(instance):
+    """Test the SLS credentials Secret in strict mode.
+
+    GIVEN the suite_backup role
+    WHEN strict_named_only and include_sls are both enabled
+    THEN exactly one v1 Secret named <mas_instance_id>-sls-system-credentials is added, built from mas_instance_id.
+    """
+    task = findTask(flatten(loadYaml(SUITE_BACKUP_TASKS)), SLS_SECRET_TASK)
+
+    assert slsSecretResources(True, True, instance) == [{"kind": "Secret", "api_version": "v1", "name": f"{instance}-sls-system-credentials"}]
+    assert task["when"] == ["strict_named_only | bool", "include_sls | bool"]
+    assert "mas_instance_id + '-sls-system-credentials'" in task["set_fact"]["mas_core_namespace_resources"]
+    assert "inst01" not in yaml.dump(task)
+
+
+@pytest.mark.parametrize("strict,includeSls", [(True, False), (False, True), (False, False)])
+def test_sls_credentials_secret_is_not_added_when_sls_disabled_or_not_strict(strict, includeSls):
+    """Test the SLS credentials Secret is conditional.
+
+    GIVEN the suite_backup role
+    WHEN include_sls is disabled, or strict_named_only is disabled
+    THEN no SLS credentials Secret is added.
+    """
+    assert slsSecretResources(strict, includeSls, "inst01") == []
+
+
+def test_sls_credentials_secret_is_placed_before_the_combine_task_and_ca_protections_are_unchanged():
+    """Test ordering and that the security settings are untouched.
+
+    GIVEN suite_backup/tasks/main.yml and defaults
+    WHEN the SLS Secret task, the CA key-pair opt-in and secret auto-discovery settings are inspected
+    THEN the task comes after the strict core list and before the config resources are combined, no CA Secret is added,
+         CA keys remain opt-in, and saas_backup still calls suite_backup with auto_discover_secrets and include_ca_keys disabled.
+    """
+    tasks = loadYaml(SUITE_BACKUP_TASKS)
+    names = [t["name"] for t in tasks]
+    defaults = loadYaml(_COLLECTION / "roles" / "suite_backup" / "defaults" / "main.yml")
+    suite_call = findTask(taskFile("backup_instance.yml"), "Back up Suite (core) resources")
+    sls_secret = findTask(tasks, SLS_SECRET_TASK)
+
+    assert names.index("Set fact: mas core namespace resources (strict named-only mode)") < names.index(SLS_SECRET_TASK)
+    assert names.index(SLS_SECRET_TASK) < names.index("Combine core namespace resources with config resources")
+    assert "ca" not in sls_secret["set_fact"]["mas_core_namespace_resources"].split("+ [")[1]
+    assert defaults["include_ca_keys"] == "{{ lookup('env', 'INCLUDE_CA_KEYS') | default('false', true) | bool }}"
+    assert suite_call["vars"]["auto_discover_secrets"] is False and suite_call["vars"]["include_ca_keys"] is False
+    assert "CA key-pair Secrets: opt-in is blocked until backup encryption is approved" in names
