@@ -9,8 +9,12 @@ restores or modifies anything on the cluster or in the repositories.
 
 What is collected:
 
-- **SaaS ENVS** instance folder `gitops/<account>/<region>/<cluster>/<instance>/` from the saas-envs repository
-- **GitOps ENVS** instance folder from the gitops-envs repository (`<account>/<region>/<cluster>/<instance>` or `<account>/<cluster>/<instance>`)
+- **SaaS ENVS cluster-level files**, the files directly inside `gitops/<account>/<region>/<cluster>/` in the saas-envs repository (for example
+  `cluster-params.yaml` and CA certificate `.pem` files). Copied once per archive, not recursively.
+- **GitOps ENVS cluster-level files**, the files directly inside `<account>/<cluster>/` in the gitops-envs repository (for example the `ibm-dro.yaml` and
+  `ibm-operator-catalog.yaml` application files). Copied once per archive, not recursively, and only when a GitOps ENVS repository is supplied.
+- **SaaS ENVS** folders of the **selected instances only** `gitops/<account>/<region>/<cluster>/<instance>/` from the saas-envs repository
+- **GitOps ENVS** folders of the **selected instances only** from the gitops-envs repository (`<account>/<region>/<cluster>/<instance>` or `<account>/<cluster>/<instance>`)
 - **OpenShift named resources** for Suite (core) and, when saas-envs `mas-apps-params.yaml` declares `manage`, Manage. This reuses the
   existing [suite_backup](suite_backup.md) and [suite_app_backup](suite_app_backup.md) roles in `strict_named_only` mode, once per
   instance, with the instance ID and workspace ID of that instance. There is no auto-discovery of secrets, CA private keys are not exported
@@ -127,12 +131,18 @@ The run refuses to overwrite an existing archive. On any failure the work direct
 saas-backup-<account>-<region>-<cluster>-<timestamp>/
   metadata.json
   SHA256SUMS
-  saas-envs/gitops/<account>/<region>/<cluster>/<instance>/...
-  gitops-envs/<path in the repository>/...
+  saas-envs/gitops/<account>/<region>/<cluster>/<cluster-level files>      (once)
+  saas-envs/gitops/<account>/<region>/<cluster>/<instance>/...             (selected instances only)
+  gitops-envs/<account>/<cluster>/<cluster-level files>                    (once, when GitOps ENVS is supplied)
+  gitops-envs/<path in the repository>/...                                 (selected instances only)
   openshift/<instance>/backup-<timestamp>-suite/...
   openshift/<instance>/backup-<timestamp>-app-manage/...
   aws-secrets/NN-<secret id>.secret          (only when requested)
 ```
+
+Unselected instance folders in the cluster directories are never copied. The cluster-level file names are listed in `metadata.json` under `cluster_level_files`.
+Cluster-level files are copied as they are, so a private key placed directly in a cluster folder would be included (and flagged in `metadata.json`).
+This is not a guarantee that every License Services (SLS) dependency, secret or certificate is backed up; only the files and named resources described above are collected.
 
 `metadata.json` records account, region, cluster, API server, instances, timestamp, the repository URL/name/branch/commit SHA (and whether it was cloned or an
 existing checkout), per instance the workspace ID and its source, namespaces, Suite/Manage reconciled versions and operator CSV where available,

@@ -544,7 +544,7 @@ SaaS Backup (single archive)
 
 ## Overview
 `br_saas_backup` backs up one SaaS cluster and one or more of its MAS instances into a single `.tar.gz` containing `metadata.json` and `SHA256SUMS`:
-the saas-envs and gitops-envs instance folders (with repository, branch and commit SHA recorded), the strict named-only OpenShift resources of Suite
+the saas-envs and gitops-envs cluster-level files (files directly in the cluster folders) and the folders of the selected instances only (with repository, branch and commit SHA recorded), the strict named-only OpenShift resources of Suite
 and Manage (reusing the `suite_backup` and `suite_app_backup` roles once per instance), and optionally explicitly listed AWS Secrets Manager secrets.
 It runs locally, needs no Tekton, and does not restore or upload anything.
 

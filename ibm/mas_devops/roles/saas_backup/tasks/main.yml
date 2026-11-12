@@ -1,9 +1,10 @@
 ---
 # SaaS backup: one account/region/cluster, one or more instances, one .tar.gz
 # =============================================================================
-# Collects (1) the SaaS ENVS and GitOps ENVS repository folders, (2) the strict named-only OpenShift resources
-# using the existing suite_backup and suite_app_backup roles, and (3) optionally the explicitly listed AWS
-# Secrets Manager secrets; then packages everything with metadata.json and SHA256SUMS.
+# Collects (1) the cluster level files (files directly under the cluster folder) and the selected instance folders of
+# the SaaS ENVS and GitOps ENVS repositories, (2) the strict named-only OpenShift resources using the existing
+# suite_backup and suite_app_backup roles, and (3) optionally the explicitly listed AWS Secrets Manager secrets;
+# then packages everything with metadata.json and SHA256SUMS.
 #
 # Nothing is restored, uploaded or discovered. Any failure aborts the run and removes the partial work directory,
 # so a partial backup is never left behind looking like a complete one.
@@ -118,7 +119,81 @@
           SAAS_BACKUP_SKIP_CLUSTER_URL_CHECK=true to explicitly skip this check.
       when: not (saas_backup_skip_cluster_url_check | bool)
 
-    # 6. Each instance
+    # 6. Cluster level files in saas-envs and gitops-envs (shared by all instances, copied once per archive).
+    # Only files directly inside the cluster folder are collected (no recursion), so unselected instance folders
+    # and other sub folders are never copied. Selected instances are copied by backup_instance.yml below.
+    # ---------------------------------------------------------------------------
+    - name: "Create the saas-envs cluster level staging directory"
+      ansible.builtin.file:
+        path: "{{ _sb_staging }}/saas-envs/gitops/{{ saas_backup_account }}/{{ saas_backup_region }}/{{ saas_backup_cluster }}"
+        state: directory
+        mode: "0700"
+
+    - name: "Find the saas-envs cluster level files"
+      ansible.builtin.find:
+        paths: "{{ _sb_saas_cluster_dir }}"
+        file_type: file
+        recurse: false
+        hidden: true
+      register: _sb_saas_cluster_files
+
+    - name: "Copy the saas-envs cluster level files"
+      ansible.builtin.copy:
+        src: "{{ item.path }}"
+        dest: "{{ _sb_staging }}/saas-envs/gitops/{{ saas_backup_account }}/{{ saas_backup_region }}/{{ saas_backup_cluster }}/{{ item.path | basename }}"
+        remote_src: true
+        mode: "u=rw,go="
+      loop: "{{ _sb_saas_cluster_files.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+
+    - name: "Collect the gitops-envs cluster level files"
+      when: _sb_gitops_supplied | bool
+      block:
+        - name: "Locate the cluster folder in gitops-envs"
+          ansible.builtin.set_fact:
+            _sb_gitops_cluster_dir: "{{ _sb_repos.gitops_envs.path }}/{{ saas_backup_account }}/{{ saas_backup_cluster }}"
+
+        - name: "Stat the gitops-envs cluster folder"
+          ansible.builtin.stat:
+            path: "{{ _sb_gitops_cluster_dir }}"
+          register: _sb_gitops_cluster_stat
+        # A missing cluster folder is not fatal here: backup_instance.yml already fails (unless explicitly allowed) when a
+        # selected instance has no gitops-envs folder, and it also supports the <account>/<region>/<cluster> layout.
+
+        - name: "Create the gitops-envs cluster level staging directory"
+          ansible.builtin.file:
+            path: "{{ _sb_staging }}/gitops-envs/{{ saas_backup_account }}/{{ saas_backup_cluster }}"
+            state: directory
+            mode: "0700"
+          when: _sb_gitops_cluster_stat.stat.exists and _sb_gitops_cluster_stat.stat.isdir
+
+        - name: "Find the gitops-envs cluster level files"
+          ansible.builtin.find:
+            paths: "{{ _sb_gitops_cluster_dir }}"
+            file_type: file
+            recurse: false
+            hidden: true
+          register: _sb_gitops_cluster_files
+          when: _sb_gitops_cluster_stat.stat.exists and _sb_gitops_cluster_stat.stat.isdir
+
+        - name: "Copy the gitops-envs cluster level files"
+          ansible.builtin.copy:
+            src: "{{ item.path }}"
+            dest: "{{ _sb_staging }}/gitops-envs/{{ saas_backup_account }}/{{ saas_backup_cluster }}/{{ item.path | basename }}"
+            remote_src: true
+            mode: "u=rw,go="
+          loop: "{{ _sb_gitops_cluster_files.files | default([]) }}"
+          loop_control:
+            label: "{{ item.path | basename }}"
+
+    - name: "Record the cluster level files for the manifest"
+      ansible.builtin.set_fact:
+        _sb_cluster_level_files:
+          saas_envs: "{{ _sb_saas_cluster_files.files | map(attribute='path') | map('basename') | sort | list }}"
+          gitops_envs: "{{ ((_sb_gitops_cluster_files | default({})).files | default([])) | map(attribute='path') | map('basename') | sort | list }}"
+
+    # 7. Each selected instance
     # ---------------------------------------------------------------------------
     - name: "Back up instance"
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/backup_instance.yml"
@@ -129,13 +204,13 @@
         loop_var: inst
         label: "{{ inst }}"
 
-    # 7. Optional explicit AWS secrets
+    # 8. Optional explicit AWS secrets
     # ---------------------------------------------------------------------------
     - name: "Collect explicitly listed AWS secrets"
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/aws_secrets.yml"
       when: _sb_aws_secret_ids | length > 0
 
-    # 8. Metadata, checksums, archive
+    # 9. Metadata, checksums, archive
     # ---------------------------------------------------------------------------
     - name: "Build the manifest warnings"
       ansible.builtin.set_fact:
@@ -171,6 +246,7 @@
           instances: "{{ _sb_instances }}"
           repositories: "{{ _sb_repos_meta }}"
           instance_details: "{{ _sb_instance_results }}"
+          cluster_level_files: "{{ _sb_cluster_level_files }}"
           aws_secrets: "{{ _sb_aws_collected | default({'status': 'not_collected', 'reason': 'SAAS_BACKUP_AWS_SECRET_IDS was empty'}) }}"
           scope:
             mode: strict named-only
@@ -178,6 +254,7 @@
             ca_private_keys_exported: false
             persistent_volume_data: false
             saas_envs_manual_certs_included: "{{ saas_backup_include_manual_certs | bool }}"
+            cluster_level_envs_files_included: true
             restore_included: false
           warnings: "{{ _sb_warnings }}"
       register: _sb_package
@@ -258,7 +335,7 @@
       ansible.builtin.fail:
         msg: "SaaS backup FAILED, {{ ('encryption or verification failed, so no valid encrypted archive was produced (the plaintext archive ' ~ _sb_archive ~ ' was retained)') if (saas_backup_encryption_enabled | bool and _sb_package is defined) else 'no archive was produced' }} and the work directory was removed. Cause: {{ (ansible_failed_result.results | default([]) | selectattr('msg', 'defined') | map(attribute='msg') | list | join(' | ')) or ansible_failed_result.msg | default('see the failed task above') }}"
 
-# 10. Success: remove the work directory (clones + staging) and show the result. Secret contents are never printed.
+# 11. Success: remove the work directory (clones + staging) and show the result. Secret contents are never printed.
 # -----------------------------------------------------------------------------
 - name: "Remove the work directory"
   ansible.builtin.file:

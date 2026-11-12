@@ -229,6 +229,40 @@ def test_manual_certs_are_excluded_unless_requested():
     assert task["when"] == "not (saas_backup_include_manual_certs | bool)"
 
 
+def test_cluster_level_files_are_collected_once_outside_the_instance_loop():
+    """Test cluster level collection.
+
+    GIVEN main.yml
+    WHEN the cluster level tasks are inspected
+    THEN they use a non recursive find of regular files (hidden included), run before the instance loop,
+         the GitOps ENVS part is conditional on _sb_gitops_supplied, and backup_instance.yml has no cluster level logic.
+    """
+    block = next(t for t in loadYaml(ROLE / "tasks" / "main.yml") if "block" in t)["block"]
+    names = [t["name"] for t in block]
+    tasks = flatten(block)
+
+    saas_find = findTask(tasks, "Find the saas-envs cluster level files")["ansible.builtin.find"]
+    gitops_find = findTask(tasks, "Find the gitops-envs cluster level files")["ansible.builtin.find"]
+    gitops_block = next(t for t in block if t.get("name") == "Collect the gitops-envs cluster level files")
+
+    for args in (saas_find, gitops_find):
+        assert args["file_type"] == "file" and args["recurse"] is False and args["hidden"] is True
+    assert saas_find["paths"] == "{{ _sb_saas_cluster_dir }}"
+    assert gitops_find["paths"] == "{{ _sb_gitops_cluster_dir }}"
+    assert findTask(tasks, "Locate the cluster folder in gitops-envs")["ansible.builtin.set_fact"]["_sb_gitops_cluster_dir"] == (
+        "{{ _sb_repos.gitops_envs.path }}/{{ saas_backup_account }}/{{ saas_backup_cluster }}"
+    )
+    assert gitops_block["when"] == "_sb_gitops_supplied | bool"
+    cluster_tasks = [
+        "Create the saas-envs cluster level staging directory",
+        "Find the saas-envs cluster level files",
+        "Copy the saas-envs cluster level files",
+        "Collect the gitops-envs cluster level files",
+    ]
+    assert all(names.index("Parse cluster-params.yaml") < names.index(n) < names.index("Back up instance") for n in cluster_tasks)
+    assert "cluster level" not in yaml.dump(loadYaml(ROLE / "tasks" / "backup_instance.yml"))
+
+
 def test_aws_secrets_only_read_explicit_ids_and_check_cluster_provider():
     """Test AWS collection scope.
 
