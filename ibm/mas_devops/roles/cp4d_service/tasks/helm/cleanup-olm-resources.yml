@@ -103,14 +103,57 @@
   debug:
     msg: "No existing OLM installation detected, proceeding with Helm installation"
 
+# Adopt component CRs into the Helm release in place (no delete) for components listed
+# in component_cr_adopt. Deleting these CRs has destructive side effects (e.g. CAService
+# deletion removes all Cognos Analytics instances from Zen), so only the Helm ownership
+# labels/annotations are added and Helm takes over the existing CR.
+- name: "Adopt component CRs into Helm release for {{ component_name }}"
+  when:
+    - component_name in component_cr_mapping
+    - component_name in component_cr_adopt
+  block:
+    - name: "Look up component CRs to adopt for {{ component_name }}"
+      kubernetes.core.k8s_info:
+        api_version: "{{ cr_entry.api_version }}"
+        kind: "{{ cr_entry.kind }}"
+        namespace: "{{ cpd_instance_namespace }}"
+        name: "{{ cr_entry.name }}"
+      register: cr_adopt_lookup
+      loop: "{{ component_cr_mapping[component_name] | rejectattr('name', 'equalto', 'all') | list }}"
+      loop_control:
+        loop_var: cr_entry
+        label: "{{ cr_entry.kind }}/{{ cr_entry.name }}"
+
+    - name: "Add Helm labels and annotations to component CRs for {{ component_name }}"
+      kubernetes.core.k8s:
+        state: patched
+        api_version: "{{ cr_subelement[0].cr_entry.api_version }}"
+        kind: "{{ cr_subelement[0].cr_entry.kind }}"
+        name: "{{ cr_subelement[1].metadata.name }}"
+        namespace: "{{ cpd_instance_namespace }}"
+        definition:
+          metadata:
+            labels:
+              app.kubernetes.io/managed-by: Helm
+            annotations:
+              meta.helm.sh/release-name: "{{ component_name | replace('_', '-') }}"
+              meta.helm.sh/release-namespace: "{{ cpd_instance_namespace }}"
+      loop: "{{ cr_adopt_lookup.results | default([]) | subelements('resources', skip_missing=True) }}"
+      loop_control:
+        loop_var: cr_subelement
+        label: "{{ cr_subelement[1].metadata.name }}"
+
 # Delete component CRs so Helm can adopt them during OLM→Helm migration.
 # Only deletes CRs explicitly listed in component_cr_mapping.
+# Components listed in component_cr_adopt are skipped (adopted in place above).
 # NOTE: After deletion, helm upgrade --install is a no-op (changed: false)
 # because Helm's stored release manifest still tracks the CR but does not
 # reapply missing resources on upgrade. The missing CRs are reconciled by
 # a separate reapply task in install-helm.yml after Helm runs.
 - name: "Delete component CRs for {{ component_name }}"
-  when: component_name in component_cr_mapping
+  when:
+    - component_name in component_cr_mapping
+    - component_name not in component_cr_adopt
   block:
     # Fetch all PVCs in the instance namespace once
     - name: "Fetch PVCs in {{ cpd_instance_namespace }}"
