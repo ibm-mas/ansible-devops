@@ -2,11 +2,11 @@
 # MongoDB Atlas Provider - Collection-Level Snapshot Restore Task
 # =============================================================================
 # This task restores the databases of one MAS instance in a MongoDB Atlas
-# cluster to a previously taken on-demand snapshot. It reads the snapshot info
-# (snapshot ID and SLS database name) from S3, lists the databases that exist
-# in that snapshot, keeps those that belong to the instance (full-name match
-# only) plus the stored SLS database, and triggers a collection-level restore
-# via the Atlas API.
+# cluster to a previously taken on-demand snapshot. It reads the snapshot ID
+# from S3, lists the databases that exist in that snapshot, keeps those that
+# belong to the instance (full-name match only) plus the instance-specific SLS
+# database (mas-<mas_instance_id>-sls_sls_licensing), and triggers a
+# collection-level restore via the Atlas API.
 
 # 1. Validate required variables
 # -----------------------------------------------------------------------------
@@ -104,20 +104,9 @@
          | regex_search('snapshot_id=([^\n]+)', '\1')
          | first }}
 
-- name: "Parse SLS database name from backup info"
+- name: "Build the instance-specific SLS database name"
   set_fact:
-    atlas_restore_sls_database: >-
-      {{ atlas_s3_backup_info.contents
-         | regex_findall('(?m)^sls_database=(.+)$')
-         | first
-         | default('')
-         | trim }}
-
-- name: "Fail if backup info has no SLS database name"
-  assert:
-    that:
-      - atlas_restore_sls_database != ""
-    fail_msg: "mongo-backup.txt for catalog build {{ catalog_build_id }} has no sls_database entry. The SLS database is required, so this backup cannot be restored."
+    atlas_restore_sls_database: "mas-{{ mas_instance_id }}-sls_sls_licensing"
 
 # 4. List the databases that exist in the snapshot
 # -----------------------------------------------------------------------------
@@ -158,7 +147,8 @@
 # 5. Select the databases to restore (full-name match only)
 # -----------------------------------------------------------------------------
 # Instance databases are mas_<id>_<app> or mas-<id>-<app>, where <app> is a
-# single word without "_" or "-". The SLS database name comes from S3.
+# single word without "_" or "-". The SLS database name does not fit this
+# pattern, so it is added explicitly (built from mas_instance_id above).
 - name: "Select databases belonging to the MAS instance"
   vars:
     _id: "{{ mas_instance_id | regex_escape }}"
