@@ -21,13 +21,12 @@ Cloud Pak for Data will be configured as a [specialized installation](https://ww
 
 Currently supported Cloud Pak for Data release versions are:
 
-  - 5.1.3 (installed via OLM)
   - 5.2.0 (installed via OLM)
   - 5.3.1 (platform installed via OLM, services installed via Helm)
   - 5.4.0 (installed via Helm)
 
 !!! tip
-    For more information about CPD versioning, see [IBM Cloud Pak for data Operator and operand versions 5.1.x](https://www.ibm.com/docs/en/software-hub/5.1.x?topic=planning-operator-operand-versions)
+    For more information about CPD versioning, see [IBM Cloud Pak for data Operator and operand versions](https://www.ibm.com/docs/en/software-hub/5.2.x?topic=planning-operator-operand-versions)
 
 
 ## Cloud Pak for Data Version Mapping
@@ -37,7 +36,6 @@ Users can choose to install a specific version of Cloud Pak for Data by setting 
 ## Upgrade
 The role will automatically install or upgrade (if targeted to an existing CPD deployment) the corresponding Zen version associated to the chosen Cloud Pak for Data release, for example:
 
-- Cloud Pak for Data release version `5.1.3` installs Zen/Control Plane version `6.1.1`
 - Cloud Pak for Data release version `5.2.0` installs Zen/Control Plane version `6.2.0`
 - Cloud Pak for Data release version `5.3.1` installs Zen/Control Plane version `6.4.0`
 - Cloud Pak for Data release version `5.4.0` installs Zen/Control Plane version `6.10.0`
@@ -119,12 +117,11 @@ Cloud Pak for Data release version to install.
 - Set explicitly when you need a specific CP4D version
 - Leave unset to use version matching the installed MAS catalog
 - Required for reproducible deployments
-- Must match supported versions (currently 5.1.3, 5.2.0, 5.3.1, 5.4.0)
+- Must match supported versions (currently 5.2.0, 5.3.1, 5.4.0)
 
-**Valid values**: `5.1.3`, `5.2.0`, `5.3.1`, `5.4.0`
+**Valid values**: `5.2.0`, `5.3.1`, `5.4.0`
 
 **Impact**: 
-- `5.1.3`: Installs Zen/Control Plane 6.1.1 (OLM)
 - `5.2.0`: Installs Zen/Control Plane 6.2.0 (OLM)
 - `5.3.1`: Installs Zen/Control Plane 6.4.0 (platform via OLM, services via Helm)
 - `5.4.0`: Installs Zen/Control Plane 6.10.0 (Helm)
@@ -134,7 +131,7 @@ Different versions have different features and compatibility requirements.
 - Determines compatible service versions
 - Affects `cpd_scale_config` options
 
-**Note**: If not set and MAS catalog is not found, defaults to CP4D version supported by latest MAS catalog. For version-specific details, see [CP4D Operator and operand versions](https://www.ibm.com/docs/en/software-hub/5.1.x?topic=planning-operator-operand-versions).
+**Note**: If not set and MAS catalog is not found, defaults to CP4D version supported by latest MAS catalog. For version-specific details, see [CP4D Operator and operand versions](https://www.ibm.com/docs/en/software-hub/5.2.x?topic=planning-operator-operand-versions).
 
 #### ibm_entitlement_key
 IBM entitlement key for accessing container images.
@@ -346,18 +343,6 @@ CP4D admin password for API authentication.
 **Note**: The role automatically retrieves the initial admin password from the `admin-user-details` secret if not provided. Only set this if you've changed the password after installation. Keep passwords secure and do not commit to source control.
 
 ## Example Playbook
-
-### Install Cloud Pak for Data 5.1.3
-```yaml
-- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    cpd_product_version: 5.1.3
-    cpd_primary_storage_class: ibmc-file-gold-gid
-    cpd_metadata_storage_class: ibmc-block-gold
-  roles:
-    - ibm.mas_devops.cp4d
-```
 
 ### Install Cloud Pak for Data 5.2.0
 ```yaml
