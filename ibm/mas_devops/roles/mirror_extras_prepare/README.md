@@ -8,7 +8,6 @@ Available Extras
 | catalog      | N/A          | Special extra package for mirroring the IBM Maximo Operator Catalog                            |
 | db2u         | 1.0.0, 1.0.1 | Extra container images missing from the ibm-db2operator CASE bundle                            |
 | mongoce      | 4.2.6, 4.2.23, 4.4.21 | Package containing all images required to use MongoCE Operator in the disconnected environment |
-| wd           | 5.3.1        | Extra container images missing from the ibm-watson-discovery CASE bundle                       |
 | odf          | 4.15         | Extra images needed for ODF 4.15                                                               |
 
 
@@ -27,11 +26,10 @@ Name of the extras package to prepare for mirroring.
 - Must match an available extras package name
 - See "Available Extras" table above for valid packages
 
-**Valid values**: `catalog`, `db2u`, `mongoce`, `wd`, `odf`
+**Valid values**: `catalog`, `db2u`, `mongoce`, `odf`
 - `catalog`: IBM Maximo Operator Catalog images
 - `db2u`: Extra Db2 images missing from ibm-db2operator CASE
 - `mongoce`: MongoDB Community Edition Operator images
-- `wd`: Extra Watson Discovery images missing from CASE
 - `odf`: OpenShift Data Foundation extra images
 
 **Impact**: Determines which extras package is downloaded and processed. Incorrect name will cause preparation to fail.
@@ -59,7 +57,6 @@ Version of the extras package to prepare for mirroring.
 - `catalog`: N/A (no version required)
 - `db2u`: `1.0.0`, `1.0.1`
 - `mongoce`: `4.2.6`, `4.2.23`, `4.4.21`
-- `wd`: `5.3.1`
 - `odf`: `4.15`
 
 **Impact**: Determines which version of images are included in the mirror manifest. Version must exist for the specified extras package.

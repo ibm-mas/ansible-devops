@@ -19,35 +19,37 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `CPD_ENTITLEMENT_USERNAME` Your user name to access the IBM Container Registr
 
 - `CPD_INSTALL_PLATFORM` True/False - If you HAVE CP4D already installed in your cluster, then set it to "false"
-- `CPD_PRODUCT_VERSION` (Required) Cloud Pak for Data version installed in the cluster in 4.X format.
+- `CPD_PRODUCT_VERSION` (Required) Cloud Pak for Data version installed in the cluster in 5.X format.
 
-## These variables are required only if you set CP4D_INSTALL_WSL to false in optional varibles, otherwise don't set it.
+## These variables are required only if you set CPD_INSTALL_PLATFORM to false (CP4D already installed in the cluster), otherwise don't set it.
 - `CPD_ADMIN_USERNAME` CP4D Username
 - `CPD_ADMIN_PASSWORD` CP4D Password
 - `CPD_ADMIN_URL` CP4D Base URL
 
 ## Optional environment variables
-- `CPD_INSTALL_COGNOS` True/False - Set to true to install Cognos Analytics
 - `CPD_INSTALL_WSL` True/False - Set to true to install Watson Studio
 - `CPD_INSTALL_WML` True/False - Set to true to install Watson Machine Learning
 - `CPD_INSTALL_SPARK` True/False - Set to true to install Analytics Engine "Spark"
-- `CPD_INSTALL_OPENSCALE` True/False - Set to true to install AI Openscale
-- `CPD_INSTALL_DISCOVERY` True/False - Set to true to install Watson Discovery
-- `CPD_INSTALL_SPSS` True/False - Set to true to install SPSS Modeler
+- `CPD_PRIMARY_STORAGE_CLASS` Storage class (ReadWriteMany) to use for CP4D primary/file storage
+- `CPD_METADATA_STORAGE_CLASS` Storage class (ReadWriteOnce) to use for CP4D Zen metadata storage
+- `CPD_SERVICE_STORAGE_CLASS` Storage class (ReadWriteMany) to use for CP4D service file storage
+- `CPD_SERVICE_BLOCK_STORAGE_CLASS` Storage class (ReadWriteOnce) to use for CP4D service block storage
+
+See the [cp4d](../roles/cp4d.md) and [cp4d_service](../roles/cp4d_service.md) role documentation for the full set of supported environment variables.
 
 ## Usage when you already HAVE CP4D installed
 
 ```bash
 export MAS_CONFIG_DIR=~/masconfig
-export CPD_INSTALL_COGNOS="true"
+export CPD_INSTALL_WSL="true"
 
 export CPD_ENTITLEMENT_KEY=xxx
 export CPD_ENTITLEMENT_USERNAME=xxx
 
-export CPD_ADMIN_USERNAME="admin"
+export CPD_ADMIN_USERNAME="cpadmin"
 export CPD_ADMIN_PASSWORD="xxx"
 export CPD_URL="https://mycp4durl"
-export CPD_PRODUCT_VERSION="4.6.6"
+export CPD_PRODUCT_VERSION="5.2.0"
 
 
 oc login --token=xxxx --server=https://myocpserver
@@ -62,16 +64,15 @@ export CPD_ENTITLEMENT_KEY=xxx
 export CPD_ENTITLEMENT_USERNAME=xxx
 
 export CPD_INSTALL_PLATFORM="true"
-export CPD_PRODUCT_VERSION="4.6.6"
+export CPD_PRODUCT_VERSION="5.2.0"
+
+export CPD_PRIMARY_STORAGE_CLASS=mystorageclass-rwx
+export CPD_METADATA_STORAGE_CLASS=mystorageclass-rwo
 
 ## To install additional CP4D services, add one or many of these environment variables:
-export CPD_INSTALL_COGNOS="true"
 export CPD_INSTALL_WSL="true"
 export CPD_INSTALL_WML="true"
 export CPD_INSTALL_SPARK="true"
-export CPD_INSTALL_OPENSCALE="true"
-export CPD_INSTALL_DISCOVERY="true"
-export CPD_INSTALL_SPSS="true"
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.cp4d

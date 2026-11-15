@@ -15,14 +15,11 @@ This playbook can be ran against any OCP cluster regardless of its type; whether
   - Install Watson Studio (~3 hours)
   - Install Watson Machine Learning (~2 1/2 hours)
   - Install Spark (~30 minutes)
-  - Install SPSS
 - Install Predict application:
   - Install application (~15 Minutes)
   - Configure workspace (~30 Minutes)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information. Use this sample playbook as a starting point for installing any MAS application, just customize the application install and configure stages at the end of the playbook.
-
-As of MAS 8.10, predict 8.8.0 will start to support SPSS Modeler, to install SPSS as part of CP4D set `CPD_INSTALL_SPSS=true` in your environment variables before running the playbook.
 
 
 ## Required environment variables
@@ -33,8 +30,7 @@ As of MAS 8.10, predict 8.8.0 will start to support SPSS Modeler, to install SPS
 - `CPD_WSL_PROJECT_ID` - Ensure a Project ID Text box has a valid Watson Studio project ID. To obtain the project ID, Navigate to Cp4d/Watson Studio and create/Reuse a project. Open the project and look into the Browser URL, obtain the project ID from the URL and update Project ID settings.
 - `CPD_WML_INSTANCE_ID` Set Default value to "openshift"
 - `CPD_WML_URL` Set Default value to "https://internal-nginx-svc.ibm-cpd.svc:12443" . ibm-cpd in the URL corresponds to the project name (namespace) of cp4d installation
-- `CPD_PRODUCT_VERSION` (Required if `WML_VERSION` is not informed) Cloud Pak for Data version installed in the cluster in 4.X format, it will be used to obtain the correct WML version to be installed
-- `WML_VERSION` (Required if `CPD_PRODUCT_VERSION` is not informed) The wml_version for cp4d 4.0.x will be 4.0, if cp4d is 4.5.x , wml_version should change to 4.5, if cp4d is 4.6.x , wml_version should change to 4.6
+- `CPD_PRODUCT_VERSION` (Required) Cloud Pak for Data version installed in the cluster in 5.X format
 
 
 **These variables are required only if you set CP4D_INSTALL_WSL to false in optional varibles:**
@@ -53,7 +49,6 @@ As of MAS 8.10, predict 8.8.0 will start to support SPSS Modeler, to install SPS
 - `CPD_INSTALL_WSL` True/False - If you HAVE Watson Studio already installed in your cluster you can skip this variable as `False` is set default
 - `CPD_INSTALL_WML` True/False - If you HAVE Watson Machine Learning already installed in your cluster you can skip this variable as `False` is set default
 - `CPD_INSTALL_SPARK` True/False - If you HAVE Spark already installed in your cluster you can skip this variable as `False` is set default
-- `CPD_INSTALL_SPSS` True/False - If you HAVE SPSS Modeler already installed in your cluster you can skip this variable as `False` is set default
 
 
 ## Usage
@@ -70,12 +65,11 @@ export IBM_ENTITLEMENT_KEY=xxx
 
 export MAS_APP_CHANNEL="8.9.x"
 
-export CPD_PRODUCT_VERSION="4.6.4"
+export CPD_PRODUCT_VERSION="5.2.0"
 export CPD_WSL_PROJECT_ID="xxxx"
 export CPD_WML_INSTANCE_ID="openshift"
 export CPD_WML_URL="https://internal-nginx-svc.ibm-cpd.svc:12443"
-export WML_VERSION="4.6"
-export CPD_ADMIN_USERNAME="admin"
+export CPD_ADMIN_USERNAME="cpadmin"
 export CPD_ADMIN_PASSWORD="xxx"
 export CPD_ADMIN_URL="https://mycp4durl"
 
@@ -92,18 +86,15 @@ export IBM_ENTITLEMENT_KEY=xxx
 
 export MAS_APP_CHANNEL="8.9.x"
 
-export CPD_PRODUCT_VERSION="4.6.4"
+export CPD_PRODUCT_VERSION="5.2.0"
 export CPD_INSTALL_PLATFORM="true"
 export CPD_INSTALL_WSL="true"
 export CPD_INSTALL_WML="true"
 export CPD_INSTALL_SPARK="true"
-export CPD_INSTALL_DISCOVERY="true"
-export CPD_INSTALL_SPSS="true"
 export CPD_WSL_PROJECT_ID="xxxx"
 export CPD_WML_INSTANCE_ID="openshift"
 export CPD_WML_URL="https://internal-nginx-svc.ibm-cpd.svc:12443"
-export WML_VERSION="4.6"
-export CPD_ADMIN_USERNAME="admin"
+export CPD_ADMIN_USERNAME="cpadmin"
 export CPD_ADMIN_PASSWORD="xxx"
 export CPD_ADMIN_URL="https://mycp4durl"
 

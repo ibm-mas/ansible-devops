@@ -2,6 +2,11 @@
 
 This role installs or upgrades [IBM Cloud Pak for Data](https://www.ibm.com/uk-en/products/cloud-pak-for-data) Operator in the target cluster.  It assumes that you have already installed the IBM Maximo Operator Catalog and configured Certificate Manager in the target cluster. These actions are performed by the [ibm_catalogs](ibm_catalogs.md) [cert_manager](cert_manager.md) roles in this collection.
 
+!!! warning "Maximo tailored installation"
+    This role performs a **Maximo tailored installation** of Cloud Pak for Data that matches the configuration the Maximo team use internally.  It does not support further post-install configuration beyond the configuration supported by the role, and it does not support every possible way to configure Cloud Pak for Data — it sets the platform up in a very specific way (namespaces, storage classes, Zen control plane sizing, licensing, and the set of CPD services supported by the [cp4d_service](cp4d_service.md) role).
+
+    Customers who need direct control over customizing their Cloud Pak for Data installation can choose to install and manage Cloud Pak for Data themselves; the MAS applications will work against any correctly configured CPD instance.  When installing and managing CPD yourself, you are responsible for the CPD lifecycle (installation, upgrades, and any configuration you apply).
+
 Cloud Pak for Data will be configured as a [specialized installation](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=planning-architecture)
 
 !!! info
@@ -16,8 +21,10 @@ Cloud Pak for Data will be configured as a [specialized installation](https://ww
 
 Currently supported Cloud Pak for Data release versions are:
 
-  - 5.1.3
-  - 5.2.0
+  - 5.1.3 (installed via OLM)
+  - 5.2.0 (installed via OLM)
+  - 5.3.1 (platform installed via OLM, services installed via Helm)
+  - 5.4.0 (installed via Helm)
 
 !!! tip
     For more information about CPD versioning, see [IBM Cloud Pak for data Operator and operand versions 5.1.x](https://www.ibm.com/docs/en/software-hub/5.1.x?topic=planning-operator-operand-versions)
@@ -32,6 +39,8 @@ The role will automatically install or upgrade (if targeted to an existing CPD d
 
 - Cloud Pak for Data release version `5.1.3` installs Zen/Control Plane version `6.1.1`
 - Cloud Pak for Data release version `5.2.0` installs Zen/Control Plane version `6.2.0`
+- Cloud Pak for Data release version `5.3.1` installs Zen/Control Plane version `6.4.0`
+- Cloud Pak for Data release version `5.4.0` installs Zen/Control Plane version `6.10.0`
 
 !!! tip
     For more information about IBM Cloud Pak for Data upgrade process, refer to the [Cloud Pak for Data official documentation](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=upgrading).
@@ -110,13 +119,15 @@ Cloud Pak for Data release version to install.
 - Set explicitly when you need a specific CP4D version
 - Leave unset to use version matching the installed MAS catalog
 - Required for reproducible deployments
-- Must match supported versions (currently 5.1.3, 5.2.0)
+- Must match supported versions (currently 5.1.3, 5.2.0, 5.3.1, 5.4.0)
 
-**Valid values**: `5.1.3`, `5.2.0` (or other supported versions)
+**Valid values**: `5.1.3`, `5.2.0`, `5.3.1`, `5.4.0`
 
 **Impact**: 
-- `5.1.3`: Installs Zen/Control Plane 6.1.1
-- `5.2.0`: Installs Zen/Control Plane 6.2.0
+- `5.1.3`: Installs Zen/Control Plane 6.1.1 (OLM)
+- `5.2.0`: Installs Zen/Control Plane 6.2.0 (OLM)
+- `5.3.1`: Installs Zen/Control Plane 6.4.0 (platform via OLM, services via Helm)
+- `5.4.0`: Installs Zen/Control Plane 6.10.0 (Helm)
 Different versions have different features and compatibility requirements.
 
 **Related variables**:
