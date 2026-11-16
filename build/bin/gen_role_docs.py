@@ -68,6 +68,7 @@ ROLES = [
     "smtp",
     "suite_app_backup_restore",
     "suite_app_config",
+    "suite_app_config_manage",
     "suite_app_install",
     "suite_app_uninstall",
     "suite_app_upgrade",
