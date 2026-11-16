@@ -441,7 +441,7 @@ Rosa login token for the rosa cli.
     setup_redhat_catalogs: true
 
   roles:
-    - ibm.mas_devops.ocp_contentsourcepolicy
+    - ibm.mas_devops.ocp_idms
 ```
 
 
