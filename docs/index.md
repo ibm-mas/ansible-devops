@@ -74,13 +74,6 @@ The ansible collection makes use of many dependencies, you can find install scri
     If you see the error message `ERROR! Unexpected Exception, this is probably a bug: No module named 'mas'` it almost certainly means that you have not installed the mas-devops package, or have added it to the wrong instance of Python.
 
 
-Ansible Automation Platform
--------------------------------------------------------------------------------
-If you wish to use [Red Hat Ansible Automation Platform](https://www.redhat.com/en/technologies/management/ansible) then a Automation Execution Environment image is available at [quay.io/ibmmas/ansible-devops-ee](https://quay.io/repository/ibmmas/ansible-devops-ee?tab=tags&tag=latest) that contains the `ibm.mas_devops` collection at the same release level, plus required client packages and access to the automation content collections supported by Red Hat.
-
-More details on how to use the ansible-devops execution environment can be found [here](execution-environment.md)
-
-
 Action Groups
 -------------------------------------------------------------------------------
 The collection provide a new action group `ibm.mas_devops.k8s` which can be used to set the default Kubernetes target cluster as an alternative to authenticating with the cluster prior to running our ansible playbooks/roles/actions, see the example below which would return the default storage classes that would be used in this collection for the specified cluster:
