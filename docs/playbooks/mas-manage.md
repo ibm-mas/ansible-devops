@@ -7,16 +7,15 @@ Playbook Content
 -------------------------------------------------------------------------------
 
 1. [Install Cloud Pak for Data](../roles/cp4d.md) (optional, set `CPD_INSTALL_PLATFORM`)
-2. [Add Cognos to CP4D](../roles/cp4d_service.md) (optional, set `CPD_INSTALL_COGNOS`)
-3. [Add Watson Studio Local to CP4D](../roles/cp4d_service.md) (optional, set `CPD_INSTALL_WSL`)
-4. [Create Db2 Instance using IBM Db2 Universal Operator](../roles/db2.md)
-5. [Initialize Db2 Instance for Maximo Manage](../roles/suite_db2_setup_for_manage.md)
-6. [Configure MAS to use the new Db2 Instance](../roles/suite_config.md)
-7. [Configure MAS to use BYO database](../roles/gencfg_jdbc.md) (optional, set `CONFIGURE_EXTERNAL_DB`)
-8. [Install Maximo Manage Application](../roles/suite_app_install.md)
-9. [Configure Maximo Manage Workspace](../roles/suite_app_config.md)
-10. [Configure Manage Attachments](../roles/suite_manage_attachments_config.md) (optional, set `CONFIGURE_MANAGE_ATTACHMENTS`)
-11. [Configure Manage Building Information Models](../roles/suite_manage_bim_config.md) (optional, set `CONFIGURE_MANAGE_BIM`)
+2. [Add Watson Studio Local to CP4D](../roles/cp4d_service.md) (optional, set `CPD_INSTALL_WSL`)
+3. [Create Db2 Instance using IBM Db2 Universal Operator](../roles/db2.md)
+4. [Initialize Db2 Instance for Maximo Manage](../roles/suite_db2_setup_for_manage.md)
+5. [Configure MAS to use the new Db2 Instance](../roles/suite_config.md)
+6. [Configure MAS to use BYO database](../roles/gencfg_jdbc.md) (optional, set `CONFIGURE_EXTERNAL_DB`)
+7. [Install Maximo Manage Application](../roles/suite_app_install.md)
+8. [Configure Maximo Manage Workspace](../roles/suite_app_config.md)
+9. [Configure Manage Attachments](../roles/suite_manage_attachments_config.md) (optional, set `CONFIGURE_MANAGE_ATTACHMENTS`)
+10. [Configure Manage Building Information Models](../roles/suite_manage_bim_config.md) (optional, set `CONFIGURE_MANAGE_BIM`)
 
 See the individual pages for each of these roles for more information and full details of all configuration options available in this playbook.
 
@@ -51,7 +50,6 @@ Optional integration with Cloud Pak for Data is supported in Maximo Manage.  Thi
 
 ```bash
 export CPD_INSTALL_PLATFORM=true
-export CPD_INSTALL_COGNOS=true
 export CPD_INSTALL_WSL=true
 export CPD_PRODUCT_VERSION=x.y.z
 ```
@@ -102,7 +100,7 @@ For full details of configuration options available refer to the [gencfg_jdbc](.
 
 
 ### Cloud Pak For Data Integration
-To install CP4D with Cognos and/or Watson Studio Local optional dependencies:
+To install CP4D with Watson Studio Local as an optional dependency:
 
 ```bash
 export MAS_INSTANCE_ID=inst1
@@ -110,9 +108,8 @@ export MAS_CONFIG_DIR=~/masconfig
 export IBM_ENTITLEMENT_KEY=xxx
 
 export CPD_INSTALL_PLATFORM="true"
-export CPD_INSTALL_COGNOS="true"
 export CPD_INSTALL_WSL="true"
-export CPD_PRODUCT_VERSION="4.6.6"
+export CPD_PRODUCT_VERSION="5.2.0"
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.mas_add_manage
