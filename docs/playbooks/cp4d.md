@@ -21,7 +21,7 @@ See the [cp4d](../roles/cp4d.md) and [cp4d_service](../roles/cp4d_service.md) ro
 
 ## Install CPD Platform and Watson Studio Local
 ```bash
-export MAS_CONFIG_DIR=~/masconfig
+export MAS_CATALOG_VERSION=@@MAS_LATEST_CATALOG@@
 export CPD_ENTITLEMENT_KEY=xxx
 export CPD_ENTITLEMENT_USERNAME=cp
 export CPD_INSTALL_PLATFORM="true"
