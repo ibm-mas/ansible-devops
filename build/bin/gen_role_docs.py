@@ -16,7 +16,6 @@ import mkdocs_gen_files
 # Define the list of roles to document
 ROLES = [
     "aiservice",
-    "aiservice_odh",
     "aiservice_tenant",
     "ansible_version_check",
     "arcgis",

@@ -1,7 +1,9 @@
 ---
-# aiservice_odh/tasks/uninstall/main.yml
+# aiservice_rhoai/tasks/install/uninstall-odh.yml
 # =============================================================================
 # Uninstall Open Data Hub (ODH)
+# Used by the ODH to RHOAI migration to remove the ODH operator and
+# related resources before RHOAI is installed.
 # This removes the ODH operator and related resources
 
 - name: "ODH Uninstall : Display uninstall notice"
@@ -98,7 +100,7 @@
   ignore_errors: true
 
 - name: "ODH Uninstall : Delete Istio PeerAuthentication"
-  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+  when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
   kubernetes.core.k8s:
     api_version: security.istio.io/v1beta1
     kind: PeerAuthentication
@@ -108,7 +110,7 @@
   ignore_errors: true
 
 - name: "ODH Uninstall : Delete Istio DestinationRule (ds-pipeline)"
-  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+  when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
   kubernetes.core.k8s:
     api_version: networking.istio.io/v1beta1
     kind: DestinationRule
@@ -118,7 +120,7 @@
   ignore_errors: true
 
 - name: "ODH Uninstall : Delete Istio DestinationRule (minio)"
-  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+  when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
   kubernetes.core.k8s:
     api_version: networking.istio.io/v1beta1
     kind: DestinationRule
@@ -199,7 +201,7 @@
 # 7. Remove Serverless and ServiceMesh operators (only if installed in serverless mode)
 # -----------------------------------------------------------------------------
 - name: "ODH Uninstall : Get Serverless operator subscription"
-  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+  when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
     kind: Subscription
@@ -209,16 +211,16 @@
 
 - name: "ODH Uninstall : Get Serverless operator CSV name"
   when:
-    - aiservice_odh_model_deployment_type is defined
-    - aiservice_odh_model_deployment_type == "serverless"
+    - aiservice_rhoai_model_deployment_type is defined
+    - aiservice_rhoai_model_deployment_type == "serverless"
     - serverless_subscription_info.resources | length > 0
   set_fact:
     serverless_csv_name: "{{ serverless_subscription_info.resources[0].status.installedCSV }}"
 
 - name: "ODH Uninstall : Delete Serverless operator subscription"
   when:
-    - aiservice_odh_model_deployment_type is defined
-    - aiservice_odh_model_deployment_type == "serverless"
+    - aiservice_rhoai_model_deployment_type is defined
+    - aiservice_rhoai_model_deployment_type == "serverless"
     - serverless_subscription_info.resources | length > 0
   kubernetes.core.k8s:
     api_version: operators.coreos.com/v1alpha1
@@ -230,12 +232,12 @@
     wait_timeout: 120
 
 - name: "ODH Uninstall : Debug - Serverless operator removal"
-  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+  when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
   debug:
     msg: "Serverless operator subscription deleted (OLM will remove CSV automatically)"
 
 - name: "ODH Uninstall : Get ServiceMesh operator subscription"
-  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+  when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
     kind: Subscription
@@ -245,16 +247,16 @@
 
 - name: "ODH Uninstall : Get ServiceMesh operator CSV name"
   when:
-    - aiservice_odh_model_deployment_type is defined
-    - aiservice_odh_model_deployment_type == "serverless"
+    - aiservice_rhoai_model_deployment_type is defined
+    - aiservice_rhoai_model_deployment_type == "serverless"
     - servicemesh_subscription_info.resources | length > 0
   set_fact:
     servicemesh_csv_name: "{{ servicemesh_subscription_info.resources[0].status.installedCSV }}"
 
 - name: "ODH Uninstall : Delete ServiceMesh operator subscription"
   when:
-    - aiservice_odh_model_deployment_type is defined
-    - aiservice_odh_model_deployment_type == "serverless"
+    - aiservice_rhoai_model_deployment_type is defined
+    - aiservice_rhoai_model_deployment_type == "serverless"
     - servicemesh_subscription_info.resources | length > 0
   kubernetes.core.k8s:
     api_version: operators.coreos.com/v1alpha1
@@ -266,12 +268,12 @@
     wait_timeout: 120
 
 - name: "ODH Uninstall : Debug - ServiceMesh operator removal"
-  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+  when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
   debug:
     msg: "ServiceMesh operator subscription deleted (OLM will remove CSV automatically)"
 
 - name: "ODH Uninstall : Delete ServiceMesh ServiceAccount"
-  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+  when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
   kubernetes.core.k8s:
     api_version: v1
     kind: ServiceAccount
@@ -281,7 +283,7 @@
   ignore_errors: true
 
 - name: "ODH Uninstall : Debug - ServiceMesh ServiceAccount removal"
-  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+  when: aiservice_rhoai_model_deployment_type is defined and aiservice_rhoai_model_deployment_type == "serverless"
   debug:
     msg: "ServiceMesh ServiceAccount deleted"
 
