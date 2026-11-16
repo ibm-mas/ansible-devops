@@ -154,6 +154,71 @@
 
   when: cpd_520
 
+# 3b. Ensure ccs-role allows 'create' on pods/exec (CPD 5.4.0+)
+# -----------------------------------------------------------------------------
+# On some OCP versions (e.g. 4.22) the ccs-role Role created by the CCS operator has
+# pods/exec without the 'create' verb, so the operator fails with "Handshake status 403
+# Forbidden" at task 'Setup couchdb wdp-couchdb cluster'. Exec is a POST (create) on the
+# pods/exec subresource. The role is only patched when the permission is actually missing,
+# so clusters that are not affected are left untouched.
+- name: "wait-ccs : Ensure ccs-role grants 'create' on pods/exec"
+  when: cpd_product_version is version('5.4.0', '>=')
+  block:
+    - name: "wait-ccs : Wait for ccs-role to exist"
+      kubernetes.core.k8s_info:
+        api_version: rbac.authorization.k8s.io/v1
+        kind: Role
+        name: ccs-role
+        namespace: "{{ cpd_instance_namespace }}"
+      register: ccs_role_lookup
+      until:
+        - ccs_role_lookup.resources is defined
+        - ccs_role_lookup.resources | length > 0
+      retries: 60 # approx 10 minutes before we give up waiting
+      delay: 10 # seconds
+      failed_when: false
+
+    - name: "wait-ccs : Warn if ccs-role was not found"
+      when: ccs_role_lookup.resources is not defined or ccs_role_lookup.resources | length == 0
+      debug:
+        msg: "WARNING: ccs-role not found in {{ cpd_instance_namespace }}; pods/exec patch skipped. If ccsStatus fails with 403 Forbidden on wdp-couchdb-0, add 'create' to the pods/exec rule of ccs-role manually."
+
+    - name: "wait-ccs : Check whether ccs-role already allows 'create' on pods/exec"
+      when:
+        - ccs_role_lookup.resources is defined
+        - ccs_role_lookup.resources | length > 0
+      set_fact:
+        ccs_role_exec_ok: >-
+          {%- set ns = namespace(ok=false) -%}
+          {%- for rule in (ccs_role_lookup.resources[0].rules | default([])) -%}
+          {%- if ('pods/exec' in (rule.resources | default([])) or '*' in (rule.resources | default([])))
+                 and ('create' in (rule.verbs | default([])) or '*' in (rule.verbs | default([]))) -%}
+          {%- set ns.ok = true -%}
+          {%- endif -%}
+          {%- endfor -%}
+          {{ ns.ok }}
+
+    - name: "wait-ccs : Add 'create' on pods/exec to ccs-role"
+      when:
+        - ccs_role_lookup.resources is defined
+        - ccs_role_lookup.resources | length > 0
+        - not (ccs_role_exec_ok | default(false) | bool)
+      kubernetes.core.k8s_json_patch:
+        api_version: rbac.authorization.k8s.io/v1
+        kind: Role
+        name: ccs-role
+        namespace: "{{ cpd_instance_namespace }}"
+        patch:
+          - op: add
+            path: /rules/-
+            value:
+              apiGroups:
+                - ""
+              resources:
+                - pods/exec
+              verbs:
+                - create
+
 - include_tasks: "tasks/wait/wait-opensearch.yml"
   when:
     - not skip_ibm_entitlement_injection
