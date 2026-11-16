@@ -1,0 +1,50 @@
+---
+# Restart the Manage server bundle pods so that they pick up the attachments
+# storage provider configuration, then wait for all of them to be ready.
+- name: "attachments-restart-bundles : Lookup {{ mas_app_id | capitalize }} bundle pods"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    label_selectors: mas.ibm.com/appType=serverBundle
+    namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
+  register: manage_bundle_output
+
+- name: "attachments-restart-bundles : Fail if no bundle pods are found"
+  assert:
+    that: manage_bundle_output.resources is defined and manage_bundle_output.resources | length > 0
+    fail_msg: "No server bundle pods found in namespace mas-{{ mas_instance_id }}-{{ mas_app_id }}"
+
+- name: "attachments-restart-bundles : Debug information"
+  vars:
+    bundle_pod_names: "{{ manage_bundle_output.resources | map(attribute='metadata.name') | list }}"
+  debug:
+    msg: "Restarting the following {{ mas_app_id | capitalize }} bundle pods: {{ bundle_pod_names }}"
+
+- name: "attachments-restart-bundles : Restart {{ mas_app_id | capitalize }} bundle pods to apply the attachments configuration"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Pod
+    namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
+    name: "{{ item.metadata.name }}"
+  with_items: "{{ manage_bundle_output.resources }}"
+  loop_control:
+    label: "Restarting bundle pod: {{ item.metadata.name }}..."
+
+- name: "attachments-restart-bundles : Pause for 1 minute before checking bundle pods"
+  pause:
+    seconds: 60
+
+- name: "attachments-restart-bundles : Wait until all {{ mas_app_id | capitalize }} bundle pods are ready"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    label_selectors: mas.ibm.com/appType=serverBundle
+    namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
+  register: manage_bundle_lookup
+  until:
+    - manage_bundle_lookup.resources is defined
+    - manage_bundle_lookup.resources | length > 0
+    - manage_bundle_lookup.resources | json_query('[?conditions[?type==`ContainersReady` && status==`True`]]') | list | length == manage_bundle_lookup.resources | length
+  retries: 60
+  delay: 30

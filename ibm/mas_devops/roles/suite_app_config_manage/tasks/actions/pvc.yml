@@ -1,0 +1,144 @@
+---
+# Custom persistent volumes action (was suite_manage_pvc_config)
+# Add custom persistent volumes to the ManageWorkspace CR. The Manage operator
+# creates the PVCs and mounts them into the server bundle pods at the configured
+# mount paths.
+#
+# The volume definitions are provided either as a YAML list via the
+# mas_manage_custom_persistent_volumes variable (string) or via a file referenced
+# by mas_manage_custom_persistent_volumes_file. Each entry supports: pvcName
+# (required), mountPath (required), size (required), storageClassName (optional,
+# defaults to the cluster RWX storage class) and accessModes (optional).
+#
+# Re-running the action updates the definitions of volumes whose pvcName matches
+# an existing entry; entries for other PVCs are left untouched.
+# ========================================================================
+
+# Assertions: preliminary validations
+# ------------------------------------------------------------------------
+- name: "pvc : Fail if no persistent volume definitions are provided"
+  assert:
+    that: >-
+      (mas_manage_custom_persistent_volumes is defined and mas_manage_custom_persistent_volumes != '') or
+      (mas_manage_custom_persistent_volumes_file is defined and mas_manage_custom_persistent_volumes_file != '')
+    fail_msg: >-
+      Provide the persistent volume definitions either via the
+      mas_manage_custom_persistent_volumes variable (YAML list) or via the
+      mas_manage_custom_persistent_volumes_file property.
+
+# Load the persistent volume definitions
+# ------------------------------------------------------------------------
+- name: "pvc : Load persistent volume definitions from variable"
+  when: mas_manage_custom_persistent_volumes is defined and mas_manage_custom_persistent_volumes != ''
+  set_fact:
+    manage_custom_persistent_volumes: "{{ mas_manage_custom_persistent_volumes | from_yaml }}"
+
+- name: "pvc : Load persistent volume definitions from file"
+  when: mas_manage_custom_persistent_volumes_file is defined and mas_manage_custom_persistent_volumes_file != ''
+  set_fact:
+    manage_custom_persistent_volumes: "{{ lookup('file', mas_manage_custom_persistent_volumes_file) | from_yaml }}"
+
+- name: "pvc : Fail if no persistent volume definitions are found"
+  assert:
+    that: manage_custom_persistent_volumes.persistentVolumes is defined and manage_custom_persistent_volumes.persistentVolumes | length > 0
+    fail_msg: "There should be at least one persistent volume definition to be added."
+
+- name: "pvc : Fail if any persistent volume definition is missing required properties"
+  vars:
+    invalid_entries: "{{ manage_custom_persistent_volumes.persistentVolumes
+                      | json_query('[?!pvcName || !mountPath || !size]') }}"
+  assert:
+    that: invalid_entries | length == 0
+    fail_msg: "Each persistent volume definition requires the pvcName, mountPath and size properties. Invalid entries: {{ invalid_entries }}"
+
+- name: "pvc : Initialize the persistent volume entries"
+  set_fact:
+    manage_custom_persistent_volumes_entries: "{{ manage_custom_persistent_volumes.persistentVolumes }}"
+
+# Determine the default storage class for entries that do not define one
+# ------------------------------------------------------------------------
+- name: "pvc : Determine the default storage class automatically (if needed)"
+  vars:
+    entries_missing_storage_class: "{{ manage_custom_persistent_volumes_entries | json_query('[?!storageClassName]') }}"
+  when: entries_missing_storage_class | length > 0
+  include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
+
+- name: "pvc : Set the default storage class"
+  when:
+    - defaultStorageClasses is defined
+    - defaultStorageClasses.rwx is defined
+  set_fact:
+    default_storage_classes_rwx: "{{ defaultStorageClasses.rwx }}"
+
+- name: "pvc : Reset the entries with the default storage class applied"
+  set_fact:
+    manage_custom_persistent_volumes_defaulted: []
+
+- name: "pvc : Apply the default storage class to entries that do not define one"
+  when: default_storage_classes_rwx is defined
+  vars:
+    manage_pvc_entry: "{{ item | combine({'storageClassName': default_storage_classes_rwx}) if (item.storageClassName is not defined or item.storageClassName == '') else item }}"
+  set_fact:
+    manage_custom_persistent_volumes_defaulted: "{{ manage_custom_persistent_volumes_defaulted + [manage_pvc_entry] }}"
+  loop: "{{ manage_custom_persistent_volumes_entries }}"
+
+- name: "pvc : Use the entries with the default storage class applied"
+  when: manage_custom_persistent_volumes_defaulted | length > 0
+  set_fact:
+    manage_custom_persistent_volumes_entries: "{{ manage_custom_persistent_volumes_defaulted }}"
+
+# Merge with the existing persistent volumes in the ManageWorkspace CR
+# ------------------------------------------------------------------------
+- name: "pvc : Lookup ManageWorkspace CR"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: ManageWorkspace
+    name: "{{ manage_workspace_cr_name }}"
+    namespace: "mas-{{ mas_instance_id }}-manage"
+  register: managews_output
+
+- name: "pvc : Set existing Manage persistent volumes"
+  set_fact:
+    existing_manage_pvcs: "{{ (managews_output.resources[0].spec.settings.deployment | default({})).persistentVolumes | default([]) }}"
+
+- name: "pvc : Merge Manage persistent volumes configurations"
+  vars:
+    new_pvc_names: "{{ manage_custom_persistent_volumes_entries | map(attribute='pvcName') | list }}"
+  set_fact:
+    manage_merged_pvcs: "{{ existing_manage_pvcs | rejectattr('pvcName', 'in', new_pvc_names) | list + manage_custom_persistent_volumes_entries }}"
+
+- name: "pvc : Debug information"
+  vars:
+    existing_pvc_names: "{{ existing_manage_pvcs | map(attribute='pvcName') | list }}"
+    new_pvc_names: "{{ manage_custom_persistent_volumes_entries | map(attribute='pvcName') | list }}"
+    merged_pvc_names: "{{ manage_merged_pvcs | map(attribute='pvcName') | list }}"
+  debug:
+    msg:
+      - "Existing Manage PVCs ...................... {{ existing_pvc_names }}"
+      - "New/updated Manage PVCs .................. {{ new_pvc_names }}"
+      - "Merged Manage PVCs ....................... {{ merged_pvc_names }}"
+
+- name: "pvc : Add the Persistent Volume definitions in ManageWorkspace CR"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps.mas.ibm.com/v1
+      kind: ManageWorkspace
+      metadata:
+        name: "{{ manage_workspace_cr_name }}"
+        namespace: "mas-{{ mas_instance_id }}-manage"
+      spec:
+        settings:
+          deployment:
+            persistentVolumes: "{{ manage_merged_pvcs }}"
+  register: _changed_pvc
+
+- name: "pvc : Debug information"
+  debug:
+    msg:
+      - "ManageWorkspace Changed ............... {{ _changed_pvc.changed }}"
+
+- name: "pvc : Wait for ManageWorkspace to be ready"
+  include_tasks: "tasks/common/wait-manageworkspace-ready.yml"
+  vars:
+    manage_ws_wait_retries: 20
+    manage_ws_wait_delay: 60

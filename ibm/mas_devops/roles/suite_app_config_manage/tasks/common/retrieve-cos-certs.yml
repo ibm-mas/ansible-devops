@@ -1,0 +1,35 @@
+---
+# Retrieve the COS/S3 certificate chain for the endpoint defined in cos_url.
+# Inputs:
+#   cos_type - "ibm" or "aws"
+#   cos_url  - the bucket endpoint URL
+# Output:
+#   cos_tls_crt - list of PEM certificates
+- name: "retrieve-cos-certs : Retrieve COS certificates using openssl"
+  vars:
+    cos_host_name: "{{ cos_url | regex_replace('https://', '') }}" # remove https if needed
+  ansible.builtin.shell:
+    cmd: "openssl s_client -servername {{ cos_host_name }} -connect {{ cos_host_name }}:443 -showcerts </dev/null 2>/dev/null"
+  register: get_certs_r
+  ignore_errors: true
+
+- name: "retrieve-cos-certs : Fail if the certificate chain could not be retrieved"
+  assert:
+    that: get_certs_r.rc == 0
+    fail_msg: >-
+      Failed to retrieve certificates from {{ cos_url }} using openssl:
+      {{ get_certs_r.stderr | default('unknown error') }}
+
+- name: "retrieve-cos-certs : Extract COS certificate content"
+  set_fact:
+    cos_tls_crt: "{{ get_certs_r.stdout | regex_findall('(-----BEGIN .+?-----[\\s\\S]*?-----END .*?-----)', multiline=True, ignorecase=True) }}"
+
+- name: "retrieve-cos-certs : Assert IBM COS certificate content exists - if applicable"
+  when: cos_type == 'ibm'
+  assert:
+    that: cos_tls_crt | length > 1 # must contain at least leaf and intermediate cert
+
+- name: "retrieve-cos-certs : Assert AWS certificate content exists - if applicable"
+  when: cos_type == 'aws'
+  assert:
+    that: cos_tls_crt | length > 0
