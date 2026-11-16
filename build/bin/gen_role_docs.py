@@ -32,7 +32,6 @@ ROLES = [
     "cos",
     "cos_bucket",
     "cp4d",
-    "cp4d_admin_pwd_update",
     "cp4d_service",
     "db2",
     "dro",
