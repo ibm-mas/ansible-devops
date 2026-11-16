@@ -14,7 +14,16 @@
 #   gateway_strategy          Gateway creation strategy (default: many_gateways)
 # -----------------------------------------------------------------------------
 
-# 1. Resolve MAS domain from the cluster if not supplied
+# 1. Validate required properties
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance is not provided"
+  assert:
+    that:
+      - mas_instance is defined
+      - mas_instance | length > 0
+    fail_msg: "mas_instance property is required (set MAS_INSTANCE_ID)"
+
+# 2. Resolve MAS domain from the cluster if not supplied
 # -----------------------------------------------------------------------------
 - name: "Resolve cluster subdomain"
   when: mas_domain == ""
@@ -29,7 +38,7 @@
   set_fact:
     mas_domain: "{{ mas_instance }}.{{ _cluster_subdomain.resources[0].spec.domain }}"
 
-# 2. Log resolved configuration
+# 3. Log resolved configuration
 # -----------------------------------------------------------------------------
 - name: "Debug: resolved configuration"
   debug:
@@ -41,7 +50,41 @@
       - "Target app ........................... {{ mas_app_id | default('(all)', true) }}"
       - "Gateway strategy ..................... {{ gateway_strategy }}"
 
-# 3. Create the dedicated gateway namespace with Istio injection labels
+# 4. Preflight: verify the Istio control plane exists and is ready
+# -----------------------------------------------------------------------------
+# failed_when is disabled so that a missing Istio CRD (Service Mesh operator not
+# installed) is reported by the assert below rather than as an opaque API error.
+- name: "Look up Istio control plane in {{ servicemesh_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: sailoperator.io/v1
+    kind: Istio
+    namespace: "{{ servicemesh_namespace }}"
+  register: _istio_control_plane
+  failed_when: false
+
+- name: "Fail if no Istio control plane is found in {{ servicemesh_namespace }}"
+  assert:
+    that:
+      - _istio_control_plane.resources | default([]) | length > 0
+    fail_msg: >-
+      No Istio control plane found in namespace '{{ servicemesh_namespace }}'.
+      Install Red Hat OpenShift Service Mesh first (role: ibm.mas_devops.servicemesh)
+      or set SERVICEMESH_NAMESPACE to the namespace that contains your Istio instance.
+
+- name: "Fail if the Istio control plane is not ready"
+  assert:
+    that:
+      - _istio_control_plane.resources
+        | map(attribute='status.conditions', default=[])
+        | flatten
+        | selectattr('type', 'equalto', 'Ready')
+        | selectattr('status', 'equalto', 'True')
+        | list | length > 0
+    fail_msg: >-
+      Istio control plane in namespace '{{ servicemesh_namespace }}' is not Ready.
+      Check 'oc get istio -n {{ servicemesh_namespace }}' before configuring MAS routing using servicemesh.
+
+# 5. Create the dedicated gateway namespace with Istio injection labels
 # -----------------------------------------------------------------------------
 - name: "Create gateway namespace {{ servicemesh_gateway_namespace }}"
   kubernetes.core.k8s:
@@ -54,12 +97,12 @@
       istio.io/rev: default
       istio-discovery: enabled
 
-# 4. Apply mesh-wide observability resources (Telemetry, ServiceMonitor, Kiali RBAC)
+# 6. Apply mesh-wide observability resources (Telemetry, ServiceMonitor, Kiali RBAC)
 # -----------------------------------------------------------------------------
 - name: "Configure mesh-wide observability"
   include_tasks: "tasks/setup_mesh_observability.yml"
 
-# 5. Apply per-namespace network policies and PodMonitor for the gateway namespace
+# 7. Apply per-namespace network policies and PodMonitor for the gateway namespace
 # -----------------------------------------------------------------------------
 - name: "Configure network policies and monitoring for gateway namespace"
   include_tasks: "tasks/setup_namespace_monitoring.yml"
