@@ -732,19 +732,13 @@
     <cds-select id="breadcrumbs-toc" inline="" placeholder="..." oninput="changeAnchor(this.value)">
     
     
-      <cds-select-item value="#prerequisites">Prerequisites</cds-select-item>
-    
       <cds-select-item value="#overview">Overview</cds-select-item>
     
       <cds-select-item value="#required-environment-variables">Required environment variables</cds-select-item>
     
-      <cds-select-item value="#these-variables-are-required-only-if-you-set-cp4d_install_wsl-to-false-in-optional-varibles-otherwise-dont-set-it">These variables are required only if you set CP4D_INSTALL_WSL to false in optional varibles, otherwise don't set it.</cds-select-item>
-    
       <cds-select-item value="#optional-environment-variables">Optional environment variables</cds-select-item>
     
-      <cds-select-item value="#usage-when-you-already-have-cp4d-installed">Usage when you already HAVE CP4D installed</cds-select-item>
-    
-      <cds-select-item value="#usage-when-you-dont-have-cp4d-installed">Usage when you DON'T HAVE CP4D installed</cds-select-item>
+      <cds-select-item value="#install-cpd-platform-and-watson-studio-local">Install CPD Platform and Watson Studio Local</cds-select-item>
     
     </cds-select>
   </cds-breadcrumb-item>
@@ -755,77 +749,31 @@
           <div class="rst-content">
             
             <h1 id="install-cloud-pak-for-data">Install Cloud Pak for Data<a class="headerlink" href="#install-cloud-pak-for-data" title="Permanent link">¤</a></h1>
-<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">¤</a></h2>
-<p>You will need a RedHat OpenShift v4.10 cluster with IBM Maximo Application Suite Core v8.10 already installed, the <a href="../mas-core/">mas_install_core</a> playbook can be used to set this up.</p>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">¤</a></h2>
-<p>This playbook will add <strong>Cloud Pak for Data 4.x</strong> to an existing cluster installation. It could also install additional CP4D services.</p>
-<p>This playbook can be run against any OCP cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.</p>
-<ul>
-<li>Install CP4D ControlPlane (~1 hour)</li>
-<li>Install CP4D Services (~30 Minutes - 1 hour for each service)</li>
-</ul>
-<p>All timings are estimates, see the individual pages for each of these playbooks for more information.  Use this sample playbook as a starting point for installing any MAS application, just customize the application install and configure stages at the end of the playbook.</p>
+<p>This sample playbook will install <strong>Cloud Pak for Data</strong> on OpenShift. It could also install additional CP4D services.</p>
 <h2 id="required-environment-variables">Required environment variables<a class="headerlink" href="#required-environment-variables" title="Permanent link">¤</a></h2>
 <ul>
-<li><code>MAS_CONFIG_DIR</code> Directory where generated config files will be saved (you may also provide pre-generated config files here)</li>
 <li><code>CPD_ENTITLEMENT_KEY</code> Your IBM Entitlement key to access the IBM Container Registry</li>
-<li>
-<p><code>CPD_ENTITLEMENT_USERNAME</code> Your user name to access the IBM Container Registr</p>
-</li>
-<li>
-<p><code>CPD_INSTALL_PLATFORM</code> True/False - If you HAVE CP4D already installed in your cluster, then set it to "false"</p>
-</li>
-<li><code>CPD_PRODUCT_VERSION</code> (Required) Cloud Pak for Data version installed in the cluster in 4.X format.</li>
-</ul>
-<h2 id="these-variables-are-required-only-if-you-set-cp4d_install_wsl-to-false-in-optional-varibles-otherwise-dont-set-it">These variables are required only if you set CP4D_INSTALL_WSL to false in optional varibles, otherwise don't set it.<a class="headerlink" href="#these-variables-are-required-only-if-you-set-cp4d_install_wsl-to-false-in-optional-varibles-otherwise-dont-set-it" title="Permanent link">¤</a></h2>
-<ul>
-<li><code>CPD_ADMIN_USERNAME</code> CP4D Username</li>
-<li><code>CPD_ADMIN_PASSWORD</code> CP4D Password</li>
-<li><code>CPD_ADMIN_URL</code> CP4D Base URL</li>
+<li><code>CPD_ENTITLEMENT_USERNAME</code> Your user name to access the IBM Container Registr</li>
 </ul>
 <h2 id="optional-environment-variables">Optional environment variables<a class="headerlink" href="#optional-environment-variables" title="Permanent link">¤</a></h2>
 <ul>
-<li><code>CPD_INSTALL_COGNOS</code> True/False - Set to true to install Cognos Analytics</li>
+<li><code>CPD_INSTALL_PLATFORM</code> True/False - If you HAVE CP4D already installed in your cluster, then set it to "false"</li>
 <li><code>CPD_INSTALL_WSL</code> True/False - Set to true to install Watson Studio</li>
 <li><code>CPD_INSTALL_WML</code> True/False - Set to true to install Watson Machine Learning</li>
 <li><code>CPD_INSTALL_SPARK</code> True/False - Set to true to install Analytics Engine "Spark"</li>
-<li><code>CPD_INSTALL_OPENSCALE</code> True/False - Set to true to install AI Openscale</li>
-<li><code>CPD_INSTALL_DISCOVERY</code> True/False - Set to true to install Watson Discovery</li>
-<li><code>CPD_INSTALL_SPSS</code> True/False - Set to true to install SPSS Modeler</li>
+<li><code>CPD_PRIMARY_STORAGE_CLASS</code> Storage class (ReadWriteMany) to use for CP4D primary/file storage</li>
+<li><code>CPD_METADATA_STORAGE_CLASS</code> Storage class (ReadWriteOnce) to use for CP4D Zen metadata storage</li>
+<li><code>CPD_SERVICE_STORAGE_CLASS</code> Storage class (ReadWriteMany) to use for CP4D service file storage</li>
+<li><code>CPD_SERVICE_BLOCK_STORAGE_CLASS</code> Storage class (ReadWriteOnce) to use for CP4D service block storage</li>
 </ul>
-<h2 id="usage-when-you-already-have-cp4d-installed">Usage when you already HAVE CP4D installed<a class="headerlink" href="#usage-when-you-already-have-cp4d-installed" title="Permanent link">¤</a></h2>
-<pre><code class="language-bash">export MAS_CONFIG_DIR=~/masconfig
-export CPD_INSTALL_COGNOS="true"
-
+<p>See the <a href="../../roles/cp4d/">cp4d</a> and <a href="../../roles/cp4d_service/">cp4d_service</a> role documentation for the full set of supported environment variables.</p>
+<h2 id="install-cpd-platform-and-watson-studio-local">Install CPD Platform and Watson Studio Local<a class="headerlink" href="#install-cpd-platform-and-watson-studio-local" title="Permanent link">¤</a></h2>
+<pre><code class="language-bash">export MAS_CATALOG_VERSION=@@MAS_LATEST_CATALOG@@
 export CPD_ENTITLEMENT_KEY=xxx
-export CPD_ENTITLEMENT_USERNAME=xxx
-
-export CPD_ADMIN_USERNAME="admin"
-export CPD_ADMIN_PASSWORD="xxx"
-export CPD_URL="https://mycp4durl"
-export CPD_PRODUCT_VERSION="4.6.6"
-
-
-oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.cp4d
-</code></pre>
-<h2 id="usage-when-you-dont-have-cp4d-installed">Usage when you DON'T HAVE CP4D installed<a class="headerlink" href="#usage-when-you-dont-have-cp4d-installed" title="Permanent link">¤</a></h2>
-<pre><code class="language-bash">export MAS_CONFIG_DIR=~/masconfig
-
-export CPD_ENTITLEMENT_KEY=xxx
-export CPD_ENTITLEMENT_USERNAME=xxx
-
+export CPD_ENTITLEMENT_USERNAME=cp
 export CPD_INSTALL_PLATFORM="true"
-export CPD_PRODUCT_VERSION="4.6.6"
-
-## To install additional CP4D services, add one or many of these environment variables:
-export CPD_INSTALL_COGNOS="true"
 export CPD_INSTALL_WSL="true"
-export CPD_INSTALL_WML="true"
-export CPD_INSTALL_SPARK="true"
-export CPD_INSTALL_OPENSCALE="true"
-export CPD_INSTALL_DISCOVERY="true"
-export CPD_INSTALL_SPSS="true"
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.cp4d
@@ -876,11 +824,6 @@ ansible-playbook ibm.mas_devops.cp4d
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
               <li class="md-toc__item">
-                <a href="#prerequisites" class="md-toc__link" data-md-level="1">
-                  Prerequisites
-                </a>
-              </li>
-              <li class="md-toc__item">
                 <a href="#overview" class="md-toc__link" data-md-level="1">
                   Overview
                 </a>
@@ -891,23 +834,13 @@ ansible-playbook ibm.mas_devops.cp4d
                 </a>
               </li>
               <li class="md-toc__item">
-                <a href="#these-variables-are-required-only-if-you-set-cp4d_install_wsl-to-false-in-optional-varibles-otherwise-dont-set-it" class="md-toc__link" data-md-level="1">
-                  These variables are required only if you set CP4D_INSTALL_WSL to false in optional varibles, otherwise don't set it.
-                </a>
-              </li>
-              <li class="md-toc__item">
                 <a href="#optional-environment-variables" class="md-toc__link" data-md-level="1">
                   Optional environment variables
                 </a>
               </li>
               <li class="md-toc__item">
-                <a href="#usage-when-you-already-have-cp4d-installed" class="md-toc__link" data-md-level="1">
-                  Usage when you already HAVE CP4D installed
-                </a>
-              </li>
-              <li class="md-toc__item">
-                <a href="#usage-when-you-dont-have-cp4d-installed" class="md-toc__link" data-md-level="1">
-                  Usage when you DON'T HAVE CP4D installed
+                <a href="#install-cpd-platform-and-watson-studio-local" class="md-toc__link" data-md-level="1">
+                  Install CPD Platform and Watson Studio Local
                 </a>
               </li>
         </ul>
