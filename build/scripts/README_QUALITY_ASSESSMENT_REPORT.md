@@ -2,7 +2,7 @@
 
 **Generated:** 2026-02-19  
 **Collection:** ibm.mas_devops  
-**Total Roles Assessed:** 86
+**Total Roles Assessed:** 78
 
 ## Executive Summary
 
@@ -274,110 +274,83 @@ These roles achieve 100% structural compliance. The "no variables documented" wa
     - Certificate management
     - No variables documented (cert operations)
 
-29. **suite_manage_attachments_config** - 100% compliant
-    - Manage attachments configuration
-    - No variables documented (feature config)
+29. **suite_app_config_manage** - 100% compliant
+    - Manage post-installation configuration actions (consolidates the former
+      suite_manage_attachments_config, suite_manage_bim_config,
+      suite_manage_birt_report_config, suite_manage_customer_files_config,
+      suite_manage_imagestitching_config, suite_manage_import_certs_config,
+      suite_manage_load_dbc_scripts, suite_manage_logging_config and
+      suite_manage_pvc_config roles)
+    - Variables documented (action-driven configuration)
 
-30. **suite_manage_bim_config** - 100% compliant
-    - BIM integration configuration
-    - No variables documented (feature config)
-
-31. **suite_manage_birt_report_config** - 100% compliant
-    - BIRT reporting configuration
-    - No variables documented (feature config)
-
-32. **suite_manage_customer_files_config** - 100% compliant
-    - Customer files configuration
-    - No variables documented (feature config)
-
-33. **suite_manage_imagestitching_config** - 100% compliant
-    - Image stitching configuration
-    - No variables documented (feature config)
-
-34. **suite_manage_import_certs_config** - 100% compliant
-    - Certificate import configuration
-    - No variables documented (feature config)
-
-35. **suite_manage_load_dbc_scripts** - 100% compliant
-    - DBC script loading
-    - No variables documented (script utility)
-
-36. **suite_manage_logging_config** - 100% compliant
-    - Logging configuration
-    - No variables documented (feature config)
-
-37. **suite_manage_pvc_config** - 100% compliant
-    - PVC configuration
-    - No variables documented (storage config)
-
-38. **suite_db2_setup_for_manage** - 100% compliant
+30. **suite_db2_setup_for_manage** - 100% compliant
     - Db2 setup for Manage
     - No variables documented (setup utility)
 
-39. **suite_db2_setup_for_facilities** - 100% compliant
+31. **suite_db2_setup_for_facilities** - 100% compliant
     - Db2 setup for Facilities
     - No variables documented (setup utility)
 
 #### MAS Lifecycle Management Roles (6 roles)
 
-40. **suite_upgrade** - 100% compliant
+32. **suite_upgrade** - 100% compliant
     - Suite version upgrades
     - No variables documented (upgrade orchestration)
 
-41. **suite_rollback** - 100% compliant
+33. **suite_rollback** - 100% compliant
     - Suite version rollback
     - No variables documented (rollback orchestration)
 
-42. **suite_uninstall** - 100% compliant
+34. **suite_uninstall** - 100% compliant
     - Suite uninstallation
     - No variables documented (uninstall orchestration)
 
-43. **suite_verify** - 100% compliant
+35. **suite_verify** - 100% compliant
     - Suite health verification
     - No variables documented (verification checks)
 
-44. **suite_app_upgrade** - 100% compliant
+36. **suite_app_upgrade** - 100% compliant
     - Application upgrades
     - No variables documented (app upgrade orchestration)
 
-45. **suite_app_rollback** - 100% compliant
+37. **suite_app_rollback** - 100% compliant
     - Application rollback
     - No variables documented (app rollback orchestration)
 
-46. **suite_app_uninstall** - 100% compliant
+38. **suite_app_uninstall** - 100% compliant
     - Application uninstallation
     - No variables documented (app uninstall orchestration)
 
 #### AI/ML Service Roles (4 roles)
 
-47. **aiservice_odh** - 100% compliant
+39. **aiservice_odh** - 100% compliant
     - Open Data Hub deployment
     - No variables documented (ODH operations)
 
-48. **aiservice_rhoai** - 100% compliant
+40. **aiservice_rhoai** - 100% compliant
     - Red Hat OpenShift AI deployment
     - No variables documented (RHOAI operations)
 
-49. **aiservice_tenant** - 100% compliant
+41. **aiservice_tenant** - 100% compliant
     - AI service tenant management
     - No variables documented (tenant operations)
 
-50. **aiservice_upgrade** - 100% compliant
+42. **aiservice_upgrade** - 100% compliant
     - AI service upgrades
     - No variables documented (upgrade operations)
 
 #### Additional Application Roles (3 roles)
 
-51. **arcgis** - 100% compliant
+43. **arcgis** - 100% compliant
     - ArcGIS Enterprise deployment
     - No variables documented (ArcGIS operations)
 
-52. **dro** - 100% compliant
+44. **dro** - 100% compliant
     - Data Reporter Operator
     - No variables documented (DRO operations)
     - Note: Title includes clarification "[Data Reporter Operator]"
 
-53. **turbonomic** - 100% compliant
+45. **turbonomic** - 100% compliant
     - Turbonomic integration
     - No variables documented (Turbonomic operations)
 
