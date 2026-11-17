@@ -2,7 +2,7 @@
     <meta charset="utf-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>suite_manage_imagestitching_config - MAS DevOps Ansible Collection</title>
+    <title>suite_app_config_manage - MAS DevOps Ansible Collection</title>
 
     <!-- Pure CSS (https://pure-css.github.io/) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/purecss@3.0.0/build/pure-min.css" integrity="sha384-X38yfunGUhNzHpBaEBsWLO+A0HDYOQi8ufWDkZ0k9e0eXz/tH3II7uKZ9msv++Ls" crossorigin="anonymous">
@@ -487,6 +487,12 @@
 
     
       
+  <cds-side-nav-menu-item href="./" active="" expanded="">
+    suite_app_config_manage
+  </cds-side-nav-menu-item>
+
+    
+      
   <cds-side-nav-menu-item href="../suite_app_install/">
     suite_app_install
   </cds-side-nav-menu-item>
@@ -555,60 +561,6 @@
       
   <cds-side-nav-menu-item href="../suite_install/">
     suite_install
-  </cds-side-nav-menu-item>
-
-    
-      
-  <cds-side-nav-menu-item href="../suite_manage_attachments_config/">
-    suite_manage_attachments_config
-  </cds-side-nav-menu-item>
-
-    
-      
-  <cds-side-nav-menu-item href="../suite_manage_birt_report_config/">
-    suite_manage_birt_report_config
-  </cds-side-nav-menu-item>
-
-    
-      
-  <cds-side-nav-menu-item href="../suite_manage_bim_config/">
-    suite_manage_bim_config
-  </cds-side-nav-menu-item>
-
-    
-      
-  <cds-side-nav-menu-item href="../suite_manage_customer_files_config/">
-    suite_manage_customer_files_config
-  </cds-side-nav-menu-item>
-
-    
-      
-  <cds-side-nav-menu-item href="./" active="" expanded="">
-    suite_manage_imagestitching_config
-  </cds-side-nav-menu-item>
-
-    
-      
-  <cds-side-nav-menu-item href="../suite_manage_import_certs_config/">
-    suite_manage_import_certs_config
-  </cds-side-nav-menu-item>
-
-    
-      
-  <cds-side-nav-menu-item href="../suite_manage_load_dbc_scripts/">
-    suite_manage_load_dbc_scripts
-  </cds-side-nav-menu-item>
-
-    
-      
-  <cds-side-nav-menu-item href="../suite_manage_logging_config/">
-    suite_manage_logging_config
-  </cds-side-nav-menu-item>
-
-    
-      
-  <cds-side-nav-menu-item href="../suite_manage_pvc_config/">
-    suite_manage_pvc_config
   </cds-side-nav-menu-item>
 
     
@@ -709,18 +661,18 @@
   </cds-breadcrumb-item>
       <cds-breadcrumb-item>Roles: Suite Mgmt</cds-breadcrumb-item>
   <cds-breadcrumb-item>
-    <cds-breadcrumb-link href="#suite_manage_imagestitching_config">suite_manage_imagestitching_config</cds-breadcrumb-link>
+    <cds-breadcrumb-link href="#suite_app_config_manage">suite_app_config_manage</cds-breadcrumb-link>
   </cds-breadcrumb-item>
 
   <cds-breadcrumb-item aria-current="page">
     <cds-select id="breadcrumbs-toc" inline="" placeholder="..." oninput="changeAnchor(this.value)">
     
     
-      <cds-select-item value="#what-this-role-does">What This Role Does</cds-select-item>
+      <cds-select-item value="#actions">Actions</cds-select-item>
     
       <cds-select-item value="#role-variables">Role Variables</cds-select-item>
     
-      <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
+      <cds-select-item value="#example-playbooks">Example Playbooks</cds-select-item>
     
       <cds-select-item value="#license">License</cds-select-item>
     
@@ -732,26 +684,83 @@
           <!-- Page content -->
           <div class="rst-content">
             
-            <h1 id="suite_manage_imagestitching_config">suite_manage_imagestitching_config<a class="headerlink" href="#suite_manage_imagestitching_config" title="Permanent link">¤</a></h1>
-<p>This role configures image stitching functionality in Maximo Manage for the Civil Infrastructure component. Image stitching enables combining multiple images into panoramic views for infrastructure inspection and analysis. The role creates persistent storage, updates the ManageWorkspace CR, and sets required system properties.</p>
+            <h1 id="suite_app_config_manage">suite_app_config_manage<a class="headerlink" href="#suite_app_config_manage" title="Permanent link">¤</a></h1>
+<p>This role provides post-installation configuration actions for the Maximo Manage application. It consolidates the former <code>suite_manage_*_config</code> roles into a single role, with the <code>suite_app_config_manage_actions</code> parameter selecting which actions to run — either one at a time or several together as part of the initial configuration of a Manage workspace.</p>
 <div class="admonition important">
 <p class="admonition-title">Prerequisites</p>
 <ul>
-<li>Manage application must be deployed and activated</li>
-<li>Civil Infrastructure component must be installed</li>
-<li>Storage class must support ReadWriteMany (RWX) access mode</li>
+<li>Manage application must be installed and its workspace ready before running any action</li>
+<li>Actions that execute SQL against the Manage database (<code>bim</code>, <code>logging</code> with <code>mas_manage_logging_is_prod</code>) require the Db2 Warehouse instance to be available and are not supported with an external (JDBC) database</li>
 </ul>
 </div>
-<h2 id="what-this-role-does">What This Role Does<a class="headerlink" href="#what-this-role-does" title="Permanent link">¤</a></h2>
-<ul>
-<li>Creates PVC for image stitching data storage</li>
-<li>Patches ManageWorkspace CR with PVC configuration</li>
-<li>Configures persistent volume specifications</li>
-<li>Sets system properties:</li>
-<li><code>mci.imagestitching.apiurl</code>: API endpoint for image stitching service</li>
-<li><code>imagestitching.dataInputPath</code>: Data input path for image processing</li>
-</ul>
+<h2 id="actions">Actions<a class="headerlink" href="#actions" title="Permanent link">¤</a></h2>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>Former role</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>attachments</code></td>
+<td><code>suite_manage_attachments_config</code></td>
+<td>Configure where Manage stores attachment files: PVC file storage, IBM Cloud Object Storage or AWS S3 (CR-based configuration only)</td>
+</tr>
+<tr>
+<td><code>bim</code></td>
+<td><code>suite_manage_bim_config</code></td>
+<td>Configure BIM (Building Information Models) support: create the BIM folders on the mounted PVC and set the <code>bim.*</code> system properties</td>
+</tr>
+<tr>
+<td><code>birt</code></td>
+<td><code>suite_manage_birt_report_config</code></td>
+<td>Configure the BIRT report server bundle for Manage</td>
+</tr>
+<tr>
+<td><code>custfiles</code></td>
+<td><code>suite_manage_customer_files_config</code></td>
+<td>Provision the IBM COS / AWS S3 buckets (main, recovery, backup) used to store Manage customer files, and import the storage certificates</td>
+</tr>
+<tr>
+<td><code>imagestitching</code></td>
+<td><code>suite_manage_imagestitching_config</code></td>
+<td>Configure persistent storage for Manage image stitching files (Civil component)</td>
+</tr>
+<tr>
+<td><code>import-certs</code></td>
+<td><code>suite_manage_import_certs_config</code></td>
+<td>Import certificates into the ManageWorkspace CR so they are added to the Manage truststore</td>
+</tr>
+<tr>
+<td><code>dbc-scripts</code></td>
+<td><code>suite_manage_load_dbc_scripts</code></td>
+<td>Load DBC (database configuration) scripts into the Manage database via the maxinst pod</td>
+</tr>
+<tr>
+<td><code>logging</code></td>
+<td><code>suite_manage_logging_config</code></td>
+<td>Configure the COS/S3 destination for Manage server log uploads and (optionally) lock down the Admin Center on production databases</td>
+</tr>
+<tr>
+<td><code>pvc</code></td>
+<td><code>suite_manage_pvc_config</code></td>
+<td>Add custom persistent volumes to the ManageWorkspace CR</td>
+</tr>
+</tbody>
+</table>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
+<h3 id="suite_app_config_manage_actions">suite_app_config_manage_actions<a class="headerlink" href="#suite_app_config_manage_actions" title="Permanent link">¤</a></h3>
+<p>The actions to run, either as a list or as a comma-separated string.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>SUITE_APP_CONFIG_MANAGE_ACTIONS</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Purpose</strong>: Selects which of the configuration actions are executed. Each action corresponds to one of the former <code>suite_manage_*_config</code> roles.</p>
+<p><strong>Valid values</strong>: Any combination of <code>attachments</code>, <code>bim</code>, <code>birt</code>, <code>custfiles</code>, <code>imagestitching</code>, <code>import-certs</code>, <code>dbc-scripts</code>, <code>logging</code>, <code>pvc</code></p>
+<p><strong>Impact</strong>: Running multiple actions in one invocation is more efficient than invoking the role several times, for example <code>attachments,bim</code> configures both attachment storage and BIM support in a single run.</p>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
 <p>MAS instance identifier.</p>
 <ul>
@@ -759,165 +768,146 @@
 <li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
 <li>Default: None</li>
 </ul>
-<p><strong>Purpose</strong>: Identifies which MAS instance contains the Manage application to configure for image stitching.</p>
-<p><strong>When to use</strong>:
-- Always required for image stitching configuration
-- Must match the instance ID from MAS installation
-- Used in PVC name construction</p>
-<p><strong>Valid values</strong>: Lowercase alphanumeric string, 3-12 characters (e.g., <code>civil</code>, <code>prod</code>, <code>masinst1</code>)</p>
-<p><strong>Impact</strong>: Used to construct PVC name (<code>{instance}-{workspace}-{pvcname}</code>) and locate Manage resources.</p>
-<p><strong>Related variables</strong>:
-- <code>mas_workspace_id</code>: Workspace within this instance
-- <code>stitching_pvcname</code>: Combined to create full PVC name</p>
-<p><strong>Note</strong>: This must match the instance ID used during Manage installation with Civil component.</p>
+<p><strong>Purpose</strong>: Identifies which MAS instance contains the Manage application to configure.</p>
 <h3 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link">¤</a></h3>
-<p>Workspace identifier for Manage application.</p>
+<p>MAS workspace identifier.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_WORKSPACE_ID</code></li>
 <li>Default: None</li>
 </ul>
-<p><strong>Purpose</strong>: Identifies which workspace within the MAS instance contains the Manage application with Civil component.</p>
-<p><strong>When to use</strong>:
-- Always required for image stitching configuration
-- Must match the workspace ID where Manage is deployed
-- Used in PVC name construction</p>
-<p><strong>Valid values</strong>: Lowercase alphanumeric string, typically 3-12 characters (e.g., <code>prod</code>, <code>dev</code>, <code>masdev</code>)</p>
-<p><strong>Impact</strong>: Used to construct PVC name (<code>{instance}-{workspace}-{pvcname}</code>) and locate Manage resources.</p>
-<p><strong>Related variables</strong>:
-- <code>mas_instance_id</code>: Parent instance
-- <code>stitching_pvcname</code>: Combined to create full PVC name</p>
-<p><strong>Note</strong>: This must match the workspace ID used during Manage installation.</p>
-<h3 id="mas_domain">mas_domain<a class="headerlink" href="#mas_domain" title="Permanent link">¤</a></h3>
-<p>MAS cluster domain name.</p>
+<p><strong>Purpose</strong>: Identifies the workspace containing the Manage application to configure.</p>
+<h3 id="mas_app_id">mas_app_id<a class="headerlink" href="#mas_app_id" title="Permanent link">¤</a></h3>
+<p>Application identifier.</p>
 <ul>
 <li><strong>Optional</strong></li>
-<li>Environment Variable: <code>MAS_DOMAIN</code></li>
-<li>Default: Discovered from Suite CR</li>
+<li>Environment Variable: <code>MAS_APP_ID</code></li>
+<li>Default: <code>manage</code></li>
 </ul>
-<p><strong>Purpose</strong>: Specifies the domain name for the Manage cluster, used to construct the image stitching API URL.</p>
-<p><strong>When to use</strong>:
-- Use default (auto-discovery) for standard deployments
-- Override if auto-discovery fails or for custom domains
-- Required for constructing service endpoints</p>
-<p><strong>Valid values</strong>: Valid DNS domain name (e.g., <code>civil.ibmmasdev.com</code>, <code>apps.cluster.example.com</code>)</p>
-<p><strong>Impact</strong>: Used to construct the <code>mci.imagestitching.apiurl</code> system property for the image stitching service endpoint.</p>
-<p><strong>Related variables</strong>:
-- <code>mas_instance_id</code>: Instance in this domain
-- <code>mas_workspace_id</code>: Workspace in this domain</p>
-<p><strong>Note</strong>: The role attempts to discover the domain from the Suite CR. Only override if auto-discovery doesn't work for your environment.</p>
-<h3 id="stitching_pvcname">stitching_pvcname<a class="headerlink" href="#stitching_pvcname" title="Permanent link">¤</a></h3>
-<p>PVC name postfix for image stitching storage.</p>
+<p><strong>Purpose</strong>: Set to <code>health</code> when configuring a Health stand-alone application (supported by the <code>attachments</code>, <code>bim</code> and <code>dbc-scripts</code> actions).</p>
+<h3 id="mas_manage_attachments_provider">mas_manage_attachments_provider<a class="headerlink" href="#mas_manage_attachments_provider" title="Permanent link">¤</a></h3>
+<p>Attachment storage provider (action: <code>attachments</code>).</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>MAS_MANAGE_ATTACHMENTS_PROVIDER</code></li>
+<li>Default: <code>filestorage</code></li>
+</ul>
+<p><strong>Valid values</strong>: <code>filestorage</code>, <code>ibm</code>, <code>aws</code></p>
+<p><strong>Note</strong>: The former <code>db</code> configuration mode (raw SQL against the Manage database) has been removed; only the CR-based configuration is supported. Setting <code>mas_manage_attachment_configuration_mode</code> to <code>db</code> fails with a migration message.</p>
+<h3 id="mas_manage_birt_report_bundle_name">mas_manage_birt_report_bundle_name<a class="headerlink" href="#mas_manage_birt_report_bundle_name" title="Permanent link">¤</a></h3>
+<p>Name used for the report server bundle when one is not already configured (action: <code>birt</code>).</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>MANAGE_REPORT_BUNDLE_SERVER_NAME</code></li>
+<li>Default: <code>rpt</code></li>
+</ul>
+<h3 id="mas_manage_custfiles_provider">mas_manage_custfiles_provider<a class="headerlink" href="#mas_manage_custfiles_provider" title="Permanent link">¤</a></h3>
+<p>Customer files storage provider (action: <code>custfiles</code>).</p>
+<ul>
+<li><strong>Required</strong> for the action</li>
+<li>Environment Variable: <code>MAS_MANAGE_CUSTFILES_PROVIDER</code> (falls back to the legacy <code>COS_TYPE</code>)</li>
+</ul>
+<p><strong>Valid values</strong>: <code>ibm</code>, <code>aws</code></p>
+<h3 id="mas_manage_imagestitching_pvc_name">mas_manage_imagestitching_pvc_name<a class="headerlink" href="#mas_manage_imagestitching_pvc_name" title="Permanent link">¤</a></h3>
+<p>Name of the PVC used for image stitching files (action: <code>imagestitching</code>).</p>
 <ul>
 <li><strong>Optional</strong></li>
 <li>Environment Variable: <code>IMAGESTITCHING_PVCNAME</code></li>
 <li>Default: <code>manage-imagestitching</code></li>
 </ul>
-<p><strong>Purpose</strong>: Defines the postfix for the PVC name. The full PVC name is constructed as <code>{mas_instance_id}-{mas_workspace_id}-{stitching_pvcname}</code>.</p>
-<p><strong>When to use</strong>:
-- Use default for standard deployments
-- Override for custom naming conventions
-- Must be unique within the namespace</p>
-<p><strong>Valid values</strong>: Valid Kubernetes resource name (lowercase alphanumeric and hyphens)</p>
-<p><strong>Impact</strong>: Determines the PVC name used for image stitching data storage. The ManageWorkspace CR is updated with this PVC reference.</p>
-<p><strong>Related variables</strong>:
-- <code>mas_instance_id</code>: Prepended to create full PVC name
-- <code>mas_workspace_id</code>: Prepended to create full PVC name
-- <code>stitching_storage_class</code>: Storage class for this PVC
-- <code>stitching_storage_size</code>: Size of this PVC</p>
-<p><strong>Note</strong>: The default <code>manage-imagestitching</code> clearly identifies the PVC purpose. Full PVC name example: <code>civil-masdev-manage-imagestitching</code>.</p>
-<h3 id="stitching_storage_class">stitching_storage_class<a class="headerlink" href="#stitching_storage_class" title="Permanent link">¤</a></h3>
-<p>Storage class for image stitching PVC.</p>
+<p><strong>Related variables</strong>: <code>mas_manage_imagestitching_storage_class</code> (defaults to the cluster RWX storage class), <code>mas_manage_imagestitching_storage_size</code> (<code>20Gi</code>), <code>mas_manage_imagestitching_storage_mode</code> (<code>ReadWriteMany</code>), <code>mas_manage_imagestitching_mount_path</code> (<code>imagestitching</code>)</p>
+<h3 id="manage_certificates">manage_certificates<a class="headerlink" href="#manage_certificates" title="Permanent link">¤</a></h3>
+<p>List of PEM certificate strings to import into the Manage truststore (action: <code>import-certs</code>). Requires <code>manage_certificates_alias_prefix</code>.</p>
 <ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>IMAGESTITCHING_STORAGE_CLASS</code></li>
-<li>Default: Auto-discovered</li>
+<li><strong>Required</strong> (or provide <code>manage_certificates_file_path_local</code>)</li>
+<li>Default: None</li>
 </ul>
-<p><strong>Purpose</strong>: Specifies the Kubernetes storage class to use for the image stitching PVC. Must support ReadWriteMany (RWX) access mode.</p>
-<p><strong>When to use</strong>:
-- Use default (auto-discovery) if cluster has suitable RWX storage class
-- Override to specify a particular RWX-capable storage class
-- Required when multiple RWX storage classes exist</p>
-<p><strong>Valid values</strong>: Valid Kubernetes storage class name that supports RWX (e.g., <code>nfs-client</code>, <code>ocs-storagecluster-cephfs</code>, <code>ibmc-file-gold</code>)</p>
-<p><strong>Impact</strong>: Determines the underlying storage technology for image stitching data. Must support ReadWriteMany for multiple pod access.</p>
-<p><strong>Related variables</strong>:
-- <code>stitching_pvcname</code>: PVC using this storage class
-- <code>stitching_storage_mode</code>: Must be <code>ReadWriteMany</code>
-- <code>stitching_storage_size</code>: Size of storage to provision</p>
-<p><strong>Note</strong>: <strong>CRITICAL</strong> - The storage class MUST support ReadWriteMany (RWX) access mode as image stitching requires shared access from multiple pods. Common RWX storage classes include NFS, CephFS, and IBM Cloud File Storage.</p>
-<h3 id="stitching_storage_size">stitching_storage_size<a class="headerlink" href="#stitching_storage_size" title="Permanent link">¤</a></h3>
-<p>PVC storage size for image stitching.</p>
+<p><strong>Note</strong>: When invoked from <code>suite_app_config</code> for the AI Service integration, these variables are set automatically.</p>
+<h3 id="mas_manage_dbc_script_path_local">mas_manage_dbc_script_path_local<a class="headerlink" href="#mas_manage_dbc_script_path_local" title="Permanent link">¤</a></h3>
+<p>Local folder containing the <code>.dbc</code> scripts to load (action: <code>dbc-scripts</code>).</p>
 <ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>IMAGESTITCHING_STORAGE_SIZE</code></li>
-<li>Default: <code>20Gi</code></li>
+<li><strong>Required</strong> for the action</li>
+<li>Environment Variable: <code>DBC_SCRIPT_PATH_LOCAL</code></li>
+<li>Default: None</li>
 </ul>
-<p><strong>Purpose</strong>: Specifies the size of the persistent volume claim for storing image stitching data and processed images.</p>
-<p><strong>When to use</strong>:
-- Use default (<code>20Gi</code>) for small to medium deployments
-- Increase for large-scale infrastructure inspection projects
-- Consider image resolution and retention requirements</p>
-<p><strong>Valid values</strong>: Kubernetes storage size format (e.g., <code>20Gi</code>, <code>50Gi</code>, <code>100Gi</code>, <code>1Ti</code>)</p>
-<p><strong>Impact</strong>: Determines how much image data can be stored. Insufficient storage will prevent new image processing.</p>
-<p><strong>Related variables</strong>:
-- <code>stitching_pvcname</code>: PVC with this size
-- <code>stitching_storage_class</code>: Storage class providing this capacity</p>
-<p><strong>Note</strong>: Size requirements depend on:
-- Number of images processed
-- Image resolution and format
-- Retention period for processed images
-- Number of concurrent stitching operations
-Start with 20Gi and monitor usage to adjust as needed.</p>
-<h3 id="stitching_storage_mode">stitching_storage_mode<a class="headerlink" href="#stitching_storage_mode" title="Permanent link">¤</a></h3>
-<p>PVC access mode for image stitching.</p>
+<p><strong>Note</strong>: This action is not idempotent by nature — running it again re-applies the scripts.</p>
+<h3 id="mas_manage_logging_provider">mas_manage_logging_provider<a class="headerlink" href="#mas_manage_logging_provider" title="Permanent link">¤</a></h3>
+<p>Manage log upload storage provider (action: <code>logging</code>).</p>
 <ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>IMAGESTITCHING_STORAGE_MODE</code></li>
-<li>Default: <code>ReadWriteMany</code></li>
+<li><strong>Required</strong> for the action</li>
+<li>Environment Variable: <code>MAS_MANAGE_LOGGING_PROVIDER</code> (falls back to the legacy <code>COS_TYPE</code>)</li>
 </ul>
-<p><strong>Purpose</strong>: Specifies the Kubernetes access mode for the image stitching PVC. Must be ReadWriteMany to allow multiple pods to access the storage simultaneously.</p>
-<p><strong>When to use</strong>:
-- Always use default <code>ReadWriteMany</code> for image stitching
-- Do not change unless you understand the implications
-- Required for multi-pod access to shared data</p>
-<p><strong>Valid values</strong>: <code>ReadWriteMany</code> (RWX) - other modes not supported</p>
-<p><strong>Impact</strong>: Enables multiple Manage pods to read and write image stitching data concurrently. Essential for distributed image processing.</p>
-<p><strong>Related variables</strong>:
-- <code>stitching_storage_class</code>: Must support this access mode
-- <code>stitching_pvcname</code>: PVC with this access mode</p>
-<p><strong>Note</strong>: <strong>CRITICAL</strong> - ReadWriteMany (RWX) is mandatory for image stitching functionality. Do not change this value. Ensure your storage class supports RWX access mode.</p>
-<h3 id="stitching_storage_mountpath">stitching_storage_mountpath<a class="headerlink" href="#stitching_storage_mountpath" title="Permanent link">¤</a></h3>
-<p>Mount path for image stitching storage.</p>
+<p><strong>Valid values</strong>: <code>ibm</code>, <code>aws</code></p>
+<p><strong>Related variables</strong>: <code>mas_manage_logging_is_prod</code> (<code>false</code>; enables the Admin Center lockdown on production databases), <code>mas_manage_logging_secret_name</code> (<code>s3secretkey</code>), <code>mas_manage_logging_force</code> (<code>false</code>; reconfigure logging even when a destination is already set)</p>
+<h3 id="mas_manage_custom_persistent_volumes">mas_manage_custom_persistent_volumes<a class="headerlink" href="#mas_manage_custom_persistent_volumes" title="Permanent link">¤</a></h3>
+<p>Custom persistent volume definitions as a YAML list string (action: <code>pvc</code>). Each entry requires <code>pvcName</code>, <code>mountPath</code> and <code>size</code>; <code>storageClassName</code> defaults to the cluster RWX storage class.</p>
 <ul>
-<li><strong>Optional</strong></li>
-<li>Environment Variable: <code>IMAGESTITCHING_STORAGE_MOUNTPATH</code></li>
-<li>Default: <code>imagestitching</code></li>
+<li><strong>Required</strong> for the action (or provide <code>mas_manage_custom_persistent_volumes_file</code>)</li>
+<li>Environment Variable: <code>MAS_MANAGE_CUSTOM_PERSISTENT_VOLUMES</code></li>
+<li>Default: None</li>
 </ul>
-<p><strong>Purpose</strong>: Specifies the mount path where the image stitching PVC is mounted in Manage pods.</p>
-<p><strong>When to use</strong>:
-- Use default (<code>imagestitching</code>) for standard deployments
-- Override only if you have specific path requirements
-- Must not conflict with other mount paths</p>
-<p><strong>Valid values</strong>: Valid Linux filesystem path component (alphanumeric, no leading slash)</p>
-<p><strong>Impact</strong>: Determines where image stitching data is accessible within Manage pods. The <code>imagestitching.dataInputPath</code> system property is set to this path.</p>
-<p><strong>Related variables</strong>:
-- <code>stitching_pvcname</code>: PVC mounted at this path</p>
-<p><strong>Note</strong>: The default <code>imagestitching</code> is relative to the Manage pod's base mount path. The full path is constructed by Manage. Do not include leading or trailing slashes.</p>
-<h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
-<p>The following sample will configure image stitching for an existing Manage application instance via ManageWorkspace CR update:</p>
+<p><strong>Note</strong>: The former discrete single-PVC variables (<code>MAS_APP_SETTINGS_CUSTOM_PVC_NAME</code>, <code>MAS_APP_SETTINGS_CUSTOM_MOUNT_PATH</code>, etc.) are replaced by the list format — express the former SRE default as a list entry with <code>pvcName: &lt;instance&gt;-&lt;workspace&gt;-cust-files-pvc</code> and <code>mountPath: /MeaGlobalDirs</code>.</p>
+<h3 id="db2_instance_name">db2_instance_name<a class="headerlink" href="#db2_instance_name" title="Permanent link">¤</a></h3>
+<p>Db2 Warehouse instance name, used by the actions that execute SQL against the Manage database (<code>bim</code>, <code>logging</code> with <code>mas_manage_logging_is_prod</code>).</p>
+<ul>
+<li><strong>Required</strong> for those actions</li>
+<li>Environment Variable: <code>DB2_INSTANCE_NAME</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Note</strong>: Not available when an external (JDBC) database is used; those actions fail with a clear message in that case. To find the instance name, go to the Db2 namespace and look for pods with <code>label=engine</code>. Describe the pod and find the <code>app</code> label value - that's your instance name.</p>
+<h2 id="example-playbooks">Example Playbooks<a class="headerlink" href="#example-playbooks" title="Permanent link">¤</a></h2>
+<h3 id="configure-attachments-and-bim-together">Configure attachments and BIM together<a class="headerlink" href="#configure-attachments-and-bim-together" title="Permanent link">¤</a></h3>
+<p>The following sample can be used to deploy Manage and configure attachment storage and BIM support as part of the same workflow:</p>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
-    mas_instance_id: civil
+    mas_app_id: manage
+    mas_app_channel: 8.4.x
+    mas_instance_id: masinst1
     mas_workspace_id: masdev
-    mas_domain: civil.ibmmasdev.com
-    stitching_pvcname: manage-imagestitching
-    stitching_storage_class: nfs-client
-    stitching_storage_size: 20Gi
-    stitching_storage_mode: ReadWriteMany
-    stitching_storage_mountpath: imagestitching
+    db2_instance_name: db2w-manage
+    mas_app_settings_persistent_volumes_flag: true
+    mas_manage_attachments_provider: filestorage
+    mas_app_settings_bim_mount_path: /bim
   roles:
-    - ibm.mas_devops.suite_manage_imagestitching_config
+    - ibm.mas_devops.db2
+    - ibm.mas_devops.suite_db2_setup_for_manage
+    - ibm.mas_devops.suite_config
+    - ibm.mas_devops.suite_app_install
+    - ibm.mas_devops.suite_app_config
+    - role: ibm.mas_devops.suite_app_config_manage
+      vars:
+        suite_app_config_manage_actions:
+          - attachments
+          - bim
+</code></pre>
+<h3 id="import-certificates-from-a-file">Import certificates from a file<a class="headerlink" href="#import-certificates-from-a-file" title="Permanent link">¤</a></h3>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_workspace_id: masdev
+    manage_certificates_file_path_local: /path/to/certs.yml
+  roles:
+    - role: ibm.mas_devops.suite_app_config_manage
+      vars:
+        suite_app_config_manage_actions: [import-certs]
+</code></pre>
+<h3 id="add-custom-persistent-volumes">Add custom persistent volumes<a class="headerlink" href="#add-custom-persistent-volumes" title="Permanent link">¤</a></h3>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_workspace_id: masdev
+    mas_manage_custom_persistent_volumes: |
+      persistentVolumes:
+        - mountPath: /MeaGlobalDirs
+          pvcName: masinst1-masdev-cust-files-pvc
+          size: 100Gi
+  roles:
+    - role: ibm.mas_devops.suite_app_config_manage
+      vars:
+        suite_app_config_manage_actions: [pvc]
 </code></pre>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">¤</a></h2>
 <p>EPL-2.0</p>
@@ -927,7 +917,7 @@ Start with 20Gi and monitor usage to adjust as needed.</p>
           <!-- Navigation footer (prev/next) -->
 <nav class="md-footer-nav" aria-label="Footer navigation">
   <div class="md-footer-nav__inner">
-    <a href="../suite_manage_customer_files_config/" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+    <a href="../suite_app_config/" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
       <div class="md-footer-nav__direction">
         <svg class="md-footer-nav__icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path>
@@ -935,10 +925,10 @@ Start with 20Gi and monitor usage to adjust as needed.</p>
         <span>Previous</span>
       </div>
       <div class="md-footer-nav__title">
-        <span class="md-footer-nav__title-text">suite_manage_customer_files_config</span>
+        <span class="md-footer-nav__title-text">suite_app_config</span>
       </div>
     </a>
-    <a href="../suite_manage_import_certs_config/" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
+    <a href="../suite_app_install/" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
       <div class="md-footer-nav__direction">
         <span>Next</span>
         <svg class="md-footer-nav__icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -946,7 +936,7 @@ Start with 20Gi and monitor usage to adjust as needed.</p>
         </svg>
       </div>
       <div class="md-footer-nav__title">
-        <span class="md-footer-nav__title-text">suite_manage_import_certs_config</span>
+        <span class="md-footer-nav__title-text">suite_app_install</span>
       </div>
     </a>
   </div>
@@ -963,8 +953,8 @@ Start with 20Gi and monitor usage to adjust as needed.</p>
         <div class="md-toc__title">On this page</div>
         <ul class="md-toc__list">
               <li class="md-toc__item">
-                <a href="#what-this-role-does" class="md-toc__link" data-md-level="1">
-                  What This Role Does
+                <a href="#actions" class="md-toc__link" data-md-level="1">
+                  Actions
                 </a>
               </li>
               <li class="md-toc__item">
@@ -972,6 +962,11 @@ Start with 20Gi and monitor usage to adjust as needed.</p>
                   Role Variables
                 </a>
                   <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#suite_app_config_manage_actions" class="md-toc__link" data-md-level="2">
+                          suite_app_config_manage_actions
+                        </a>
+                      </li>
                       <li class="md-toc__item">
                         <a href="#mas_instance_id" class="md-toc__link" data-md-level="2">
                           mas_instance_id
@@ -983,41 +978,78 @@ Start with 20Gi and monitor usage to adjust as needed.</p>
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#mas_domain" class="md-toc__link" data-md-level="2">
-                          mas_domain
+                        <a href="#mas_app_id" class="md-toc__link" data-md-level="2">
+                          mas_app_id
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#stitching_pvcname" class="md-toc__link" data-md-level="2">
-                          stitching_pvcname
+                        <a href="#mas_manage_attachments_provider" class="md-toc__link" data-md-level="2">
+                          mas_manage_attachments_provider
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#stitching_storage_class" class="md-toc__link" data-md-level="2">
-                          stitching_storage_class
+                        <a href="#mas_manage_birt_report_bundle_name" class="md-toc__link" data-md-level="2">
+                          mas_manage_birt_report_bundle_name
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#stitching_storage_size" class="md-toc__link" data-md-level="2">
-                          stitching_storage_size
+                        <a href="#mas_manage_custfiles_provider" class="md-toc__link" data-md-level="2">
+                          mas_manage_custfiles_provider
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#stitching_storage_mode" class="md-toc__link" data-md-level="2">
-                          stitching_storage_mode
+                        <a href="#mas_manage_imagestitching_pvc_name" class="md-toc__link" data-md-level="2">
+                          mas_manage_imagestitching_pvc_name
                         </a>
                       </li>
                       <li class="md-toc__item">
-                        <a href="#stitching_storage_mountpath" class="md-toc__link" data-md-level="2">
-                          stitching_storage_mountpath
+                        <a href="#manage_certificates" class="md-toc__link" data-md-level="2">
+                          manage_certificates
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#mas_manage_dbc_script_path_local" class="md-toc__link" data-md-level="2">
+                          mas_manage_dbc_script_path_local
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#mas_manage_logging_provider" class="md-toc__link" data-md-level="2">
+                          mas_manage_logging_provider
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#mas_manage_custom_persistent_volumes" class="md-toc__link" data-md-level="2">
+                          mas_manage_custom_persistent_volumes
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#db2_instance_name" class="md-toc__link" data-md-level="2">
+                          db2_instance_name
                         </a>
                       </li>
                   </ul>
               </li>
               <li class="md-toc__item">
-                <a href="#example-playbook" class="md-toc__link" data-md-level="1">
-                  Example Playbook
+                <a href="#example-playbooks" class="md-toc__link" data-md-level="1">
+                  Example Playbooks
                 </a>
+                  <ul class="md-toc__list">
+                      <li class="md-toc__item">
+                        <a href="#configure-attachments-and-bim-together" class="md-toc__link" data-md-level="2">
+                          Configure attachments and BIM together
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#import-certificates-from-a-file" class="md-toc__link" data-md-level="2">
+                          Import certificates from a file
+                        </a>
+                      </li>
+                      <li class="md-toc__item">
+                        <a href="#add-custom-persistent-volumes" class="md-toc__link" data-md-level="2">
+                          Add custom persistent volumes
+                        </a>
+                      </li>
+                  </ul>
               </li>
               <li class="md-toc__item">
                 <a href="#license" class="md-toc__link" data-md-level="1">
