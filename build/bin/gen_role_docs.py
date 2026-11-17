@@ -27,7 +27,6 @@ ROLES = [
     "aws_vpc",
     "cert_manager",
     "cis",
-    "configure_manage_eventstreams",
     "cos",
     "cos_bucket",
     "cp4d",

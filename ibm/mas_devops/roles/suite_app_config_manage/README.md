@@ -14,6 +14,7 @@ This role provides post-installation configuration actions for the Maximo Manage
 | `bim` | `suite_manage_bim_config` | Configure BIM (Building Information Models) support: create the BIM folders on the mounted PVC and set the `bim.*` system properties |
 | `birt` | `suite_manage_birt_report_config` | Configure the BIRT report server bundle for Manage |
 | `custfiles` | `suite_manage_customer_files_config` | Provision the IBM COS / AWS S3 buckets (main, recovery, backup) used to store Manage customer files, and import the storage certificates |
+| `eventstreams` | `configure_manage_eventstreams` | Configure Manage to use IBM Cloud Event Streams: import the Event Streams certificates, set the `mxe.*` system properties and insert the Kafka message hub provider, queues and cron task definitions |
 | `imagestitching` | `suite_manage_imagestitching_config` | Configure persistent storage for Manage image stitching files (Civil component) |
 | `import-certs` | `suite_manage_import_certs_config` | Import certificates into the ManageWorkspace CR so they are added to the Manage truststore |
 | `dbc-scripts` | `suite_manage_load_dbc_scripts` | Load DBC (database configuration) scripts into the Manage database via the maxinst pod |
@@ -87,6 +88,19 @@ Customer files storage provider (action: `custfiles`).
 - Environment Variable: `MAS_MANAGE_CUSTFILES_PROVIDER` (falls back to the legacy `COS_TYPE`)
 
 **Valid values**: `ibm`, `aws`
+
+### mas_manage_eventstreams_name
+The IBM Cloud Event Streams instance name (action: `eventstreams`).
+
+- **Required** for the action
+- Environment Variable: `EVENTSTREAMS_NAME`
+- Default: None
+
+**Purpose**: Identifies the Event Streams service instance whose Kafka brokers Manage is configured to use.
+
+**Related variables**: `mas_manage_eventstreams_location` (`us-east`), `ibmcloud_apikey`, `ibmcloud_resourcegroup` (`Default`), `db2wh_dbname` (`BLUDB`), `cpd_meta_namespace` (the CP4D namespace hosting the Manage Db2 Warehouse), `mas_manage_eventstreams_manage_url_subdomain` (`main`; the former role hardcoded this value, override when the Manage UI route uses a different workspace subdomain)
+
+**Note**: This action inserts a dummy Kafka password during configuration (not the actual one); the real password must be configured manually via the Manage administration dashboard afterwards.
 
 ### mas_manage_imagestitching_pvc_name
 Name of the PVC used for image stitching files (action: `imagestitching`).

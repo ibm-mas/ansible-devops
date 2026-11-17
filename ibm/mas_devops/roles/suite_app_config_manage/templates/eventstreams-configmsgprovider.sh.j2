@@ -1,5 +1,8 @@
 #!/bin/bash
-
+# Configure the Kafka message hub provider, queues and endpoints for Manage.
+# The script exits early if the marker file exists to avoid unnecessarily
+# re-running the configuration, however the marker file is lost after pod
+# restarts.
 if [ -f "/tmp/config_msgprovider" ]; then
   echo "Aborting run.  /tmp/config_msgprovider exists; this script has already been executed"
   exit 0
@@ -10,7 +13,7 @@ db2 connect to {{ db2wh_dbname }}
 
 db2 "insert into maximo.MSGHUBPROVIDER (PROVIDER,PROVIDERTYPE,ISDEFAULT,DESCRIPTION,MSGHUBPROVIDERID) VALUES ('KAFKA','KAFKA',1,'KAFKA',maximo.MSGHUBPROVIDERSEQ.nextval)"
 
-db2 "insert into maximo.msghubprovidercfg(provider,propname,propvalue,msghubprovidercfgid) values('KAFKA','BOOTSTRAPSERVERS','\"{{ es_server0 }}\", \"{{ es_server1 }}\", \"{{ es_server2 }}\", \"{{ es_server3 }}\", \"{{ es_server4 }}\", \"{{ es_server5 }}\"',NEXTVAL FOR MAXIMO.MSGHUBPROVIDERCFGSEQ)"
+db2 "insert into maximo.msghubprovidercfg(provider,propname,propvalue,msghubprovidercfgid) values('KAFKA','BOOTSTRAPSERVERS','{% for broker in es_brokers %}\"{{ broker }}\"{% if not loop.last %}, {% endif %}{% endfor %}',NEXTVAL FOR MAXIMO.MSGHUBPROVIDERCFGSEQ)"
 
 db2 "insert into maximo.msghubprovidercfg(provider,propname,propvalue,msghubprovidercfgid) values('KAFKA','SECURITY_PROTOCOL','SASL_SSL',NEXTVAL FOR MAXIMO.MSGHUBPROVIDERCFGSEQ)"
 
