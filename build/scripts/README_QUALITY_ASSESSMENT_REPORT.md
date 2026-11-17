@@ -2,7 +2,7 @@
 
 **Generated:** 2026-02-19  
 **Collection:** ibm.mas_devops  
-**Total Roles Assessed:** 78
+**Total Roles Assessed:** 77
 
 ## Executive Summary
 
@@ -414,15 +414,11 @@ These roles achieve 100% structural compliance. The "no variables documented" wa
     - OpenShift mirroring
     - No variables documented (OCP mirror operations)
 
-#### Utility Roles (5 roles)
+#### Utility Roles (4 roles)
 
 67. **ansible_version_check** - 100% compliant
     - Ansible version validation
     - No variables documented (version check utility)
-
-68. **configure_manage_eventstreams** - 100% compliant
-    - Event Streams configuration for Manage
-    - No variables documented (config utility)
 
 ## Quality Highlights
 
