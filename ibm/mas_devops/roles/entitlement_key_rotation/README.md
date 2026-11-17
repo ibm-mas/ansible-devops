@@ -4,7 +4,7 @@ This role creates/updates the entitlement username and password that are stored 
 
 The main secret that is updated by this role is the `ibm-entitlement` which holds the credentials needed to pull the MAS images used by MAS Core or the MAS applications.
 
-By default, this role will search for all MAS related namespaces that might contain the secret that holds the entitlement key to be updated. 
+By default, this role will search for all MAS related namespaces that might contain the secret that holds the entitlement key to be updated.
 
 The list of namespaces to be updated with new username/password credentials are:
 
@@ -15,58 +15,96 @@ The list of namespaces to be updated with new username/password credentials are:
 **Note**
 This role uses [`ocp_login`](../roles/ocp_login.md) to login into the target clusters, therefore make sure you export the corresponding environment variables accordingly to the cluster type you want to target.
 
-## Role Variables - General
-### artifactory_username 
+## Role Variables
 
-- Required to rotate the `ibm-entitlement` and `wiotp-docker-local` secret credentials which is used to pull images across MAS namespaces for development installs and pre-release catalog sources.
-- Environment Variable: `ARTIFACTORY_USERNAME`
-- Default Value: None
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`artifactory_username`](#artifactory_username) | Conditional | None |
+| [`artifactory_token`](#artifactory_token) | Conditional | None |
+| [`mas_entitlement_username`](#mas_entitlement_username) | Conditional | None |
+| [`mas_entitlement_key`](#mas_entitlement_key) | Conditional | None |
+| [`cluster_name`](#cluster_name) | Yes | None |
+| [`sls_namespace`](#sls_namespace) | No | `ibm-sls` |
+| [`mas_clusters_entitlement_key_rotation_list`](#mas_clusters_entitlement_key_rotation_list) | No | Uses `cluster_name` |
+| [`mas_namespaces_entitlement_key_rotation_list`](#mas_namespaces_entitlement_key_rotation_list) | No | All MAS namespaces |
 
-### artifactory_token
+The credential variables are conditional: `artifactory_username`/`artifactory_token` rotate the `ibm-entitlement` and `wiot-docker-local` secrets used for development installs and pre-release catalog sources, while `mas_entitlement_username`/`mas_entitlement_key` rotate the `ibm-entitlement` secret only, for MAS installs using release catalog sources.
 
-- Required to rotate the `ibm-entitlement` and `wiotp-docker-local` secret credentials which is used to pull images across MAS namespaces for development installs and pre-release catalog sources.
-- Environment Variable: `ARTIFACTORY_TOKEN`
-- Default Value: None
+### Target Cluster
 
-### mas_entitlement_username
+#### cluster_name
 
-- Required to rotate the `ibm-entitlement` secret credentials only, which is used to pull images across MAS namespaces for MAS installs using release catalog sources.
-- Environment Variable: `MAS_ENTITLEMENT_USERNAME`
-- Default Value: None
+The target cluster to rotate the credentials/entitlement key secrets.
 
-
-### mas_entitlement_key
-- Required to rotate the `ibm-entitlement` secret credentials only, which is used to pull images across MAS namespaces for MAS installs using release catalog sources.
-- Environment Variable: `MAS_ENTITLEMENT_KEY`
-- Default Value: None
-
-### cluster_name
-- Required. The target cluster to rotate the credentials/entitlement key secrets.
+- **Required**
 - Environment Variable: `CLUSTER_NAME`
-- Default Value: None
+- Default: None
 
-### sls_namespace
-- Optional. Defines the SLS namespace that holds `ibm-entitlement` secret which pulls Suite License Services related images.
+#### sls_namespace
+
+Defines the SLS namespace that holds the `ibm-entitlement` secret which pulls Suite License Services related images.
+
+- **Optional**
 - Environment Variable: `SLS_NAMESPACE`
-- Default Value: `ibm-sls`
+- Default: `ibm-sls`
 
-## Role Variables - Advanced mode
+### Credentials
+
+#### artifactory_username
+
+Artifactory username used to rotate the `ibm-entitlement` and `wiot-docker-local` secret credentials, which are used to pull images across MAS namespaces for development installs and pre-release catalog sources.
+
+- **Required** to rotate development/pre-release credentials
+- Environment Variable: `ARTIFACTORY_USERNAME`
+- Default: None
+
+#### artifactory_token
+
+Artifactory token used together with `artifactory_username`.
+
+- **Required** to rotate development/pre-release credentials
+- Environment Variable: `ARTIFACTORY_TOKEN`
+- Default: None
+
+#### mas_entitlement_username
+
+Entitlement username used to rotate the `ibm-entitlement` secret credentials only, which is used to pull images across MAS namespaces for MAS installs using release catalog sources.
+
+- **Required** to rotate release credentials
+- Environment Variable: `MAS_ENTITLEMENT_USERNAME`
+- Default: None
+
+#### mas_entitlement_key
+
+Entitlement key used together with `mas_entitlement_username`.
+
+- **Required** to rotate release credentials
+- Environment Variable: `MAS_ENTITLEMENT_KEY`
+- Default: None
+
+### Advanced Mode
 
 Use the following variables to change the default behavior of this role to only rotate the entitlement key for specific clusters or namespaces, instead of running it for all MAS related namespaces.
 
-### mas_clusters_entitlement_key_rotation_list
-- Optionally define a list of clusters to loop through the entitlement key rotation.
-- Environment Variable: `MAS_CLUSTERS_ENTITLEMENT_KEY_ROTATION_LIST`
-- Default Value: If not set, the `cluster_name` property will be used to target the cluster while executing this role.
-- Example:
-`export MAS_CLUSTERS_ENTITLEMENT_KEY_ROTATION_LIST='cluster1,cluster2'`
+#### mas_clusters_entitlement_key_rotation_list
 
-### mas_namespaces_entitlement_key_rotation_list
-- Optionally define a specific list of namespaces to loop through the entitlement key rotation.
+Optionally define a list of clusters to loop through for the entitlement key rotation.
+
+- **Optional**
+- Environment Variable: `MAS_CLUSTERS_ENTITLEMENT_KEY_ROTATION_LIST`
+- Default: If not set, the `cluster_name` property will be used to target the cluster while executing this role.
+
+Example: `export MAS_CLUSTERS_ENTITLEMENT_KEY_ROTATION_LIST='cluster1,cluster2'`
+
+#### mas_namespaces_entitlement_key_rotation_list
+
+Optionally define a specific list of namespaces to loop through for the entitlement key rotation.
+
+- **Optional**
 - Environment Variable: `MAS_NAMESPACES_ENTITLEMENT_KEY_ROTATION_LIST`
-- Default Value: If not set, all MAS related namespaces for all MAS instances will be target for entitlement key rotation.
-- Example:
-`export MAS_NAMESPACES_ENTITLEMENT_KEY_ROTATION_LIST='ibm-sls,openshift-marketplace'`
+- Default: If not set, all MAS related namespaces for all MAS instances will be targeted for entitlement key rotation.
+
+Example: `export MAS_NAMESPACES_ENTITLEMENT_KEY_ROTATION_LIST='ibm-sls,openshift-marketplace'`
 
 ## Example Playbook
 

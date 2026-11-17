@@ -5,181 +5,100 @@ Provision and configure AWS Elastic File System (EFS) storage for Red Hat OpenSh
 EFS provides ReadWriteMany (RWX) persistent storage essential for MAS applications that require shared file access across multiple pods, such as Manage attachments and customer files.
 
 The role performs the following operations:
+
 1. Configures security group inbound rules for NFS access
 2. Creates EFS file system in the cluster's VPC
 3. Establishes mount targets in all availability zones
 4. Creates access points for isolated storage
 5. Deploys EFS CSI driver and StorageClass
 
-
 ## Role Variables
 
-### aws_access_key_id
-AWS access key ID for authentication.
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`aws_access_key_id`](#aws_access_key_id) | Yes | None |
+| [`aws_secret_access_key`](#aws_secret_access_key) | Yes | None |
+| [`aws_region`](#aws_region) | No | `eu-west-2` |
+| [`cluster_name`](#cluster_name) | Yes | None |
+| [`efs_unique_id`](#efs_unique_id) | No | Value of `cluster_name` |
+| [`creation_token_prefix`](#creation_token_prefix) | No | `mas_devops.` |
+| [`create_storage_class`](#create_storage_class) | No | `true` |
+
+### AWS Credentials
+
+#### aws_access_key_id
+
+AWS access key ID for authentication — a valid 20-character alphanumeric AWS access key ID.
 
 - **Required**
 - Environment Variable: `AWS_ACCESS_KEY_ID`
 - Default: None
 
-**Purpose**: Provides AWS credentials for creating and configuring EFS resources via AWS CLI.
+Must have IAM permissions for EFS, EC2, and VPC operations (creating EFS resources, modifying security groups, and managing VPC resources); insufficient permissions will cause provisioning failures. Consider using IAM roles instead of access keys for better security, and store credentials securely, never in version control.
 
-**When to use**: Always required. Must have permissions to create EFS, modify security groups, and manage VPC resources.
+#### aws_secret_access_key
 
-**Valid values**: Valid AWS access key ID (20-character alphanumeric string).
-
-**Impact**: Used to authenticate all AWS API calls. Insufficient permissions will cause provisioning failures.
-
-**Related variables**: `aws_secret_access_key`, `aws_region`
-
-**Notes**:
-- Requires IAM permissions for EFS, EC2, and VPC operations
-- Consider using IAM roles instead of access keys for better security
-- Store credentials securely, never commit to version control
-
-### aws_secret_access_key
-AWS secret access key for authentication.
+AWS secret access key for authentication — a valid 40-character alphanumeric AWS secret access key corresponding to `aws_access_key_id`.
 
 - **Required**
 - Environment Variable: `AWS_SECRET_ACCESS_KEY`
 - Default: None
 
-**Purpose**: Provides the secret key component of AWS credentials for API authentication.
+Keep the secret key secure and never expose it in logs or version control; rotate credentials regularly per security best practices, and consider AWS STS temporary credentials for enhanced security.
 
-**When to use**: Always required. Must correspond to the `aws_access_key_id`.
+### Cluster and Region
 
-**Valid values**: Valid AWS secret access key (40-character alphanumeric string).
+#### aws_region
 
-**Impact**: Used with access key ID to authenticate AWS API calls. Incorrect key will cause authentication failures.
+AWS region where the EFS instance will be provisioned — a valid AWS region code, for example `us-east-1` (US East, N. Virginia), `us-west-2` (US West, Oregon), `eu-west-1` (Europe, Ireland), `eu-west-2` (Europe, London, default), or `ap-southeast-1` (Asia Pacific, Singapore).
 
-**Related variables**: `aws_access_key_id`, `aws_region`
-
-**Notes**:
-- Keep secret key secure and never expose in logs or version control
-- Rotate credentials regularly per security best practices
-- Consider using AWS STS temporary credentials for enhanced security
-
-### aws_region
-AWS region where the EFS instance will be provisioned.
-
-- Optional
+- **Optional**
 - Environment Variable: `AWS_DEFAULT_REGION`
 - Default: `eu-west-2`
 
-**Purpose**: Specifies the AWS region for EFS provisioning. Must match the ROSA cluster's region.
+EFS must be in the same region as the ROSA cluster — cross-region access is not supported. Verify the cluster region with `rosa describe cluster -c <cluster-name>`; EFS pricing varies by region.
 
-**When to use**: Always set to match your ROSA cluster's region. Default is suitable for EU deployments.
+#### cluster_name
 
-**Valid values**: Valid AWS region code (e.g., `us-east-1`, `eu-west-2`, `ap-southeast-1`). Common values:
-- `us-east-1` - US East (N. Virginia)
-- `us-west-2` - US West (Oregon)
-- `eu-west-1` - Europe (Ireland)
-- `eu-west-2` - Europe (London)
-- `ap-southeast-1` - Asia Pacific (Singapore)
-
-**Impact**: EFS must be in the same region as the ROSA cluster. Cross-region access is not supported.
-
-**Related variables**: `cluster_name`
-
-**Notes**:
-- **Critical**: Must match ROSA cluster region exactly
-- Verify cluster region: `rosa describe cluster -c <cluster-name>`
-- EFS pricing varies by region
-
-### cluster_name
-Name of the ROSA cluster to attach EFS storage.
+Name of the ROSA cluster to attach EFS storage — a valid ROSA cluster name as shown in `rosa list clusters`, case-sensitive.
 
 - **Required**
 - Environment Variable: `CLUSTER_NAME`
 - Default: None
 
-**Purpose**: Identifies the target ROSA cluster for EFS integration. Used to locate the cluster's VPC and configure security groups.
+The cluster must exist before running this role. The role uses this name to find the cluster's VPC ID, configure EFS mount targets in the correct network, and tag AWS resources for cost tracking.
 
-**When to use**: Always required. Must be the exact name of an existing ROSA cluster.
+### EFS Configuration
 
-**Valid values**: Valid ROSA cluster name as shown in `rosa list clusters`.
+#### efs_unique_id
 
-**Impact**: The role uses this name to find the cluster's VPC ID and configure EFS mount targets in the correct network.
+Unique identifier for the EFS instance and StorageClass — an alphanumeric string, typically lowercase (e.g., `mas-prod`, `manage-storage`, `shared-files`).
 
-**Related variables**: `aws_region`, `efs_unique_id`
-
-**Notes**:
-- Cluster must exist before running this role
-- Name is case-sensitive
-- Verify cluster name: `rosa list clusters`
-- Used to tag AWS resources for cost tracking
-
-### efs_unique_id
-Unique identifier for the EFS instance and StorageClass.
-
-- Optional
+- **Optional**
 - Environment Variable: `EFS_UNIQUE_ID`
 - Default: Value of `cluster_name`
 
-**Purpose**: Provides a unique identifier used in EFS resource naming and StorageClass creation. Enables multiple EFS instances per cluster.
+The StorageClass is named `efs-<efs_unique_id>`, and the EFS file system and creation tokens are tagged with this identifier. Set it when you need multiple EFS instances in the same cluster (e.g., `mas-attachments`, `mas-logs`) or want a more descriptive name than the cluster name; it must be unique within the cluster when creating multiple instances.
 
-**When to use**: Set when you need multiple EFS instances in the same cluster, or want a more descriptive name than the cluster name.
+#### creation_token_prefix
 
-**Valid values**: Alphanumeric string, typically lowercase (e.g., `mas-prod`, `manage-storage`, `shared-files`).
+Prefix for AWS resource creation tokens — a string prefix, typically ending with a dot or dash (e.g., `mas_devops.`, `myorg-`, `prod_`).
 
-**Impact**:
-- StorageClass will be named `efs-<efs_unique_id>`
-- EFS file system will be tagged with this identifier
-- Creation tokens will include this identifier
-
-**Related variables**: `cluster_name`, `creation_token_prefix`, `create_storage_class`
-
-**Notes**:
-- Defaults to cluster name if not specified
-- Use descriptive names for multiple EFS instances (e.g., `mas-attachments`, `mas-logs`)
-- Must be unique within the cluster if creating multiple EFS instances
-
-### creation_token_prefix
-Prefix for AWS resource creation tokens.
-
-- Optional
+- **Optional**
 - Environment Variable: `CREATION_TOKEN_PREFIX`
 - Default: `mas_devops.`
 
-**Purpose**: Provides a prefix for creation tokens used to ensure idempotency of AWS resource creation.
+Creation tokens are built by concatenating this prefix with `efs_unique_id` to ensure idempotent resource creation. The default `mas_devops.` identifies resources created by this collection; change it to distinguish resources from other automation tools.
 
-**When to use**: Customize to identify resources created by this automation or to avoid conflicts with other tools.
+#### create_storage_class
 
-**Valid values**: String prefix, typically ending with a dot or dash (e.g., `mas_devops.`, `myorg-`, `prod_`).
+Enable automatic StorageClass creation for the EFS instance — `true` to create a StorageClass named `efs-<efs_unique_id>` (default), `false` to skip creation.
 
-**Impact**: Creation tokens are built by concatenating this prefix with `efs_unique_id`. Used for idempotent resource creation.
-
-**Related variables**: `efs_unique_id`
-
-**Notes**:
-- Default `mas_devops.` identifies resources created by this collection
-- Helps track resource provenance in AWS
-- Change if you need to distinguish from other automation tools
-
-### create_storage_class
-Enable automatic StorageClass creation for the EFS instance.
-
-- Optional
+- **Optional**
 - Environment Variable: `CREATE_STORAGE_CLASS`
 - Default: `true`
 
-**Purpose**: Controls whether a Kubernetes StorageClass is automatically created for the EFS instance.
-
-**When to use**: Set to `true` for normal operations. Set to `false` if you want to manually create the StorageClass or use a custom configuration.
-
-**Valid values**:
-- `true` - Automatically create StorageClass named `efs-<efs_unique_id>` (default)
-- `false` - Skip StorageClass creation
-
-**Impact**: When `true`, creates a StorageClass that applications can use to provision PVCs backed by EFS. When `false`, you must manually create the StorageClass.
-
-**Related variables**: `efs_unique_id`
-
-**Notes**:
-- Default `true` is recommended for most deployments
-- StorageClass name format: `efs-<efs_unique_id>`
-- StorageClass supports dynamic provisioning with RWX access mode
-- Set to `false` only if you need custom StorageClass parameters
-
+When `true`, the created StorageClass supports dynamic provisioning with RWX access mode for PVCs backed by EFS. Set to `false` only if you need custom StorageClass parameters — you must then create the StorageClass manually.
 
 ## Example Playbook
 
