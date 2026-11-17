@@ -39,16 +39,14 @@ Three catalogs are mirrored, containing the following content:
 15. cephcsi-operator (required by odf)
 16. odf-dependencies (required by ibm.mas_devops.ocs role for OCP 4.18+)
 17. openshift-cert-manager-operator (required by ibm.mas_devops.cert_manager role)
-18. serverless-operator (required by ibm.mas_devops.aiservice_odh role, OCP 4.18+)
-19. servicemeshoperator (required by ibm.mas_devops.aiservice_odh role, OCP 4.18+)
-20. authorino-operator (required by ibm.mas_devops.aiservice_odh role, OCP 4.18+)
+18. serverless-operator (required by ibm.mas_devops.aiservice_rhoai role, OCP 4.18+)
+19. servicemeshoperator (required by ibm.mas_devops.aiservice_rhoai role, OCP 4.18+)
+20. authorino-operator (required by ibm.mas_devops.aiservice_rhoai role, OCP 4.18+)
 21. lvms-operator (not used by any of our roles, but used in SNO installations)
 
 ### Additional Images
 The following specific images are also mirrored:
 1. registry.redhat.io/openshift-service-mesh/istio-operator-bundle (specific digest)
-2. quay.io/community-operator-pipeline-prod/opendatahub-operator:2.32.0
-3. quay.io/opendatahub/opendatahub-operator:v2.32.0
 
 ## Requirements
 - `oc` tool must be installed

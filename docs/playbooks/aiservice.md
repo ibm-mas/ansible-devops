@@ -32,11 +32,11 @@ This playbook can be ran against any OCP cluster regardless of its type; whether
     - IBM Data Reporter Operator (~10 Minutes) **optional if customer chooses to use DRO from external cluster**
     - IBM Db2
     - Minio (~5 minutes) **optional if customer choose to use external object storage**
-* Install ODH:
-    - Install Red Hat OpenShift Serverless Operator **Required when using serverless deployment mode for ODH**
-    - Install Red Hat OpenShift Service Mesh Operator **Required when using serverless deployment mode for ODH**
+* Install RHOAI:
+    - Install Red Hat OpenShift Serverless Operator **Required when using serverless deployment mode**
+    - Install Red Hat OpenShift Service Mesh Operator **Required when using serverless deployment mode**
     - Install Authorino Operator
-    - Install Open Data Hub Operator
+    - Install Red Hat OpenShift AI Operator
     - Create DSCInitialization instance
     - Create DataScienceCluster instance
 * Install AI Service (using playbook):
