@@ -1,37 +1,24 @@
 # servicemesh
+
 Installs and configures an instance of [Red Hat OpenShift Service Mesh](https://docs.redhat.com/en/documentation/red_hat_openshift_service_mesh) for use with IBM Maximo Application Suite.
 
-
 ## Role Variables
-### servicemesh_action
-Action to perform on Service Mesh installation.
+
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`servicemesh_action`](#servicemesh_action) | No | `install` |
+
+### Service Mesh Configuration
+
+#### servicemesh_action
+
+Action to perform on the Service Mesh installation.
 
 - **Optional**
 - Environment Variable: `SERVICEMESH_ACTION`
 - Default: `install`
 
-**Purpose**: Specifies whether to install, uninstall, or install-kiali.
-
-**When to use**:
-- Use `install` (default) for new Service Mesh deployments
-- Use `install-kiali` to install only the Kiali monitoring component
-- Use `uninstall` to remove Service Mesh
-
-**Valid values**: `install`, `uninstall`, `install-kiali`
-
-**Impact**: 
-- `install`: Deploys Service Mesh operator and instance
-- `install-kiali`: Deploys Service Mesh operator and instance
-- `uninstall`: Removes Service Mesh and Kiali operators and instances
-
-**Related variables**:
-- `servicemesh_catalog_source`: CatalogSource to install the Service Mesh and Kiali operators from (`SERVICEMESH_CATALOG_SOURCE`). When empty (the default) it is detected from the PackageManifest, so the role works with the built-in `redhat-operators` catalog and with a mirrored catalog on a disconnected (airgap) cluster
-- `servicemesh_catalog_source_namespace`: Namespace of the CatalogSource (`SERVICEMESH_CATALOG_SOURCE_NAMESPACE`, default `openshift-marketplace`)
-- `servicemesh_channel`: Catalog channel to install from (defaults if not provided)
-- `servicemesh_starting_csv`: Specific CSV to install (defaults if not provided)
-- `kiali_channel`: Catalog channel to install Kiali from (defaults if not provided)
-- `kiali_starting_csv`: Specific CSV to install Kiali (defaults if not provided)
-
+Valid values are `install` (deploy the Service Mesh operator and instance, the default; the Kiali operator and instance are also deployed when `INSTALL_KIALI` env set as `true`), `install-kiali` (deploy only the Kiali operator and instance, without installing Service Mesh), and `uninstall` (remove the Service Mesh and Kiali operators and instances). The catalog channel and starting CSV for both Service Mesh and Kiali can be pinned via the `servicemesh_channel`, `servicemesh_starting_csv`, `kiali_channel`, and `kiali_starting_csv` properties, which use the operator defaults when not provided.
 
 ## Example Playbook
 

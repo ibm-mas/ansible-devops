@@ -47,322 +47,162 @@ pushsecrets.external-secrets.io
 
 ## Role Variables
 
-### eso_action
-Action to perform: install, uninstall, or manage SecretStore/ClusterSecretStore resources.
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`eso_action`](#eso_action) | No | `install` |
+| [`eso_namespace`](#eso_namespace) | No | `external-secrets-system` |
+| [`eso_release_name`](#eso_release_name) | No | `external-secrets` |
+| [`eso_repo_url`](#eso_repo_url) | No | `https://charts.external-secrets.io` |
+| [`eso_chart_version`](#eso_chart_version) | No | Latest |
+| [`eso_values`](#eso_values) | No | `{}` |
+| [`eso_cleanup_crds`](#eso_cleanup_crds) | No | `false` |
+| [`eso_cleanup_namespace`](#eso_cleanup_namespace) | No | `false` |
+| [`eso_provider`](#eso_provider) | No | `ibm` |
+| [`eso_store_name`](#eso_store_name) | No | `ibm-secrets-manager` |
+| [`ibm_sm_instance_url`](#ibm_sm_instance_url) | Conditional | None |
+| [`ibm_sm_api_key`](#ibm_sm_api_key) | Conditional | Falls back to `IBMCLOUD_APIKEY` |
+| [`ibm_sm_store_namespace`](#ibm_sm_store_namespace) | Conditional | None |
+
+The IBM Secrets Manager variables are only required for the secret store actions: `ibm_sm_instance_url` and `ibm_sm_api_key` when creating a ClusterSecretStore or SecretStore, and `ibm_sm_store_namespace` when creating or deleting a namespace-scoped SecretStore.
+
+### Operator Installation
+
+#### eso_action
+
+Action to perform — one of `install`, `uninstall`, `create-clustersecretstore`, `delete-clustersecretstore`, `create-secretstore`, or `delete-secretstore`.
 
 - **Optional**
 - Environment Variable: `ESO_ACTION`
 - Default: `install`
 
-**Purpose**: Determines the operation to perform with the External Secrets Operator.
+Installation is idempotent and can be run multiple times safely; uninstallation behavior depends on the cleanup flags. The `create-*`/`delete-*` actions manage IBM Secrets Manager stores and require the IBM Secrets Manager configuration variables. A ClusterSecretStore is cluster-wide and can be used by ExternalSecrets in any namespace, whereas a SecretStore is namespace-scoped and can only be used by ExternalSecrets in the same namespace.
 
-**When to use**:
-- Use `install` for deploying the operator
-- Use `uninstall` for removing the operator
-- Use `create-clustersecretstore` for creating an IBM Secrets Manager ClusterSecretStore (cluster-wide)
-- Use `delete-clustersecretstore` for removing an IBM Secrets Manager ClusterSecretStore
-- Use `create-secretstore` for creating an IBM Secrets Manager SecretStore (namespace-scoped)
-- Use `delete-secretstore` for removing an IBM Secrets Manager SecretStore
+#### eso_namespace
 
-**Valid values**: `install`, `uninstall`, `create-clustersecretstore`, `delete-clustersecretstore`, `create-secretstore`, `delete-secretstore`
-
-**Impact**: Controls the primary operation of the role.
-
-**Related variables**: `eso_cleanup_crds`, `eso_cleanup_namespace`, `eso_store_name`, `ibm_sm_instance_url`, `ibm_sm_api_key`, `ibm_sm_store_namespace`
-
-**Notes**:
-- Installation is idempotent - can be run multiple times safely
-- Uninstallation behavior depends on cleanup flags
-- The `create-clustersecretstore` and `create-secretstore` actions require IBM Secrets Manager configuration variables
-- ClusterSecretStore is cluster-wide and can be used by ExternalSecrets in any namespace
-- SecretStore is namespace-scoped and can only be used by ExternalSecrets in the same namespace
-
-### eso_namespace
-Namespace for External Secrets Operator installation.
+Namespace for the External Secrets Operator installation — any valid Kubernetes namespace name (lowercase alphanumeric with hyphens).
 
 - **Optional**
 - Environment Variable: `ESO_NAMESPACE`
 - Default: `external-secrets-system`
 
-**Purpose**: Specifies the Kubernetes namespace where External Secrets Operator components will be deployed.
+All operator resources (deployments, services, webhooks) are created in this namespace, which is created if it doesn't exist. The default follows the operator's standard convention — override only for specific namespace requirements or multiple operator instances. CRDs are cluster-scoped regardless of namespace.
 
-**When to use**: Use default unless you have specific namespace requirements or multiple operator instances.
+#### eso_release_name
 
-**Valid values**: Valid Kubernetes namespace name (lowercase alphanumeric with hyphens)
-
-**Impact**: All operator resources (deployments, services, webhooks) will be created in this namespace.
-
-**Related variables**: `eso_cleanup_namespace`
-
-**Notes**:
-- Default `external-secrets-system` follows the operator's standard convention
-- Namespace will be created if it doesn't exist
-- CRDs are cluster-scoped regardless of namespace
-
-### eso_release_name
-Helm release name for the External Secrets Operator.
+Helm release name for the External Secrets Operator — a valid Helm release name (alphanumeric with hyphens), unique within the namespace.
 
 - **Optional**
 - Environment Variable: `ESO_RELEASE_NAME`
 - Default: `external-secrets`
 
-**Purpose**: Identifies the Helm release for management operations.
+Used for Helm operations (install, upgrade, uninstall) and appears in `helm list` and other Helm commands; use the default unless deploying multiple instances or following specific naming conventions.
 
-**When to use**: Use default unless deploying multiple instances or following specific naming conventions.
+#### eso_repo_url
 
-**Valid values**: Valid Helm release name (alphanumeric with hyphens)
-
-**Impact**: Used for Helm operations (install, upgrade, uninstall).
-
-**Related variables**: None
-
-**Notes**:
-- Must be unique within the namespace
-- Used in `helm list` and other Helm commands
-
-### eso_repo_url
-Helm repository URL for External Secrets charts.
+Helm repository URL for External Secrets charts — any valid HTTPS URL to a Helm repository.
 
 - **Optional**
 - Environment Variable: `ESO_REPO_URL`
 - Default: `https://charts.external-secrets.io`
 
-**Purpose**: Specifies the Helm repository containing External Secrets charts.
+The default points to the official External Secrets Helm repository; override for private mirrors, custom repositories, or air-gapped/restricted environments.
 
-**When to use**: Use default for official releases. Override for private mirrors or custom repositories.
+#### eso_chart_version
 
-**Valid values**: Valid HTTPS URL to a Helm repository
-
-**Impact**: Determines where Helm charts are downloaded from.
-
-**Related variables**: `eso_chart_version`
-
-**Notes**:
-- Default points to official External Secrets Helm repository
-- Can be overridden for air-gapped or restricted environments
-
-### eso_chart_version
-Specific version of the External Secrets Helm chart to install.
+Specific version of the External Secrets Helm chart to install — a valid semantic version (e.g., `0.9.11`, `0.10.0`).
 
 - **Optional**
 - Environment Variable: `ESO_CHART_VERSION`
 - Default: `""` (latest version)
 
-**Purpose**: Pins the operator to a specific version for consistency and stability.
+Leave empty to install the latest available version (suitable for development/testing); pin a specific version for production deployments, version upgrades, or rollbacks. Check the [releases](https://github.com/external-secrets/external-secrets/releases) page for available versions — pinning versions is recommended in production.
 
-**When to use**:
-- Leave empty for latest version (development/testing)
-- Specify version for production deployments
-- Use for version upgrades or rollbacks
+#### eso_values
 
-**Valid values**: Valid semantic version (e.g., `0.9.11`, `0.10.0`)
-
-**Impact**: Determines which operator version is deployed.
-
-**Related variables**: `eso_repo_url`
-
-**Notes**:
-- Empty value installs latest available version
-- Check [releases](https://github.com/external-secrets/external-secrets/releases) for available versions
-- Recommended to pin versions in production
-
-### eso_cleanup_crds
-Flag to control CRD deletion during uninstallation.
-
-- **Optional**
-- Environment Variable: `ESO_CLEANUP_CRDS`
-- Default: `false`
-
-**Purpose**: Determines whether Custom Resource Definitions are removed during uninstallation.
-
-**When to use**:
-- Set to `false` (default) to preserve CRDs and custom resources
-- Set to `true` for complete cleanup (removes all ExternalSecrets, SecretStores, etc.)
-
-**Valid values**: `true`, `false`
-
-**Impact**: 
-- `false`: CRDs and custom resources remain after uninstall
-- `true`: All CRDs and custom resources are deleted
-
-**Related variables**: `eso_action`, `eso_cleanup_namespace`
-
-**Notes**:
-- **WARNING**: Setting to `true` will delete all ExternalSecret and SecretStore resources
-- Recommended to keep `false` unless performing complete removal
-- CRDs are cluster-scoped and affect all namespaces
-
-### eso_cleanup_namespace
-Flag to control namespace deletion during uninstallation.
-
-- **Optional**
-- Environment Variable: `ESO_CLEANUP_NAMESPACE`
-- Default: `false`
-
-**Purpose**: Determines whether the operator namespace is removed during uninstallation.
-
-**When to use**:
-- Set to `false` (default) to preserve namespace
-- Set to `true` for complete cleanup
-
-**Valid values**: `true`, `false`
-
-**Impact**:
-- `false`: Namespace remains after uninstall
-- `true`: Namespace is deleted (including any remaining resources)
-
-**Related variables**: `eso_action`, `eso_namespace`
-
-**Notes**:
-- Namespace deletion will fail if resources still exist
-- Recommended to keep `false` unless performing complete removal
-
-### eso_values
-Custom Helm values to override default configuration.
+Custom Helm values to override the default chart configuration — a dictionary of valid Helm chart values.
 
 - **Optional**
 - Environment Variable: None (must be set in playbook)
 - Default: `{}` (empty dictionary)
 
-**Purpose**: Allows customization of External Secrets Operator Helm chart values.
+Use to override resource limits and requests, replica counts for high availability, security contexts, provider-specific configurations, and feature flags. Values are merged with the defaults in `templates/values.yml.j2`, overriding any conflicts — see [Helm chart values](https://github.com/external-secrets/external-secrets/tree/main/deploy/charts/external-secrets) for available options and the [Example Playbooks](#example-playbooks) below for usage.
 
-**When to use**: Override default values for:
-- Resource limits and requests
-- Replica counts for high availability
-- Security contexts
-- Provider-specific configurations
-- Feature flags
+### Uninstallation Cleanup
 
-**Valid values**: Dictionary of valid Helm chart values
+#### eso_cleanup_crds
 
-**Impact**: Merged with default values, overriding any conflicts.
+Flag to control CRD deletion during uninstallation — `true` or `false`.
 
-**Related variables**: None
+- **Optional**
+- Environment Variable: `ESO_CLEANUP_CRDS`
+- Default: `false`
 
-**Notes**:
-- See [Helm chart values](https://github.com/external-secrets/external-secrets/tree/main/deploy/charts/external-secrets) for available options
-- Values are merged with defaults in `templates/values.yml.j2`
-- Use for advanced configurations not covered by other variables
+With `false` (recommended unless performing complete removal), CRDs and custom resources remain after uninstall; with `true`, all CRDs and custom resources are deleted. CRDs are cluster-scoped and affect all namespaces.
 
-**Example**:
-```yaml
-eso_values:
-  replicaCount: 3
-  resources:
-    limits:
-      cpu: 200m
-      memory: 256Mi
-```
+!!! warning
+    Setting this to `true` deletes **all** ExternalSecret and SecretStore resources in the cluster.
 
-### eso_provider
-Provider type for secret store creation.
+#### eso_cleanup_namespace
+
+Flag to control namespace deletion during uninstallation — `true` or `false`.
+
+- **Optional**
+- Environment Variable: `ESO_CLEANUP_NAMESPACE`
+- Default: `false`
+
+With `false` (recommended unless performing complete removal), the namespace remains after uninstall; with `true`, the namespace is deleted, including any remaining resources. Namespace deletion will fail if resources still exist in it.
+
+### Secret Store Management
+
+#### eso_provider
+
+Provider type for secret store creation — currently only `ibm` (IBM Secrets Manager) is supported.
 
 - **Optional**
 - Environment Variable: `ESO_PROVIDER`
 - Default: `ibm`
 
-**Purpose**: Specifies which secret management provider to use when creating a ClusterSecretStore.
+Only used when `eso_action` is one of the secret store actions (not `install`/`uninstall`); it determines which provider-specific tasks are executed. Future versions may support additional providers (AWS, Azure, GCP, HashiCorp Vault, etc.).
 
-**When to use**: Set when using the `create-clustersecretstore` action to specify the provider type.
+#### eso_store_name
 
-**Valid values**: `ibm` (currently only IBM Secrets Manager is supported)
-
-**Impact**: Determines which provider-specific tasks are executed during ClusterSecretStore creation.
-
-**Related variables**: `eso_action`, `eso_store_name`
-
-**Notes**:
-- Only used when `eso_action` is set to `create-clustersecretstore`
-- Future versions may support additional providers (AWS, Azure, GCP, HashiCorp Vault, etc.)
-
-### eso_store_name
-Name for the ClusterSecretStore resource.
+Name for the SecretStore or ClusterSecretStore resource — a valid Kubernetes resource name (lowercase alphanumeric with hyphens).
 
 - **Optional**
 - Environment Variable: `ESO_STORE_NAME`
 - Default: `ibm-secrets-manager`
 
-**Purpose**: Specifies the name of the ClusterSecretStore resource when using the `create-clustersecretstore` action.
+Only used with the secret store actions; the name must be unique within the cluster for a ClusterSecretStore (cluster-scoped) and is referenced by ExternalSecret resources. The associated credentials secret is named `{eso_store_name}-apikey`. Override the default if you need multiple store instances or have specific naming requirements.
 
-**When to use**: Override the default name if you need multiple ClusterSecretStore instances or have specific naming requirements.
+#### ibm_sm_instance_url
 
-**Valid values**: Valid Kubernetes resource name (lowercase alphanumeric with hyphens)
+IBM Secrets Manager instance URL — a valid HTTPS URL (e.g., `https://my-instance.secrets-manager.cloud.ibm.com`).
 
-**Impact**: Determines the name of the ClusterSecretStore that ExternalSecret resources will reference.
-
-**Related variables**: `eso_action`, `eso_provider`, `ibm_sm_instance_url`, `ibm_sm_api_key`
-
-**Notes**:
-- Only used when `eso_action` is set to `create-clustersecretstore`
-- The name must be unique within the cluster (ClusterSecretStore is cluster-scoped)
-
-### ibm_sm_instance_url
-IBM Secrets Manager instance URL.
-
-- **Required** (when using `create-clustersecretstore` action)
+- **Required** when using the `create-clustersecretstore` or `create-secretstore` actions
 - Environment Variable: `IBM_SM_INSTANCE_URL`
 - Default: None
 
-**Purpose**: Specifies the URL of your IBM Secrets Manager instance for the ClusterSecretStore configuration.
+Determines which IBM Secrets Manager instance the External Secrets Operator will connect to; the instance must be accessible from your Kubernetes cluster.
 
-**When to use**: Required when creating a ClusterSecretStore for IBM Secrets Manager integration.
+#### ibm_sm_api_key
 
-**Valid values**: Valid HTTPS URL to an IBM Secrets Manager instance (e.g., `https://my-instance.secrets-manager.cloud.ibm.com`)
+IBM Cloud API key for authenticating with IBM Secrets Manager — a valid key with IAM permissions to access the Secrets Manager instance.
 
-**Impact**: Determines which IBM Secrets Manager instance the External Secrets Operator will connect to.
-
-**Related variables**: `eso_action`, `eso_store_name`, `ibm_sm_api_key`
-
-**Notes**:
-- Only used when `eso_action` is set to `create-clustersecretstore`
-- Must be a valid IBM Secrets Manager instance URL
-- The instance must be accessible from your Kubernetes cluster
-
-### ibm_sm_api_key
-IBM Cloud API key for authenticating with IBM Secrets Manager.
-
-- **Required** (when using `create-clustersecretstore` action)
+- **Required** when using the `create-clustersecretstore` or `create-secretstore` actions
 - Environment Variable: `IBM_SM_API_KEY` or `IBMCLOUD_APIKEY`
 - Default: Falls back to `IBMCLOUD_APIKEY` if `IBM_SM_API_KEY` is not set
 
-**Purpose**: Provides authentication credentials for accessing IBM Secrets Manager.
+Used to authenticate the External Secrets Operator with IBM Secrets Manager; the API key is stored as a Kubernetes secret (named `{eso_store_name}-apikey`) in the operator namespace. The `IBMCLOUD_APIKEY` fallback follows the collection pattern for convenience.
 
-**When to use**: Required when creating a ClusterSecretStore for IBM Secrets Manager integration.
+#### ibm_sm_store_namespace
 
-**Valid values**: Valid IBM Cloud API key with permissions to access the Secrets Manager instance
+Namespace for the IBM Secrets Manager SecretStore (namespace-scoped) — any valid Kubernetes namespace name (lowercase alphanumeric with hyphens).
 
-**Impact**: Used to authenticate the External Secrets Operator with IBM Secrets Manager.
-
-**Related variables**: `eso_action`, `eso_store_name`, `ibm_sm_instance_url`
-
-**Notes**:
-- Only used when `eso_action` is set to `create-clustersecretstore`
-- The API key is stored as a Kubernetes secret in the operator namespace
-- Follows the collection pattern by falling back to `IBMCLOUD_APIKEY` for convenience
-- Ensure the API key has appropriate IAM permissions for the Secrets Manager instance
-
-### ibm_sm_store_namespace
-Namespace for the IBM Secrets Manager SecretStore (namespace-scoped).
-
-- **Required** (when using `create-secretstore` or `delete-secretstore` actions)
+- **Required** when using the `create-secretstore` or `delete-secretstore` actions
 - Environment Variable: `IBM_SM_STORE_NAMESPACE`
 - Default: None
 
-**Purpose**: Specifies the namespace where a namespace-scoped SecretStore will be created or deleted.
-
-**When to use**: Required when creating or deleting a namespace-scoped SecretStore for IBM Secrets Manager integration.
-
-**Valid values**: Valid Kubernetes namespace name (lowercase alphanumeric with hyphens)
-
-**Impact**: Determines which namespace the SecretStore and its credentials secret will be created in.
-
-**Related variables**: `eso_action`, `eso_store_name`, `ibm_sm_instance_url`, `ibm_sm_api_key`
-
-**Notes**:
-- Only used when `eso_action` is set to `create-secretstore` or `delete-secretstore`
-- SecretStore is namespace-scoped and can only be used by ExternalSecrets in the same namespace
-- The namespace will be created if it doesn't exist during `create-secretstore`
-- For cluster-wide access, use `create-clustersecretstore` instead (does not require this variable)
+Determines which namespace the SecretStore and its credentials secret will be created in; the namespace is created if it doesn't exist during `create-secretstore`. A SecretStore can only be used by ExternalSecrets in the same namespace — for cluster-wide access, use `create-clustersecretstore` instead (which does not require this variable).
 
 ## Example Playbooks
 
@@ -647,4 +487,5 @@ spec:
 ```
 
 ## License
+
 EPL-2.0
