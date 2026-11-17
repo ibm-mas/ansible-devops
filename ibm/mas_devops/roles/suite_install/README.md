@@ -16,6 +16,7 @@ Specifies the OpenShift operator catalog source containing the MAS operator subs
 **Purpose**: Controls which operator catalog is used to locate and install the MAS operator. This determines where OpenShift looks for the operator images and metadata during installation.
 
 **When to use**:
+
 - Use default `ibm-operator-catalog` for production installations with official IBM releases
 - Use `ibm-operator-catalog` for development installations as well (supports both use cases)
 - Only change if directed to use a custom catalog for specific testing or airgap scenarios
@@ -36,6 +37,7 @@ Specifies the MAS operator subscription channel, which determines the version st
 **Purpose**: Controls which version of MAS will be installed and which updates will be automatically applied. The channel corresponds to major.minor version releases (e.g., `8.11.x`, `9.0.x`) and determines the feature set and compatibility level of your MAS installation.
 
 **When to use**:
+
 - Set to the latest stable channel for new production deployments to receive the newest features
 - Use specific older channels when compatibility with existing applications or dependencies requires it
 - Consult the MAS compatibility matrix before selecting a channel to ensure compatibility with your applications
@@ -61,6 +63,7 @@ Specifies the custom domain name for accessing MAS web interfaces and APIs.
 **Purpose**: Defines the base domain used to construct all MAS URLs (e.g., admin.{mas_domain}, home.{mas_domain}). This allows you to use a custom domain instead of the default OpenShift cluster subdomain, which is important for production environments with specific DNS requirements.
 
 **When to use**:
+
 - Set for production environments where you need branded or corporate domain names
 - Set when integrating with external DNS providers (Cloudflare, Route53, IBM CIS)
 - Set when using custom SSL certificates tied to specific domains
@@ -71,6 +74,7 @@ Specifies the custom domain name for accessing MAS web interfaces and APIs.
 **Impact**: When set, MAS will use this domain for all routes and certificates. You must ensure DNS is properly configured to resolve this domain to your cluster. When not set, MAS automatically uses the cluster's default ingress subdomain.
 
 **Related variables**:
+
 - Used by `suite_dns` role to configure DNS entries
 - Affects certificate generation when using `mas_cluster_issuer`
 - Must align with `mas_routing_mode` configuration
@@ -85,6 +89,7 @@ Unique identifier for this MAS installation within the cluster.
 **Purpose**: Provides a unique identifier that distinguishes this MAS installation from others that may exist in the same cluster. This ID is used to generate namespace names, resource names, and configuration identifiers throughout the installation.
 
 **When to use**:
+
 - Always required for any MAS installation
 - Use short, descriptive names (e.g., `prod`, `dev`, `test`, `inst1`)
 - Must be unique within the cluster if running multiple MAS instances
@@ -95,6 +100,7 @@ Unique identifier for this MAS installation within the cluster.
 **Impact**: This ID becomes part of the core namespace name (`mas-{mas_instance_id}-core`) and is embedded in many resource names. It cannot be changed after installation. All MAS configurations and applications will reference this instance ID.
 
 **Related variables**:
+
 - Used by all MAS configuration roles to target the correct instance
 - Referenced in application installation roles
 - Used in backup/restore operations to identify the instance
@@ -111,12 +117,14 @@ IBM entitlement key for authenticating access to IBM Container Registry.
 **Purpose**: Provides authentication credentials to pull MAS container images from IBM's entitled registry. This key is tied to your IBM Cloud account and product entitlements, proving you have the right to use MAS software.
 
 **When to use**:
+
 - Required for all production installations using official IBM releases
 - Obtain from IBM Container Library at https://myibm.ibm.com/products-services/containerlibrary
 - For development builds on Artifactory, use your Artifactory API key instead
 - Key must be valid and have active MAS entitlements
 
 **Valid values**:
+
 - IBM entitlement key string (typically starts with "eyJ...")
 - Must be a valid, non-expired key with MAS product entitlements
 - For development: Artifactory API key
@@ -124,6 +132,7 @@ IBM entitlement key for authenticating access to IBM Container Registry.
 **Impact**: Invalid or expired keys will cause image pull failures during installation. The key is stored in a Kubernetes secret and used to create image pull secrets for all MAS pods. Without a valid key, the installation cannot proceed.
 
 **Related variables**:
+
 - Falls back to `IBM_ENTITLEMENT_KEY` environment variable if not set
 - Used with `mas_entitlement_username` for registry authentication
 - Related to `mas_icr_cp` and `mas_icr_cpopen` registry settings
@@ -140,6 +149,7 @@ Local directory path containing additional Kubernetes configuration files to app
 **Purpose**: Allows you to provide custom Kubernetes resources (YAML files) that will be automatically applied to the cluster during MAS installation. This enables advanced configuration scenarios and customization beyond the standard role variables.
 
 **When to use**:
+
 - Use to apply MAS configuration resources (MongoCfg, BASCfg, JdbcCfg, etc.) generated by other roles
 - Use to apply custom ConfigMaps, Secrets, or other Kubernetes resources
 - Use to pre-configure MAS settings before the suite becomes fully operational
@@ -150,6 +160,7 @@ Local directory path containing additional Kubernetes configuration files to app
 **Impact**: All `*.yaml` and `*.yml` files in this directory will be applied to the cluster using `oc apply`. Files are processed in alphabetical order. Invalid YAML or resources will cause the role to fail.
 
 **Related variables**:
+
 - Used by `mongodb`, `db2`, `sls` and other dependency roles to output configuration files
 - Used by `suite_config` role to apply configurations
 - Must be set if using generated configuration files from dependency roles
@@ -168,6 +179,7 @@ Comma-separated list of key=value annotations to apply to all MAS resources.
 **Purpose**: Adds Kubernetes annotations to all resources created by the MAS operator. Annotations are used to attach metadata that can control operator behavior, enable specific features, or provide information to other tools and operators.
 
 **When to use**:
+
 - Set to `mas.ibm.com/operationalMode=nonproduction` for non-production environments (reduces resource requirements)
 - Use to add custom metadata for organizational tracking or automation
 - Use to enable specific MAS features controlled by annotations
@@ -191,6 +203,7 @@ Controls the image pull policy for all MAS container images.
 **Purpose**: Determines when Kubernetes will pull container images from the registry. This affects deployment speed, network usage, and whether you get the latest image updates.
 
 **When to use**:
+
 - Use `Always` in development to ensure latest images are pulled on every pod restart
 - Use `IfNotPresent` in production to reduce network traffic and improve pod startup time
 - Use `Never` in airgap environments where images are pre-loaded
@@ -199,6 +212,7 @@ Controls the image pull policy for all MAS container images.
 **Valid values**: `Always`, `IfNotPresent`, `Never`
 
 **Impact**:
+
 - `Always`: Slower pod starts, higher network usage, always gets latest image
 - `IfNotPresent`: Faster pod starts, uses cached images, may miss updates
 - `Never`: Fastest starts, requires images pre-loaded, fails if image not present
@@ -215,6 +229,7 @@ Comma-separated list of key=value labels to apply to all MAS resources.
 **Purpose**: Adds Kubernetes labels to all resources created by the MAS operator. Labels are used for resource organization, selection, and filtering. They enable you to query, group, and manage MAS resources using standard Kubernetes tools.
 
 **When to use**:
+
 - Use to add organizational metadata (e.g., `cost-center=engineering`, `environment=production`)
 - Use to enable resource tracking and cost allocation
 - Use to support custom automation or monitoring tools
@@ -236,6 +251,7 @@ Enables manual certificate management mode, disabling automatic certificate gene
 **Purpose**: Controls whether MAS uses automatic certificate management via cert-manager or requires manually provided certificates. This is critical for environments with specific certificate requirements or where cert-manager cannot be used.
 
 **When to use**:
+
 - Set to `true` when you must use certificates from a specific Certificate Authority
 - Set to `true` in environments where cert-manager is not available or not permitted
 - Set to `true` when organizational policy requires manual certificate management
@@ -246,6 +262,7 @@ Enables manual certificate management mode, disabling automatic certificate gene
 **Impact**: When `true`, you must manually create and manage all certificates required by MAS. The `suite_dns` role will not configure automatic certificate issuers. You are responsible for certificate renewal before expiration. When `false`, cert-manager automatically generates and renews certificates.
 
 **Related variables**:
+
 - When `false`: Requires `mas_cluster_issuer` to be set for automatic certificate generation
 - Affects behavior of `suite_dns` role
 - Related to `mas_certificate_duration` and `mas_certificate_renew_before`
@@ -262,6 +279,7 @@ Defines the URL routing strategy for MAS applications and services.
 **Purpose**: Controls how MAS constructs URLs for different applications and services. This affects the URL structure users see and how DNS must be configured.
 
 **When to use**:
+
 - Use `subdomain` (default) for cleaner URLs and better DNS organization (e.g., `admin.mas.example.com`, `home.mas.example.com`)
 - Use `path` when subdomain routing is not possible due to DNS or certificate limitations (e.g., `mas.example.com/admin`, `mas.example.com/home`)
 - Consider DNS provider capabilities and certificate management when choosing
@@ -269,11 +287,13 @@ Defines the URL routing strategy for MAS applications and services.
 **Valid values**: `subdomain`, `path`
 
 **Impact**:
+
 - `subdomain`: Creates separate DNS entries for each service (requires wildcard DNS or multiple DNS entries)
 - `path`: Uses single DNS entry with path-based routing (simpler DNS, more complex URL structure)
 - Cannot be changed after installation without reinstalling
 
 **Related variables**:
+
 - Affects DNS configuration in `suite_dns` role
 - Impacts certificate requirements (wildcard vs single certificate)
 - Must align with `mas_domain` configuration
@@ -290,6 +310,7 @@ Enables manual route management mode, disabling automatic route generation.
 **Purpose**: Allows you to disable automatic routes creation and management if alternative routing is required.
 
 **When to use**:
+
 - Use `false` (default) for MAS to automatically manage routes.
 - Use `true` to manage routes in an alternative way. 
 
@@ -307,6 +328,7 @@ Controls whether default system Certificate Authorities are included in MAS trus
 **Purpose**: Determines if MAS will trust certificates signed by standard public Certificate Authorities (like Let's Encrypt, DigiCert, etc.) in addition to any custom CAs you configure. This affects MAS's ability to connect to external services using standard SSL certificates.
 
 **When to use**:
+
 - Leave as `true` (default) for most installations to enable connections to public services
 - Set to `false` only in highly restricted environments where you want to explicitly control all trusted CAs
 - Set to `false` in airgap environments where external connections are not permitted
@@ -329,6 +351,7 @@ Directory containing pod template customization files for MAS workloads.
 **Purpose**: Allows you to customize resource requests, limits, node selectors, tolerations, and other pod-level configurations for MAS workloads. This enables you to optimize MAS for your specific cluster configuration and resource availability.
 
 **When to use**:
+
 - Use to apply resource constraints in resource-limited environments
 - Use to configure node affinity for specific hardware (e.g., GPU nodes)
 - Use to apply tolerations for tainted nodes
@@ -336,6 +359,7 @@ Directory containing pod template customization files for MAS workloads.
 - Leave unset to use default MAS pod configurations
 
 **Valid values**: Path to directory containing pod template YAML files:
+
 - `ibm-mas-suite.yml` - Core suite workloads
 - `ibm-mas-coreidp.yml` - Identity provider workloads
 - `ibm-data-dictionary-assetdatadictionary.yml` - Data dictionary workloads
@@ -358,6 +382,7 @@ Name of the cert-manager ClusterIssuer to use for automatic certificate generati
 **Purpose**: Specifies which cert-manager ClusterIssuer will generate and manage SSL/TLS certificates for MAS. The ClusterIssuer defines the Certificate Authority and authentication method used for certificate issuance.
 
 **When to use**:
+
 - Required when `mas_manual_cert_mgmt` is `false` (automatic certificate management)
 - Set to the ClusterIssuer created by `suite_dns` role (e.g., `{mas_instance_id}-cloudflare-le-prod`)
 - Set to a custom ClusterIssuer if you have specific certificate requirements
@@ -368,6 +393,7 @@ Name of the cert-manager ClusterIssuer to use for automatic certificate generati
 **Impact**: The specified ClusterIssuer will be used to generate all MAS certificates. If the ClusterIssuer is not properly configured or lacks necessary credentials, certificate generation will fail and MAS will not be accessible.
 
 **Related variables**:
+
 - Only used when `mas_manual_cert_mgmt` is `false`
 - Created by `suite_dns` role for Let's Encrypt integration
 - Works with `mas_certificate_duration` and `mas_certificate_renew_before`
@@ -384,6 +410,7 @@ Specifies the issuer kind to configure for MAS certificates.
 **Purpose**: Controls the value written to `spec.settings.issuerKind` in the MAS Suite custom resource. This determines whether MAS certificates use a namespace-scoped `Issuer` or a cluster-scoped `ClusterIssuer`.
 
 **When to use**:
+
 - Use `Issuer` in any permission mode: `cluster`, `namespaced`, or `minimal`
 - Use `ClusterIssuer` only when MAS is installed in `cluster` permission mode
 
@@ -391,6 +418,7 @@ Specifies the issuer kind to configure for MAS certificates.
 **Valid values**: `Issuer`, `ClusterIssuer`
 
 **Impact**:
+
 - `Issuer`: certificate references remain namespace-scoped and can be used in all permission modes
 - `ClusterIssuer`: certificate references use a cluster-scoped issuer and should only be used with `cluster` permission mode
 
@@ -406,6 +434,7 @@ Specifies the validity period for MAS certificates.
 **Purpose**: Defines how long certificates will be valid before they expire. This affects how often certificates need to be renewed and the security posture of your installation.
 
 **When to use**:
+
 - Use default (8760h = 1 year) for most installations
 - Reduce for higher security environments requiring frequent rotation
 - Increase only if certificate renewal is problematic in your environment
@@ -416,6 +445,7 @@ Specifies the validity period for MAS certificates.
 **Impact**: Shorter durations increase security but require more frequent renewals. Longer durations reduce renewal frequency but increase risk if certificates are compromised. Cert-manager will automatically renew certificates before expiration.
 
 **Related variables**:
+
 - Must be greater than `mas_certificate_renew_before`
 - Only applies when using automatic certificate management
 - Affects all MAS certificates
@@ -430,6 +460,7 @@ Specifies when to renew certificates before they expire.
 **Purpose**: Defines the renewal window - how far in advance cert-manager will renew certificates before they expire. This ensures certificates are renewed with sufficient time to handle any renewal issues.
 
 **When to use**:
+
 - Use default (720h = 30 days) for most installations
 - Increase in environments where certificate renewal may be slow or problematic
 - Decrease only if you need to minimize the number of certificate changes
@@ -440,6 +471,7 @@ Specifies when to renew certificates before they expire.
 **Impact**: Longer renewal windows provide more time to resolve renewal issues but result in more frequent certificate changes. Shorter windows reduce certificate churn but increase risk of expiration if renewal fails.
 
 **Related variables**:
+
 - Must be less than `mas_certificate_duration`
 - Only applies when using automatic certificate management
 - Affects all MAS certificates
@@ -460,6 +492,7 @@ Custom username for the MAS superuser administrator account.
 **Purpose**: Allows you to set a custom username for the MAS superuser account instead of using the default. The superuser has full administrative access to all MAS functions and applications.
 
 **When to use**:
+
 - Set both username and password to customize the superuser account
 - Use in environments with specific account naming requirements
 - Leave unset to use the default superuser account
@@ -483,6 +516,7 @@ Custom password for the MAS superuser administrator account.
 **Purpose**: Allows you to set a custom password for the MAS superuser account instead of using the auto-generated default. This enables you to control the initial superuser credentials.
 
 **When to use**:
+
 - Set both username and password to customize the superuser account
 - Use when you need to know the superuser password in advance
 - Use to comply with organizational password policies
@@ -508,6 +542,7 @@ Username for authenticating to Artifactory for development builds.
 **Purpose**: Provides authentication credentials for accessing development builds of MAS stored in Artifactory. This is only used for internal development and testing, not for production installations.
 
 **When to use**:
+
 - Required only when installing development builds from Artifactory
 - Not needed for production installations using IBM Container Registry
 - Use your IBM w3Id username for Artifactory access
@@ -518,6 +553,7 @@ Username for authenticating to Artifactory for development builds.
 **Impact**: Used to create image pull secrets for accessing Artifactory registries. Without valid credentials, development image pulls will fail.
 
 **Related variables**:
+
 - Must be set with `artifactory_token`
 - Used with `mas_icr_cp` and `mas_icr_cpopen` when pointing to Artifactory
 - Related to `mas_entitlement_username` for registry authentication
@@ -534,6 +570,7 @@ API token for authenticating to Artifactory for development builds.
 **Purpose**: Provides authentication token for accessing development builds of MAS stored in Artifactory. This is only used for internal development and testing, not for production installations.
 
 **When to use**:
+
 - Required only when installing development builds from Artifactory
 - Not needed for production installations using IBM Container Registry
 - Use your Artifactory API key
@@ -544,6 +581,7 @@ API token for authenticating to Artifactory for development builds.
 **Impact**: Used to create image pull secrets for accessing Artifactory registries. Without valid credentials, development image pulls will fail.
 
 **Related variables**:
+
 - Must be set with `artifactory_username`
 - Used with `mas_icr_cp` and `mas_icr_cpopen` when pointing to Artifactory
 - Can be used as `mas_entitlement_key` for development builds

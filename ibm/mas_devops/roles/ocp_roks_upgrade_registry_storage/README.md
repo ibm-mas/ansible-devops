@@ -29,6 +29,7 @@ IBM Cloud API key for authentication and volume management.
 **Related variables**: `image_registry_size`
 
 **Notes**:
+
 - Requires IAM permissions for Block Storage and Kubernetes Service
 - API key must have access to the cluster's resource group
 - Store securely, never commit to version control
@@ -47,6 +48,7 @@ Target size for the image registry storage volume in GB.
 **When to use**: Default 400GB is suitable for most Cloud Pak for Data installations. Adjust if you need more or less storage.
 
 **Valid values**: Integer representing GB capacity. Common values:
+
 - `200` - Minimal CP4D installation
 - `400` - Default, suitable for full CP4D with multiple services
 - `600` - Large deployments with many custom images
@@ -57,6 +59,7 @@ Target size for the image registry storage volume in GB.
 **Related variables**: `ibmcloud_apikey`
 
 **Notes**:
+
 - Default 400GB is 4x the original 100GB capacity
 - Volume can only be expanded, not shrunk
 - Expansion requires registry downtime (typically 5-15 minutes)

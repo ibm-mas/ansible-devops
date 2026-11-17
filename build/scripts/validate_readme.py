@@ -73,10 +73,37 @@ class READMEValidator:
         self._check_required_sections(content, result)
         self._check_heading_hierarchy(lines, result)
         self._check_variable_documentation(content, lines, result)
+        self._check_category_names(lines, result)
+        self._check_list_blank_lines(lines, result)
         self._check_code_blocks(content, lines, result)
         self._check_license_section(content, result)
 
         return result
+
+    # Category names that carry no meaning — variables must be grouped by
+    # what they actually have in common (see templates/README_TEMPLATE.md)
+    GENERIC_CATEGORY_NAMES = {
+        'general variables', 'general', 'other variables', 'other',
+        'misc variables', 'miscellaneous variables', 'misc',
+        'various variables', 'common variables',
+    }
+
+    def _check_category_names(self, lines: List[str], result: ValidationResult):
+        """Check that variable category headings use meaningful names"""
+        generic_found = []
+        for i, line in enumerate(lines, 1):
+            match = re.match(r'^###\s+(.+?)\s*$', line)
+            if match and match.group(1).strip().lower() in self.GENERIC_CATEGORY_NAMES:
+                generic_found.append(f"'{match.group(1).strip()}' (line {i})")
+
+        if generic_found:
+            result.checks_failed += 1
+            result.issues.append(
+                "Generic category name(s) not allowed — group variables under meaningful "
+                f"names instead: {', '.join(generic_found)}"
+            )
+        else:
+            result.checks_passed += 1
 
     def _check_title_format(self, content: str, lines: List[str], result: ValidationResult):
         """Check if title uses correct format: # role_name"""
@@ -222,6 +249,43 @@ class READMEValidator:
             result.issues.append(
                 f"Variables with incomplete documentation: {', '.join(incomplete_vars[:3])}"
                 + (f" and {len(incomplete_vars)-3} more" if len(incomplete_vars) > 3 else "")
+            )
+        else:
+            result.checks_passed += 1
+
+    def _check_list_blank_lines(self, lines: List[str], result: ValidationResult):
+        """Check that lists are preceded by a blank line.
+
+        python-markdown (and therefore mkdocs) does not treat a list marker as
+        the start of a list when it directly follows a paragraph line — the
+        list renders as run-on paragraph text. A blank line is required.
+        Lists following another list line (nested lists) or a heading are fine.
+        """
+        list_pattern = re.compile(r'^([-*+]\s+\S|\d+\.\s+\S)')
+        any_list_pattern = re.compile(r'^\s*([-*+]\s+\S|\d+\.\s+\S)')
+        heading_pattern = re.compile(r'^#{1,6}\s')
+        missing = []
+        in_code_block = False
+
+        for i, line in enumerate(lines):
+            if line.strip().startswith('```'):
+                in_code_block = not in_code_block
+                continue
+            if in_code_block:
+                continue
+            if i == 0 or not list_pattern.match(line):
+                continue
+            prev = lines[i - 1]
+            if prev.strip() == '' or any_list_pattern.match(prev) or heading_pattern.match(prev):
+                continue
+            missing.append(i + 1)
+
+        if missing:
+            result.checks_failed += 1
+            result.issues.append(
+                f"Lists not preceded by a blank line (lines: {', '.join(map(str, missing[:5]))}"
+                + (f" and {len(missing)-5} more" if len(missing) > 5 else "")
+                + ") — mkdocs will not render them as lists"
             )
         else:
             result.checks_passed += 1

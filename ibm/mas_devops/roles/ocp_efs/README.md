@@ -5,6 +5,7 @@ Provision and configure AWS Elastic File System (EFS) storage for Red Hat OpenSh
 EFS provides ReadWriteMany (RWX) persistent storage essential for MAS applications that require shared file access across multiple pods, such as Manage attachments and customer files.
 
 The role performs the following operations:
+
 1. Configures security group inbound rules for NFS access
 2. Creates EFS file system in the cluster's VPC
 3. Establishes mount targets in all availability zones
@@ -34,6 +35,7 @@ AWS access key ID for authentication.
 **Related variables**: `aws_secret_access_key`, `aws_region`
 
 **Notes**:
+
 - Requires IAM permissions for EFS, EC2, and VPC operations
 - Consider using IAM roles instead of access keys for better security
 - Store credentials securely, never commit to version control
@@ -56,6 +58,7 @@ AWS secret access key for authentication.
 **Related variables**: `aws_access_key_id`, `aws_region`
 
 **Notes**:
+
 - Keep secret key secure and never expose in logs or version control
 - Rotate credentials regularly per security best practices
 - Consider using AWS STS temporary credentials for enhanced security
@@ -72,6 +75,7 @@ AWS region where the EFS instance will be provisioned.
 **When to use**: Always set to match your ROSA cluster's region. Default is suitable for EU deployments.
 
 **Valid values**: Valid AWS region code (e.g., `us-east-1`, `eu-west-2`, `ap-southeast-1`). Common values:
+
 - `us-east-1` - US East (N. Virginia)
 - `us-west-2` - US West (Oregon)
 - `eu-west-1` - Europe (Ireland)
@@ -83,6 +87,7 @@ AWS region where the EFS instance will be provisioned.
 **Related variables**: `cluster_name`
 
 **Notes**:
+
 - **Critical**: Must match ROSA cluster region exactly
 - Verify cluster region: `rosa describe cluster -c <cluster-name>`
 - EFS pricing varies by region
@@ -105,6 +110,7 @@ Name of the ROSA cluster to attach EFS storage.
 **Related variables**: `aws_region`, `efs_unique_id`
 
 **Notes**:
+
 - Cluster must exist before running this role
 - Name is case-sensitive
 - Verify cluster name: `rosa list clusters`
@@ -124,6 +130,7 @@ Unique identifier for the EFS instance and StorageClass.
 **Valid values**: Alphanumeric string, typically lowercase (e.g., `mas-prod`, `manage-storage`, `shared-files`).
 
 **Impact**:
+
 - StorageClass will be named `efs-<efs_unique_id>`
 - EFS file system will be tagged with this identifier
 - Creation tokens will include this identifier
@@ -131,6 +138,7 @@ Unique identifier for the EFS instance and StorageClass.
 **Related variables**: `cluster_name`, `creation_token_prefix`, `create_storage_class`
 
 **Notes**:
+
 - Defaults to cluster name if not specified
 - Use descriptive names for multiple EFS instances (e.g., `mas-attachments`, `mas-logs`)
 - Must be unique within the cluster if creating multiple EFS instances
@@ -153,6 +161,7 @@ Prefix for AWS resource creation tokens.
 **Related variables**: `efs_unique_id`
 
 **Notes**:
+
 - Default `mas_devops.` identifies resources created by this collection
 - Helps track resource provenance in AWS
 - Change if you need to distinguish from other automation tools
@@ -169,6 +178,7 @@ Enable automatic StorageClass creation for the EFS instance.
 **When to use**: Set to `true` for normal operations. Set to `false` if you want to manually create the StorageClass or use a custom configuration.
 
 **Valid values**:
+
 - `true` - Automatically create StorageClass named `efs-<efs_unique_id>` (default)
 - `false` - Skip StorageClass creation
 
@@ -177,6 +187,7 @@ Enable automatic StorageClass creation for the EFS instance.
 **Related variables**: `efs_unique_id`
 
 **Notes**:
+
 - Default `true` is recommended for most deployments
 - StorageClass name format: `efs-<efs_unique_id>`
 - StorageClass supports dynamic provisioning with RWX access mode

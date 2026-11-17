@@ -69,6 +69,7 @@ Action to perform with the registry deployment.
 **When to use**: Set to `tear-down` when you need to completely remove a registry to free disk space or start fresh. Use default `setup` for normal installation.
 
 **Valid values**:
+
 - `setup` - Install and configure the registry
 - `tear-down` - Permanently delete the registry, namespace, and all stored images
 
@@ -77,6 +78,7 @@ Action to perform with the registry deployment.
 **Related variables**: [`registry_namespace`](#registry_namespace)
 
 **Notes**:
+
 - Use tear-down when the registry contains too many unused images or when migrating to newer versions
 - After tear-down, you must re-mirror all required images
 - Docker clients will need to trust the new CA certificate after recreation
@@ -112,6 +114,7 @@ Storage class for the registry's persistent volume.
 **When to use**: Must be specified for all non-ROKS clusters. On ROKS, the default is usually appropriate unless you have specific performance requirements.
 
 **Valid values**: Any storage class name available in your cluster that supports ReadWriteOnce (RWO) access mode. Common examples:
+
 - IBM Cloud ROKS: `ibmc-block-gold`, `ibmc-block-silver`, `ibmc-block-bronze`
 - AWS: `gp2`, `gp3`, `io1`
 - Azure: `managed-premium`, `managed-standard`
@@ -122,6 +125,7 @@ Storage class for the registry's persistent volume.
 **Related variables**: [`registry_storage_capacity`](#registry_storage_capacity)
 
 **Notes**:
+
 - Verify the storage class exists before deployment: `oc get storageclass`
 - The storage class cannot be changed after initial deployment without recreating the registry
 
@@ -143,6 +147,7 @@ Size of the persistent volume claim for registry storage.
 **Related variables**: [`registry_storage_class`](#registry_storage_class)
 
 **Notes**:
+
 - Plan for growth - container images can be large (1-5GB each)
 - Monitor usage regularly: `oc get pvc -n <registry_namespace>`
 - Expanding PVC size after deployment depends on your storage class capabilities
@@ -158,20 +163,24 @@ Service type for exposing the registry.
 **Purpose**: Controls how the registry is exposed for access from Docker clients.
 
 **When to use**:
+
 - Use `loadbalancer` (default) when you need to push images from outside the cluster
 - Use `clusterip` when you only need internal cluster access or will use port-forwarding
 
 **Valid values**:
+
 - `loadbalancer` - Exposes registry externally via cluster domain on port 32500
 - `clusterip` - Internal cluster access only (requires port-forwarding for external access)
 
 **Impact**:
+
 - **loadbalancer**: Enables direct external access via `<cluster-domain>:32500`, but requires port 32500 to be available
 - **clusterip**: More secure (no external exposure) but requires `oc port-forward` for each push operation
 
 **Related variables**: None
 
 **Notes**:
+
 - **LIMITATION**: The loadbalancer port (32500) cannot be customized. If port 32500 is already in use by another service, you must use `clusterip` mode
 - With loadbalancer, you must install the registry's CA certificate on your Docker client (see Usage section)
 - With clusterip, you still need to configure Docker trust for localhost:9000 (see Usage section)

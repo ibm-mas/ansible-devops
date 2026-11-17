@@ -7,11 +7,13 @@ This sample playbook will install **Cloud Pak for Data** on OpenShift. It can al
 
 Required environment variables
 -------------------------------------------------------------------------------
+
 - `CPD_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
 - `CPD_ENTITLEMENT_USERNAME` Your user name to access the IBM Container Registry
 
 Optional environment variables
 -------------------------------------------------------------------------------
+
 - `CPD_INSTALL_PLATFORM` True/False - If you HAVE CP4D already installed in your cluster, then set it to "false"
 - `CPD_INSTALL_WSL` True/False - Set to true to install Watson Studio
 - `CPD_INSTALL_WML` True/False - Set to true to install Watson Machine Learning

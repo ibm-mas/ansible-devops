@@ -33,6 +33,7 @@ Specifies which operation to perform on the Kafka cluster.
 **Purpose**: Controls what action the role executes against Kafka deployments. This allows the same role to handle installation, upgrades, and removal of Kafka clusters.
 
 **When to use**:
+
 - Use `install` (default) for initial Kafka deployment
 - Use `upgrade` to upgrade existing Kafka cluster (Strimzi and Red Hat AMQ Streams only)
 - Use `uninstall` to remove Kafka cluster and operator
@@ -40,11 +41,13 @@ Specifies which operation to perform on the Kafka cluster.
 **Valid values**: `install`, `upgrade`, `uninstall`
 
 **Impact**: 
+
 - `install`: Deploys Kafka operator and creates cluster
 - `upgrade`: Upgrades existing Kafka cluster (only for Strimzi and Red Hat providers)
 - `uninstall`: Removes Kafka cluster and operator
 
 **Related variables**:
+
 - `kafka_provider`: Upgrade action only supported for `strimzi` and `redhat` providers
 - `kafka_version`: Target version when upgrading
 
@@ -60,6 +63,7 @@ Specifies which Kafka provider to use for deployment.
 **Purpose**: Determines which Kafka implementation to deploy. Different providers offer different features, licensing models, and deployment targets (on-cluster vs cloud-managed).
 
 **When to use**:
+
 - Use `strimzi` (default) for open-source Kafka on OpenShift (recommended, no additional license required)
 - Use `redhat` for Red Hat AMQ Streams (requires separate license not included with MAS)
 - Use `ibm` for IBM Event Streams on IBM Cloud (managed service, additional cost)
@@ -68,12 +72,14 @@ Specifies which Kafka provider to use for deployment.
 **Valid values**: `strimzi`, `redhat`, `ibm`, `aws`
 
 **Impact**: 
+
 - `strimzi`: Deploys open-source Kafka using Strimzi operator (no additional license)
 - `redhat`: Deploys AMQ Streams (requires Red Hat AMQ license)
 - `ibm`: Provisions IBM Event Streams in IBM Cloud (requires IBM Cloud account and incurs costs)
 - `aws`: Provisions AWS MSK in AWS account (requires AWS account and incurs costs)
 
 **Related variables**:
+
 - Different providers require different additional variables
 - `kafka_action=upgrade` only supported for `strimzi` and `redhat`
 
@@ -89,6 +95,7 @@ MAS instance ID for generating KafkaCfg configuration.
 **Purpose**: Identifies which MAS instance the generated KafkaCfg will target. When set (along with `mas_config_dir`), the role generates a KafkaCfg resource for configuring MAS to use this Kafka cluster.
 
 **When to use**:
+
 - Set when you want to generate MAS configuration automatically
 - Must match the instance ID of your MAS installation
 - **Required** together with `mas_config_dir` for KafkaCfg generation
@@ -98,6 +105,7 @@ MAS instance ID for generating KafkaCfg configuration.
 **Impact**: When set with `mas_config_dir`, generates a KafkaCfg YAML file that can be applied to configure MAS. Without this, no MAS configuration is generated.
 
 **Related variables**:
+
 - `mas_config_dir`: Required together with this for KafkaCfg generation
 - Generated KafkaCfg targets this MAS instance
 
@@ -113,6 +121,7 @@ Local directory path where generated KafkaCfg will be saved.
 **Purpose**: Specifies where to save the generated KafkaCfg YAML file. This file can be manually applied to configure MAS or used with the suite_config role for automated configuration.
 
 **When to use**:
+
 - Set when you want to generate MAS configuration automatically
 - Use the same directory across all MAS setup roles for consistency
 - **Required** together with `mas_instance_id` for KafkaCfg generation
@@ -122,6 +131,7 @@ Local directory path where generated KafkaCfg will be saved.
 **Impact**: When set with `mas_instance_id`, generates `kafkacfg-{provider}-system.yaml` in this directory. The file can be applied with `oc apply` or used with suite_config role.
 
 **Related variables**:
+
 - `mas_instance_id`: Required together with this for KafkaCfg generation
 - `kafka_provider`: Affects the generated filename
 
@@ -139,6 +149,7 @@ Kafka version to deploy (Strimzi and Red Hat AMQ Streams only).
 **Purpose**: Specifies which Apache Kafka version to deploy when using Strimzi or Red Hat AMQ Streams providers. The version must be supported by the installed operator.
 
 **When to use**:
+
 - Leave as default for standard deployments
 - Set explicitly when you need a specific Kafka version
 - Verify version compatibility with operator before changing
@@ -148,6 +159,7 @@ Kafka version to deploy (Strimzi and Red Hat AMQ Streams only).
 **Impact**: Determines which Kafka version is deployed. Incompatible versions will cause deployment failures.
 
 **Related variables**:
+
 - `kafka_provider`: Only applies to `strimzi` and `redhat` providers
 - Operator version determines available Kafka versions
 
@@ -163,6 +175,7 @@ OpenShift namespace where Kafka operator and cluster will be deployed.
 **Purpose**: Specifies the namespace for deploying the Kafka operator and Kafka cluster resources. This isolates Kafka resources from other applications.
 
 **When to use**:
+
 - Use default for standard single-cluster deployments
 - Set to custom namespace when organizing multiple Kafka deployments
 - Must be unique if deploying multiple Kafka clusters
@@ -172,6 +185,7 @@ OpenShift namespace where Kafka operator and cluster will be deployed.
 **Impact**: All Kafka resources (operator, cluster, topics, users) are created in this namespace.
 
 **Related variables**:
+
 - `kafka_provider`: Default namespace depends on provider (`strimzi` or `amq-streams`)
 - `kafka_cluster_name`: Cluster created within this namespace
 
@@ -187,6 +201,7 @@ Name for the Kafka cluster resource.
 **Purpose**: Defines the name of the Kafka custom resource that will be created. This name is used to identify the Kafka cluster and is embedded in resource names.
 
 **When to use**:
+
 - Use default (`maskafka`) for standard MAS deployments
 - Set to custom name when deploying multiple Kafka clusters
 - Use descriptive names for multi-cluster environments
@@ -196,6 +211,7 @@ Name for the Kafka cluster resource.
 **Impact**: This name is used throughout the Kafka deployment in resource names (services, pods, secrets). It appears in the generated KafkaCfg for MAS.
 
 **Related variables**:
+
 - `kafka_namespace`: Cluster created within this namespace
 - Used in generated KafkaCfg when `mas_instance_id` is provided
 
@@ -211,6 +227,7 @@ Predefined configuration size for the Kafka cluster.
 **Purpose**: Selects a predefined resource configuration for the Kafka cluster. Different sizes allocate different amounts of CPU, memory, and replicas for Kafka brokers and Zookeeper nodes.
 
 **When to use**:
+
 - Use `small` (default) for development, test, or small production environments
 - Use `large` for production environments with higher throughput requirements
 - Choose based on expected message volume and performance needs
@@ -218,10 +235,12 @@ Predefined configuration size for the Kafka cluster.
 **Valid values**: `small`, `large`
 
 **Impact**: 
+
 - `small`: Fewer resources, suitable for dev/test or small workloads
 - `large`: More resources (CPU, memory, replicas) for production workloads
 
 **Related variables**:
+
 - `kafka_storage_size`: Storage size should align with cluster size
 - `zookeeper_storage_size`: Zookeeper storage should align with cluster size
 
@@ -237,6 +256,7 @@ Storage class for Kafka broker persistent storage (must support ReadWriteOnce).
 **Purpose**: Specifies the storage class for Kafka broker persistent storage, which requires ReadWriteOnce (RWO) access mode. This is where Kafka stores message logs and data.
 
 **When to use**:
+
 - Leave unset for automatic detection (recommended)
 - Set explicitly when you need a specific storage class
 - Must be a storage class supporting RWO access mode
@@ -247,6 +267,7 @@ Storage class for Kafka broker persistent storage (must support ReadWriteOnce).
 **Impact**: Kafka broker performance depends heavily on storage performance. Choose high-performance storage for production workloads. Incorrect storage class or one not supporting RWO will cause deployment to fail.
 
 **Related variables**:
+
 - `kafka_storage_size`: Size of storage for Kafka brokers
 - `zookeeper_storage_class`: Separate storage class for Zookeeper
 
@@ -262,6 +283,7 @@ Size of persistent storage for Kafka brokers.
 **Purpose**: Specifies the size of persistent volumes for Kafka broker storage. This is where Kafka stores all message logs and topic data.
 
 **When to use**:
+
 - Use default (`100Gi`) for development/test environments
 - Increase significantly for production based on message volume and retention
 - Plan for message throughput and retention period
@@ -272,6 +294,7 @@ Size of persistent storage for Kafka brokers.
 **Impact**: Insufficient storage will cause Kafka to stop accepting messages when volumes fill up. Size appropriately for your message volume and retention requirements.
 
 **Related variables**:
+
 - `kafka_storage_class`: Storage class for these volumes
 - `kafka_cluster_size`: Larger clusters may need more storage
 - Message retention settings affect storage requirements
@@ -288,6 +311,7 @@ Storage class for Zookeeper persistent storage (must support ReadWriteOnce).
 **Purpose**: Specifies the storage class for Zookeeper persistent storage, which requires ReadWriteOnce (RWO) access mode. Zookeeper stores cluster metadata and coordination data.
 
 **When to use**:
+
 - Leave unset for automatic detection (recommended)
 - Set explicitly when you need a specific storage class
 - Must be a storage class supporting RWO access mode
@@ -298,6 +322,7 @@ Storage class for Zookeeper persistent storage (must support ReadWriteOnce).
 **Impact**: Zookeeper is critical for Kafka cluster coordination. Reliable storage is essential. Incorrect storage class or one not supporting RWO will cause deployment to fail.
 
 **Related variables**:
+
 - `zookeeper_storage_size`: Size of storage for Zookeeper
 - `kafka_storage_class`: Separate storage class for Kafka brokers
 
@@ -313,6 +338,7 @@ Size of persistent storage for Zookeeper nodes.
 **Purpose**: Specifies the size of persistent volumes for Zookeeper storage. Zookeeper stores cluster metadata, configuration, and coordination data.
 
 **When to use**:
+
 - Use default (`10Gi`) for most deployments
 - Increase only for very large Kafka clusters with many topics/partitions
 - Zookeeper storage needs are typically much smaller than Kafka broker storage
@@ -322,6 +348,7 @@ Size of persistent storage for Zookeeper nodes.
 **Impact**: Insufficient Zookeeper storage can cause cluster coordination issues. However, Zookeeper storage requirements are typically modest.
 
 **Related variables**:
+
 - `zookeeper_storage_class`: Storage class for these volumes
 - `kafka_storage_size`: Kafka broker storage (typically much larger)
 
@@ -337,6 +364,7 @@ Username for MAS to authenticate with Kafka.
 **Purpose**: Defines the Kafka user that will be created for MAS to authenticate with the Kafka cluster. This user is configured with appropriate permissions for MAS operations.
 
 **When to use**:
+
 - Use default (`masuser`) for standard MAS deployments
 - Set to custom name when organizational policies require specific usernames
 - Must be unique within the Kafka cluster
@@ -346,6 +374,7 @@ Username for MAS to authenticate with Kafka.
 **Impact**: This user is created in Kafka with necessary permissions and credentials are included in the generated KafkaCfg for MAS.
 
 **Related variables**:
+
 - `kafka_user_password`: Password for this user (Strimzi 0.25.0+/AMQ Streams 2.x+)
 - Used in generated KafkaCfg when `mas_instance_id` is provided
 
@@ -361,6 +390,7 @@ Password for the Kafka user (Strimzi 0.25.0+/AMQ Streams 2.x+).
 **Purpose**: Sets the password for the Kafka user specified in `kafka_user_name`. This password is used for SCRAM-SHA authentication.
 
 **When to use**:
+
 - Leave unset for automatic random password generation (recommended)
 - Set explicitly when you need a specific password
 - Requires Strimzi operator 0.25.0+ or AMQ Streams 2.x+
@@ -370,6 +400,7 @@ Password for the Kafka user (Strimzi 0.25.0+/AMQ Streams 2.x+).
 **Impact**: This password is stored in Kafka secrets and included in the generated KafkaCfg for MAS. If not set, a secure random password is generated automatically.
 
 **Related variables**:
+
 - `kafka_user_name`: User for which this password is set
 - Used in generated KafkaCfg when `mas_instance_id` is provided
 
@@ -385,6 +416,7 @@ Comma-separated list of key=value labels to apply to Kafka resources.
 **Purpose**: Adds Kubernetes labels to Kafka-related resources for organization, selection, and filtering. Labels enable resource tracking, cost allocation, and custom automation.
 
 **When to use**:
+
 - Use to add organizational metadata (e.g., `cost-center=engineering`, `environment=production`)
 - Use to enable resource tracking and cost allocation
 - Use to support custom automation or monitoring tools

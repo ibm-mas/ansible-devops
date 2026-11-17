@@ -16,6 +16,7 @@ Action to perform on Service Mesh installation.
 **Purpose**: Specifies whether to install, uninstall, or install-kiali.
 
 **When to use**:
+
 - Use `install` (default) for new Service Mesh deployments
 - Use `install-kiali` to install only the Kiali monitoring component
 - Use `uninstall` to remove Service Mesh
@@ -23,11 +24,13 @@ Action to perform on Service Mesh installation.
 **Valid values**: `install`, `uninstall`, `install-kiali`
 
 **Impact**: 
+
 - `install`: Deploys Service Mesh operator and instance
 - `install-kiali`: Deploys Service Mesh operator and instance
 - `uninstall`: Removes Service Mesh and Kiali operators and instances
 
 **Related variables**:
+
 - `servicemesh_channel`: Catalog channel to install from (defaults if not provided)
 - `servicemesh_starting_csv`: Specific CSV to install (defaults if not provided)
 - `kiali_channel`: Catalog channel to install Kiali from (defaults if not provided)

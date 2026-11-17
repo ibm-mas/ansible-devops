@@ -146,15 +146,18 @@ The MAS Core restore operation performs the following steps in sequence:
 The restore process supports several override options to adapt the backup to a new environment:
 
 **Domain Override:**
+
 - Use `mas_domain` to change the domain when restoring to a different cluster
 - Default: Uses the domain from the backup
 
 **SLS Configuration:**
+
 - If `include_sls_from_backup=true`: Restores SlsCfg from backup
   - Use `sls_url` to override the SLS URL if the domain changed
 - If `include_sls_from_backup=false`: Use `sls_cfg_file` to provide external SLS configuration
 
 **DRO Configuration:**
+
 - If `include_dro_from_backup=true`: Restores BasCfg from backup
   - Use `bas_url` to override the BAS URL if the domain changed
 - If `include_dro_from_backup=false`: Use `dro_cfg_file` to provide external DRO configuration
@@ -162,6 +165,7 @@ The restore process supports several override options to adapt the backup to a n
 ### When to Use
 
 **Full Restore Scenarios:**
+
 - Disaster recovery after cluster failure
 - Migrating MAS Core to a new cluster
 - Recreating a deleted MAS Core instance
@@ -169,6 +173,7 @@ The restore process supports several override options to adapt the backup to a n
 - Testing backup integrity in non-production
 
 **Partial Configuration Scenarios:**
+
 - Restoring with new SLS service (set `include_sls_from_backup=false`)
 - Restoring with new DRO service (set `include_dro_from_backup=false`)
 - Restoring to cluster with different domain (use `mas_domain` override)
@@ -176,25 +181,30 @@ The restore process supports several override options to adapt the backup to a n
 ### Important Considerations
 
 **Prerequisites:**
+
 - Target cluster must have Certificate Manager installed
 - Target cluster must have the same MAS instance ID as the backup
 - **Required** dependencies (MongoDB, Db2, etc.) must be available and accessible
 - Sufficient cluster resources (CPU, memory, storage) must be available
 
 **Instance ID Requirement:**
+
 - Restore can only be made to an instance with the same MAS instance ID
 - The instance ID is embedded in resource names and cannot be changed
 
 **Storage Requirements:**
+
 - Ensure backup directory is accessible from the restore environment
 - Verify backup archive integrity before starting restore
 
 **Security:**
+
 - Backup files contain sensitive data including credentials and certificates
 - Ensure secure transfer of backup files to restore environment
 - Verify backup file permissions and access controls
 
 **Configuration Dependencies:**
+
 - If using external SLS/DRO configuration files, ensure they are valid and accessible
 - Coordinate with database restore operations to ensure data consistency
 - Verify network connectivity to external services (SLS, DRO, databases)

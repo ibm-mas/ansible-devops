@@ -151,6 +151,7 @@ IBM entitlement key for accessing container images.
 **Related variables**: None
 
 **Notes**:
+
 - Keep the entitlement key secure and do not commit it to version control
 - The key is associated with your IBM ID and product entitlements
 - Verify key validity before deployment to avoid installation failures
@@ -167,6 +168,7 @@ Catalog source for MAS operator installation.
 **When to use**: The default is appropriate for both release and development installations. Override only if using a custom or mirrored catalog.
 
 **Valid values**:
+
 - `ibm-operator-catalog` (default) - Standard IBM operator catalog
 - Custom catalog name for airgap or development environments
 
@@ -194,6 +196,7 @@ Subscription channel for IBM Maximo Location Services for Esri operator.
 **Related variables**: [`mas_catalog_source`](#mas_catalog_source)
 
 **Notes**:
+
 - The `9.1.x` channel receives updates within the 9.1 version stream
 - Review release notes before changing channels
 - Channel changes may require operator restarts
@@ -218,6 +221,7 @@ MAS instance identifier for ArcGIS deployment.
 **Related variables**: None
 
 **Notes**:
+
 - The deployment namespace will be `mas-<mas_instance_id>-arcgis`
 - ArcGIS will automatically use the MAS cluster issuers for certificate management
 - Ensure the MAS instance exists before deploying ArcGIS
@@ -240,6 +244,7 @@ Custom labels to apply to ArcGIS instance resources.
 **Related variables**: None
 
 **Notes**:
+
 - Labels must follow Kubernetes label syntax (alphanumeric, hyphens, underscores, dots)
 - Useful for cost allocation, resource queries, and automation scripts
 - Applied to all 49 ArcGIS deployment resources

@@ -16,6 +16,7 @@ MAS instance identifier to verify.
 **Purpose**: Identifies which MAS instance to verify. The role checks that the instance is ready to use and retrieves access credentials.
 
 **When to use**:
+
 - Always required for verification operations
 - Must match the instance ID from MAS installation
 - Used after installation to confirm readiness
@@ -25,6 +26,7 @@ MAS instance identifier to verify.
 **Impact**: Determines which MAS instance is verified. The role checks instance status and retrieves the Admin Dashboard URL and superuser credentials.
 
 **Related variables**:
+
 - `mas_hide_superuser_credentials`: Controls credential display in output
 
 **Note**: This role verifies that the MAS instance is ready to use and provides access information. Run after installation or upgrade to confirm successful deployment.
@@ -39,6 +41,7 @@ Hide superuser credentials in output.
 **Purpose**: Controls whether superuser credentials are displayed in the verification output. When enabled, only the secret name is shown instead of actual credentials.
 
 **When to use**:
+
 - Leave as `true` (default) for security (recommended)
 - Set to `false` only when you need to see credentials in output
 - Use `true` in CI/CD pipelines and shared environments
@@ -46,10 +49,12 @@ Hide superuser credentials in output.
 **Valid values**: `true`, `false`
 
 **Impact**: 
+
 - `true`: Displays only the secret name containing credentials (secure)
 - `false`: Displays actual username and password in output (insecure)
 
 **Related variables**:
+
 - `mas_instance_id`: Instance whose credentials are being verified
 
 **Note**: **SECURITY** - The default `true` is recommended for security. Only set to `false` in secure, private environments where you need immediate access to credentials. Credentials can always be retrieved from the Kubernetes secret.

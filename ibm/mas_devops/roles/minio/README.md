@@ -38,6 +38,7 @@ MAS instance identifier for resource labeling.
 **Related variables**: [`mas_config_dir`](#mas_config_dir)
 
 **Notes**:
+
 - Optional but recommended for multi-instance environments
 - Helps identify which MAS instance uses this MinIO deployment
 - Used in resource labels and metadata
@@ -60,6 +61,7 @@ Local directory for generated configuration files.
 **Related variables**: [`mas_instance_id`](#mas_instance_id)
 
 **Notes**:
+
 - Optional - only needed if you want to save configuration files
 - Useful for documenting MinIO endpoints and credentials
 - Can be used for manual MAS configuration
@@ -84,6 +86,7 @@ Namespace for MinIO deployment.
 **Related variables**: [`minio_instance_name`](#minio_instance_name)
 
 **Notes**:
+
 - Default `minio` namespace is suitable for most deployments
 - Namespace will be created if it doesn't exist
 - Use different namespaces for multiple MinIO instances
@@ -106,6 +109,7 @@ Name for the MinIO instance.
 **Related variables**: [`minio_namespace`](#minio_namespace)
 
 **Notes**:
+
 - Default `minio` is suitable for single-instance deployments
 - Use descriptive names for multiple instances (e.g., `minio-dev`, `minio-test`)
 - Route will be accessible at `{instance-name}-{namespace}.{cluster-domain}`
@@ -128,6 +132,7 @@ Root username for MinIO access.
 **Related variables**: [`minio_root_password`](#minio_root_password)
 
 **Notes**:
+
 - Root user has full administrative access to MinIO
 - Store credentials securely
 - Default `minio` is acceptable for development/testing only
@@ -150,6 +155,7 @@ Root password for MinIO access.
 **Related variables**: [`minio_root_user`](#minio_root_user)
 
 **Notes**:
+
 - Auto-generation is recommended for security
 - If auto-generated, password will be displayed in Ansible output
 - Store password securely for future access
@@ -173,6 +179,7 @@ Storage class for MinIO persistent volume.
 **Related variables**: [`minio_storage_size`](#minio_storage_size)
 
 **Notes**:
+
 - Uses cluster default storage class if not specified
 - Verify storage class exists: `oc get storageclass`
 - Consider performance requirements when selecting storage class
@@ -196,6 +203,7 @@ Size of MinIO persistent volume.
 **Related variables**: [`minio_storage_class`](#minio_storage_class)
 
 **Notes**:
+
 - Default 20Gi is suitable for development and testing
 - Increase for larger datasets or longer retention
 - Ensure cluster has sufficient storage capacity
@@ -221,6 +229,7 @@ Container registry for entitled images.
 **Related variables**: [`mas_entitlement_key`](#mas_entitlement_key), [`mas_entitlement_username`](#mas_entitlement_username)
 
 **Notes**:
+
 - Default points to IBM's entitled registry
 - For air-gapped deployments, mirror images to internal registry
 - Requires valid entitlement credentials
@@ -243,6 +252,7 @@ Container registry for open images.
 **Related variables**: [`mas_icr_cp`](#mas_icr_cp)
 
 **Notes**:
+
 - Default points to IBM's public registry
 - No authentication required for open images
 - For air-gapped deployments, mirror to internal registry
@@ -265,6 +275,7 @@ Username for entitled registry authentication.
 **Related variables**: [`mas_entitlement_key`](#mas_entitlement_key), [`mas_icr_cp`](#mas_icr_cp)
 
 **Notes**:
+
 - Default `cp` is standard for IBM entitled registry
 - Only change if using custom registry
 - Used with entitlement key for authentication
@@ -287,6 +298,7 @@ API key for entitled registry access.
 **Related variables**: [`mas_entitlement_username`](#mas_entitlement_username), [`mas_icr_cp`](#mas_icr_cp)
 
 **Notes**:
+
 - Obtain from IBM Container Library
 - Store securely, never commit to version control
 - Required for accessing IBM entitled images

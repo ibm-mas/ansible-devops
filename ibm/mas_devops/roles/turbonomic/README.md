@@ -28,6 +28,7 @@ Namespace for KubeTurbo operator installation.
 **Purpose**: Specifies the OpenShift namespace where the KubeTurbo operator and agent will be installed.
 
 **When to use**:
+
 - Use default (`kubeturbo`) for standard installations
 - Override for custom namespace requirements
 - Useful for multi-tenant or organized deployments
@@ -37,6 +38,7 @@ Namespace for KubeTurbo operator installation.
 **Impact**: Determines where kubeturbo resources are deployed. All operator and agent components will be created in this namespace.
 
 **Related variables**:
+
 - `turbonomic_target_name`: Cluster identifier in Turbonomic
 
 **Note**: The namespace will be created if it doesn't exist. Using the default `kubeturbo` namespace is recommended for consistency.
@@ -53,6 +55,7 @@ Cluster name in Turbonomic server.
 **Purpose**: Defines the name by which this cluster will be identified in the Turbonomic ARM server. The kubeturbo agent uses this name when registering and sending data to Turbonomic.
 
 **When to use**:
+
 - Always required for kubeturbo installation
 - Should be unique across all clusters managed by Turbonomic
 - Use descriptive names for easy identification
@@ -62,6 +65,7 @@ Cluster name in Turbonomic server.
 **Impact**: Determines how the cluster appears in Turbonomic dashboards and reports. This name is used for all resource tracking and optimization recommendations.
 
 **Related variables**:
+
 - `turbonomic_server_url`: Server to register with
 - `kubeturbo_namespace`: Where agent is deployed
 
@@ -77,6 +81,7 @@ Turbonomic server URL.
 **Purpose**: Specifies the URL of the Turbonomic ARM server that kubeturbo will connect to for sending cluster data and receiving optimization actions.
 
 **When to use**:
+
 - Always required for kubeturbo installation
 - Must be accessible from the OpenShift cluster
 - Should include protocol (https://)
@@ -86,6 +91,7 @@ Turbonomic server URL.
 **Impact**: Determines which Turbonomic server receives cluster data. Kubeturbo establishes connection to this endpoint for all communication.
 
 **Related variables**:
+
 - `turbonomic_username`/`turbonomic_password`: Authentication credentials
 - `turbonomic_server_version`: Optional version specification
 - `turbonomic_target_name`: Cluster identifier on this server
@@ -102,6 +108,7 @@ Turbonomic server version.
 **Purpose**: Specifies the version of the Turbonomic server being connected to. Used for version-specific compatibility and feature enablement.
 
 **When to use**:
+
 - Optional for most installations
 - Specify when connecting to specific Turbonomic versions
 - May be required for version-specific features or compatibility
@@ -111,6 +118,7 @@ Turbonomic server version.
 **Impact**: May affect feature availability or compatibility checks between kubeturbo agent and Turbonomic server.
 
 **Related variables**:
+
 - `turbonomic_server_url`: Server being connected to
 
 **Note**: If not specified, kubeturbo will attempt to detect server version automatically. Specify only if you need to enforce specific version compatibility.
@@ -125,6 +133,7 @@ Turbonomic server username.
 **Purpose**: Provides the username for authenticating kubeturbo agent with the Turbonomic server.
 
 **When to use**:
+
 - Always required for kubeturbo installation
 - Should be a service account or dedicated user
 - Requires appropriate permissions in Turbonomic
@@ -134,6 +143,7 @@ Turbonomic server username.
 **Impact**: Used for authentication when kubeturbo connects to Turbonomic server. The user must have permissions to register targets and send data.
 
 **Related variables**:
+
 - `turbonomic_password`: Password for this username
 - `turbonomic_server_url`: Server to authenticate with
 - `turbonomic_target_name`: Cluster this user will register
@@ -150,6 +160,7 @@ Turbonomic server password.
 **Purpose**: Provides the password for authenticating kubeturbo agent with the Turbonomic server.
 
 **When to use**:
+
 - Always required for kubeturbo installation
 - Must match the password for `turbonomic_username`
 - Used for secure authentication
@@ -159,6 +170,7 @@ Turbonomic server password.
 **Impact**: Used for authentication when kubeturbo connects to Turbonomic server. Authentication must succeed for data transmission.
 
 **Related variables**:
+
 - `turbonomic_username`: Username for this password
 - `turbonomic_server_url`: Server to authenticate with
 

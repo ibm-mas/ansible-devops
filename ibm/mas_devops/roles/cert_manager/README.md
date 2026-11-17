@@ -21,6 +21,7 @@ Specifies which operation to perform on the Certificate Manager operator.
 **Purpose**: Controls what action the role executes against the Certificate Manager operator. This allows the same role to handle installation, removal, or no action on the cert-manager deployment.
 
 **When to use**:
+
 - Use `install` (default) for initial deployment or to ensure cert-manager is present
 - Use `uninstall` to remove cert-manager (use with extreme caution)
 - Use `backup` to backup the cert-manager installation resources to an archive
@@ -30,6 +31,7 @@ Specifies which operation to perform on the Certificate Manager operator.
 **Valid values**: `install`, `uninstall`, `backup`, `restore`, `none`
 
 **Impact**: 
+
 - `install`: Deploys Red Hat Certificate Manager Operator to `cert-manager-operator` namespace and creates operand in `cert-manager` namespace
 - `uninstall`: Removes cert-manager operator and operand (destructive operation)
 - `backup`: Stores the resources used for the installation (not certificate or secrets) in an archive location
@@ -52,6 +54,7 @@ Directory path where Certificate Manager backup files will be stored.
 **Purpose**: Specifies the local filesystem directory where backup archives will be created (for backup) or read from (for restore). This directory serves as the central location for all Certificate Manager backup data.
 
 **When to use**:
+
 - Required when `cert_manager_action` is set to `backup` or `restore`
 - Should be a persistent location with sufficient storage space
 - Ensure the directory is accessible and has appropriate permissions
@@ -75,12 +78,14 @@ Version identifier for the backup, used to create unique backup directories.
 **Purpose**: Provides a unique identifier for each backup, allowing multiple backups to coexist and enabling point-in-time restore operations.
 
 **When to use**:
+
 - For backup: Leave unset to auto-generate a timestamp-based version, or provide a custom identifier
 - For restore: Must specify the exact version identifier of the backup to restore
 
 **Valid values**: Any string suitable for directory names (alphanumeric, hyphens, underscores). Auto-generated format: `YYYYMMDD-HHMMSS` (e.g., `20260122-131500`)
 
 **Impact**:
+
 - For backup: Creates directory `{mas_backup_dir}/backup-{version}-certmanager/`
 - For restore: Looks for backup in `{mas_backup_dir}/backup-{version}-certmanager/`
 
@@ -128,6 +133,7 @@ The Certificate Manager backup operation creates a backup of your Certificate Ma
 The Certificate Manager restore operation performs a complete restoration of the Certificate Manager operator and operand:
 
 **Steps:**
+
 1. Validates backup files and required variables
 2. Restores Projects/Namespaces
 3. Restores OperatorGroups
@@ -137,6 +143,7 @@ The Certificate Manager restore operation performs a complete restoration of the
 7. Waits for cert-manager-webhook deployment to be ready (up to 30 minutes)
 
 **When to use:**
+
 - Disaster recovery scenarios
 - Migrating Certificate Manager to a new cluster
 - Recreating a deleted Certificate Manager instance
@@ -145,16 +152,19 @@ The Certificate Manager restore operation performs a complete restoration of the
 ### Important Considerations
 
 **Version Compatibility:**
+
 - Target Certificate Manager version should match the backup version
 - Version upgrades should be performed separately, not during restore
 - The restore process validates version compatibility before proceeding
 
 **Storage Requirements:**
+
 - Ensure sufficient storage in the backup directory
 - Backup directory structure: `{mas_backup_dir}/backup-{version}-certmanager/`
 - Monitor disk space during backup operations
 
 **Security:**
+
 - Backup files contain operator configuration and auto-discovered secrets
 - Secure backup directory with appropriate permissions (chmod 700 recommended)
 - Consider encrypting backups for long-term storage

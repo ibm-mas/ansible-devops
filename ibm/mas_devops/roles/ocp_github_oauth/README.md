@@ -3,6 +3,7 @@
 Configure OpenShift cluster authentication using GitHub OAuth. This role enables users to log into OpenShift using their GitHub credentials, with support for both public GitHub and GitHub Enterprise. It also manages user groups and cluster role bindings based on GitHub organization membership.
 
 **Prerequisites**:
+
 - GitHub OAuth application must be configured in your GitHub organization before using this role
 - OAuth application must use `ibmgithub` as the OAuth ID
 - Requires GitHub organization admin permissions
@@ -32,6 +33,7 @@ GitHub OAuth application client secret.
 **Related variables**: `oauth.github_client_id_value`, `oauth.github_hostname`
 
 **Notes**:
+
 - Obtain from GitHub OAuth app settings in your organization
 - Keep secret secure, never commit to version control
 - Stored as Kubernetes secret in the cluster
@@ -55,6 +57,7 @@ GitHub OAuth application client ID.
 **Related variables**: `oauth.github_client_secret_value`, `oauth.github_hostname`
 
 **Notes**:
+
 - Obtain from GitHub OAuth app settings in your organization
 - Public value, but should still be managed securely
 - Must match the OAuth app configured with `ibmgithub` as the OAuth ID
@@ -71,6 +74,7 @@ GitHub server hostname for authentication.
 **When to use**: Set to your GitHub Enterprise hostname if using enterprise GitHub. Leave default for public GitHub.
 
 **Valid values**:
+
 - `github.com` - Public GitHub (default)
 - `github.ibm.com` - IBM GitHub Enterprise
 - Custom GitHub Enterprise hostname (e.g., `github.example.com`)
@@ -80,6 +84,7 @@ GitHub server hostname for authentication.
 **Related variables**: `oauth.github_client_id_value`, `oauth.github_client_secret_value`
 
 **Notes**:
+
 - Default `github.com` is for public GitHub
 - Use your enterprise hostname for GitHub Enterprise
 - Hostname must be accessible from the OpenShift cluster
@@ -103,6 +108,7 @@ List of GitHub organizations for authentication.
 **Related variables**: `oauth.groups`
 
 **Notes**:
+
 - Users must be members of at least one listed organization
 - Organization membership is verified during each login
 - Multiple organizations can be specified for broader access
@@ -120,6 +126,7 @@ List of OpenShift groups to create with GitHub user mappings.
 **When to use**: Use to map GitHub users to OpenShift groups and assign cluster permissions.
 
 **Valid values**: List of group objects, each containing:
+
 - `name`: OpenShift group name
 - `users`: List of GitHub usernames to add to the group
 - `groups_cluster_rolebindings`: List of cluster roles to bind to the group
@@ -129,6 +136,7 @@ List of OpenShift groups to create with GitHub user mappings.
 **Related variables**: `oauth.organizations`
 
 **Notes**:
+
 - Groups enable role-based access control (RBAC)
 - Users must be members of specified organizations
 - Common cluster roles: `cluster-admin`, `admin`, `edit`, `view`
@@ -152,6 +160,7 @@ Name of the OpenShift group to create.
 **Related variables**: `oauth.groups.users`, `oauth.groups.groups_cluster_rolebindings`
 
 **Notes**:
+
 - Use descriptive names that reflect the group's purpose
 - Common patterns: `<project>-admins`, `<team>-developers`
 - Group names must be unique within the cluster
@@ -174,6 +183,7 @@ List of GitHub usernames to add to the group.
 **Related variables**: `oauth.groups.name`, `oauth.organizations`
 
 **Notes**:
+
 - Users must be members of the specified GitHub organizations
 - GitHub usernames are case-sensitive
 - Users are added to groups upon first login
@@ -191,6 +201,7 @@ List of cluster roles to bind to the group.
 **When to use**: Required for each group definition. Specify the cluster roles that match the group's intended access level.
 
 **Valid values**: List of valid OpenShift cluster role names. Common values:
+
 - `cluster-admin` - Full cluster administration
 - `admin` - Full access to project resources
 - `edit` - Modify project resources
@@ -202,6 +213,7 @@ List of cluster roles to bind to the group.
 **Related variables**: `oauth.groups.name`, `oauth.groups.users`
 
 **Notes**:
+
 - **Warning**: `cluster-admin` grants full cluster control
 - Use least privilege principle when assigning roles
 - Multiple roles can be assigned to a single group

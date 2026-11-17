@@ -68,6 +68,7 @@ Namespace for Longhorn installation.
 **Related variables**: None
 
 **Notes**:
+
 - Default `longhorn-system` is the standard namespace for Longhorn
 - Namespace will be created if it doesn't exist
 - Longhorn UI will be accessible at `https://longhorn-ui-{namespace}.{clusterdomain}`
@@ -83,16 +84,19 @@ Number of data replicas for Longhorn volumes.
 **Purpose**: Determines how many copies of volume data are stored across different nodes in the cluster, directly impacting data availability and resilience.
 
 **When to use**:
+
 - Use default `3` for production deployments requiring high availability
 - Set to `2` for moderate availability with reduced storage overhead
 - Set to `1` for development/testing environments to minimize storage requirements
 
 **Valid values**: Integer between `1` and the number of worker nodes. Common values:
+
 - `3` - Production (tolerates 2 node failures, recommended)
 - `2` - Moderate availability (tolerates 1 node failure)
 - `1` - Development only (no redundancy, data loss if node fails)
 
 **Impact**:
+
 - **Availability**: Higher replica count = better fault tolerance
 - **Storage**: Each replica consumes storage space (3 replicas = 3x storage usage)
 - **Performance**: More replicas may impact write performance slightly
@@ -101,6 +105,7 @@ Number of data replicas for Longhorn volumes.
 **Related variables**: None
 
 **Notes**:
+
 - Default `3` allows system to tolerate up to 2 replica failures while maintaining data integrity
 - Setting to `1` sacrifices resilience for reduced storage requirements (development only)
 - Replicas are distributed across different nodes for fault tolerance

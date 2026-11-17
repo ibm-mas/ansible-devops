@@ -17,6 +17,7 @@ This role supports restoring MAS application resources and data from backups cre
 Future support planned for: `iot`, `monitor`, `health`, `optimizer`, `visualinspection`
 
 The restore process follows these phases:
+
 1. **Phase 1**: Restore Kubernetes resources like Project, Secrets, Configmaps, Subscription, Certificates and ManageApp CR (not ManageWorkspace CR)
 2. **Phase 2**: Check if ManageWorkspace CR is already available
 3. **Phase 3**: Restore persistent volume data
@@ -134,6 +135,7 @@ Control whether to restore persistent volume data for application. When set to `
 When restoring the Manage application, the following resources are restored:
 
 **Namespace Resources** (Phase 1 & 4):
+
 - `Project` (namespace)
 - Encryption secrets
 - Certificates with `mas.ibm.com/instanceId` label
@@ -144,12 +146,14 @@ When restoring the Manage application, the following resources are restored:
 - `ManageWorkspace` CR (Phase 4)
 
 **Persistent Volume Data** (Phase 3):
+
 - All persistent volumes defined in `spec.settings.deployment.persistentVolumes`
 - Data is restored from compressed tar.gz archives
 - Each PVC's mount path is restored separately
 - Archives are read from the `data` subdirectory
 
 **NOT Restored** (must be restored separately):
+
 - Manage database (Db2) - use the [db2](db2.md) role
 - Suite-level resources - use the [suite_restore](suite_restore.md) role
 
@@ -157,6 +161,7 @@ When restoring the Manage application, the following resources are restored:
 When restoring the Facilities application, the following resources are restored:
 
 **Namespace Resources** (Phase 1 & 4):
+
 - `Project` (namespace)
 - Encryption secrets
 - Certificates with `mas.ibm.com/instanceId` label
@@ -167,6 +172,7 @@ When restoring the Facilities application, the following resources are restored:
 - `FacilitiesWorkspace` CR (Phase 4)
 
 **Persistent Volume Data** (Phase 3):
+
 - All persistent volumes defined in `spec.settings.deployment.persistentVolumes`
 - Data is restored from compressed tar.gz archives
 - Each PVC is restored with special handling for extracted data:
@@ -177,6 +183,7 @@ When restoring the Facilities application, the following resources are restored:
 - Archives are read from the `data` subdirectory
 
 **NOT Restored** (must be restored separately):
+
 - Facilities database (Db2) - use the [db2](db2.md) role
 - Suite-level resources - use the [suite_restore](suite_restore.md) role
 
@@ -203,6 +210,7 @@ The role intelligently handles PV restoration based on whether ManageWorkspace C
 
 ### Dummy Pod Specification
 When a dummy pod is created for restoration, it uses:
+
 - **Image**: `registry.redhat.io/ubi8/ubi-minimal:latest`
 - **Command**: `sleep infinity` (keeps pod running)
 - **Volumes**: All PVCs from ManageWorkspace CR configuration
@@ -489,6 +497,7 @@ Restore Facilities namespace resources without restoring persistent volume data:
 ### Restore Fails at Phase 1
 **Issue**: Resources fail to restore in Phase 1
 **Solution**: 
+
 - Check that the backup directory exists and contains the expected files
 - Verify namespace exists: `oc get namespace mas-<instance_id>-manage`
 - Check for conflicting resources: `oc get manageapp,subscription -n mas-<instance_id>-manage`
@@ -496,6 +505,7 @@ Restore Facilities namespace resources without restoring persistent volume data:
 ### Dummy Pod Fails to Start
 **Issue**: Dummy pod remains in Pending state
 **Solution**:
+
 - Check PVC status: `oc get pvc -n mas-<instance_id>-manage`
 - Verify storage class exists and can provision volumes
 - Check pod events: `oc describe pod <pod-name> -n mas-<instance_id>-manage`
@@ -503,6 +513,7 @@ Restore Facilities namespace resources without restoring persistent volume data:
 ### PV Data Restore Fails
 **Issue**: Data extraction fails in the pod
 **Solution**:
+
 - Verify tar.gz archives are not corrupted
 - Check pod has sufficient disk space
 - Verify mount paths are accessible in the pod
@@ -510,6 +521,7 @@ Restore Facilities namespace resources without restoring persistent volume data:
 ### ManageWorkspace Never Becomes Ready
 **Issue**: Phase 5 times out waiting for ManageWorkspace
 **Solution**:
+
 - Check ManageWorkspace status: `oc describe manageworkspace -n mas-<instance_id>-manage`
 - Verify database is accessible and restored
 - Check pod logs: `oc logs -l mas.ibm.com/appType=serverBundle -n mas-<instance_id>-manage`

@@ -50,6 +50,7 @@ Local disk device path for block storage.
 **Related variables**: [`ocs_action`](#ocs_action)
 
 **Notes**:
+
 - **Critical**: Disk must be unformatted and not in use
 - All data on the specified disk will be permanently erased
 - Disk must be available on all worker nodes designated for storage
@@ -68,20 +69,24 @@ Action to perform on ODF/OCS installation.
 **Purpose**: Controls whether to perform a fresh installation or upgrade of ODF/OCS operators and storage cluster.
 
 **When to use**:
+
 - Use `install` (default) for new ODF/OCS deployments
 - Use `upgrade` to update existing ODF/OCS installation to match current OpenShift version
 
 **Valid values**:
+
 - `install` - Fresh installation of Local Storage Operator, ODF/OCS operator, and storage cluster
 - `upgrade` - Upgrade existing operators and storage cluster based on OpenShift version
 
 **Impact**:
+
 - **install**: Creates new LSO and ODF/OCS operators, configures local storage, creates storage cluster
 - **upgrade**: Updates operator subscriptions and storage cluster configuration to match OpenShift version
 
 **Related variables**: [`lso_device_path`](#lso_device_path)
 
 **Notes**:
+
 - Default `install` is for new deployments
 - Use `upgrade` after OpenShift cluster upgrades to keep storage in sync
 - Upgrade process updates operators to versions compatible with current OCP version

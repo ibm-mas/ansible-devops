@@ -19,6 +19,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 
 Required environment variables
 -------------------------------------------------------------------------------
+
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `IBM_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry

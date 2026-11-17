@@ -19,6 +19,7 @@ Action to perform on Grafana installation.
 **Purpose**: Specifies whether to install, uninstall, or upgrade Grafana for use with MAS monitoring.
 
 **When to use**:
+
 - Use `install` (default) for new Grafana deployments
 - Use `update` to upgrade from Grafana v4 to v5
 - Use `uninstall` to remove Grafana
@@ -26,11 +27,13 @@ Action to perform on Grafana installation.
 **Valid values**: `install`, `uninstall`, `update`
 
 **Impact**: 
+
 - `install`: Deploys Grafana operator and instance
 - `update`: Upgrades from v4 to v5 (creates new instance with new URL)
 - `uninstall`: Removes Grafana operator and instance
 
 **Related variables**:
+
 - `grafana_major_version`: Version to install/upgrade to
 - `grafana_v4_namespace`/`grafana_v5_namespace`: Namespaces for different versions
 
@@ -46,6 +49,7 @@ Grafana operator major version.
 **Purpose**: Specifies which major version of the Grafana operator to install.
 
 **When to use**:
+
 - Use default (`5`) for new installations (recommended)
 - Set to `4` only for legacy deployments
 - Version 5 is the current supported version
@@ -55,6 +59,7 @@ Grafana operator major version.
 **Impact**: Determines which Grafana operator version is deployed. Version 5 uses a different namespace and has breaking changes from version 4.
 
 **Related variables**:
+
 - `grafana_action`: Use `update` to upgrade from v4 to v5
 - `grafana_v4_namespace`: Namespace for v4 installation
 - `grafana_v5_namespace`: Namespace for v5 installation
@@ -71,6 +76,7 @@ Namespace for Grafana v4 installation.
 **Purpose**: Specifies the Kubernetes namespace where Grafana operator v4 and instance are installed.
 
 **When to use**:
+
 - Only applies when `grafana_major_version=4`
 - Use default (`grafana`) for standard deployments
 - Override only if namespace conflicts exist
@@ -80,6 +86,7 @@ Namespace for Grafana v4 installation.
 **Impact**: Determines where Grafana v4 resources are created. Namespace must not conflict with v5 installation.
 
 **Related variables**:
+
 - `grafana_major_version`: Must be `4` for this to apply
 - `grafana_v5_namespace`: Separate namespace for v5
 
@@ -95,6 +102,7 @@ Namespace for Grafana v5 installation.
 **Purpose**: Specifies the Kubernetes namespace where Grafana operator v5 and instance are installed.
 
 **When to use**:
+
 - Applies when `grafana_major_version=5` (default)
 - Use default (`grafana5`) for standard deployments
 - Override only if namespace conflicts exist
@@ -104,6 +112,7 @@ Namespace for Grafana v5 installation.
 **Impact**: Determines where Grafana v5 resources are created. Uses separate namespace from v4 to allow coexistence during upgrades.
 
 **Related variables**:
+
 - `grafana_major_version`: Must be `5` for this to apply
 - `grafana_v4_namespace`: Separate namespace for v4
 
@@ -119,6 +128,7 @@ Storage class for Grafana user data.
 **Purpose**: Specifies the storage class for Grafana's persistent volume that stores user data, dashboards, and configurations.
 
 **When to use**:
+
 - Leave unset to auto-detect from supported storage classes
 - Set explicitly if none of the default classes are available
 - Required if cluster has no supported storage classes
@@ -128,6 +138,7 @@ Storage class for Grafana user data.
 **Impact**: Determines where Grafana user data is stored. Incorrect or unavailable storage class will cause deployment to fail.
 
 **Related variables**:
+
 - `grafana_instance_storage_size`: Size of the storage volume
 
 **Note**: RWO access mode is sufficient for Grafana. RWX classes (like `ibmc-file-gold-gid`, `ocs-storagecluster-cephfs`, `azurefiles-premium`) also work but are not required. The role auto-detects these common classes if available.
@@ -142,6 +153,7 @@ Storage volume size for Grafana user data.
 **Purpose**: Specifies the size of the persistent volume used to store Grafana user data, dashboards, and configurations.
 
 **When to use**:
+
 - Use default (`10Gi`) for most deployments
 - Increase for environments with many dashboards or extensive data
 - Consider growth over time for dashboard storage
@@ -151,6 +163,7 @@ Storage volume size for Grafana user data.
 **Impact**: Determines available storage for Grafana data. Insufficient size may limit dashboard creation. Excessive size wastes storage resources.
 
 **Related variables**:
+
 - `grafana_instance_storage_class`: Storage class for the volume
 
 **Note**: The default 10Gi is sufficient for typical MAS monitoring deployments. When upgrading from v4 to v5, the new instance inherits the v4 storage size unless explicitly overridden.

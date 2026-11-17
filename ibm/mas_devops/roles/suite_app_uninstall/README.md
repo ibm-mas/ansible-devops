@@ -27,6 +27,7 @@ MAS instance identifier from which the application will be uninstalled.
 **Related variables**: `mas_app_id`
 
 **Notes**:
+
 - Must match the instance ID used during MAS installation
 - Case-sensitive value
 - **Critical**: Uninstallation is permanent and cannot be undone
@@ -45,6 +46,7 @@ MAS application identifier to be uninstalled.
 **When to use**: Always required. Must be a valid, installed application.
 
 **Valid values**:
+
 - `assist` - Maximo Assist
 - `health` - Maximo Health (formerly Predict)
 - `iot` - Maximo IoT
@@ -56,6 +58,7 @@ MAS application identifier to be uninstalled.
 - `facilities` - Maximo Facilities (TRIRIGA)
 
 **Impact**: The specified application and all its resources will be permanently removed. This includes:
+
 - Application namespace and all contained resources
 - Application custom resources (e.g., ManageApp, IoTApp)
 - Application-specific configurations
@@ -65,6 +68,7 @@ MAS application identifier to be uninstalled.
 **Related variables**: `mas_instance_id`
 
 **Notes**:
+
 - **Warning**: Uninstallation is irreversible
 - Application data in external databases is NOT removed
 - Backup all critical data before uninstalling

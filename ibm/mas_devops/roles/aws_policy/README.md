@@ -5,6 +5,7 @@ Create AWS IAM policies from JSON policy documents in your AWS account. This rol
 IAM policies define permissions for AWS identities (users, groups, roles) to access AWS resources. This role creates customer-managed policies that can be attached to IAM users or roles.
 
 **Prerequisites**:
+
 - AWS CLI must be installed
 - AWS credentials configured via `aws configure` or environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
 - IAM permissions to create policies
@@ -32,6 +33,7 @@ Name for the IAM policy to be created.
 **Related variables**: `aws_policy_json_file_path_local`
 
 **Notes**:
+
 - Must be unique within the AWS account
 - Cannot be changed after creation
 - Use naming conventions for easier management (e.g., `<service>-<purpose>-Policy`)
@@ -55,6 +57,7 @@ Local file path to the IAM policy JSON document.
 **Related variables**: `aws_policy_name`
 
 **Notes**:
+
 - File must be accessible from the Ansible controller
 - Must follow AWS IAM policy JSON syntax
 - Sample template available in role's `/files/policy-template-sample.json`
@@ -72,6 +75,7 @@ Local file path to the IAM policy JSON document.
     ]
   }
   ```
+
 - Common policy elements:
   - `Version`: Policy language version (always `2012-10-17`)
   - `Statement`: Array of permission statements

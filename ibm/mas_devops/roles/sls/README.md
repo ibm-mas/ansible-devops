@@ -20,6 +20,7 @@ Specifies which operation to perform on the Suite License Service (SLS) instance
 **Purpose**: Controls what action the role executes against the SLS instance. This allows the same role to handle installation, configuration generation, backup, restore, and removal of SLS.
 
 **When to use**:
+
 - Use `install` for initial SLS deployment or updates
 - Use `gencfg` to generate SLS configuration for MAS without installing SLS (when using existing SLS)
 - Use `backup` to create a backup of SLS instance and its configuration
@@ -29,6 +30,7 @@ Specifies which operation to perform on the Suite License Service (SLS) instance
 **Valid values**: `install`, `gencfg`, `backup`, `restore`, `uninstall`
 
 **Impact**:
+
 - `install`: Deploys or updates SLS operator and instance
 - `gencfg`: Only generates SLSCfg resource for MAS integration
 - `backup`: Creates a backup of all SLS resources, secrets, and registration data
@@ -36,6 +38,7 @@ Specifies which operation to perform on the Suite License Service (SLS) instance
 - `uninstall`: Removes SLS instance and operator (destructive operation)
 
 **Related variables**:
+
 - When using `gencfg`, requires `sls_url` to be set to point to existing SLS instance
 - When using `backup`, requires `mas_backup_dir` and optionally `sls_backup_version`
 - When using `restore`, requires `mas_backup_dir` and `sls_backup_version`
@@ -56,6 +59,7 @@ Username for authenticating to IBM Artifactory to access development builds of S
 **Purpose**: Provides authentication credentials to pull development/pre-release SLS operator images from IBM's Artifactory registry. Required only when installing development builds for testing or early access.
 
 **When to use**:
+
 - Required when `sls_catalog_source` is set to `ibm-sls-operators` (development catalog)
 - Not needed for production installations using `ibm-operator-catalog`
 - Use your IBM w3Id username for development builds
@@ -65,6 +69,7 @@ Username for authenticating to IBM Artifactory to access development builds of S
 **Impact**: Without valid credentials, development catalog subscriptions will fail to pull operator images. This variable is ignored when using production catalogs.
 
 **Related variables**:
+
 - `artifactory_token`: Must be set together with this username
 - `sls_catalog_source`: Determines if Artifactory credentials are needed
 
@@ -80,6 +85,7 @@ API token for authenticating to IBM Artifactory to access development builds of 
 **Purpose**: Provides the API token/password credential to authenticate with IBM's Artifactory registry when pulling development/pre-release SLS operator images.
 
 **When to use**:
+
 - Required when `sls_catalog_source` is set to `ibm-sls-operators` (development catalog)
 - Not needed for production installations using `ibm-operator-catalog`
 - Use your IBM Artifactory API key for development builds
@@ -89,6 +95,7 @@ API token for authenticating to IBM Artifactory to access development builds of 
 **Impact**: Without a valid token, development catalog subscriptions will fail to pull operator images. This variable is ignored when using production catalogs.
 
 **Related variables**:
+
 - `artifactory_username`: Must be set together with this token
 - `sls_catalog_source`: Determines if Artifactory credentials are needed
 
@@ -104,6 +111,7 @@ Specifies the OpenShift operator catalog source containing the SLS operator subs
 **Purpose**: Controls which operator catalog is used to locate and install the SLS operator. This determines where OpenShift looks for the operator images and metadata during installation.
 
 **When to use**:
+
 - Use default `ibm-operator-catalog` for production installations with official IBM releases
 - Use `ibm-sls-operators` for development builds from Artifactory
 - Only change if directed to use a custom catalog for specific testing or airgap scenarios
@@ -113,6 +121,7 @@ Specifies the OpenShift operator catalog source containing the SLS operator subs
 **Impact**: Changing this value affects which operator versions are available for installation. An invalid catalog source will cause the subscription to fail. Development catalogs require additional authentication via `artifactory_username` and `artifactory_token`.
 
 **Related variables**:
+
 - `sls_channel`: Works together to determine the specific operator version installed
 - `artifactory_username` and `artifactory_token`: Required when using `ibm-sls-operators`
 
@@ -128,6 +137,7 @@ Specifies the SLS operator subscription channel, which determines the version st
 **Purpose**: Controls which version of SLS will be installed and which updates will be automatically applied. The channel corresponds to major version releases and determines the feature set and compatibility level of your SLS installation.
 
 **When to use**:
+
 - Use default `3.x` for latest SLS 3.x releases (recommended for most deployments)
 - Use specific older channels only if required for compatibility with older MAS versions
 - Consult the MAS compatibility matrix before selecting a channel
@@ -150,6 +160,7 @@ OpenShift namespace where the SLS operator and instance will be deployed.
 **Purpose**: Defines the Kubernetes namespace for SLS resources, providing isolation and organization for the SLS deployment within the cluster.
 
 **When to use**:
+
 - Use default `ibm-sls` for standard deployments
 - Change only if you need multiple SLS instances or have namespace naming requirements
 - Ensure namespace doesn't conflict with existing deployments
@@ -172,6 +183,7 @@ Container registry source for SLS operator and component images.
 **Purpose**: Specifies the container registry from which SLS pulls all operator and component images. From SLS 3.8.0 onwards, this is the primary registry variable as images moved to the public IBM Container Registry.
 
 **When to use**:
+
 - Use default `icr.io/cpopen` for production installations (SLS 3.8.0+)
 - Override only for development images or airgap/mirror scenarios
 - No authentication required for default public registry
@@ -181,6 +193,7 @@ Container registry source for SLS operator and component images.
 **Impact**: All SLS images will be pulled from this registry. An incorrect or inaccessible registry will cause image pull failures. The default public registry requires no entitlement key (SLS 3.8.0+).
 
 **Related variables**:
+
 - `sls_icr_cp`: Deprecated in SLS 3.8.0, only needed for SLS 3.7.0 and earlier
 - `ibm_entitlement_key`: Not required when using default public registry (SLS 3.8.0+)
 
@@ -196,6 +209,7 @@ Unique identifier for this SLS installation within the cluster.
 **Purpose**: Provides a unique identifier that distinguishes this SLS installation from others that may exist in the same cluster. This ID is used to generate resource names throughout the installation.
 
 **When to use**:
+
 - Use default `sls` for standard single-SLS deployments
 - Change only if you need multiple SLS instances in the same cluster
 - Must be unique within the cluster if running multiple SLS instances
@@ -218,6 +232,7 @@ Container registry source for SLS images (SLS 3.7.0 and earlier only).
 **Purpose**: Specifies the container registry for SLS images in versions 3.7.0 and earlier. This registry required IBM entitlement key authentication.
 
 **When to use**:
+
 - Only required for SLS versions 3.7.0 and earlier
 - Not needed for SLS 3.8.0+ (images moved to public registry)
 - Override only for development images or airgap scenarios with older SLS versions
@@ -227,6 +242,7 @@ Container registry source for SLS images (SLS 3.7.0 and earlier only).
 **Impact**: For SLS 3.7.0 and earlier, all SLS images will be pulled from this registry. Requires `ibm_entitlement_key` for authentication.
 
 **Related variables**:
+
 - `sls_icr_cpopen`: Use this instead for SLS 3.8.0+
 - `ibm_entitlement_key`: Required when using this registry (SLS 3.7.0 and earlier)
 
@@ -242,6 +258,7 @@ IBM entitlement key for accessing IBM Container Registry images (SLS 3.7.0 and e
 **Purpose**: Authenticates access to IBM's entitled container registry to pull SLS operator and component images. This key is tied to your IBM Cloud account and product entitlements.
 
 **When to use**:
+
 - Required for SLS versions 3.7.0 and earlier
 - Not required for SLS 3.8.0 and later (images moved to public registry)
 - Obtain from [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
@@ -251,6 +268,7 @@ IBM entitlement key for accessing IBM Container Registry images (SLS 3.7.0 and e
 **Impact**: Invalid or expired keys will cause image pull failures for SLS 3.7.0 and earlier. The key is stored in a Kubernetes secret in the SLS namespace.
 
 **Related variables**:
+
 - `sls_entitlement_username`: Username paired with this key (default: `cp`)
 - `sls_icr_cp`: Registry requiring this authentication (SLS 3.7.0 and earlier)
 
@@ -266,6 +284,7 @@ Username for authenticating to IBM Container Registry (SLS 3.7.0 and earlier onl
 **Purpose**: Provides the username credential for authenticating with IBM's entitled container registry when pulling SLS images for versions 3.7.0 and earlier.
 
 **When to use**:
+
 - Only needed for SLS versions 3.7.0 and earlier
 - Not required for SLS 3.8.0+ (images moved to public registry)
 - Usually can be left at default `cp` for production installations
@@ -275,6 +294,7 @@ Username for authenticating to IBM Container Registry (SLS 3.7.0 and earlier onl
 **Impact**: Used together with `ibm_entitlement_key` to create image pull secrets for the SLS namespace. Incorrect username will cause image pull authentication failures.
 
 **Related variables**:
+
 - `ibm_entitlement_key`: Must be set together with this username (SLS 3.7.0 and earlier)
 - `sls_entitlement_key`: Alternative entitlement key specific for SLS
 
@@ -290,6 +310,7 @@ SLS-specific IBM entitlement key override (SLS 3.7.0 and earlier only).
 **Purpose**: Provides an SLS-specific IBM entitlement key that overrides the global `ibm_entitlement_key` variable. Primarily used in development scenarios where different keys are needed for different components.
 
 **When to use**:
+
 - Only needed for SLS versions 3.7.0 and earlier
 - Use when you need a different entitlement key specifically for SLS
 - Leave unset to use the global `ibm_entitlement_key` value
@@ -300,6 +321,7 @@ SLS-specific IBM entitlement key override (SLS 3.7.0 and earlier only).
 **Impact**: When set, this key is used instead of `ibm_entitlement_key` for SLS image authentication. Invalid keys will cause image pull failures.
 
 **Related variables**:
+
 - `ibm_entitlement_key`: Global entitlement key that this variable overrides
 - `sls_entitlement_username`: Username paired with this key
 
@@ -318,6 +340,7 @@ Custom domain name for external access to SLS via OpenShift routes.
 **Purpose**: Enables external access to SLS through a custom domain route. This is essential when SLS needs to serve multiple MAS instances deployed in separate OpenShift clusters.
 
 **When to use**:
+
 - Required when SLS serves MAS instances in different OpenShift clusters
 - Required for multi-cluster SLS deployments
 - Leave unset for single-cluster deployments where SLS and MAS are in the same cluster
@@ -340,6 +363,7 @@ Controls whether SLS enforces client authentication via mutual TLS (mTLS).
 **Purpose**: Determines whether SLS requires clients to authenticate using mTLS certificates generated through the client registration flow. This provides secure authentication for SLS API access.
 
 **When to use**:
+
 - Use `True` (default) for production environments to enforce secure authentication
 - Set to `False` only in development/testing environments where simplified access is needed
 - Leave as default for standard secure deployments
@@ -347,6 +371,7 @@ Controls whether SLS enforces client authentication via mutual TLS (mTLS).
 **Valid values**: `True`, `False`
 
 **Impact**: 
+
 - When `True`: Clients must register with SLS and use mTLS certificates for API calls (secure)
 - When `False`: Authentication is not enforced, allowing unauthenticated API access (insecure)
 
@@ -364,6 +389,7 @@ Controls whether SLS uses MongoDB retryable writes feature.
 **Purpose**: Determines whether SLS enables MongoDB's retryable writes feature, which automatically retries certain write operations that fail due to transient network errors or replica set elections.
 
 **When to use**:
+
 - Use `true` (default) when using MongoDB Community Edition or IBM Cloud Databases for MongoDB
 - Set to `false` when using AWS DocumentDB (which doesn't support retryable writes)
 - Set to `false` for any MongoDB-compatible database that doesn't support this feature
@@ -371,10 +397,12 @@ Controls whether SLS uses MongoDB retryable writes feature.
 **Valid values**: `true`, `false`
 
 **Impact**: 
+
 - When `true`: Enables automatic retry of failed write operations (improves reliability)
 - When `false`: Disables retryable writes (required for DocumentDB and similar services)
 
 **Related variables**: 
+
 - `sls_mongodb_cfg_file` or `sls_mongodb.*`: Determines which MongoDB service is used
 - Must align with the capabilities of your MongoDB provider
 
@@ -390,6 +418,7 @@ Controls whether SLS enforces license token compliance.
 **Purpose**: Determines whether SLS blocks license checkout requests when insufficient tokens are available. This controls whether license limits are strictly enforced or merely tracked.
 
 **When to use**:
+
 - Use `True` (default) for production to enforce license compliance and prevent over-consumption
 - Set to `False` only in development/testing environments or during grace periods
 - Leave as default for standard compliant deployments
@@ -397,6 +426,7 @@ Controls whether SLS enforces license token compliance.
 **Valid values**: `True`, `False`
 
 **Impact**: 
+
 - When `True`: License checkout requests are denied when insufficient tokens are available (enforces compliance)
 - When `False`: License checkout requests succeed even without available tokens (tracks but doesn't enforce)
 
@@ -414,6 +444,7 @@ Controls whether SLS allows new client self-registration.
 **Purpose**: Determines whether clients can register themselves with SLS to obtain certificates for API access. This controls the initial onboarding process for new SLS clients.
 
 **When to use**:
+
 - Use `True` (default) to allow MAS instances and other clients to self-register
 - Set to `False` after all clients are registered to prevent unauthorized registrations
 - Leave as default for standard deployments where clients need to register
@@ -421,6 +452,7 @@ Controls whether SLS allows new client self-registration.
 **Valid values**: `True`, `False`
 
 **Impact**: 
+
 - When `True`: Clients can register themselves and obtain mTLS certificates for SLS API access
 - When `False`: New client registrations are blocked; only pre-registered clients can access SLS
 
@@ -438,6 +470,7 @@ Local file path to a MongoCfg YAML file for SLS MongoDB configuration.
 **Purpose**: Provides MongoDB connection details to SLS by referencing a MongoCfg file generated by the `mongodb` role. This simplifies configuration by reusing existing MongoDB setup information.
 
 **When to use**:
+
 - Use when you've deployed MongoDB using the `mongodb` role (which generates this file)
 - Preferred method as it ensures consistency with MongoDB deployment
 - Alternative to manually specifying `sls_mongodb.*` variables
@@ -447,6 +480,7 @@ Local file path to a MongoCfg YAML file for SLS MongoDB configuration.
 **Impact**: The role extracts MongoDB connection details (hosts, certificates, credentials) from this file to configure SLS. Invalid or missing file will cause installation to fail.
 
 **Related variables**:
+
 - `sls_mongodb.*`: Alternative method to specify MongoDB connection details
 - `mas_config_dir`: Directory where `mongodb` role generates this file
 
@@ -462,6 +496,7 @@ List of MongoDB host:port pairs for SLS database connection.
 **Purpose**: Specifies the MongoDB replica set members that SLS will connect to for license data storage. Multiple hosts provide high availability and failover capability.
 
 **When to use**:
+
 - Use when manually configuring MongoDB connection (not using `sls_mongodb_cfg_file`)
 - Required for all MongoDB deployment types (Community, IBM Cloud, AWS DocumentDB)
 - Provide all replica set members for high availability
@@ -471,6 +506,7 @@ List of MongoDB host:port pairs for SLS database connection.
 **Impact**: SLS uses these hosts to establish database connections. Incorrect hosts will cause SLS installation to fail. Multiple hosts enable automatic failover.
 
 **Related variables**:
+
 - `sls_mongodb.certificates`: TLS certificates for secure connection
 - `sls_mongodb.username` and `sls_mongodb.password`: Authentication credentials
 - `sls_mongodb_cfg_file`: Alternative method to provide this information
@@ -487,6 +523,7 @@ List of TLS/SSL certificates for secure MongoDB connections.
 **Purpose**: Provides the TLS/SSL certificates needed to establish secure, encrypted connections between SLS and MongoDB. These certificates verify the MongoDB server's identity and enable encrypted communication.
 
 **When to use**:
+
 - Required when manually configuring MongoDB connection (not using `sls_mongodb_cfg_file`)
 - Needed for all MongoDB deployments using TLS/SSL (recommended for production)
 - Obtain from your MongoDB deployment (CA certificate or server certificate)
@@ -496,6 +533,7 @@ List of TLS/SSL certificates for secure MongoDB connections.
 **Impact**: Without valid certificates, SLS cannot establish secure connections to MongoDB. Invalid certificates will cause connection failures.
 
 **Related variables**:
+
 - `sls_mongodb.hosts`: MongoDB servers these certificates authenticate
 - `sls_mongodb.username` and `sls_mongodb.password`: Used with certificates for authentication
 - `sls_mongodb_cfg_file`: Alternative method to provide this information
@@ -512,6 +550,7 @@ MongoDB username for SLS database authentication.
 **Purpose**: Provides the username credential for SLS to authenticate with MongoDB. This user must have appropriate permissions to read and write to the SLS database.
 
 **When to use**:
+
 - Required when manually configuring MongoDB connection (not using `sls_mongodb_cfg_file`)
 - Must correspond to a valid MongoDB user with SLS database permissions
 - Obtain from your MongoDB deployment configuration
@@ -521,6 +560,7 @@ MongoDB username for SLS database authentication.
 **Impact**: SLS uses this username to authenticate with MongoDB. Invalid username will cause authentication failures and prevent SLS from accessing the database.
 
 **Related variables**:
+
 - `sls_mongodb.password`: Password for this username
 - `sls_mongodb.hosts`: MongoDB servers to authenticate against
 - `sls_mongodb.certificates`: TLS certificates for secure authentication
@@ -538,6 +578,7 @@ MongoDB password for SLS database authentication.
 **Purpose**: Provides the password credential for SLS to authenticate with MongoDB. Used together with the username to establish secure database connections.
 
 **When to use**:
+
 - Required when manually configuring MongoDB connection (not using `sls_mongodb_cfg_file`)
 - Must correspond to the password for the specified MongoDB username
 - Obtain from your MongoDB deployment configuration
@@ -547,6 +588,7 @@ MongoDB password for SLS database authentication.
 **Impact**: SLS uses this password to authenticate with MongoDB. Invalid password will cause authentication failures and prevent SLS from accessing the database.
 
 **Related variables**:
+
 - `sls_mongodb.username`: Username for this password
 - `sls_mongodb.hosts`: MongoDB servers to authenticate against
 - `sls_mongodb.certificates`: TLS certificates for secure authentication
@@ -564,6 +606,7 @@ Local directory path containing pod template customization files for SLS.
 **Purpose**: Allows customization of pod specifications for SLS workloads, enabling control over resource limits, node affinity, tolerations, and other Kubernetes pod settings. This is essential for production deployments with specific infrastructure requirements.
 
 **When to use**:
+
 - Use to set custom resource limits (CPU, memory) for SLS pods
 - Use to configure node affinity or anti-affinity rules
 - Use to add tolerations for tainted nodes
@@ -590,6 +633,7 @@ Local file path to the IBM license entitlement file for bootstrapping SLS.
 **Purpose**: Provides the license entitlement file that defines the MAS product licenses and token allocations available in SLS. This file is obtained from IBM and contains your license entitlements.
 
 **When to use**:
+
 - Use to automatically bootstrap SLS with license entitlements during installation
 - Leave unset if you plan to upload license entitlements manually after SLS installation
 - Required for fully automated SLS deployments
@@ -709,6 +753,7 @@ Directory path where SLS backup files will be stored.
 **Purpose**: Specifies the local filesystem directory where backup archives will be created (for backup) or read from (for restore). This directory serves as the central location for all SLS backup data.
 
 **When to use**:
+
 - Required when `sls_action` is set to `backup` or `restore`
 - Should be a persistent location with sufficient storage space
 - Ensure the directory is accessible and has appropriate permissions
@@ -732,12 +777,14 @@ Version identifier for the backup, used to create unique backup directories.
 **Purpose**: Provides a unique identifier for each backup, allowing multiple backups to coexist and enabling point-in-time restore operations.
 
 **When to use**:
+
 - For backup: Leave unset to auto-generate a timestamp-based version, or provide a custom identifier
 - For restore: Must specify the exact version identifier of the backup to restore
 
 **Valid values**: Any string suitable for directory names (alphanumeric, hyphens, underscores). Auto-generated format: `YYYYMMDD-HHMMSS` (e.g., `20260122-131500`)
 
 **Impact**:
+
 - For backup: Creates directory `{mas_backup_dir}/backup-{version}-sls/`
 - For restore: Looks for backup in `{mas_backup_dir}/backup-{version}-sls/`
 
@@ -754,6 +801,7 @@ The SLS role supports backup and restore operations to protect your license serv
 The SLS backup operation captures all critical resources needed to restore a complete SLS instance:
 
 **Kubernetes Resources:**
+
 - **Project/Namespace**: The SLS namespace configuration
 - **Secrets**:
   - IBM entitlement credentials (`ibm-entitlement`)
@@ -772,6 +820,7 @@ The SLS backup operation captures all critical resources needed to restore a com
   - Certificates (CA certificate)
 
 **Registration Data:**
+
 - License ID
 - Registration key
 - Suite registration information
@@ -821,6 +870,7 @@ The restore operation performs the following steps:
 5. **Verification**: Waits for SLS to become ready and reports restore statistics
 
 **Important Restore Considerations:**
+
 - The target cluster must have Certificate Manager installed
 - MongoDB must be available and accessible (not restored by this role)
 - The restore can optionally override the `sls_domain` if deploying to a different cluster
@@ -918,11 +968,13 @@ ansible-playbook ibm.mas_devops.run_role
 ### Troubleshooting
 
 **Backup Issues:**
+
 - **"Required variables not provided"**: Ensure `mas_backup_dir`, `sls_namespace`, and `sls_instance_name` are set
 - **"Resource not found"**: Some resources may not exist in your deployment (this is normal)
 - **Permission errors**: Ensure write access to `mas_backup_dir`
 
 **Restore Issues:**
+
 - **"Backup archive not found"**: Verify `sls_backup_version` matches an existing backup directory
 - **"Certificate Manager not found"**: Install cert-manager before restoring SLS
 - **"LicenseService not ready"**: Check operator logs and ensure MongoDB is accessible

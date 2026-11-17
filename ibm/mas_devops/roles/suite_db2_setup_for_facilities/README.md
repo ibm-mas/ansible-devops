@@ -31,6 +31,7 @@ Db2 instance name for Facilities setup.
 **Purpose**: Identifies the Db2 Warehouse instance where Facilities database setup will be performed.
 
 **When to use**:
+
 - Always required for Facilities database setup
 - Must match the Db2 instance name for Facilities
 - Used to locate the correct Db2 pod
@@ -40,6 +41,7 @@ Db2 instance name for Facilities setup.
 **Impact**: Determines which Db2 instance receives the Facilities-specific configuration and tablespace setup.
 
 **Related variables**:
+
 - `db2_namespace`: Namespace containing this instance
 - `db2_dbname`: Database within this instance
 
@@ -55,6 +57,7 @@ Db2 instance namespace.
 **Purpose**: Specifies the OpenShift namespace where the Db2 instance is deployed.
 
 **When to use**:
+
 - Use default (`db2u`) for standard Db2 deployments
 - Override if Db2 is deployed in a custom namespace
 - Required to locate the Db2 pod
@@ -64,6 +67,7 @@ Db2 instance namespace.
 **Impact**: Determines where to find the Db2 instance for setup script execution.
 
 **Related variables**:
+
 - `db2_instance_name`: Instance to find in this namespace
 
 **Note**: The default `db2u` namespace is used by most Db2 Warehouse deployments.
@@ -78,6 +82,7 @@ Database connection username.
 **Purpose**: Specifies the username for connecting to the Db2 database during Facilities setup script execution.
 
 **When to use**:
+
 - Use default (`tridata`) for standard Facilities deployments
 - Override if using custom database user
 - Must have appropriate database privileges
@@ -87,6 +92,7 @@ Database connection username.
 **Impact**: Determines which user account executes the setup script and database configuration changes.
 
 **Related variables**:
+
 - `db2_dbname`: Database to connect to
 - `db2_schema`: Schema to configure (TRIDATA)
 
@@ -102,6 +108,7 @@ Database name within Db2 instance.
 **Purpose**: Specifies the database name within the Db2 instance where Facilities setup will be performed.
 
 **When to use**:
+
 - Use default (`BLUDB`) for standard Facilities deployments
 - Override if using custom database name
 - Must exist before running this role
@@ -111,6 +118,7 @@ Database name within Db2 instance.
 **Impact**: Determines which database receives the Facilities tablespace and configuration setup.
 
 **Related variables**:
+
 - `db2_instance_name`: Instance containing this database
 - `db2_schema`: Schema within this database (TRIDATA)
 
@@ -126,6 +134,7 @@ Facilities database schema name.
 **Purpose**: Specifies the schema name where Facilities (TRIRIGA) tables and objects will be created.
 
 **When to use**:
+
 - Use default (`TRIDATA`) for standard Facilities deployments
 - Override if using custom schema name
 - Must match Facilities configuration
@@ -135,6 +144,7 @@ Facilities database schema name.
 **Impact**: Determines which schema receives the tablespace configuration and Facilities-specific setup.
 
 **Related variables**:
+
 - `db2_dbname`: Database containing this schema
 - `db2_username`: User accessing this schema (tridata)
 
@@ -150,6 +160,7 @@ Data tablespace size.
 **Purpose**: Specifies the size of the data tablespace created for Facilities application data.
 
 **When to use**:
+
 - Use default (`5000 M`) for small to medium deployments
 - Increase for large Facilities deployments with extensive real estate data
 - Consider data growth over time
@@ -159,9 +170,11 @@ Data tablespace size.
 **Impact**: Determines how much data can be stored in Facilities tables. Insufficient size will prevent data insertion.
 
 **Related variables**:
+
 - `db2_tablespace_index_size`: Related index tablespace size
 
 **Note**: Size requirements depend on:
+
 - Number of buildings and spaces
 - Historical data retention
 - Document attachments
@@ -178,6 +191,7 @@ Index tablespace size.
 **Purpose**: Specifies the size of the index tablespace created for Facilities database indexes.
 
 **When to use**:
+
 - Use default (`5000 M`) for small to medium deployments
 - Increase for large Facilities deployments with many indexes
 - Typically 20-30% of data tablespace size
@@ -187,6 +201,7 @@ Index tablespace size.
 **Impact**: Determines how many indexes can be created. Insufficient size will prevent index creation and impact performance.
 
 **Related variables**:
+
 - `db2_tablespace_data_size`: Related data tablespace size
 
 **Note**: Indexes improve query performance but consume space. A good rule of thumb is to allocate 20-30% of the data tablespace size for indexes. Monitor usage and adjust as needed.
@@ -201,6 +216,7 @@ Db2 configuration parameter version.
 **Purpose**: Specifies the version of enhanced Db2 performance parameters to apply during Facilities setup.
 
 **When to use**:
+
 - Use default (`1.0.0`) for current parameter set
 - Override only if specific version required
 - Different versions may have different parameter sets
@@ -210,6 +226,7 @@ Db2 configuration parameter version.
 **Impact**: Determines which set of Db2 performance parameters are applied to optimize for Facilities workloads.
 
 **Related variables**:
+
 - `enforce_db2_config`: Controls whether parameters are applied with restart
 
 **Note**: The parameter set includes optimizations for Facilities' specific database access patterns. Future versions may include additional optimizations.
@@ -224,6 +241,7 @@ Force Db2 configuration with restart.
 **Purpose**: Controls whether enhanced Db2 parameters are applied with a database restart. Restart is required for parameters to take effect but causes downtime.
 
 **When to use**:
+
 - Set to `true` (default) for new Db2 instances
 - Set to `true` during scheduled maintenance windows
 - Set to `false` to skip parameter application (not recommended)
@@ -231,10 +249,12 @@ Force Db2 configuration with restart.
 **Valid values**: `true`, `false`
 
 **Impact**:
+
 - `true`: Applies enhanced parameters and restarts Db2 instance (causes downtime)
 - `false`: Skips enhanced parameter application (suboptimal performance)
 
 **Related variables**:
+
 - `db2_config_version`: Version of parameters to apply
 
 **Note**: **CRITICAL** - Setting to `true` will restart the Db2 instance, causing downtime for all applications using the database. Schedule during maintenance windows. For production systems, coordinate with stakeholders. For new instances, this is safe as no applications are using the database yet.
@@ -249,6 +269,7 @@ Server timezone for the Facilities DB2 instance.
 **Purpose**: Sets the timezone used by the Db2 server for timestamp operations and scheduling. This affects how Db2 interprets and stores timestamp data.
 
 **When to use**:
+
 - Use default (`UTC`) for globally distributed systems
 - Set to local timezone when all users are in the same timezone
 - Must match MAS Facilities Server timezone

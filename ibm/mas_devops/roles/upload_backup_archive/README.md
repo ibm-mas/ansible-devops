@@ -4,6 +4,7 @@ Creates a compressed archive of MAS backup directories and uploads it to AWS S3 
 This role automates the process of packaging MAS backup directories into a single tar.gz archive and uploading it to a remote storage location. It supports multiple backup components (catalog, cert-manager, SLS, MongoDB, Db2, and MAS Suite) and allows for component-specific backup versions. The role intelligently detects which backup directories exist and only archives those that are present.
 
 Key features:
+
 - Creates compressed tar.gz archives of MAS backup directories
 - Supports uploading to AWS S3 or S3-compatible storage
 - Supports uploading to Artifactory repositories

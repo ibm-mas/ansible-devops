@@ -36,6 +36,7 @@ Specifies which Db2 deployment type to use.
 **Purpose**: Controls whether to deploy Db2uCluster (deprecated) or Db2uInstance (current). This variable enables explicit control over deployment type while maintaining backward compatibility with existing deployments.
 
 **When to use**:
+
 - Use `db2ucluster` for maintaining existing deprecated deployments
 - Use `db2uinstance` (recommended) for all new deployments
 - **IMPORTANT**: Cannot change deployment type for existing instances - strict validation enforces this
@@ -43,6 +44,7 @@ Specifies which Db2 deployment type to use.
 **Valid values**: `db2ucluster`, `db2uinstance`
 
 **Impact**:
+
 - `db2ucluster`: Deploys deprecated Db2uCluster CR (for existing deployments only)
 - `db2uinstance`: Deploys current Db2uInstance CR (recommended for new deployments)
 - Strict validation ensures DB2U_KIND matches existing deployment type to prevent accidental changes
@@ -77,6 +79,7 @@ OpenShift namespace where IBM Common Services is installed.
 **Purpose**: Specifies the namespace containing IBM Common Services, which provides shared services used by the Db2u operator. This is needed for the role to locate and interact with Common Services components.
 
 **When to use**:
+
 - Leave as default (`ibm-common-services`) for standard installations
 - Set only if Common Services is installed in a non-standard namespace
 - **Required** when Common Services namespace differs from default
@@ -99,6 +102,7 @@ Specifies which operation to perform on the Db2 database.
 **Purpose**: Controls what action the role executes against Db2 instances. This allows the same role to handle installation, upgrades, backups, restores, and migration of Db2 databases.
 
 **When to use**:
+
 - Use `install` (default) for initial Db2 deployment
 - Use `upgrade` to upgrade all Db2 instances in the namespace to a new version
 - Use `backup` to create a backup of the Db2 instance resources (secrets, certificates, CRs) and the database
@@ -110,6 +114,7 @@ Specifies which operation to perform on the Db2 database.
 **Valid values**: `install`, `upgrade`, `backup`, `backup-database`, `restore`, `restore-database`, `db2u-migration`
 
 **Impact**:
+
 - `install`: Creates new Db2 operator and instance. When `db2_backup_version` is provided, installs from backup (instance + database)
 - `upgrade`: Upgrades ALL instances in `db2_namespace` to `db2_version` (affects all instances in namespace)
 - `backup`: Backs up both the instance resources (secrets, certificates, Db2uCluster/Db2uInstance CR, ConfigMaps) and the database; enables full disaster recovery and install-from-backup, but is slower
@@ -119,6 +124,7 @@ Specifies which operation to perform on the Db2 database.
 - `db2u-migration`: Migrates existing Db2uCluster to Db2uInstance using `db2u_migrate` CLI tool (namespace-scoped, requires v12)
 
 **Related variables**:
+
 - `db2_version`: Required for upgrade action to specify target version
 - `db2_namespace`: All instances in this namespace are affected by upgrade; migration operates on this namespace
 - `db2_instance_name`: Required for migration to specify which Db2uCluster to migrate
@@ -138,6 +144,7 @@ OpenShift namespace where the Db2u operator and Db2 instances will be deployed.
 **Purpose**: Specifies the namespace for deploying the Db2u operator and Db2 instances (Db2uCluster custom resources). Starting with recent versions, the operator is installed in the same namespace as the instances.
 
 **When to use**:
+
 - Use default (`db2u`) for standard single-instance deployments
 - Set to a custom namespace when organizing multiple Db2 deployments
 - Must match existing namespace when upgrading Db2 instances
@@ -147,6 +154,7 @@ OpenShift namespace where the Db2u operator and Db2 instances will be deployed.
 **Impact**: All Db2 resources (operator, instances, secrets, services) are created in this namespace. When upgrading, ALL instances in this namespace will be upgraded together.
 
 **Related variables**:
+
 - `db2_action`: When set to `upgrade`, affects all instances in this namespace
 - `db2_instance_name`: Instance created within this namespace
 
@@ -162,6 +170,7 @@ Subscription channel for the Db2 Universal Operator.
 **Purpose**: Specifies which operator channel to subscribe to, determining which Db2 operator version stream you receive. Channels typically correspond to major Db2 versions (e.g., `v2.2`, `v3.0`).
 
 **When to use**:
+
 - Leave unset to use the default channel (recommended for new installations)
 - Set explicitly when you need a specific operator version stream
 - Must match `db2_version` when upgrading (version must be available in the channel)
@@ -171,6 +180,7 @@ Subscription channel for the Db2 Universal Operator.
 **Impact**: Determines which operator version is installed and which Db2 engine versions are available. Changing channels may require operator migration.
 
 **Related variables**:
+
 - `db2_version`: Must be compatible with the selected channel
 - When upgrading, version must match channel
 
@@ -186,6 +196,7 @@ Unique name for the Db2 instance (Db2uCluster resource).
 **Purpose**: Defines the name of the Db2uCluster custom resource that will be created. This name is used to identify the Db2 instance and is embedded in resource names (services, pods, secrets).
 
 **When to use**:
+
 - Always required for Db2 installation
 - Use descriptive names that indicate purpose (e.g., `maximo-db`, `iot-db`, `manage-db`)
 - Must be unique within the namespace
@@ -193,12 +204,14 @@ Unique name for the Db2 instance (Db2uCluster resource).
 **Valid values**: Valid Kubernetes resource name (lowercase alphanumeric with hyphens, e.g., `db01`, `mas-db`, `manage-db`)
 
 **Impact**: This name is used throughout the Db2 deployment:
+
 - Db2uCluster resource name
 - Service names (e.g., `{instance_name}-db2u-engn-svc`)
 - Pod names (e.g., `c-{instance_name}-db2u-0`)
 - Secret names
 
 **Related variables**:
+
 - `db2_dbname`: Name of the database within this instance
 - Used in generated JdbcCfg when `mas_instance_id` is provided
 
@@ -214,6 +227,7 @@ IBM Container Library entitlement key for accessing Db2 container images.
 **Purpose**: Provides authentication credentials to pull Db2 container images from the IBM Container Registry. This key is associated with your IBM entitlement and grants access to licensed software.
 
 **When to use**:
+
 - Always required for Db2 installation
 - Obtain from [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - Same key used across all IBM MAS components
@@ -236,6 +250,7 @@ Name of the database to create within the Db2 instance.
 **Purpose**: Specifies the name of the database that will be created inside the Db2 instance. A Db2 instance can contain multiple databases, and this defines the primary database name.
 
 **When to use**:
+
 - Use default (`BLUDB`) for standard MAS deployments
 - Set to a custom name when organizational standards require specific naming
 - Must match the database name expected by applications connecting to Db2
@@ -245,6 +260,7 @@ Name of the database to create within the Db2 instance.
 **Impact**: This database name is used in connection strings and JDBC configurations. Applications must use this exact name to connect to the database.
 
 **Related variables**:
+
 - `db2_instance_name`: The instance containing this database
 - Used in generated JdbcCfg for MAS configuration
 
@@ -260,6 +276,7 @@ Db2 engine version to use for installation or upgrade.
 **Purpose**: Specifies which Db2 engine version to deploy or upgrade to. The version must be compatible with the installed operator channel.
 
 **When to use**:
+
 - Leave unset for new installations to use the latest supported version (recommended)
 - Set explicitly when you need a specific Db2 version
 - **Required** when upgrading to specify the target version
@@ -270,6 +287,7 @@ Db2 engine version to use for installation or upgrade.
 **Impact**: Determines which Db2 engine version is deployed. When upgrading, ALL instances in `db2_namespace` will be upgraded to this version. Version must be available in the operator's supported versions list.
 
 **Related variables**:
+
 - `db2_channel`: Version must be compatible with the operator channel
 - `db2_action`: When set to `upgrade`, this version is the target
 - `db2_namespace`: All instances in namespace upgraded to this version
@@ -287,6 +305,7 @@ Path to the Db2 v12 license file on the local filesystem.
 **Purpose**: Provides the Db2 Warehouse license to apply to the instance. Without a valid license, Db2 v12 operates under a 30-day trial license. When the trial expires, the database becomes unavailable — this is especially critical for production systems.
 
 **When to use**:
+
 - **Required** when `db2_action=upgrade` and upgrading from v11 to v12 (`db2_v12_upgrade=true`)
 - **Optional** for new installations (Db2 will use trial license if not provided)
 - IBM may refer to this file by different names: "Db2 Warehouse license", "Db2 activation key", `db2wh.lic`, or `db2ese.lic` — see the [Upgrading Db2 from v11 to v12](#upgrading-db2-from-v11-to-v12) section for an example of the expected file format
@@ -294,6 +313,7 @@ Path to the Db2 v12 license file on the local filesystem.
 **Valid values**: Absolute path to a valid Db2 license file (`.lic` format)
 
 **Related variables**:
+
 - `db2_v12_upgrade`: Must be `true` alongside this variable for v12 upgrades
 - `db2_channel`: Must target a v12 channel (e.g., `v12.0.0-cn1`)
 
@@ -309,12 +329,14 @@ Explicit opt-in flag required to authorize a major version upgrade from Db2 v11 
 **Purpose**: Acts as a safety gate to prevent accidental major version upgrades. Upgrading from Db2 v11 to v12 is a significant, irreversible operation that requires explicit user consent. This flag, combined with `db2_license_file`, ensures the upgrade is intentional and properly licensed.
 
 **When to use**:
+
 - Set to `true` only when you intend to upgrade from Db2 v11 to v12
 - Must be combined with `db2_license_file` — the upgrade will fail if the license file is not provided, to prevent a silent downgrade to a 30-day trial license
 
 **Valid values**: `true`, `false`
 
 **Related variables**:
+
 - `db2_license_file`: Required alongside this flag for v12 upgrades
 - `db2_channel`: Must target a v12 channel (e.g., `v12.0.0-cn1`)
 
@@ -328,6 +350,7 @@ Db2 instance type optimized for specific workload patterns.
 **Purpose**: Determines the Db2 instance configuration optimized for either data warehouse (analytical) or online transaction processing workloads. This affects resource allocation and database tuning.
 
 **When to use**:
+
 - Use `db2wh` (default) for MAS Manage and analytical workloads
 - Use `db2oltp` for high-transaction workloads requiring OLTP optimization
 - Choose based on your primary use case
@@ -335,10 +358,12 @@ Db2 instance type optimized for specific workload patterns.
 **Valid values**: `db2wh`, `db2oltp`
 
 **Impact**: 
+
 - `db2wh`: Optimized for data warehouse/analytical queries (recommended for MAS Manage)
 - `db2oltp`: Optimized for online transaction processing with high concurrency
 
 **Related variables**:
+
 - `db2_workload`: Further refines workload optimization
 - `db2_table_org`: Table organization should align with instance type
 
@@ -354,6 +379,7 @@ Server timezone for the Db2 instance.
 **Purpose**: Sets the timezone used by the Db2 server for timestamp operations and scheduling. This affects how Db2 interprets and stores timestamp data.
 
 **When to use**:
+
 - Set to local timezone when all users are in the same timezone
 - Must match MAS Application's timezone if using Manage/Facilities with this database
 
@@ -362,6 +388,7 @@ Server timezone for the Db2 instance.
 **Impact**: Affects timestamp interpretation and storage in the database. Mismatched timezones between Db2 and applications can cause data inconsistencies.
 
 **Related variables**:
+
 - `MAS_APP_SETTINGS_SERVER_TIMEZONE`: Must be set to the same value for MAS Manage
 - Affects all timestamp operations in the database
 
@@ -377,6 +404,7 @@ Controls 4K sector device support in Db2.
 **Purpose**: Enables or disables support for storage devices with 4K sector sizes. Modern storage systems often use 4K sectors instead of traditional 512-byte sectors.
 
 **When to use**:
+
 - Leave as `ON` (default) for modern storage systems with 4K sectors
 - Set to `OFF` only if using legacy storage with 512-byte sectors
 - Check your storage specifications if unsure
@@ -384,6 +412,7 @@ Controls 4K sector device support in Db2.
 **Valid values**: `ON`, `OFF`
 
 **Impact**: 
+
 - `ON`: Enables 4K sector support (required for most modern storage)
 - `OFF`: Uses traditional 512-byte sector mode (legacy storage only)
 
@@ -401,6 +430,7 @@ Workload profile for Db2 instance optimization.
 **Purpose**: Configures Db2 with predefined settings optimized for specific workload patterns. This affects memory allocation, query optimization, and other performance parameters.
 
 **When to use**:
+
 - Use `ANALYTICS` (default) for general analytical and MAS workloads
 - Use `PUREDATA_OLAP` for pure data warehouse/OLAP workloads
 - Choose based on your primary query patterns
@@ -408,10 +438,12 @@ Workload profile for Db2 instance optimization.
 **Valid values**: `ANALYTICS`, `PUREDATA_OLAP`
 
 **Impact**: 
+
 - `ANALYTICS`: Balanced optimization for mixed analytical workloads (recommended for MAS)
 - `PUREDATA_OLAP`: Optimized specifically for OLAP/data warehouse queries
 
 **Related variables**:
+
 - `db2_type`: Should align with workload choice
 - `db2_table_org`: Table organization should match workload pattern
 
@@ -427,6 +459,7 @@ Default table organization for database tables.
 **Purpose**: Determines the default storage organization for tables in the database. Row-organized tables are optimized for transactional workloads, while column-organized tables are optimized for analytical queries.
 
 **When to use**:
+
 - Use `ROW` (default) for MAS Manage and mixed workloads
 - Use `COLUMN` only for pure analytical/reporting workloads
 - Choose based on your primary query patterns
@@ -434,10 +467,12 @@ Default table organization for database tables.
 **Valid values**: `ROW`, `COLUMN`
 
 **Impact**: 
+
 - `ROW`: Tables stored row-by-row (better for OLTP, updates, and mixed workloads)
 - `COLUMN`: Tables stored column-by-column (better for analytical queries and aggregations)
 
 **Related variables**:
+
 - `db2_type`: Should align with table organization choice
 - `db2_workload`: Workload profile should match table organization
 
@@ -453,6 +488,7 @@ Username for Db2 LDAP authentication.
 **Purpose**: Defines a custom LDAP username for Db2 authentication instead of the default `db2inst1` user. When set, this user is configured in Db2's local LDAP registry and used in MAS JDBC configuration.
 
 **When to use**:
+
 - Set when you need a custom database user for MAS connections
 - Set when organizational policies require specific usernames
 - Leave unset to use the default `db2inst1` user
@@ -463,6 +499,7 @@ Username for Db2 LDAP authentication.
 **Impact**: When set, this user is created in Db2's LDAP registry and used in the generated JdbcCfg for MAS. The user will have necessary database permissions configured.
 
 **Related variables**:
+
 - `db2_ldap_password`: Required when this is set
 - `db2_rotate_password`: Can auto-generate password for this user
 - Used in generated JdbcCfg for MAS configuration
@@ -479,6 +516,7 @@ Password for the Db2 LDAP user.
 **Purpose**: Sets the password for the LDAP user specified in `db2_ldap_username`. This password is configured in Db2's local LDAP registry and used for database authentication.
 
 **When to use**:
+
 - **Always required** when `db2_ldap_username` is set for initial user creation
 - Set to a strong password meeting security requirements
 - **Required** because `db2_rotate_password` defaults to `false` for new user creation
@@ -488,6 +526,7 @@ Password for the Db2 LDAP user.
 **Impact**: This password is stored in Db2's LDAP registry and used for database authentication. It's also included in the generated JdbcCfg for MAS.
 
 **Related variables**:
+
 - `db2_ldap_username`: Must be set together with this password
 - `db2_rotate_password`: Defaults to `false`; can be set to `true` in subsequent runs to rotate this password
 
@@ -507,6 +546,7 @@ Rotates the password for an **existing** Db2 LDAP user.
 **IMPORTANT**: This feature is **only for existing users**. The user must already exist in Db2's LDAP registry before using this feature. It will fail if the user does not exist.
 
 **When to use**:
+
 - Set to `True` to rotate an existing user's password to an auto-generated value
 - Set to `True` for regular password rotation as a security practice
 - Set to `False` for initial user creation with a known password
@@ -533,12 +573,14 @@ Rotates the password for an **existing** Db2 LDAP user.
 Note: `db2_ldap_password` is not needed for rotation as the password is auto-generated.
 
 **Impact**: 
+
 - Generates a strong random password
 - Updates password in Db2's LDAP registry
 - Updates MAS JdbcCfg with new password
 - Fails with error if user does not exist
 
 **Related variables**:
+
 - `db2_ldap_username`: Existing user whose password will be rotated
 - `db2_ldap_password`: Not used during rotation (password is auto-generated)
 - `mas_instance_id`: Required to update MAS JDBC configuration
@@ -558,6 +600,7 @@ Storage class for Db2 metadata storage (must support ReadWriteMany).
 **Purpose**: Specifies the storage class for Db2 metadata storage, which requires ReadWriteMany (RWX) access mode for shared access across Db2 pods.
 
 **When to use**:
+
 - Always required for Db2 installation
 - Must be a storage class supporting RWX access mode
 - Typically file-based storage (NFS, IBM Cloud File Storage, etc.)
@@ -567,6 +610,7 @@ Storage class for Db2 metadata storage (must support ReadWriteMany).
 **Impact**: Metadata storage is critical for Db2 operation. Incorrect storage class or one not supporting RWX will cause Db2 deployment to fail.
 
 **Related variables**:
+
 - `db2_meta_storage_size`: Size of metadata volume
 - `db2_meta_storage_accessmode`: Should be `ReadWriteMany`
 
@@ -582,6 +626,7 @@ Size of the metadata persistent volume.
 **Purpose**: Specifies the size of the persistent volume for Db2 metadata storage. Metadata includes system catalogs, configuration files, and other operational data.
 
 **When to use**:
+
 - Use default (`10Gi`) for most deployments
 - Increase for large-scale deployments with many databases or complex configurations
 - Monitor usage and adjust if metadata volume fills up
@@ -591,6 +636,7 @@ Size of the metadata persistent volume.
 **Impact**: Insufficient metadata storage can cause Db2 operational issues. The volume must have enough space for system catalogs and configuration data.
 
 **Related variables**:
+
 - `db2_meta_storage_class`: Storage class for this volume
 - `db2_meta_storage_accessmode`: Access mode for this volume
 
@@ -606,6 +652,7 @@ Access mode for metadata storage volume.
 **Purpose**: Defines the Kubernetes access mode for the metadata persistent volume. ReadWriteMany (RWX) is required for Db2 metadata to be accessible from multiple pods.
 
 **When to use**:
+
 - Leave as default (`ReadWriteMany`) for standard Db2 deployments
 - RWX is required for Db2 high availability and proper operation
 
@@ -614,6 +661,7 @@ Access mode for metadata storage volume.
 **Impact**: Db2 requires RWX access mode for metadata storage. Using a different access mode will cause deployment failures.
 
 **Related variables**:
+
 - `db2_meta_storage_class`: Must support the specified access mode
 - `db2_meta_storage_size`: Size of this volume
 
@@ -629,6 +677,7 @@ Storage class for Db2 user data storage (must support ReadWriteOnce).
 **Purpose**: Specifies the storage class for Db2 user data storage, which requires ReadWriteOnce (RWO) access mode. This is where database tables and user data are stored.
 
 **When to use**:
+
 - Always required for Db2 installation
 - Must be a storage class supporting RWO access mode
 - Typically block-based storage for performance (SAN, IBM Cloud Block Storage, etc.)
@@ -638,6 +687,7 @@ Storage class for Db2 user data storage (must support ReadWriteOnce).
 **Impact**: Data storage is critical for Db2 performance and capacity. Choose high-performance storage for production workloads. Incorrect storage class or one not supporting RWO will cause Db2 deployment to fail.
 
 **Related variables**:
+
 - `db2_data_storage_size`: Size of data volume
 - `db2_data_storage_accessmode`: Should be `ReadWriteOnce`
 
@@ -653,6 +703,7 @@ Size of the user data persistent volume.
 **Purpose**: Specifies the size of the persistent volume for Db2 user data storage. This is where database tables, indexes, and all user data are stored.
 
 **When to use**:
+
 - Use default (`50Gi`) for development/test environments
 - Increase significantly for production based on data volume estimates
 - Plan for data growth over time
@@ -663,6 +714,7 @@ Size of the user data persistent volume.
 **Impact**: Insufficient data storage will cause database operations to fail when the volume fills up. Size appropriately for your data volume plus growth.
 
 **Related variables**:
+
 - `db2_data_storage_class`: Storage class for this volume
 - `db2_data_storage_accessmode`: Access mode for this volume
 
@@ -678,6 +730,7 @@ Access mode for user data storage volume.
 **Purpose**: Defines the Kubernetes access mode for the user data persistent volume. ReadWriteOnce (RWO) is standard for Db2 data storage as it's accessed by a single pod at a time.
 
 **When to use**:
+
 - Leave as default (`ReadWriteOnce`) for standard Db2 deployments
 - RWO is the correct mode for Db2 data storage
 
@@ -686,6 +739,7 @@ Access mode for user data storage volume.
 **Impact**: Db2 data storage uses RWO access mode. Using a different access mode may cause deployment issues or performance problems.
 
 **Related variables**:
+
 - `db2_data_storage_class`: Must support the specified access mode
 - `db2_data_storage_size`: Size of this volume
 
@@ -701,6 +755,7 @@ Storage class for Db2 backup storage (must support ReadWriteMany).
 **Purpose**: Specifies the storage class for Db2 backup storage, which requires ReadWriteMany (RWX) access mode for shared access during backup operations.
 
 **When to use**:
+
 - Use default for standard backup storage configuration
 - Must be a storage class supporting RWX access mode
 - Set to `None` to disable backup storage (not recommended for production)
@@ -709,10 +764,12 @@ Storage class for Db2 backup storage (must support ReadWriteMany).
 **Valid values**: Any storage class name supporting ReadWriteMany access mode, or `None` to disable
 
 **Impact**: 
+
 - When set: Backup storage is configured for Db2 backups
 - When set to `None`: Backup storage is dropped from Db2uCluster CR (backups not possible)
 
 **Related variables**:
+
 - `db2_backup_storage_size`: Size of backup volume
 - `db2_backup_storage_accessmode`: Should be `ReadWriteMany`
 
@@ -728,6 +785,7 @@ Size of the backup persistent volume.
 **Purpose**: Specifies the size of the persistent volume for Db2 backup storage. This volume stores database backups for disaster recovery and point-in-time recovery.
 
 **When to use**:
+
 - Use default (`50Gi`) for small databases or development environments
 - Increase based on database size and backup retention requirements
 - Plan for multiple full backups plus transaction logs
@@ -738,6 +796,7 @@ Size of the backup persistent volume.
 **Impact**: Insufficient backup storage will cause backup operations to fail. Size should accommodate multiple full backups based on your retention policy.
 
 **Related variables**:
+
 - `db2_backup_storage_class`: Storage class for this volume
 - `db2_backup_storage_accessmode`: Access mode for this volume
 - `db2_data_storage_size`: Backup storage should be sized relative to data storage
@@ -754,6 +813,7 @@ Access mode for backup storage volume.
 **Purpose**: Defines the Kubernetes access mode for the backup persistent volume. ReadWriteMany (RWX) is required for Db2 backup operations to be accessible from multiple pods.
 
 **When to use**:
+
 - Leave as default (`ReadWriteMany`) for standard Db2 backup configuration
 - RWX is required for Db2 backup operations
 
@@ -762,6 +822,7 @@ Access mode for backup storage volume.
 **Impact**: Db2 backup storage requires RWX access mode. Using a different access mode will cause backup operations to fail.
 
 **Related variables**:
+
 - `db2_backup_storage_class`: Must support the specified access mode
 - `db2_backup_storage_size`: Size of this volume
 
@@ -1038,6 +1099,7 @@ MAS instance identifier for the backup/restore operation.
 **Purpose**: Identifies the MAS instance associated with the Db2 backup. Used for organizing backups and ensuring restore operations target the correct instance.
 
 **When to use**:
+
 - Always required when performing backup or restore operations
 - Must match the MAS instance ID that uses this Db2 instance
 
@@ -1055,6 +1117,7 @@ MAS application identifier for the backup/restore operation.
 **Purpose**: Identifies the MAS application (e.g., manage, iot) that uses this Db2 database. Used for organizing backups and database-specific operations.
 
 **When to use**:
+
 - Always required when performing backup or restore operations
 - Must match the MAS application that uses this Db2 database
 
@@ -1072,6 +1135,7 @@ Local directory path where backups will be stored or restored from.
 **Purpose**: Specifies the local filesystem directory for storing Db2 backup files and metadata. This directory serves as the staging area for all backup and restore operations.
 
 **When to use**:
+
 - Always required when performing backup or restore operations
 - Must be accessible from the system running the Ansible playbook
 - Should have sufficient disk space for database backups
@@ -1079,11 +1143,13 @@ Local directory path where backups will be stored or restored from.
 **Valid values**: Any valid local filesystem path (e.g., `/tmp/mas_backups`, `/backup/db2`)
 
 **Impact**:
+
 - Backup files and metadata are stored in subdirectories under this path
 - Directory structure: `<mas_backup_dir>/backup-<version>-db2u-<app>/`
 - Insufficient space will cause backup failures
 
 **Related variables**:
+
 - `db2_backup_version`: Used to create versioned backup subdirectories
 - `backup_vendor`: When set to `s3`, database backups go to S3 but instance resources still use this directory
 
@@ -1100,6 +1166,7 @@ The backup version timestamp identifier for backup and restore operations.
 **Purpose**: Uniquely identifies a specific backup version using a timestamp. This allows multiple backups to coexist and enables point-in-time restore operations.
 
 **When to use**:
+
 - Automatically generated during backup (no need to set manually)
 - Must be specified when restoring to identify which backup to use
 - Must be specified when installing Db2 from an existing backup
@@ -1107,11 +1174,13 @@ The backup version timestamp identifier for backup and restore operations.
 **Valid values**: Timestamp string in format `YYYYMMDD-HHMMSS` (e.g., `20251212-021316` for December 12, 2025 at 02:13:16)
 
 **Impact**:
+
 - Determines the backup directory name: `backup-<version>-db2u-<app>`
 - Used to locate backup files during restore operations
 - Recorded in backup metadata file for verification
 
 **Related variables**:
+
 - `mas_backup_dir`: Parent directory containing versioned backups
 - `db2_action`: Required when action is `restore-database` or `restore`(instance & database)
 
@@ -1128,6 +1197,7 @@ Only used in Db2 instance restore.
 **Purpose**: Allows changing storage classes when restoring Db2 to a different cluster or when the original storage classes are not available. When enabled, uses specified storage class variables or cluster defaults instead of backup metadata values.
 
 **When to use**:
+
 - Set to `true` when restoring to a cluster with different storage classes
 - Set to `true` when original storage classes are not available in target cluster
 - Leave as `false` to use the same storage classes as the original instance
@@ -1135,10 +1205,12 @@ Only used in Db2 instance restore.
 **Valid values**: `true`, `false`
 
 **Impact**:
+
 - When `true`: Uses `CUSTOM_STORAGE_CLASS_RWO` and `CUSTOM_STORAGE_CLASS_RWX` if set, otherwise uses cluster default storage classes
 - When `false`: Uses storage classes from backup metadata (original instance configuration)
 
 **Related variables**:
+
 - `custom_storage_class_rwo`: Override for ReadWriteOnce storage (applies to data, logs, temp, archivelogs, audit_logs)
 - `custom_storage_class_rwx`: Override for ReadWriteMany storage (applies to meta, backup)
 
@@ -1152,6 +1224,7 @@ Custom ReadWriteOnce storage class for Db2 restore operations.
 **Purpose**: Provides a single storage class override for all ReadWriteOnce (RWO) PVCs during restore. This simplifies storage class configuration when all RWO volumes can use the same storage class.
 
 **When to use**:
+
 - Set when `override_storageclass` is `true` and you want to use the same storage class for all RWO volumes
 - Applies to: data, logs, temp, archivelogs, and audit_logs storage
 
@@ -1171,6 +1244,7 @@ Custom ReadWriteMany storage class for Db2 restore operations.
 **Purpose**: Provides a single storage class override for all ReadWriteMany (RWX) PVCs during restore. This simplifies storage class configuration when all RWX volumes can use the same storage class.
 
 **When to use**:
+
 - Set when `override_storageclass` is `true` and you want to use the same storage class for all RWX volumes
 - Applies to: meta and backup storage
 
@@ -1190,6 +1264,7 @@ Type of backup operation to perform on the Db2 database.
 **Purpose**: Determines whether the database remains available during backup. Online backups allow continued database access but may impact performance, while offline backups require downtime but complete faster.
 
 **When to use**:
+
 - Use `online` (default) for production systems requiring high availability
 - Use `offline` when downtime is acceptable and faster backup is desired
 - **Must use `offline`** if circular logging is enabled (`LOGARCHMETH1: OFF` and/or `LOGARCHMETH2: OFF`)
@@ -1197,10 +1272,12 @@ Type of backup operation to perform on the Db2 database.
 **Valid values**: `online`, `offline`
 
 **Impact**:
+
 - `online`: Database remains accessible during backup; requires archive logging enabled; may impact performance
 - `offline`: Database is unavailable during backup; faster completion; works with circular logging
 
 **Related variables**:
+
 - `db2_database_db_config`: Check `LOGARCHMETH1` and `LOGARCHMETH2` settings to determine if online backup is supported
 
 **Important**: If your Db2 instance has circular logging enabled (default configuration), you can only use `offline` backup type. If archive logging is enabled, you can use either type.
@@ -1215,16 +1292,19 @@ Storage backend for database backup files only.
 **Purpose**: Determines where database backup files are stored. Disk storage keeps backups locally, while S3 storage sends them directly to S3-compatible object storage.
 
 **When to use**:
+
 - Use `disk` (default) for local backups or when S3 is not available
 - Use `s3` for cloud-based backups, long-term retention, or disaster recovery scenarios
 
 **Valid values**: `disk`, `s3`
 
 **Impact**:
+
 - `disk`: Database Backup files stored locally and copied to `mas_backup_dir`; requires sufficient local storage
 - `s3`: Database backup sent directly to S3 bucket; instance resources still stored locally; requires S3 credentials
 
 **Related variables**:
+
 - When `s3`: Requires `backup_s3_endpoint`, `backup_s3_bucket`, `backup_s3_access_key`, `backup_s3_secret_key`
 - `mas_backup_dir`: Always required for metadata and instance resources
 
@@ -1240,6 +1320,7 @@ S3-compatible object storage endpoint URL.
 **Purpose**: Specifies the S3 API endpoint for storing database backups. Supports AWS S3, IBM Cloud Object Storage, MinIO, and other S3-compatible services.
 
 **When to use**:
+
 - **Required** when using S3 storage for backups (`backup_vendor: s3`)
 - Must be accessible from the Db2 pod
 
@@ -1248,6 +1329,7 @@ S3-compatible object storage endpoint URL.
 **Impact**: Db2 connects to this endpoint to upload/download backup files. Incorrect endpoint will cause backup/restore failures.
 
 **Related variables**:
+
 - `backup_vendor`: Must be set to `s3`
 - `backup_s3_bucket`: Bucket at this endpoint
 - `backup_s3_access_key`, `backup_s3_secret_key`: Credentials for this endpoint
@@ -1264,6 +1346,7 @@ S3 bucket name for storing database backups.
 **Purpose**: Specifies the S3 bucket where database backup files will be stored. The bucket must exist and credentials must have read/write permissions.
 
 **When to use**:
+
 - **Required** when using S3 storage for backups (`backup_vendor: s3`)
 - Bucket must be created before running backup
 
@@ -1272,6 +1355,7 @@ S3 bucket name for storing database backups.
 **Impact**: Backup files are stored in this bucket under path `<backup_version>/`. Incorrect bucket name or insufficient permissions will cause failures.
 
 **Related variables**:
+
 - `backup_vendor`: Must be set to `s3`
 - `backup_s3_endpoint`: S3 service hosting this bucket
 - `backup_s3_access_key`, `backup_s3_secret_key`: Must have permissions for this bucket
@@ -1288,6 +1372,7 @@ S3 access key ID for authentication.
 **Purpose**: Provides the access key ID for authenticating to S3-compatible object storage. Used together with secret key for S3 API authentication.
 
 **When to use**:
+
 - **Required** when using S3 storage for backups (`backup_vendor: s3`)
 - Must have read/write permissions to the specified bucket
 
@@ -1296,6 +1381,7 @@ S3 access key ID for authentication.
 **Impact**: Used for S3 authentication. Invalid credentials will cause backup/restore to fail with authentication errors.
 
 **Related variables**:
+
 - `backup_vendor`: Must be set to `s3`
 - `backup_s3_secret_key`: Corresponding secret key
 - `backup_s3_bucket`: Bucket these credentials can access
@@ -1312,6 +1398,7 @@ S3 secret access key for authentication.
 **Purpose**: Provides the secret access key for authenticating to S3-compatible object storage. Used together with access key for S3 API authentication.
 
 **When to use**:
+
 - **Required** when using S3 storage for backups (`backup_vendor: s3`)
 - Must correspond to the access key ID
 
@@ -1320,6 +1407,7 @@ S3 secret access key for authentication.
 **Impact**: Used for S3 authentication. Invalid credentials will cause backup/restore to fail with authentication errors.
 
 **Related variables**:
+
 - `backup_vendor`: Must be set to `s3`
 - `backup_s3_access_key`: Corresponding access key ID
 - `backup_s3_bucket`: Bucket these credentials can access
@@ -1336,6 +1424,7 @@ Db2 storage access alias name for S3 configuration.
 **Purpose**: Defines the alias name used in Db2's storage access configuration for S3. This is an internal Db2 identifier for the S3 connection.
 
 **When to use**:
+
 - Usually leave as default unless you have specific Db2 storage access naming requirements
 - Change only if you need to match existing Db2 storage access configurations
 
@@ -1344,6 +1433,7 @@ Db2 storage access alias name for S3 configuration.
 **Impact**: Used internally by Db2 to reference the S3 storage configuration. Changing this is rarely necessary.
 
 **Related variables**:
+
 - `backup_vendor`: Only used when set to `s3`
 
 ## Migrating from Db2uCluster to Db2uInstance
@@ -1641,6 +1731,7 @@ status: "SUCCESS"
 ### Important Considerations
 
 **Version Compatibility:**
+
 - The restore operation requires the target Db2 version to match the backup version
 - Always verify version compatibility before attempting a restore
 
@@ -1648,19 +1739,23 @@ status: "SUCCESS"
 If your Db2 instance has circular logging enabled (i.e. `LOGARCHMETH1: OFF` and/or `LOGARCHMETH2: OFF`), you can only use the `offline` backup type.
 If your Db2 instance has circular logging disabled, you can use either the `online` or `offline` backup type.
 If you are unsure, you can use the default `online` backup type.
+
 - **Online Backup**: Database remains available during backup (recommended for production)
 - **Offline Backup**: Database is taken offline during backup (faster but requires downtime)
 
 **Storage Options:**
+
 - **Disk Storage**: Backups stored locally and copied to backup directory
 - **S3 Storage**: Backups stored directly to S3-compatible object storage (no local storage required)
 
 **Security:**
+
 - Backup files contain sensitive data and credentials
 - Secure the backup directory with appropriate permissions
 - Consider encrypting backup files for long-term storage
 
 **Performance:**
+
 - Online backups may impact Db2 performance during execution
 - Schedule backups during low-usage periods
 - Monitor Db2 resource utilization during backup
@@ -1680,6 +1775,7 @@ If you are unsure, you can use the default `online` backup type.
 Error: SQL2062N  An error occurred while accessing media "backup_path"
 ```
 **Solution:**
+
 - Check available disk space on the Db2 pod: `oc exec -n <namespace> <db2-pod> -- df -h`
 - Verify backup storage PVC has sufficient capacity
 - For S3 backups, ensure bucket has adequate space and proper permissions
@@ -1690,6 +1786,7 @@ Error: SQL2062N  An error occurred while accessing media "backup_path"
 Error: SQL1035N  The database is currently in use. SQLSTATE=57019
 ```
 **Solution:**
+
 - For offline backups, ensure all applications are disconnected
 - Use online backup instead: `export DB2_BACKUP_TYPE=online`
 - Check active connections: `oc exec -n <namespace> <db2-pod> -- su - db2inst1 -c "db2 list applications"`
@@ -1700,6 +1797,7 @@ Error: SQL1035N  The database is currently in use. SQLSTATE=57019
 Error: Unable to authenticate with S3 endpoint
 ```
 **Solution:**
+
 - Verify S3 credentials are correct: `BACKUP_S3_ACCESS_KEY` and `BACKUP_S3_SECRET_KEY`
 - Test S3 connectivity from the Db2 pod
 - Ensure S3 endpoint URL is correct and accessible
@@ -1711,6 +1809,7 @@ Error: Unable to authenticate with S3 endpoint
 Error: Backup operation timed out after 3600 seconds
 ```
 **Solution:**
+
 - Large databases may require extended timeout periods
 - Monitor backup progress: `oc logs -n <namespace> <db2-pod> -f`
 - Check Db2 performance and resource utilization
@@ -1730,6 +1829,7 @@ Error: Backup operation timed out after 3600 seconds
 Error: DB2 version mismatch. Backup version: 11.5.8.0, Target version: 11.5.9.0
 ```
 **Solution:**
+
 - Ensure target Db2 version matches backup version
 - Check backup metadata: `cat <backup_dir>/data/db2-backup-info.yaml`
 - Install matching Db2 version: `export DB2_VERSION=11.5.8.0-cn7`
@@ -1740,10 +1840,12 @@ Error: DB2 version mismatch. Backup version: 11.5.8.0, Target version: 11.5.9.0
 Error: SQL1005N  The database alias "BLUDB" already exists
 ```
 **Solution:**
+
 - Drop existing database before restore:
   ```bash
   oc exec -n <namespace> <db2-pod> -- su - db2inst1 -c "db2 drop database BLUDB"
   ```
+
 - Or use a different database name during restore
 - Verify database state: `db2 list database directory`
 
@@ -1752,10 +1854,12 @@ Error: SQL1005N  The database alias "BLUDB" already exists
 Error: SQL2025N  The database cannot be restored from backup image
 ```
 **Solution:**
+
 - Verify backup file integrity:
   ```bash
   tar -tzf <backup-file>.tar.gz > /dev/null
   ```
+
 - Check backup metadata for status: `status: SUCCESS`
 - Re-run backup if corruption detected
 - For S3 restores, verify file was completely uploaded
@@ -1766,6 +1870,7 @@ Error: SQL2025N  The database cannot be restored from backup image
 Error: SQL0551N  User does not have required authorization
 ```
 **Solution:**
+
 - Verify db2inst1 user has proper permissions
 - Check pod security context and service account
 - Ensure restore scripts have execute permissions
@@ -1776,6 +1881,7 @@ Error: SQL0551N  User does not have required authorization
 Error: Failed to download backup from S3 bucket
 ```
 **Solution:**
+
 - Verify S3 credentials have read permissions
 - Check S3 bucket name and path are correct
 - Test S3 connectivity: `aws s3 ls s3://<bucket-name>/`
@@ -1786,6 +1892,7 @@ Error: Failed to download backup from S3 bucket
 
 **Issue: Backup taking too long**
 **Solution:**
+
 - Use online backups to avoid database downtime
 - Schedule backups during low-usage periods
 - Increase Db2 pod resources (CPU/memory)
@@ -1795,6 +1902,7 @@ Error: Failed to download backup from S3 bucket
 
 **Issue: Restore taking too long**
 **Solution:**
+
 - Ensure adequate resources allocated to Db2 pod
 - Monitor pod resource utilization during restore
 - Check storage performance (IOPS, throughput)
@@ -1805,6 +1913,7 @@ Error: Failed to download backup from S3 bucket
 
 **Issue: How to verify backup completed successfully**
 **Solution:**
+
 1. Check backup metadata file:
    ```bash
    cat <backup_dir>/data/db2-backup-info.yaml
@@ -1828,6 +1937,7 @@ Error: Failed to download backup from S3 bucket
 
 **Issue: How to verify restore completed successfully**
 **Solution:**
+
 1. Check database is online:
    ```bash
    oc exec -n <namespace> <db2-pod> -- su - db2inst1 -c "db2 connect to BLUDB"

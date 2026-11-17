@@ -79,7 +79,7 @@ Add your IP address to the Atlas API Access List before running this role:
 
 ## Role Variables
 
-### Common Variables
+### Instance Configuration Variables
 
 #### mas_instance_id
 Unique identifier for the MAS instance that will use this MongoDB deployment.
@@ -91,6 +91,7 @@ Unique identifier for the MAS instance that will use this MongoDB deployment.
 **Purpose**: Identifies which MAS instance this MongoDB configuration targets. Used to generate the MongoCfg resource that connects MAS to the MongoDB instance.
 
 **When to use**:
+
 - Set when you want to automatically generate MongoCfg for MAS integration
 - Must be set together with `mas_config_dir` for MongoCfg generation
 - Leave unset if manually managing MongoDB configuration for MAS
@@ -111,6 +112,7 @@ Local directory path where the generated MongoCfg resource file will be saved.
 **Purpose**: Specifies where to save the MongoCfg YAML file that configures MAS to connect to this MongoDB instance. This file can be applied manually or used with the `suite_config` role for automated MAS configuration.
 
 **When to use**:
+
 - Set when you want to automatically generate MongoCfg for MAS integration
 - Must be set together with `mas_instance_id` for MongoCfg generation
 - Use the same directory across multiple dependency roles (mongodb, db2, sls) to collect all configurations
@@ -121,6 +123,7 @@ Local directory path where the generated MongoCfg resource file will be saved.
 **Impact**: When set with `mas_instance_id`, creates file `mongocfg-mongoce-system.yaml` in this directory. The file contains Secret and MongoCfg resources ready to apply to MAS.
 
 **Related variables**:
+
 - Must be set together with `mas_instance_id` for MongoCfg generation
 - Used by `suite_config` role to apply configurations
 
@@ -134,6 +137,7 @@ Selects which MongoDB deployment option to use for MAS database requirements.
 **Purpose**: Determines the MongoDB infrastructure provider, which affects deployment architecture, management approach, operational requirements, and cost model. Each provider offers different trade-offs between control, convenience, and cost.
 
 **When to use**:
+
 - Use `community` for self-managed deployments on OpenShift with full control
 - Use `ibm` for managed IBM Cloud Databases for MongoDB service
 - Use `aws` for managed AWS DocumentDB service (MongoDB-compatible)
@@ -141,18 +145,21 @@ Selects which MongoDB deployment option to use for MAS database requirements.
 - Consider operational expertise, cloud platform, and management preferences
 
 **Valid values**:
+
 - `community` - MongoDB Community Edition Operator (self-managed on OpenShift)
 - `ibm` - IBM Cloud Databases for MongoDB (managed service)
 - `aws` - AWS DocumentDB (managed service, MongoDB-compatible)
 - `atlas` - MongoDB Atlas
 
 **Impact**:
+
 - `community`: Requires cluster storage, manual backup management, and operational overhead
 - `ibm`: Requires IBM Cloud account, API key, and incurs IBM Cloud service charges
 - `aws`: Requires AWS account, VPC configuration, and incurs AWS service charges
 - `atlas`: Requires AWS account, AWS IAM permissions, and incurs AWS service charges
 
 **Related variables**:
+
 - When `community`: Requires `mongodb_storage_class` and related storage/resource variables
 - When `ibm`: Requires `ibmcloud_apikey`, `ibm_mongo_region`, `ibm_mongo_resourcegroup`
 - When `aws`: Requires `aws_access_key_id`, `aws_secret_access_key`, `vpc_id`, `docdb_*` variables
@@ -171,6 +178,7 @@ Specifies which operation to perform on the MongoDB instance.
 **Purpose**: Controls what action the role executes against the MongoDB instance. Different providers support different sets of actions based on their capabilities and management model.
 
 **When to use**:
+
 - Use `install` for initial deployment or updates
 - Use `uninstall` to remove MongoDB instance (use with caution)
 - Use `backup` to create MongoDB backups (community/ibm only)
@@ -180,6 +188,7 @@ Specifies which operation to perform on the MongoDB instance.
 - Use `create-mongo-service-credentials` to generate service credentials (ibm only)
 
 **Valid values** (provider-specific):
+
 - **community**: `install`, `uninstall`, `backup`, `backup-database`, `restore`, `restore-database`
 - **aws**: `install`, `uninstall`, `docdb_secret_rotate`, `destroy-data`
 - **ibm**: `install`, `uninstall`, `backup`, `restore`, `create-mongo-service-credentials`
@@ -188,6 +197,7 @@ Specifies which operation to perform on the MongoDB instance.
 **Impact**: The action determines what the role will do. Destructive actions like `uninstall` and `destroy-data` will permanently delete data. Backup/restore actions require additional variables to be set.
 
 **Related variables**:
+
 - `mongodb_provider` determines which actions are available
 - AWS secret rotation requires `docdb_*` credential variables
 
@@ -205,6 +215,7 @@ OpenShift namespace where the MongoDB Community Operator and MongoDB cluster wil
 **Purpose**: Defines the Kubernetes namespace for MongoDB resources, providing isolation and organization for the MongoDB deployment within the cluster.
 
 **When to use**:
+
 - Use default `mongoce` for standard deployments
 - Change only if you need multiple MongoDB instances or have namespace naming requirements
 - Ensure namespace doesn't conflict with existing deployments
@@ -225,6 +236,7 @@ Specifies the MongoDB version to deploy.
 **Purpose**: Controls which MongoDB version is deployed, ensuring compatibility with MAS requirements and enabling version-specific features. The default aligns with the tested and supported version for your MAS release.
 
 **When to use**:
+
 - Leave as default for standard deployments (recommended)
 - Override only when specific version requirements exist
 - Use for testing compatibility with newer MongoDB versions
@@ -235,6 +247,7 @@ Specifies the MongoDB version to deploy.
 **Impact**: Determines MongoDB feature set, performance characteristics, and compatibility. Changing versions may require data migration or compatibility testing.
 
 **Related variables**:
+
 - Version upgrades require corresponding `mongodb_v*_upgrade` flags
 - Must be compatible with MAS version requirements
 
@@ -250,6 +263,7 @@ Forces the role to use environment variables instead of preserving existing Mong
 **Purpose**: Controls whether the role preserves existing MongoDB configuration during upgrades/reinstalls or applies new values from environment variables. This prevents accidental configuration changes during routine operations.
 
 **When to use**:
+
 - Leave as `false` (default) to preserve existing settings during upgrades
 - Set to `true` only when intentionally changing MongoDB configuration
 - Use with caution - requires setting all environment variables to match desired state
@@ -257,10 +271,12 @@ Forces the role to use environment variables instead of preserving existing Mong
 **Valid values**: `true`, `false`
 
 **Impact**:
+
 - When `false`: Existing CPU, memory, storage, and replica settings are preserved during reinstall/upgrade
 - When `true`: All settings are taken from environment variables; unset variables revert to defaults
 
 **Related variables**: When set to `true`, affects these settings:
+
 - `mongodb_cpu_limits`
 - `mongodb_mem_limits`
 - `mongodb_cpu_requests`
@@ -282,6 +298,7 @@ Name of the Kubernetes storage class for MongoDB persistent volumes.
 **Purpose**: Specifies which storage class provides persistent volumes for MongoDB data and logs. The storage class determines performance characteristics, availability, and cost of MongoDB storage.
 
 **When to use**:
+
 - Always required for Community Edition deployments
 - Choose based on performance requirements (SSD vs HDD)
 - Consider backup and snapshot capabilities of the storage class
@@ -292,6 +309,7 @@ Name of the Kubernetes storage class for MongoDB persistent volumes.
 **Impact**: Affects MongoDB performance, reliability, and cost. Six PVCs will be created (data + logs for each of 3 replicas by default). Storage class cannot be changed after deployment without data migration.
 
 **Related variables**:
+
 - `mongodb_storage_capacity_data` - Size of data PVCs
 - `mongodb_storage_capacity_logs` - Size of log PVCs
 - `mongodb_replicas` - Number of replica sets (affects total PVC count)
@@ -308,6 +326,7 @@ Size of the persistent volume claim (PVC) for MongoDB data storage on each repli
 **Purpose**: Determines disk space allocated for storing MongoDB databases, collections, and indexes on each replica. Proper sizing prevents storage exhaustion and ensures adequate space for data growth.
 
 **When to use**:
+
 - Increase from default for production environments with large data volumes
 - Increase for environments with high data growth rates
 - Use default (20Gi) for development, testing, or small deployments
@@ -316,12 +335,14 @@ Size of the persistent volume claim (PVC) for MongoDB data storage on each repli
 **Valid values**: Any valid Kubernetes storage size (e.g., `20Gi`, `100Gi`, `500Gi`, `1Ti`)
 
 **Impact**:
+
 - Larger values consume more cluster storage resources
 - Cannot be decreased after deployment (PVC expansion only)
 - Total storage = this value × number of replicas
 - Affects backup and restore duration
 
 **Related variables**:
+
 - `mongodb_replicas`: Total storage = capacity × replicas
 - `mongodb_storage_class`: Must support volume expansion if you plan to increase size later
 - `mongodb_storage_capacity_logs`: Consider balancing data and log storage
@@ -338,6 +359,7 @@ Size of the persistent volume claim (PVC) for MongoDB log storage on each replic
 **Purpose**: Determines disk space allocated for MongoDB operational logs on each replica. Logs are essential for troubleshooting, auditing, and monitoring MongoDB operations.
 
 **When to use**:
+
 - Increase for production environments with verbose logging requirements
 - Increase if log retention policies require longer history
 - Use default (20Gi) for standard deployments
@@ -346,12 +368,14 @@ Size of the persistent volume claim (PVC) for MongoDB log storage on each replic
 **Valid values**: Any valid Kubernetes storage size (e.g., `10Gi`, `20Gi`, `50Gi`)
 
 **Impact**:
+
 - Larger values consume more cluster storage resources
 - Cannot be decreased after deployment (PVC expansion only)
 - Total log storage = this value × number of replicas
 - Insufficient log space can cause MongoDB operational issues
 
 **Related variables**:
+
 - `mongodb_replicas`: Total log storage = capacity × replicas
 - `mongodb_storage_class`: Must support volume expansion
 - `mongodb_storage_capacity_data`: Consider balancing data and log storage
@@ -368,6 +392,7 @@ Maximum CPU cores allocated to each MongoDB container.
 **Purpose**: Sets the upper bound on CPU usage for MongoDB containers, preventing any single MongoDB instance from consuming excessive cluster CPU resources.
 
 **When to use**:
+
 - Increase for production workloads with high query volumes
 - Increase for large datasets requiring more processing power
 - Use default (1 core) for development or light workloads
@@ -376,12 +401,14 @@ Maximum CPU cores allocated to each MongoDB container.
 **Valid values**: CPU units as decimal (e.g., `0.5`, `1`, `2`, `4`) or millicores (e.g., `500m`, `1000m`, `2000m`)
 
 **Impact**:
+
 - Higher limits allow better performance under load but consume more cluster resources
 - Limits prevent MongoDB from starving other workloads of CPU
 - Total CPU limit = this value × number of replicas
 - Setting too low can cause performance degradation
 
 **Related variables**:
+
 - `mongodb_cpu_requests`: Should be set lower than limits for burst capacity
 - `mongodb_replicas`: Total CPU = limits × replicas
 - `mongodb_mem_limits`: Balance CPU and memory allocation
@@ -398,6 +425,7 @@ Maximum memory allocated to each MongoDB container.
 **Purpose**: Sets the upper bound on memory usage for MongoDB containers. MongoDB uses memory for caching data and indexes, so adequate memory is critical for performance.
 
 **When to use**:
+
 - Increase significantly for production workloads (4Gi-8Gi recommended)
 - Increase for large datasets to improve cache hit rates
 - Default (1Gi) is only suitable for development/testing
@@ -406,12 +434,14 @@ Maximum memory allocated to each MongoDB container.
 **Valid values**: Memory size (e.g., `1Gi`, `2Gi`, `4Gi`, `8Gi`, `16Gi`)
 
 **Impact**:
+
 - Higher limits improve performance through better caching
 - Limits prevent MongoDB from consuming all cluster memory
 - Total memory limit = this value × number of replicas
 - Setting too low causes frequent cache evictions and poor performance
 
 **Related variables**:
+
 - `mongodb_mem_requests`: Should be set lower than limits
 - `mongodb_replicas`: Total memory = limits × replicas
 - `mongodb_cpu_limits`: Balance CPU and memory allocation
@@ -428,6 +458,7 @@ Guaranteed CPU cores reserved for each MongoDB container.
 **Purpose**: Defines the minimum CPU resources guaranteed to MongoDB containers. Kubernetes scheduler uses this to place pods on nodes with sufficient available CPU.
 
 **When to use**:
+
 - Increase for production workloads requiring consistent performance
 - Set to match expected baseline CPU usage
 - Use default (500m) for development or light workloads
@@ -436,12 +467,14 @@ Guaranteed CPU cores reserved for each MongoDB container.
 **Valid values**: CPU units as decimal (e.g., `0.5`, `1`, `2`) or millicores (e.g., `500m`, `1000m`, `2000m`)
 
 **Impact**:
+
 - Higher requests guarantee more CPU but may limit pod scheduling if cluster capacity is constrained
 - Requests ensure MongoDB has minimum CPU even under cluster load
 - Total CPU request = this value × number of replicas
 - Affects pod Quality of Service (QoS) class
 
 **Related variables**:
+
 - `mongodb_cpu_limits`: Requests should be lower than limits
 - `mongodb_replicas`: Total CPU requests = this value × replicas
 - `mongodb_mem_requests`: Balance CPU and memory requests
@@ -458,6 +491,7 @@ Guaranteed memory reserved for each MongoDB container.
 **Purpose**: Defines the minimum memory resources guaranteed to MongoDB containers. Kubernetes scheduler uses this to place pods on nodes with sufficient available memory.
 
 **When to use**:
+
 - Increase for production workloads (2Gi-4Gi recommended)
 - Set to match expected baseline memory usage
 - Default (1Gi) is only suitable for development/testing
@@ -466,12 +500,14 @@ Guaranteed memory reserved for each MongoDB container.
 **Valid values**: Memory size (e.g., `1Gi`, `2Gi`, `4Gi`, `8Gi`)
 
 **Impact**:
+
 - Higher requests guarantee more memory but may limit pod scheduling if cluster capacity is constrained
 - Requests ensure MongoDB has minimum memory even under cluster load
 - Total memory request = this value × number of replicas
 - Affects pod Quality of Service (QoS) class
 
 **Related variables**:
+
 - `mongodb_mem_limits`: Requests should be lower than limits
 - `mongodb_replicas`: Total memory requests = this value × replicas
 - `mongodb_cpu_requests`: Balance CPU and memory requests
@@ -488,6 +524,7 @@ Number of MongoDB replica set members to deploy.
 **Purpose**: Determines the size of the MongoDB replica set, which affects high availability, read scalability, and resource consumption. Replica sets provide data redundancy and automatic failover.
 
 **When to use**:
+
 - Use default (3) for production deployments with high availability requirements
 - Set to 1 only for Single Node OpenShift (SNO) clusters or development environments
 - Use 5 or more for critical production workloads requiring higher availability
@@ -496,12 +533,14 @@ Number of MongoDB replica set members to deploy.
 **Valid values**: Positive integers, typically 1, 3, or 5
 
 **Impact**:
+
 - More replicas = higher availability but more resource consumption
 - Each replica requires its own data and log PVCs
 - Total resources = (CPU + memory + storage) × replicas
 - Affects election behavior and write acknowledgment
 
 **Related variables**:
+
 - `mongodb_storage_capacity_data`: Total data storage = capacity × replicas
 - `mongodb_storage_capacity_logs`: Total log storage = capacity × replicas
 - `mongodb_cpu_limits` and `mongodb_mem_limits`: Total resources = limits × replicas
@@ -518,6 +557,7 @@ Comma-separated list of key=value labels to apply to MongoDB resources.
 **Purpose**: Adds Kubernetes labels to MongoDB resources for organization, selection, and filtering. Labels enable resource tracking, cost allocation, and custom automation.
 
 **When to use**:
+
 - Use to add organizational metadata (e.g., `cost-center=engineering`, `environment=production`)
 - Use to enable resource tracking and cost allocation
 - Use to support custom automation or monitoring tools
@@ -539,6 +579,7 @@ Confirmation flag to upgrade MongoDB from version 4.x to version 5.
 **Purpose**: Acts as a safety confirmation to prevent accidental MongoDB major version upgrades. Upgrading MongoDB major versions requires careful planning and testing.
 
 **When to use**:
+
 - Set to `true` only when intentionally upgrading from MongoDB 4.2 or 4.4 to version 5
 - Must be explicitly set to perform the upgrade
 - Leave as `false` for all other operations
@@ -548,6 +589,7 @@ Confirmation flag to upgrade MongoDB from version 4.x to version 5.
 **Impact**: When `true` and `mongodb_version` is set to a 5.x version, triggers MongoDB upgrade from 4.x to 5.x. This is a one-way operation that cannot be reversed without restoring from backup.
 
 **Related variables**:
+
 - `mongodb_version`: Must be set to a 5.x version for upgrade to proceed
 - Other upgrade flags: `mongodb_v6_upgrade`, `mongodb_v7_upgrade`, `mongodb_v8_upgrade`
 
@@ -563,6 +605,7 @@ Confirmation flag to upgrade MongoDB from version 5 to version 6.
 **Purpose**: Acts as a safety confirmation to prevent accidental MongoDB major version upgrades from version 5 to 6.
 
 **When to use**:
+
 - Set to `true` only when intentionally upgrading from MongoDB 5 to version 6
 - Must be explicitly set to perform the upgrade
 - Leave as `false` for all other operations
@@ -572,6 +615,7 @@ Confirmation flag to upgrade MongoDB from version 5 to version 6.
 **Impact**: When `true` and `mongodb_version` is set to a 6.x version, triggers MongoDB upgrade from 5.x to 6.x. This is a one-way operation that cannot be reversed without restoring from backup.
 
 **Related variables**:
+
 - `mongodb_version`: Must be set to a 6.x version for upgrade to proceed
 - Other upgrade flags: `mongodb_v5_upgrade`, `mongodb_v7_upgrade`, `mongodb_v8_upgrade`
 
@@ -587,6 +631,7 @@ Confirmation flag to upgrade MongoDB from version 6 to version 7.
 **Purpose**: Acts as a safety confirmation to prevent accidental MongoDB major version upgrades from version 6 to 7.
 
 **When to use**:
+
 - Set to `true` only when intentionally upgrading from MongoDB 6 to version 7
 - Must be explicitly set to perform the upgrade
 - Leave as `false` for all other operations
@@ -596,6 +641,7 @@ Confirmation flag to upgrade MongoDB from version 6 to version 7.
 **Impact**: When `true` and `mongodb_version` is set to a 7.x version, triggers MongoDB upgrade from 6.x to 7.x. This is a one-way operation that cannot be reversed without restoring from backup.
 
 **Related variables**:
+
 - `mongodb_version`: Must be set to a 7.x version for upgrade to proceed
 - Other upgrade flags: `mongodb_v5_upgrade`, `mongodb_v6_upgrade`, `mongodb_v8_upgrade`
 
@@ -610,18 +656,15 @@ Confirmation flag to upgrade MongoDB from version 7 to version 8.
 
 ### Backup and Restore (CE Operator)
 
-#### mongodb_action
-For backup and restore operations, set `mongodb_action` to one of the following:
+For backup and restore operations, set [`mongodb_action`](#mongodb_action) to one of the following:
+
 - `backup`: Create a backup of MongoDB databases and instance resources
 - `backup-database`: Create a backup of MongoDB databases only
 - `restore`: Restore both MongoDB instance resources and databases from a backup (full restore)
 - `restore-database`: Restore only MongoDB databases from a backup to an existing instance (database-only restore)
 
-- **Optional**
-- Environment Variable: `MONGODB_ACTION`
-- Default: `install`
-
 **Action Details:**
+
 - **backup**: Creates a complete backup including database data and Kubernetes resources (secrets, certificates, CRs)
 - **backup-database**: Creates a complete backup including database data only
 - **restore**: Performs a full restore by recreating the MongoDB instance from backup resources and then restoring database data
@@ -678,6 +721,7 @@ Name for the IBM Cloud Databases for MongoDB instance.
 **Purpose**: Identifies the MongoDB database instance in IBM Cloud. This name is used for resource identification, billing, and management within IBM Cloud.
 
 **When to use**:
+
 - Always required when using IBM Cloud as the MongoDB provider
 - Use default naming convention for consistency across MAS instances
 - Customize only if organizational naming standards require it
@@ -687,6 +731,7 @@ Name for the IBM Cloud Databases for MongoDB instance.
 **Impact**: This name appears in IBM Cloud console, billing reports, and resource lists. Changing it after creation requires recreating the database instance.
 
 **Related variables**:
+
 - `mas_instance_id`: Default name includes this value
 - `mongodb_provider`: Must be set to `ibm`
 
@@ -702,6 +747,7 @@ Administrator password for the IBM Cloud MongoDB instance.
 **Purpose**: Sets the password for the MongoDB administrator user. If not provided, a secure random password is automatically generated.
 
 **When to use**:
+
 - Set explicitly if you need to know the password in advance
 - Leave unset to use auto-generated secure password (recommended)
 - Set if integrating with external password management systems
@@ -711,6 +757,7 @@ Administrator password for the IBM Cloud MongoDB instance.
 **Impact**: This password is used for administrative access to the MongoDB instance. Auto-generated passwords are stored in Kubernetes secrets.
 
 **Related variables**:
+
 - `ibm_mongo_admin_credentials_secret_name`: Secret where credentials are stored
 
 **Note**: Auto-generated passwords are more secure. If setting manually, ensure password meets security requirements and is stored securely.
@@ -725,6 +772,7 @@ Name of the Kubernetes secret containing MongoDB admin credentials.
 **Purpose**: Specifies the Kubernetes secret name where MongoDB administrator credentials are stored. This secret is created automatically by the role.
 
 **When to use**:
+
 - Customize if organizational standards require specific secret naming
 - Use default for standard deployments
 - Reference this secret name in other automation
@@ -734,6 +782,7 @@ Name of the Kubernetes secret containing MongoDB admin credentials.
 **Impact**: The secret contains admin username and password for MongoDB access. Other roles and applications reference this secret for database connectivity.
 
 **Related variables**:
+
 - `ibm_mongo_name`: Default secret name includes this value
 - `ibm_mongo_admin_password`: Password stored in this secret
 
@@ -747,6 +796,7 @@ Name of the Kubernetes secret containing MongoDB service credentials.
 **Purpose**: Specifies the Kubernetes secret name where MongoDB service-level credentials are stored. These credentials are used by MAS applications to connect to MongoDB.
 
 **When to use**:
+
 - Customize if organizational standards require specific secret naming
 - Use default for standard deployments
 - Reference this secret name when configuring MAS applications
@@ -756,6 +806,7 @@ Name of the Kubernetes secret containing MongoDB service credentials.
 **Impact**: The secret contains connection strings and credentials for application-level MongoDB access. MAS applications use this secret to connect to the database.
 
 **Related variables**:
+
 - `ibm_mongo_name`: Default secret name includes this value
 
 #### ibm_mongo_resourcegroup
@@ -768,6 +819,7 @@ IBM Cloud resource group for MongoDB instance placement.
 **Purpose**: Specifies which IBM Cloud resource group will contain the MongoDB instance. Resource groups organize IBM Cloud resources for access control and billing.
 
 **When to use**:
+
 - Always required when using IBM Cloud provider
 - Use `Default` for simple deployments
 - Specify custom resource group for organizational resource management
@@ -778,6 +830,7 @@ IBM Cloud resource group for MongoDB instance placement.
 **Impact**: Determines access control, billing allocation, and resource organization. Users need appropriate IAM permissions for the specified resource group.
 
 **Related variables**:
+
 - `ibmcloud_apikey`: API key must have access to the specified resource group
 
 **Note**: Ensure the resource group exists and your API key has permissions to create resources in it.
@@ -792,6 +845,7 @@ IBM Cloud region where MongoDB instance will be deployed.
 **Purpose**: Specifies the geographic region for MongoDB deployment. Region selection affects latency, data residency, and availability.
 
 **When to use**:
+
 - Always required when using IBM Cloud provider
 - Choose region closest to your OpenShift cluster for lowest latency
 - Consider data residency requirements for compliance
@@ -802,6 +856,7 @@ IBM Cloud region where MongoDB instance will be deployed.
 **Impact**: Affects network latency between OpenShift and MongoDB, data residency compliance, and regional pricing. Cannot be changed after creation.
 
 **Related variables**:
+
 - `ibmcloud_apikey`: API key must have access to the specified region
 
 **Note**: Choose region carefully as it cannot be changed. Consider deploying MongoDB in the same region as your OpenShift cluster for best performance.
@@ -816,6 +871,7 @@ IBM Cloud API key for authentication and resource management.
 **Purpose**: Provides authentication credentials for creating and managing IBM Cloud resources. The API key must have sufficient permissions to create and manage Databases for MongoDB instances.
 
 **When to use**:
+
 - Always required when using IBM Cloud provider
 - Must have permissions for the target resource group and region
 - Should be stored securely (e.g., in Ansible Vault or external secret management)
@@ -825,6 +881,7 @@ IBM Cloud API key for authentication and resource management.
 **Impact**: This key is used to authenticate all IBM Cloud API calls. Insufficient permissions will cause deployment failures.
 
 **Related variables**:
+
 - `ibm_mongo_resourcegroup`: API key must have access to this resource group
 - `ibm_mongo_region`: API key must have access to this region
 
@@ -840,6 +897,7 @@ IBM Cloud service plan for MongoDB instance.
 **Purpose**: Specifies the IBM Cloud service plan tier for MongoDB. Different plans offer different performance, availability, and pricing characteristics.
 
 **When to use**:
+
 - Use `standard` (default) for most production deployments
 - Consider `enterprise` plan for critical workloads requiring higher SLA
 - Review IBM Cloud pricing and plan features before selecting
@@ -849,6 +907,7 @@ IBM Cloud service plan for MongoDB instance.
 **Impact**: Affects pricing, performance characteristics, SLA, and available features. Plan cannot be changed after creation without recreating the instance.
 
 **Related variables**:
+
 - `ibm_mongo_memory`, `ibm_mongo_disk`, `ibm_mongo_cpu`: Resource allocations vary by plan
 
 **Note**: Review IBM Cloud Databases for MongoDB plan documentation for current offerings and pricing.
@@ -880,6 +939,7 @@ Network endpoint type for MongoDB connectivity.
 **Purpose**: Determines whether MongoDB is accessible via public internet or private network only. Private endpoints provide better security and performance for cluster-to-database communication.
 
 **When to use**:
+
 - Use `public` for simple deployments or when OpenShift cluster lacks private network connectivity
 - Use `private` for production deployments with private network connectivity (recommended)
 - Private endpoints require IBM Cloud private network configuration
@@ -887,6 +947,7 @@ Network endpoint type for MongoDB connectivity.
 **Valid values**: `public`, `private`
 
 **Impact**:
+
 - `public`: MongoDB accessible over internet (requires firewall rules)
 - `private`: MongoDB accessible only via IBM Cloud private network (more secure, lower latency)
 
@@ -904,6 +965,7 @@ MongoDB version to deploy in IBM Cloud.
 **Purpose**: Specifies which MongoDB version to deploy. Version selection affects available features, performance, and compatibility.
 
 **When to use**:
+
 - Use default (`4.4`) for compatibility with older MAS versions
 - Specify newer version (e.g., `5.0`, `6.0`) for new deployments
 - Check MAS compatibility matrix before selecting version
@@ -913,6 +975,7 @@ MongoDB version to deploy in IBM Cloud.
 **Impact**: Affects available MongoDB features, performance characteristics, and MAS compatibility. Version cannot be easily downgraded.
 
 **Related variables**:
+
 - Check MAS compatibility requirements before selecting version
 
 **Note**: Verify version compatibility with your MAS version. Newer MongoDB versions may require MAS updates.
@@ -927,6 +990,7 @@ Memory allocation per MongoDB member in MB.
 **Purpose**: Specifies memory allocation for each MongoDB replica set member. Memory affects caching performance and query execution.
 
 **When to use**:
+
 - Use default (3840 MB) for development or small deployments
 - Increase for production workloads (8192 MB or higher recommended)
 - Increase for large datasets to improve cache hit rates
@@ -936,6 +1000,7 @@ Memory allocation per MongoDB member in MB.
 **Impact**: Higher memory improves performance through better caching but increases costs. Total cost = memory × number of members.
 
 **Related variables**:
+
 - `ibm_mongo_plan`: Available memory ranges vary by plan
 - `ibm_mongo_disk`: Balance memory and disk allocation
 
@@ -951,6 +1016,7 @@ Disk storage allocation per MongoDB member in MB.
 **Purpose**: Specifies disk storage for each MongoDB replica set member. Storage holds databases, indexes, and operational logs.
 
 **When to use**:
+
 - Use default (30 GB) for development or small datasets
 - Increase for production workloads based on data volume
 - Plan for data growth and backup storage needs
@@ -960,6 +1026,7 @@ Disk storage allocation per MongoDB member in MB.
 **Impact**: Affects storage capacity and costs. Disk can be expanded but not shrunk. Total storage = disk × number of members.
 
 **Related variables**:
+
 - `ibm_mongo_plan`: Available disk ranges vary by plan
 - `ibm_mongo_memory`: Balance memory and disk allocation
 
@@ -975,6 +1042,7 @@ Dedicated CPU cores per MongoDB member.
 **Purpose**: Specifies dedicated CPU cores for each MongoDB member. Dedicated CPUs provide consistent performance but increase costs.
 
 **When to use**:
+
 - Use `0` (default) for shared CPU, suitable for development and light workloads
 - Set to `3` or higher for production workloads requiring consistent performance
 - Dedicated CPUs recommended for production environments
@@ -982,10 +1050,12 @@ Dedicated CPU cores per MongoDB member.
 **Valid values**: `0` (shared), or integer ≥ 3 for dedicated CPUs
 
 **Impact**:
+
 - `0`: Shared CPU, lower cost, variable performance
 - `≥3`: Dedicated CPUs, higher cost, consistent performance
 
 **Related variables**:
+
 - `ibm_mongo_plan`: CPU options vary by plan
 - `ibm_mongo_memory`: Balance CPU and memory allocation
 
@@ -1001,6 +1071,7 @@ IBM Cloud backup CRN (Cloud Resource Name) for restore operations.
 **Purpose**: Specifies the IBM Cloud backup resource to restore from. The CRN uniquely identifies a specific backup in IBM Cloud.
 
 **When to use**:
+
 - **Required** only when restoring from an IBM Cloud backup
 - Obtain CRN from IBM Cloud console or CLI
 - Leave unset for new deployments
@@ -1010,6 +1081,7 @@ IBM Cloud backup CRN (Cloud Resource Name) for restore operations.
 **Impact**: Restores MongoDB to the state captured in the specified backup. All current data will be replaced.
 
 **Related variables**:
+
 - `is_restore`: Must be set to `true`
 - `restored_mongodb_service_name`: Name for the restored service
 
@@ -1025,6 +1097,7 @@ Flag to enable restore from IBM Cloud backup.
 **Purpose**: Controls whether to create a new MongoDB instance or restore from an existing backup. Acts as a safety flag to prevent accidental restores.
 
 **When to use**:
+
 - Set to `true` only when intentionally restoring from backup
 - Leave as `false` (default) for new deployments
 - Must be explicitly set to perform restore
@@ -1034,6 +1107,7 @@ Flag to enable restore from IBM Cloud backup.
 **Impact**: When `true`, creates MongoDB instance from backup instead of fresh deployment. Requires `ibm_mongo_backup_id` and `restored_mongodb_service_name`.
 
 **Related variables**:
+
 - `ibm_mongo_backup_id`: Required when `true`
 - `restored_mongodb_service_name`: Required when `true`
 
@@ -1049,6 +1123,7 @@ Name for the MongoDB service when restoring from backup.
 **Purpose**: Specifies the name for the new MongoDB service created from backup. This allows restoring to a different service name than the original.
 
 **When to use**:
+
 - **Required** only when `is_restore=true`
 - Can be same as or different from original service name
 - Use different name to restore alongside existing instance for testing
@@ -1058,6 +1133,7 @@ Name for the MongoDB service when restoring from backup.
 **Impact**: The restored MongoDB instance will have this name in IBM Cloud. Choose carefully as it affects resource identification and billing.
 
 **Related variables**:
+
 - `is_restore`: Must be set to `true`
 - `ibm_mongo_backup_id`: Backup to restore from
 - `ibm_mongo_name`: Original service name (can be different)
@@ -1077,6 +1153,7 @@ AWS account access key ID for authentication.
 **Purpose**: Provides AWS authentication credentials for creating and managing DocumentDB resources. The access key must have sufficient IAM permissions for DocumentDB, VPC, and related services.
 
 **When to use**:
+
 - Always required when using AWS DocumentDB provider
 - Must have IAM permissions for DocumentDB, EC2 (VPC/subnets/security groups)
 - Should be stored securely (e.g., in Ansible Vault or external secret management)
@@ -1086,6 +1163,7 @@ AWS account access key ID for authentication.
 **Impact**: This key is used to authenticate all AWS API calls. Insufficient permissions will cause deployment failures.
 
 **Related variables**:
+
 - `aws_secret_access_key`: Must be provided together
 - `aws_region`: Access key must have permissions in the target region
 
@@ -1101,6 +1179,7 @@ AWS account secret access key for authentication.
 **Purpose**: Provides the secret component of AWS authentication credentials. Works together with `aws_access_key_id` to authenticate AWS API requests.
 
 **When to use**:
+
 - Always required when using AWS DocumentDB provider
 - Must correspond to the provided `aws_access_key_id`
 - Should be stored securely
@@ -1110,6 +1189,7 @@ AWS account secret access key for authentication.
 **Impact**: Used with access key ID to authenticate AWS API calls. Invalid or mismatched credentials will cause authentication failures.
 
 **Related variables**:
+
 - `aws_access_key_id`: Must be provided together
 
 **Note**: **Store securely and never commit to source control**. Rotate credentials regularly following AWS security best practices.
@@ -1124,6 +1204,7 @@ AWS region where DocumentDB cluster will be deployed.
 **Purpose**: Specifies the geographic AWS region for DocumentDB deployment. Region selection affects latency, data residency, availability zones, and pricing.
 
 **When to use**:
+
 - Always required when using AWS DocumentDB provider
 - Choose region closest to your OpenShift cluster for lowest latency
 - Consider data residency requirements for compliance
@@ -1134,6 +1215,7 @@ AWS region where DocumentDB cluster will be deployed.
 **Impact**: Affects network latency, data residency compliance, available availability zones, and regional pricing. Cannot be changed after creation.
 
 **Related variables**:
+
 - `vpc_id`: VPC must exist in the specified region
 - `aws_access_key_id`: Credentials must have permissions in this region
 
@@ -1149,6 +1231,7 @@ AWS VPC ID where DocumentDB resources will be created.
 **Purpose**: Specifies the AWS Virtual Private Cloud where DocumentDB cluster, subnets, and security groups will be created. The VPC provides network isolation and connectivity.
 
 **When to use**:
+
 - Always required when using AWS DocumentDB provider
 - Use the same VPC as your OpenShift cluster for direct connectivity
 - VPC must exist in the specified `aws_region`
@@ -1158,6 +1241,7 @@ AWS VPC ID where DocumentDB resources will be created.
 **Impact**: Determines network connectivity and security boundaries. DocumentDB will only be accessible from resources within this VPC or connected networks.
 
 **Related variables**:
+
 - `aws_region`: VPC must exist in this region
 - `docdb_cidr_az1`, `docdb_cidr_az2`, `docdb_cidr_az3`: Subnets created within this VPC
 - `docdb_ingress_cidr`, `docdb_egress_cidr`: Should match VPC CIDR ranges
@@ -1174,6 +1258,7 @@ Name for the AWS DocumentDB cluster.
 **Purpose**: Identifies the DocumentDB cluster in AWS. This name is used for resource identification, tagging, and as a prefix for related resources.
 
 **When to use**:
+
 - Always required when using AWS DocumentDB provider
 - Choose a descriptive name that identifies the MAS instance and environment
 - Name is used as prefix for subnet groups and security groups
@@ -1183,6 +1268,7 @@ Name for the AWS DocumentDB cluster.
 **Impact**: This name appears in AWS console, CloudWatch metrics, and billing. Related resources (subnet group, security group) are named based on this value.
 
 **Related variables**:
+
 - `docdb_subnet_group_name`: Defaults to `docdb-{cluster_name}`
 - `docdb_security_group_name`: Defaults to `docdb-{cluster_name}`
 - `docdb_admin_credentials_secret_name`: Defaults to `{cluster_name}-admin-credentials`
@@ -1199,6 +1285,7 @@ Name for the DocumentDB subnet group.
 **Purpose**: Specifies the name for the DocumentDB subnet group that defines which subnets the cluster can use. The role creates this subnet group automatically.
 
 **When to use**:
+
 - Use default naming for standard deployments
 - Customize only if organizational naming standards require it
 
@@ -1207,6 +1294,7 @@ Name for the DocumentDB subnet group.
 **Impact**: The subnet group associates the DocumentDB cluster with specific subnets across availability zones.
 
 **Related variables**:
+
 - `docdb_cluster_name`: Default name includes this value
 - `docdb_cidr_az1`, `docdb_cidr_az2`, `docdb_cidr_az3`: Subnets included in this group
 
@@ -1222,6 +1310,7 @@ Name for the DocumentDB security group.
 **Purpose**: Specifies the name for the security group that controls network access to the DocumentDB cluster. The role creates this security group automatically.
 
 **When to use**:
+
 - Use default naming for standard deployments
 - Customize only if organizational naming standards require it
 
@@ -1230,6 +1319,7 @@ Name for the DocumentDB security group.
 **Impact**: The security group defines firewall rules for DocumentDB access based on `docdb_ingress_cidr` and `docdb_egress_cidr`.
 
 **Related variables**:
+
 - `docdb_cluster_name`: Default name includes this value
 - `docdb_ingress_cidr`: Allowed source CIDR for inbound traffic
 - `docdb_egress_cidr`: Allowed destination CIDR for outbound traffic
@@ -1246,6 +1336,7 @@ Name of the Kubernetes secret containing DocumentDB admin credentials.
 **Purpose**: Specifies the Kubernetes secret name where DocumentDB administrator credentials are stored. This secret is created automatically by the role.
 
 **When to use**:
+
 - Use default naming for standard deployments
 - Customize only if organizational naming standards require it
 
@@ -1254,6 +1345,7 @@ Name of the Kubernetes secret containing DocumentDB admin credentials.
 **Impact**: The secret contains admin username and password for DocumentDB access. MAS and other applications reference this secret for database connectivity.
 
 **Related variables**:
+
 - `docdb_cluster_name`: Default name includes this value
 - `docdb_master_username`: Username stored in this secret
 
@@ -1269,6 +1361,7 @@ DocumentDB engine version to deploy.
 **Purpose**: Specifies the DocumentDB engine version. MAS requires DocumentDB 5.0.0 for MongoDB compatibility.
 
 **When to use**:
+
 - Use default (`5.0.0`) for MAS deployments (required)
 - Do not change unless specifically required by MAS version
 
@@ -1290,6 +1383,7 @@ Master username for DocumentDB cluster administration.
 **Purpose**: Specifies the master administrator username for the DocumentDB cluster. This user has full administrative privileges.
 
 **When to use**:
+
 - Use default (`docdbadmin`) for standard deployments
 - Customize if organizational security policies require specific usernames
 
@@ -1298,6 +1392,7 @@ Master username for DocumentDB cluster administration.
 **Impact**: This username is used for administrative access and is stored in the Kubernetes secret specified by `docdb_admin_credentials_secret_name`.
 
 **Related variables**:
+
 - `docdb_admin_credentials_secret_name`: Secret where credentials are stored
 
 **Note**: Choose carefully as the master username cannot be changed after cluster creation.
@@ -1312,6 +1407,7 @@ AWS instance class for DocumentDB instances.
 **Purpose**: Specifies the compute and memory capacity for each DocumentDB instance. Instance class affects performance, availability, and cost.
 
 **When to use**:
+
 - Use `db.t3.medium` (default) for development or small deployments
 - Use `db.r5.large` or larger for production workloads
 - Consider `db.r6g` instances for better price/performance (ARM-based)
@@ -1321,6 +1417,7 @@ AWS instance class for DocumentDB instances.
 **Impact**: Affects CPU, memory, network performance, and cost. Larger instances provide better performance but cost more.
 
 **Related variables**:
+
 - `docdb_instance_number`: Total cost = instance class cost × number of instances
 
 **Note**: Production deployments typically need `db.r5.large` or larger. Review AWS DocumentDB pricing and instance specifications.
@@ -1335,6 +1432,7 @@ Number of DocumentDB instances in the cluster.
 **Purpose**: Determines the number of instances in the DocumentDB cluster. More instances provide higher availability and read scalability.
 
 **When to use**:
+
 - Use default (`3`) for production deployments with high availability
 - Use `1` only for development or testing (no high availability)
 - Use `5` or more for critical workloads requiring higher availability
@@ -1342,11 +1440,13 @@ Number of DocumentDB instances in the cluster.
 **Valid values**: Integer from 1 to 16
 
 **Impact**:
+
 - More instances = higher availability and read capacity but higher cost
 - Instances are distributed across availability zones for fault tolerance
 - Total cost = instance class cost × number of instances
 
 **Related variables**:
+
 - `docdb_instance_class`: Determines per-instance cost and performance
 - `docdb_cidr_az1`, `docdb_cidr_az2`, `docdb_cidr_az3`: Instances distributed across these AZs
 
@@ -1362,6 +1462,7 @@ Prefix for DocumentDB instance identifiers.
 **Purpose**: Specifies the prefix used to name individual DocumentDB instances. Instance names are formed as `{prefix}-{number}`.
 
 **When to use**:
+
 - Always required when using AWS DocumentDB provider
 - Use a descriptive prefix that identifies the cluster and environment
 - Typically matches or relates to `docdb_cluster_name`
@@ -1371,6 +1472,7 @@ Prefix for DocumentDB instance identifiers.
 **Impact**: Instance names appear in AWS console and CloudWatch metrics. Choose a meaningful prefix for easy identification.
 
 **Related variables**:
+
 - `docdb_cluster_name`: Typically related to cluster name
 
 **Note**: Instance identifiers are formed as `{prefix}-1`, `{prefix}-2`, etc. Choose a clear, descriptive prefix.
@@ -1385,6 +1487,7 @@ CIDR block allowed to connect to DocumentDB cluster.
 **Purpose**: Specifies the IPv4 CIDR range from which incoming connections to DocumentDB are allowed. This is used in security group ingress rules.
 
 **When to use**:
+
 - Always required when using AWS DocumentDB provider
 - Typically set to the CIDR of your OpenShift cluster's VPC
 - Can be set to specific subnet CIDRs for tighter security
@@ -1394,6 +1497,7 @@ CIDR block allowed to connect to DocumentDB cluster.
 **Impact**: Only traffic from this CIDR range can connect to DocumentDB. Too restrictive blocks legitimate traffic; too permissive reduces security.
 
 **Related variables**:
+
 - `vpc_id`: Should match VPC CIDR or subnet CIDRs within the VPC
 - `docdb_egress_cidr`: Typically set to same value
 
@@ -1409,6 +1513,7 @@ CIDR block for outbound connections from DocumentDB cluster.
 **Purpose**: Specifies the IPv4 CIDR range to which DocumentDB can send outbound connections. This is used in security group egress rules.
 
 **When to use**:
+
 - Always required when using AWS DocumentDB provider
 - Typically set to the same value as `docdb_ingress_cidr`
 - Set to VPC CIDR for standard deployments
@@ -1418,6 +1523,7 @@ CIDR block for outbound connections from DocumentDB cluster.
 **Impact**: DocumentDB can only send traffic to this CIDR range. Affects ability to respond to client connections.
 
 **Related variables**:
+
 - `docdb_ingress_cidr`: Typically set to same value
 - `vpc_id`: Should match VPC CIDR
 
@@ -1433,6 +1539,7 @@ CIDR block for DocumentDB subnet in availability zone 1.
 **Purpose**: Specifies the IPv4 CIDR for the subnet in the first availability zone. If the subnet exists with tag `Name: {{ docdb_cluster_name }}`, it's used; otherwise, a new subnet is created.
 
 **When to use**:
+
 - Always required when using AWS DocumentDB provider
 - Must be within the VPC CIDR range
 - Must not overlap with other subnets in the VPC
@@ -1442,6 +1549,7 @@ CIDR block for DocumentDB subnet in availability zone 1.
 **Impact**: Defines the IP address range for DocumentDB instances in AZ1. Subnet size affects number of available IP addresses.
 
 **Related variables**:
+
 - `vpc_id`: CIDR must be within this VPC's range
 - `docdb_cidr_az2`, `docdb_cidr_az3`: Must not overlap with these subnets
 
@@ -1457,6 +1565,7 @@ CIDR block for DocumentDB subnet in availability zone 2.
 **Purpose**: Specifies the IPv4 CIDR for the subnet in the second availability zone. If the subnet exists with tag `Name: {{ docdb_cluster_name }}`, it's used; otherwise, a new subnet is created.
 
 **When to use**:
+
 - Always required when using AWS DocumentDB provider
 - Must be within the VPC CIDR range
 - Must not overlap with other subnets in the VPC
@@ -1466,6 +1575,7 @@ CIDR block for DocumentDB subnet in availability zone 2.
 **Impact**: Defines the IP address range for DocumentDB instances in AZ2. Required for multi-AZ high availability.
 
 **Related variables**:
+
 - `vpc_id`: CIDR must be within this VPC's range
 - `docdb_cidr_az1`, `docdb_cidr_az3`: Must not overlap with these subnets
 
@@ -1481,6 +1591,7 @@ CIDR block for DocumentDB subnet in availability zone 3.
 **Purpose**: Specifies the IPv4 CIDR for the subnet in the third availability zone. If the subnet exists with tag `Name: {{ docdb_cluster_name }}`, it's used; otherwise, a new subnet is created.
 
 **When to use**:
+
 - Always required when using AWS DocumentDB provider
 - Must be within the VPC CIDR range
 - Must not overlap with other subnets in the VPC
@@ -1490,6 +1601,7 @@ CIDR block for DocumentDB subnet in availability zone 3.
 **Impact**: Defines the IP address range for DocumentDB instances in AZ3. Provides third availability zone for maximum fault tolerance.
 
 **Related variables**:
+
 - `vpc_id`: CIDR must be within this VPC's range
 - `docdb_cidr_az1`, `docdb_cidr_az2`: Must not overlap with these subnets
 
@@ -1509,6 +1621,7 @@ DocumentDB instance name for secret rotation.
 **Purpose**: Identifies the specific DocumentDB instance for credential rotation operations.
 
 **When to use**:
+
 - **Required** when performing secret rotation (`mongodb_action=docdb_secret_rotate`)
 - Must match an existing DocumentDB instance name
 
@@ -1517,6 +1630,7 @@ DocumentDB instance name for secret rotation.
 **Impact**: Specifies which DocumentDB instance's credentials will be rotated.
 
 **Related variables**:
+
 - `docdb_cluster_name`: Instance belongs to this cluster
 - `docdb_host`: Host address of this instance
 
@@ -1532,6 +1646,7 @@ DocumentDB instance host address for connection.
 **Purpose**: Specifies the host address of a DocumentDB instance for establishing connection during secret rotation.
 
 **When to use**:
+
 - **Required** when performing secret rotation
 - Use any one host address from the DocumentDB cluster
 - Obtain from AWS console or DocumentDB cluster endpoint
@@ -1541,6 +1656,7 @@ DocumentDB instance host address for connection.
 **Impact**: Used to connect to DocumentDB for credential rotation operations.
 
 **Related variables**:
+
 - `docdb_port`: Port for this host
 - `docdb_mongo_instance_name`: Instance identifier
 
@@ -1556,6 +1672,7 @@ DocumentDB instance port number.
 **Purpose**: Specifies the port number for connecting to the DocumentDB instance during secret rotation.
 
 **When to use**:
+
 - **Required** when performing secret rotation
 - Typically `27017` (default DocumentDB port)
 
@@ -1564,6 +1681,7 @@ DocumentDB instance port number.
 **Impact**: Used with `docdb_host` to establish connection for credential rotation.
 
 **Related variables**:
+
 - `docdb_host`: Host address for this port
 
 **Note**: DocumentDB uses port 27017 by default unless customized during cluster creation.
@@ -1578,6 +1696,7 @@ Username for which password is being rotated.
 **Purpose**: Specifies the DocumentDB username whose password will be changed during rotation.
 
 **When to use**:
+
 - **Required** when performing secret rotation
 - Typically the application user or admin user
 - Must be an existing DocumentDB user
@@ -1587,6 +1706,7 @@ Username for which password is being rotated.
 **Impact**: This user's password will be changed. Applications using this username must be updated with the new password.
 
 **Related variables**:
+
 - `docdb_instance_password_old`: Current password for this user
 - `docdb_master_username`: Master user for performing rotation
 
@@ -1602,6 +1722,7 @@ Current password for the user being rotated.
 **Purpose**: Provides the current password for authentication before rotation. Used to verify current credentials.
 
 **When to use**:
+
 - **Required** when performing secret rotation
 - Must be the current valid password
 
@@ -1610,6 +1731,7 @@ Current password for the user being rotated.
 **Impact**: Used to authenticate before changing password. Incorrect password will cause rotation to fail.
 
 **Related variables**:
+
 - `docdb_instance_username`: User for this password
 
 **Note**: Store securely. After rotation, this password will no longer be valid.
@@ -1624,6 +1746,7 @@ DocumentDB master user password for administrative operations.
 **Purpose**: Provides master user credentials for performing password rotation operations. Master user has privileges to change other users' passwords.
 
 **When to use**:
+
 - **Required** when performing secret rotation
 - Must be the current master password
 
@@ -1632,6 +1755,7 @@ DocumentDB master user password for administrative operations.
 **Impact**: Used to authenticate as master user to perform credential rotation.
 
 **Related variables**:
+
 - `docdb_master_username`: Master username for this password
 
 **Note**: **Store master credentials securely**. Never commit to source control.
@@ -1646,6 +1770,7 @@ DocumentDB master username for administrative operations.
 **Purpose**: Specifies the master username for performing password rotation operations. Master user has administrative privileges.
 
 **When to use**:
+
 - **Required** when performing secret rotation
 - Typically `docdbadmin` or the value set during cluster creation
 
@@ -1654,6 +1779,7 @@ DocumentDB master username for administrative operations.
 **Impact**: Used with `docdb_master_password` to authenticate for credential rotation.
 
 **Related variables**:
+
 - `docdb_master_password`: Password for this master user
 
 **Note**: This should match the master username set during DocumentDB cluster creation.
@@ -1921,6 +2047,7 @@ Enable audit logging for the Atlas project.
 **Valid values**: `true`, `false`
 
 **Impact**:
+
 - Captures audit events based on the configured filter
 - May impact cluster performance depending on filter complexity
 - Generates audit logs that can be accessed via Atlas UI or API
@@ -1942,6 +2069,7 @@ JSON filter for audit events to capture.
 **Valid values**: Valid JSON string representing MongoDB audit filter
 
 **Common filter examples**:
+
 - All events (default): `{}`
 - Authentication only: `{"atype": "authenticate"}`
 - Failed operations: `{"result": {"$ne": 0}}`
@@ -1949,6 +2077,7 @@ JSON filter for audit events to capture.
 - Admin database operations: `{"param.db": "admin"}`
 
 **Compliance use cases**:
+
 - **SOC 2**: Track all authentication and authorization events
 - **HIPAA**: Monitor access to protected health information
 - **PCI-DSS**: Log all access to cardholder data
@@ -1970,10 +2099,12 @@ Log successful authorization events.
 **Valid values**: `true`, `false`
 
 **When to use**:
+
 - Set to `true` for comprehensive audit trails required by strict compliance frameworks
 - Set to `false` to reduce log volume by only capturing authorization failures
 
 **Impact**:
+
 - `true`: Increases log volume significantly as all successful operations are logged
 - `false`: Only logs authorization failures, reducing log volume
 
@@ -1984,12 +2115,14 @@ Log successful authorization events.
 MongoDB Atlas can export audit logs to AWS S3 for long-term retention and compliance using the **Log Integrations API**. This provides a cost-effective way to store audit logs beyond Atlas's retention period and enables integration with external log analysis tools.
 
 **How it works**:
+
 - Uses MongoDB Atlas **Log Integrations API** (`/api/atlas/v2/groups/{groupId}/logIntegrations`)
 - Exports both `MONGOD_AUDIT` and `MONGOS_AUDIT` log types
 - Automatically creates and configures all required AWS infrastructure
 - Fully idempotent - can be run multiple times safely
 
 **Prerequisites**:
+
 - `atlas_audit_enabled` must be set to `true`
 - AWS credentials configured (via AWS CLI or environment variables)
 - Sufficient AWS IAM permissions to create S3 buckets and IAM roles
@@ -2004,6 +2137,7 @@ Enable export of audit logs to AWS S3.
 **Purpose**: Automatically exports MongoDB Atlas audit logs to an AWS S3 bucket for long-term retention and compliance.
 
 **When to use**: Enable for production and staging environments requiring:
+
 - Long-term audit log retention (beyond Atlas's retention period)
 - Compliance requirements for audit log archival
 - Cost-effective storage of historical audit data
@@ -2011,6 +2145,7 @@ Enable export of audit logs to AWS S3.
 **Valid values**: `true`, `false`
 
 **Impact**:
+
 - Creates an S3 bucket with encryption (bucket name auto-generated from project name)
 - Enables S3 bucket versioning only if `atlas_s3_audit_bucket_enable_versioning=true`
 - Sets up IAM role for MongoDB Atlas with cross-account access
@@ -2038,6 +2173,7 @@ Prefix (folder path) within the S3 bucket.
 **Impact**: Logs will be stored at: `s3://<bucket_name>/<prefix>/<project_id>/...`
 
 **Examples**:
+
 - `audit-logs/mongodb`
 - `compliance/atlas-audit`
 - `logs/production/mongodb`
@@ -2054,11 +2190,13 @@ Number of days to retain audit logs in S3.
 **Valid values**: Positive integer (days)
 
 **Impact**:
+
 - Creates S3 lifecycle policy to delete logs after retention period
 - Logs transition to Glacier storage after `atlas_s3_audit_glacier_transition_days`
 - Helps manage storage costs while meeting compliance requirements
 
 **Common retention periods**:
+
 - 365 days (1 year) - Default
 
 #### atlas_s3_audit_bucket_enable_versioning
@@ -2073,6 +2211,7 @@ Enable S3 bucket versioning for audit logs.
 **Valid values**: `true`, `false`
 
 **Impact**:
+
 - When `true`: All versions of objects are retained, increasing storage costs
 - Noncurrent versions are deleted after `atlas_s3_audit_noncurrent_version_retention_days`
 - Total retention = `atlas_s3_audit_log_retention_days` + `atlas_s3_audit_noncurrent_version_retention_days`
@@ -2091,6 +2230,7 @@ Days before transitioning logs to Glacier storage.
 **Valid values**: Integer >= 30 (AWS requirement)
 
 **Impact**:
+
 - Logs remain in Standard storage for faster access during this period
 - After transition, retrieval times increase but costs decrease significantly
 - Must be less than `atlas_s3_audit_log_retention_days`
@@ -2123,11 +2263,13 @@ MongoDB Atlas Alert Monitoring provides proactive notifications for cluster heal
 
 **Basic Alerts (Always Enabled)**:
 When `atlas_enable_alerts=true`, the following alerts are automatically configured:
+
 - CPU usage (warning and critical thresholds)
 - Memory usage (warning and critical thresholds)
 - Connection count (warning and critical thresholds)
 
 **Optional Alerts (Require Explicit Enablement)**:
+
 - Cluster health alerts (`atlas_enable_cluster_health_alerts`)
 - Additional performance alerts - query performance (`atlas_enable_performance_alerts`)
 
@@ -2145,6 +2287,7 @@ Enable alert monitoring for the Atlas cluster.
 **Valid values**: `true`, `false`
 
 **Impact**:
+
 - Automatically configures 6 basic alerts (CPU, memory, connections - warning and critical)
 - Sends email notifications when thresholds are exceeded
 - Helps prevent downtime by alerting before critical issues occur
@@ -2165,6 +2308,7 @@ List of email addresses to receive alert notifications.
 **Valid values**: Comma-separated list of valid email addresses or JSON array
 
 **Examples**:
+
 - Comma-separated: `ocm-team@example.com,monitoring@example.com`
 - JSON array: `["ocm-team@example.com", "monitoring@example.com"]`
 
@@ -2186,6 +2330,7 @@ Enable alerts for cluster health issues.
 **Valid values**: `true`, `false`
 
 **Alert types configured**:
+
 - Replication oplog window running out (< 1 hour)
 - Primary elected (replica set election)
 - No primary available
@@ -2205,6 +2350,7 @@ Enable alerts for performance issues.
 **Valid values**: `true`, `false`
 
 **Alert types configured**:
+
 - CPU usage (warning and critical thresholds)
 - Memory usage (warning and critical thresholds)
 - Disk usage
@@ -2227,6 +2373,7 @@ Enable alerts for security events.
 **Valid values**: `true`, `false`
 
 **Alert types configured**:
+
 - Too many unhealthy connections
 - Users without multi-factor authentication
 
@@ -2298,6 +2445,7 @@ Interval in minutes for metric threshold alert evaluation.
 **Valid values**: Positive integer (minutes)
 
 **Impact**:
+
 - Lower values (e.g., 1-5 minutes) provide faster detection but may increase alert noise
 - Higher values (e.g., 10-15 minutes) reduce noise but delay detection
 - Affects all metric threshold alerts uniformly
@@ -2695,6 +2843,7 @@ Store Atlas connection information in AWS Secrets Manager.
 - Default: `false`
 
 **Purpose**: Automatically stores Atlas connection details in AWS Secrets Manager after provisioning. Creates two types of secrets:
+
 - **Cluster-level secret**: `<account_id>/<cluster_name>/mongo` - Contains cluster metadata (hosts, port, CA certificates) with empty username/password
 - **Instance-level secrets**: `<account_id>/<cluster_name>/<instance_id>/mongo` - Contains instance-specific credentials (username, password) plus cluster metadata
 
@@ -2798,6 +2947,7 @@ MongoDB Atlas provides a fully managed backup service with automated backups, po
 However, this role includes manual restore functionality for **data migration from AWS DocumentDB scenarios only**.
 
 **Recommendation**:
+
 - **For production backup/restore**: Use Atlas managed backup service (enabled by default with `atlas_backup_enabled: true`)
 - **For data migration**: Use the manual restore-database options provided here
 
@@ -2948,6 +3098,7 @@ The MongoDB role supports two types of restore operations:
 Performs a complete restoration of both the MongoDB instance and its databases:
 
 **Steps:**
+
 1. Validates backup files and required variables
 2. Restores the namespace (Project)
 3. Restores Secrets and ConfigMaps
@@ -2963,12 +3114,14 @@ Performs a complete restoration of both the MongoDB instance and its databases:
 13. Restores database data using `mongorestore`
 
 **When to use:**
+
 - Disaster recovery scenarios
 - Migrating MongoDB to a new cluster
 - Recreating a deleted MongoDB instance
 - Setting up a new environment from backup
 
 **Requirements:**
+
 - `mas_instance_id`: MAS instance identifier
 - `mas_backup_dir`: Directory containing the backup
 - `mongodb_backup_version`: Timestamp of the backup to restore
@@ -2978,18 +3131,21 @@ Performs a complete restoration of both the MongoDB instance and its databases:
 Restores only the database data to an existing MongoDB instance:
 
 **Steps:**
+
 1. Validates backup files and required variables
 2. Verifies existing MongoDB installation is running
 3. Checks MongoDB version compatibility
 4. Restores database data using `mongorestore`
 
 **When to use:**
+
 - Restoring data to an existing MongoDB instance
 - Recovering from data corruption without recreating the instance
 - Selective database restoration
 - Testing data restoration without affecting instance configuration
 
 **Requirements:**
+
 - `mas_instance_id`: MAS instance identifier
 - `mas_backup_dir`: Directory containing the backup
 - `mongodb_backup_version`: Timestamp of the backup to restore
@@ -3000,18 +3156,21 @@ Restores only the database data to an existing MongoDB instance:
 ### Important Considerations
 
 **Version Compatibility:**
+
 - Target MongoDB version must match the backup version exactly
 - Version upgrades should be performed separately, not during restore
 - The restore process validates version compatibility before proceeding
 - For `restore-database` action, the existing MongoDB instance must be running the same version as the backup
 
 **Storage Requirements:**
+
 - Ensure sufficient storage in the backup directory
 - Plan for at least 2x the database size for backup storage
 - Backup directory structure: `/tmp/masbr/backup-<YYYYMMDD-HHMMSS>-mongoce/`
 - Monitor disk space during backup operations
 
 **Security:**
+
 - Backup files contain sensitive data and credentials
 - Secure backup directory with appropriate permissions (chmod 700 recommended)
 - Consider encrypting backups for long-term storage
@@ -3019,6 +3178,7 @@ Restores only the database data to an existing MongoDB instance:
 - Restrict access to backup files to authorized personnel only
 
 **Performance:**
+
 - Backup operations may impact MongoDB performance
 - Schedule backups during low-usage periods
 - Monitor resource utilization during backup/restore
@@ -3026,6 +3186,7 @@ Restores only the database data to an existing MongoDB instance:
 - Network bandwidth may affect backup/restore speed
 
 **Restore Action Differences:**
+
 - **`restore` action**: Recreates the entire MongoDB instance from scratch, including all Kubernetes resources and restores database
 - **`restore-database` action**: Only restores database data to an existing instance, preserving current configuration
 
@@ -3119,6 +3280,7 @@ Restore MongoDB databases from a backup to an existing MongoDB instance without 
 **Use Case**: This action is ideal when you need to restore database data to an already running MongoDB instance, such as recovering from data corruption or restoring specific databases.
 
 **Prerequisites**:
+
 - MongoDB instance must already be installed and running
 - MongoDB version must match the backup version
 - Backup files must be available in the specified backup directory
@@ -3138,6 +3300,7 @@ Restore MongoDB databases from a backup to an existing MongoDB instance without 
 ```
 
 **What this does**:
+
 1. Validates that the backup exists at the specified location
 2. Verifies the MongoDB instance is running in the specified namespace
 3. Checks version compatibility between backup and running instance
@@ -3152,6 +3315,7 @@ Perform a complete restoration of MongoDB instance including all Kubernetes reso
 **Use Case**: This action is ideal for disaster recovery scenarios where you need to recreate the entire MongoDB instance from scratch, including all configuration, secrets, certificates, and data.
 
 **Prerequisites**:
+
 - Backup files must be available in the specified backup directory
 - Backup must include instance resources (secrets, certificates, CRs)
 - Target cluster must have cert-manager installed
@@ -3170,6 +3334,7 @@ Perform a complete restoration of MongoDB instance including all Kubernetes reso
 ```
 
 **What this does**:
+
 1. Validates backup files and required variables
 2. Restores namespace, secrets, and ConfigMaps
 3. Restores CRDs and RBAC resources
@@ -3358,6 +3523,7 @@ Deploy a new MongoDB instance using configuration from a backup and restore data
 ### Backup (AWS DocumentDB)
 
 This example demonstrates how to backup an AWS DocumentDB cluster. The backup creates two files:
+
 - `mongodb-backup.tar.gz` - Compressed database backup
 - `collection-indexes.json` - Collection indexes for restore
 
@@ -3390,10 +3556,12 @@ ansible-playbook ibm/mas_devops/playbooks/docdb_backup_simple.yml \
 
 **Backup Output:**
 The backup process creates the following files in `/tmp/docdb-backup-<timestamp>/`:
+
 - `mongodb-backup.tar.gz` - Full database backup (compressed)
 - `collection-indexes.json` - Collection indexes metadata
 
 **Important Notes:**
+
 - The backup does NOT upload to S3 automatically
 - Both files are created locally in the backup directory
 - Temporary files (logs, scripts, CA certificates) are automatically cleaned up after backup
@@ -3401,6 +3569,7 @@ The backup process creates the following files in `/tmp/docdb-backup-<timestamp>
 - Collection indexes are extracted separately for easier restore operations
 
 **Required Variables:**
+
 - `docdb_cluster_name` - DocumentDB cluster endpoint
 - `docdb_master_username` - Admin username
 - `docdb_master_password` - Admin password (use environment variable or vault)
@@ -3409,6 +3578,7 @@ The backup process creates the following files in `/tmp/docdb-backup-<timestamp>
 - `mongodb_action` - Must be set to `backup-database` or `backup`
 
 **Optional Variables:**
+
 - `docdb_port` - DocumentDB port (default: 27017)
 - `docdb_backup_dir` - Custom backup directory (default: `/tmp/docdb-backup-<timestamp>`)
 - `docdb_ca_cert_url` - Custom CA certificate URL (default: AWS global bundle)

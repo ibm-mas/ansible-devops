@@ -5,6 +5,7 @@ Create dedicated database users in AWS DocumentDB for Maximo Application Suite i
 AWS DocumentDB is a MongoDB-compatible database service that can serve as the system database for MAS. This role creates instance-specific users with proper authentication credentials.
 
 **Prerequisites**:
+
 - MongoDB Shell (mongosh) must be installed
 - AWS DocumentDB cluster must be running and accessible
 - Master user credentials for DocumentDB must be available
@@ -32,6 +33,7 @@ MAS instance identifier for which the DocumentDB user will be created.
 **Related variables**: `mas_config_dir`
 
 **Notes**:
+
 - Username will be `<mas_instance_id>-docdb-user`
 - Secret name will be `docdb-<mas_instance_id>-instance-credentials`
 - Must match the instance ID used during MAS installation
@@ -54,6 +56,7 @@ AWS DocumentDB cluster endpoint hostname.
 **Related variables**: `docdb_port`, `docdb_hosts`
 
 **Notes**:
+
 - Use cluster endpoint for automatic failover
 - Instance endpoints can also be used but don't provide automatic failover
 - `docdb_hosts` takes precedence if both are set
@@ -77,6 +80,7 @@ AWS DocumentDB connection port.
 **Related variables**: `docdb_host`, `docdb_hosts`
 
 **Notes**:
+
 - Default DocumentDB port is `27017`
 - Must match the port configured in DocumentDB cluster
 - Not used if `docdb_hosts` is set
@@ -99,6 +103,7 @@ AWS DocumentDB connection string with multiple hosts and ports.
 **Related variables**: `docdb_host`, `docdb_port`
 
 **Notes**:
+
 - **Recommended** for production deployments
 - Takes precedence over `docdb_host` and `docdb_port`
 - Include all replica set members for best availability
@@ -123,6 +128,7 @@ AWS DocumentDB master username for administrative access.
 **Related variables**: `docdb_master_password`
 
 **Notes**:
+
 - This is the master user created with the DocumentDB cluster
 - Credentials are only used during user creation, not stored permanently
 - Ensure master user has `userAdmin` or equivalent permissions
@@ -146,6 +152,7 @@ AWS DocumentDB master password for administrative access.
 **Related variables**: `docdb_master_username`
 
 **Notes**:
+
 - Store securely and never commit to version control
 - Credentials are only used during user creation
 - Consider using AWS Secrets Manager for credential management
@@ -169,6 +176,7 @@ Password for the MAS-specific DocumentDB user being created.
 **Related variables**: `mas_instance_id`, `mas_config_dir`
 
 **Notes**:
+
 - Auto-generation is recommended for security
 - If provided, ensure it meets complexity requirements
 - Password is stored in Kubernetes secret `docdb-<instance-id>-instance-credentials`
@@ -186,6 +194,7 @@ Action to perform on the DocumentDB user.
 **When to use**: Set to `add` to create user (default), or `remove` to delete the user.
 
 **Valid values**:
+
 - `add` - Create the DocumentDB user (default)
 - `remove` - Delete the DocumentDB user
 
@@ -194,6 +203,7 @@ Action to perform on the DocumentDB user.
 **Related variables**: `mas_instance_id`
 
 **Notes**:
+
 - Default `add` is for normal user creation
 - Use `remove` when decommissioning a MAS instance
 - Removing user does not delete the Kubernetes secret
@@ -217,6 +227,7 @@ Local directory where the generated Kubernetes secret YAML will be saved.
 **Related variables**: `mas_instance_id`
 
 **Notes**:
+
 - Secret filename: `docdb-<instance-id>-instance-credentials.yaml`
 - Can be applied with: `oc apply -f <file>`
 - Keep generated files secure as they contain credentials

@@ -24,6 +24,7 @@ Action to perform on the AI Broker tenant.
 **When to use**: Set to `install` for tenant creation/configuration. Use `remove` to delete a tenant.
 
 **Valid values**:
+
 - `install` - Create or configure AI Broker tenant (default)
 - `remove` - Delete AI Broker tenant
 
@@ -70,6 +71,7 @@ Application domain for AI Broker API endpoints.
 **Related variables**: None
 
 **Notes**:
+
 - Get cluster domain: `oc get ingress.config cluster -o jsonpath='{.spec.domain}'`
 - Format must be the full apps domain (e.g., `apps.mycluster.example.com`)
 
@@ -85,6 +87,7 @@ Action to perform on WatsonX AI integration.
 **When to use**: Set to `install` to configure WatsonX AI credentials. Use `remove` to delete WatsonX AI integration.
 
 **Valid values**:
+
 - `install` - Configure WatsonX AI integration (default)
 - `remove` - Remove WatsonX AI integration
 
@@ -112,6 +115,7 @@ WatsonX AI API key for authentication.
 **Related variables**: [`aiservice_watsonx_action`](#aiservice_watsonx_action), [`aiservice_watsonxai_url`](#aiservice_watsonxai_url), [`aiservice_watsonxai_project_id`](#aiservice_watsonxai_project_id)
 
 **Notes**:
+
 - **Security**: Store securely, never commit to version control
 - Obtain from IBM Cloud console under watsonx.ai service credentials
 - API key is stored as Kubernetes secret
@@ -134,6 +138,7 @@ WatsonX AI service endpoint URL.
 **Related variables**: [`aiservice_watsonx_action`](#aiservice_watsonx_action), [`aiservice_watsonxai_apikey`](#aiservice_watsonxai_apikey), [`aiservice_watsonxai_project_id`](#aiservice_watsonxai_project_id)
 
 **Notes**:
+
 - URL varies by IBM Cloud region
 - Common endpoints: `https://us-south.ml.cloud.ibm.com`, `https://eu-de.ml.cloud.ibm.com`
 - Verify endpoint in IBM Cloud watsonx.ai service details
@@ -156,6 +161,7 @@ WatsonX AI project identifier.
 **Related variables**: [`aiservice_watsonx_action`](#aiservice_watsonx_action), [`aiservice_watsonxai_apikey`](#aiservice_watsonxai_apikey), [`aiservice_watsonxai_url`](#aiservice_watsonxai_url)
 
 **Notes**:
+
 - Find project ID in IBM Cloud watsonx.ai project settings
 - Format is typically a UUID (e.g., `12345678-1234-1234-1234-123456789012`)
 - Project must exist before configuring AI Broker
@@ -219,6 +225,7 @@ End date for tenant entitlement period.
 **Related variables**: [`tenant_entitlement_type`](#tenant_entitlement_type), [`tenant_entitlement_start_date`](#tenant_entitlement_start_date)
 
 **Notes**:
+
 - Must be in `YYYY-MM-DD` format
 - Should be after `tenant_entitlement_start_date`
 - Plan for entitlement renewal before expiration
@@ -235,6 +242,7 @@ Path to YAML file containing scheduling configuration for pipeline and predictor
 **Purpose**: Specifies tolerations and nodeSelector for pipeline and predictor workloads to control pod scheduling on specific nodes.
 
 **When to use**: Use when you need to:
+
 - Schedule AI workloads on dedicated nodes with specific taints
 - Direct pipeline and predictor pods to nodes with specific labels
 - Isolate AI workloads from other cluster workloads
@@ -249,6 +257,7 @@ Path to YAML file containing scheduling configuration for pipeline and predictor
 **Configuration File Structure**:
 
 The YAML file must contain `pipeline` and/or `predictor` objects. Each object can have:
+
 - `tolerations`: List of Kubernetes tolerations (required fields: `key`, `operator`, `effect`)
 - `nodeSelector`: Dictionary of node label key-value pairs
 
@@ -286,6 +295,7 @@ predictor:
 ```
 
 **Validation Rules**:
+
 1. File must be in valid YAML format
 2. Must contain `pipeline` and/or `predictor` objects
 3. Non-empty objects must have `tolerations` or `nodeSelector` (or both)
@@ -294,6 +304,7 @@ predictor:
 6. NodeSelector must be a non-empty dictionary
 
 **Notes**:
+
 - Configuration is applied to AIServiceTenant CR under `spec.settings.scheduling`
 - Empty objects (`pipeline: {}` or `predictor: {}`) are allowed and will be ignored
 

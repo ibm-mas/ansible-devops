@@ -10,6 +10,7 @@ This is distinct from an **upgrade**, which will modify the operator subscriptio
 
 Playbook Content
 -------------------------------------------------------------------------------
+
 1. [Install IBM Operator Catalog](../roles/ibm_catalogs.md) (1 minute)
 
 

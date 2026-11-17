@@ -30,6 +30,7 @@ Namespace for NVIDIA GPU Operator installation.
 **Related variables**: [`nfd_namespace`](#nfd_namespace)
 
 **Notes**:
+
 - Default namespace is recommended for most deployments
 - Namespace will be created if it doesn't exist
 - GPU Operator manages cluster-wide GPU resources regardless of namespace
@@ -52,6 +53,7 @@ NVIDIA GPU Operator subscription channel.
 **Related variables**: [`gpu_driver_version`](#gpu_driver_version)
 
 **Notes**:
+
 - Check [NVIDIA GPU Operator releases](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/platform-support.html) for compatibility
 - Newer channels provide latest features and driver support
 - Consider OpenShift version compatibility when selecting channel
@@ -74,6 +76,7 @@ Specific NVIDIA GPU driver version to install.
 **Related variables**: [`gpu_channel`](#gpu_channel), [`gpu_driver_repository_path`](#gpu_driver_repository_path)
 
 **Notes**:
+
 - Latest driver is usually recommended unless specific version is required
 - Verify driver compatibility with your GPU hardware
 - Check [NVIDIA driver compatibility matrix](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/platform-support.html)
@@ -97,6 +100,7 @@ Container registry path for NVIDIA driver images.
 **Related variables**: [`gpu_driver_version`](#gpu_driver_version)
 
 **Notes**:
+
 - Default points to NVIDIA's official registry
 - For air-gapped deployments, mirror images to internal registry
 - Ensure registry is accessible from OpenShift cluster
@@ -122,6 +126,7 @@ Namespace for Node Feature Discovery Operator installation.
 **Related variables**: [`gpu_namespace`](#gpu_namespace), [`nfd_channel`](#nfd_channel)
 
 **Notes**:
+
 - NFD is automatically installed by this role as a prerequisite
 - Default `openshift-nfd` is the standard namespace for NFD
 - NFD labels nodes with hardware features for GPU Operator to use
@@ -145,6 +150,7 @@ Node Feature Discovery Operator subscription channel.
 **Related variables**: [`nfd_namespace`](#nfd_namespace), [`gpu_channel`](#gpu_channel)
 
 **Notes**:
+
 - `stable` channel is recommended for production
 - NFD is a prerequisite for GPU Operator functionality
 - Check OperatorHub for available channels in your OpenShift version

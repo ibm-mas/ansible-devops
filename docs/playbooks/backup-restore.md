@@ -16,12 +16,14 @@ Overview
 MAS DevOps Collection includes playbooks/guidance for backing up and restoring MAS components and their dependencies. The backup and restore operations are designed to protect your MAS installation and enable disaster recovery, cluster migration, and testing scenarios.
 
 **Supported Components:**
+
 - [MongoDB Community](#mongodb-community-backup-and-restore)
 - [MAS Core](#mas-core-backup-and-restore)
 - [Db2 Backup and Restore](#db2-backup-and-restore)
 - [Manage Application](#manage-application-backup-and-restore)
 
 **Roles Supporting Backup/Restore:**
+
 - [`ibm.mas_devops.cert_manager`](../roles/cert_manager.md)
 - [`ibm.mas_devops.db2`](../roles/db2.md)
 - [`ibm.mas_devops.ibm_catalogs`](../roles/ibm_catalogs.md)
@@ -39,6 +41,7 @@ MongoDB Community Backup and Restore
 This playbook performs backup and restore operations for MongoDB Community Edition instances. It supports backing up both the MongoDB instance configuration and database data.
 
 **Important**:
+
 - Supports MongoDB Community Edition only
 - Can backup/restore entire instance or individual databases
 - Backup includes both Kubernetes resources and database data
@@ -227,6 +230,7 @@ ansible-playbook ibm.mas_devops.br_mongodb
 ## Additional Resources
 
 For detailed information about MongoDB backup and restore operations, refer to the role documentation:
+
 - [MongoDB Backup/Restore](../roles/mongodb.md)
 
 Db2 Backup and Restore
@@ -236,6 +240,7 @@ Db2 Backup and Restore
 This playbook performs backup and restore operations for IBM Db2 Universal Operator instances. It supports both online and offline backups, and can store backups either on disk or in S3-compatible object storage (database backups only).
 
 **Important**:The playbook supports multiple backup actions:
+
 - `backup` - Full Db2 instance backup
 - `backup-database` - Individual database backup
 - `restore` - Full Db2 instance restore
@@ -446,6 +451,7 @@ All timings are estimates. See the individual role documentation for more inform
 ## Additional Resources
 
 For detailed information about individual backup and restore operations, refer to the role documentation:
+
 - [IBM Operator Catalogs Backup/Restore](../roles/ibm_catalogs.md)
 - [Certificate Manager Backup/Restore](../roles/cert_manager.md)
 - [MongoDB Backup/Restore](../roles/mongodb.md)
@@ -461,6 +467,7 @@ Manage Application Backup and Restore
 This guide shows backup and restore operations for IBM Maximo Manage application.
 
 **Important**:
+
 - Backup can only be restored to an instance with the same MAS instance ID
 - You **MUST** run the [Db2 backup and restore playbook](#db2-backup-and-restore) as a prerequisite step before running Manage backup or restore operations
 
@@ -530,6 +537,7 @@ Executes the following operations:
 ## Additional Resources
 
 For detailed information about individual backup and restore operations, refer to the role documentation:
+
 - [Db2 Backup/Restore](../roles/db2.md)
 - [Manage Application Backup](../roles/suite_app_backup.md)
 - [Manage Application Restore](../roles/suite_app_restore.md)

@@ -156,18 +156,21 @@ Delete PersistentVolumeClaims (WARNING: Permanently deletes all data).
 **Purpose**: Controls whether PVCs are deleted during uninstall. When enabled, all CP4D data is permanently deleted.
 
 **When to use**:
+
 - Set to `false` (default) to preserve data for potential reinstallation
 - Set to `true` only when you want to completely remove all CP4D data
 
 **Valid values**: `true`, `false`
 
 **Impact**: 
+
 - `false`: PVCs are preserved, data remains available for potential reinstallation
 - `true`: All PVCs are permanently deleted, data cannot be recovered
 
 **Related variables**: None
 
 **Note**: 
+
 - **WARNING**: Setting this to `true` will permanently delete all CP4D data
 - Always backup critical data before enabling this option
 - This operation cannot be undone
@@ -183,12 +186,14 @@ Delete CP4D namespaces after uninstall.
 **Purpose**: Controls whether CP4D namespaces are deleted after uninstalling all resources.
 
 **When to use**:
+
 - Use default (`true`) for complete cleanup
 - Set to `false` if you want to preserve namespaces for troubleshooting or reinstallation
 
 **Valid values**: `true`, `false`
 
 **Impact**: 
+
 - `true`: All CP4D namespaces are deleted after resource cleanup
 - `false`: Namespaces are preserved (may contain residual resources)
 
@@ -206,12 +211,14 @@ Delete CP4D-specific catalog sources.
 **Purpose**: Controls whether CP4D-specific catalog sources are removed.
 
 **When to use**:
+
 - Use default (`true`) for complete cleanup
 - Set to `false` if you plan to reinstall CP4D soon
 
 **Valid values**: `true`, `false`
 
 **Impact**: 
+
 - `true`: CP4D catalog sources (`cpd-platform`, `opencloud-operators`) are deleted
 - `false`: Catalog sources are preserved
 
@@ -229,6 +236,7 @@ Wait timeout for resource deletion operations (seconds).
 **Purpose**: Specifies how long to wait for each resource deletion operation to complete.
 
 **When to use**:
+
 - Use default for most scenarios
 - Increase if you have large CP4D deployments or slow storage
 
@@ -341,6 +349,7 @@ ansible-playbook ibm.mas_devops.run_role
 
 ### Troubleshooting
 If resources fail to delete due to finalizers:
+
 1. Check for stuck pods: `oc get pods -A | grep -E 'cpd|zen|common-service'`
 2. Check for stuck finalizers: `oc get <resource> -o yaml | grep finalizers`
 3. Manually remove finalizers if needed (advanced users only)

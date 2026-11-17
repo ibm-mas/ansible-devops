@@ -44,12 +44,14 @@ Usually fulfilled by block storage classes:
 
 Required environment variables
 -------------------------------------------------------------------------------
+
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `IBM_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
 
 Optional environment variables
 -------------------------------------------------------------------------------
+
 - `MAS_APP_SETTINGS_IOT_DEPLOYMENT_SIZE` Define the IoT deployment size, one of `dev`, `small` or `large`. Defaults to `small`.
 
 Usage

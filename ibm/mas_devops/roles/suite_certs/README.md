@@ -70,6 +70,7 @@ MAS instance identifier for certificate management.
 **Purpose**: Identifies which MAS instance the certificates are for. Used to construct namespace names and secret names.
 
 **When to use**:
+
 - Always required for certificate management
 - Must match the instance ID from MAS installation
 - Used in namespace and secret name construction
@@ -79,6 +80,7 @@ MAS instance identifier for certificate management.
 **Impact**: Determines target namespaces for certificate secrets. Namespace format is `mas-{instance_id}-{app}` (e.g., `mas-prod-core`, `mas-prod-monitor`).
 
 **Related variables**:
+
 - `mas_config_dir`: Root directory containing certificate subdirectories
 - `mas_workspace_id`: Required for workspace-specific apps (manage, health, facilities)
 
@@ -94,6 +96,7 @@ Enable manual certificate management mode.
 **Purpose**: Enables manual certificate management mode, allowing you to provide custom certificates instead of using cert-manager generated certificates.
 
 **When to use**:
+
 - Set to `true` when using custom/purchased certificates
 - Required for environments without cert-manager
 - Use when corporate policy requires specific certificate authorities
@@ -102,10 +105,12 @@ Enable manual certificate management mode.
 **Valid values**: `true`, `false`
 
 **Impact**:
+
 - `true`: Uses certificates from `$MAS_CONFIG_DIR/certs` directories
 - `false`: Relies on cert-manager for automatic certificate generation (default)
 
 **Related variables**:
+
 - `mas_config_dir`: Directory containing certificate files
 - `dns_provider`: Optional DNS management integration
 
@@ -121,6 +126,7 @@ Configuration directory path.
 **Purpose**: Specifies the root directory containing the `certs` subdirectory with certificate files organized by application.
 
 **When to use**:
+
 - Always required when using manual certificate management
 - Should point to a directory containing a `certs` subdirectory
 - Typically organized by instance ID
@@ -130,6 +136,7 @@ Configuration directory path.
 **Impact**: The role looks for certificates in `$MAS_CONFIG_DIR/certs/{app}/` directories. All certificate processing is relative to this path.
 
 **Related variables**:
+
 - `mas_instance_id`: Instance these certificates are for
 - `mas_manual_cert_mgmt`: Must be enabled to use certificates
 
@@ -145,6 +152,7 @@ Enable GitOps mode (generate only, no apply).
 **Purpose**: When enabled, generates certificate secret configurations without applying them to the cluster. Useful for GitOps workflows where configurations are committed to Git and applied separately.
 
 **When to use**:
+
 - Set to `true` for GitOps/declarative workflows
 - Use when configurations should be reviewed before application
 - Helpful for version-controlled infrastructure
@@ -153,10 +161,12 @@ Enable GitOps mode (generate only, no apply).
 **Valid values**: `true`, `false`
 
 **Impact**:
+
 - `true`: Generates YAML configurations but doesn't create resources on cluster
 - `false`: Generates and applies configurations directly to cluster (default)
 
 **Related variables**:
+
 - `mas_config_dir`: Where generated configurations are saved
 
 **Note**: In GitOps mode, generated YAML files can be committed to Git and applied through your GitOps tooling (ArgoCD, Flux, etc.).
@@ -175,6 +185,7 @@ DNS provider type.
 **Purpose**: Specifies the DNS provider for automatic DNS record management. Currently only supports IBM Cloud Internet Services (CIS).
 
 **When to use**:
+
 - Set to `cis` when using IBM Cloud Internet Services for DNS
 - Leave unset if not using automatic DNS management
 - Required for automatic CNAME creation
@@ -184,6 +195,7 @@ DNS provider type.
 **Impact**: When set to `cis`, enables automatic CNAME record creation in IBM Cloud Internet Services for MAS routes.
 
 **Related variables**:
+
 - `cis_crn`: Required when this is `cis`
 - `cis_apikey`: Required when this is `cis`
 - `cis_subdomain`: Required when this is `cis`
@@ -201,6 +213,7 @@ Workspace identifier for DNS records.
 **Purpose**: Specifies the workspace ID used in CNAME record construction when using CIS as DNS provider. Required for workspace-specific applications.
 
 **When to use**:
+
 - Required when `dns_provider=cis`
 - Used for workspace-specific apps (manage, health, facilities)
 - Part of the DNS hostname construction
@@ -210,6 +223,7 @@ Workspace identifier for DNS records.
 **Impact**: Used to construct DNS CNAME records for workspace-specific applications. Format: `{workspace_id}.{subdomain}.{domain}`
 
 **Related variables**:
+
 - `dns_provider`: Must be `cis`
 - `cis_subdomain`: Combined with workspace ID for DNS names
 - `mas_instance_id`: Instance containing this workspace
@@ -226,6 +240,7 @@ IBM Cloud Internet Services CRN.
 **Purpose**: Provides the Cloud Resource Name (CRN) that uniquely identifies your CIS instance in IBM Cloud. Used for API authentication and resource targeting.
 
 **When to use**:
+
 - Required when `dns_provider=cis`
 - Found in your CIS instance details page in IBM Cloud
 - Used to target the correct CIS instance
@@ -235,6 +250,7 @@ IBM Cloud Internet Services CRN.
 **Impact**: Identifies which CIS instance to manage DNS records in. All CNAME operations target this CIS instance.
 
 **Related variables**:
+
 - `dns_provider`: Must be `cis`
 - `cis_apikey`: Required for authentication
 - `cis_subdomain`: Domain managed in this CIS instance
@@ -251,6 +267,7 @@ IBM Cloud API key for CIS access.
 **Purpose**: Provides IBM Cloud API key for authenticating with CIS to manage DNS records.
 
 **When to use**:
+
 - Required when `dns_provider=cis`
 - Must have permissions to manage DNS in the CIS instance
 - Used for all CIS API operations
@@ -260,6 +277,7 @@ IBM Cloud API key for CIS access.
 **Impact**: Used to authenticate with IBM Cloud and manage DNS records in the specified CIS instance. Must have appropriate IAM permissions.
 
 **Related variables**:
+
 - `dns_provider`: Must be `cis`
 - `cis_crn`: CIS instance to manage
 - `cis_subdomain`: Domain to manage records in
@@ -276,6 +294,7 @@ CIS subdomain for CNAME records.
 **Purpose**: Specifies the subdomain within your CIS-managed domain where MAS CNAME records will be created.
 
 **When to use**:
+
 - Required when `dns_provider=cis`
 - Should match your MAS deployment subdomain
 - Part of the full DNS hostname
@@ -285,6 +304,7 @@ CIS subdomain for CNAME records.
 **Impact**: Used to construct full DNS names for MAS routes. Format: `{component}.{subdomain}.{domain}` or `{workspace}.{subdomain}.{domain}`
 
 **Related variables**:
+
 - `dns_provider`: Must be `cis`
 - `mas_workspace_id`: Combined with subdomain for workspace apps
 - `cis_crn`: CIS instance managing this subdomain
@@ -301,6 +321,7 @@ Enable CIS proxy for CNAME records.
 **Purpose**: Enables IBM Cloud Internet Services proxy mode for created CNAME records, allowing CIS security features (WAF, DDoS protection, rate limiting) to be applied.
 
 **When to use**:
+
 - Set to `true` to enable CIS security features
 - Use for production environments requiring additional protection
 - Only applies when `dns_provider=cis`
@@ -309,10 +330,12 @@ Enable CIS proxy for CNAME records.
 **Valid values**: `true`, `false`
 
 **Impact**:
+
 - `true`: CNAME records are proxied through CIS, enabling security features
 - `false`: CNAME records are DNS-only (default)
 
 **Related variables**:
+
 - `dns_provider`: Must be `cis`
 - `cis_crn`: CIS instance with security features
 

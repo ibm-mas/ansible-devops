@@ -36,6 +36,7 @@ Node name to configure with labels and/or taints.
 **Related variables**: `ocp_node_index` (alternative selection method)
 
 **Notes**:
+
 - Get node names with: `oc get nodes`
 - Node names may be hostnames, IP addresses, or cloud provider identifiers
 - If both `ocp_node_name` and `ocp_node_index` are set, index takes priority
@@ -58,6 +59,7 @@ Zero-based index of the node in the cluster's node list.
 **Related variables**: `ocp_node_name` (alternative selection method)
 
 **Notes**:
+
 - Index 0 refers to the first node in alphabetically sorted list
 - Node order may change if nodes are added/removed
 - Takes priority over `ocp_node_name` if both are set
@@ -78,6 +80,7 @@ Comma-separated list of label keys to add to the selected node.
 **When to use**: Use to categorize nodes by workload type, hardware capabilities, or any custom classification scheme.
 
 **Valid values**: Comma-separated list of valid Kubernetes label keys (e.g., `workload`, `storage-type,gpu-enabled`). Label keys must:
+
 - Start and end with alphanumeric characters
 - Contain only alphanumeric, dash, underscore, or dot characters
 - Be 63 characters or less
@@ -87,6 +90,7 @@ Comma-separated list of label keys to add to the selected node.
 **Related variables**: `ocp_node_label_values` (must have same number of values as keys)
 
 **Notes**:
+
 - Number of keys must match number of values
 - Common label keys: `workload`, `node-role`, `storage-type`, `hardware-type`
 - Labels are additive; existing labels are not removed
@@ -104,6 +108,7 @@ Comma-separated list of label values corresponding to the label keys.
 **When to use**: Required when `ocp_node_label_keys` is set. Must provide exactly one value for each key.
 
 **Valid values**: Comma-separated list of valid Kubernetes label values (e.g., `db2`, `ssd,true`). Label values must:
+
 - Start and end with alphanumeric characters
 - Contain only alphanumeric, dash, underscore, or dot characters
 - Be 63 characters or less
@@ -113,6 +118,7 @@ Comma-separated list of label values corresponding to the label keys.
 **Related variables**: `ocp_node_label_keys` (must have same number of keys as values)
 
 **Notes**:
+
 - Number of values must exactly match number of keys
 - Order matters: first value pairs with first key, etc.
 - Common label values: `db2`, `mongodb`, `compute`, `storage`
@@ -139,6 +145,7 @@ Comma-separated list of taint keys to add to the selected node.
 **Related variables**: `ocp_node_taint_values`, `ocp_node_taint_effects` (must have same number of entries)
 
 **Notes**:
+
 - Number of keys must match number of values and effects
 - Taints are more restrictive than labels
 - Common taint keys: `dedicatedDb2Node`, `dedicatedMongoNode`, `gpu-required`
@@ -162,6 +169,7 @@ Comma-separated list of taint values corresponding to the taint keys.
 **Related variables**: `ocp_node_taint_keys`, `ocp_node_taint_effects` (must have same number of entries)
 
 **Notes**:
+
 - Number of values must exactly match number of keys and effects
 - Values often identify specific instances or workload identifiers
 - Example: key=`dedicatedDb2Node` value=`masinst1` effect=`NoExecute` dedicates node to masinst1's Db2
@@ -178,11 +186,13 @@ Comma-separated list of taint effects defining how the taint impacts pod schedul
 **When to use**: Required when `ocp_node_taint_keys` is set. Choose effect based on desired behavior.
 
 **Valid values**: Comma-separated list of taint effects:
+
 - `NoSchedule` - New pods without tolerations will not be scheduled; existing pods remain
 - `PreferNoSchedule` - Scheduler tries to avoid placing pods without tolerations; not guaranteed
 - `NoExecute` - New pods without tolerations will not be scheduled; existing pods without tolerations are evicted
 
 **Impact**:
+
 - `NoSchedule`: Prevents new workloads but preserves existing ones
 - `PreferNoSchedule`: Soft constraint, may be overridden by scheduler
 - `NoExecute`: Strongest enforcement, evicts non-tolerating pods immediately
@@ -190,6 +200,7 @@ Comma-separated list of taint effects defining how the taint impacts pod schedul
 **Related variables**: `ocp_node_taint_keys`, `ocp_node_taint_values` (must have same number of entries)
 
 **Notes**:
+
 - Number of effects must exactly match number of keys and values
 - `NoExecute` is most disruptive but ensures dedicated nodes
 - `NoSchedule` is common for gradual migration to dedicated nodes

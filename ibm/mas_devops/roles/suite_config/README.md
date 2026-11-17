@@ -16,6 +16,7 @@ Unique identifier for the MAS instance to apply configurations to.
 **Purpose**: Identifies which MAS instance to target when applying configuration files. This ensures configurations are applied to the correct MAS installation when multiple instances exist in the cluster.
 
 **When to use**:
+
 - Always required for any MAS configuration operation
 - Must match the instance ID used during MAS core installation
 - Use the same value across all configuration operations for a given MAS instance
@@ -38,6 +39,7 @@ Local directory path containing MAS configuration YAML files to apply to the clu
 **Purpose**: Specifies the directory containing MAS configuration files (MongoCfg, JdbcCfg, BASCfg, SLSCfg, etc.) that will be automatically applied to configure the MAS instance. This enables automated configuration of MAS dependencies and settings.
 
 **When to use**:
+
 - Always required when using this role to apply configurations
 - Use the same directory where dependency roles (mongodb, db2, sls) generate their configuration files
 - Typically set to a consistent location across all MAS setup roles (e.g., `/home/user/masconfig`)
@@ -47,6 +49,7 @@ Local directory path containing MAS configuration YAML files to apply to the clu
 **Impact**: The role recursively searches this directory for all `*.yaml` and `*.yml` files and applies them to the cluster using `oc apply`. Invalid YAML files or incorrect configurations will cause the role to fail. Files matching `jdbc-aiservice*.yml` or `jdbc-aiservice*.yaml` patterns are automatically excluded from processing.
 
 **Related variables**: 
+
 - `mas_instance_id`: Determines which MAS instance receives the configurations
 - Used by dependency roles (mongodb, db2, sls) as output directory for generated configs
 

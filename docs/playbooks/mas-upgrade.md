@@ -10,6 +10,7 @@ The playbook will attempt to upgrade MAS Core and all installed applications.
 
 Playbook Content
 -------------------------------------------------------------------------------
+
 1. [Upgrade MAS Core](../roles/suite_upgrade.md)
 2. [Verify MAS Core](../roles/suite_verify.md)
 3. [Upgrade MAS Application (Assist)](../roles/suite_app_upgrade.md)

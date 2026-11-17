@@ -27,6 +27,7 @@ Namespace identifier used in the generated configuration filename.
 **Related variables**: `mas_config_dir`
 
 **Notes**:
+
 - Default `mongoce` indicates MongoDB Community Edition
 - Use descriptive names when managing multiple MongoDB instances
 - Filename helps with organization but doesn't affect functionality
@@ -49,6 +50,7 @@ MongoDB administrative username for authentication.
 **Related variables**: `mongodb_admin_password`, `mongodb_authentication_mechanism`, `mongodb_authentication_database`
 
 **Notes**:
+
 - For SCRAM authentication: Standard MongoDB username
 - For LDAP authentication: LDAP distinguished name or username
 - User must have `readWrite` role on MAS databases
@@ -72,6 +74,7 @@ MongoDB password for authentication.
 **Related variables**: `mongodb_admin_username`, `mongodb_authentication_mechanism`
 
 **Notes**:
+
 - Password is stored securely in Kubernetes secrets
 - Use strong passwords meeting your organization's security policies
 - For Amazon DocumentDB, use the master user password or IAM authentication
@@ -89,6 +92,7 @@ MongoDB authentication method to use for connections.
 **When to use**: Set to `DEFAULT` for standard MongoDB authentication (SCRAM-SHA-256/SCRAM-SHA-1), or `PLAIN` for LDAP authentication.
 
 **Valid values**:
+
 - `DEFAULT` - Use MongoDB's default SCRAM authentication (SCRAM-SHA-256 or SCRAM-SHA-1)
 - `PLAIN` - Use LDAP authentication (requires LDAP-enabled MongoDB)
 
@@ -97,6 +101,7 @@ MongoDB authentication method to use for connections.
 **Related variables**: `mongodb_authentication_database` (must be `$external` when using `PLAIN`)
 
 **Notes**:
+
 - `DEFAULT` is suitable for most MongoDB deployments
 - `PLAIN` requires MongoDB Enterprise with LDAP integration
 - Amazon DocumentDB uses SCRAM authentication (use `DEFAULT`)
@@ -114,6 +119,7 @@ MongoDB database used for authentication.
 **When to use**: Use `admin` for standard MongoDB authentication, or `$external` for LDAP authentication.
 
 **Valid values**:
+
 - `admin` - Standard MongoDB authentication database
 - `$external` - External authentication (LDAP)
 - Custom database name if users are stored elsewhere
@@ -123,6 +129,7 @@ MongoDB database used for authentication.
 **Related variables**: `mongodb_authentication_mechanism` (must be `PLAIN` when using `$external`)
 
 **Notes**:
+
 - Default `admin` is correct for most deployments
 - Must be `$external` when `mongodb_authentication_mechanism` is `PLAIN`
 - For Amazon DocumentDB, use `admin`
@@ -140,6 +147,7 @@ MongoDB connection endpoints including hostnames and ports.
 **When to use**: Always required. Provide all replica set members for high availability deployments.
 
 **Valid values**: Comma-separated list of `hostname:port` pairs. Examples:
+
 - Single node: `mongodb.example.com:27017`
 - Replica set: `mongo-1.example.com:27017,mongo-2.example.com:27017,mongo-3.example.com:27017`
 - Amazon DocumentDB: `docdb-cluster.abc123.us-east-1.docdb.amazonaws.com:27017`
@@ -149,6 +157,7 @@ MongoDB connection endpoints including hostnames and ports.
 **Related variables**: `mongodb_retry_writes`, `mongodb_ca_pem_local_file`
 
 **Notes**:
+
 - Always include port numbers (typically 27017)
 - For replica sets, list all members for redundancy
 - For Amazon DocumentDB, use the cluster endpoint or individual instance endpoints
@@ -167,6 +176,7 @@ Enable MongoDB retryable writes feature.
 **When to use**: Set to `true` for MongoDB 3.6+ with replica sets. Set to `false` for Amazon DocumentDB or standalone MongoDB instances.
 
 **Valid values**:
+
 - `true` - Enable retryable writes (recommended for MongoDB replica sets)
 - `false` - Disable retryable writes (required for Amazon DocumentDB)
 
@@ -175,6 +185,7 @@ Enable MongoDB retryable writes feature.
 **Related variables**: `mongodb_hosts`
 
 **Notes**:
+
 - **Critical**: Must be `false` for Amazon DocumentDB
 - Recommended to be `true` for MongoDB replica sets (3.6+)
 - Standalone MongoDB instances may not support retryable writes
@@ -198,6 +209,7 @@ Local file path to the MongoDB SSL/TLS CA certificate in PEM format.
 **Related variables**: `mongodb_hosts`
 
 **Notes**:
+
 - The file must be accessible from the Ansible controller
 - For Amazon DocumentDB, download the CA certificate from AWS
 - For IBM Cloud Databases, download from the IBM Cloud console
@@ -222,6 +234,7 @@ MAS instance identifier for which the MongoDB configuration is being generated.
 **Related variables**: `mas_config_dir`
 
 **Notes**:
+
 - Must match the instance ID used during MAS installation
 - Case-sensitive value
 - Cannot be changed after MAS installation
@@ -245,6 +258,7 @@ Local directory path where the generated YAML configuration file will be saved.
 **Related variables**: `mas_instance_id`, `mongodb_namespace`
 
 **Notes**:
+
 - Directory will be created if it doesn't exist
 - Generated filename format: `mongo-<mongodb_namespace>.yml`
 - Keep generated files for documentation and disaster recovery purposes
@@ -268,6 +282,7 @@ Custom Kubernetes labels to apply to the generated MongoCfg resource.
 **Related variables**: None
 
 **Notes**:
+
 - Labels must follow Kubernetes naming conventions
 - Useful for GitOps workflows and resource management
 - Can be used with label selectors in automation scripts

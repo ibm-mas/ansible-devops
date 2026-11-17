@@ -27,6 +27,7 @@ MAS instance identifier for which the Watson Studio configuration is being gener
 **Related variables**: `mas_config_dir`, `mas_config_scope`
 
 **Notes**:
+
 - Must match the instance ID used during MAS installation
 - Case-sensitive value
 - Watson Studio integration is primarily used by Predict and Health applications
@@ -50,6 +51,7 @@ MAS workspace identifier for workspace-scoped configurations.
 **Related variables**: `mas_config_scope`, `mas_application_id`
 
 **Notes**:
+
 - Workspace must exist before applying the configuration
 - Use workspace-scoped configs for tenant isolation in multi-tenant deployments
 - Each workspace can have its own Watson Studio instance for data isolation
@@ -66,6 +68,7 @@ Configuration scope level for the generated Watson Studio configuration.
 **When to use**: Set based on how Watson Studio will be shared across MAS components. Default `system` scope makes it available to all workspaces and applications.
 
 **Valid values**:
+
 - `system` - Available to all workspaces and applications (default)
 - `ws` - Available only to a specific workspace
 - `app` - Available only to a specific application across all workspaces
@@ -76,6 +79,7 @@ Configuration scope level for the generated Watson Studio configuration.
 **Related variables**: `mas_workspace_id` (required for `ws` and `wsapp`), `mas_application_id` (required for `app` and `wsapp`)
 
 **Notes**:
+
 - Default `system` scope is suitable for most deployments
 - Use `wsapp` scope for dedicated Watson Studio instances per workspace-application
 - Scope cannot be changed after creation; requires recreation of the configuration
@@ -99,6 +103,7 @@ Local directory path where the generated YAML configuration file will be saved.
 **Related variables**: `mas_instance_id`
 
 **Notes**:
+
 - Directory will be created if it doesn't exist
 - Generated filename format: `watsonstudiocfg-<scope>.yml`
 - Keep generated files for documentation and disaster recovery purposes
@@ -122,6 +127,7 @@ MAS application identifier for application-scoped configurations.
 **Related variables**: `mas_config_scope`, `mas_workspace_id`
 
 **Notes**:
+
 - Application must be installed before applying the configuration
 - Predict and Health are the main applications that use Watson Studio
 - Use application-scoped configs when different applications need different Watson Studio instances
@@ -144,6 +150,7 @@ Cloud Pak for Data administrative username for Watson Studio access.
 **Related variables**: `cpd_admin_password`, `cpd_admin_url`
 
 **Notes**:
+
 - User must have Watson Studio service access
 - Requires permissions to create projects and deploy models
 - Consider using a dedicated service account rather than a personal admin account
@@ -167,6 +174,7 @@ Cloud Pak for Data password for authentication.
 **Related variables**: `cpd_admin_username`, `cpd_admin_url`
 
 **Notes**:
+
 - Password is stored securely in Kubernetes secrets
 - Use strong passwords meeting your organization's security policies
 - Consider implementing password rotation policies
@@ -190,6 +198,7 @@ Cloud Pak for Data console URL for Watson Studio access.
 **Related variables**: `cpd_admin_username`, `cpd_admin_password`
 
 **Notes**:
+
 - Must be the full HTTPS URL including protocol
 - URL must be accessible from the OpenShift cluster where MAS is running
 - Verify network connectivity and firewall rules
@@ -214,6 +223,7 @@ Custom Kubernetes labels to apply to the generated WatsonStudioCfg resource.
 **Related variables**: None
 
 **Notes**:
+
 - Labels must follow Kubernetes naming conventions
 - Useful for GitOps workflows and resource management
 - Can be used with label selectors in automation scripts

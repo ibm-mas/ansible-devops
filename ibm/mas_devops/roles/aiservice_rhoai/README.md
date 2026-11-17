@@ -19,6 +19,7 @@ This role supports multiple actions through the `rhoai_action` variable:
 ### Action Variable
 
 **`rhoai_action`**
+
 - Optional
 - Environment Variable: `RHOAI_ACTION`
 - Default: `install`
@@ -45,6 +46,7 @@ When installing RHOAI, this role automatically:
 4. **Installs** RHOAI operator and resources
 
 **Migration is automatic** - no manual intervention required. The migration process:
+
 - Maintains data science pipelines and notebooks
 - Preserves model deployments and serving configurations
 - Retains all user data and configurations
@@ -103,6 +105,7 @@ Catalog source for Red Hat OpenShift Serverless Operator.
 **Related variables**: [`serverless_channel`](#serverless_channel)
 
 **Notes**:
+
 - OpenShift Serverless is required for RHOAI data science pipelines
 - Verify catalog exists: `oc get catalogsource -n openshift-marketplace`
 
@@ -143,6 +146,7 @@ Subscription channel for Red Hat OpenShift Service Mesh Operator.
 **Related variables**: [`service_mesh_catalog_source`](#service_mesh_catalog_source)
 
 **Notes**:
+
 - Service Mesh is required for RHOAI model serving and networking
 - The `stable` channel provides the latest stable release
 
@@ -183,6 +187,7 @@ Catalog source for Authorino Operator.
 **Related variables**: None
 
 **Notes**:
+
 - Authorino provides authorization for RHOAI model serving
 - Available in community-operators catalog by default
 
@@ -202,6 +207,7 @@ Subscription channel for Red Hat OpenShift AI Operator.
 **Impact**: Determines the RHOAI version installed and update frequency. `fast` channel receives updates more quickly than `stable`.
 
 **Notes**:
+
 - `fast` channel provides latest features but may be less stable
 - `stable` channel recommended for production deployments
 - RHOAI is the enterprise-supported version of Open Data Hub
@@ -217,6 +223,7 @@ Subscription channel for Red Hat OpenShift AI Operator.
 **Related variables**: [`rhoai_channel`](#rhoai_channel)
 
 **Notes**:
+
 - RHOAI may be available in redhat-operators or community-operators depending on version
 - For air-gapped environments, mirror the catalog and update this variable
 - Requires valid Red Hat subscription for enterprise support

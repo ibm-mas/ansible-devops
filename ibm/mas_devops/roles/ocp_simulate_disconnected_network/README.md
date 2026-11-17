@@ -5,6 +5,7 @@ Simulate an air-gapped/disconnected network environment for testing purposes by 
 **Purpose**: Enable testing of disconnected/air-gapped MAS installations without physically isolating the cluster from the network. The cluster can still access other network resources, but cannot reach the specified container registries.
 
 **Important Notes**:
+
 - Primarily designed and tested for Fyre clusters
 - May require modifications for other cluster providers
 - Uses MachineConfig to modify node host files
@@ -33,6 +34,7 @@ Space-separated list of container registry hostnames to block.
 **When to use**: Default list covers common registries used by MAS and OpenShift. Customize to add or remove registries based on your testing requirements.
 
 **Valid values**: Space-separated list of valid hostnames. Default registries:
+
 - `quay.io` - Red Hat Quay registry
 - `registry.redhat.io` - Red Hat Container Catalog
 - `registry.connect.redhat.com` - Red Hat Partner registry
@@ -49,6 +51,7 @@ Space-separated list of container registry hostnames to block.
 **Related variables**: `registry_private_ca_file`, `machine_config_multiupdate`
 
 **Notes**:
+
 - Blocks DNS resolution by adding bogus IP addresses to `/etc/hosts`
 - Does not affect internal OpenShift image registry
 - Ensure mirrored registries are configured before blocking external registries
@@ -72,6 +75,7 @@ Local file path to the private registry CA certificate.
 **Related variables**: `registry_private_ca_crt`, `airgap_network_exclusions`
 
 **Notes**:
+
 - Required for private registries with custom CAs
 - File must be accessible from the Ansible controller
 - Certificate must be in PEM format
@@ -95,6 +99,7 @@ Content of the private registry CA certificate.
 **Related variables**: `registry_private_ca_file`
 
 **Notes**:
+
 - Automatically loaded from the file specified in `registry_private_ca_file`
 - Do not set this variable directly
 - Used internally by the role to configure node trust
@@ -111,16 +116,19 @@ Enable multiple MachineConfig updates in a single operation.
 **When to use**: Set to `true` when applying multiple configuration changes to minimize node reboots. Set to `false` for safer, incremental updates.
 
 **Valid values**:
+
 - `true` - Apply multiple MachineConfig changes together
 - `false` - Apply MachineConfig changes separately (default)
 
 **Impact**:
+
 - `true`: Reduces number of node reboots but increases risk if configuration is incorrect
 - `false`: More node reboots but safer rollback if issues occur
 
 **Related variables**: None
 
 **Notes**:
+
 - MachineConfig changes trigger node reboots
 - `false` is safer for production-like testing
 - `true` can save time in development environments

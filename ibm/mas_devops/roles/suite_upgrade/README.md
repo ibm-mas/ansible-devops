@@ -22,6 +22,7 @@ MAS instance identifier for core platform upgrade.
 **Purpose**: Identifies which MAS instance's core platform to upgrade. Used to locate and validate the MAS installation.
 
 **When to use**:
+
 - Always required for MAS core platform upgrades
 - Must match the instance ID from MAS installation
 - Used to validate upgrade readiness and application compatibility
@@ -31,6 +32,7 @@ MAS instance identifier for core platform upgrade.
 **Impact**: Determines which MAS instance will be upgraded. Incorrect instance ID will cause upgrade to fail.
 
 **Related variables**:
+
 - `mas_channel`: Target upgrade channel for this instance
 
 **Note**: The role validates that all installed applications are compatible with the target MAS version before proceeding with the upgrade.
@@ -45,6 +47,7 @@ Target subscription channel for MAS core platform upgrade.
 **Purpose**: Specifies the target subscription channel for MAS core platform upgrade. If not provided, the role automatically selects the next appropriate version.
 
 **When to use**:
+
 - Leave unset for automatic upgrade to next release
 - Set explicitly when you need a specific target version
 - Must be a valid upgrade path from current version
@@ -52,11 +55,13 @@ Target subscription channel for MAS core platform upgrade.
 **Valid values**: Valid MAS subscription channel (e.g., `8.8.x`, `8.9.x`, `8.10.x`, `8.11.x`)
 
 **Impact**: Determines the target version for MAS core platform upgrade. The role validates:
+
 - Upgrade path compatibility (can upgrade from current to target)
 - Application compatibility (all apps support target MAS version)
 - If validation fails, no upgrade is performed
 
 **Related variables**:
+
 - `mas_instance_id`: Instance being upgraded
 - `skip_compatibility_check`: Whether to skip validation (not recommended)
 
@@ -72,6 +77,7 @@ Dry-run mode for upgrade validation only.
 **Purpose**: Enables dry-run mode where the role performs all validation checks without making any changes to the MAS installation. Useful for testing upgrade paths.
 
 **When to use**:
+
 - Set to `true` to validate upgrade without executing it
 - Use for testing and planning upgrade paths
 - Recommended before production upgrades
@@ -80,10 +86,12 @@ Dry-run mode for upgrade validation only.
 **Valid values**: `true`, `false`
 
 **Impact**: 
+
 - `true`: Performs validation only (upgrade path check, application compatibility check) without modifying the installation
 - `false`: Performs validation and executes the upgrade if validation passes
 
 **Related variables**:
+
 - `skip_compatibility_check`: Controls whether compatibility validation is performed
 
 **Note**: Dry-run mode is highly recommended before production upgrades to identify potential issues. All validation checks are performed, including application compatibility, but no changes are made to the subscription channel or MAS core platform.
@@ -98,6 +106,7 @@ Skip compatibility validation before upgrade.
 **Purpose**: Controls whether compatibility validation is performed before MAS core platform upgrade. Validation checks if the target channel is compatible with current MAS version and all installed applications.
 
 **When to use**:
+
 - Leave as `false` (default) for safe upgrades with validation
 - Set to `true` only in exceptional cases (not recommended)
 - Use only when you have verified compatibility manually
@@ -105,14 +114,17 @@ Skip compatibility validation before upgrade.
 **Valid values**: `true`, `false`
 
 **Impact**: 
+
 - `false` (default): Performs comprehensive compatibility validation before upgrade (recommended)
 - `true`: Skips compatibility validation, allowing potentially incompatible upgrades
 
 **Related variables**:
+
 - `mas_upgrade_dryrun`: Controls whether upgrade is executed or only validated
 - `mas_channel`: Target channel being validated
 
 **Note**: **WARNING** - Skipping compatibility checks can lead to failed upgrades, application incompatibilities, or unstable installations. Only skip validation if you have manually verified that:
+
 1. The upgrade path from current to target MAS version is supported
 2. All installed applications are compatible with the target MAS version
 The default validation protects against incompatible upgrades and application version mismatches.

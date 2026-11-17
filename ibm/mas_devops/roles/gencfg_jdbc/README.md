@@ -29,6 +29,7 @@ Database instance identifier used in the generated configuration.
 **Related variables**: `mas_config_scope`, `mas_instance_id`
 
 **Notes**:
+
 - Default value `dbinst` is suitable for simple single-database deployments
 - Use descriptive names in multi-database environments to avoid confusion
 
@@ -50,6 +51,7 @@ Database username for authentication.
 **Related variables**: `jdbc_instance_password`, `jdbc_url`
 
 **Notes**:
+
 - For Manage: User needs full access to the MAXIMO schema
 - For Oracle: May need to include schema prefix in some configurations
 - Ensure the user has appropriate connection limits configured in the database
@@ -72,6 +74,7 @@ Database password for authentication.
 **Related variables**: `db_username`, `jdbc_url`
 
 **Notes**:
+
 - Password is stored securely in Kubernetes secrets
 - Consider using strong passwords and regular rotation policies
 - Ensure password doesn't contain characters that require URL encoding if embedded in connection strings
@@ -100,6 +103,7 @@ JDBC connection URL for the database.
 **Related variables**: `ssl_enabled`, `db_pem_file`, `db_username`
 
 **Notes**:
+
 - Always test the JDBC URL with a database client before using in MAS
 - For SSL connections, ensure the URL includes appropriate SSL parameters
 - Some databases require specific JDBC driver parameters for optimal performance
@@ -123,6 +127,7 @@ Local file path to the database SSL/TLS certificate in PEM format.
 **Related variables**: `ssl_enabled`, `jdbc_url`
 
 **Notes**:
+
 - The file must be accessible from the Ansible controller
 - For self-signed certificates, this should be the CA certificate
 - For commercial certificates, may need to include the full certificate chain
@@ -143,6 +148,7 @@ Configuration scope level for the generated JDBC configuration.
 **When to use**: Always required. Choose based on how the database will be shared across MAS components.
 
 **Valid values**:
+
 - `system` - Available to all workspaces and applications
 - `ws` - Available only to a specific workspace
 - `app` - Available only to a specific application across all workspaces
@@ -153,6 +159,7 @@ Configuration scope level for the generated JDBC configuration.
 **Related variables**: `mas_workspace_id` (required for `ws` and `wsapp`), `mas_application_id` (required for `app` and `wsapp`)
 
 **Notes**:
+
 - Use `system` scope for shared databases used by multiple applications
 - Use `wsapp` scope for dedicated databases per workspace-application combination
 - Scope cannot be changed after creation; requires recreation of the configuration
@@ -175,6 +182,7 @@ Local directory path where the generated YAML configuration file will be saved.
 **Related variables**: `mas_instance_id`, `db_instance_id`
 
 **Notes**:
+
 - Directory will be created if it doesn't exist
 - Generated filename format: `jdbccfg-<db_instance_id>.yml`
 - Keep generated files for documentation and disaster recovery purposes
@@ -197,6 +205,7 @@ MAS instance identifier for which the configuration is being generated.
 **Related variables**: `mas_config_scope`, `mas_workspace_id`
 
 **Notes**:
+
 - Must match the instance ID used during MAS installation
 - Case-sensitive value
 - Cannot be changed after MAS installation
@@ -219,6 +228,7 @@ MAS workspace identifier for workspace-scoped configurations.
 **Related variables**: `mas_config_scope`, `mas_application_id`
 
 **Notes**:
+
 - Workspace must exist before applying the configuration
 - Use workspace-scoped configs for tenant isolation in multi-tenant deployments
 
@@ -240,6 +250,7 @@ MAS application identifier for application-scoped configurations.
 **Related variables**: `mas_config_scope`, `mas_workspace_id`
 
 **Notes**:
+
 - Application must be installed before applying the configuration
 - Most commonly used with `manage` for Manage-specific databases
 
@@ -255,6 +266,7 @@ Indicates whether SSL/TLS encryption is enabled for the database connection.
 **When to use**: Always required. Set to `true` for encrypted connections, `false` for unencrypted connections.
 
 **Valid values**:
+
 - `true` - SSL/TLS encryption is enabled
 - `false` - No encryption (insecure connection)
 
@@ -263,6 +275,7 @@ Indicates whether SSL/TLS encryption is enabled for the database connection.
 **Related variables**: `jdbc_url`, `db_pem_file`
 
 **Notes**:
+
 - Always use `true` for production environments
 - When `true`, ensure `db_pem_file` is provided
 - Must match the SSL settings in the `jdbc_url` parameter
@@ -286,6 +299,7 @@ Custom Kubernetes labels to apply to the generated JdbcCfg resource.
 **Related variables**: None
 
 **Notes**:
+
 - Labels must follow Kubernetes naming conventions
 - Useful for GitOps workflows and resource management
 - Can be used with label selectors in automation scripts

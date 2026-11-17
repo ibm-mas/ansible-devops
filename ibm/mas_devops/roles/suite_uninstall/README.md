@@ -19,6 +19,7 @@ MAS instance identifier to uninstall.
 **Purpose**: Identifies which MAS instance to remove from the cluster. The role deletes the Suite custom resource and associated core platform resources.
 
 **When to use**:
+
 - Always required for uninstall operations
 - Must match the instance ID from MAS installation
 - Used to target specific instance for removal
@@ -28,6 +29,7 @@ MAS instance identifier to uninstall.
 **Impact**: Determines which MAS instance is uninstalled. All core platform resources for this instance will be removed, but MongoDB data is preserved by default unless `mas_wipe_mongo_data` is enabled.
 
 **Related variables**:
+
 - `mas_wipe_mongo_data`: Controls whether MongoDB data is deleted
 
 **Note**: This role only removes the MAS core platform. Applications must be uninstalled separately using `suite_app_uninstall` before running this role. MongoDB data is preserved by default for safety.
@@ -42,6 +44,7 @@ Delete MongoDB databases during uninstall.
 **Purpose**: Controls whether MongoDB databases containing MAS data are permanently deleted during uninstall. When disabled (default), only the MAS platform is removed while preserving all data.
 
 **When to use**:
+
 - Leave as `false` (default) to preserve data (recommended)
 - Set to `true` only for complete removal including all data
 - Use `true` for test/dev environments or when data is no longer needed
@@ -50,10 +53,12 @@ Delete MongoDB databases during uninstall.
 **Valid values**: `true`, `false`
 
 **Impact**:
+
 - `false`: Removes MAS platform but preserves all MongoDB data (safe, allows reinstall)
 - `true`: Removes MAS platform AND permanently deletes all MongoDB databases (destructive)
 
 **Related variables**:
+
 - `mas_instance_id`: Instance whose data may be deleted
 
 **Note**: **CRITICAL** - Setting to `true` permanently deletes all MAS data including configurations, workspaces, and application data. This operation cannot be undone. Always ensure you have verified backups before enabling this option. The default `false` is strongly recommended for production environments.

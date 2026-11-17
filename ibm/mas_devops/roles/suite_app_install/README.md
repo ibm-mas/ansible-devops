@@ -16,6 +16,7 @@ Unique identifier for the MAS instance where the application will be installed.
 **Purpose**: Identifies which MAS instance to install the application into. This must match the instance ID used during the MAS core installation to ensure the application is deployed to the correct MAS environment.
 
 **When to use**:
+
 - Always required for any MAS application installation
 - Must match the instance ID from your MAS core installation
 - Use the same value across all application installations for a given MAS instance
@@ -38,6 +39,7 @@ Specifies which MAS application to install.
 **Purpose**: Identifies the specific MAS application to be installed, determining which operator subscription is created and which application resources are deployed.
 
 **When to use**:
+
 - Always required for any MAS application installation
 - Set to the specific application you want to install
 - Each application requires a separate role execution
@@ -47,6 +49,7 @@ Specifies which MAS application to install.
 **Impact**: Determines which application operator is installed and which namespace is created (`mas-{mas_instance_id}-{mas_app_id}`). Different applications have different configuration requirements and dependencies.
 
 **Related variables**:
+
 - `mas_app_channel`: Must be set to a valid channel for the selected application
 - `mas_app_catalog_source`: Must contain the operator for the selected application
 - Application-specific settings variables (e.g., `mas_app_settings_iot_*` for IoT)
@@ -63,6 +66,7 @@ Specifies the OpenShift operator catalog source containing the MAS application o
 **Purpose**: Controls which operator catalog is used to locate and install the MAS application operator. This determines where OpenShift looks for the application operator images and metadata during installation.
 
 **When to use**:
+
 - Use default `ibm-operator-catalog` for production installations with official IBM releases
 - Use `ibm-mas-{mas_app_id}-operators` for development builds from Artifactory (e.g., `ibm-mas-manage-operators`)
 - Only change if directed to use a custom catalog for specific testing or airgap scenarios
@@ -72,6 +76,7 @@ Specifies the OpenShift operator catalog source containing the MAS application o
 **Impact**: Changing this value affects which operator versions are available for installation. An invalid catalog source will cause the subscription to fail. Development catalogs require additional authentication via `artifactory_username` and `artifactory_token`.
 
 **Related variables**:
+
 - `mas_app_channel`: Works together to determine the specific operator version installed
 - `artifactory_username` and `artifactory_token`: Required when using development catalogs
 
@@ -87,6 +92,7 @@ Specifies the MAS application operator subscription channel, which determines th
 **Purpose**: Controls which version of the MAS application will be installed and which updates will be automatically applied. The channel corresponds to major.minor version releases and determines the feature set and compatibility level of your application installation.
 
 **When to use**:
+
 - Set to the latest stable channel for new production deployments
 - Use specific older channels when compatibility with MAS core or other applications requires it
 - Consult the MAS compatibility matrix before selecting a channel
@@ -97,6 +103,7 @@ Specifies the MAS application operator subscription channel, which determines th
 **Impact**: The channel determines which application version is installed and which automatic updates are applied. Changing channels after installation will trigger an upgrade to the latest version in that channel, which may require application reconfiguration and testing.
 
 **Related variables**:
+
 - `mas_app_catalog_source`: Works together to determine available channels
 - `mas_instance_id`: Application must be compatible with the MAS core version
 
@@ -112,6 +119,7 @@ Comma-separated list of key=value labels to apply to MAS application resources.
 **Purpose**: Adds Kubernetes labels to application resources for organization, selection, and filtering. Labels enable resource tracking, cost allocation, and custom automation.
 
 **When to use**:
+
 - Use to add organizational metadata (e.g., `cost-center=engineering`, `environment=production`)
 - Use to enable resource tracking and cost allocation
 - Use to support custom automation or monitoring tools
@@ -135,6 +143,7 @@ Username for authenticating to IBM Artifactory to access development builds of M
 **Purpose**: Provides authentication credentials to pull development/pre-release MAS application operator images from IBM's Artifactory registry. Required only when installing development builds for testing or early access.
 
 **When to use**:
+
 - Required when `mas_app_catalog_source` is set to a development catalog (e.g., `ibm-mas-manage-operators`)
 - Not needed for production installations using `ibm-operator-catalog`
 - Use your IBM w3Id username for development builds
@@ -144,6 +153,7 @@ Username for authenticating to IBM Artifactory to access development builds of M
 **Impact**: Without valid credentials, development catalog subscriptions will fail to pull operator images. This variable is ignored when using production catalogs.
 
 **Related variables**:
+
 - `artifactory_token`: Must be set together with this username
 - `mas_app_catalog_source`: Determines if Artifactory credentials are needed
 - `mas_entitlement_username`: Used for production installations instead
@@ -160,6 +170,7 @@ API token for authenticating to IBM Artifactory to access development builds of 
 **Purpose**: Provides the API token/password credential to authenticate with IBM's Artifactory registry when pulling development/pre-release MAS application operator images.
 
 **When to use**:
+
 - Required when `mas_app_catalog_source` is set to a development catalog (e.g., `ibm-mas-manage-operators`)
 - Not needed for production installations using `ibm-operator-catalog`
 - Use your IBM Artifactory API key for development builds
@@ -169,6 +180,7 @@ API token for authenticating to IBM Artifactory to access development builds of 
 **Impact**: Without a valid token, development catalog subscriptions will fail to pull operator images. This variable is ignored when using production catalogs.
 
 **Related variables**:
+
 - `artifactory_username`: Must be set together with this token
 - `mas_app_catalog_source`: Determines if Artifactory credentials are needed
 - `mas_entitlement_key`: Used for production installations instead
@@ -185,17 +197,20 @@ Username for authenticating to IBM Container Registry to pull MAS application im
 **Purpose**: Provides the username credential for authenticating with IBM's entitled container registry when pulling MAS application operator and component images.
 
 **When to use**:
+
 - Set to `cp` for production installations using IBM entitlement keys
 - Set to your w3Id for development builds from Artifactory
 - Usually can be left at default for production installations
 
 **Valid values**: 
+
 - `cp` - For production installations with IBM entitlement key
 - Your IBM w3Id - For development builds
 
 **Impact**: Used together with `mas_entitlement_key` to create image pull secrets for the application namespace. Incorrect username will cause image pull authentication failures.
 
 **Related variables**:
+
 - `mas_entitlement_key`: Must be set together with this username
 - `artifactory_username`: Alternative for development builds
 
@@ -211,12 +226,14 @@ IBM entitlement key for authenticating access to IBM Container Registry to pull 
 **Purpose**: Provides authentication credentials to pull MAS application container images from IBM's entitled registry. This key is tied to your IBM Cloud account and product entitlements, proving you have the right to use MAS application software.
 
 **When to use**:
+
 - Required for production installations using official IBM releases
 - Obtain from IBM Container Library at https://myibm.ibm.com/products-services/containerlibrary
 - For development builds, use your Artifactory API key instead
 - Key must be valid and have active MAS application entitlements
 
 **Valid values**:
+
 - IBM entitlement key string (typically starts with "eyJ...")
 - Must be a valid, non-expired key with MAS product entitlements
 - For development: Artifactory API key
@@ -224,6 +241,7 @@ IBM entitlement key for authenticating access to IBM Container Registry to pull 
 **Impact**: Invalid or expired keys will cause image pull failures during application installation. The key is stored in a Kubernetes secret and used to create image pull secrets for all application pods.
 
 **Related variables**:
+
 - `mas_entitlement_username`: Username paired with this key (default: `cp`)
 - `artifactory_token`: Alternative for development builds
 
@@ -241,6 +259,7 @@ Custom YAML specification to override default application configuration settings
 **Purpose**: Allows advanced users to provide a complete custom specification for the application installation, bypassing individual configuration variables. This enables fine-grained control over application settings not exposed through standard variables.
 
 **When to use**:
+
 - Use for advanced customization scenarios not covered by standard variables
 - Use when you need to set application-specific settings not exposed as role variables
 - Use with caution as it overrides all other configuration variables
@@ -264,6 +283,7 @@ Specifies the scope for JDBC database configuration binding.
 **Purpose**: Controls whether the application uses system-level JDBC configuration (shared across all applications) or application-specific JDBC configuration. This determines which database configuration the application will use.
 
 **When to use**:
+
 - Use `system` (default) when all applications share the same database configuration
 - Use `application` when this application needs its own dedicated database configuration
 - Most deployments use `system` for simplified management
@@ -271,6 +291,7 @@ Specifies the scope for JDBC database configuration binding.
 **Valid values**: `system`, `application`
 
 **Impact**: 
+
 - `system`: Application uses the JDBC configuration defined at the MAS instance level (JdbcCfg with scope=system)
 - `application`: Application requires its own application-scoped JDBC configuration (JdbcCfg with scope=application)
 
@@ -288,11 +309,13 @@ Specifies the licensing plan/tier for the application installation.
 **Purpose**: Determines which feature set and licensing tier is activated for the application. Different plans may enable or restrict certain features based on your license entitlements.
 
 **When to use**:
+
 - Set according to your license entitlements
 - Consult your IBM license agreement for available plans
 - Leave as default if you have standard licensing
 
 **Valid values**: Application-specific
+
 - **Optimizer**: `full`, `limited` (v8.2+, defaults to `full`)
 - Other applications may have different plan options
 
@@ -312,6 +335,7 @@ Local directory path containing pod template customization files for the applica
 **Purpose**: Allows customization of pod specifications for application workloads, enabling control over resource limits, node affinity, tolerations, and other Kubernetes pod settings. This is essential for production deployments with specific infrastructure requirements.
 
 **When to use**:
+
 - Use to set custom resource limits (CPU, memory) for application pods
 - Use to configure node affinity or anti-affinity rules
 - Use to add tolerations for tainted nodes
@@ -323,6 +347,7 @@ Local directory path containing pod template customization files for the applica
 **Impact**: Pod template files in this directory will be applied to the application's Custom Resource, affecting how application pods are scheduled and configured. Invalid templates can cause pod scheduling failures.
 
 **Related variables**: 
+
 - `mas_app_id`: Determines which pod template files are expected
 - See application-specific sections below for required file names
 
@@ -340,6 +365,7 @@ Storage class for Visual Inspection user data persistent volumes.
 **Purpose**: Specifies which storage class provides persistent volumes for Visual Inspection user data, including uploaded images, trained models, and inspection results. This storage must support concurrent access from multiple pods.
 
 **When to use**:
+
 - Set explicitly when you have multiple RWX storage classes and want to control which is used
 - Set when the auto-selection doesn't choose your preferred storage class
 - Leave unset to allow automatic selection of an appropriate RWX storage class
@@ -362,6 +388,7 @@ Size of the persistent volume for Visual Inspection user data.
 **Purpose**: Determines the amount of disk space allocated for Visual Inspection user data, including uploaded images, trained AI models, inspection results, and datasets. Proper sizing prevents storage exhaustion.
 
 **When to use**:
+
 - Increase for production environments with large image datasets
 - Increase for environments with many trained models or long data retention
 - Use default (100Gi) for development, testing, or small deployments
@@ -387,6 +414,7 @@ Specifies the deployment size profile for MAS IoT, which determines resource all
 **Purpose**: Controls the resource allocation profile for IoT components, affecting CPU, memory, and replica counts. Different sizes are optimized for different workload scales and environments.
 
 **When to use**:
+
 - Use `dev` for development and testing environments with minimal resource requirements
 - Use `small` for production environments with moderate device counts and data volumes
 - Use `large` for production environments with high device counts, data volumes, or throughput requirements
@@ -394,6 +422,7 @@ Specifies the deployment size profile for MAS IoT, which determines resource all
 **Valid values**: `dev`, `small`, `large`
 
 **Impact**: 
+
 - `dev`: Minimal resources, suitable for development only
 - `small`: Moderate resources, suitable for small to medium production deployments
 - `large`: Maximum resources, suitable for large-scale production deployments
@@ -412,6 +441,7 @@ Storage class for IoT Function Pipeline (FPL) component persistent volumes.
 **Purpose**: Specifies which storage class provides persistent volumes for IoT FPL component transient state storage. FPL processes IoT data pipelines and requires persistent storage for state management.
 
 **When to use**:
+
 - Set explicitly when you have multiple RWO storage classes and want to control which is used
 - Set when the auto-selection doesn't choose your preferred storage class
 - Leave unset to allow automatic selection of an appropriate RWO storage class
@@ -421,6 +451,7 @@ Storage class for IoT Function Pipeline (FPL) component persistent volumes.
 **Impact**: Affects performance and reliability of IoT data pipeline processing. The storage class determines I/O performance for pipeline state operations.
 
 **Related variables**: 
+
 - `mas_app_settings_iot_fpl_router_pvc_size` - Size for FPL router PVC
 - `mas_app_settings_iot_fpl_executor_pvc_size` - Size for FPL executor PVC
 
@@ -436,6 +467,7 @@ Size of the persistent volume for IoT FPL pipeline router component.
 **Purpose**: Determines the amount of disk space allocated for the IoT Function Pipeline router component's transient state storage. The router manages pipeline execution and requires persistent storage for state management.
 
 **When to use**:
+
 - Increase for production environments with high pipeline throughput
 - Increase for environments with many concurrent pipelines or complex pipeline logic
 - Use default (100Gi) for development, testing, or moderate workloads
@@ -446,6 +478,7 @@ Size of the persistent volume for IoT FPL pipeline router component.
 **Impact**: Larger values consume more cluster storage resources. Insufficient storage may cause pipeline execution failures or state management issues.
 
 **Related variables**: 
+
 - `mas_app_settings_iot_fpl_pvc_storage_class` - Storage class for this PVC
 - `mas_app_settings_iot_fpl_executor_pvc_size` - Size for FPL executor component
 
@@ -461,6 +494,7 @@ Size of the persistent volume for IoT FPL pipeline executor component.
 **Purpose**: Determines the amount of disk space allocated for the IoT Function Pipeline executor component's transient state storage. The executor runs pipeline logic and requires persistent storage for intermediate data and state.
 
 **When to use**:
+
 - Increase for production environments with high data processing volumes
 - Increase for pipelines that process large datasets or generate significant intermediate data
 - Use default (100Gi) for development, testing, or moderate workloads
@@ -471,6 +505,7 @@ Size of the persistent volume for IoT FPL pipeline executor component.
 **Impact**: Larger values consume more cluster storage resources. Insufficient storage may cause pipeline execution failures or data processing issues.
 
 **Related variables**: 
+
 - `mas_app_settings_iot_fpl_pvc_storage_class` - Storage class for this PVC
 - `mas_app_settings_iot_fpl_router_pvc_size` - Size for FPL router component
 
@@ -486,6 +521,7 @@ Storage class for IoT MQTT broker (MessageSight) persistent volumes.
 **Purpose**: Specifies which storage class provides persistent volumes for the IoT MQTT broker component. The MQTT broker handles device connectivity and message routing, requiring persistent storage for message queues and broker state.
 
 **When to use**:
+
 - Set explicitly when you have multiple RWO storage classes and want to control which is used
 - Set when the auto-selection doesn't choose your preferred storage class
 - Set when you need specific performance characteristics for MQTT message handling
@@ -509,6 +545,7 @@ Size of the persistent volume for IoT MQTT broker (MessageSight) component.
 **Purpose**: Determines the amount of disk space allocated for the IoT MQTT broker's persistent storage, including message queues, broker state, and retained messages. Proper sizing ensures reliable device connectivity and message handling.
 
 **When to use**:
+
 - Increase for production environments with many connected devices
 - Increase for environments with high message volumes or long message retention
 - Increase if devices frequently disconnect and require message queuing
@@ -548,15 +585,18 @@ Specifies the upgrade strategy for Manage workspace database schema updates.
 **Purpose**: Controls how Manage performs database schema upgrades during application updates, balancing between system downtime and upgrade complexity. Different strategies offer different trade-offs between availability and upgrade duration.
 
 **When to use**:
+
 - Use `regularUpgrade` for standard upgrades with planned downtime windows
 - Use `onlineUpgrade` to minimize downtime during upgrades (requires more resources and time)
 - Consider your maintenance window constraints and availability requirements
 
 **Valid values**: 
+
 - `regularUpgrade` - Standard upgrade with full system downtime
 - `onlineUpgrade` - Minimized downtime upgrade (requires additional resources)
 
 **Impact**: 
+
 - `regularUpgrade`: Shorter upgrade time but requires full system downtime
 - `onlineUpgrade`: Longer upgrade time but minimizes system downtime; requires additional database resources during upgrade
 
@@ -576,6 +616,7 @@ Specifies the deployment size profile for MAS Monitor, which determines resource
 **Purpose**: Controls the resource allocation profile for Monitor components, affecting CPU, memory, and replica counts. Different sizes are optimized for different workload scales and environments.
 
 **When to use**:
+
 - Use `dev` for development and testing environments with minimal resource requirements
 - Use `small` for production environments with moderate monitoring requirements
 - Use `large` for production environments with extensive monitoring, dashboards, or high data volumes
@@ -583,6 +624,7 @@ Specifies the deployment size profile for MAS Monitor, which determines resource
 **Valid values**: `dev`, `small`, `large`
 
 **Impact**: 
+
 - `dev`: Minimal resources, suitable for development only
 - `small`: Moderate resources, suitable for small to medium production deployments
 - `large`: Maximum resources, suitable for large-scale production deployments with extensive monitoring

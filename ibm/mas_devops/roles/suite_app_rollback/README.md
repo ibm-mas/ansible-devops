@@ -29,6 +29,7 @@ MAS instance identifier where the application rollback will be performed.
 **Related variables**: `mas_app_id`, `mas_app_version`
 
 **Notes**:
+
 - Must match the instance ID used during MAS installation
 - Case-sensitive value
 - Ensure you have proper backups before performing rollback operations
@@ -45,6 +46,7 @@ MAS application identifier to be rolled back.
 **When to use**: Always required. Currently only `manage` is supported.
 
 **Valid values**:
+
 - `manage` - Maximo Manage application (only supported value currently)
 
 **Impact**: Determines which application namespace and resources will be targeted for rollback. Only Manage application rollback is currently implemented.
@@ -52,6 +54,7 @@ MAS application identifier to be rolled back.
 **Related variables**: `mas_instance_id`, `mas_app_version`
 
 **Notes**:
+
 - **Critical**: Only `manage` is supported in current implementation
 - Future versions may support additional applications
 - Application must be installed and running before rollback
@@ -69,6 +72,7 @@ Target version to roll back to.
 **When to use**: Required for rollback operations or version verification. Must be a version that is supported for rollback from the current version.
 
 **Valid values**: Valid MAS application version string (e.g., `8.7.0`, `8.7.1`, `8.8.0`). Must be:
+
 - A version supported for rollback from the current version
 - Compatible with the running MAS core platform version
 - Available in the configured catalog source
@@ -78,6 +82,7 @@ Target version to roll back to.
 **Related variables**: `mas_app_id`, `rollback_mas_app`, `skip_compatibility_check`
 
 **Notes**:
+
 - Each MAS version defines supported rollback targets
 - Cannot roll back across major version boundaries in most cases
 - Verify rollback compatibility in IBM documentation before proceeding
@@ -96,6 +101,7 @@ Enable or disable the actual rollback operation.
 **When to use**: Set to `true` to perform rollback, `false` to only validate without making changes.
 
 **Valid values**:
+
 - `true` - Perform the rollback operation (default)
 - `false` - Validation only, no changes made
 
@@ -104,6 +110,7 @@ Enable or disable the actual rollback operation.
 **Related variables**: `verify_app_version`, `mas_app_version`
 
 **Notes**:
+
 - Default `true` means rollback will execute if validation passes
 - Set to `false` for dry-run validation before actual rollback
 - Combine with `verify_app_version` for post-rollback verification
@@ -121,6 +128,7 @@ Enable verification that the application is at the specified version.
 **When to use**: Set to `true` to verify the application version without performing rollback. Useful after rollback to confirm success.
 
 **Valid values**:
+
 - `true` - Verify current version matches `mas_app_version`
 - `false` - Skip version verification (default)
 
@@ -129,6 +137,7 @@ Enable verification that the application is at the specified version.
 **Related variables**: `mas_app_version`, `rollback_mas_app`
 
 **Notes**:
+
 - Useful for post-rollback validation in automation pipelines
 - Can be used independently of rollback operation
 - Set `rollback_mas_app=false` and `verify_app_version=true` for verification-only mode
@@ -146,6 +155,7 @@ Enable dry-run mode for rollback operations.
 **When to use**: Set to `true` when you want to validate rollback feasibility without making any changes to the system.
 
 **Valid values**:
+
 - `true` - Dry-run mode, validation only
 - `false` - Normal operation (default)
 
@@ -154,6 +164,7 @@ Enable dry-run mode for rollback operations.
 **Related variables**: `rollback_mas_app`, `skip_compatibility_check`
 
 **Notes**:
+
 - Recommended to run in dry-run mode first before actual rollback
 - Helps identify potential issues before committing to rollback
 - All validation errors will be reported without risk
@@ -171,6 +182,7 @@ Bypass compatibility validation checks.
 **When to use**: **Use with extreme caution**. Only skip checks when you have verified compatibility through other means or are following IBM support guidance.
 
 **Valid values**:
+
 - `true` - Skip compatibility validation (dangerous)
 - `false` - Perform all compatibility checks (default, recommended)
 
@@ -179,6 +191,7 @@ Bypass compatibility validation checks.
 **Related variables**: `mas_app_version`, `rollback_mas_app`
 
 **Notes**:
+
 - **Warning**: Skipping compatibility checks can lead to unsupported configurations
 - Only use when explicitly instructed by IBM support
 - May result in application failures or data issues

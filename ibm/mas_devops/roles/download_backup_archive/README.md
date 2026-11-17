@@ -4,6 +4,7 @@ Downloads and extracts MAS backup archives from AWS S3 or Artifactory.
 This role automates the process of downloading MAS backup archives from remote storage locations and extracting them to a local directory for restore operations. It supports downloading from both AWS S3 (or S3-compatible storage) and Artifactory repositories. The role handles archive verification, extraction, and cleanup operations.
 
 Key features:
+
 - Downloads compressed tar.gz archives from AWS S3 or S3-compatible storage
 - Downloads compressed tar.gz archives from Artifactory repositories
 - **Support for downloading multiple archives in a single operation**
@@ -58,6 +59,7 @@ Version identifier for the backup to download. This must match the version used 
 List of archive names to download. Can be provided as a comma-separated string or as a list. If not provided, the role will auto-generate archive names based on component versions.
 
 Examples:
+
 - String format: `"archive1.tar.gz,archive2.tar.gz,archive3.tar.gz"`
 - List format: `["archive1.tar.gz", "archive2.tar.gz", "archive3.tar.gz"]`
 

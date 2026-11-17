@@ -274,6 +274,7 @@ The deployment model of OpenShift.
 **When to use**: Currently only used for `rosa-hcp`.
 
 **Valid values**:
+
 - `rosa-hcp` - AWS ROSA HCP
 
 **Impact**: Runs tasks specific to the deployment model.
@@ -294,6 +295,7 @@ The name of the OpenShift cluster.
 **Related variables**: None
 
 **Notes**:
+
 - This is used as the target cluster for when using rosa cli commands.
 
 #### rosa_token
@@ -306,6 +308,7 @@ Rosa login token for the rosa cli.
 **Purpose**: Authenticates the rosa cli to the rosa cluster.
 
 **When to use**:
+
 - When running ocp_idms role for rosa-hcp cluster type.
 
 ### Allowed Registries
@@ -322,12 +325,14 @@ Update allowed registries in the cluster.
 **When to use**: Required for air-gapped/disconnected environments.
 
 **Valid values**:
+
 - `true` - Update allowed registries
 - `false` - Leave allowed registries unchanged
 
 **Impact**: When `true`, updates the allowed registries to the list provided via `ocp_allowed_registries`, `ocp_add_mas_registries` and/or `ocp_add_rh_registries`. All other registries not defined will be blocked.
 
 **Notes**:
+
 - **Important**: Currently works with ROSA HCP only
 - **Important**: Setting to `false` does NOT remove allowed registries list
 - **Required** for disconnected/air-gapped MAS installations
@@ -348,6 +353,7 @@ List allowed registries to be added to the cluster.
 **Impact**: Pods in the cluster can pull images from the list of registries defined.
 
 **Notes**:
+
 - **Important**: Currently works with ROSA HCP only
 - **Important**: Setting to `[]` does NOT remove allowed registries list
 - **Important**: When exporting OCP_ALLOWED_REGISTRIES use comma-separated string e.g. export OCP_ALLOWED_REGISTRIES=mas.ibm.com,abc.com
@@ -366,12 +372,14 @@ Adds MAS specific registries on top of what is defined in `ocp_allowed_registrie
 **When to use**: Required for air-gapped/disconnected environments.
 
 **Valid values**:
+
 - `true` - Add MAS registries to `ocp_allowed_registries`
 - `false` - Leave `ocp_allowed_registries` unchanged
 
 **Impact**: When `true`, appends the `ocp_allowed_registries` list with `icr.io`, `cp.icr.io`, `quay.io`, and `gcr.io`
 
 **Notes**:
+
 - **Important**: Currently works with ROSA HCP only
 - **Required** for disconnected/air-gapped MAS installations in ROSA HCP
 
@@ -388,12 +396,14 @@ Adds RedHat specific registries on top of what is defined in `ocp_allowed_regist
 **When to use**: Required for air-gapped/disconnected environments.
 
 **Valid values**:
+
 - `true` - Add RedHat registries to `ocp_allowed_registries`
 - `false` - Leave `ocp_allowed_registries` unchanged
 
 **Impact**: When `true`, appends the `ocp_allowed_registries` list with `icr.io`, `registry.redhat.io`, `registry.connect.redhat.com`, `ghcr.io`, `docker.io`, `nvcr.io`, and `gcr.io`
 
 **Notes**:
+
 - **Important**: Currently works with ROSA HCP only
 - **Required** for disconnected/air-gapped MAS installations in ROSA HCP
 
@@ -412,6 +422,7 @@ Update additional trusted CAs in the cluster.
 **When to use**: Required for air-gapped/disconnected environments.
 
 **Valid values**:
+
 - `true` - Update additional trusted CAs
 - `false` - Leave additional trusted CAs unchanged
 
@@ -420,6 +431,7 @@ Update additional trusted CAs in the cluster.
 **Related variables**: None
 
 **Notes**:
+
 - **Important**: Currently works with ROSA HCP only
 - **Important**: Setting to `false` does NOT remove additional trusted CAs
 - **Required** for disconnected/air-gapped MAS installations.
@@ -439,6 +451,7 @@ The path to the additional trusted CAs.
 **Related variables**: `ocp_update_additional_trusted_ca` (must be `true`)
 
 **Notes**:
+
 - **Important**: Currently works with ROSA HCP only
 - **Important**: CA file names must match the registry URL and end with `.crt` e.g., `ibm.com.crt`
 - You can have none, one or more CAs in the directory

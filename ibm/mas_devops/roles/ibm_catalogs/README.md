@@ -18,6 +18,7 @@ Version of the IBM Maximo Operator Catalog to install.
 **Purpose**: Specifies which version of the IBM Maximo Operator Catalog to install. The catalog provides certified operators compatible with MAS, including MAS Core, applications, and dependencies.
 
 **When to use**:
+
 - Leave as default to install the latest stable catalog version (recommended)
 - Set explicitly when you need a specific catalog version
 - Set to match your MAS version requirements
@@ -43,6 +44,7 @@ Artifactory username for accessing pre-release development catalogs (IBM employe
 **Purpose**: Provides authentication to IBM Artifactory for installing development catalog sources containing pre-release MAS operators. This enables testing of upcoming MAS versions before general availability.
 
 **When to use**:
+
 - Only for IBM employees with Artifactory access
 - Only for development/testing of pre-release MAS versions
 - Must be set together with `artifactory_token`
@@ -53,6 +55,7 @@ Artifactory username for accessing pre-release development catalogs (IBM employe
 **Impact**: When set with `artifactory_token`, enables installation of development catalog sources. Without both credentials, only production catalogs are available.
 
 **Related variables**:
+
 - `artifactory_token`: Required together with this username
 - Both must be set to enable development catalog access
 
@@ -68,6 +71,7 @@ Artifactory API token for accessing pre-release development catalogs (IBM employ
 **Purpose**: Provides API token authentication to IBM Artifactory for installing development catalog sources containing pre-release MAS operators. This enables testing of upcoming MAS versions before general availability.
 
 **When to use**:
+
 - Only for IBM employees with Artifactory access
 - Only for development/testing of pre-release MAS versions
 - Must be set together with `artifactory_username`
@@ -78,6 +82,7 @@ Artifactory API token for accessing pre-release development catalogs (IBM employ
 **Impact**: When set with `artifactory_username`, enables installation of development catalog sources. Without both credentials, only production catalogs are available.
 
 **Related variables**:
+
 - `artifactory_username`: Required together with this token
 - Both must be set to enable development catalog access
 
@@ -95,6 +100,7 @@ Directory path where IBM Operator Catalog backup files will be stored.
 **Purpose**: Specifies the local filesystem directory where backup archives will be created (for backup) or read from (for restore). This directory serves as the central location for all IBM Operator Catalog backup data.
 
 **When to use**:
+
 - Required when `ibm_catalogs_action` is set to `backup` or `restore`
 - Should be a persistent location with sufficient storage space
 - Ensure the directory is accessible and has appropriate permissions
@@ -118,12 +124,14 @@ Version identifier for the backup, used to create unique backup directories.
 **Purpose**: Provides a unique identifier for each backup, allowing multiple backups to coexist and enabling point-in-time restore operations.
 
 **When to use**:
+
 - For backup: Leave unset to auto-generate a timestamp-based version, or provide a custom identifier
 - For restore: Must specify the exact version identifier of the backup to restore
 
 **Valid values**: Any string suitable for directory names (alphanumeric, hyphens, underscores). Auto-generated format: `YYYYMMDD-HHMMSS` (e.g., `20260122-131500`)
 
 **Impact**:
+
 - For backup: Creates directory `{mas_backup_dir}/backup-{version}-catalog/`
 - For restore: Looks for backup in `{mas_backup_dir}/backup-{version}-catalog/`
 
@@ -169,6 +177,7 @@ The IBM Operator Catalog backup operation creates a backup of your catalog insta
 The IBM Operator Catalog restore operation performs a complete restoration of the catalog:
 
 **Steps:**
+
 1. Validates backup files and required variables
 2. Restores Secrets (or creates new `wiotp-docker-local` secret if `artifactory_username` and `artifactory_token` are provided)
 3. Restores ServiceAccounts
@@ -176,6 +185,7 @@ The IBM Operator Catalog restore operation performs a complete restoration of th
 5. Waits for CatalogSource to be ready (up to 30 minutes)
 
 **When to use:**
+
 - Disaster recovery scenarios
 - Migrating IBM Operator Catalog to a new cluster
 - Recreating a deleted catalog
@@ -184,21 +194,25 @@ The IBM Operator Catalog restore operation performs a complete restoration of th
 ### Important Considerations
 
 **Version Compatibility:**
+
 - Target catalog version should match the backup version
 - The restore process validates version compatibility before proceeding
 
 **Storage Requirements:**
+
 - Ensure sufficient storage in the backup directory
 - Backup directory structure: `{mas_backup_dir}/backup-{version}-catalog/`
 - Monitor disk space during backup operations
 
 **Security:**
+
 - Backup files contain catalog configuration and credentials (for development catalogs)
 - Secure backup directory with appropriate permissions (chmod 700 recommended)
 - Consider encrypting backups for long-term storage
 - Restrict access to backup files to authorized personnel only
 
 **Development Catalog Credentials:**
+
 - If restoring with new `artifactory_username` and `artifactory_token`, the restore will create a new secret instead of using the backed-up one
 - This allows updating credentials during restore if needed
 

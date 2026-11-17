@@ -72,6 +72,7 @@ The MAS Core backup operation creates a comprehensive backup of your MAS Core in
 The MAS Core backup operation captures all critical resources needed to restore a complete MAS Core instance:
 
 **Core Namespace Resources (`mas-{instance-id}-core`):**
+
 - **Projects/Namespaces**: The MAS Core namespace
 - **Secrets**:
   - Superuser credentials (`{instance-id}-credentials-superuser`)
@@ -100,6 +101,7 @@ The MAS Core backup operation captures all critical resources needed to restore 
   - SlsCfg (if `include_sls` is true)
 
 **Certificate Manager Resources:**
+
 - **ClusterIssuers**:
   - Public cluster issuer (detected automatically)
   - `mas-{instance-id}-core-internal-issuer`
@@ -160,21 +162,25 @@ The MAS Core backup operation performs the following steps:
 ### Important Considerations
 
 **Instance ID Requirement:**
+
 - Backup can only be restored to an instance with the same MAS instance ID
 - The instance ID is embedded in resource names and cannot be changed during restore
 
 **Storage Requirements:**
+
 - Ensure sufficient storage in the backup directory
 - Backup directory structure: `{mas_backup_dir}/backup-{version}-suite/`
 - Monitor disk space during backup operations
 
 **Security:**
+
 - Backup files contain sensitive data including credentials and certificates
 - Secure backup directory with appropriate permissions (chmod 700 recommended)
 - Consider encrypting backups for long-term storage
 - Restrict access to backup files to authorized personnel only
 
 **SLS and DRO Configuration:**
+
 - Use `include_sls=false` if you plan to install a new SLS during recovery
 - Use `include_dro=false` if you plan to install a new DRO during recovery
 - Default is `true` for both, which includes the configuration in the backup

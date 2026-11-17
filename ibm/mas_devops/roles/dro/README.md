@@ -1,5 +1,6 @@
 # dro
 DRO will be supported on the following MAS versions
+
 - MAS 8.10.6 +
 - MAS 8.11.2 +
 - MAS 9.0 +
@@ -25,6 +26,7 @@ Action to perform with the Data Reporter Operator deployment.
 **When to use**: Set to `uninstall` when removing DRO from the cluster. Use default `install` for normal deployment.
 
 **Valid values**:
+
 - `install` - Deploy and configure DRO
 - `uninstall` - Remove DRO from the cluster
 
@@ -71,6 +73,7 @@ IBM entitlement key for accessing container images.
 **Related variables**: None
 
 **Notes**:
+
 - Keep the entitlement key secure and do not commit it to version control
 - The key is associated with your IBM ID and product entitlements
 - Verify key validity before deployment to avoid installation failures
@@ -87,6 +90,7 @@ Storage class for DRO persistent volumes.
 **When to use**: Specify explicitly when using customized storage solutions or when automatic detection fails. The playbooks will attempt to auto-detect a suitable RWO storage class if not provided.
 
 **Valid values**: Any storage class name available in your cluster that supports ReadWriteOnce (RWO) access mode. Common examples:
+
 - IBM Cloud ROKS: `ibmc-block-gold`, `ibmc-block-silver`
 - AWS: `gp2`, `gp3`
 - Azure: `managed-premium`
@@ -97,6 +101,7 @@ Storage class for DRO persistent volumes.
 **Related variables**: None
 
 **Notes**:
+
 - Verify the storage class exists: `oc get storageclass`
 - The storage class must support RWO (Read Write Once) access mode
 - Auto-detection works for most standard cluster configurations
@@ -178,6 +183,7 @@ API token for authenticating to an existing DRO instance.
 **Related variables**: [`dro_endpoint_url`](#dro_endpoint_url), [`dro_crt_path`](#dro_crt_path)
 
 **Notes**:
+
 - Extract from secret: `oc get secret ibm-data-reporter-operator-api-token -n <dro-namespace> -o jsonpath='{.data.token}' | base64 -d`
 - Keep the API key secure
 
@@ -199,6 +205,7 @@ Path to DRO certificate file for TLS verification.
 **Related variables**: [`dro_endpoint_url`](#dro_endpoint_url), [`dro_api_key`](#dro_api_key)
 
 **Notes**:
+
 - Obtain certificate from `router-certs-default` secret in `openshift-ingress` namespace or `trustedCA` configmap in `openshift-config` namespace
 - Extract and save tls.crt contents to a .pem file
 - Example: `oc get secret router-certs-default -n openshift-ingress -o jsonpath='{.data.tls\.crt}' | base64 -d > /tmp/dro-cert.pem`
@@ -278,6 +285,7 @@ Custom labels to apply to DRO instance resources.
 **Related variables**: None
 
 **Notes**:
+
 - Labels must follow Kubernetes label syntax (alphanumeric, hyphens, underscores, dots)
 - Useful for cost allocation, resource queries, and automation scripts
 
@@ -299,6 +307,7 @@ Directory containing pod template configurations for DRO.
 **Related variables**: None
 
 **Notes**:
+
 - The configuration file must be named `ibm-mas-bascfg.yml`
 - Content should be a YAML block for the `podTemplates` element
 - See [BestEfforts reference configuration](https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/ibm-mas-bascfg.yml) for examples

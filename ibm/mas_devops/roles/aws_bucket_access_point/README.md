@@ -5,6 +5,7 @@ Create AWS S3 bucket access points with controlled permissions for secure, isola
 This role creates an access point associated with an existing S3 bucket and configures a read-only access policy for a specified AWS user or account.
 
 **Prerequisites**:
+
 - AWS CLI must be installed
 - AWS credentials configured via `aws configure` or environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
 - Target S3 bucket must already exist
@@ -32,6 +33,7 @@ Name for the S3 bucket access point.
 **Related variables**: `aws_access_point_bucket_name`, `aws_access_point_username`
 
 **Notes**:
+
 - Must be unique within the AWS account and region
 - Cannot be changed after creation
 - Use descriptive names for easier management
@@ -55,6 +57,7 @@ Name of the existing S3 bucket to associate with the access point.
 **Related variables**: `aws_access_point_region`, `aws_access_point_name`
 
 **Notes**:
+
 - Bucket must exist before creating the access point
 - Bucket and access point must be in the same region
 - Multiple access points can be created for the same bucket
@@ -78,6 +81,7 @@ AWS region where the bucket and access point are located.
 **Related variables**: `aws_access_point_bucket_name`
 
 **Notes**:
+
 - **Critical**: Must match the bucket's region exactly
 - Verify bucket region: `aws s3api get-bucket-location --bucket <bucket-name>`
 - Access point ARN includes the region
@@ -95,6 +99,7 @@ AWS IAM user or account ID granted access through the access point.
 **When to use**: Always required. Provide the IAM username or AWS account ID that needs read-only access to the bucket.
 
 **Valid values**:
+
 - IAM username (e.g., `backup-user`, `readonly-service`)
 - AWS account ID (12-digit number)
 
@@ -103,6 +108,7 @@ AWS IAM user or account ID granted access through the access point.
 **Related variables**: `aws_access_point_policy_actions`
 
 **Notes**:
+
 - Default policy grants read-only access (`s3:GetObject`, `s3:ListBucket`)
 - User must exist in the AWS account
 - Access point policy is separate from bucket policy
@@ -121,6 +127,7 @@ List of S3 actions allowed through the access point.
 **When to use**: Default read-only actions are suitable for most use cases. Modify in defaults file if different permissions are needed.
 
 **Valid values**: List of valid S3 action strings. Default actions:
+
 - `s3:GetObject` - Read object data
 - `s3:ListBucket` - List bucket contents
 
@@ -129,6 +136,7 @@ List of S3 actions allowed through the access point.
 **Related variables**: `aws_access_point_username`
 
 **Notes**:
+
 - Default provides read-only access
 - To grant write access, add actions like `s3:PutObject`, `s3:DeleteObject`
 - Access point policy works in conjunction with IAM and bucket policies

@@ -17,6 +17,7 @@ This role supports backing up MAS application resources and data. Currently supp
 Future support planned for: `iot`, `monitor`, `health`, `optimizer`, `visualinspection`
 
 The backup process creates a timestamped backup directory containing:
+
 1. **Namespace Resources**: Kubernetes resources including application CRs (ManageApp/FacilitiesApp, ManageWorkspace/FacilitiesWorkspace), secrets, and subscriptions
 2. **Persistent Volume Data**: Application data stored in PVCs (automatically detected from workspace CR)
 
@@ -83,6 +84,7 @@ Controls whether persistent volume data should be backed up for application. Whe
 When backing up the Manage application, the following resources are included:
 
 **Namespace Resources** (automatically backed up):
+
 - `ManageApp` CR
 - `ManageWorkspace` CR
 - Encryption secrets (dynamically determined from ManageWorkspace CR)
@@ -92,12 +94,14 @@ When backing up the Manage application, the following resources are included:
 - All referenced secrets (auto-discovered)
 
 **Persistent Volume Data** (automatically backed up if configured in ManageWorkspace CR):
+
 - All persistent volumes defined in `spec.settings.deployment.persistentVolumes`
 - Data is backed up as compressed tar.gz archives
 - Each PVC's mount path is archived separately
 - Archives are stored in the `data` subdirectory
 
 **NOT Included** (must be backed up separately):
+
 - Manage database (Db2) - use the [db2](db2.md) role
 - Suite-level resources - use the [suite_backup](suite_backup.md) role
 
@@ -105,6 +109,7 @@ When backing up the Manage application, the following resources are included:
 When backing up the Facilities application, the following resources are included:
 
 **Namespace Resources** (automatically backed up):
+
 - `FacilitiesApp` CR
 - `FacilitiesWorkspace` CR
 - Encryption secrets (dynamically determined from FacilitiesWorkspace CR)
@@ -114,12 +119,14 @@ When backing up the Facilities application, the following resources are included
 - All referenced secrets (auto-discovered)
 
 **Persistent Volume Data** (automatically backed up if configured in FacilitiesWorkspace CR):
+
 - All persistent volumes defined in `spec.settings.deployment.persistentVolumes`
 - Data is backed up as compressed tar.gz archives
 - Each PVC's mount path is archived separately
 - Archives are stored in the `data` subdirectory
 
 **NOT Included** (must be backed up separately):
+
 - Facilities database (Db2) - use the [db2](db2.md) role
 - Suite-level resources - use the [suite_backup](suite_backup.md) role
 
@@ -154,6 +161,7 @@ spec:
 ```
 
 This configuration will result in two tar.gz archives:
+
 - `mas-inst1-ws1-jmsserver-pvc.tar.gz`
 - `masms-inst1-ws1-fonts-pvc.tar.gz`
 
@@ -172,6 +180,7 @@ spec:
 ```
 
 This configuration will result in one tar.gz archive:
+
 - `mas-inst1-ws1-jmsserver-pvc.tar.gz`
 
 

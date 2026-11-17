@@ -29,6 +29,7 @@ AI Service instance identifier to upgrade.
 **Impact**: Determines which AI Service instance will be migrated. Incorrect instance ID will cause the upgrade to fail.
 
 **Notes**:
+
 - Must match the instance ID from AI Service installation
 - Verify instance exists before upgrading
 - Case-sensitive value
@@ -43,12 +44,14 @@ The subscription channel from which components such as the AI Service tenant ope
 **Purpose**: Specifies the target subscription channel to install AI Service components during the migration. If not provided, the role automatically selects the next appropriate version.
 
 **When to use**:
+
 - Must be set explicitly.
 - Must be a valid upgrade path from current version
 
 **Valid values**: Valid AI Service subscription channel (e.g., `9.0.x`, `9.1.x`)
 
 **Impact**: Determines the target version for AI Service migration. The role validates:
+
 - Upgrade path compatibility (can upgrade from current to target)
 
 #### force_migration
@@ -61,6 +64,7 @@ Skip any checks to determine if a migration is needed and perform the migration
 **Purpose**: If set to true, the migration will be performed regardless of whether a migration is needed.
 
 **When to use**:
+
 - When you want to force a migration due to an error occurring during the migration process
 
 **Valid values**: True or false

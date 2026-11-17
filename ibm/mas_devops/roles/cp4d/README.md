@@ -114,6 +114,7 @@ Cloud Pak for Data release version to install.
 **Purpose**: Specifies which CP4D release version to install or upgrade to. The version determines which Zen/Control Plane version and features are available.
 
 **When to use**:
+
 - Set explicitly when you need a specific CP4D version
 - Leave unset to use version matching the installed MAS catalog
 - Required for reproducible deployments
@@ -122,12 +123,14 @@ Cloud Pak for Data release version to install.
 **Valid values**: `5.2.0`, `5.3.1`, `5.4.0`
 
 **Impact**: 
+
 - `5.2.0`: Installs Zen/Control Plane 6.2.0 (OLM)
 - `5.3.1`: Installs Zen/Control Plane 6.4.0 (platform via OLM, services via Helm)
 - `5.4.0`: Installs Zen/Control Plane 6.10.0 (Helm)
 Different versions have different features and compatibility requirements.
 
 **Related variables**:
+
 - Determines compatible service versions
 - Affects `cpd_scale_config` options
 
@@ -143,6 +146,7 @@ IBM entitlement key for accessing container images.
 **Purpose**: Provides authentication to IBM Container Registry for pulling CP4D container images. This key grants access to entitled software.
 
 **When to use**:
+
 - Always required for CP4D installation
 - Obtain from [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - Must have valid entitlement for CP4D
@@ -152,6 +156,7 @@ IBM entitlement key for accessing container images.
 **Impact**: Without a valid key, image pulls will fail and CP4D installation cannot proceed. Key must have CP4D entitlement.
 
 **Related variables**:
+
 - `cpd_entitlement_key`: CP4D-specific override (primarily for development)
 
 **Note**: Keep this key secure and do not commit to source control. The key is tied to your IBM account and entitlements. Can be overridden by `cpd_entitlement_key` for CP4D-specific scenarios.
@@ -166,6 +171,7 @@ CP4D-specific entitlement key override (primarily for development).
 **Purpose**: Provides a CP4D-specific entitlement key that overrides the general `ibm_entitlement_key`. Primarily used in development scenarios.
 
 **When to use**:
+
 - Leave unset for standard deployments (uses `ibm_entitlement_key`)
 - Set when you need a different key specifically for CP4D
 - Useful in development/testing with separate entitlements
@@ -175,6 +181,7 @@ CP4D-specific entitlement key override (primarily for development).
 **Impact**: When set, this key is used instead of `ibm_entitlement_key` for CP4D image pulls. If not set, falls back to `ibm_entitlement_key`.
 
 **Related variables**:
+
 - `ibm_entitlement_key`: General entitlement key (used if this is not set)
 
 **Note**: Most deployments should use `ibm_entitlement_key` only. This override is primarily for development scenarios where different keys are needed for different components.
@@ -189,6 +196,7 @@ Primary storage class for CP4D (must support ReadWriteMany).
 **Purpose**: Specifies the storage class for CP4D primary storage, which requires ReadWriteMany (RWX) access mode for file storage.
 
 **When to use**:
+
 - Leave unset for automatic detection if known storage classes exist
 - Set explicitly when using custom or non-standard storage classes
 - Must support RWX access mode for shared file storage
@@ -198,6 +206,7 @@ Primary storage class for CP4D (must support ReadWriteMany).
 **Impact**: CP4D uses this for shared file storage across pods. Incorrect storage class or one not supporting RWX will cause deployment to fail.
 
 **Related variables**:
+
 - `cpd_metadata_storage_class`: Separate storage for metadata (RWO)
 
 **Note**: Known supported classes: `ibmc-file-gold-gid` (IBM Cloud), `ocs-storagecluster-cephfs` (OCS), `azurefiles-premium` (Azure). See [CP4D Storage Considerations](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.6.x?topic=planning-storage-considerations) for details.
@@ -212,6 +221,7 @@ Storage class for CP4D Zen metadata database (must support ReadWriteOnce).
 **Purpose**: Specifies the storage class for CP4D Zen metadata database, which requires ReadWriteOnce (RWO) access mode for block storage.
 
 **When to use**:
+
 - Leave unset for automatic detection if known storage classes exist
 - Set explicitly when using custom or non-standard storage classes
 - Must support RWO access mode for block storage
@@ -221,6 +231,7 @@ Storage class for CP4D Zen metadata database (must support ReadWriteOnce).
 **Impact**: CP4D Zen metadata database uses this for persistent storage. Incorrect storage class or one not supporting RWO will cause deployment to fail.
 
 **Related variables**:
+
 - `cpd_primary_storage_class`: Separate storage for primary/file storage (RWX)
 
 **Note**: Known supported classes: `ibmc-block-gold` (IBM Cloud), `ocs-storagecluster-ceph-rbd` (OCS), `managed-premium` (Azure). Block storage typically provides better performance for databases.
@@ -235,6 +246,7 @@ Namespace for CP4D operators installation.
 **Purpose**: Specifies the namespace where CP4D operators will be installed. This follows the specialized installation model with separate operator and instance namespaces.
 
 **When to use**:
+
 - Use default (`ibm-cpd-operators`) for standard deployments
 - Set custom namespace for specific organizational requirements
 - Must be different from `cpd_instance_namespace`
@@ -244,6 +256,7 @@ Namespace for CP4D operators installation.
 **Impact**: All CP4D operators (platform, zen, common services, etc.) are installed in this namespace. The namespace must not conflict with the instance namespace.
 
 **Related variables**:
+
 - `cpd_instance_namespace`: Separate namespace for CP4D instance workloads
 
 **Note**: CP4D uses a specialized installation model with operators in one namespace (`ibm-cpd-operators`) and instance workloads in another (`ibm-cpd`). This provides better isolation and management.
@@ -258,6 +271,7 @@ Namespace for CP4D instance workloads.
 **Purpose**: Specifies the namespace where CP4D instance workloads (Zen, services, databases) will be deployed. Operators in `cpd_operators_namespace` watch and manage resources in this namespace.
 
 **When to use**:
+
 - Use default (`ibm-cpd`) for standard deployments
 - Set custom namespace for specific organizational requirements
 - Must be different from `cpd_operators_namespace`
@@ -267,6 +281,7 @@ Namespace for CP4D instance workloads.
 **Impact**: All CP4D instance workloads (Zen, MinIO, PostgreSQL, services) are deployed in this namespace. Operators watch this namespace for custom resources.
 
 **Related variables**:
+
 - `cpd_operators_namespace`: Separate namespace for CP4D operators
 
 **Note**: CP4D uses a specialized installation model with operators in `ibm-cpd-operators` and instance workloads in `ibm-cpd`. This separation provides better isolation and follows CP4D best practices.
@@ -281,6 +296,7 @@ Resource scaling configuration for CP4D instance.
 **Purpose**: Adjusts resource allocation (CPU, memory, replicas) for CP4D components to match workload requirements and increase processing capacity.
 
 **When to use**:
+
 - Use `medium` (default) for standard production deployments
 - Use `small` for development/test environments
 - Use `large` for high-capacity production environments
@@ -291,6 +307,7 @@ Resource scaling configuration for CP4D instance.
 **Impact**: Determines resource requests/limits and replica counts for CP4D components. Larger scales require more cluster resources but provide better performance and capacity.
 
 **Related variables**:
+
 - `cpd_product_version`: Available scale options may vary by version
 
 **Note**: See [Managing resources](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=services-manually-scaling#reference_mkn_x4g_wpb__control-plane-scale) for detailed resource requirements per scale configuration. Ensure your cluster has sufficient resources for the selected scale.
@@ -305,6 +322,7 @@ CP4D admin username for API authentication.
 **Purpose**: Specifies the CP4D admin username for authenticating with CP4D APIs. Used when the role needs to interact with CP4D services.
 
 **When to use**:
+
 - Leave as default (`cpadmin`) if you haven't changed the initial admin username
 - Set explicitly if you changed the admin username after CP4D installation
 - Required for API operations that need admin authentication
@@ -314,6 +332,7 @@ CP4D admin username for API authentication.
 **Impact**: Used for CP4D API authentication. Incorrect username will cause API operations to fail.
 
 **Related variables**:
+
 - `cpd_admin_password`: Password for this admin user
 
 **Note**: The default `cpadmin` is the standard CP4D admin username. Only change if you've customized the admin username after installation.
@@ -328,6 +347,7 @@ CP4D admin password for API authentication.
 **Purpose**: Specifies the CP4D admin password for authenticating with CP4D APIs. Used when the role needs to interact with CP4D services.
 
 **When to use**:
+
 - Leave unset (recommended) to auto-retrieve from cluster secret
 - Set explicitly if you changed the admin password after CP4D installation
 - Required for API operations that need admin authentication
@@ -337,6 +357,7 @@ CP4D admin password for API authentication.
 **Impact**: Used for CP4D API authentication. If not set, the role retrieves the initial admin password from the cluster. Incorrect password will cause API operations to fail.
 
 **Related variables**:
+
 - `cpd_admin_username`: Username for this admin password
 - `cpd_instance_namespace`: Namespace containing the password secret
 
