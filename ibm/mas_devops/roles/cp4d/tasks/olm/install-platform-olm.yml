@@ -17,47 +17,40 @@
 - name: "Check Cloud Pak for Data pre-requisites"
   include_tasks: "../prereq-check/main.yml"
 
-# 4. Disable CPFS v3 (OLM only)
-# -----------------------------------------------------------------------------
-- include_tasks: "../prereqs/disable-cpfs-v3.yml"
-  when:
-    - cpfs_installed_version is defined
-    - cpfs_installed_version is version(cpd_cpfs_minimum_csv_version, '<=') # this is true if CPFS v3 is installed
-
-# 5. Determine storage classes
+# 4. Determine storage classes
 # -----------------------------------------------------------------------------
 - name: "Determine storage classes"
   include_tasks: "../determine-storage-classes.yml"
 
-# 6. Authorizing a user to act as an IBM Cloud Pak for Data instance administrator
+# 5. Authorizing a user to act as an IBM Cloud Pak for Data instance administrator
 # -----------------------------------------------------------------------------
 - name: "Grant permissions to {{ cpd_admin_login_sa }} service account in Cloud Pak For Data namespaces"
   include_tasks: "../authorize-user-cpd-admin.yml"
 
-# 7. Install specific catalog sources
+# 6. Install specific catalog sources
 # -----------------------------------------------------------------------------
 - include_tasks: "../create-catalog-sources.yml"
 
-# 8. Install NamespaceScope
+# 7. Install NamespaceScope
 # -----------------------------------------------------------------------------
 - include_tasks: "../prereqs/install-ibm-namespace-scope.yml"
 
-# 9. Install IBM Licensing
+# 8. Install IBM Licensing
 # -----------------------------------------------------------------------------
 - include_tasks: "../prereqs/install-ibm-licensing.yml"
 
-# 10. Install Cloud Pak Foundational Services
+# 9. Install Cloud Pak Foundational Services
 # -----------------------------------------------------------------------------
 - include_tasks: "../prereqs/install-cpfs.yml"
   when:
     - cpfs_installed_version is not defined or cpfs_installed_version != cpfs_version
 
-# 11. Install Cloud Pak for Data subscription/operator
+# 10. Install Cloud Pak for Data subscription/operator
 # -----------------------------------------------------------------------------
 - name: "Create Cloud Pak for Data Subscription"
   include_tasks: "../create-subscriptions.yml"
 
-# 12. Install and Configure Cloud Pak For Data (shared tasks)
+# 11. Install and Configure Cloud Pak For Data (shared tasks)
 # -----------------------------------------------------------------------------
 - name: "Install and Configure Cloud Pak For Data (shared tasks)"
   include_tasks: "../install-cp4d.yml"

@@ -1,0 +1,121 @@
+---
+# Customer files action (was suite_manage_customer_files_config)
+# Configure IBM COS / AWS S3 buckets to store customer files for the Manage
+# application. This action provisions the three buckets (main, recovery and
+# backup), the AWS IAM access when required, and imports the storage certificates
+# into the ManageWorkspace CR. The buckets are consumed by Manage out-of-band:
+# no storage settings are written to the ManageWorkspace CR itself.
+# ========================================================================
+
+# Assertions: preliminary validations
+# ------------------------------------------------------------------------
+- name: "custfiles : Fail if mas_manage_custfiles_provider is not supported"
+  assert:
+    that: mas_manage_custfiles_provider is defined and mas_manage_custfiles_provider in mas_manage_custfiles_provider_supported
+    fail_msg: "mas_manage_custfiles_provider property is required and must be set to one of the supported storage providers: {{ mas_manage_custfiles_provider_supported }}"
+
+# Configure the buckets
+# ------------------------------------------------------------------------
+- name: "custfiles : Configure {{ mas_manage_custfiles_provider }} bucket for {{ custfiles_bucketname }}"
+  include_role:
+    name: ibm.mas_devops.cos_bucket
+  vars:
+    cos_type: "{{ mas_manage_custfiles_provider }}"
+    aws_bucket_name: "{{ custfiles_bucketname }}"
+    cos_bucket_name: "{{ custfiles_bucketname }}"
+
+- name: "custfiles : Configure {{ mas_manage_custfiles_provider }} bucket for {{ custfiles_bucketname_recovery }}"
+  include_role:
+    name: ibm.mas_devops.cos_bucket
+  vars:
+    cos_type: "{{ mas_manage_custfiles_provider }}"
+    aws_bucket_name: "{{ custfiles_bucketname_recovery }}"
+    cos_bucket_name: "{{ custfiles_bucketname_recovery }}"
+
+- name: "custfiles : Configure {{ mas_manage_custfiles_provider }} bucket for {{ custfiles_bucketname_backup }}"
+  include_role:
+    name: ibm.mas_devops.cos_bucket
+  vars:
+    cos_type: "{{ mas_manage_custfiles_provider }}"
+    aws_bucket_name: "{{ custfiles_bucketname_backup }}"
+    cos_bucket_name: "{{ custfiles_bucketname_backup }}"
+
+# Set up AWS IAM access covering all three buckets (read-only user is not needed for customer files)
+# ------------------------------------------------------------------------
+- name: "custfiles : Set aws read-write username"
+  set_fact:
+    aws_custfiles_read_write_username: "{{ custfiles_bucketname }}-sid-rw"
+  when:
+    - aws_custfiles_read_write_username is not defined or aws_custfiles_read_write_username == ''
+
+- name: "custfiles : Create policy to access the buckets in read-write mode"
+  import_role:
+    name: ibm.mas_devops.aws_policy
+  vars:
+    aws_policy_name: "{{ aws_custfiles_read_write_username }}-read-write-policy"
+    aws_policy_statement:
+      - Sid: VisualEditor0
+        Effect: Allow
+        Action:
+          - s3:GetObject
+          - s3:ListBucket
+          - s3:DeleteObject
+          - s3:PutObject
+        Resource:
+          - "arn:aws:s3:::{{ custfiles_bucketname }}/*"
+          - "arn:aws:s3:::{{ custfiles_bucketname }}"
+          - "arn:aws:s3:::{{ custfiles_bucketname_backup }}/*"
+          - "arn:aws:s3:::{{ custfiles_bucketname_backup }}"
+          - "arn:aws:s3:::{{ custfiles_bucketname_recovery }}/*"
+          - "arn:aws:s3:::{{ custfiles_bucketname_recovery }}"
+  when: mas_manage_custfiles_provider == 'aws'
+
+- name: "custfiles : Set read-write policy ARN"
+  set_fact:
+    s3readwrite_policy_arn: "{{ s3_policy_arn }}"
+  when: mas_manage_custfiles_provider == 'aws'
+
+- name: "custfiles : Create AWS IAM user and attach policies to access the 3 buckets in read-write mode"
+  import_role:
+    name: ibm.mas_devops.aws_user_creation
+  vars:
+    aws_username: "{{ aws_custfiles_read_write_username }}"
+    aws_username_create_access_key_flag: True
+    aws_policy_arn: "{{ s3readwrite_policy_arn }}"
+  when: mas_manage_custfiles_provider == 'aws'
+
+- name: "custfiles : Set access key id & secret access key variables"
+  set_fact:
+    cos_access_key_id: "{{ aws_new_user_access_key_id }}"
+    cos_secret_access_key: "{{ aws_new_user_secret_access_key }}"
+    cos_username: "{{ aws_custfiles_read_write_username }}"
+  no_log: true
+  when: mas_manage_custfiles_provider == 'aws'
+
+# Retrieve the storage certificates and import them into the ManageWorkspace CR
+# ------------------------------------------------------------------------
+- name: "custfiles : Retrieve {{ mas_manage_custfiles_provider }} certificates"
+  vars:
+    cos_type: "{{ mas_manage_custfiles_provider }}"
+  include_tasks: "tasks/common/retrieve-cos-certs.yml"
+
+- name: "custfiles : Add the {{ mas_manage_custfiles_provider | upper }} COS certificates in ManageWorkspace CR"
+  vars:
+    manage_certificates: "{{ cos_tls_crt }}"
+    manage_certificates_alias_prefix: "{{ mas_manage_custfiles_provider }}coscertpart"
+  include_tasks: "tasks/common/import-certs.yml"
+
+- name: "custfiles : Wait for ManageWorkspace to be ready"
+  include_tasks: "tasks/common/wait-manageworkspace-ready.yml"
+  vars:
+    manage_ws_wait_retries: 20
+    manage_ws_wait_delay: 60
+
+- name: "custfiles : Debug information"
+  vars:
+    custfiles_debug_username: "{{ cos_username | default('<not set>') }}"
+  debug:
+    msg:
+      - "{{ mas_manage_custfiles_provider | upper }} Bucket Names .................. [{{ custfiles_bucketname }}, {{ custfiles_bucketname_backup }}, {{ custfiles_bucketname_recovery }}]"
+      - "{{ mas_manage_custfiles_provider | upper }} Username ...................... {{ custfiles_debug_username }}"
+      - "Note: bucket credentials are set but intentionally not printed"

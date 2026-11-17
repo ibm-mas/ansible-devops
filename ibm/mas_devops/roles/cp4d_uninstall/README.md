@@ -2,7 +2,7 @@
 
 Uninstall IBM Cloud Pak for Data and all its services from an OpenShift cluster. This role provides a clean removal process for CP4D, removing all services, platform components, prerequisites, and optionally namespaces and persistent data.
 
-The role supports uninstallation of all CP4D components including Watson Studio, Watson Machine Learning, Analytics Engine (Spark), Cognos Analytics, and the CP4D platform itself.
+The role supports uninstallation of all CP4D components including Watson Studio, Watson Machine Learning, Analytics Engine (Spark), and the CP4D platform itself.
 
 !!! warning "Destructive Operation"
     This role performs destructive operations that cannot be undone. Always backup critical data before running this role. By default, PVCs are preserved, but this can be changed with the `cpd_uninstall_delete_pvcs` variable.
@@ -11,7 +11,7 @@ The role supports uninstallation of all CP4D components including Watson Studio,
 
 The role follows a specific order to ensure clean uninstallation:
 
-1. **Services** - Watson Studio, Watson Machine Learning, Spark, Cognos Analytics, CCS, DataRefinery
+1. **Services** - Watson Studio, Watson Machine Learning, Spark, CCS, DataRefinery
 2. **Platform** - ZenService and Ibmcpd custom resources
 3. **Prerequisites** - CPFS, NamespaceScope, IBM Licensing
 4. **ODLM Cleanup** - OperandRequest, OperandConfig, and OperandRegistry resources in both instance and operators namespaces
@@ -323,7 +323,7 @@ ansible-playbook ibm.mas_devops.run_role
 - The role includes appropriate wait conditions and retries
 
 ### What Gets Removed
-- All CP4D service custom resources (Watson Studio, WML, Spark, Cognos)
+- All CP4D service custom resources (Watson Studio, WML, Spark)
 - CP4D platform custom resources (ZenService, Ibmcpd)
 - CPFS, NamespaceScope, and IBM Licensing
 - All operator subscriptions and CSVs
