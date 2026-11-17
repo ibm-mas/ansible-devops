@@ -4,6 +4,7 @@
 
 .DEFAULT_GOAL := all
 
+all: build install
 build:
 	ansible-galaxy collection build --output-path . ibm/mas_devops --force
 install:
@@ -15,4 +16,13 @@ clean:
 	rm -rf target
 	rm -rf context
 
-all: build install
+
+# Python Package Documentation
+# -----------------------------------------------------------------------------
+.venv-docs:
+	uv venv .venv-docs
+	uv pip install --python .venv-docs/bin/python -q mkdocs properdocs mkdocs-carbon mkdocs-glightbox mkdocs-redirects mkdocs-gen-files
+
+.PHONY: mkdocs-serve
+mkdocs-serve: .venv-docs
+	.venv-docs/bin/mkdocs serve --livereload --dev-addr localhost:9011

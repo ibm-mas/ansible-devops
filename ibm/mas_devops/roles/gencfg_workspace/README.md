@@ -7,130 +7,62 @@ This role generates a Workspace custom resource configuration file for Maximo Ap
 
 ## Role Variables
 
-### mas_instance_id
-MAS instance identifier for the workspace.
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`mas_instance_id`](#mas_instance_id) | Yes | None |
+| [`mas_workspace_id`](#mas_workspace_id) | Yes | None |
+| [`mas_workspace_name`](#mas_workspace_name) | Yes | None |
+| [`mas_config_dir`](#mas_config_dir) | Yes | None |
+| [`custom_labels`](#custom_labels) | No | None |
+
+### Workspace Definition
+
+#### mas_instance_id
+MAS instance identifier the workspace will be associated with — a lowercase alphanumeric string, 3-12 characters (e.g. `prod`, `dev`, `masinst1`), matching the instance ID from the MAS installation.
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default: None
 
-**Purpose**: Identifies which MAS instance the workspace configuration will be generated for. The workspace will be associated with this instance.
+The generated configuration file is named and structured for this specific instance. Multiple workspaces can exist within a single MAS instance, each with its own ID and configuration.
 
-**When to use**:
-- Always required for workspace configuration generation
-- Must match the instance ID from MAS installation
-- Used to create instance-specific workspace configurations
-
-**Valid values**: Lowercase alphanumeric string, 3-12 characters (e.g., `prod`, `dev`, `masinst1`)
-
-**Impact**: Determines which MAS instance the workspace belongs to. The generated configuration file will be named and structured for this specific instance.
-
-**Related variables**:
-- `mas_workspace_id`: Workspace identifier within this instance
-- `mas_config_dir`: Directory where instance-specific config is saved
-
-**Note**: Multiple workspaces can exist within a single MAS instance, each with its own ID and configuration.
-
-### mas_workspace_id
-Workspace identifier.
+#### mas_workspace_id
+Unique technical identifier for the workspace within the MAS instance — a lowercase alphanumeric string, typically 3-12 characters (e.g. `prod`, `dev`, `masdev`, `qa`).
 
 - **Required**
 - Environment Variable: `MAS_WORKSPACE_ID`
 - Default: None
 
-**Purpose**: Defines the unique identifier for the workspace within the MAS instance. This ID is used in URLs, API calls, and resource names.
+This ID is used in URLs (e.g. `https://instance.mas.com/masdev`), API calls, Kubernetes resource names, and the generated filename. Choose a meaningful ID that reflects the workspace purpose — it cannot be changed after workspace creation.
 
-**When to use**:
-- Always required for workspace configuration
-- Must be unique within the MAS instance
-- Used as the technical identifier for the workspace
-
-**Valid values**: Lowercase alphanumeric string, typically 3-12 characters (e.g., `prod`, `dev`, `masdev`, `qa`)
-
-**Impact**: Determines the workspace's technical identifier. This ID appears in URLs (e.g., `https://instance.mas.com/masdev`) and Kubernetes resource names.
-
-**Related variables**:
-- `mas_instance_id`: Parent instance for this workspace
-- `mas_workspace_name`: Human-readable display name
-
-**Note**: Choose a meaningful ID that reflects the workspace purpose (e.g., `prod`, `dev`, `qa`). The ID cannot be changed after workspace creation.
-
-### mas_workspace_name
-Workspace display name.
+#### mas_workspace_name
+Human-readable display name for the workspace, shown in the MAS user interface — any string, typically 3-50 characters (e.g. `Production`, `Development`, `MAS Development`, `QA Environment`).
 
 - **Required**
 - Environment Variable: `MAS_WORKSPACE_NAME`
 - Default: None
 
-**Purpose**: Defines the human-readable display name for the workspace shown in the MAS user interface.
+Unlike the workspace ID, this name can include spaces and special characters, and it can be changed after creation if needed.
 
-**When to use**:
-- Always required for workspace configuration
-- Should be descriptive and user-friendly
-- Displayed in MAS UI and documentation
+### Configuration Output
 
-**Valid values**: Any string, typically 3-50 characters (e.g., `Production`, `Development`, `MAS Development`, `QA Environment`)
-
-**Impact**: Determines how the workspace appears to users in the MAS interface. Unlike the workspace ID, this name can include spaces and special characters.
-
-**Related variables**:
-- `mas_workspace_id`: Technical identifier for this workspace
-- `mas_instance_id`: Parent instance
-
-**Note**: Use a clear, descriptive name that helps users identify the workspace purpose. This name can be changed after creation if needed.
-
-### mas_config_dir
-Configuration output directory.
+#### mas_config_dir
+Local directory where the generated workspace configuration YAML file is written — a valid, writable local filesystem path such as `/home/user/masconfig` or `~/masconfig/inst1`.
 
 - **Required**
 - Environment Variable: `MAS_CONFIG_DIR`
 - Default: None
 
-**Purpose**: Specifies the local directory path where the generated workspace configuration file will be saved.
+The directory is created if it doesn't exist. The generated file can then be applied manually with `oc apply` or automatically with the `suite_config` role; organizing configs by instance ID (e.g. `/masconfig/inst1/`, `/masconfig/inst2/`) keeps things clear.
 
-**When to use**:
-- Always required for configuration generation
-- Should be a writable directory path
-- Typically organized by instance ID
-
-**Valid values**: Valid local filesystem path (e.g., `/home/user/masconfig`, `~/masconfig/inst1`)
-
-**Impact**: Determines where the workspace configuration YAML file is written. The file can then be applied manually with `oc apply` or automatically with the `suite_config` role.
-
-**Related variables**:
-- `mas_instance_id`: Used to organize configs by instance
-- `mas_workspace_id`: Used in the generated filename
-
-**Note**: The directory will be created if it doesn't exist. Organize configs by instance ID for clarity (e.g., `/masconfig/inst1/`, `/masconfig/inst2/`).
-
-### custom_labels
-Custom Kubernetes labels for workspace resources.
+#### custom_labels
+Custom Kubernetes labels to add to the generated workspace resources — comma-separated key=value pairs (e.g. `env=prod,team=operations,cost-center=12345`).
 
 - **Optional**
 - Environment Variable: `CUSTOM_LABELS`
 - Default: None
 
-**Purpose**: Adds custom labels to workspace-specific Kubernetes resources for organization, tracking, or automation purposes.
-
-**When to use**:
-- Optional for most deployments
-- Use for resource organization and filtering
-- Helpful for cost tracking, ownership, or automation
-- Common in multi-tenant or managed environments
-
-**Valid values**: Comma-separated key=value pairs (e.g., `env=prod,team=operations,cost-center=12345`)
-
-**Impact**: Adds the specified labels to workspace resources. Labels can be used for:
-- Resource filtering and selection
-- Cost allocation and tracking
-- Automation and policy enforcement
-- Organizational categorization
-
-**Related variables**:
-- `mas_workspace_id`: Workspace these labels apply to
-
-**Note**: Labels must follow Kubernetes naming conventions (alphanumeric, hyphens, dots, max 63 chars per segment). Common uses include environment tags, team ownership, and cost center tracking.
-
+Useful for resource organization and filtering, cost allocation and tracking, automation and policy enforcement, and organizational categorization — common in multi-tenant or managed environments. Labels must follow Kubernetes naming conventions (alphanumeric, hyphens, dots, max 63 chars per segment); common uses include environment tags, team ownership, and cost center tracking.
 
 ## Example Playbook
 
@@ -146,8 +78,6 @@ Custom Kubernetes labels for workspace resources.
 
   roles:
     - ibm.mas_devops.gencfg_workspace
-
-
 ```
 
 ## License

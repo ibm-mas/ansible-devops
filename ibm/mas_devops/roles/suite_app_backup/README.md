@@ -1,5 +1,6 @@
+# suite_app_backup
+
 Backup MAS Applications
-===============================================================================
 
 !!! important
 
@@ -7,8 +8,7 @@ Backup MAS Applications
 
     Backup can only be restored to an instance with the same MAS instance ID.
 
-Overview
--------------------------------------------------------------------------------
+## Overview
 This role supports backing up MAS application resources and data. Currently supported applications:
 
 - **`manage`**: Backs up Manage namespace resources (CRs, secrets, subscriptions) and persistent volume data
@@ -17,70 +17,87 @@ This role supports backing up MAS application resources and data. Currently supp
 Future support planned for: `iot`, `monitor`, `health`, `optimizer`, `visualinspection`
 
 The backup process creates a timestamped backup directory containing:
+
 1. **Namespace Resources**: Kubernetes resources including application CRs (ManageApp/FacilitiesApp, ManageWorkspace/FacilitiesWorkspace), secrets, and subscriptions
 2. **Persistent Volume Data**: Application data stored in PVCs (automatically detected from workspace CR)
 
 !!! important
+
     - An application backup can only be restored to an instance with the same MAS instance ID
     - This role backs up application resources and PV data only. Database backups must be performed separately using the appropriate database backup role
     - For Manage, see the [db2](db2.md) role for database backup
     - For Facilities, see the [db2](db2.md) role for database backup
 
+## Role Variables
 
-Role Variables - General
--------------------------------------------------------------------------------
-### mas_app_id
-Defines the MAS application ID for the backup action.
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`mas_app_id`](#mas_app_id) | Yes | None |
+| [`mas_instance_id`](#mas_instance_id) | Yes | None |
+| [`mas_workspace_id`](#mas_workspace_id) | Yes | None |
+| [`mas_backup_dir`](#mas_backup_dir) | Yes | None |
+| [`mas_app_backup_version`](#mas_app_backup_version) | No | Auto-generated timestamp |
+| [`mas_app_backup_include_pvc`](#mas_app_backup_include_pvc) | No | `true` |
+
+### Backup Target
+
+#### mas_app_id
+
+Defines the MAS application ID for the backup action — currently supported values are `manage` and `facilities`.
 
 - **Required**
 - Environment Variable: `MAS_APP_ID`
 - Default: None
-- Valid Values: `manage`, `facilities` (currently supported)
 
-### mas_instance_id
+#### mas_instance_id
+
 Defines the MAS instance ID for the backup action.
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default: None
 
-### mas_workspace_id
+#### mas_workspace_id
+
 Defines the MAS workspace ID for the backup action.
 
 - **Required**
 - Environment Variable: `MAS_WORKSPACE_ID`
 - Default: None
 
-### mas_backup_dir
-Defines the directory where backups will be stored. The role will create a timestamped subdirectory within this location.
+#### mas_backup_dir
+
+Defines the directory where backups will be stored, for example `/backup/mas`. The role will create a timestamped subdirectory within this location.
 
 - **Required**
 - Environment Variable: `MAS_BACKUP_DIR`
 - Default: None
-- Example: `/backup/mas`
 
-### mas_app_backup_version
-Optional custom version identifier for the backup. If not specified, defaults to timestamp format `YYYYMMDD-HHMMSS`.
+### Backup Options
 
-- Optional
+#### mas_app_backup_version
+
+Optional custom version identifier for the backup, for example `20240315-143022` or `v1.0-prod`.
+
+- **Optional**
 - Environment Variable: `MAS_APP_BACKUP_VERSION`
-- Default: Auto-generated timestamp
-- Example: `20240315-143022` or `v1.0-prod`
+- Default: Auto-generated timestamp in `YYYYMMDD-HHMMSS` format
 
-### mas_app_backup_include_pvc
-Controls whether persistent volume data should be backed up for application. When set to `false`, only namespace resources (CRs, secrets, subscriptions) are backed up, and PVC data is skipped.
+#### mas_app_backup_include_pvc
 
-- Optional
+Controls whether persistent volume data is backed up for the application — valid values are `true` and `false`. When set to `false`, only namespace resources (CRs, secrets, subscriptions) are backed up, and PVC data is skipped.
+
+- **Optional**
 - Environment Variable: `MAS_APP_BACKUP_INCLUDE_PVC`
 - Default: `true`
-- Valid Values: `true`, `false`
 
-What Gets Backed Up
--------------------------------------------------------------------------------
+## What Gets Backed Up
+
 ### Manage Application
 When backing up the Manage application, the following resources are included:
 
 **Namespace Resources** (automatically backed up):
+
 - `ManageApp` CR
 - `ManageWorkspace` CR
 - Encryption secrets (dynamically determined from ManageWorkspace CR)
@@ -90,12 +107,14 @@ When backing up the Manage application, the following resources are included:
 - All referenced secrets (auto-discovered)
 
 **Persistent Volume Data** (automatically backed up if configured in ManageWorkspace CR):
+
 - All persistent volumes defined in `spec.settings.deployment.persistentVolumes`
 - Data is backed up as compressed tar.gz archives
 - Each PVC's mount path is archived separately
 - Archives are stored in the `data` subdirectory
 
 **NOT Included** (must be backed up separately):
+
 - Manage database (Db2) - use the [db2](db2.md) role
 - Suite-level resources - use the [suite_backup](suite_backup.md) role
 
@@ -103,6 +122,7 @@ When backing up the Manage application, the following resources are included:
 When backing up the Facilities application, the following resources are included:
 
 **Namespace Resources** (automatically backed up):
+
 - `FacilitiesApp` CR
 - `FacilitiesWorkspace` CR
 - Encryption secrets (dynamically determined from FacilitiesWorkspace CR)
@@ -112,18 +132,19 @@ When backing up the Facilities application, the following resources are included
 - All referenced secrets (auto-discovered)
 
 **Persistent Volume Data** (automatically backed up if configured in FacilitiesWorkspace CR):
+
 - All persistent volumes defined in `spec.settings.deployment.persistentVolumes`
 - Data is backed up as compressed tar.gz archives
 - Each PVC's mount path is archived separately
 - Archives are stored in the `data` subdirectory
 
 **NOT Included** (must be backed up separately):
+
 - Facilities database (Db2) - use the [db2](db2.md) role
 - Suite-level resources - use the [suite_backup](suite_backup.md) role
 
 
-How Persistent Volume Backup Works
--------------------------------------------------------------------------------
+## How Persistent Volume Backup Works
 The role automatically detects and backs up persistent volumes configured in the application workspace CR (ManageWorkspace or FacilitiesWorkspace):
 
 1. **Detection**: Reads `spec.settings.deployment.persistentVolumes` from the workspace CR
@@ -153,6 +174,7 @@ spec:
 ```
 
 This configuration will result in two tar.gz archives:
+
 - `mas-inst1-ws1-jmsserver-pvc.tar.gz`
 - `masms-inst1-ws1-fonts-pvc.tar.gz`
 
@@ -171,14 +193,14 @@ spec:
 ```
 
 This configuration will result in one tar.gz archive:
+
 - `mas-inst1-ws1-jmsserver-pvc.tar.gz`
 
 
-Backup Directory Structure
--------------------------------------------------------------------------------
+## Backup Directory Structure
 The role creates a backup directory with the following structure:
 
-```
+```text
 <mas_backup_dir>/
 ├── backup-<version>-app-manage/
 │   ├── resources/
@@ -214,8 +236,7 @@ The role creates a backup directory with the following structure:
 ```
 
 
-Example Playbooks
--------------------------------------------------------------------------------
+## Example Playbooks
 
 ### Basic Backup
 Backup Manage namespace resources and any configured persistent volumes:
@@ -297,8 +318,7 @@ Backup Facilities with a custom version identifier:
 ```
 
 
-Notes
--------------------------------------------------------------------------------
+## Notes
 - **Database Backup**: This role does NOT backup application databases. Use the [db2](db2.md) role to backup Db2 databases separately
 - **Suite Resources**: This role backs up application-specific resources only. For suite-level resources (Suite CR, workspace CRs, etc.), use the [suite_backup](suite_backup.md) role
 - **Storage Requirements**: Ensure sufficient storage space in `mas_backup_dir` for both namespace resources and PV data
@@ -306,3 +326,7 @@ Notes
 - **Backup Time**: PV backup duration depends on the amount of data in the persistent volumes
 - **Automatic Detection**: Persistent volumes are automatically detected from the application workspace CR - no manual configuration needed
 - **Compression**: All PV data is compressed using gzip to minimize storage requirements
+
+## License
+
+EPL-2.0
