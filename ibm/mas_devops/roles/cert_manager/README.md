@@ -16,7 +16,7 @@ Specifies which operation to perform on the Certificate Manager operator.
 
 - **Optional**
 - Environment Variable: `CERT_MANAGER_ACTION`
-- Default Value: `install`
+- Default: `install`
 
 **Purpose**: Controls what action the role executes against the Certificate Manager operator. This allows the same role to handle installation, removal, or no action on the cert-manager deployment.
 
@@ -113,7 +113,7 @@ The Certificate Manager backup operation creates a backup of your Certificate Ma
 **Note**: The backup does NOT include individual certificates or secrets created by Certificate Manager for applications. Those are backed up as part of the specific service (e.g., MongoDB, SLS) that uses them.
 
 **Backup Directory Structure:**
-```
+```text
 {mas_backup_dir}/
 └── backup-{version}-certmanager/
     └── resources/

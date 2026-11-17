@@ -7,7 +7,9 @@ The role supports uninstallation of all MAS applications including Assist, Healt
 
 ## Role Variables
 
-### mas_instance_id
+### General Variables
+
+#### mas_instance_id
 MAS instance identifier from which the application will be uninstalled.
 
 - **Required**
@@ -31,7 +33,7 @@ MAS instance identifier from which the application will be uninstalled.
 - Always backup application data before uninstalling
 - Other applications in the same instance are not affected
 
-### mas_app_id
+#### mas_app_id
 MAS application identifier to be uninstalled.
 
 - **Required**

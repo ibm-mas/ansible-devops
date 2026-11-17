@@ -4,7 +4,9 @@ This role supports the upgrade of the Openshift Cluster version for master and w
 
 ## Role Variables
 
-### cluster_type
+### General Variables
+
+#### cluster_type
 Cluster type for upgrade operation.
 
 - **Required**
@@ -28,7 +30,7 @@ Cluster type for upgrade operation.
 
 **Note**: **IMPORTANT** - Only IBM Cloud ROKS clusters are supported. The role will fail if `cluster_type` is not `roks`. For other cluster types, use provider-specific upgrade procedures.
 
-### cluster_name
+#### cluster_name
 Name of the cluster to upgrade.
 
 - **Required**
@@ -52,7 +54,7 @@ Name of the cluster to upgrade.
 
 **Note**: The cluster name must exactly match the name in IBM Cloud. Verify the cluster name before running the upgrade to avoid targeting the wrong cluster.
 
-### ocp_version_upgrade
+#### ocp_version_upgrade
 Target OpenShift version for upgrade.
 
 - **Required**

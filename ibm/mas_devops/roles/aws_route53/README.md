@@ -10,12 +10,14 @@ Also, you need to have AWS user credentials configured via `aws configure` comma
 
 ## Role Variables
 
-### route53_hosted_zone_name
+### General Variables
+
+#### route53_hosted_zone_name
 The domain name for the Route53 public hosted zone to be created.
 
 - **Required**
 - Environment Variable: `ROUTE53_HOSTED_ZONE_NAME`
-- Default Value: None
+- Default: None
 
 **Purpose**: Defines the DNS domain name that will be managed by the Route53 hosted zone. This zone will contain DNS records for routing traffic to your MAS deployment.
 
@@ -42,12 +44,12 @@ The domain name for the Route53 public hosted zone to be created.
 - Ensure you have ownership/control of the domain before creating the hosted zone
 - For production deployments, consider using a subdomain (e.g., `mas.mycompany.com`) to isolate MAS DNS records
 
-### route53_hosted_zone_region
+#### route53_hosted_zone_region
 The AWS region where the Route53 hosted zone will be created.
 
 - **Required**
 - Environment Variable: `ROUTE53_HOSTED_ZONE_REGION`
-- Default Value: Value from `AWS_REGION` environment variable, or `us-east-2` if not set
+- Default: Value from `AWS_REGION` environment variable, or `us-east-2` if not set
 
 **Purpose**: Specifies the AWS region for creating the Route53 hosted zone. While Route53 is a global service, the API calls and zone metadata are associated with a specific region.
 

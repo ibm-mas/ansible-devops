@@ -8,7 +8,9 @@ This role will upgrade the subscription channel for an installed MAS application
 
 ## Role Variables
 
-### mas_instance_id
+### General Variables
+
+#### mas_instance_id
 MAS instance identifier for application upgrade.
 
 - **Required**
@@ -32,7 +34,7 @@ MAS instance identifier for application upgrade.
 
 **Note**: The role validates that the application is installed and healthy in this instance before proceeding with the upgrade.
 
-### mas_app_id
+#### mas_app_id
 MAS application identifier to upgrade.
 
 - **Required**
@@ -56,7 +58,7 @@ MAS application identifier to upgrade.
 
 **Note**: The role performs comprehensive validation including application health, upgrade path compatibility, and MAS core platform compatibility before upgrading.
 
-### mas_app_channel
+#### mas_app_channel
 Target subscription channel for application upgrade.
 
 - **Required**
@@ -83,7 +85,7 @@ Target subscription channel for application upgrade.
 
 **Note**: Built-in validation ensures safe upgrades. The role will fail if the upgrade path is not supported or if the target version is incompatible with the current MAS core platform.
 
-### mas_upgrade_dryrun
+#### mas_upgrade_dryrun
 Dry-run mode for upgrade validation only.
 
 - **Optional**
@@ -109,7 +111,7 @@ Dry-run mode for upgrade validation only.
 
 **Note**: Dry-run mode is highly recommended before production upgrades to identify potential issues. All validation checks are performed, but no changes are made to the subscription channel or application.
 
-### skip_compatibility_check
+#### skip_compatibility_check
 Skip compatibility validation before upgrade.
 
 - **Optional**

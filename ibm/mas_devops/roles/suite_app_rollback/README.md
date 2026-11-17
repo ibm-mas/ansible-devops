@@ -9,7 +9,9 @@ The role performs comprehensive validation before rollback and monitors the reco
 
 ## Role Variables
 
-### mas_instance_id
+### General Variables
+
+#### mas_instance_id
 MAS instance identifier where the application rollback will be performed.
 
 - **Required**
@@ -31,7 +33,7 @@ MAS instance identifier where the application rollback will be performed.
 - Case-sensitive value
 - Ensure you have proper backups before performing rollback operations
 
-### mas_app_id
+#### mas_app_id
 MAS application identifier to be rolled back.
 
 - **Required**
@@ -55,7 +57,7 @@ MAS application identifier to be rolled back.
 - Application must be installed and running before rollback
 - Rollback capability requires MAS 8.7 or later
 
-### mas_app_version
+#### mas_app_version
 Target version to roll back to.
 
 - **Required** when `rollback_mas_app` or `verify_app_version` is `true`
@@ -82,7 +84,7 @@ Target version to roll back to.
 - Consider database schema compatibility when rolling back
 - **Always backup before rollback operations**
 
-### rollback_mas_app
+#### rollback_mas_app
 Enable or disable the actual rollback operation.
 
 - Optional
@@ -107,7 +109,7 @@ Enable or disable the actual rollback operation.
 - Combine with `verify_app_version` for post-rollback verification
 - Validation includes compatibility checks and version availability
 
-### verify_app_version
+#### verify_app_version
 Enable verification that the application is at the specified version.
 
 - Optional
@@ -132,7 +134,7 @@ Enable verification that the application is at the specified version.
 - Set `rollback_mas_app=false` and `verify_app_version=true` for verification-only mode
 - Helps confirm rollback completed successfully
 
-### mas_rollback_dryrun
+#### mas_rollback_dryrun
 Enable dry-run mode for rollback operations.
 
 - Optional
@@ -157,7 +159,7 @@ Enable dry-run mode for rollback operations.
 - All validation errors will be reported without risk
 - Does not affect the running application
 
-### skip_compatibility_check
+#### skip_compatibility_check
 Bypass compatibility validation checks.
 
 - Optional

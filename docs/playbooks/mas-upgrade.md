@@ -1,11 +1,11 @@
 OneClick Upgrade
 ===============================================================================
-This playbook will **upgrade** the channel subscriptions for IBM Maximo Application Suite on your OpenShift cluster.  Upgrades can only be performed to releases available in the  version of the IBM Maximo Pperator Catalog that is installed in your cluster.  To **update** to a newer version of the operator catalog refer to the [mas-update](mas-update.md) playbook documentation.
+This playbook will **upgrade** the channel subscriptions for IBM Maximo Application Suite on your OpenShift cluster.  Upgrades can only be performed to releases available in the version of the IBM Maximo Operator Catalog that is installed in your cluster.  To **update** to a newer version of the operator catalog refer to the [mas-update](mas-update.md) playbook documentation.
 
 The playbook will attempt to upgrade MAS Core and all installed applications.
 
 !!! note
-    If you are using the dynamic catalog (**ibm-maximo-operator-catalog:v8**) you will always have access to the latest MAS releases, as you will recieve catalog updates in your cluster as soon as they are released.  Customers using the static catalogs to control the consumption of updates in their cluster will need to ensure that the version of the catalog they have installed supports the version of MAS that they wish to upgrade to.
+    If you are using the dynamic catalog (**ibm-maximo-operator-catalog:v8**) you will always have access to the latest MAS releases, as you will receive catalog updates in your cluster as soon as they are released.  Customers using the static catalogs to control the consumption of updates in their cluster will need to ensure that the version of the catalog they have installed supports the version of MAS that they wish to upgrade to.
 
 
 Playbook Content
@@ -23,7 +23,7 @@ Playbook Content
 
 Preparation
 -------------------------------------------------------------------------------
-If you are using a private/mirror registry it is **critical** that you mirror the images for the new release **before** you run this playbook, otherwise you will see numerous containers in **ImagePullBackoff** as the updates are rolled out automatically after the subscription has been changed, if you have not mirrored the new images the subscription change itself may fail if the operator bundle is not on your private registry.
+If you are using a private/mirror registry it is **critical** that you mirror the images for the new release **before** you run this playbook, otherwise you will see numerous containers in **ImagePullBackOff** as the updates are rolled out automatically after the subscription has been changed, if you have not mirrored the new images the subscription change itself may fail if the operator bundle is not on your private registry.
 
 
 Usage
@@ -43,7 +43,7 @@ If you provide no values for MAS Core or the individual applications, the roles 
 - `MAS_APP_CHANNEL_VISUALINSPECTION` Set the target subscription channel for Visual Inspection
 
 ### Example
-The simplest way to upgrade MAS is to provide only the instance ID that you wish to upgrade, allowing the roles to determine the correct target version each application.
+The simplest way to upgrade MAS is to provide only the instance ID that you wish to upgrade, allowing the roles to determine the correct target version for each application.
 
 ```bash
 export MAS_INSTANCE_ID=instance1

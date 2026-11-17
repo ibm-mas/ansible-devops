@@ -19,7 +19,9 @@ sh-4.4# cat /host/etc/hosts
 
 ## Role Variables
 
-### airgap_network_exclusions
+### General Variables
+
+#### airgap_network_exclusions
 Space-separated list of container registry hostnames to block.
 
 - Optional
@@ -52,7 +54,7 @@ Space-separated list of container registry hostnames to block.
 - Ensure mirrored registries are configured before blocking external registries
 - Add custom registries if testing with additional image sources
 
-### registry_private_ca_file
+#### registry_private_ca_file
 Local file path to the private registry CA certificate.
 
 - Optional
@@ -75,10 +77,10 @@ Local file path to the private registry CA certificate.
 - Certificate must be in PEM format
 - Not needed if using a registry with publicly trusted certificates
 
-### registry_private_ca_crt
+#### registry_private_ca_crt
 Content of the private registry CA certificate.
 
-- Optional (derived from `registry_private_ca_file`)
+- **Optional** (derived from `registry_private_ca_file`)
 - Environment Variable: None (loaded from file)
 - Default: None
 
@@ -97,7 +99,7 @@ Content of the private registry CA certificate.
 - Do not set this variable directly
 - Used internally by the role to configure node trust
 
-### machine_config_multiupdate
+#### machine_config_multiupdate
 Enable multiple MachineConfig updates in a single operation.
 
 - Optional

@@ -7,10 +7,13 @@ DRO will be supported on the following MAS versions
 Installs [Data Reporter Operator](https://github.com/redhat-marketplace/redhat-marketplace-operator/tree/develop/datareporter/v2) in the `redhat-marketplace` namespace.  If `mas_instance_id` and the others associated parameters are provided then the role will also generate a configuration file that can be directly applied to IBM Maximo Application Suite.
 
 
-## Role Variables - Installation
-## Role Variables - General
+## Role Variables
 
-### dro_action
+### Installation
+
+### General Variables
+
+#### dro_action
 Action to perform with the Data Reporter Operator deployment.
 
 - Optional
@@ -31,7 +34,7 @@ Action to perform with the Data Reporter Operator deployment.
 
 **Notes**: DRO is supported on MAS 8.10.6+, 8.11.2+, and 9.0+.
 
-### dro_namespace
+#### dro_namespace
 Namespace where the Data Reporter Operator will be deployed.
 
 - Optional
@@ -50,7 +53,7 @@ Namespace where the Data Reporter Operator will be deployed.
 
 **Notes**: Ensure the namespace has appropriate permissions for DRO operator deployment.
 
-### ibm_entitlement_key
+#### ibm_entitlement_key
 IBM entitlement key for accessing container images.
 
 - **Required**
@@ -72,10 +75,10 @@ IBM entitlement key for accessing container images.
 - The key is associated with your IBM ID and product entitlements
 - Verify key validity before deployment to avoid installation failures
 
-### dro_storage_class
+#### dro_storage_class
 Storage class for DRO persistent volumes.
 
-- Optional (auto-detected if not provided)
+- **Optional** (auto-detected if not provided)
 - Environment Variable: `DRO_STORAGE_CLASS`
 - Default: None (automatically determined)
 
@@ -98,8 +101,9 @@ Storage class for DRO persistent volumes.
 - The storage class must support RWO (Read Write Once) access mode
 - Auto-detection works for most standard cluster configurations
 
-## Role Variables - BASCfg Generation
-### mas_instance_id
+### BASCfg Generation
+
+#### mas_instance_id
 MAS instance identifier for BasCfg generation.
 
 - Optional
@@ -118,7 +122,7 @@ MAS instance identifier for BasCfg generation.
 
 **Notes**: Both `mas_instance_id` and `mas_config_dir` must be set to generate BasCfg templates.
 
-### mas_config_dir
+#### mas_config_dir
 Local directory for saving generated BasCfg resource definitions.
 
 - Optional
@@ -137,7 +141,7 @@ Local directory for saving generated BasCfg resource definitions.
 
 **Notes**: Ensure the directory exists and has appropriate write permissions.
 
-### dro_endpoint_url
+#### dro_endpoint_url
 URL of an existing DRO instance to connect to.
 
 - Optional
@@ -156,7 +160,7 @@ URL of an existing DRO instance to connect to.
 
 **Notes**: All three variables (`dro_endpoint_url`, `dro_api_key`, `dro_crt_path`) must be provided to connect to an existing DRO instance.
 
-### dro_api_key
+#### dro_api_key
 API token for authenticating to an existing DRO instance.
 
 - Optional
@@ -177,7 +181,7 @@ API token for authenticating to an existing DRO instance.
 - Extract from secret: `oc get secret ibm-data-reporter-operator-api-token -n <dro-namespace> -o jsonpath='{.data.token}' | base64 -d`
 - Keep the API key secure
 
-### dro_crt_path
+#### dro_crt_path
 Path to DRO certificate file for TLS verification.
 
 - Optional
@@ -199,7 +203,7 @@ Path to DRO certificate file for TLS verification.
 - Extract and save tls.crt contents to a .pem file
 - Example: `oc get secret router-certs-default -n openshift-ingress -o jsonpath='{.data.tls\.crt}' | base64 -d > /tmp/dro-cert.pem`
 
-### dro_contact.email
+#### dro_contact.email
 Contact email address for DRO configuration.
 
 - **Required** when generating BasCfg (when `mas_instance_id` and `mas_config_dir` are set)
@@ -218,7 +222,7 @@ Contact email address for DRO configuration.
 
 **Notes**: Use a monitored email address for receiving DRO-related notifications.
 
-### dro_contact.first_name
+#### dro_contact.first_name
 Contact first name for DRO configuration.
 
 - **Required** when generating BasCfg (when `mas_instance_id` and `mas_config_dir` are set)
@@ -237,7 +241,7 @@ Contact first name for DRO configuration.
 
 **Notes**: Used for administrative identification purposes.
 
-### dro_contact.last_name
+#### dro_contact.last_name
 Contact last name for DRO configuration.
 
 - **Required** when generating BasCfg (when `mas_instance_id` and `mas_config_dir` are set)
@@ -256,7 +260,7 @@ Contact last name for DRO configuration.
 
 **Notes**: Used for administrative identification purposes.
 
-### custom_labels
+#### custom_labels
 Custom labels to apply to DRO instance resources.
 
 - Optional
@@ -277,7 +281,7 @@ Custom labels to apply to DRO instance resources.
 - Labels must follow Kubernetes label syntax (alphanumeric, hyphens, underscores, dots)
 - Useful for cost allocation, resource queries, and automation scripts
 
-### mas_pod_templates_dir
+#### mas_pod_templates_dir
 Directory containing pod template configurations for DRO.
 
 - Optional
@@ -300,7 +304,7 @@ Directory containing pod template configurations for DRO.
 - See [BestEfforts reference configuration](https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/ibm-mas-bascfg.yml) for examples
 - Full documentation: [Customizing Pod Templates](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads)
 
-### include_cluster_ingress_cert_chain
+#### include_cluster_ingress_cert_chain
 Include complete certificate chain in MAS configuration.
 
 - Optional

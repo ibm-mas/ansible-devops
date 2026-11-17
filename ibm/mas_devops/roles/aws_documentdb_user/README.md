@@ -12,7 +12,9 @@ AWS DocumentDB is a MongoDB-compatible database service that can serve as the sy
 
 ## Role Variables
 
-### mas_instance_id
+### General Variables
+
+#### mas_instance_id
 MAS instance identifier for which the DocumentDB user will be created.
 
 - **Required**
@@ -34,7 +36,7 @@ MAS instance identifier for which the DocumentDB user will be created.
 - Secret name will be `docdb-<mas_instance_id>-instance-credentials`
 - Must match the instance ID used during MAS installation
 
-### docdb_host
+#### docdb_host
 AWS DocumentDB cluster endpoint hostname.
 
 - **Required** if `docdb_hosts` is not set
@@ -57,7 +59,7 @@ AWS DocumentDB cluster endpoint hostname.
 - `docdb_hosts` takes precedence if both are set
 - Obtain from AWS DocumentDB console or CLI
 
-### docdb_port
+#### docdb_port
 AWS DocumentDB connection port.
 
 - **Required** if `docdb_hosts` is not set
@@ -79,7 +81,7 @@ AWS DocumentDB connection port.
 - Must match the port configured in DocumentDB cluster
 - Not used if `docdb_hosts` is set
 
-### docdb_hosts
+#### docdb_hosts
 AWS DocumentDB connection string with multiple hosts and ports.
 
 - **Required** if both `docdb_host` and `docdb_port` are not set
@@ -103,7 +105,7 @@ AWS DocumentDB connection string with multiple hosts and ports.
 - Format: `host1:port1,host2:port2,host3:port3`
 - Obtain from AWS DocumentDB cluster details
 
-### docdb_master_username
+#### docdb_master_username
 AWS DocumentDB master username for administrative access.
 
 - **Required**
@@ -126,7 +128,7 @@ AWS DocumentDB master username for administrative access.
 - Ensure master user has `userAdmin` or equivalent permissions
 - Obtain from AWS Secrets Manager or secure credential store
 
-### docdb_master_password
+#### docdb_master_password
 AWS DocumentDB master password for administrative access.
 
 - **Required**
@@ -149,7 +151,7 @@ AWS DocumentDB master password for administrative access.
 - Consider using AWS Secrets Manager for credential management
 - Rotate master password regularly per security best practices
 
-### docdb_instance_password
+#### docdb_instance_password
 Password for the MAS-specific DocumentDB user being created.
 
 - Optional
@@ -172,7 +174,7 @@ Password for the MAS-specific DocumentDB user being created.
 - Password is stored in Kubernetes secret `docdb-<instance-id>-instance-credentials`
 - Keep password secure and rotate regularly
 
-### user_action
+#### user_action
 Action to perform on the DocumentDB user.
 
 - Optional
@@ -197,7 +199,7 @@ Action to perform on the DocumentDB user.
 - Removing user does not delete the Kubernetes secret
 - Verify user removal: `mongosh` to DocumentDB and check users
 
-### mas_config_dir
+#### mas_config_dir
 Local directory where the generated Kubernetes secret YAML will be saved.
 
 - Optional

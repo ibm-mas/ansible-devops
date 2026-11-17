@@ -7,12 +7,14 @@ Also, you need to have AWS user credentials configured via `aws configure` comma
 
 ## Role Variables
 
-### aws_username
+### General Variables
+
+#### aws_username
 The IAM username to create in AWS.
 
 - **Required**
 - Environment Variable: `AWS_USERNAME`
-- Default Value: None
+- Default: None
 
 **Purpose**: Specifies the name of the IAM user to be created in your AWS account. This user will be used for programmatic access to AWS services required by MAS.
 
@@ -42,12 +44,12 @@ The IAM username to create in AWS.
 - IAM users incur no direct costs but their actions may incur AWS service charges
 - For production, consider using IAM roles with temporary credentials instead of long-lived access keys
 
-### aws_username_create_access_key_flag
+#### aws_username_create_access_key_flag
 Controls whether to create new IAM access keys for the user.
 
 - **Optional**
 - Environment Variable: `AWS_USERNAME_CREATE_ACCESS_KEY_FLAG`
-- Default Value: `True`
+- Default: `True`
 
 **Purpose**: Determines if the role should generate a new IAM Access Key ID and Secret Access Key pair for the created user. Access keys enable programmatic access to AWS services.
 
@@ -77,12 +79,12 @@ Controls whether to create new IAM access keys for the user.
 - If you provide existing credentials via `aws_username_access_key_id` and `aws_username_secret_access_key`, this flag is automatically set to `False`
 - Consider using temporary credentials (STS) for enhanced security in production
 
-### aws_username_access_key_id
+#### aws_username_access_key_id
 An existing IAM Access Key ID to use instead of creating a new one.
 
 - **Optional**
 - Environment Variable: `AWS_USERNAME_ACCESS_KEY_ID`
-- Default Value: None
+- Default: None
 
 **Purpose**: Allows you to specify an existing IAM Access Key ID for the user instead of generating a new one. This is useful when you already have credentials and want to reuse them.
 
@@ -113,12 +115,12 @@ An existing IAM Access Key ID to use instead of creating a new one.
 - The access key must belong to the user specified in `aws_username`
 - Do not set this variable if you want to generate new credentials
 
-### aws_username_secret_access_key
+#### aws_username_secret_access_key
 An existing IAM Secret Access Key to use instead of creating a new one.
 
 - **Optional**
 - Environment Variable: `AWS_USERNAME_SECRET_ACCESS_KEY`
-- Default Value: None
+- Default: None
 
 **Purpose**: Allows you to specify an existing IAM Secret Access Key for the user instead of generating a new one. This must be used in conjunction with `aws_username_access_key_id`.
 
@@ -150,12 +152,12 @@ An existing IAM Secret Access Key to use instead of creating a new one.
 - The secret key must correspond to the access key ID provided
 - Do not set this variable if you want to generate new credentials
 
-### aws_policy_arn
+#### aws_policy_arn
 The ARN of an IAM policy to attach to the created user.
 
 - **Optional**
 - Environment Variable: `AWS_POLICY_ARN`
-- Default Value: None
+- Default: None
 
 **Purpose**: Specifies an IAM policy to attach to the user, granting specific permissions required for MAS operations. This allows you to control what AWS resources and actions the user can access.
 

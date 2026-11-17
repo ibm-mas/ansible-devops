@@ -7,7 +7,9 @@ For example, in IBMCloud ROKS we have seen delays of over an hour before the Red
 
 ## Role Variables
 
-### verify_cluster
+### General Variables
+
+#### verify_cluster
 Enable cluster health verification.
 
 - **Optional**
@@ -32,7 +34,7 @@ Enable cluster health verification.
 
 **Note**: This check ensures the cluster is fully provisioned and ready. In some environments (e.g., IBMCloud ROKS), clusters may take time to become fully ready. The 1-hour timeout accommodates typical provisioning delays.
 
-### verify_catalogsources
+#### verify_catalogsources
 Enable catalog source health verification.
 
 - **Optional**
@@ -58,7 +60,7 @@ Enable catalog source health verification.
 
 **Note**: Catalog sources must be ready before operators can be installed. In some environments (e.g., IBMCloud ROKS), catalog sources may take time to sync. The 30-minute timeout accommodates typical delays. This check prevents operator installation failures due to unavailable catalogs.
 
-### verify_subscriptions
+#### verify_subscriptions
 Enable operator subscription verification.
 
 - **Optional**
@@ -84,7 +86,7 @@ Enable operator subscription verification.
 
 **Note**: Subscriptions must be at latest known version before operators are fully functional. The 5-hour timeout accommodates operator installation and upgrade processes. This check ensures operators are properly installed and ready to manage resources.
 
-### verify_workloads
+#### verify_workloads
 Enable workload deployment verification.
 
 - **Optional**
@@ -110,7 +112,7 @@ Enable workload deployment verification.
 
 **Note**: Workloads must be fully deployed before the cluster is ready for MAS installation. The 10-hour timeout accommodates large-scale deployments and rolling updates. This check ensures all pods are running and ready.
 
-### verify_ingress
+#### verify_ingress
 Enable ingress TLS certificate verification.
 
 - **Optional**
@@ -136,7 +138,7 @@ Enable ingress TLS certificate verification.
 
 **Note**: Many roles in this collection require the cluster ingress certificate. This check ensures the certificate is accessible before proceeding with MAS installation.
 
-### cluster_name
+#### cluster_name
 Cluster name for ingress certificate lookup.
 
 - **Optional** (only used when `verify_ingress=true`)
@@ -160,7 +162,7 @@ Cluster name for ingress certificate lookup.
 
 **Note**: Only needed in specific cluster configurations. Most clusters use the default secret name and don't require this variable.
 
-### ocp_ingress_tls_secret_name
+#### ocp_ingress_tls_secret_name
 Ingress TLS secret name.
 
 - **Optional** (only used when `verify_ingress=true`)

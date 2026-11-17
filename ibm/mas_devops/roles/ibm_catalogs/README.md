@@ -13,7 +13,7 @@ Version of the IBM Maximo Operator Catalog to install.
 
 - **Optional**
 - Environment Variable: `MAS_CATALOG_VERSION`
-- Default Value: `@@MAS_LATEST_CATALOG@@` (latest stable version)
+- Default: `@@MAS_LATEST_CATALOG@@` (latest stable version)
 
 **Purpose**: Specifies which version of the IBM Maximo Operator Catalog to install. The catalog provides certified operators compatible with MAS, including MAS Core, applications, and dependencies.
 
@@ -38,7 +38,7 @@ Artifactory username for accessing pre-release development catalogs (IBM employe
 
 - **Optional**
 - Environment Variable: `ARTIFACTORY_USERNAME`
-- Default Value: None
+- Default: None
 
 **Purpose**: Provides authentication to IBM Artifactory for installing development catalog sources containing pre-release MAS operators. This enables testing of upcoming MAS versions before general availability.
 
@@ -63,7 +63,7 @@ Artifactory API token for accessing pre-release development catalogs (IBM employ
 
 - **Optional**
 - Environment Variable: `ARTIFACTORY_TOKEN`
-- Default Value: None
+- Default: None
 
 **Purpose**: Provides API token authentication to IBM Artifactory for installing development catalog sources containing pre-release MAS operators. This enables testing of upcoming MAS versions before general availability.
 
@@ -131,8 +131,7 @@ Version identifier for the backup, used to create unique backup directories.
 
 **Note**: When restoring, you must know the exact backup version identifier. List the contents of `mas_backup_dir` to see available backups.
 
-Backup and Restore Operations
--------------------------------------------------------------------------------
+## Backup and Restore Operations
 
 This section provides comprehensive information about IBM Operator Catalog backup and restore operations.
 
@@ -156,7 +155,7 @@ The IBM Operator Catalog backup operation creates a backup of your catalog insta
 **Note**: The backup includes development catalog credentials if they were configured during installation.
 
 **Backup Directory Structure:**
-```
+```text
 {mas_backup_dir}/
 └── backup-{version}-catalog/
     └── resources/

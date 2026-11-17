@@ -7,7 +7,9 @@ This role generates a Workspace custom resource configuration file for Maximo Ap
 
 ## Role Variables
 
-### mas_instance_id
+### General Variables
+
+#### mas_instance_id
 MAS instance identifier for the workspace.
 
 - **Required**
@@ -31,7 +33,7 @@ MAS instance identifier for the workspace.
 
 **Note**: Multiple workspaces can exist within a single MAS instance, each with its own ID and configuration.
 
-### mas_workspace_id
+#### mas_workspace_id
 Workspace identifier.
 
 - **Required**
@@ -55,7 +57,7 @@ Workspace identifier.
 
 **Note**: Choose a meaningful ID that reflects the workspace purpose (e.g., `prod`, `dev`, `qa`). The ID cannot be changed after workspace creation.
 
-### mas_workspace_name
+#### mas_workspace_name
 Workspace display name.
 
 - **Required**
@@ -79,7 +81,7 @@ Workspace display name.
 
 **Note**: Use a clear, descriptive name that helps users identify the workspace purpose. This name can be changed after creation if needed.
 
-### mas_config_dir
+#### mas_config_dir
 Configuration output directory.
 
 - **Required**
@@ -103,7 +105,7 @@ Configuration output directory.
 
 **Note**: The directory will be created if it doesn't exist. Organize configs by instance ID for clarity (e.g., `/masconfig/inst1/`, `/masconfig/inst2/`).
 
-### custom_labels
+#### custom_labels
 Custom Kubernetes labels for workspace resources.
 
 - **Optional**

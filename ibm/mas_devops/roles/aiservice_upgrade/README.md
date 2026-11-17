@@ -9,7 +9,9 @@ This role validates if a given AI SERVICE installation is ready to be upgraded t
 
 ## Role Variables
 
-### aiservice_instance_id
+### General Variables
+
+#### aiservice_instance_id
 AI Service instance identifier to upgrade.
 
 - **Required**
@@ -31,7 +33,7 @@ AI Service instance identifier to upgrade.
 - Verify instance exists before upgrading
 - Case-sensitive value
 
-### aiservice_channel
+#### aiservice_channel
 Target subscription channel for AI Service upgrade.
 
 - Optional
@@ -59,7 +61,7 @@ Target subscription channel for AI Service upgrade.
 - Review release notes before changing channels
 - Channel changes may trigger operator restarts
 
-### aiservice_upgrade_dryrun
+#### aiservice_upgrade_dryrun
 Enable dry run mode for upgrade validation only.
 
 - Optional
@@ -88,6 +90,7 @@ Enable dry run mode for upgrade validation only.
 - Helps ensure upgrade feasibility before committing to the operation
 
 ## Example Playbook
+
 ### Automatic Target Selection
 Running this playbook will upgrade AI Service to the next release.  If you run this playbook when you are already on the latest release then it will take no action.
 

@@ -35,7 +35,9 @@ For more information about IBM Cloud Pak for Data upgrade process, refer to the 
     The reconcile of many CP4D resources will be marked as Failed multiple times during initial installation, these are **misleading status updates**, the install is just really slow and the operators can not properly handle this.  For example, if you are watching the install of CCS you will see that each **rabbitmq-ha** pod takes 10-15 minutes to start up and it looks like there is a problem because the pod log will just stop at a certain point.  If you see something like this as the last message in the pod log `WAL: ra_log_wal init, open tbls: ra_log_open_mem_tables, closed tbls: ra_log_closed_mem_tables` be assured that there's nothing wrong, it's just there's a long delay between that message and the next (`starting system coordination`) being logged.
 
 
-## Role Variables - General
+## Role Variables
+
+### General Variables
 
 ### Watson Studio
 Subscriptions related to Watson Studio:
@@ -206,101 +208,104 @@ deployment.apps/spark-hb-ui                                  1/1     1          
 ```
 
 
-## Role Variables - Installation
-### cpd_service_name
+### Installation
+
+#### cpd_service_name
 Name of the service to install, supported values are: `wsl`, `wml`, and `spark`
 
 - **Required**
 - Environment Variable: `CPD_SERVICE_NAME`
-- Default Value: None
+- Default: None
 
-### cpd_product_version
+#### cpd_product_version
 The product version (also known as operand version) of this service to install.
 
 - **Required**
 - Environment Variable: `CPD_PRODUCT_VERSION`
-- Default Value: Defined by the installed MAS catalog version
+- Default: Defined by the installed MAS catalog version
 
-### cpd_service_storage_class
+#### cpd_service_storage_class
 This is used to set `spec.storageClass` in all CPD services that uses file storage class (read-write-many RWX).
 
 - **Required**, unless IBMCloud storage classes are available.
 - Environment Variable: `CPD_SERVICE_STORAGE_CLASS`
-- Default Value: Auto determined if default storage classes are provided and available by your cloud provider. i.e `ibmc-file` for IBM Cloud, `efs` for AWS.
+- Default: Auto determined if default storage classes are provided and available by your cloud provider. i.e `ibmc-file` for IBM Cloud, `efs` for AWS.
 
-### cpd_service_block_storage_class
+#### cpd_service_block_storage_class
 This is used to set `spec.blockStorageClass` in all CPD services that uses block storage class (read-write-only RWO).
 
 - **Required**, unless IBMCloud storage classes are available.
 - Environment Variable: `CPD_SERVICE_BLOCK_STORAGE_CLASS`
-- Default Value: Auto determined if default storage classes are provided and available by your cloud provider. i.e `ibmc-block` for IBM Cloud, `gp2` for AWS.
+- Default: Auto determined if default storage classes are provided and available by your cloud provider. i.e `ibmc-block` for IBM Cloud, `gp2` for AWS.
 
-### cpd_instance_namespace
+#### cpd_instance_namespace
 Namespace where the CP4D instance is deployed.
 
 - Optional
 - Environment Variable: `CPD_INSTANCE_NAMESPACE`
-- Default Value: `ibm-cpd`
+- Default: `ibm-cpd`
 
-### cpd_operator_namespace
+#### cpd_operator_namespace
 Namespace where the CP4D instance is deployed.
 
 - Optional
 - Environment Variable: `CPD_OPERATORS_NAMESPACE`
-- Default Value: `ibm-cpd-operators`
+- Default: `ibm-cpd-operators`
 
-### cpd_admin_username
+#### cpd_admin_username
 The CP4D Admin username to authenticate with CP4D APIs. If you didn't change the initial admin username after installing CP4D then you don't need to provide this.
 
 - Optional
 - Environment Variable: `CPD_ADMIN_USERNAME`
-- Default Value: `cpadmin`
+- Default: `cpadmin`
 
-### cpd_admin_password
+#### cpd_admin_password
 The CP4D Admin User password to call CP4D APIs (for example to provision the Watson Studio project). If you didn't change the initial admin password after CP4D install, you don't need to provide it.  The initial admin user password for `admin` or `cpadmin` will be used.
 
 - Optional
 - Environment Variable: `CPD_ADMIN_PASSWORD`
-- Default Value: Looked up from the `ibm-iam-bindinfo-platform-auth-idp-credentials` secret in the `cpd_instance_namespace` namespace
+- Default: Looked up from the `ibm-iam-bindinfo-platform-auth-idp-credentials` secret in the `cpd_instance_namespace` namespace
 
-### cpd_service_scale_config
+#### cpd_service_scale_config
 Adjust and scale the resources for your Cloud Pak for Data services to increase processing capacity.
 For more information, refer to [Managing resources](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.6.x?topic=services-manually-scaling) in IBM Cloud Pak for Data documentation.
 
 - Optional
 - Environment Variable: `CPD_SERVICE_SCALE_CONFIG`
-- Default Value: `small`
+- Default: `small`
 
-## Role Variables - Watson Studio
-### cpd_wsl_project_name
+### Watson Studio
+
+#### cpd_wsl_project_name
 Stores the CP4D Watson Studio Project name that can be used to configure HP Utilities application in MAS.
 
 - Optional, only supported when `cpd_service_name` = `wsl`
 - Environment Variable: `CPD_WSL_PROJECT_NAME`
-- Default Value: `wsl-mas-${mas_instance_id}-hputilities`
+- Default: `wsl-mas-${mas_instance_id}-hputilities`
 
-### cpd_wsl_project_description
+#### cpd_wsl_project_description
 Optional - Stores the CP4D Watson Studio Project description that can be used to configure HP Utilities application in MAS.
 
 - Optional, only supported when `cpd_service_name` = `wsl`
 - Environment Variable: `CPD_WSL_PROJECT_DESCRIPTION`
-- Default Value: `Watson Studio Project for Maximo Application Suite`
+- Default: `Watson Studio Project for Maximo Application Suite`
 
 
-## Role Variables - MAS Configuration Generation
-### mas_instance_id
+### MAS Configuration Generation
+
+#### mas_instance_id
 The instance ID of Maximo Application Suite that a generated configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a resource template.
 
 - Optional, only supported when `cpd_service_name` = `wsl`
 - Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
+- Default: None
 
-### mas_config_dir
+#### mas_config_dir
 Local directory to save the generated resource definition.  This can be used to manually configure a MAS instance, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a resource template.
 
 - Optional, only supported when `cpd_service_name` = `wsl`
 - Environment Variable: `MAS_CONFIG_DIR`
-- Default Value: None
+- Default: None
 
 
 ## Example Playbook

@@ -10,16 +10,18 @@ oc get pods --all-namespaces -o wide --field-selector spec.nodeName=<node-name>
 ```
 
 
-## Role Variables - Node Selection
+## Role Variables
+
+### Node Selection
 
 **Important**: Specify either `ocp_node_name` OR `ocp_node_index` to identify the target node. If both are specified, `ocp_node_index` takes priority. If neither is specified, the role will fail.
 
-## Role Variables - General
+### General Variables
 
-### ocp_node_name
+#### ocp_node_name
 Node name to configure with labels and/or taints.
 
-- Optional (but one of `ocp_node_name` or `ocp_node_index` is required)
+- **Optional** (but one of `ocp_node_name` or `ocp_node_index` is required)
 - Environment Variable: `OCP_NODE_NAME`
 - Default: None
 
@@ -38,10 +40,10 @@ Node name to configure with labels and/or taints.
 - Node names may be hostnames, IP addresses, or cloud provider identifiers
 - If both `ocp_node_name` and `ocp_node_index` are set, index takes priority
 
-### ocp_node_index
+#### ocp_node_index
 Zero-based index of the node in the cluster's node list.
 
-- Optional (but one of `ocp_node_name` or `ocp_node_index` is required)
+- **Optional** (but one of `ocp_node_name` or `ocp_node_index` is required)
 - Environment Variable: `OCP_NODE_INDEX`
 - Default: None
 
@@ -62,9 +64,9 @@ Zero-based index of the node in the cluster's node list.
 - Less reliable than node name for production use
 
 
-## Role Variables - Node Labels
+### Node Labels
 
-### ocp_node_label_keys
+#### ocp_node_label_keys
 Comma-separated list of label keys to add to the selected node.
 
 - Optional
@@ -90,7 +92,7 @@ Comma-separated list of label keys to add to the selected node.
 - Labels are additive; existing labels are not removed
 - Use with pod `nodeSelector` or `nodeAffinity` for workload placement
 
-### ocp_node_label_values
+#### ocp_node_label_values
 Comma-separated list of label values corresponding to the label keys.
 
 - Optional
@@ -117,9 +119,9 @@ Comma-separated list of label values corresponding to the label keys.
 - Example: keys=`workload,storage` values=`db2,ssd` creates labels `workload=db2` and `storage=ssd`
 
 
-## Role Variables - Node Taints
+### Node Taints
 
-### ocp_node_taint_keys
+#### ocp_node_taint_keys
 Comma-separated list of taint keys to add to the selected node.
 
 - Optional
@@ -142,7 +144,7 @@ Comma-separated list of taint keys to add to the selected node.
 - Common taint keys: `dedicatedDb2Node`, `dedicatedMongoNode`, `gpu-required`
 - Pods must have matching tolerations to run on tainted nodes
 
-### ocp_node_taint_values
+#### ocp_node_taint_values
 Comma-separated list of taint values corresponding to the taint keys.
 
 - Optional
@@ -164,7 +166,7 @@ Comma-separated list of taint values corresponding to the taint keys.
 - Values often identify specific instances or workload identifiers
 - Example: key=`dedicatedDb2Node` value=`masinst1` effect=`NoExecute` dedicates node to masinst1's Db2
 
-### ocp_node_taint_effects
+#### ocp_node_taint_effects
 Comma-separated list of taint effects defining how the taint impacts pod scheduling.
 
 - Optional

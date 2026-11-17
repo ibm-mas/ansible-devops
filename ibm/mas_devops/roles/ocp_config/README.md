@@ -34,9 +34,11 @@ This role configures:
   - `redhat-operators`
 
 
-## Role Variables - API Server
+## Role Variables
 
-### ocp_update_ciphers_for_semeru
+### API Server
+
+#### ocp_update_ciphers_for_semeru
 
 Enable custom TLS cipher configuration for IBM Java Semeru FIPS mode compatibility.
 
@@ -62,20 +64,20 @@ Enable custom TLS cipher configuration for IBM Java Semeru FIPS mode compatibili
 
 **Notes**:
 
-- Required for FIPS-compliant MAS deployments using Semeru runtime
+- **Required** for FIPS-compliant MAS deployments using Semeru runtime
 - Changes affect cluster-wide TLS configuration
 - May require cluster restart to fully apply
 - Verify compatibility with other applications in the cluster
 
-## Role Variables - Ingress Controller
+### Ingress Controller
 
-### ocp_ingress_controller_name
+#### ocp_ingress_controller_name
 
 The name of the Ingress Controller to configure.
 
 - **Optional**
 - Environment Variable: `OCP_INGRESS_CONTROLLER_NAME`
-- Default Value: `default`
+- Default: `default`
 
 **Purpose**: Specifies which Ingress Controller instance to configure. This applies to both timeout and namespace ownership settings.
 
@@ -99,7 +101,7 @@ The name of the Ingress Controller to configure.
 - Custom Ingress Controllers are rare and typically used for advanced routing scenarios
 - Verify the controller name exists before configuring
 
-### ocp_ingress_update_timeouts
+#### ocp_ingress_update_timeouts
 
 Enable custom timeout configuration for the OpenShift Ingress Controller.
 
@@ -126,7 +128,7 @@ Enable custom timeout configuration for the OpenShift Ingress Controller.
 - Recommended to enable for production MAS deployments
 - Changes apply to all routes in the cluster
 
-### ocp_ingress_client_timeout
+#### ocp_ingress_client_timeout
 
 Client-side timeout duration for ingress connections.
 
@@ -155,7 +157,7 @@ Client-side timeout duration for ingress connections.
 - Affects all routes in the cluster
 - Balance between user experience and resource consumption
 
-### ocp_ingress_server_timeout
+#### ocp_ingress_server_timeout
 
 Server-side timeout duration for ingress connections.
 
@@ -185,20 +187,20 @@ Server-side timeout duration for ingress connections.
 - Affects all routes in the cluster
 - Monitor application logs to determine appropriate values
 
-### ocp_ingress_namespace_ownership
+#### ocp_ingress_namespace_ownership
 
 Specifies the namespace ownership policy for the Ingress Controller. Set to `InterNamespaceAllowed` to enable path-based routing support, which allows routes to claim the same hostname across different namespaces.
 
 - Optional
 - Environment Variable: `OCP_INGRESS_NAMESPACE_OWNERSHIP`
-- Default Value: Not set (empty string)
+- Default: Not set (empty string)
 
 !!! note
 When both timeout settings and namespace ownership are configured, they will be applied in a single atomic operation to the IngressController resource.
 
-## Role Variables - OperatorHub
+### OperatorHub
 
-### ocp_operatorhub_disable_redhat_sources
+#### ocp_operatorhub_disable_redhat_sources
 
 Disable default Red Hat OperatorHub catalog sources.
 
@@ -222,7 +224,7 @@ Disable default Red Hat OperatorHub catalog sources.
 **Notes**:
 
 - **Important**: Setting to `false` does NOT re-enable disabled sources
-- Required for disconnected/air-gapped MAS installations
+- **Required** for disconnected/air-gapped MAS installations
 - Ensure custom catalogs are configured before disabling defaults
 - Affects all operator installations in the cluster
 - Cannot install operators from Red Hat catalogs after disabling
@@ -230,7 +232,7 @@ Disable default Red Hat OperatorHub catalog sources.
 
 **Note**: SVL (San Jose Valley) is the default site. RTP (Research Triangle Park) requires IPv6 enablement.
 
-### ocp_enable_ipv6
+#### ocp_enable_ipv6
 
 Enable IPv6 for Fyre RTP site.
 
@@ -258,13 +260,14 @@ Enable IPv6 for Fyre RTP site.
 **Note**: Only required for Fyre RTP site. SVL and other sites use IPv4.
 
 
-## Role Variables - ROSA-HCP Settings
+### ROSA-HCP Settings
 
-### cluster_type
+#### cluster_type
 The deployment model of OpenShift.
 
 - **Optional**
 - Environment Variable: `CLUSTER_TYPE`
+- Default: None
 
 **Purpose**: Specifies the deployment model of OpenShift to run model specific tasks.
 
@@ -275,12 +278,12 @@ The deployment model of OpenShift.
 
 **Impact**: Runs tasks specific to the deployment model.
 
-### cluster_name
+#### cluster_name
 The name of the OpenShift cluster.
 
 - **Optional**
 - Environment Variable: `CLUSTER_NAME`
-- Default Value: Not set
+- Default: Not set
 
 **Purpose**: Specifies the name of the OpenShift cluster.
 
@@ -293,20 +296,21 @@ The name of the OpenShift cluster.
 **Notes**:
 - This is used as the target cluster for when using rosa cli commands.
 
-### rosa_token
+#### rosa_token
 Rosa login token for the rosa cli.
 
 - **Required**
 - Environment Variable: `ROSA_TOKEN`
+- Default: None
 
 **Purpose**: Authenticates the rosa cli to the rosa cluster.
 
 **When to use**:
 - When running ocp_idms role for rosa-hcp cluster type.
 
-## Role Variables - Allowed Registries
+### Allowed Registries
 
-### ocp_update_allowed_registries
+#### ocp_update_allowed_registries
 Update allowed registries in the cluster.
 
 - Optional
@@ -326,11 +330,11 @@ Update allowed registries in the cluster.
 **Notes**:
 - **Important**: Currently works with ROSA HCP only
 - **Important**: Setting to `false` does NOT remove allowed registries list
-- Required for disconnected/air-gapped MAS installations
+- **Required** for disconnected/air-gapped MAS installations
 - ROSA HCP automatically adds RH required registries: `'image-registry.openshift-image-registry.svc:5000'`, `quay.io`, and `registry.redhat.io`
 
 
-### ocp_allowed_registries
+#### ocp_allowed_registries
 List allowed registries to be added to the cluster.
 
 - Optional
@@ -347,10 +351,10 @@ List allowed registries to be added to the cluster.
 - **Important**: Currently works with ROSA HCP only
 - **Important**: Setting to `[]` does NOT remove allowed registries list
 - **Important**: When exporting OCP_ALLOWED_REGISTRIES use comma-separated string e.g. export OCP_ALLOWED_REGISTRIES=mas.ibm.com,abc.com
-- Required for disconnected/air-gapped MAS installations when using custom image registry
+- **Required** for disconnected/air-gapped MAS installations when using custom image registry
 
 
-### ocp_add_mas_registries
+#### ocp_add_mas_registries
 Adds MAS specific registries on top of what is defined in `ocp_allowed_registries`.
 
 - Optional
@@ -369,10 +373,10 @@ Adds MAS specific registries on top of what is defined in `ocp_allowed_registrie
 
 **Notes**:
 - **Important**: Currently works with ROSA HCP only
-- Required for disconnected/air-gapped MAS installations in ROSA HCP
+- **Required** for disconnected/air-gapped MAS installations in ROSA HCP
 
 
-### ocp_add_rh_registries
+#### ocp_add_rh_registries
 Adds RedHat specific registries on top of what is defined in `ocp_allowed_registries`.
 
 - Optional
@@ -391,12 +395,12 @@ Adds RedHat specific registries on top of what is defined in `ocp_allowed_regist
 
 **Notes**:
 - **Important**: Currently works with ROSA HCP only
-- Required for disconnected/air-gapped MAS installations in ROSA HCP
+- **Required** for disconnected/air-gapped MAS installations in ROSA HCP
 
 
-## Role Variables - Additional Trusted CA
+### Additional Trusted CA
 
-### ocp_update_additional_trusted_ca
+#### ocp_update_additional_trusted_ca
 Update additional trusted CAs in the cluster.
 
 - Optional
@@ -418,10 +422,10 @@ Update additional trusted CAs in the cluster.
 **Notes**:
 - **Important**: Currently works with ROSA HCP only
 - **Important**: Setting to `false` does NOT remove additional trusted CAs
-- Required for disconnected/air-gapped MAS installations.
+- **Required** for disconnected/air-gapped MAS installations.
 - If `ocp_additional_trusted_ca_dir` has no files in it then an empty json will be generated and uploaded to the cluster which will remove all additional trusted CAs from the cluster
 
-### ocp_additional_trusted_ca_dir
+#### ocp_additional_trusted_ca_dir
 The path to the additional trusted CAs.
 
 - Optional

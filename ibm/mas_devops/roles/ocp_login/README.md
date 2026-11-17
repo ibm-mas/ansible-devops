@@ -2,9 +2,11 @@
 
 This role provides support to login to a cluster using the `oc` CLI by looking up cluster information from the infrastructure provider's APIs, it also supports setting `ocp_server` and `ocp_token` directly to support login to any Kubernetes cluster.
 
-## Role Variables - General
+## Role Variables
 
-### cluster_name
+### General Variables
+
+#### cluster_name
 
 Cluster name for credential lookup.
 
@@ -31,7 +33,7 @@ Cluster name for credential lookup.
 
 **Note**: Requires provider-specific credentials (e.g., `ibmcloud_apikey` for ROKS, `rosa_token` for ROSA, `fyre_apikey` for Fyre).
 
-### cluster_type
+#### cluster_type
 
 Infrastructure provider type for cluster.
 
@@ -64,7 +66,7 @@ Infrastructure provider type for cluster.
 
 **Note**: Alternative to using `ocp_server` and `ocp_token` for direct login.
 
-### ocp_server
+#### ocp_server
 
 OpenShift server URL for direct login.
 
@@ -92,7 +94,7 @@ OpenShift server URL for direct login.
 
 **Note**: Both `ocp_server` and `ocp_token` must be provided together for direct login. This method works with any Kubernetes cluster.
 
-### ocp_token
+#### ocp_token
 
 Authentication token for direct login.
 
@@ -119,7 +121,7 @@ Authentication token for direct login.
 - `cluster_name`/`cluster_type`: Alternative automatic lookup method
 
 
-### ocp_skip_tls_verify
+#### ocp_skip_tls_verify
 
 Disable certificate check when logging in using `ocp_server` and `ocp_token` properties.
 
@@ -128,9 +130,9 @@ Disable certificate check when logging in using `ocp_server` and `ocp_token` pro
 - Default: `true`
 
 
-## Role Variables - IBMCloud ROKS
+### IBMCloud ROKS
 
-### ibmcloud_apikey
+#### ibmcloud_apikey
 
 IBM Cloud API key for ROKS authentication.
 
@@ -158,7 +160,7 @@ IBM Cloud API key for ROKS authentication.
 
 **Note**: **SECURITY** - API key should be kept secure and not committed to version control. Obtain from IBM Cloud IAM.
 
-### ibmcloud_endpoint
+#### ibmcloud_endpoint
 
 IBM Cloud API endpoint URL.
 
@@ -185,9 +187,9 @@ IBM Cloud API endpoint URL.
 
 **Note**: The default public endpoint works for most deployments. Override only for specific regional or private cloud requirements.
 
-## Role Variables - IBM DevIT Fyre
+### IBM DevIT Fyre
 
-### fyre_username
+#### fyre_username
 
 IBM DevIT Fyre username.
 
@@ -216,7 +218,7 @@ IBM DevIT Fyre username.
 
 **Note**: Fyre is IBM's internal development and test infrastructure. Requires IBM internal credentials.
 
-### fyre_apikey
+#### fyre_apikey
 
 IBM DevIT Fyre API key.
 
@@ -245,7 +247,7 @@ IBM DevIT Fyre API key.
 
 **Note**: **SECURITY** - API key should be kept secure. Fyre is IBM's internal development and test infrastructure.
 
-### fyre_site
+#### fyre_site
 
 Fyre site location for cluster.
 
@@ -269,9 +271,9 @@ Fyre site location for cluster.
 
 - `cluster_type`: Must be `fyre`
 
-## Role Variables - AWS ROSA
+### AWS ROSA
 
-### rosa_token
+#### rosa_token
 
 AWS ROSA authentication token.
 
@@ -299,7 +301,7 @@ AWS ROSA authentication token.
 
 **Note**: **SECURITY** - Token should be kept secure and not committed to version control. Obtain from Red Hat Hybrid Cloud Console.
 
-### rosa_cluster_admin_password
+#### rosa_cluster_admin_password
 
 ROSA cluster-admin account password.
 

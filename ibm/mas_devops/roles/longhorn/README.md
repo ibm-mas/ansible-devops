@@ -48,7 +48,9 @@ longhorn-static             driver.longhorn.io   Delete          Immediate      
 
 ## Role Variables
 
-### longhorn_namespace
+### General Variables
+
+#### longhorn_namespace
 Namespace for Longhorn installation.
 
 - **Optional**
@@ -71,7 +73,7 @@ Namespace for Longhorn installation.
 - Longhorn UI will be accessible at `https://longhorn-ui-{namespace}.{clusterdomain}`
 - Storage classes are cluster-wide regardless of namespace
 
-### longhorn_replica_count
+#### longhorn_replica_count
 Number of data replicas for Longhorn volumes.
 
 - **Optional**

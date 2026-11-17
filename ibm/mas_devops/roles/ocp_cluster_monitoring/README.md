@@ -12,7 +12,9 @@ The role configures both the platform monitoring stack (for OpenShift infrastruc
 
 ## Role Variables
 
-### cluster_monitoring_action
+### General Variables
+
+#### cluster_monitoring_action
 Action to perform on the cluster monitoring stack.
 
 - Optional
@@ -38,7 +40,7 @@ Action to perform on the cluster monitoring stack.
 - Metrics data will be lost when reverting to ephemeral storage
 - Backup important metrics before uninstalling
 
-### prometheus_retention_period
+#### prometheus_retention_period
 Retention period for platform Prometheus metrics.
 
 - Optional
@@ -64,7 +66,7 @@ Retention period for platform Prometheus metrics.
 - Calculate storage needs: ~1-2GB per day for typical MAS deployment
 - Consider backup strategy for long-term metric retention
 
-### prometheus_storage_class
+#### prometheus_storage_class
 Storage class for platform Prometheus metrics persistent volume.
 
 - **Required** if known storage classes are not available
@@ -91,7 +93,7 @@ Storage class for platform Prometheus metrics persistent volume.
 - Verify storage class exists: `oc get storageclass`
 - Role auto-detects common storage classes if not specified
 
-### prometheus_storage_size
+#### prometheus_storage_size
 Size of the persistent volume for platform Prometheus metrics.
 
 - Optional
@@ -118,7 +120,7 @@ Size of the persistent volume for platform Prometheus metrics.
 - Monitor usage: `oc get pvc -n openshift-monitoring`
 - Can be expanded later if needed (depending on storage class)
 
-### prometheus_alertmgr_storage_class
+#### prometheus_alertmgr_storage_class
 Storage class for AlertManager persistent volume.
 
 - **Required** if known storage classes are not available
@@ -145,7 +147,7 @@ Storage class for AlertManager persistent volume.
 - Verify storage class exists and supports RWX: `oc get storageclass`
 - Role auto-detects common storage classes if not specified
 
-### prometheus_alertmgr_storage_size
+#### prometheus_alertmgr_storage_size
 Size of the persistent volume for AlertManager.
 
 - Optional
@@ -169,7 +171,7 @@ Size of the persistent volume for AlertManager.
 - AlertManager uses much less storage than Prometheus
 - Default 20Gi is generous for typical use cases
 
-### prometheus_userworkload_retention_period
+#### prometheus_userworkload_retention_period
 Retention period for user workload Prometheus metrics.
 
 - Optional
@@ -194,7 +196,7 @@ Retention period for user workload Prometheus metrics.
 - MAS applications (especially Manage) generate substantial metrics
 - Consider MAS-specific monitoring requirements when setting retention
 
-### prometheus_userworkload_storage_class
+#### prometheus_userworkload_storage_class
 Storage class for user workload Prometheus metrics persistent volume.
 
 - Optional
@@ -216,7 +218,7 @@ Storage class for user workload Prometheus metrics persistent volume.
 - Must support RWO access mode
 - Can use different storage class if user workloads have specific requirements
 
-### prometheus_userworkload_storage_size
+#### prometheus_userworkload_storage_size
 Size of the persistent volume for user workload Prometheus metrics.
 
 - Optional

@@ -23,7 +23,9 @@ This role provides post-installation configuration actions for the Maximo Manage
 
 ## Role Variables
 
-### suite_app_config_manage_actions
+### General Variables
+
+#### suite_app_config_manage_actions
 The actions to run, either as a list or as a comma-separated string.
 
 - **Required**
@@ -36,7 +38,7 @@ The actions to run, either as a list or as a comma-separated string.
 
 **Impact**: Running multiple actions in one invocation is more efficient than invoking the role several times, for example `attachments,bim` configures both attachment storage and BIM support in a single run.
 
-### mas_instance_id
+#### mas_instance_id
 MAS instance identifier.
 
 - **Required**
@@ -45,7 +47,7 @@ MAS instance identifier.
 
 **Purpose**: Identifies which MAS instance contains the Manage application to configure.
 
-### mas_workspace_id
+#### mas_workspace_id
 MAS workspace identifier.
 
 - **Required**
@@ -54,7 +56,7 @@ MAS workspace identifier.
 
 **Purpose**: Identifies the workspace containing the Manage application to configure.
 
-### mas_app_id
+#### mas_app_id
 Application identifier.
 
 - **Optional**
@@ -63,7 +65,7 @@ Application identifier.
 
 **Purpose**: Set to `health` when configuring a Health stand-alone application (supported by the `attachments`, `bim` and `dbc-scripts` actions).
 
-### mas_manage_attachments_provider
+#### mas_manage_attachments_provider
 Attachment storage provider (action: `attachments`).
 
 - **Optional**
@@ -74,22 +76,23 @@ Attachment storage provider (action: `attachments`).
 
 **Note**: The former `db` configuration mode (raw SQL against the Manage database) has been removed; only the CR-based configuration is supported. Setting `mas_manage_attachment_configuration_mode` to `db` fails with a migration message.
 
-### mas_manage_birt_report_bundle_name
+#### mas_manage_birt_report_bundle_name
 Name used for the report server bundle when one is not already configured (action: `birt`).
 
 - **Optional**
 - Environment Variable: `MANAGE_REPORT_BUNDLE_SERVER_NAME`
 - Default: `rpt`
 
-### mas_manage_custfiles_provider
+#### mas_manage_custfiles_provider
 Customer files storage provider (action: `custfiles`).
 
 - **Required** for the action
 - Environment Variable: `MAS_MANAGE_CUSTFILES_PROVIDER` (falls back to the legacy `COS_TYPE`)
+- Default: Value of the legacy `COS_TYPE` environment variable (`None` if unset)
 
 **Valid values**: `ibm`, `aws`
 
-### mas_manage_eventstreams_name
+#### mas_manage_eventstreams_name
 The IBM Cloud Event Streams instance name (action: `eventstreams`).
 
 - **Required** for the action
@@ -102,7 +105,7 @@ The IBM Cloud Event Streams instance name (action: `eventstreams`).
 
 **Note**: This action inserts a dummy Kafka password during configuration (not the actual one); the real password must be configured manually via the Manage administration dashboard afterwards.
 
-### mas_manage_imagestitching_pvc_name
+#### mas_manage_imagestitching_pvc_name
 Name of the PVC used for image stitching files (action: `imagestitching`).
 
 - **Optional**
@@ -119,7 +122,7 @@ List of PEM certificate strings to import into the Manage truststore (action: `i
 
 **Note**: When invoked from `suite_app_config` for the AI Service integration, these variables are set automatically.
 
-### mas_manage_dbc_script_path_local
+#### mas_manage_dbc_script_path_local
 Local folder containing the `.dbc` scripts to load (action: `dbc-scripts`).
 
 - **Required** for the action
@@ -128,17 +131,18 @@ Local folder containing the `.dbc` scripts to load (action: `dbc-scripts`).
 
 **Note**: This action is not idempotent by nature — running it again re-applies the scripts.
 
-### mas_manage_logging_provider
+#### mas_manage_logging_provider
 Manage log upload storage provider (action: `logging`).
 
 - **Required** for the action
 - Environment Variable: `MAS_MANAGE_LOGGING_PROVIDER` (falls back to the legacy `COS_TYPE`)
+- Default: Value of the legacy `COS_TYPE` environment variable (`None` if unset)
 
 **Valid values**: `ibm`, `aws`
 
 **Related variables**: `mas_manage_logging_is_prod` (`false`; enables the Admin Center lockdown on production databases), `mas_manage_logging_secret_name` (`s3secretkey`), `mas_manage_logging_force` (`false`; reconfigure logging even when a destination is already set)
 
-### mas_manage_custom_persistent_volumes
+#### mas_manage_custom_persistent_volumes
 Custom persistent volume definitions as a YAML list string (action: `pvc`). Each entry requires `pvcName`, `mountPath` and `size`; `storageClassName` defaults to the cluster RWX storage class.
 
 - **Required** for the action (or provide `mas_manage_custom_persistent_volumes_file`)
@@ -147,7 +151,7 @@ Custom persistent volume definitions as a YAML list string (action: `pvc`). Each
 
 **Note**: The former discrete single-PVC variables (`MAS_APP_SETTINGS_CUSTOM_PVC_NAME`, `MAS_APP_SETTINGS_CUSTOM_MOUNT_PATH`, etc.) are replaced by the list format — express the former SRE default as a list entry with `pvcName: <instance>-<workspace>-cust-files-pvc` and `mountPath: /MeaGlobalDirs`.
 
-### db2_instance_name
+#### db2_instance_name
 Db2 Warehouse instance name, used by the actions that execute SQL against the Manage database (`bim`, `logging` with `mas_manage_logging_is_prod`).
 
 - **Required** for those actions

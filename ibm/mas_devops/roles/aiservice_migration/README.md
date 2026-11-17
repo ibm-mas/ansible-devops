@@ -11,7 +11,9 @@ which upgrade paths are currently included for migration.
 
 ## Role Variables
 
-### instance_id
+### General Variables
+
+#### instance_id
 AI Service instance identifier to upgrade.
 
 - **Required**
@@ -31,9 +33,10 @@ AI Service instance identifier to upgrade.
 - Verify instance exists before upgrading
 - Case-sensitive value
 
-### catalog_channel
+#### catalog_channel
 The subscription channel from which components such as the AI Service tenant operator will be installed during the migration. This should match the channel used to install AI Service.
 
+- **Optional**
 - Environment Variable: `AISERVICE_CHANNEL`
 - Default: None
 
@@ -48,9 +51,10 @@ The subscription channel from which components such as the AI Service tenant ope
 **Impact**: Determines the target version for AI Service migration. The role validates:
 - Upgrade path compatibility (can upgrade from current to target)
 
-### force_migration
+#### force_migration
 Skip any checks to determine if a migration is needed and perform the migration
 
+- **Optional**
 - Environment Variable: `AISERVICE_FORCE_MIGRATION`
 - Default: false
 
@@ -62,6 +66,18 @@ Skip any checks to determine if a migration is needed and perform the migration
 **Valid values**: True or false
 
 **Impact**: Forces a migration to happen. Use this option only when you are sure that a migration is needed. This may break your environment if used incorrectly.
+
+## Example Playbook
+After installing the Ansible Collection you can include this role in your own custom playbooks.
+
+```yaml
+- hosts: localhost
+  vars:
+    instance_id: "{{ lookup('env', 'AISERVICE_INSTANCE_ID') }}"
+    catalog_channel: 9.2.x
+  roles:
+    - ibm.mas_devops.aiservice_migration
+```
 
 ## License
 

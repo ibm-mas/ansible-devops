@@ -14,7 +14,9 @@ The role performs the following operations:
 
 ## Role Variables
 
-### aws_access_key_id
+### General Variables
+
+#### aws_access_key_id
 AWS access key ID for authentication.
 
 - **Required**
@@ -36,7 +38,7 @@ AWS access key ID for authentication.
 - Consider using IAM roles instead of access keys for better security
 - Store credentials securely, never commit to version control
 
-### aws_secret_access_key
+#### aws_secret_access_key
 AWS secret access key for authentication.
 
 - **Required**
@@ -58,7 +60,7 @@ AWS secret access key for authentication.
 - Rotate credentials regularly per security best practices
 - Consider using AWS STS temporary credentials for enhanced security
 
-### aws_region
+#### aws_region
 AWS region where the EFS instance will be provisioned.
 
 - Optional
@@ -85,7 +87,7 @@ AWS region where the EFS instance will be provisioned.
 - Verify cluster region: `rosa describe cluster -c <cluster-name>`
 - EFS pricing varies by region
 
-### cluster_name
+#### cluster_name
 Name of the ROSA cluster to attach EFS storage.
 
 - **Required**
@@ -108,7 +110,7 @@ Name of the ROSA cluster to attach EFS storage.
 - Verify cluster name: `rosa list clusters`
 - Used to tag AWS resources for cost tracking
 
-### efs_unique_id
+#### efs_unique_id
 Unique identifier for the EFS instance and StorageClass.
 
 - Optional
@@ -133,7 +135,7 @@ Unique identifier for the EFS instance and StorageClass.
 - Use descriptive names for multiple EFS instances (e.g., `mas-attachments`, `mas-logs`)
 - Must be unique within the cluster if creating multiple EFS instances
 
-### creation_token_prefix
+#### creation_token_prefix
 Prefix for AWS resource creation tokens.
 
 - Optional
@@ -155,7 +157,7 @@ Prefix for AWS resource creation tokens.
 - Helps track resource provenance in AWS
 - Change if you need to distinguish from other automation tools
 
-### create_storage_class
+#### create_storage_class
 Enable automatic StorageClass creation for the EFS instance.
 
 - Optional

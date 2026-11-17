@@ -7,12 +7,14 @@ Also, you need to have AWS user credentials configured via `aws configure` comma
 
 ## Role Variables
 
-### mas_config_dir
+### General Variables
+
+#### mas_config_dir
 Directory where generated Kubernetes resources and VPC configuration will be saved.
 
 - **Required**
 - Environment Variable: `MAS_CONFIG_DIR`
-- Default Value: None
+- Default: None
 
 **Purpose**: Specifies the local directory path where the role will save generated Kubernetes resources, VPC configuration details, and any credentials or metadata related to the created VPC.
 
@@ -40,12 +42,12 @@ Directory where generated Kubernetes resources and VPC configuration will be sav
 - Consider using version control for the configuration directory (excluding sensitive data)
 - The directory structure follows MAS configuration conventions
 
-### aws_region
+#### aws_region
 The AWS region where the VPC will be created.
 
 - **Optional**
 - Environment Variable: `AWS_REGION`
-- Default Value: `us-east-1`
+- Default: `us-east-1`
 
 **Purpose**: Specifies the AWS region for VPC creation. The VPC and all its associated resources (subnets, route tables, internet gateways) will be created in this region.
 
@@ -72,12 +74,12 @@ The AWS region where the VPC will be created.
 - Consider compliance and data residency requirements
 - Some regions may have capacity constraints for certain instance types
 
-### vpc_action
+#### vpc_action
 The action to perform on the VPC (provision or deprovision).
 
 - **Optional**
 - Environment Variable: `VPC_ACTION`
-- Default Value: `provision`
+- Default: `provision`
 
 **Purpose**: Controls whether the role should create a new VPC or delete an existing one. This allows the same role to handle both lifecycle operations.
 
@@ -105,12 +107,12 @@ The action to perform on the VPC (provision or deprovision).
 - Consider taking backups before deprovisioning
 - The role will clean up associated resources (subnets, route tables, internet gateways)
 
-### vpc_cidr
+#### vpc_cidr
 The CIDR block (IP address range) for the VPC.
 
 - **Required** (for provisioning)
 - Environment Variable: `VPC_CIDR`
-- Default Value: None
+- Default: None
 
 **Purpose**: Defines the IP address range for the VPC using CIDR notation. This determines the total number of IP addresses available within the VPC for subnets, instances, and other resources.
 
@@ -145,12 +147,12 @@ The CIDR block (IP address range) for the VPC.
 - Avoid overlapping with on-premises networks if VPN connectivity is planned
 - Document your CIDR allocation strategy for network management
 
-### vpc_name
+#### vpc_name
 The name tag for the VPC.
 
 - **Required**
 - Environment Variable: `VPC_NAME`
-- Default Value: None
+- Default: None
 
 **Purpose**: Assigns a human-readable name to the VPC for identification and management purposes. This name appears in the AWS console and is used to identify the VPC in subsequent operations.
 
@@ -179,6 +181,7 @@ The name tag for the VPC.
 - The name is stored as a tag and can be changed after creation
 - Consider including the region or purpose in the name for multi-region deployments
 - Document your VPC naming strategy for team consistency
+
 ## Example Playbook
 
 ```yaml

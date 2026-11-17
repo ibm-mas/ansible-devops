@@ -10,15 +10,18 @@ This role provides support for:
 Currently this role only supports generating a system-scoped ObjectStorageCfg resource, but the generated file can be modified if you wish to use other scopes.
 
 
-## Role Variables - General
-## Role Variables - General
+## Role Variables
 
-### cos_type
+### General Variables
+
+### General Variables
+
+#### cos_type
 The Cloud Object Storage provider to use for MAS.
 
 - **Required**
 - Environment Variable: `COS_TYPE`
-- Default Value: None
+- Default: None
 
 **Purpose**: Determines which object storage backend will be provisioned and configured for MAS. Different providers have different capabilities, costs, and operational characteristics.
 
@@ -46,12 +49,12 @@ The Cloud Object Storage provider to use for MAS.
 - IBM COS provides better separation of concerns (storage managed separately from compute)
 - Consider data residency and compliance requirements when choosing provider
 
-### cos_action
+#### cos_action
 The action to perform on the Cloud Object Storage instance.
 
 - **Required**
 - Environment Variable: `COS_ACTION`
-- Default Value: `provision`
+- Default: `provision`
 
 **Purpose**: Controls whether to create a new COS instance or delete an existing one. This allows the same role to handle both lifecycle operations.
 
@@ -79,12 +82,12 @@ The action to perform on the Cloud Object Storage instance.
 - Verify no applications are using the COS instance before deprovisioning
 - IBM Cloud COS deprovisioning may fail if buckets contain data
 
-### ocp_ingress_tls_secret_name
+#### ocp_ingress_tls_secret_name
 The name of the OpenShift cluster's default router certificate secret.
 
 - **Optional**
 - Environment Variable: `OCP_INGRESS_TLS_SECRET_NAME`
-- Default Value: `router-certs-default`
+- Default: `router-certs-default`
 
 **Purpose**: Specifies the secret containing the cluster's ingress TLS certificate. This is used when configuring OCS to ensure proper certificate validation for S3 API access.
 
@@ -110,12 +113,12 @@ The name of the OpenShift cluster's default router certificate secret.
 - The secret must exist in the `openshift-ingress` namespace
 - Not used for IBM Cloud COS (`cos_type=ibm`)
 
-### custom_labels
+#### custom_labels
 Custom key-value labels to apply to provisioned resources.
 
 - **Optional**
 - Environment Variable: `CUSTOM_LABELS`
-- Default Value: None
+- Default: None
 
 **Purpose**: Allows adding custom labels to COS-related resources for organization, cost tracking, or automation purposes. Labels are applied to instance-specific resources.
 
@@ -143,13 +146,14 @@ Custom key-value labels to apply to provisioned resources.
 - Labels can be modified after resource creation
 
 
-## Role Variables - IBM COS
-### cos_instance_name
+### IBM COS
+
+#### cos_instance_name
 The name for the IBM Cloud Object Storage instance.
 
 - **Optional** (IBM COS only)
 - Environment Variable: `COS_INSTANCE_NAME`
-- Default Value: `Object Storage for MAS` (appended with MAS instance ID if set)
+- Default: `Object Storage for MAS` (appended with MAS instance ID if set)
 
 **Purpose**: Specifies a custom name for the IBM Cloud COS instance. This name appears in the IBM Cloud console and is used for identification and management.
 
@@ -177,12 +181,12 @@ The name for the IBM Cloud Object Storage instance.
 - The name can include the MAS instance ID for clarity
 - IBM Cloud allows renaming instances after creation
 
-### cos_location_info
+#### cos_location_info
 The geographic location where the IBM Cloud COS instance will be available.
 
 - **Required** (IBM COS only)
 - Environment Variable: `COS_LOCATION`
-- Default Value: `global`
+- Default: `global`
 
 **Purpose**: Specifies the geographic scope of the IBM Cloud COS instance. This determines data residency and availability characteristics.
 
@@ -209,12 +213,12 @@ The geographic location where the IBM Cloud COS instance will be available.
 - Consider compliance requirements (GDPR, data sovereignty) when choosing location
 - Not applicable for OCS (`cos_type=ocs`)
 
-### cos_plan_type
+#### cos_plan_type
 The IBM Cloud COS service plan tier.
 
 - **Required** (IBM COS only, for provisioning)
 - Environment Variable: `COS_PLAN`
-- Default Value: `standard`
+- Default: `standard`
 
 **Purpose**: Specifies the IBM Cloud COS service plan, which determines pricing and available features.
 
@@ -240,23 +244,23 @@ The IBM Cloud COS service plan tier.
 - Pricing is based on storage capacity, requests, and data transfer
 - Not applicable for OCS (`cos_type=ocs`)
 
-### cos_region
+#### cos_region
 The IBM Cloud COS region identifier.
 
 - **Optional** (IBM COS only)
 - Environment Variable: `COS_REGION`
-- Default Value: None (empty; region is omitted from the secret and `ObjectStorageCfg` when not set)
+- Default: None (empty; region is omitted from the secret and `ObjectStorageCfg` when not set)
 
 **Purpose**: Specifies the geographic region for the IBM Cloud COS instance (e.g., `us-south`, `eu-de`, `us-east`). When provided, it is included in the secret and `ObjectStorageCfg` resource.
 
 **When to use**: Only relevant when `cos_type=ibm`. Use when targeting a specific COS region.
 
-### cos_url
+#### cos_url
 The IBM Cloud COS regional endpoint URL for S3 API access.
 
 - **Required** (IBM COS only, for provisioning)
 - Environment Variable: `COS_REGION_LOCATION_URL`
-- Default Value: `https://s3.us.cloud-object-storage.appdomain.cloud`
+- Default: `https://s3.us.cloud-object-storage.appdomain.cloud`
 
 **Purpose**: Specifies the S3-compatible API endpoint URL for accessing the IBM Cloud COS instance. This URL is used in the generated ObjectStorageCfg resource for MAS to connect to COS.
 
@@ -288,12 +292,12 @@ The IBM Cloud COS regional endpoint URL for S3 API access.
 - Ensure network connectivity from OpenShift cluster to the endpoint
 - Not applicable for OCS (`cos_type=ocs`)
 
-### cos_resource_key_iam_role
+#### cos_resource_key_iam_role
 The IAM role to assign to the COS service credentials.
 
 - **Optional** (IBM COS only)
 - Environment Variable: `COS_RESOURCE_KEY_IAM_ROLE`
-- Default Value: `Manager`
+- Default: `Manager`
 
 **Purpose**: Specifies the IAM role level for the service credentials (resource key) created during COS provisioning. This determines the permissions granted to MAS for accessing the COS instance.
 
@@ -321,12 +325,12 @@ The IAM role to assign to the COS service credentials.
 - The role is assigned to the service credentials, not the instance itself
 - Not applicable for OCS (`cos_type=ocs`)
 
-### cos_use_hmac
+#### cos_use_hmac
 Controls whether to use HMAC-style credentials for COS access.
 
 - **Optional** (IBM COS only)
 - Environment Variable: `COS_USE_HMAC`
-- Default Value: `true`
+- Default: `true`
 
 **Purpose**: Determines whether to generate HMAC (AWS S3-compatible) credentials or IAM-based credentials for accessing IBM Cloud COS. MAS requires HMAC credentials for S3 API compatibility.
 
@@ -352,12 +356,12 @@ Controls whether to use HMAC-style credentials for COS access.
 - Setting to `false` will cause MAS object storage configuration to fail
 - Not applicable for OCS (`cos_type=ocs`)
 
-### cos_apikey
+#### cos_apikey
 The IBM Cloud API key specifically for COS operations.
 
 - **Required** (IBM COS only)
 - Environment Variable: `COS_APIKEY`
-- Default Value: Falls back to `ibmcloud_apikey` if not set
+- Default: Falls back to `ibmcloud_apikey` if not set
 
 **Purpose**: Provides an optional dedicated API key for COS operations. This allows using a less privileged API key specifically for COS management, following the principle of least privilege.
 
@@ -383,12 +387,12 @@ The IBM Cloud API key specifically for COS operations.
 - The key must have COS service management permissions
 - Not applicable for OCS (`cos_type=ocs`)
 
-### ibmcloud_apikey
+#### ibmcloud_apikey
 The default IBM Cloud API key for all IBM Cloud operations.
 
 - **Required** (IBM COS only)
 - Environment Variable: `IBMCLOUD_APIKEY`
-- Default Value: None
+- Default: None
 
 **Purpose**: Provides the primary IBM Cloud API key used across multiple roles in the collection. This is the default authentication method for IBM Cloud services.
 
@@ -418,12 +422,12 @@ The default IBM Cloud API key for all IBM Cloud operations.
 - Used by multiple roles in the collection for consistency
 - Not applicable for OCS (`cos_type=ocs`)
 
-### cos_resourcegroup
+#### cos_resourcegroup
 The IBM Cloud resource group for the COS instance.
 
 - **Optional** (IBM COS only)
 - Environment Variable: `COS_RESOURCEGROUP`
-- Default Value: Falls back to `ibmcloud_resourcegroup`
+- Default: Falls back to `ibmcloud_resourcegroup`
 
 **Purpose**: Specifies the resource group in IBM Cloud where the COS instance will be created. This allows using a different resource group for COS than for other IBM Cloud resources.
 
@@ -452,12 +456,12 @@ The IBM Cloud resource group for the COS instance.
 - Ensure the API key has access to the specified resource group
 - Not applicable for OCS (`cos_type=ocs`)
 
-### ibmcloud_resourcegroup
+#### ibmcloud_resourcegroup
 The default IBM Cloud resource group for all IBM Cloud resources.
 
 - **Optional** (IBM COS only)
 - Environment Variable: `IBMCLOUD_RESOURCEGROUP`
-- Default Value: `Default`
+- Default: `Default`
 
 **Purpose**: Specifies the default resource group used across multiple roles in the collection. This provides consistency in resource organization.
 
@@ -487,13 +491,14 @@ The default IBM Cloud resource group for all IBM Cloud resources.
 - Not applicable for OCS (`cos_type=ocs`)
 
 
-## Role Variables - MAS Configuration
-### mas_instance_id
+### MAS Configuration
+
+#### mas_instance_id
 The MAS instance ID that the ObjectStorageCfg will target.
 
 - **Optional**
 - Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
+- Default: None
 
 **Purpose**: Identifies the specific MAS instance for which the ObjectStorageCfg resource will be generated. This ensures the object storage configuration is associated with the correct MAS deployment.
 
@@ -521,12 +526,12 @@ The MAS instance ID that the ObjectStorageCfg will target.
 - The ObjectStorageCfg will be created in the `mas-<instance-id>-core` namespace
 - Required for automated MAS configuration via `suite_config` role
 
-### mas_config_dir
+#### mas_config_dir
 Local directory where the ObjectStorageCfg resource will be saved.
 
 - **Optional**
 - Environment Variable: `MAS_CONFIG_DIR`
-- Default Value: None
+- Default: None
 
 **Purpose**: Specifies the local directory path where the generated ObjectStorageCfg YAML file will be saved. This file can be used to manually configure MAS or as input to the `suite_config` role.
 
@@ -554,12 +559,12 @@ Local directory where the ObjectStorageCfg resource will be saved.
 - Can be used as input to the `suite_config` role for automated configuration
 - If you only want to provision storage without MAS config, leave this unset
 
-### include_cluster_ingress_cert_chain
+#### include_cluster_ingress_cert_chain
 Controls whether to include the complete certificate chain in the ObjectStorageCfg.
 
 - **Optional**
 - Environment Variable: `INCLUDE_CLUSTER_INGRESS_CERT_CHAIN`
-- Default Value: `False`
+- Default: `False`
 
 **Purpose**: When enabled, includes the complete TLS certificate chain from the cluster's ingress in the generated ObjectStorageCfg resource. This is useful when the cluster uses certificates from a trusted certificate authority.
 
@@ -614,5 +619,6 @@ Create the IBM Cloud Object storage Instance and prepare the objectstorageCfg ya
   roles:
     - ibm.mas_devops.cos
 ```
+
 ## License
 EPL-2.0

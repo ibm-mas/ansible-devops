@@ -4,8 +4,11 @@ Provision OCP cluster on IBM Cloud ROKS, ROSA, or DevIT Fyre.
 Fyre clusters will be automatically reconfigured to enable NFS storage.  By default this is made available via the `nfs-client` storage class and supports both `ReadWriteOnce` and `ReadWriteMany` access modes.  The `image-registry-storage` PVC used by the OpenShift image registry component will also be reconfigured to use this storage class.
 
 
-## Role Variables - General
-### cluster_type
+## Role Variables
+
+### General Variables
+
+#### cluster_type
 Infrastructure provider type for cluster provisioning.
 
 - **Required**
@@ -36,7 +39,7 @@ Infrastructure provider type for cluster provisioning.
 
 **Note**: Fyre clusters automatically configure NFS storage. ROKS requires version format like `4.22_openshift`.
 
-### cluster_name
+#### cluster_name
 Name for the new cluster.
 
 - **Required**
@@ -60,7 +63,7 @@ Name for the new cluster.
 
 **Note**: Name must follow provider-specific naming rules. Some providers have length limits or character restrictions.
 
-### ocp_version
+#### ocp_version
 OpenShift version to install.
 
 - **Required**
@@ -88,7 +91,7 @@ OpenShift version to install.
 
 **Note**: **IMPORTANT** - For ROKS (`cluster_type=roks`), version MUST include `_openshift` suffix. The `default` alias selects the newest MAS-supported version. The `rotate` alias is for testing only.
 
-### ocp_storage_provider
+#### ocp_storage_provider
 Storage provider configuration for Fyre clusters.
 
 - **Optional**
@@ -114,8 +117,9 @@ Storage provider configuration for Fyre clusters.
 **Note**: Only functional for Fyre clusters. When enabled, the existing image registry PVC is deleted and recreated with NFS storage. NFS storage class supports both ReadWriteOnce (RWO) and ReadWriteMany (RWX) access modes.
 
 
-## Role Variables - GPU Node Support
-### ocp_provision_gpu
+### GPU Node Support
+
+#### ocp_provision_gpu
 Enable GPU worker nodes during provisioning.
 
 - **Optional**
@@ -144,7 +148,7 @@ Enable GPU worker nodes during provisioning.
 
 **Note**: On classic ROKS (`roks`), the GPU flavor is hardcoded to `mg4c.32x384.2xp100`. On VPC ROKS (`roks-vpc`), set `gpu_flavor` explicitly (e.g., `gx2.8x64.v100`).
 
-### gpu_workerpool_name
+#### gpu_workerpool_name
 Name for GPU worker pool.
 
 - **Optional**
@@ -169,7 +173,7 @@ Name for GPU worker pool.
 
 **Note**: If a GPU worker pool already exists with this name, it will be modified rather than creating a duplicate. Use the existing name to avoid multiple GPU pools.
 
-### gpu_workers
+#### gpu_workers
 Number of GPU worker nodes to provision in the cluster.
 
 - **Optional**
@@ -196,7 +200,7 @@ Number of GPU worker nodes to provision in the cluster.
 
 **Note**: GPU nodes use expensive hardware. Only provision what you need.
 
-### gpu_flavor
+#### gpu_flavor
 GPU worker node machine type (VPC only).
 
 - **Optional**
@@ -222,10 +226,10 @@ GPU worker node machine type (VPC only).
 **Note**: GPU flavor availability varies by zone. Always verify availability before deploying. Classic ROKS ignores this variable.
 
 
-## Role Variables - ROKS
+### ROKS
 The following variables are only used when `cluster_type = roks`.
 
-### ibmcloud_apikey
+#### ibmcloud_apikey
 IBM Cloud API key for authentication.
 
 - **Required** (when `cluster_type=roks`)
@@ -249,7 +253,7 @@ IBM Cloud API key for authentication.
 
 **Note**: Keep API keys secure. Use environment variables or secure vaults rather than hardcoding in playbooks. The key needs cluster creation permissions in the specified resource group.
 
-### ibmcloud_endpoint
+#### ibmcloud_endpoint
 IBM Cloud API endpoint URL.
 
 - **Optional**
@@ -272,7 +276,7 @@ IBM Cloud API endpoint URL.
 
 **Note**: The default endpoint works for standard IBM Cloud deployments. Only change if you're using a dedicated or private IBM Cloud environment.
 
-### ibmcloud_resourcegroup
+#### ibmcloud_resourcegroup
 IBM Cloud resource group for the cluster.
 
 - **Optional**
@@ -295,7 +299,7 @@ IBM Cloud resource group for the cluster.
 
 **Note**: The resource group must exist before provisioning. The API key must have appropriate IAM permissions in the target resource group.
 
-### ibmcloud_region
+#### ibmcloud_region
 IBM Cloud region to target for VPC infrastructure commands.
 
 - **Required** (when `cluster_type=roks-vpc-setup`)
@@ -317,7 +321,7 @@ For `roks-vpc`, the region is resolved automatically in this order:
 **Related variables**:
 - `roks_zone`: For `roks-vpc`, region is derived from this when not set explicitly
 
-### roks_zone
+#### roks_zone
 IBM Cloud availability zone for cluster deployment.
 
 - **Optional**
@@ -343,7 +347,7 @@ IBM Cloud availability zone for cluster deployment.
 
 **Note**: Zone format differs between classic and VPC. Classic uses datacenter codes (`dal10`); VPC uses `<region>-<n>` format. Verify flavor availability in your target zone.
 
-### roks_flavor
+#### roks_flavor
 Worker node machine type for ROKS cluster.
 
 - **Optional**
@@ -370,7 +374,7 @@ Worker node machine type for ROKS cluster.
 
 **Note**: The default (`b3c.16x64.300gb`) is a **classic** flavor and will fail if used with `roks-vpc`. Always set an appropriate `bx2.*` VPC flavor when using `cluster_type=roks-vpc`.
 
-### roks_workers
+#### roks_workers
 Number of worker nodes in the ROKS cluster.
 
 - **Optional**
@@ -394,7 +398,7 @@ Number of worker nodes in the ROKS cluster.
 
 **Note**: For production, use at least 3 workers for high availability. Total cluster capacity = worker count × flavor resources. Consider workload requirements when sizing.
 
-### roks_flags
+#### roks_flags
 Additional flags for ROKS cluster creation.
 
 - **Optional**
@@ -419,7 +423,7 @@ Additional flags for ROKS cluster creation.
 
 
 
-## Role Variables - ROKS VPC Setup
+### ROKS VPC Setup
 The following variables are only used when `cluster_type = roks-vpc-setup`.
 Run this provider first to create the VPC infrastructure, then pass the output IDs to `cluster_type=roks-vpc`.
 Also uses `ibmcloud_apikey`, `ibmcloud_endpoint`, `ibmcloud_resourcegroup`, and `ibmcloud_region`.
@@ -437,7 +441,7 @@ Also uses `ibmcloud_apikey`, `ibmcloud_endpoint`, `ibmcloud_resourcegroup`, and 
 - `ROKS_SUBNET_ID` (one per zone)
 - `ROKS_COS_INSTANCE_CRN`
 
-### roks_vpc_name
+#### roks_vpc_name
 Name for the new VPC and its associated resources.
 
 - **Optional**
@@ -449,7 +453,7 @@ Name for the new VPC and its associated resources.
 **Valid values**: String following IBM Cloud VPC naming conventions (lowercase, alphanumeric, hyphens)
 
 
-## Role Variables - ROKS VPC
+### ROKS VPC
 The following variables are only used when `cluster_type = roks-vpc`.
 Also uses `ibmcloud_apikey`, `ibmcloud_endpoint`, `ibmcloud_resourcegroup`, `roks_zone`, `roks_flavor`, `roks_workers`, and `roks_flags`.
 
@@ -462,7 +466,7 @@ Also uses `ibmcloud_apikey`, `ibmcloud_endpoint`, `ibmcloud_resourcegroup`, `rok
 
 Provide any of these directly to override the corresponding lookup.
 
-### roks_vpc_name
+#### roks_vpc_name
 Name of the VPC to deploy the cluster into.
 
 - **Optional** (if `roks_vpc_id` is provided directly)
@@ -473,7 +477,7 @@ Name of the VPC to deploy the cluster into.
 
 **Valid values**: Name of an existing IBM Cloud VPC (e.g. `fvt-layer3`)
 
-### roks_vpc_id
+#### roks_vpc_id
 IBM Cloud VPC ID — overrides the name-based lookup when provided.
 
 - **Optional** (if `roks_vpc_name` is provided)
@@ -484,7 +488,7 @@ IBM Cloud VPC ID — overrides the name-based lookup when provided.
 
 **Valid values**: IBM Cloud VPC ID string (e.g., `r006-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)
 
-### roks_subnet_id
+#### roks_subnet_id
 ID of the VPC subnet to place worker nodes into.
 
 - **Optional** (resolved automatically from `roks_vpc_id` + `roks_zone` if not provided)
@@ -495,7 +499,7 @@ ID of the VPC subnet to place worker nodes into.
 
 **Valid values**: IBM Cloud VPC subnet ID string (e.g., `0717-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)
 
-### roks_cos_instance_crn
+#### roks_cos_instance_crn
 CRN of the IBM Cloud Object Storage instance — overrides the name-based lookup when provided.
 
 - **Optional** (resolved automatically from `<roks_vpc_name>-cos` if not provided)
@@ -508,10 +512,10 @@ CRN of the IBM Cloud Object Storage instance — overrides the name-based lookup
 
 
 
-## Role Variables - ROSA
+### ROSA
 The following variables are only used when `cluster_type = rosa`.
 
-### rosa_token
+#### rosa_token
 Red Hat OpenShift Service on AWS (ROSA) authentication token.
 
 - **Required** (when `cluster_type=rosa`)
@@ -535,7 +539,7 @@ Red Hat OpenShift Service on AWS (ROSA) authentication token.
 
 **Note**: Tokens expire periodically. Obtain a fresh token from the OpenShift Cluster Manager before provisioning. Keep tokens secure.
 
-### rosa_cluster_admin_password
+#### rosa_cluster_admin_password
 Password for the cluster-admin user account.
 
 - **Optional**
@@ -560,7 +564,7 @@ Password for the cluster-admin user account.
 
 **Note**: If not set, the auto-generated password is saved in the rosa config file. Keep passwords secure. Consider using auto-generation for better security.
 
-### rosa_compute_nodes
+#### rosa_compute_nodes
 Number of compute (worker) nodes in the ROSA cluster.
 
 - **Optional**
@@ -583,7 +587,7 @@ Number of compute (worker) nodes in the ROSA cluster.
 
 **Note**: For production, use at least 3 workers for high availability. Total cluster capacity = worker count × machine type resources. ROSA clusters run on AWS infrastructure.
 
-### rosa_compute_machine_type
+#### rosa_compute_machine_type
 AWS machine type for ROSA worker nodes.
 
 - **Optional**
@@ -606,7 +610,7 @@ AWS machine type for ROSA worker nodes.
 
 **Note**: The default m5.4xlarge (16 vCPU, 64GB RAM) is suitable for most MAS deployments. Consider total cluster capacity (instance type × node count). Verify instance type availability in your AWS region.
 
-### rosa_config_dir
+#### rosa_config_dir
 Directory for storing ROSA cluster configuration files.
 
 - **Optional**
@@ -633,10 +637,10 @@ Directory for storing ROSA cluster configuration files.
 **Note**: The config file contains sensitive information (cluster-admin password). Ensure the directory has appropriate permissions. File format: `rosa-{{cluster_name}}-details.yaml`.
 
 
-## Role Variables - FYRE
+### FYRE
 The following variables are only used when `cluster_type = fyre`.
 
-### fyre_username
+#### fyre_username
 Fyre username for authentication.
 
 - **Required** (when `cluster_type=fyre`)
@@ -659,7 +663,7 @@ Fyre username for authentication.
 
 **Note**: Fyre is an internal IBM development platform. Access requires IBM credentials and appropriate permissions.
 
-### fyre_apikey
+#### fyre_apikey
 Fyre API key for authentication.
 
 - **Required** (when `cluster_type=fyre`)
@@ -682,7 +686,7 @@ Fyre API key for authentication.
 
 **Note**: Keep API keys secure. Obtain from the Fyre portal. Keys may expire and need renewal.
 
-### fyre_quota_type
+#### fyre_quota_type
 Fyre quota type for cluster provisioning.
 
 - **Required** (when `cluster_type=fyre`)
@@ -709,7 +713,7 @@ Fyre quota type for cluster provisioning.
 
 **Note**: Quick burn is simpler but less flexible. Product group allows custom sizing but requires more configuration.
 
-### fyre_product_id
+#### fyre_product_id
 Product ID for Fyre accounting.
 
 - **Required** (when `cluster_type=fyre`)
@@ -732,7 +736,7 @@ Product ID for Fyre accounting.
 
 **Note**: Contact your IBM product team or manager to obtain the correct product ID for your project.
 
-### fyre_site
+#### fyre_site
 Fyre datacenter site location.
 
 - **Optional**
@@ -755,7 +759,7 @@ Fyre datacenter site location.
 
 **Note**: Not all sites support all features. SVL is the default and most commonly used site.
 
-### fyre_cluster_description
+#### fyre_cluster_description
 Description for the Fyre cluster.
 
 - **Optional**
@@ -778,7 +782,7 @@ Description for the Fyre cluster.
 
 **Note**: Good descriptions help manage multiple clusters. Include purpose, owner, or project information.
 
-### ocp_fips_enabled
+#### ocp_fips_enabled
 Enable FIPS mode for the cluster.
 
 - **Optional**
@@ -803,7 +807,7 @@ Enable FIPS mode for the cluster.
 
 **Note**: FIPS mode may impact performance. Only enable if required for compliance. Cannot be changed after cluster creation.
 
-### fyre_cluster_size
+#### fyre_cluster_size
 Pre-defined Fyre cluster size.
 
 - **Required** (when `cluster_type=fyre` and `fyre_quota_type=quick_burn`)
@@ -827,7 +831,7 @@ Pre-defined Fyre cluster size.
 
 **Note**: Quick burn sizes are pre-defined by Fyre. For custom sizing, use `fyre_quota_type=product_group` instead.
 
-### fyre_worker_count
+#### fyre_worker_count
 Number of worker nodes for custom Fyre clusters.
 
 - **Required** (when `cluster_type=fyre` and `fyre_quota_type=product_group`)
@@ -851,7 +855,7 @@ Number of worker nodes for custom Fyre clusters.
 
 **Note**: Total cluster capacity = worker count × (CPU + memory per worker). Consider quota limits.
 
-### fyre_worker_cpu
+#### fyre_worker_cpu
 CPU cores per worker node for custom Fyre clusters.
 
 - **Required** (when `cluster_type=fyre` and `fyre_quota_type=product_group`)
@@ -876,7 +880,7 @@ CPU cores per worker node for custom Fyre clusters.
 
 **Note**: Maximum 16 CPUs per worker (Fyre limitation). Total cluster CPUs = worker count × CPU per worker.
 
-### fyre_worker_memory
+#### fyre_worker_memory
 Memory (GB) per worker node for custom Fyre clusters.
 
 - **Required** (when `cluster_type=fyre` and `fyre_quota_type=product_group`)
@@ -901,7 +905,7 @@ Memory (GB) per worker node for custom Fyre clusters.
 
 **Note**: Maximum 64GB per worker (Fyre limitation). Total cluster memory = worker count × memory per worker.
 
-### fyre_worker_additional_disks
+#### fyre_worker_additional_disks
 Additional disk sizes for Fyre worker nodes.
 
 - **Optional**
@@ -924,7 +928,7 @@ Additional disk sizes for Fyre worker nodes.
 
 **Note**: Example: `400,400` adds two 400GB disks to each worker. Total additional storage = disk sizes × worker count.
 
-### fyre_nfs_image_registry_size
+#### fyre_nfs_image_registry_size
 NFS storage size for OpenShift image registry.
 
 - **Optional**
@@ -947,7 +951,7 @@ NFS storage size for OpenShift image registry.
 
 **Note**: Size is limited by available storage on the Fyre infrastructure node. Image registry stores all container images used in the cluster.
 
-### ocp_enable_ipv6
+#### ocp_enable_ipv6
 Enable IPv6 networking for Fyre cluster.
 
 - **Optional**
@@ -972,13 +976,13 @@ Enable IPv6 networking for Fyre cluster.
 
 **Note**: **IMPORTANT** - IPv6 is only supported at the RTP (Raleigh) Fyre site. Will fail at other sites.
 
-## Role Variables - IPI
+### IPI
 These variables are only used when `cluster_type = ipi`.
 
 !!! note
     IPI stands for **Installer Provisioned Infrastructure**.  OpenShift offers two possible deployment methods: IPI and UPI (User Provisioned Infrastructure). The difference is the degree of automation and customization. IPI will not only deploy OpenShift but also all infrastructure components and configurations.
 
-### ipi_platform
+#### ipi_platform
 Cloud platform for IPI cluster deployment.
 
 - **Optional**
@@ -1002,7 +1006,7 @@ Cloud platform for IPI cluster deployment.
 
 **Note**: AWS and GCP are tested and supported. Other platforms supported by openshift-install may work but have not been specifically tested.
 
-### ipi_region
+#### ipi_region
 Cloud platform region for cluster deployment.
 
 - **Optional**
@@ -1025,7 +1029,7 @@ Cloud platform region for cluster deployment.
 
 **Note**: Not all regions support all instance types. Verify instance type availability in your target region.
 
-### ipi_base_domain
+#### ipi_base_domain
 Base DNS domain for the cluster.
 
 - **Required** (when `cluster_type=ipi`)
@@ -1048,7 +1052,7 @@ Base DNS domain for the cluster.
 
 **Note**: You must have control over this domain and ability to configure DNS records. The openshift-install process will create DNS records in this domain.
 
-### ipi_pull_secret_file
+#### ipi_pull_secret_file
 Path to Red Hat OpenShift pull secret file.
 
 - **Required** (when `cluster_type=ipi`)
@@ -1071,7 +1075,7 @@ Path to Red Hat OpenShift pull secret file.
 
 **Note**: Download your pull secret from the Red Hat Hybrid Cloud Console. Keep the file secure as it contains authentication credentials.
 
-### ipi_dir
+#### ipi_dir
 Working directory for IPI installation.
 
 - **Optional**
@@ -1094,7 +1098,7 @@ Working directory for IPI installation.
 
 **Note**: The directory will contain sensitive information (kubeconfig, credentials). Ensure appropriate permissions. Preserve this directory for cluster management and troubleshooting.
 
-### sshKey
+#### sshKey
 Public SSH key for cluster node access.
 
 - **Optional**
@@ -1119,7 +1123,7 @@ Public SSH key for cluster node access.
 
 **Note**: SSH access to nodes is typically not needed for normal operations. Only set if you need direct node access for troubleshooting.
 
-### ipi_controlplane_type
+#### ipi_controlplane_type
 Machine type for control plane nodes.
 
 - **Optional**
@@ -1143,7 +1147,7 @@ Machine type for control plane nodes.
 
 **Note**: Control plane nodes run cluster management services. Don't undersize for production. The default m5.4xlarge is suitable for most deployments.
 
-### ipi_controlplane_replicas
+#### ipi_controlplane_replicas
 Number of control plane (master) nodes.
 
 - **Optional**
@@ -1166,7 +1170,7 @@ Number of control plane (master) nodes.
 
 **Note**: **IMPORTANT** - Must be an odd number for etcd quorum. Use 3 for production (HA). Using 1 provides no high availability.
 
-### ipi_compute_type
+#### ipi_compute_type
 Machine type for compute (worker) nodes.
 
 - **Optional**
@@ -1190,7 +1194,7 @@ Machine type for compute (worker) nodes.
 
 **Note**: The default m5.4xlarge (16 vCPU, 64GB RAM) is suitable for most MAS deployments. Consider total cluster capacity (type × replicas).
 
-### ipi_compute_replicas
+#### ipi_compute_replicas
 Number of compute (worker) nodes.
 
 - **Optional**
@@ -1213,7 +1217,7 @@ Number of compute (worker) nodes.
 
 **Note**: For production, use at least 3 workers for high availability. Total cluster capacity = worker count × machine type resources.
 
-### ipi_rootvolume_size
+#### ipi_rootvolume_size
 Root volume size for cluster nodes.
 
 - **Optional**
@@ -1236,10 +1240,10 @@ Root volume size for cluster nodes.
 
 **Note**: Platform defaults are typically sufficient. Only increase if you have specific requirements for more disk space.
 
-## Role Variables - AWS
+### AWS
 The following variables are only used when `cluster_type = ipi` and `ipi_platform = aws`.
 
-### aws_access_key_id
+#### aws_access_key_id
 AWS access key ID for authentication.
 
 - **Required** (when `cluster_type=ipi` and `ipi_platform=aws`)
@@ -1262,7 +1266,7 @@ AWS access key ID for authentication.
 
 **Note**: The IAM user/role must have extensive permissions (VPC, EC2, ELB, Route53, IAM, etc.). Consider using a dedicated IAM user for cluster provisioning.
 
-### aws_secret_access_key
+#### aws_secret_access_key
 AWS secret access key for authentication.
 
 - **Required** (when `cluster_type=ipi` and `ipi_platform=aws`)
@@ -1285,10 +1289,10 @@ AWS secret access key for authentication.
 
 **Note**: Keep secret keys secure. Never commit to version control. Use environment variables or secure vaults. Rotate keys regularly.
 
-## Role Variables - GCP
+### GCP
 The following variables are only used when `cluster_type = ipi` and `ipi_platform = gcp`.
 
-### gcp_service_account_file
+#### gcp_service_account_file
 Path to GCP service account credentials file.
 
 - **Required** (when `cluster_type=ipi` and `ipi_platform=gcp`)
@@ -1311,7 +1315,7 @@ Path to GCP service account credentials file.
 
 **Note**: The service account must have extensive permissions (Compute, Networking, IAM, etc.). Download the JSON key file from GCP IAM. Keep the file secure.
 
-### ipi_gcp_projectid
+#### ipi_gcp_projectid
 GCP project ID for cluster deployment.
 
 - **Required** (when `cluster_type=ipi` and `ipi_platform=gcp`)

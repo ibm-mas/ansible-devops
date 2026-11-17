@@ -9,8 +9,11 @@ oc -n eck get secret mas-es-elastic-user -o go-template='{{.data.elastic | base6
 ```
 
 
-## Role Variables - General
-### eck_action
+## Role Variables
+
+### General Variables
+
+#### eck_action
 Action to perform on ECK installation.
 
 - **Optional**
@@ -35,7 +38,7 @@ Action to perform on ECK installation.
 
 **Note**: This role installs ECK operator and optionally deploys Elasticsearch, Kibana, Logstash, and Filebeat components based on enable flags.
 
-### eck_enable_elasticsearch
+#### eck_enable_elasticsearch
 Enable Elasticsearch deployment.
 
 - **Optional**
@@ -62,7 +65,7 @@ Enable Elasticsearch deployment.
 
 **Note**: Default user `elastic` is created. Retrieve password with: `oc -n eck get secret mas-es-elastic-user -o go-template='{{.data.elastic | base64decode}}'`
 
-### eck_enable_kibana
+#### eck_enable_kibana
 Enable Kibana deployment.
 
 - **Optional**
@@ -89,7 +92,7 @@ Enable Kibana deployment.
 
 **Note**: Kibana requires Elasticsearch. Ensure `eck_enable_elasticsearch=true` when enabling Kibana.
 
-### eck_enable_logstash
+#### eck_enable_logstash
 Enable Logstash deployment.
 
 - **Optional**
@@ -116,7 +119,7 @@ Enable Logstash deployment.
 
 **Note**: When remote Elasticsearch variables are set, Logstash forwards logs to the remote instance. Otherwise, logs are sent to local Elasticsearch (if enabled).
 
-### eck_enable_filebeat
+#### eck_enable_filebeat
 Enable Filebeat deployment.
 
 - **Optional**
@@ -143,10 +146,10 @@ Enable Filebeat deployment.
 **Note**: Filebeat runs as a DaemonSet on cluster nodes to collect logs and forward them to Elasticsearch or Logstash.
 
 
-## Role Variables - Remote Elasticsearch
+### Remote Elasticsearch
 When `eck_remote_es_hosts`, `eck_remote_es_username`, and `eck_remote_es_password` are all set, and `eck_enable_logstash` is `true`, the Logstash server will be configured to send log messages to the remote Elasticsearch instance defined.
 
-### eck_remote_es_hosts
+#### eck_remote_es_hosts
 Remote Elasticsearch host list.
 
 - **Optional** (required for remote Elasticsearch)
@@ -171,7 +174,7 @@ Remote Elasticsearch host list.
 
 **Note**: All three remote Elasticsearch variables must be set together for remote forwarding to work.
 
-### eck_remote_es_username
+#### eck_remote_es_username
 Remote Elasticsearch username.
 
 - **Optional** (required for remote Elasticsearch)
@@ -196,7 +199,7 @@ Remote Elasticsearch username.
 
 **Note**: **SECURITY** - All three remote Elasticsearch variables must be set together. Credentials are stored securely in Kubernetes secrets.
 
-### eck_remote_es_password
+#### eck_remote_es_password
 Remote Elasticsearch password.
 
 - **Optional** (required for remote Elasticsearch)
@@ -222,10 +225,10 @@ Remote Elasticsearch password.
 **Note**: **SECURITY** - Store password securely. All three remote Elasticsearch variables must be set together. Credentials are stored in Kubernetes secrets.
 
 
-## Role Variables - Domains and Certificates
+### Domains and Certificates
 Elasticsearch and Kibana can be configured with a custom domain and a certificate signed by [LetsEncrypt](https://letsencrypt.org/).
 
-### es_domain
+#### es_domain
 Custom domain for Elasticsearch access.
 
 - **Optional**
@@ -249,7 +252,7 @@ Custom domain for Elasticsearch access.
 
 **Note**: Domain must be routable to the cluster. When combined with `letsencrypt_email`, automatically provisions LetsEncrypt certificate using HTTP solver.
 
-### kibana_domain
+#### kibana_domain
 Custom domain for Kibana access.
 
 - **Optional**
@@ -273,7 +276,7 @@ Custom domain for Kibana access.
 
 **Note**: Domain must be routable to the cluster. When combined with `letsencrypt_email`, automatically provisions LetsEncrypt certificate using HTTP solver.
 
-### letsencrypt_email
+#### letsencrypt_email
 Email for LetsEncrypt certificate registration.
 
 - **Optional**

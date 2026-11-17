@@ -3,7 +3,10 @@ Installs and configures an instance of [Red Hat OpenShift Service Mesh](https://
 
 
 ## Role Variables
-### servicemesh_action
+
+### General Variables
+
+#### servicemesh_action
 Action to perform on Service Mesh installation.
 
 - **Optional**

@@ -15,7 +15,9 @@ This role rolls back Maximo Application Suite core platform to an earlier versio
 
 ## Role Variables
 
-### mas_instance_id
+### General Variables
+
+#### mas_instance_id
 MAS instance identifier to rollback.
 
 - **Required**
@@ -39,7 +41,7 @@ MAS instance identifier to rollback.
 
 **Note**: Ensure the instance is in a stable state before initiating rollback. Applications should be stopped or in maintenance mode during rollback.
 
-### mas_core_version
+#### mas_core_version
 Target MAS core version for rollback or verification.
 
 - **Required** (when `rollback_mas_core=true` or `verify_core_version=true`)
@@ -64,7 +66,7 @@ Target MAS core version for rollback or verification.
 
 **Note**: Check the MAS documentation for supported rollback paths from your current version. Not all versions support rollback to all earlier versions.
 
-### rollback_mas_core
+#### rollback_mas_core
 Enable rollback execution.
 
 - **Optional**
@@ -91,7 +93,7 @@ Enable rollback execution.
 
 **Note**: When `false`, typically used with `verify_core_version=true` to check current version without making changes.
 
-### verify_core_version
+#### verify_core_version
 Enable version verification mode.
 
 - **Optional**
@@ -118,7 +120,7 @@ Enable version verification mode.
 
 **Note**: Useful for post-rollback validation or confirming version before proceeding with other operations.
 
-### mas_rollback_dryrun
+#### mas_rollback_dryrun
 Enable dry run mode (validation only).
 
 - **Optional**
@@ -145,7 +147,7 @@ Enable dry run mode (validation only).
 
 **Note**: **BEST PRACTICE** - Always run with `mas_rollback_dryrun=true` first to validate the rollback is possible before executing the actual rollback with `mas_rollback_dryrun=false`.
 
-### skip_compatibility_check
+#### skip_compatibility_check
 Skip version compatibility validation.
 
 - **Optional**

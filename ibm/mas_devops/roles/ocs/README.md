@@ -30,7 +30,9 @@ This role provides automated installation and upgrade of ODF/OCS with local stor
 
 ## Role Variables
 
-### lso_device_path
+### General Variables
+
+#### lso_device_path
 Local disk device path for block storage.
 
 - **Required**
@@ -56,7 +58,7 @@ Local disk device path for block storage.
 - For NVMe drives, use format `/dev/nvme0n1`, `/dev/nvme1n1`, etc.
 - Ensure disk has sufficient capacity for your storage requirements
 
-### ocs_action
+#### ocs_action
 Action to perform on ODF/OCS installation.
 
 - **Optional**

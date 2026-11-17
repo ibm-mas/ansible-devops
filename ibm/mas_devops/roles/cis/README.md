@@ -15,12 +15,14 @@ During CIS Instance deprovisioning role will perform following tasks:
 
 ## Role Variables
 
-### cis_action
+### General Variables
+
+#### cis_action
 The action to perform on the Cloud Internet Services instance.
 
 - **Required**
 - Environment Variable: `CIS_ACTION`
-- Default Value: `provision`
+- Default: `provision`
 
 **Purpose**: Controls whether to provision a new CIS instance with domain configuration or deprovision an existing one. This enables the same role to handle both lifecycle operations.
 
@@ -50,12 +52,12 @@ The action to perform on the Cloud Internet Services instance.
 - The role performs operations in a specific order to maintain DNS consistency
 - Failed provisioning may require manual cleanup in IBM Cloud console
 
-### cis_plan
+#### cis_plan
 The IBM Cloud Internet Services plan type to provision.
 
 - **Required**
 - Environment Variable: `CIS_PLAN`
-- Default Value: `standard`
+- Default: `standard`
 
 **Purpose**: Specifies the CIS service plan tier, which determines available features, performance limits, and pricing for the CIS instance.
 
@@ -82,12 +84,12 @@ The IBM Cloud Internet Services plan type to provision.
 - Review IBM Cloud CIS pricing before selecting a plan
 - Plan features include DNS, CDN, DDoS protection, WAF, and load balancing
 
-### ibmcloud_apikey
+#### ibmcloud_apikey
 The IBM Cloud API key for the customer account where CIS will be provisioned.
 
 - **Required**
 - Environment Variable: `IBMCLOUD_APIKEY`
-- Default Value: None
+- Default: None
 
 **Purpose**: Provides authentication credentials for the customer's IBM Cloud account where the CIS instance will be created and managed.
 
@@ -116,12 +118,12 @@ The IBM Cloud API key for the customer account where CIS will be provisioned.
 - Rotate API keys regularly for security best practices
 - The customer account will be billed for CIS usage
 
-### ibmcloud_resourcegroup
+#### ibmcloud_resourcegroup
 The IBM Cloud resource group that will own the CIS instance.
 
 - **Optional**
 - Environment Variable: `IBMCLOUD_RESOURCEGROUP`
-- Default Value: `Default`
+- Default: `Default`
 
 **Purpose**: Specifies the resource group in the customer's IBM Cloud account where the CIS instance will be created. Resource groups are used for access control and billing organization.
 
@@ -149,12 +151,12 @@ The IBM Cloud resource group that will own the CIS instance.
 - Resource groups help with cost tracking and access management
 - The `Default` resource group is created automatically in all IBM Cloud accounts
 
-### master_ibmcloud_api_key
+#### master_ibmcloud_api_key
 The IBM Cloud API key for the master account that hosts the base domain.
 
 - **Required**
 - Environment Variable: `MASTER_IBMCLOUD_APIKEY`
-- Default Value: None
+- Default: None
 
 **Purpose**: Provides authentication credentials for the master IBM Cloud account where the base domain's CIS instance is hosted. This is required to create NS (nameserver) records that delegate the subdomain to the customer's CIS instance.
 
@@ -185,12 +187,12 @@ The IBM Cloud API key for the master account that hosts the base domain.
 - Only needs DNS record management permissions, not full CIS access
 - Required for multi-tenant MAS deployments with domain delegation
 
-### master_cis_resource_group
+#### master_cis_resource_group
 The resource group in the master account that owns the master CIS instance.
 
 - **Required**
 - Environment Variable: `MASTER_CIS_RESOURCE_GROUP`
-- Default Value: `manager`
+- Default: `manager`
 
 **Purpose**: Identifies the resource group in the master IBM Cloud account where the master CIS instance (hosting the base domain) is located.
 
@@ -218,12 +220,12 @@ The resource group in the master account that owns the master CIS instance.
 - The master API key must have access to this resource group
 - This is in the master account, not the customer account
 
-### master_cis_resource_name
+#### master_cis_resource_name
 The name of the master CIS instance in the master account.
 
 - **Required**
 - Environment Variable: `MASTER_CIS_RESOURCE_NAME`
-- Default Value: `<mas_instance_id>-cis`
+- Default: `<mas_instance_id>-cis`
 
 **Purpose**: Identifies the specific CIS instance in the master account that hosts the base domain. This instance will receive the NS records for subdomain delegation.
 
@@ -251,12 +253,12 @@ The name of the master CIS instance in the master account.
 - This instance must already exist in the master account
 - Used only for NS record management, not for creating the instance
 
-### master_cis_base_domain
+#### master_cis_base_domain
 The base domain hosted in the master CIS instance.
 
 - **Required**
 - Environment Variable: `MASTER_CIS_BASE_DOMAIN`
-- Default Value: None
+- Default: None
 
 **Purpose**: Specifies the parent domain in the master CIS instance under which the customer's subdomain will be delegated. This is the domain that will contain the NS records pointing to the customer's CIS nameservers.
 
@@ -285,12 +287,12 @@ The base domain hosted in the master CIS instance.
 - The base domain typically belongs to the organization, not individual customers
 - Example: If base domain is `mas.ibm.com`, customer domain might be `cluster1.prod.mas.ibm.com`
 
-### mas_instance_id
+#### mas_instance_id
 The MAS instance identifier used in naming the CIS service and domain.
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
+- Default: None
 
 **Purpose**: Provides a unique identifier for the MAS instance, used to generate the CIS service name and as part of the domain name structure. This ensures uniqueness across multiple MAS deployments.
 
@@ -319,12 +321,12 @@ The MAS instance identifier used in naming the CIS service and domain.
 - Cannot be changed after provisioning without recreating resources
 - Appears in DNS names, so keep it short and DNS-compatible
 
-### cluster_name
+#### cluster_name
 The OpenShift cluster name used as a prefix in the domain name.
 
 - **Required**
 - Environment Variable: `CLUSTER_NAME`
-- Default Value: None
+- Default: None
 
 **Purpose**: Identifies the specific OpenShift cluster for this CIS configuration. Used as the first component of the subdomain name, allowing multiple clusters to share the same MAS instance ID.
 
@@ -352,12 +354,12 @@ The OpenShift cluster name used as a prefix in the domain name.
 - Keep it short and DNS-compatible (no special characters except hyphens)
 - Example: cluster_name=`rosa-prod`, mas_instance_id=`mas01`, base=`ibm.com` → `rosa-prod.mas01.ibm.com`
 
-### mas_config_dir
+#### mas_config_dir
 Local directory where generated CIS configuration will be saved.
 
 - **Required**
 - Environment Variable: `MAS_CONFIG_DIR`
-- Default Value: None
+- Default: None
 
 **Purpose**: Specifies the local directory path where the role will save generated Kubernetes ConfigMaps and CIS instance details for use by other MAS components.
 

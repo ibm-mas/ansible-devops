@@ -4,7 +4,7 @@ Install Real Estate and Facilities Application
 !!! important
     These playbooks are samples to demonstrate how to use the roles in this collection.
 
-    They are **note intended for production use** as-is, they are a starting point for power users to aid in the development of their own Ansible playbooks using the roles in this collection.
+    They are **not intended for production use** as-is, they are a starting point for power users to aid in the development of their own Ansible playbooks using the roles in this collection.
 
     The recommended way to install MAS is to use the [MAS CLI](https://ibm-mas.github.io/cli/), which uses this Ansible Collection to deliver a complete managed lifecycle for your MAS instance.
 
@@ -34,6 +34,8 @@ Required environment variables
 - `IBM_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
 
 
+Usage
+-------------------------------------------------------------------------------
 ### In-Cluster Db2
 ```bash
 export MAS_INSTANCE_ID=inst1
@@ -48,7 +50,7 @@ ansible-playbook ibm.mas_devops.mas_add_facilities
 ### Bring Your Own Database
 If you do not want to use the Db2 Universal Operator to provide the database for MREF then you can configure the playbook as below:
 
-``` bash
+```bash
 export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
 export IBM_ENTITLEMENT_KEY=xxx

@@ -12,11 +12,13 @@ Installs and configures [kubeturbo](https://github.com/turbonomic/kubeturbo) to 
 - Configures kubeturbo to connect to your Turbonomic server
 - Sets up authentication credentials for server communication
 
-## Role Variables - KubeTurbo Configuration
+## Role Variables
 
-## Role Variables - General
+### KubeTurbo Configuration
 
-### kubeturbo_namespace
+### General Variables
+
+#### kubeturbo_namespace
 Namespace for KubeTurbo operator installation.
 
 - **Optional**
@@ -39,9 +41,9 @@ Namespace for KubeTurbo operator installation.
 
 **Note**: The namespace will be created if it doesn't exist. Using the default `kubeturbo` namespace is recommended for consistency.
 
-## Role Variables - Turbonomic Server Configuration
+### Turbonomic Server Configuration
 
-### turbonomic_target_name
+#### turbonomic_target_name
 Cluster name in Turbonomic server.
 
 - **Required**
@@ -65,7 +67,7 @@ Cluster name in Turbonomic server.
 
 **Note**: Choose a meaningful name that clearly identifies the cluster in your Turbonomic environment. This name should match your cluster naming conventions.
 
-### turbonomic_server_url
+#### turbonomic_server_url
 Turbonomic server URL.
 
 - **Required**
@@ -90,7 +92,7 @@ Turbonomic server URL.
 
 **Note**: Ensure the URL is accessible from the cluster network. The server must be reachable for kubeturbo to function properly.
 
-### turbonomic_server_version
+#### turbonomic_server_version
 Turbonomic server version.
 
 - **Optional**
@@ -113,7 +115,7 @@ Turbonomic server version.
 
 **Note**: If not specified, kubeturbo will attempt to detect server version automatically. Specify only if you need to enforce specific version compatibility.
 
-### turbonomic_username
+#### turbonomic_username
 Turbonomic server username.
 
 - **Required**
@@ -138,7 +140,7 @@ Turbonomic server username.
 
 **Note**: **SECURITY** - Use a dedicated service account rather than a personal user account. Ensure the account has appropriate permissions in Turbonomic for target registration and data submission.
 
-### turbonomic_password
+#### turbonomic_password
 Turbonomic server password.
 
 - **Required**

@@ -11,7 +11,7 @@ Key features:
 - **Archive management option to keep downloaded archives organized**
 - Automatic extraction of downloaded archives
 - Configurable download timeouts for large archives
-- Optional cleanup of temporary files after extraction
+- **Optional** cleanup of temporary files after extraction
 - Verification of downloaded archive integrity
 
 ## Prerequisites
@@ -36,14 +36,14 @@ Instance ID of the MAS instance. This is used to identify the backup directories
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
+- Default: None
 
 #### mas_restore_dir
 Directory where the backup archive will be downloaded and extracted. This is the parent directory where all component backup directories will be restored.
 
 - **Required**
 - Environment Variable: `MAS_RESTORE_DIR`
-- Default Value: None
+- Default: None
 
 ### Backup Archive Variables
 
@@ -52,7 +52,7 @@ Version identifier for the backup to download. This must match the version used 
 
 - **Required**
 - Environment Variable: `BACKUP_VERSION`
-- Default Value: None
+- Default: None
 
 #### backup_archive_names
 List of archive names to download. Can be provided as a comma-separated string or as a list. If not provided, the role will auto-generate archive names based on component versions.
@@ -63,9 +63,9 @@ Examples:
 
 - **Optional**
 - Environment Variable: `BACKUP_ARCHIVE_NAMES`
-- Default Value: Auto-generated from component versions
+- Default: Auto-generated from component versions
 
-#### Component-Specific Backup Versions
+**Component-Specific Backup Versions**:
 
 These variables allow you to specify different backup versions for each component. If not provided, they default to the value of `backup_version`. These are used to auto-generate archive names when `backup_archive_names` is not provided.
 
@@ -88,35 +88,35 @@ AWS access key ID for authentication.
 
 - **Required for S3 download**
 - Environment Variable: `S3_ACCESS_KEY_ID`
-- Default Value: None
+- Default: None
 
 #### aws_secret_access_key
 AWS secret access key for authentication.
 
 - **Required for S3 download**
 - Environment Variable: `S3_SECRET_ACCESS_KEY`
-- Default Value: None
+- Default: None
 
 #### s3_bucket_name
 Name of the S3 bucket where the archive is stored.
 
 - **Required for S3 download**
 - Environment Variable: `S3_BUCKET_NAME`
-- Default Value: None
+- Default: None
 
 #### s3_region
 AWS region where the S3 bucket is located.
 
 - **Optional**
 - Environment Variable: `S3_REGION`
-- Default Value: `us-east-1`
+- Default: `us-east-1`
 
 #### s3_endpoint_url
 Custom S3 endpoint URL for S3-compatible storage services (e.g., MinIO, Wasabi, IBM Cloud Object Storage).
 
 - **Optional**
 - Environment Variable: `S3_ENDPOINT_URL`
-- Default Value: None (uses AWS S3 endpoints)
+- Default: None (uses AWS S3 endpoints)
 
 ### Artifactory Download Variables
 
@@ -127,28 +127,28 @@ Artifactory username for authentication.
 
 - **Required for Artifactory download**
 - Environment Variable: `ARTIFACTORY_USERNAME`
-- Default Value: None
+- Default: None
 
 #### artifactory_token
 Artifactory API token for authentication.
 
 - **Required for Artifactory download**
 - Environment Variable: `ARTIFACTORY_TOKEN`
-- Default Value: None
+- Default: None
 
 #### artifactory_repository
 Name of the Artifactory repository where the archive is stored.
 
 - **Required for Artifactory download**
 - Environment Variable: `ARTIFACTORY_REPOSITORY`
-- Default Value: None
+- Default: None
 
 #### artifactory_url
 Base URL of the Artifactory server (e.g., `https://artifactory.example.com/artifactory`).
 
 - **Optional**
 - Environment Variable: `ARTIFACTORY_URL`
-- Default Value: `https://na.artifactory.swg-devops.com/artifactory`
+- Default: `https://na.artifactory.swg-devops.com/artifactory`
 
 ### General Configuration
 
@@ -157,28 +157,28 @@ Temporary directory where the archive will be downloaded before extraction. The 
 
 - **Optional**
 - Environment Variable: None
-- Default Value: `<mas_restore_dir>/mas-restore-<backup_version>`
+- Default: `<mas_restore_dir>/mas-restore-<backup_version>`
 
 #### download_timeout
 Maximum time in seconds to wait for the download to complete. Useful for large archives or slow network connections.
 
 - **Optional**
 - Environment Variable: `DOWNLOAD_TIMEOUT_SECS`
-- Default Value: `3600` (1 hour)
+- Default: `3600` (1 hour)
 
 #### extract_archive
 Whether to automatically extract the downloaded archive. Set to `false` if you only want to download the archive without extracting it.
 
 - **Optional**
 - Environment Variable: `EXTRACT_ARCHIVE`
-- Default Value: `true`
+- Default: `true`
 
 #### cleanup_archive
 Whether to remove the archive file and temporary directory after successful extraction. Set to `false` to keep the downloaded archive. 
 
 - **Optional**
 - Environment Variable: `CLEANUP_ARCHIVE`
-- Default Value: `true`
+- Default: `true`
 
 #### include_mongo_archive
 Whether to download Mongo archive (`-mongoce.tar.gz`) from S3 or Artifactory.
@@ -187,7 +187,7 @@ Whether to download Mongo archive (`-mongoce.tar.gz`) from S3 or Artifactory.
 
 - **Optional**
 - Environment Variable: `INCLUDE_MONGO_ARCHIVE`
-- Default Value: `true`
+- Default: `true`
 
 #### include_sls_archive
 Whether to download SLS archive (`-sls.tar.gz`) from S3 or Artifactory.
@@ -196,7 +196,7 @@ Whether to download SLS archive (`-sls.tar.gz`) from S3 or Artifactory.
 
 - **Optional**
 - Environment Variable: `INCLUDE_SLS_ARCHIVE`
-- Default Value: `true`
+- Default: `true`
 
 #### include_manage_app_archive
 Whether to download Manage app archive (`-app-manage.tar.gz`) from S3 or Artifactory.
@@ -205,7 +205,7 @@ Whether to download Manage app archive (`-app-manage.tar.gz`) from S3 or Artifac
 
 - **Optional**
 - Environment Variable: `INCLUDE_MANAGE_APP_ARCHIVE`
-- Default Value: `true`
+- Default: `true`
 
 #### include_manage_db_archive
 Whether to download Manage DB2 archive (`-db2u-manage.tar.gz`) from S3 or Artifactory.
@@ -214,7 +214,7 @@ Whether to download Manage DB2 archive (`-db2u-manage.tar.gz`) from S3 or Artifa
 
 - **Optional**
 - Environment Variable: `INCLUDE_MANAGE_DB_ARCHIVE`
-- Default Value: `true`
+- Default: `true`
 
 #### include_facilities_app_archive
 Whether to download Facilities app archive (`-app-facilities.tar.gz`) from S3 or Artifactory.
@@ -223,7 +223,7 @@ Whether to download Facilities app archive (`-app-facilities.tar.gz`) from S3 or
 
 - **Optional**
 - Environment Variable: `INCLUDE_FACILITIES_APP_ARCHIVE`
-- Default Value: `true`
+- Default: `true`
 
 #### include_facilities_db_archive
 Whether to download Facilities DB2 archive (`-db2u-facilities.tar.gz`) from S3 or Artifactory.
@@ -232,7 +232,7 @@ Whether to download Facilities DB2 archive (`-db2u-facilities.tar.gz`) from S3 o
 
 - **Optional**
 - Environment Variable: `INCLUDE_FACILITIES_DB_ARCHIVE`
-- Default Value: `true`
+- Default: `true`
 
 ## Example Playbook
 
@@ -416,7 +416,7 @@ ROLE_NAME=download_backup_archive ansible-playbook ibm.mas_devops.run_role
 
 After successful execution, the role will extract the backup archive to the restore directory with the following structure:
 
-```
+```text
 /restore/mas/
 ├── backup-20260117-191500-catalog/
 ├── backup-20260117-191500-certmanager/

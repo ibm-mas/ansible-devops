@@ -1,12 +1,15 @@
-# Install Optimizer Application
+Install Optimizer Application
+===============================================================================
 
-## Prerequisites
-You will need a RedHat OpenShift v4.8 cluster with IBM Maximo Application Suite Core v8.9. The [mas_install_core] (mas-core.md) playbook can be used to set this up.
+Prerequisites
+-------------------------------------------------------------------------------
+You will need a Red Hat OpenShift v4.8 cluster with IBM Maximo Application Suite Core v8.9 installed. The [mas_install_core](mas-core.md) playbook can be used to set this up.
 
-## Overview
+Overview
+-------------------------------------------------------------------------------
 This playbook will add **Maximo Optimizer v8.3** to an existing IBM Maximo Application Suite Core installation.  Optimizer will be configured to accept automatic security updates and bug fixes, but not new feature releases.
 
-This playbook can be ran against any OpenShift cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
+This playbook can be run against any OpenShift cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
 
 - Install Maximo Optimizer application:
     - Install application (10 minutes)
@@ -14,12 +17,14 @@ This playbook can be ran against any OpenShift cluster regardless of its type; w
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.  Use this sample playbook as a starting point for installing any MAS application, just customize the application install and configure stages at the end of the playbook.
 
-## Required environment variables
+Required environment variables
+-------------------------------------------------------------------------------
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `IBM_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
 
-## Usage
+Usage
+-------------------------------------------------------------------------------
 ```bash
 export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=/home/david/masconfig

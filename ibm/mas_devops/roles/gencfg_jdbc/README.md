@@ -5,11 +5,13 @@ Generate JDBC configuration files for connecting Maximo Application Suite to ext
 The role supports multiple database types (Db2, Oracle, SQL Server) with both secure and insecure connection options, and can generate configurations scoped at system, workspace, application, or workspace-application levels.
 
 
-## Role Variables - Data Source
+## Role Variables
 
-## Role Variables - General
+### Data Source
 
-### db_instance_id
+### General Variables
+
+#### db_instance_id
 Database instance identifier used in the generated configuration.
 
 - Optional
@@ -30,7 +32,7 @@ Database instance identifier used in the generated configuration.
 - Default value `dbinst` is suitable for simple single-database deployments
 - Use descriptive names in multi-database environments to avoid confusion
 
-### db_username
+#### db_username
 Database username for authentication.
 
 - **Required**
@@ -52,7 +54,7 @@ Database username for authentication.
 - For Oracle: May need to include schema prefix in some configurations
 - Ensure the user has appropriate connection limits configured in the database
 
-### jdbc_instance_password
+#### jdbc_instance_password
 Database password for authentication.
 
 - **Required**
@@ -74,7 +76,7 @@ Database password for authentication.
 - Consider using strong passwords and regular rotation policies
 - Ensure password doesn't contain characters that require URL encoding if embedded in connection strings
 
-### jdbc_url
+#### jdbc_url
 JDBC connection URL for the database.
 
 - **Required**
@@ -103,7 +105,7 @@ JDBC connection URL for the database.
 - Some databases require specific JDBC driver parameters for optimal performance
 - Port numbers and database names must match your actual database configuration
 
-### db_pem_file
+#### db_pem_file
 Local file path to the database SSL/TLS certificate in PEM format.
 
 - Optional
@@ -127,9 +129,9 @@ Local file path to the database SSL/TLS certificate in PEM format.
 - Certificate must be in PEM format (Base64-encoded with BEGIN/END markers)
 
 
-## Role Variables - MAS Configuration
+### MAS Configuration
 
-### mas_config_scope
+#### mas_config_scope
 Configuration scope level for the generated JDBC configuration.
 
 - **Required**
@@ -155,7 +157,7 @@ Configuration scope level for the generated JDBC configuration.
 - Use `wsapp` scope for dedicated databases per workspace-application combination
 - Scope cannot be changed after creation; requires recreation of the configuration
 
-### mas_config_dir
+#### mas_config_dir
 Local directory path where the generated YAML configuration file will be saved.
 
 - **Required**
@@ -177,7 +179,7 @@ Local directory path where the generated YAML configuration file will be saved.
 - Generated filename format: `jdbccfg-<db_instance_id>.yml`
 - Keep generated files for documentation and disaster recovery purposes
 
-### mas_instance_id
+#### mas_instance_id
 MAS instance identifier for which the configuration is being generated.
 
 - **Required**
@@ -199,7 +201,7 @@ MAS instance identifier for which the configuration is being generated.
 - Case-sensitive value
 - Cannot be changed after MAS installation
 
-### mas_workspace_id
+#### mas_workspace_id
 MAS workspace identifier for workspace-scoped configurations.
 
 - **Required** if `mas_config_scope` is `ws` or `wsapp`
@@ -220,7 +222,7 @@ MAS workspace identifier for workspace-scoped configurations.
 - Workspace must exist before applying the configuration
 - Use workspace-scoped configs for tenant isolation in multi-tenant deployments
 
-### mas_application_id
+#### mas_application_id
 MAS application identifier for application-scoped configurations.
 
 - **Required** if `mas_config_scope` is `app` or `wsapp`
@@ -241,7 +243,7 @@ MAS application identifier for application-scoped configurations.
 - Application must be installed before applying the configuration
 - Most commonly used with `manage` for Manage-specific databases
 
-### ssl_enabled
+#### ssl_enabled
 Indicates whether SSL/TLS encryption is enabled for the database connection.
 
 - **Required**
@@ -266,7 +268,7 @@ Indicates whether SSL/TLS encryption is enabled for the database connection.
 - Must match the SSL settings in the `jdbc_url` parameter
 - Some MAS applications rely on this flag rather than parsing the JDBC URL
 
-### custom_labels
+#### custom_labels
 Custom Kubernetes labels to apply to the generated JdbcCfg resource.
 
 - Optional

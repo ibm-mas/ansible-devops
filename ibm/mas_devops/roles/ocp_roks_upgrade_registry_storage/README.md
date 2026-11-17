@@ -9,7 +9,9 @@ Upgrade the storage capacity of the OpenShift image registry for IBM Cloud Red H
 
 ## Role Variables
 
-### ibmcloud_apikey
+### General Variables
+
+#### ibmcloud_apikey
 IBM Cloud API key for authentication and volume management.
 
 - **Required**
@@ -33,7 +35,7 @@ IBM Cloud API key for authentication and volume management.
 - Create API key in IBM Cloud console: Manage > Access (IAM) > API keys
 - Recommended: Use service ID API key rather than user API key
 
-### image_registry_size
+#### image_registry_size
 Target size for the image registry storage volume in GB.
 
 - Optional

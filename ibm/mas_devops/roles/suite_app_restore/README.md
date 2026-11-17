@@ -1,5 +1,6 @@
+# suite_app_restore
+
 Restore MAS Applications
-===============================================================================
 
 !!! important
 
@@ -7,8 +8,7 @@ Restore MAS Applications
 
     Restore can only be made to the an instance with the same MAS instance ID as the backup.
 
-Overview
--------------------------------------------------------------------------------
+## Overview
 This role supports restoring MAS application resources and data from backups created by the `suite_app_backup` role. Currently supported applications:
 
 - **`manage`**: Restores Manage namespace resources (CRs, secrets, subscriptions) and persistent volume data
@@ -32,9 +32,11 @@ The restore process follows these phases:
     - The restore process is designed to be idempotent and can handle both fresh installations and existing deployments
 
 
-Role Variables - General
--------------------------------------------------------------------------------
-### mas_app_id
+## Role Variables
+
+### General Variables
+
+#### mas_app_id
 Defines the MAS application ID for the restore action.
 
 - **Required**
@@ -42,14 +44,14 @@ Defines the MAS application ID for the restore action.
 - Default: None
 - Valid Values: `manage`, `facilities` (currently supported)
 
-### mas_instance_id
+#### mas_instance_id
 Defines the MAS instance ID for the restore action. Must match the instance ID from the backup.
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default: None
 
-### mas_backup_dir
+#### mas_backup_dir
 Defines the directory where backups are stored. The role will look for the backup version subdirectory within this location.
 
 - **Required**
@@ -57,7 +59,7 @@ Defines the directory where backups are stored. The role will look for the backu
 - Default: None
 - Example: `/backup/mas`
 
-### mas_app_backup_version
+#### mas_app_backup_version
 Specifies which backup version to restore. This should match the version identifier used during backup.
 
 - **Required**
@@ -65,28 +67,28 @@ Specifies which backup version to restore. This should match the version identif
 - Default: None
 - Example: `20240315-143022` or `v1.0-prod`
 
-### mas_workspace_id
+#### mas_workspace_id
 Defines the MAS workspace ID for the restore action. If not provided, it is automatically derived from the `mas.ibm.com/workspaceId` label on the workspace backup CR.
 
 - Optional
 - Environment Variable: `MAS_WORKSPACE_ID`
 - Default: Auto-discovered from workspace backup CR label `mas.ibm.com/workspaceId`
 
-### mas_app_restore_wait_retries
+#### mas_app_restore_wait_retries
 Maximum time in seconds to wait for ManageWorkspace to become ready after restore.
 
 - Optional
 - Environment Variable: `MAS_APP_RESTORE_WAIT_RETRIES`
 - Default: `120`
 
-### mas_app_restore_wait_delay
+#### mas_app_restore_wait_delay
 Delay in seconds between status checks when waiting for ManageWorkspace to become ready.
 
 - Optional
 - Environment Variable: `MAS_APP_RESTORE_WAIT_DELAY`
 - Default: `360`
 
-### helper_pod_image
+#### helper_pod_image
 Name of the image to use by the PVC-restore-helper pod. This pod will be deployed on the app's namespace to mount PVC volumes and extract the pvc backup to the mounted path.
 Image must have `tar` installed for `oc cp` to work.
 
@@ -94,7 +96,7 @@ Image must have `tar` installed for `oc cp` to work.
 - Environment Variable: `HELPER_POD_IMAGE`
 - Default: `registry.redhat.io/ubi9/ubi:latest`
 
-### override_storageclass
+#### override_storageclass
 Enable or disable storage class override during restore. When enabled, the restore process will use custom storage classes instead of the storage classes from the backup.
 
 - Optional
@@ -102,7 +104,7 @@ Enable or disable storage class override during restore. When enabled, the resto
 - Default: `false`
 - Valid Values: `true`, `false`
 
-### mas_app_custom_storage_class_rwx
+#### mas_app_custom_storage_class_rwx
 Custom storage class to use for PVCs with ReadWriteMany (RWX) access mode when `override_storageclass` is enabled. If not provided and override is enabled, the default storage class will be used.
 
 - Optional
@@ -110,7 +112,7 @@ Custom storage class to use for PVCs with ReadWriteMany (RWX) access mode when `
 - Default: Empty (uses default storage class)
 - Example: `ocs-storagecluster-cephfs`
 
-### mas_app_custom_storage_class_rwo
+#### mas_app_custom_storage_class_rwo
 Custom storage class to use for PVCs with ReadWriteOnce (RWO) access mode when `override_storageclass` is enabled. If not provided and override is enabled, the default storage class will be used.
 
 - Optional
@@ -118,7 +120,7 @@ Custom storage class to use for PVCs with ReadWriteOnce (RWO) access mode when `
 - Default: Empty (uses default storage class)
 - Example: `ocs-storagecluster-ceph-rbd`
 
-### mas_app_restore_include_pvc
+#### mas_app_restore_include_pvc
 Control whether to restore persistent volume data for application. When set to `false`, only namespace resources (CRs, secrets, subscriptions) will be restored, and PVC data restore will be skipped.
 
 - Optional
@@ -126,8 +128,8 @@ Control whether to restore persistent volume data for application. When set to `
 - Default: `true`
 - Valid Values: `true`, `false`
 
-What Gets Restored
--------------------------------------------------------------------------------
+## What Gets Restored
+
 ### Manage Application
 When restoring the Manage application, the following resources are restored:
 
@@ -179,8 +181,7 @@ When restoring the Facilities application, the following resources are restored:
 - Suite-level resources - use the [suite_restore](suite_restore.md) role
 
 
-How Persistent Volume Restore Works
--------------------------------------------------------------------------------
+## How Persistent Volume Restore Works
 The role intelligently handles PV restoration based on whether ManageWorkspace CR is already deployed:
 
 ### Scenario 1: ManageWorkspace CR Does Not Exist (Fresh Restore)
@@ -208,8 +209,7 @@ When a dummy pod is created for restoration, it uses:
 - **Labels**: Tagged with instance ID and workspace ID for easy identification
 
 
-Manage Restore Process Phases
--------------------------------------------------------------------------------
+## Manage Restore Process Phases
 
 ### Phase 1: Restore Resources Until ManageApp CR
 - Restores all namespace resources except ManageWorkspace CR
@@ -239,8 +239,7 @@ Manage Restore Process Phases
 - Configurable timeout and delay between checks
 
 
-Facilities Restore Process Phases
--------------------------------------------------------------------------------
+## Facilities Restore Process Phases
 
 ### Phase 1: Restore Resources Until FacilitiesApp CR
 - Restores all namespace resources except FacilitiesWorkspace CR
@@ -265,11 +264,10 @@ Facilities Restore Process Phases
 - Wait for deployments and statefulsets to be ready
 
 
-Expected Backup Directory Structure
--------------------------------------------------------------------------------
+## Expected Backup Directory Structure
 The role expects the backup directory to have the following structure:
 
-```
+```text
 <mas_backup_dir>/
 ├── backup-<version>-app-manage/
 │   ├── resources/
@@ -306,8 +304,7 @@ The role expects the backup directory to have the following structure:
 ```
 
 
-Example Playbooks
--------------------------------------------------------------------------------
+## Example Playbooks
 
 ### Basic Restore
 Restore Manage namespace resources and persistent volumes from a backup. The workspace ID is automatically derived from the backup CR:
@@ -487,8 +484,7 @@ Restore Facilities namespace resources without restoring persistent volume data:
 ```
 
 
-Troubleshooting
--------------------------------------------------------------------------------
+## Troubleshooting
 
 ### Restore Fails at Phase 1
 **Issue**: Resources fail to restore in Phase 1
@@ -520,8 +516,7 @@ Troubleshooting
 - Increase `mas_app_restore_wait_retries` and `mas_app_restore_wait_delay` values` if deployment is slow
 
 
-Notes
--------------------------------------------------------------------------------
+## Notes
 - **Workspace ID Auto-Discovery**: `mas_workspace_id` is automatically derived from the `mas.ibm.com/workspaceId` label on the workspace backup CR. You only need to set `MAS_WORKSPACE_ID` explicitly if you want to override the value from the backup
 - **Database Restore**: This role does NOT restore application databases. Use the [db2](db2.md) role to restore Db2 databases separately, and do this BEFORE running the application restore
 - **Suite Resources**: This role restores application-specific resources only. For suite-level resources (Suite CR, workspace CRs, etc.), use the [suite_restore](suite_restore.md) role
@@ -536,3 +531,7 @@ Notes
 - **Storage Class Override**: When restoring to a different cluster with different storage classes, enable `override_storageclass` to automatically map PVCs to appropriate storage classes based on access modes (RWX/RWO)
 - **Default Storage Classes**: If `override_storageclass` is enabled but custom storage classes are not specified, the cluster's default storage class will be used automatically
 - **Access Mode Mapping**: The role intelligently assigns storage classes based on PVC access modes - RWX (ReadWriteMany) uses `mas_app_custom_storage_class_rwx` and RWO (ReadWriteOnce) uses `mas_app_custom_storage_class_rwo`
+
+## License
+
+EPL-2.0

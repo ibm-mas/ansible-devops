@@ -55,7 +55,9 @@ An appropriate time to use this tear-down function is when the registry has too 
 
 ## Role Variables
 
-### registry_action
+### General Variables
+
+#### registry_action
 Action to perform with the registry deployment.
 
 - Optional
@@ -79,7 +81,7 @@ Action to perform with the registry deployment.
 - After tear-down, you must re-mirror all required images
 - Docker clients will need to trust the new CA certificate after recreation
 
-### registry_namespace
+#### registry_namespace
 Namespace where the Docker registry will be deployed.
 
 - Optional
@@ -98,7 +100,7 @@ Namespace where the Docker registry will be deployed.
 
 **Notes**: Ensure the namespace name doesn't conflict with existing namespaces in your cluster.
 
-### registry_storage_class
+#### registry_storage_class
 Storage class for the registry's persistent volume.
 
 - **Required** (except on IBM Cloud ROKS where it defaults to `ibmc-block-gold`)
@@ -123,7 +125,7 @@ Storage class for the registry's persistent volume.
 - Verify the storage class exists before deployment: `oc get storageclass`
 - The storage class cannot be changed after initial deployment without recreating the registry
 
-### registry_storage_capacity
+#### registry_storage_capacity
 Size of the persistent volume claim for registry storage.
 
 - Optional
@@ -146,7 +148,7 @@ Size of the persistent volume claim for registry storage.
 - Expanding PVC size after deployment depends on your storage class capabilities
 - For airgap environments, calculate total size of all images to be mirrored plus 20% buffer
 
-### registry_service_type
+#### registry_service_type
 Service type for exposing the registry.
 
 - Optional

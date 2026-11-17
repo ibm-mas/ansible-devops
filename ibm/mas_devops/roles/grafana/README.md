@@ -6,7 +6,10 @@ Installs and configures an instance of [Grafana](https://grafana.com/) for use w
 
 
 ## Role Variables
-### grafana_action
+
+### General Variables
+
+#### grafana_action
 Action to perform on Grafana installation.
 
 - **Optional**
@@ -33,7 +36,7 @@ Action to perform on Grafana installation.
 
 **Note**: **IMPORTANT** - When upgrading from v4 to v5, the new instance will have a different URL and will NOT inherit the user database. Admin password will be reset, and user accounts must be recreated. The v4 instance remains until manually removed.
 
-### grafana_major_version
+#### grafana_major_version
 Grafana operator major version.
 
 - **Optional**
@@ -58,7 +61,7 @@ Grafana operator major version.
 
 **Note**: Version 5 is recommended for all new deployments. Upgrading from v4 to v5 requires using `grafana_action=update` and results in a new instance with different URL and no user database migration.
 
-### grafana_v4_namespace
+#### grafana_v4_namespace
 Namespace for Grafana v4 installation.
 
 - **Optional**
@@ -82,7 +85,7 @@ Namespace for Grafana v4 installation.
 
 **Note**: When upgrading from v4 to v5, both namespaces coexist. The v4 instance remains in this namespace until manually removed.
 
-### grafana_v5_namespace
+#### grafana_v5_namespace
 Namespace for Grafana v5 installation.
 
 - **Optional**
@@ -106,7 +109,7 @@ Namespace for Grafana v5 installation.
 
 **Note**: The separate namespace allows v4 and v5 to coexist during upgrades. After upgrading, the v4 instance remains in its namespace until manually removed.
 
-### grafana_instance_storage_class
+#### grafana_instance_storage_class
 Storage class for Grafana user data.
 
 - **Required** (if supported storage class not available)
@@ -129,7 +132,7 @@ Storage class for Grafana user data.
 
 **Note**: RWO access mode is sufficient for Grafana. RWX classes (like `ibmc-file-gold-gid`, `ocs-storagecluster-cephfs`, `azurefiles-premium`) also work but are not required. The role auto-detects these common classes if available.
 
-### grafana_instance_storage_size
+#### grafana_instance_storage_size
 Storage volume size for Grafana user data.
 
 - **Optional**

@@ -33,21 +33,21 @@ Instance ID of the MAS instance. This is used to identify the backup directories
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
+- Default: None
 
 #### mas_backup_dir
 Directory containing the MAS backup folders. This is the parent directory where all component backup directories are located.
 
 - **Required**
 - Environment Variable: `MAS_BACKUP_DIR`
-- Default Value: None
+- Default: None
 
 #### backup_version
 Version identifier for the backup. This is used as the default version for all component backups unless component-specific versions are provided.
 
 - **Required**
 - Environment Variable: `BACKUP_VERSION`
-- Default Value: None
+- Default: None
 
 ### Component-Specific Backup Versions
 
@@ -58,49 +58,49 @@ Backup version for the catalog component.
 
 - **Optional**
 - Environment Variable: `IBM_CATALOGS_BACKUP_VERSION`
-- Default Value: Value of `backup_version`
+- Default: Value of `backup_version`
 
 #### certmanager_backup_version
 Backup version for the cert-manager component.
 
 - **Optional**
 - Environment Variable: `CERTMANAGER_BACKUP_VERSION`
-- Default Value: Value of `backup_version`
+- Default: Value of `backup_version`
 
 #### mongodb_backup_version
 Backup version for the MongoDB component.
 
 - **Optional**
 - Environment Variable: `MONGODB_BACKUP_VERSION`
-- Default Value: Value of `backup_version`
+- Default: Value of `backup_version`
 
 #### sls_backup_version
 Backup version for the SLS (Suite License Service) component.
 
 - **Optional**
 - Environment Variable: `SLS_BACKUP_VERSION`
-- Default Value: Value of `backup_version`
+- Default: Value of `backup_version`
 
 #### db2_backup_version
 Backup version for the Db2 component.
 
 - **Optional**
 - Environment Variable: `DB2_BACKUP_VERSION`
-- Default Value: Value of `backup_version`
+- Default: Value of `backup_version`
 
 #### suite_backup_version
 Backup version for the MAS Suite component.
 
 - **Optional**
 - Environment Variable: `SUITE_BACKUP_VERSION`
-- Default Value: Value of `backup_version`
+- Default: Value of `backup_version`
 
 #### manage_backup_version
 Backup version for the MAS Manage app.
 
 - **Optional**
 - Environment Variable: `MANAGE_BACKUP_VERSION`
-- Default Value: Value of `backup_version`
+- Default: Value of `backup_version`
 
 ### S3 Upload Variables
 
@@ -111,35 +111,35 @@ AWS access key ID for authentication.
 
 - **Required for S3 upload**
 - Environment Variable: `S3_ACCESS_KEY_ID`
-- Default Value: None
+- Default: None
 
 #### aws_secret_access_key
 AWS secret access key for authentication.
 
 - **Required for S3 upload**
 - Environment Variable: `S3_SECRET_ACCESS_KEY`
-- Default Value: None
+- Default: None
 
 #### s3_bucket_name
 Name of the S3 bucket where the archive will be uploaded.
 
 - **Required for S3 upload**
 - Environment Variable: `S3_BUCKET_NAME`
-- Default Value: None
+- Default: None
 
 #### s3_region
 AWS region where the S3 bucket is located.
 
 - **Optional**
 - Environment Variable: `S3_REGION`
-- Default Value: `us-east-1`
+- Default: `us-east-1`
 
 #### s3_endpoint_url
 Custom S3 endpoint URL for S3-compatible storage services (e.g., MinIO, Wasabi, IBM Cloud Object Storage).
 
 - **Optional**
 - Environment Variable: `S3_ENDPOINT_URL`
-- Default Value: None (uses AWS S3 endpoints)
+- Default: None (uses AWS S3 endpoints)
 
 ### Artifactory Upload Variables
 
@@ -150,28 +150,28 @@ Artifactory username for authentication.
 
 - **Required for Artifactory upload**
 - Environment Variable: `ARTIFACTORY_USERNAME`
-- Default Value: None
+- Default: None
 
 #### artifactory_token
 Artifactory API token for authentication.
 
 - **Required for Artifactory upload**
 - Environment Variable: `ARTIFACTORY_TOKEN`
-- Default Value: None
+- Default: None
 
 #### artifactory_repository
 Name of the Artifactory repository where the archive will be uploaded.
 
 - **Required for Artifactory upload**
 - Environment Variable: `ARTIFACTORY_REPOSITORY`
-- Default Value: None
+- Default: None
 
 #### artifactory_url
 Base URL of the Artifactory server (e.g., `https://artifactory.example.com/artifactory`).
 
 - **Optional**
 - Environment Variable: `ARTIFACTORY_URL`
-- Default Value: `https://na.artifactory.swg-devops.com/artifactory`
+- Default: `https://na.artifactory.swg-devops.com/artifactory`
 
 ### General Configuration
 
@@ -180,14 +180,14 @@ Temporary directory where the archive will be created before upload. The directo
 
 - **Optional**
 - Environment Variable: None
-- Default Value: `<mas_backup_dir>/mas-backup-{{ backup_version }}`
+- Default: `<mas_backup_dir>/mas-backup-{{ backup_version }}`
 
 #### upload_timeout
 Maximum time in seconds to wait for the upload to complete. Useful for large archives or slow network connections.
 
 - **Optional**
 - Environment Variable: None
-- Default Value: `3600` (1 hour)
+- Default: `3600` (1 hour)
 
 ## Example Playbook
 

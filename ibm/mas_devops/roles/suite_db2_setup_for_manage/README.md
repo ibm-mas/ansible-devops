@@ -18,8 +18,10 @@ This role performs initial Db2 database setup required for Maximo Manage applica
 
 ## Role Variables
 
+### General Variables
 
-### db2_instance_name
+
+#### db2_instance_name
 
 Db2 instance name for Manage setup.
 
@@ -44,7 +46,7 @@ Db2 instance name for Manage setup.
 
 **Note**: To find the instance name, go to the Db2 namespace and look for pods with `label=engine`. Describe the pod and find the `app` label value.
 
-### db2_namespace
+#### db2_namespace
 Db2 instance namespace.
 
 - **Optional**
@@ -67,7 +69,7 @@ Db2 instance namespace.
 
 **Note**: The default `db2u` namespace is used by most Db2 Warehouse deployments.
 
-### db2_username
+#### db2_username
 Database connection username.
 
 - **Optional**
@@ -91,7 +93,7 @@ Database connection username.
 
 **Note**: The user must have sufficient privileges to create tablespaces and modify database configuration.
 
-### db2_dbname
+#### db2_dbname
 Database name within Db2 instance.
 
 - **Optional**
@@ -115,7 +117,7 @@ Database name within Db2 instance.
 
 **Note**: `BLUDB` is the default database name for Manage deployments.
 
-### db2_schema
+#### db2_schema
 Manage database schema name.
 
 - **Optional**
@@ -139,7 +141,7 @@ Manage database schema name.
 
 **Note**: The default `maximo` schema is standard for Manage deployments. Ensure this matches your Manage database configuration.
 
-### db2_tablespace_data_size
+#### db2_tablespace_data_size
 Data tablespace size.
 
 - **Optional**
@@ -167,7 +169,7 @@ Data tablespace size.
 - Custom fields and extensions
 Start with 5GB and monitor usage. Tablespaces can be expanded later if needed.
 
-### db2_tablespace_index_size
+#### db2_tablespace_index_size
 Index tablespace size.
 
 - **Optional**
@@ -190,7 +192,7 @@ Index tablespace size.
 
 **Note**: Indexes improve query performance but consume space. A good rule of thumb is to allocate 20-30% of the data tablespace size for indexes. Monitor usage and adjust as needed.
 
-### db2_config_version
+#### db2_config_version
 
 Db2 configuration parameter version.
 
@@ -216,7 +218,7 @@ Db2 configuration parameter version.
 
 **Note**: The parameter set includes optimizations for Manage's specific database access patterns. Future versions may include additional optimizations.
 
-### enforce_db2_config
+#### enforce_db2_config
 
 Force Db2 configuration with restart.
 

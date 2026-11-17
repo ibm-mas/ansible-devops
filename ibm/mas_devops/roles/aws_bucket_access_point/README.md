@@ -12,7 +12,9 @@ This role creates an access point associated with an existing S3 bucket and conf
 
 ## Role Variables
 
-### aws_access_point_name
+### General Variables
+
+#### aws_access_point_name
 Name for the S3 bucket access point.
 
 - Optional
@@ -35,7 +37,7 @@ Name for the S3 bucket access point.
 - Use descriptive names for easier management
 - Access point alias format: `<access-point-name>-<account-id>.s3-accesspoint.<region>.amazonaws.com`
 
-### aws_access_point_bucket_name
+#### aws_access_point_bucket_name
 Name of the existing S3 bucket to associate with the access point.
 
 - **Required**
@@ -58,7 +60,7 @@ Name of the existing S3 bucket to associate with the access point.
 - Multiple access points can be created for the same bucket
 - Verify bucket name: `aws s3 ls s3://<bucket-name>`
 
-### aws_access_point_region
+#### aws_access_point_region
 AWS region where the bucket and access point are located.
 
 - Optional
@@ -81,7 +83,7 @@ AWS region where the bucket and access point are located.
 - Access point ARN includes the region
 - Network latency depends on region proximity to users
 
-### aws_access_point_username
+#### aws_access_point_username
 AWS IAM user or account ID granted access through the access point.
 
 - **Required**
@@ -107,10 +109,10 @@ AWS IAM user or account ID granted access through the access point.
 - User still needs IAM permissions to use the access point
 - For cross-account access, provide the account ID
 
-### aws_access_point_policy_actions
+#### aws_access_point_policy_actions
 List of S3 actions allowed through the access point.
 
-- Optional (defined in defaults)
+- **Optional** (defined in defaults)
 - Environment Variable: None (hardcoded in defaults)
 - Default: `["s3:GetObject", "s3:ListBucket"]`
 

@@ -4,7 +4,9 @@ Install **IBM Suite License Service** and generate a configuration that can be d
 
 The role assumes that you have already installed the Certificate Manager in the target cluster.  This action is performed by the [cert_manager](cert_manager.md) role if you want to use this collection to install the cert-manager operator.
 
-## Role Variables - General
+## Role Variables
+
+### General Variables
 
 ### General Variables
 
@@ -41,7 +43,7 @@ Specifies which operation to perform on the Suite License Service (SLS) instance
 **Note**: Always backup license data before using `uninstall`. The `gencfg` action is useful when SLS is shared across multiple MAS instances.
 
 
-## Role Variables - Installation
+### Installation
 If `sls_url` is set then the role will skip the installation of an SLS instance and simply generate the SLSCfg resource for the SLS instance defined.
 
 #### artifactory_username
@@ -304,7 +306,8 @@ SLS-specific IBM entitlement key override (SLS 3.7.0 and earlier only).
 **Note**: **DEPRECATED in SLS 3.8.0** - SLS images moved to public registry. This variable is only required for SLS versions up to 3.7.0. For SLS 3.8.0+, no entitlement key is needed.
 
 
-## Role Variables - Configuration
+### Configuration
+
 #### sls_domain
 Custom domain name for external access to SLS via OpenShift routes.
 
@@ -600,7 +603,8 @@ Local file path to the IBM license entitlement file for bootstrapping SLS.
 **Note**: **Application Support: SLS 3.7.0 and higher**. The license file is obtained from IBM and contains your MAS product entitlements. Keep this file secure as it represents your license rights.
 
 
-## Role Variables - Bootstrap [Partly deprecated in SLS 3.7.0]
+### Bootstrap [Partly deprecated in SLS 3.7.0]
+
 #### bootstrap.license_file
 **Deprecated in SLS 3.7.0**
 
@@ -615,7 +619,7 @@ Defines the License File to be used to bootstrap SLS. Don't set if you wish to s
 
 Defines the License Id to be used to bootstrap SLS. This must be set when `bootstrap.license_file` is also set and should match the licenseId from the license file. Don't set if you wish to setup entitlement later on. Note: this is now deprecated in SLS 3.7.0. Use this only for versions up to 3.6.0.
 
-- Optional unless `bootstrap.license_file` is set
+- **Optional** unless `bootstrap.license_file` is set
 - Environment Variable: `SLS_LICENSE_ID`
 - Default: None
 
@@ -633,56 +637,56 @@ The instance ID of Maximo Application Suite that the SlsCfg configuration will t
 
 - Optional, if this or `mas_config_dir` are not set then the role will not generate a SlsCfg template
 - Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
+- Default: None
 
 #### mas_config_dir
 Local directory to save the generated SlsCfg resource definition.  This can be used to manually configure a MAS instance to connect to SLS instance, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a SlsCfg template.
 
 - **Optional** (if this or `mas_config_dir` are not set then the role will not generate a SlsCfg template)
 - Environment Variable: `MAS_CONFIG_DIR`
-- Default Value: None
+- Default: None
 
 #### sls_url
 The URL of the LicenseService to be called when the Maximo Application Suite is registered with SLS.
 
 - Optional, used to instruct the role to set up MAS for an existing SLS instance.
 - Environment Variable: `SLS_URL`
-- Default Value: None
+- Default: None
 
 #### mas_license_sync_frequency
 The sync frequency of user license sync cronjob between Maximo Application Suite and SLS.
 
 - **Optional**
 - Environment Variable: `MAS_LICENSE_SYNC_FREQUENCY`
-- Default Value: `*/30 * * * *`
+- Default: `*/30 * * * *`
 
 #### sls_tls_crt
 The TLS CA certificate of the LicenseService to be used when the Maximo Application Suite is registered with SLS.  Takes precedence over  `sls_tls_crt_local_file_path`.
 
 - Optional, used to instruct the role to set up MAS for an existing SLS instance.
 - Environment Variable: `SLS_TLS_CERT`
-- Default Value: None
+- Default: None
 
 #### sls_tls_crt_local_file_path
 The path on the local system to a file containing the TLS CA certificate of the LicenseService to be used when the Maximo Application Suite is registered with SLS.  This variable is only used if `sls_tls_crt` has not been set.
 
 - **Optional** (used to instruct the role to set up MAS for an existing SLS instance)
 - Environment Variable: `SLS_TLS_CERT_LOCAL_FILE_PATH`
-- Default Value: None
+- Default: None
 
 #### sls_registration_key
 The Registration key of the LicenseService instance to be used when the Maximo Application Suite is registered with SLS.
 
 - Optional
 - Environment Variable: `SLS_REGISTRATION_KEY`
-- Default Value: None
+- Default: None
 
 #### custom_labels
 List of comma separated key=value pairs for setting custom labels on instance specific resources.
 
 - **Optional**
 - Environment Variable: `CUSTOM_LABELS`
-- Default Value: None
+- Default: None
 
 #### mas_pod_templates_dir
 Provide the directory where supported pod templates configuration files are defined.  This role will look for a configuration file named `ibm-mas-slscfg.yml` in the named directory.  The content of the configuration file should be the yaml block that you wish to be inserted into the SlsCfg spec under a top level `podTemplates` element, e.g. `podTemplates: {object}`.
@@ -693,8 +697,8 @@ For examples refer to the [BestEfforts reference configuration in the MAS CLI](h
 - Environment Variable: `MAS_POD_TEMPLATES_DIR`
 - Default: None
 
-Role Variables - Backup and Restore Variables
--------------------------------------------------------------------------------
+### Backup and Restore Variables
+
 #### mas_backup_dir
 Directory path where SLS backup files will be stored.
 
@@ -741,8 +745,7 @@ Version identifier for the backup, used to create unique backup directories.
 
 **Note**: When restoring, you must know the exact backup version identifier. List the contents of `mas_backup_dir` to see available backups.
 
-Backup and Restore Operations
--------------------------------------------------------------------------------
+## Backup and Restore Operations
 
 The SLS role supports backup and restore operations to protect your license service configuration and data. This is essential for disaster recovery, migration, and upgrade scenarios.
 
@@ -785,7 +788,7 @@ The backup operation performs the following steps:
 6. **Verification**: Reports backup statistics and any failures
 
 **Backup Directory Structure:**
-```
+```text
 {mas_backup_dir}/
 └── backup-{version}-sls/
     ├── resources/

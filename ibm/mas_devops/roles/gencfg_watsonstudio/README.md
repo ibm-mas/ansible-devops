@@ -7,7 +7,9 @@ The role supports flexible configuration scoping to make Watson Studio available
 
 ## Role Variables
 
-### mas_instance_id
+### General Variables
+
+#### mas_instance_id
 MAS instance identifier for which the Watson Studio configuration is being generated.
 
 - **Required**
@@ -30,7 +32,7 @@ MAS instance identifier for which the Watson Studio configuration is being gener
 - Watson Studio integration is primarily used by Predict and Health applications
 - Required for AI/ML model training and deployment in MAS
 
-### mas_workspace_id
+#### mas_workspace_id
 MAS workspace identifier for workspace-scoped configurations.
 
 - **Required** if `mas_config_scope` is `ws` or `wsapp`
@@ -52,7 +54,7 @@ MAS workspace identifier for workspace-scoped configurations.
 - Use workspace-scoped configs for tenant isolation in multi-tenant deployments
 - Each workspace can have its own Watson Studio instance for data isolation
 
-### mas_config_scope
+#### mas_config_scope
 Configuration scope level for the generated Watson Studio configuration.
 
 - Optional
@@ -79,7 +81,7 @@ Configuration scope level for the generated Watson Studio configuration.
 - Scope cannot be changed after creation; requires recreation of the configuration
 - Predict and Health are the primary consumers of Watson Studio
 
-### mas_config_dir
+#### mas_config_dir
 Local directory path where the generated YAML configuration file will be saved.
 
 - **Required**
@@ -102,7 +104,7 @@ Local directory path where the generated YAML configuration file will be saved.
 - Keep generated files for documentation and disaster recovery purposes
 - Can be used as input to the `suite_config` role
 
-### mas_application_id
+#### mas_application_id
 MAS application identifier for application-scoped configurations.
 
 - **Required** if `mas_config_scope` is `app` or `wsapp`
@@ -124,7 +126,7 @@ MAS application identifier for application-scoped configurations.
 - Predict and Health are the main applications that use Watson Studio
 - Use application-scoped configs when different applications need different Watson Studio instances
 
-### cpd_admin_username
+#### cpd_admin_username
 Cloud Pak for Data administrative username for Watson Studio access.
 
 - **Required**
@@ -147,7 +149,7 @@ Cloud Pak for Data administrative username for Watson Studio access.
 - Consider using a dedicated service account rather than a personal admin account
 - User should have appropriate resource quotas for ML workloads
 
-### cpd_admin_password
+#### cpd_admin_password
 Cloud Pak for Data password for authentication.
 
 - **Required**
@@ -170,7 +172,7 @@ Cloud Pak for Data password for authentication.
 - Consider implementing password rotation policies
 - Ensure password doesn't expire or require periodic changes that could break integration
 
-### cpd_admin_url
+#### cpd_admin_url
 Cloud Pak for Data console URL for Watson Studio access.
 
 - **Required**
@@ -194,7 +196,7 @@ Cloud Pak for Data console URL for Watson Studio access.
 - For multi-cluster deployments, ensure proper routing is configured
 - URL should point to the CP4D console route, not individual service routes
 
-### custom_labels
+#### custom_labels
 Custom Kubernetes labels to apply to the generated WatsonStudioCfg resource.
 
 - Optional

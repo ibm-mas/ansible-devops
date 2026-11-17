@@ -1,13 +1,16 @@
 # cos_bucket
 This role extends support to create or deprovision Cloud Object Storage buckets.
 
-## Role Variables - General
-### cos_type
+## Role Variables
+
+### General Variables
+
+#### cos_type
 The Cloud Object Storage provider for bucket operations.
 
 - **Required**
 - Environment Variable: `COS_TYPE`
-- Default Value: None
+- Default: None
 
 **Purpose**: Determines which object storage provider will be used for bucket creation or deletion. Different providers have different capabilities, APIs, and operational characteristics.
 
@@ -34,12 +37,12 @@ The Cloud Object Storage provider for bucket operations.
 - Bucket names must be globally unique within each provider
 - Choose the provider that matches your COS instance location
 
-### cos_bucket_action
+#### cos_bucket_action
 The action to perform on the bucket.
 
 - **Required**
 - Environment Variable: `COS_BUCKET_ACTION`
-- Default Value: `create`
+- Default: `create`
 
 **Purpose**: Controls whether to create a new bucket or delete an existing one. This allows the same role to handle both lifecycle operations.
 
@@ -68,13 +71,14 @@ The action to perform on the bucket.
 - AWS bucket deletion can force-delete objects if versioning is disabled
 - Verify the bucket name before deletion to avoid removing the wrong bucket
 
-## Role Variables - IBM Cloud Object Storage buckets
-### cos_bucket_name
+### IBM Cloud Object Storage buckets
+
+#### cos_bucket_name
 The name for the IBM Cloud Object Storage bucket.
 
 - **Optional** (IBM COS only)
 - Environment Variable: `COS_BUCKET_NAME`
-- Default Value: `<mas_instance_id>-<mas_workspace_id>-bucket`
+- Default: `<mas_instance_id>-<mas_workspace_id>-bucket`
 
 **Purpose**: Specifies a custom name for the IBM Cloud COS bucket. Bucket names must be globally unique across all IBM Cloud COS instances.
 
@@ -96,8 +100,8 @@ The name for the IBM Cloud Object Storage bucket.
 
 **Related variables**:
 - [`cos_type`](#cos_type) - Must be `ibm` for this to be used
-- [`mas_instance_id`](#mas_instance_id) - Used in default name
-- [`mas_workspace_id`](#mas_workspace_id) - Used in default name
+- `mas_instance_id` - Used in default name
+- `mas_workspace_id` - Used in default name
 
 **Notes**:
 - Default naming includes instance and workspace IDs for uniqueness
@@ -105,12 +109,12 @@ The name for the IBM Cloud Object Storage bucket.
 - Use consistent naming conventions across all buckets
 - Not used for AWS buckets (see `aws_bucket_name`)
 
-### cos_bucket_storage_class
+#### cos_bucket_storage_class
 The IBM Cloud COS storage class for the bucket.
 
 - **Optional** (IBM COS only)
 - Environment Variable: `COS_BUCKET_STORAGE_CLASS`
-- Default Value: `smart`
+- Default: `smart`
 
 **Purpose**: Specifies the storage class tier for the IBM Cloud COS bucket, which determines pricing, performance, and data retrieval characteristics.
 
@@ -139,12 +143,12 @@ The IBM Cloud COS storage class for the bucket.
 - Review IBM Cloud COS pricing for cost implications
 - Not applicable for AWS buckets
 
-### cos_instance_name
+#### cos_instance_name
 The name of the IBM Cloud COS instance where the bucket will be created.
 
 - **Required** (IBM COS only)
 - Environment Variable: `COS_INSTANCE_NAME`
-- Default Value: None
+- Default: None
 
 **Purpose**: Identifies the specific IBM Cloud COS instance where the bucket will be created or deleted. This must match an existing COS instance in your IBM Cloud account.
 
@@ -173,12 +177,12 @@ The name of the IBM Cloud COS instance where the bucket will be created.
 - Verify the instance name in IBM Cloud console if unsure
 - Not applicable for AWS buckets
 
-### cos_location_info
+#### cos_location_info
 The geographic location of the IBM Cloud COS instance.
 
 - **Required** (IBM COS only)
 - Environment Variable: `COS_LOCATION`
-- Default Value: `global`
+- Default: `global`
 
 **Purpose**: Specifies the geographic scope of the IBM Cloud COS instance. This should match the location used when the COS instance was created.
 
@@ -203,12 +207,12 @@ The geographic location of the IBM Cloud COS instance.
 - Must match the location used when creating the COS instance
 - Not applicable for AWS buckets
 
-### cos_bucket_region_location_type
+#### cos_bucket_region_location_type
 The resiliency type for the IBM Cloud COS bucket.
 
 - **Required** (IBM COS only)
 - Environment Variable: `COS_BUCKET_REGION_LOCATION_TYPE`
-- Default Value: `cross_region_location`
+- Default: `cross_region_location`
 
 **Purpose**: Defines the geographic distribution and resiliency level of the bucket. This determines data redundancy and availability characteristics.
 
@@ -236,12 +240,12 @@ The resiliency type for the IBM Cloud COS bucket.
 - Consider compliance and data residency requirements
 - Not applicable for AWS buckets
 
-### cos_bucket_region_location
+#### cos_bucket_region_location
 The specific region(s) for the IBM Cloud COS bucket.
 
 - **Required** (IBM COS only)
 - Environment Variable: `COS_BUCKET_REGION_LOCATION`
-- Default Value: Derived from `ibmcloud_region` (e.g., `us`, `eu`, `ap`)
+- Default: Derived from `ibmcloud_region` (e.g., `us`, `eu`, `ap`)
 
 **Purpose**: Specifies the exact geographic region(s) where the bucket data will be stored. Valid values depend on the `cos_bucket_region_location_type`.
 
@@ -270,12 +274,12 @@ The specific region(s) for the IBM Cloud COS bucket.
 - Consider compliance requirements when selecting region
 - Not applicable for AWS buckets
 
-### ibmcloud_region
+#### ibmcloud_region
 The IBM Cloud region used to derive the default cross-region location.
 
 - **Optional** (IBM COS only)
 - Environment Variable: `IBMCLOUD_REGION`
-- Default Value: `us-east`
+- Default: `us-east`
 
 **Purpose**: Provides a hint for automatically determining the appropriate cross-region location when `cos_bucket_region_location` is not explicitly set.
 
@@ -301,12 +305,12 @@ The IBM Cloud region used to derive the default cross-region location.
 - Provides convenience for cross-region bucket creation
 - Not applicable for AWS buckets
 
-### cos_url
+#### cos_url
 The IBM Cloud COS S3 API endpoint URL.
 
 - **Required** (IBM COS only, for bucket creation)
 - Environment Variable: `COS_REGION_LOCATION_URL`
-- Default Value: `https://s3.<region>.cloud-object-storage.appdomain.cloud`
+- Default: `https://s3.<region>.cloud-object-storage.appdomain.cloud`
 
 **Purpose**: Specifies the S3-compatible API endpoint for accessing the IBM Cloud COS bucket. This URL is used for all bucket operations.
 
@@ -334,12 +338,12 @@ The IBM Cloud COS S3 API endpoint URL.
 - Private endpoints recommended for OpenShift clusters in IBM Cloud
 - Not applicable for AWS buckets (see `aws_url`)
 
-### cos_resource_key_iam_role
+#### cos_resource_key_iam_role
 The IAM role for COS service credentials created during bucket setup.
 
 - **Optional** (IBM COS only)
 - Environment Variable: `COS_RESOURCE_KEY_IAM_ROLE`
-- Default Value: `Manager`
+- Default: `Manager`
 
 **Purpose**: Specifies the IAM role level for service credentials that may be created during bucket operations. This determines the permissions granted for accessing the bucket.
 
@@ -363,12 +367,12 @@ The IAM role for COS service credentials created during bucket setup.
 - Default `Manager` role is recommended
 - Not applicable for AWS buckets
 
-### ibmcloud_apikey
+#### ibmcloud_apikey
 The IBM Cloud API key for bucket operations.
 
 - **Required** (IBM COS only)
 - Environment Variable: `IBMCLOUD_APIKEY`
-- Default Value: None
+- Default: None
 
 **Purpose**: Provides authentication credentials for IBM Cloud to create and manage COS buckets.
 
@@ -394,12 +398,12 @@ The IBM Cloud API key for bucket operations.
 - Never commit API keys to version control
 - Not applicable for AWS buckets
 
-### ibmcloud_resourcegroup
+#### ibmcloud_resourcegroup
 The IBM Cloud resource group containing the COS instance.
 
 - **Optional** (IBM COS only)
 - Environment Variable: `IBMCLOUD_RESOURCEGROUP`
-- Default Value: `Default`
+- Default: `Default`
 
 **Purpose**: Specifies the resource group where the COS instance is located.
 
@@ -424,17 +428,17 @@ The IBM Cloud resource group containing the COS instance.
 - Must match the resource group used in the `cos` role
 - Not applicable for AWS buckets
 
-## Role Variables - AWS S3 Buckets
+### AWS S3 Buckets
 
 To run this role successfully for AWS s3 buckets, you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
 Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role.
 
-### aws_bucket_name
+#### aws_bucket_name
 The name for the AWS S3 bucket.
 
 - **Optional** (AWS S3 only)
 - Environment Variable: `COS_BUCKET_NAME`
-- Default Value: `<mas_instance_id>-<mas_workspace_id>-bucket`
+- Default: `<mas_instance_id>-<mas_workspace_id>-bucket`
 
 **Purpose**: Specifies a custom name for the AWS S3 bucket. Bucket names must be globally unique across all AWS S3 buckets worldwide.
 
@@ -457,8 +461,8 @@ The name for the AWS S3 bucket.
 
 **Related variables**:
 - [`cos_type`](#cos_type) - Must be `aws` for this to be used
-- [`mas_instance_id`](#mas_instance_id) - Used in default name
-- [`mas_workspace_id`](#mas_workspace_id) - Used in default name
+- `mas_instance_id` - Used in default name
+- `mas_workspace_id` - Used in default name
 - [`aws_region`](#aws_region) - Region where the bucket is created
 
 **Notes**:
@@ -467,12 +471,12 @@ The name for the AWS S3 bucket.
 - Use consistent naming conventions across all buckets
 - Not used for IBM COS buckets (see `cos_bucket_name`)
 
-### aws_region
+#### aws_region
 The AWS region where the S3 bucket will be created.
 
 - **Required** (AWS S3 only)
 - Environment Variable: `AWS_REGION`
-- Default Value: `us-east-2`
+- Default: `us-east-2`
 
 **Purpose**: Specifies the AWS region for S3 bucket creation. This determines the physical location of the bucket and affects latency and data residency.
 
@@ -493,7 +497,7 @@ The AWS region where the S3 bucket will be created.
 **Related variables**:
 - [`cos_type`](#cos_type) - Must be `aws` for this to be used
 - [`aws_bucket_name`](#aws_bucket_name) - Bucket created in this region
-- [`aws_url`](#aws_url) - Should match the region
+- `aws_url` - Should match the region
 
 **Notes**:
 - Choose a region close to your OpenShift cluster for best performance
@@ -501,12 +505,12 @@ The AWS region where the S3 bucket will be created.
 - Some regions may have capacity constraints
 - Not applicable for IBM COS buckets
 
-### aws_bucket_versioning_flag
+#### aws_bucket_versioning_flag
 Controls whether to enable versioning for the AWS S3 bucket.
 
 - **Optional** (AWS S3 only)
 - Environment Variable: `COS_BUCKET_VERSIONING_FLAG`
-- Default Value: `True`
+- Default: `True`
 
 **Purpose**: Determines if S3 versioning should be enabled for the bucket. Versioning keeps multiple variants of an object in the same bucket, providing protection against accidental deletion or overwrite.
 
@@ -534,12 +538,12 @@ Controls whether to enable versioning for the AWS S3 bucket.
 - Consider lifecycle policies to manage old versions
 - Not applicable for IBM COS buckets
 
-### aws_bucket_encryption
+#### aws_bucket_encryption
 The encryption configuration for the AWS S3 bucket.
 
 - **Optional** (AWS S3 only)
 - Environment Variable: `COS_BUCKET_ENCRYPTION`
-- Default Value: None
+- Default: None
 
 **Purpose**: Specifies the default server-side encryption configuration for objects stored in the S3 bucket. This ensures data is encrypted at rest.
 
@@ -568,12 +572,12 @@ The encryption configuration for the AWS S3 bucket.
 - Encryption can be changed after bucket creation
 - Not applicable for IBM COS buckets
 
-### aws_bucket_force_deletion_flag
+#### aws_bucket_force_deletion_flag
 Controls whether to force-delete bucket contents before deleting the bucket.
 
 - **Optional** (AWS S3 only)
 - Environment Variable: `COS_BUCKET_FORCE_DELETION_FLAG`
-- Default Value: `True`
+- Default: `True`
 
 **Purpose**: When deleting an AWS S3 bucket, this flag determines whether to automatically delete all objects in the bucket first. This only works if versioning is disabled.
 

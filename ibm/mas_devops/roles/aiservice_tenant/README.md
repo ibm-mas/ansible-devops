@@ -10,7 +10,9 @@ This role provides support to install and configure AI Broker:
 
 ## Role Variables
 
-### tenant_action
+### General Variables
+
+#### tenant_action
 Action to perform on the AI Broker tenant.
 
 - Optional
@@ -31,7 +33,7 @@ Action to perform on the AI Broker tenant.
 
 **Notes**: **Warning** - `remove` action permanently deletes the tenant and all associated data.
 
-### tenantID
+#### tenantID
 Unique identifier for the AI Broker tenant.
 
 - Optional
@@ -50,7 +52,7 @@ Unique identifier for the AI Broker tenant.
 
 **Notes**: The default `user` is suitable for single-tenant deployments. Use descriptive names for multi-tenant environments.
 
-### app_domain
+#### app_domain
 Application domain for AI Broker API endpoints.
 
 - Optional
@@ -71,7 +73,7 @@ Application domain for AI Broker API endpoints.
 - Get cluster domain: `oc get ingress.config cluster -o jsonpath='{.spec.domain}'`
 - Format must be the full apps domain (e.g., `apps.mycluster.example.com`)
 
-### aiservice_watsonx_action
+#### aiservice_watsonx_action
 Action to perform on WatsonX AI integration.
 
 - Optional
@@ -92,7 +94,7 @@ Action to perform on WatsonX AI integration.
 
 **Notes**: WatsonX AI integration enables AI model access through IBM watsonx.ai platform.
 
-### aiservice_watsonxai_apikey
+#### aiservice_watsonxai_apikey
 WatsonX AI API key for authentication.
 
 - Optional
@@ -114,7 +116,7 @@ WatsonX AI API key for authentication.
 - Obtain from IBM Cloud console under watsonx.ai service credentials
 - API key is stored as Kubernetes secret
 
-### aiservice_watsonxai_url
+#### aiservice_watsonxai_url
 WatsonX AI service endpoint URL.
 
 - Optional
@@ -136,7 +138,7 @@ WatsonX AI service endpoint URL.
 - Common endpoints: `https://us-south.ml.cloud.ibm.com`, `https://eu-de.ml.cloud.ibm.com`
 - Verify endpoint in IBM Cloud watsonx.ai service details
 
-### aiservice_watsonxai_project_id
+#### aiservice_watsonxai_project_id
 WatsonX AI project identifier.
 
 - Optional
@@ -158,10 +160,10 @@ WatsonX AI project identifier.
 - Format is typically a UUID (e.g., `12345678-1234-1234-1234-123456789012`)
 - Project must exist before configuring AI Broker
 
-## Entitlement Configuration
+### Entitlement Configuration
 Configure the tenant's entitlement to the AI Service for licensing and access control.
 
-### tenant_entitlement_type
+#### tenant_entitlement_type
 Type of entitlement for the tenant.
 
 - Optional
@@ -180,7 +182,7 @@ Type of entitlement for the tenant.
 
 **Notes**: Entitlement types are defined by the AI Service deployment configuration.
 
-### tenant_entitlement_start_date
+#### tenant_entitlement_start_date
 Start date for tenant entitlement period.
 
 - Optional
@@ -199,7 +201,7 @@ Start date for tenant entitlement period.
 
 **Notes**: Must be in `YYYY-MM-DD` format. Ensure date is valid and in the past or present for immediate access.
 
-### tenant_entitlement_end_date
+#### tenant_entitlement_end_date
 End date for tenant entitlement period.
 
 - Optional
@@ -221,9 +223,9 @@ End date for tenant entitlement period.
 - Should be after `tenant_entitlement_start_date`
 - Plan for entitlement renewal before expiration
 
-## Scheduling Configuration
+### Scheduling Configuration
 
-### aiservice_tenant_scheduling_config_file
+#### aiservice_tenant_scheduling_config_file
 Path to YAML file containing scheduling configuration for pipeline and predictor workloads for tenant.
 
 - Optional
@@ -256,7 +258,7 @@ At least one of `tolerations` or `nodeSelector` must be defined for each non-emp
 
 ```yaml
 ---
-# Pipeline scheduling configuration
+  # Pipeline scheduling configuration
 pipeline:
   tolerations:
     - key: "aiservice-pipeline"
@@ -267,7 +269,7 @@ pipeline:
     workload-type: "aiservice-pipeline"
     node-role: "compute"
 
-# Predictor scheduling configuration
+  # Predictor scheduling configuration
 predictor:
   tolerations:
     - key: "aiservice-predictor"
@@ -327,7 +329,7 @@ predictor:
        topology.kubernetes.io/zone: "us-east-1a"
    ```
 
-### aiservice_tenant_operator_config_file
+#### aiservice_tenant_operator_config_file
 Path to the YAML file containing the tenant operator customization settings.
 
 - Optional

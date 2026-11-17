@@ -12,7 +12,9 @@ The role creates OAuth configuration, manages user groups, and assigns cluster r
 
 ## Role Variables
 
-### oauth.github_client_secret_value
+### General Variables
+
+#### oauth.github_client_secret_value
 GitHub OAuth application client secret.
 
 - **Required**
@@ -35,7 +37,7 @@ GitHub OAuth application client secret.
 - Stored as Kubernetes secret in the cluster
 - Regenerate if compromised
 
-### oauth.github_client_id_value
+#### oauth.github_client_id_value
 GitHub OAuth application client ID.
 
 - **Required**
@@ -57,7 +59,7 @@ GitHub OAuth application client ID.
 - Public value, but should still be managed securely
 - Must match the OAuth app configured with `ibmgithub` as the OAuth ID
 
-### oauth.github_hostname
+#### oauth.github_hostname
 GitHub server hostname for authentication.
 
 - Optional
@@ -83,7 +85,7 @@ GitHub server hostname for authentication.
 - Hostname must be accessible from the OpenShift cluster
 - Verify SSL certificates are properly configured
 
-### oauth.organizations
+#### oauth.organizations
 List of GitHub organizations for authentication.
 
 - **Required**
@@ -106,7 +108,7 @@ List of GitHub organizations for authentication.
 - Multiple organizations can be specified for broader access
 - Organization names are case-sensitive
 
-### oauth.groups
+#### oauth.groups
 List of OpenShift groups to create with GitHub user mappings.
 
 - Optional
@@ -132,7 +134,7 @@ List of OpenShift groups to create with GitHub user mappings.
 - Common cluster roles: `cluster-admin`, `admin`, `edit`, `view`
 - Groups are created if they don't exist
 
-### oauth.groups.name
+#### oauth.groups.name
 Name of the OpenShift group to create.
 
 - **Required** (when defining groups)
@@ -154,7 +156,7 @@ Name of the OpenShift group to create.
 - Common patterns: `<project>-admins`, `<team>-developers`
 - Group names must be unique within the cluster
 
-### oauth.groups.users
+#### oauth.groups.users
 List of GitHub usernames to add to the group.
 
 - **Required** (when defining groups)
@@ -177,7 +179,7 @@ List of GitHub usernames to add to the group.
 - Users are added to groups upon first login
 - Update list to add or remove user access
 
-### oauth.groups.groups_cluster_rolebindings
+#### oauth.groups.groups_cluster_rolebindings
 List of cluster roles to bind to the group.
 
 - **Required** (when defining groups)

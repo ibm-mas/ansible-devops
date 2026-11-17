@@ -53,8 +53,11 @@ The following specific images are also mirrored:
 - `oc-mirror` plugin must be installed
 
 
-## Role Variables - General
-### mirror_mode
+## Role Variables
+
+### General Variables
+
+#### mirror_mode
 Mirroring operation mode for Red Hat content.
 
 - **Required**
@@ -84,8 +87,9 @@ Mirroring operation mode for Red Hat content.
 **Note**: For air-gapped environments, use `to-filesystem` on a connected system, transfer files, then use `from-filesystem` on the disconnected system.
 
 
-## Role Variables - Mirror Actions
-### mirror_working_dir
+### Mirror Actions
+
+#### mirror_working_dir
 Working directory for mirroring operations.
 
 - **Required**
@@ -108,7 +112,7 @@ Working directory for mirroring operations.
 
 **Note**: For `to-filesystem` mode, ensure the directory has sufficient space for all images (can be hundreds of GB for platform + operators). The directory structure is preserved for `from-filesystem` mode.
 
-### mirror_redhat_platform
+#### mirror_redhat_platform
 Enable mirroring of Red Hat OpenShift platform images.
 
 - **Optional**
@@ -134,7 +138,7 @@ Enable mirroring of Red Hat OpenShift platform images.
 
 **Note**: Platform images are large (tens of GB). Only enable if you need to install or upgrade OpenShift in a disconnected environment.
 
-### mirror_redhat_operators
+#### mirror_redhat_operators
 Enable mirroring of selected Red Hat operator catalog content.
 
 - **Optional**
@@ -159,7 +163,7 @@ Enable mirroring of selected Red Hat operator catalog content.
 
 **Note**: Only selected operators used by MAS are mirrored, not entire catalogs. See the catalog list at the top of this README for included operators.
 
-### redhat_pullsecret
+#### redhat_pullsecret
 Path to Red Hat pull secret file.
 
 - **Required**
@@ -183,8 +187,9 @@ Path to Red Hat pull secret file.
 **Note**: Download your pull secret from the Red Hat OpenShift Console. Keep the file secure as it contains authentication credentials. The pull secret must be valid and associated with an active Red Hat account.
 
 
-## Role Variables - OpenShift Version
-### ocp_release
+### OpenShift Version
+
+#### ocp_release
 The Red Hat release you are mirroring content for, e.g. `4.22`.
 
 - **Required**
@@ -209,7 +214,7 @@ The Red Hat release you are mirroring content for, e.g. `4.22`.
 
 **Note**: Use the major.minor version format (e.g., `4.22`), not full version (e.g., `4.22.2`). Use `ocp_min_version` and `ocp_max_version` to control patch version range.
 
-### ocp_min_version
+#### ocp_min_version
 The minimum version of the Red Hat release to mirror platform content for, e.g. `4.22.2`.
 
 - **Optional**
@@ -234,7 +239,7 @@ The minimum version of the Red Hat release to mirror platform content for, e.g. 
 
 **Note**: Only affects platform image mirroring, not operators. Use to limit mirror size when you know the specific OpenShift versions you need.
 
-### ocp_max_version
+#### ocp_max_version
 The maximimum version of the Red Hat release to mirror platform content for, e.g. `4.22.2`.
 
 - **Optional**
@@ -260,8 +265,9 @@ The maximimum version of the Red Hat release to mirror platform content for, e.g
 **Note**: Only affects platform image mirroring, not operators. Use to limit mirror size when you know the specific OpenShift versions you need.
 
 
-## Role Variables - Target Registry
-### registry_public_host
+### Target Registry
+
+#### registry_public_host
 Target registry hostname for mirrored images.
 
 - **Required**
@@ -285,7 +291,7 @@ Target registry hostname for mirrored images.
 
 **Note**: Registry must be accessible and have sufficient storage space for Red Hat content (can be hundreds of GB).
 
-### registry_public_port
+#### registry_public_port
 Target registry port for mirrored images.
 
 - **Required**
@@ -308,7 +314,7 @@ Target registry port for mirrored images.
 
 **Note**: Ensure the port is accessible from the mirroring system.
 
-### registry_is_ecr
+#### registry_is_ecr
 Enable AWS Elastic Container Registry (ECR) support.
 
 - **Optional**
@@ -333,7 +339,7 @@ Enable AWS Elastic Container Registry (ECR) support.
 
 **Note**: When using ECR, ensure AWS credentials are configured and the ECR region is specified.
 
-### registry_ecr_aws_region
+#### registry_ecr_aws_region
 AWS region for Elastic Container Registry.
 
 - **Optional** (Required when `registry_is_ecr=true`)
@@ -356,7 +362,7 @@ AWS region for Elastic Container Registry.
 
 **Note**: Ensure AWS credentials have permissions to push images to ECR in the specified region.
 
-### registry_prefix_redhat
+#### registry_prefix_redhat
 Path prefix in target registry for Red Hat images.
 
 - **Optional**
@@ -382,7 +388,7 @@ Path prefix in target registry for Red Hat images.
 
 **Note**: The prefix helps organize Red Hat images separately from IBM or other content in the registry.
 
-### registry_username
+#### registry_username
 Username for target registry authentication.
 
 - **Required**
@@ -405,7 +411,7 @@ Username for target registry authentication.
 
 **Note**: Keep credentials secure. Use environment variables or secure vaults rather than hardcoding in playbooks.
 
-### registry_password
+#### registry_password
 Password for target registry authentication.
 
 - **Required**

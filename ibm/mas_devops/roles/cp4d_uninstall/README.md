@@ -23,7 +23,9 @@ The role follows a specific order to ensure clean uninstallation:
 
 ## Role Variables
 
-### cpd_operators_namespace
+### General Variables
+
+#### cpd_operators_namespace
 Namespace where CP4D operators are installed.
 
 - **Optional**
@@ -42,7 +44,7 @@ Namespace where CP4D operators are installed.
 
 **Note**: Must match the namespace used during CP4D installation.
 
-### cpd_instance_namespace
+#### cpd_instance_namespace
 Namespace where CP4D instance workloads are deployed.
 
 - **Optional**
@@ -61,7 +63,7 @@ Namespace where CP4D instance workloads are deployed.
 
 **Note**: Must match the namespace used during CP4D installation.
 
-### cpd_cs_control_namespace
+#### cpd_cs_control_namespace
 Namespace for Common Services control plane.
 
 - **Optional**
@@ -76,7 +78,7 @@ Namespace for Common Services control plane.
 
 **Impact**: The role will remove IBM Licensing resources from this namespace.
 
-### cpd_cpfs_namespace
+#### cpd_cpfs_namespace
 Namespace for Cloud Pak Foundational Services.
 
 - **Optional**
@@ -91,7 +93,7 @@ Namespace for Cloud Pak Foundational Services.
 
 **Impact**: The role will remove CPFS resources from this namespace.
 
-### cpd_ibm_licensing_namespace
+#### cpd_ibm_licensing_namespace
 Namespace for IBM Licensing.
 
 - **Optional**
@@ -106,7 +108,7 @@ Namespace for IBM Licensing.
 
 **Impact**: The role will remove IBM Licensing resources from this namespace.
 
-### cpd_platform_cr_name
+#### cpd_platform_cr_name
 Name of the CP4D platform custom resource.
 
 - **Optional**
@@ -125,7 +127,7 @@ Name of the CP4D platform custom resource.
 
 **Note**: Must match the CR name used during CP4D installation.
 
-### zen_cr_name
+#### zen_cr_name
 Name of the ZenService custom resource.
 
 - **Optional**
@@ -144,7 +146,7 @@ Name of the ZenService custom resource.
 
 **Note**: Must match the CR name used during CP4D installation.
 
-### cpd_uninstall_delete_pvcs
+#### cpd_uninstall_delete_pvcs
 Delete PersistentVolumeClaims (WARNING: Permanently deletes all data).
 
 - **Optional**
@@ -171,7 +173,7 @@ Delete PersistentVolumeClaims (WARNING: Permanently deletes all data).
 - This operation cannot be undone
 - PVCs in both `cpd_instance_namespace` and `cpd_cpfs_namespace` will be deleted
 
-### cpd_uninstall_delete_namespaces
+#### cpd_uninstall_delete_namespaces
 Delete CP4D namespaces after uninstall.
 
 - **Optional**
@@ -194,7 +196,7 @@ Delete CP4D namespaces after uninstall.
 
 **Note**: Namespace deletion can take several minutes due to finalizers. The role includes appropriate wait conditions.
 
-### cpd_uninstall_delete_catalog_sources
+#### cpd_uninstall_delete_catalog_sources
 Delete CP4D-specific catalog sources.
 
 - **Optional**
@@ -217,7 +219,7 @@ Delete CP4D-specific catalog sources.
 
 **Note**: Catalog sources can be recreated during reinstallation if needed.
 
-### cpd_uninstall_wait_timeout
+#### cpd_uninstall_wait_timeout
 Wait timeout for resource deletion operations (seconds).
 
 - **Optional**

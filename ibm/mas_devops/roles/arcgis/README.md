@@ -7,7 +7,9 @@ The biggest benefit of using it is that you could have both IBM Maximo Location 
 
 **Note:** IBM Maximo Location Services for Esri will make use of MAS cluster issuers while managing internal and public certificates thus, you while using [suite_dns](suite_dns.md) to setup cluster issuer and public certificates for your MAS instances, these are automatically reused for your instance of `IBM Maximo Location Services for Esri`.
 
-## Role Variables - General
+## Role Variables
+
+### General Variables
 
 ### Deployment details
 
@@ -129,8 +131,9 @@ queue-data-volume-arcgis-queue-store-cgatl-0                        Bound    pvc
 
 Average of 182 gigabyes of required capacity.
 
-## Role Variables - Installation
-### ibm_entitlement_key
+### Installation
+
+#### ibm_entitlement_key
 IBM entitlement key for accessing container images.
 
 - **Required**
@@ -152,7 +155,7 @@ IBM entitlement key for accessing container images.
 - The key is associated with your IBM ID and product entitlements
 - Verify key validity before deployment to avoid installation failures
 
-### mas_catalog_source
+#### mas_catalog_source
 Catalog source for MAS operator installation.
 
 - Optional
@@ -173,7 +176,7 @@ Catalog source for MAS operator installation.
 
 **Notes**: For airgap installations, ensure the catalog has been properly mirrored with all required ArcGIS images.
 
-### mas_arcgis_channel
+#### mas_arcgis_channel
 Subscription channel for IBM Maximo Location Services for Esri operator.
 
 - Optional
@@ -195,8 +198,9 @@ Subscription channel for IBM Maximo Location Services for Esri operator.
 - Review release notes before changing channels
 - Channel changes may require operator restarts
 
-## Role Variables - MAS Configuration
-### mas_instance_id
+### MAS Configuration
+
+#### mas_instance_id
 MAS instance identifier for ArcGIS deployment.
 
 - Optional
@@ -218,7 +222,7 @@ MAS instance identifier for ArcGIS deployment.
 - ArcGIS will automatically use the MAS cluster issuers for certificate management
 - Ensure the MAS instance exists before deploying ArcGIS
 
-### custom_labels
+#### custom_labels
 Custom labels to apply to ArcGIS instance resources.
 
 - Optional
@@ -242,6 +246,7 @@ Custom labels to apply to ArcGIS instance resources.
 
 
 Example Playbooks
+
 ### Install IBM Maximo Location Services for Esri
 ```yaml
 - hosts: localhost

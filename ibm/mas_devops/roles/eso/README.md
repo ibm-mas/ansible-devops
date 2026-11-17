@@ -47,7 +47,9 @@ pushsecrets.external-secrets.io
 
 ## Role Variables
 
-### eso_action
+### General Variables
+
+#### eso_action
 Action to perform: install, uninstall, or manage SecretStore/ClusterSecretStore resources.
 
 - **Optional**
@@ -77,7 +79,7 @@ Action to perform: install, uninstall, or manage SecretStore/ClusterSecretStore 
 - ClusterSecretStore is cluster-wide and can be used by ExternalSecrets in any namespace
 - SecretStore is namespace-scoped and can only be used by ExternalSecrets in the same namespace
 
-### eso_namespace
+#### eso_namespace
 Namespace for External Secrets Operator installation.
 
 - **Optional**
@@ -99,7 +101,7 @@ Namespace for External Secrets Operator installation.
 - Namespace will be created if it doesn't exist
 - CRDs are cluster-scoped regardless of namespace
 
-### eso_release_name
+#### eso_release_name
 Helm release name for the External Secrets Operator.
 
 - **Optional**
@@ -120,7 +122,7 @@ Helm release name for the External Secrets Operator.
 - Must be unique within the namespace
 - Used in `helm list` and other Helm commands
 
-### eso_repo_url
+#### eso_repo_url
 Helm repository URL for External Secrets charts.
 
 - **Optional**
@@ -141,7 +143,7 @@ Helm repository URL for External Secrets charts.
 - Default points to official External Secrets Helm repository
 - Can be overridden for air-gapped or restricted environments
 
-### eso_chart_version
+#### eso_chart_version
 Specific version of the External Secrets Helm chart to install.
 
 - **Optional**
@@ -166,7 +168,7 @@ Specific version of the External Secrets Helm chart to install.
 - Check [releases](https://github.com/external-secrets/external-secrets/releases) for available versions
 - Recommended to pin versions in production
 
-### eso_cleanup_crds
+#### eso_cleanup_crds
 Flag to control CRD deletion during uninstallation.
 
 - **Optional**
@@ -192,7 +194,7 @@ Flag to control CRD deletion during uninstallation.
 - Recommended to keep `false` unless performing complete removal
 - CRDs are cluster-scoped and affect all namespaces
 
-### eso_cleanup_namespace
+#### eso_cleanup_namespace
 Flag to control namespace deletion during uninstallation.
 
 - **Optional**
@@ -217,7 +219,7 @@ Flag to control namespace deletion during uninstallation.
 - Namespace deletion will fail if resources still exist
 - Recommended to keep `false` unless performing complete removal
 
-### eso_values
+#### eso_values
 Custom Helm values to override default configuration.
 
 - **Optional**
@@ -254,7 +256,7 @@ eso_values:
       memory: 256Mi
 ```
 
-### eso_provider
+#### eso_provider
 Provider type for secret store creation.
 
 - **Optional**
@@ -275,7 +277,7 @@ Provider type for secret store creation.
 - Only used when `eso_action` is set to `create-clustersecretstore`
 - Future versions may support additional providers (AWS, Azure, GCP, HashiCorp Vault, etc.)
 
-### eso_store_name
+#### eso_store_name
 Name for the ClusterSecretStore resource.
 
 - **Optional**
@@ -296,7 +298,7 @@ Name for the ClusterSecretStore resource.
 - Only used when `eso_action` is set to `create-clustersecretstore`
 - The name must be unique within the cluster (ClusterSecretStore is cluster-scoped)
 
-### ibm_sm_instance_url
+#### ibm_sm_instance_url
 IBM Secrets Manager instance URL.
 
 - **Required** (when using `create-clustersecretstore` action)
@@ -318,7 +320,7 @@ IBM Secrets Manager instance URL.
 - Must be a valid IBM Secrets Manager instance URL
 - The instance must be accessible from your Kubernetes cluster
 
-### ibm_sm_api_key
+#### ibm_sm_api_key
 IBM Cloud API key for authenticating with IBM Secrets Manager.
 
 - **Required** (when using `create-clustersecretstore` action)
@@ -341,7 +343,7 @@ IBM Cloud API key for authenticating with IBM Secrets Manager.
 - Follows the collection pattern by falling back to `IBMCLOUD_APIKEY` for convenience
 - Ensure the API key has appropriate IAM permissions for the Secrets Manager instance
 
-### ibm_sm_store_namespace
+#### ibm_sm_store_namespace
 Namespace for the IBM Secrets Manager SecretStore (namespace-scoped).
 
 - **Required** (when using `create-secretstore` or `delete-secretstore` actions)

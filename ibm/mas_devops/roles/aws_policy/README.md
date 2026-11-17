@@ -12,7 +12,9 @@ IAM policies define permissions for AWS identities (users, groups, roles) to acc
 
 ## Role Variables
 
-### aws_policy_name
+### General Variables
+
+#### aws_policy_name
 Name for the IAM policy to be created.
 
 - **Required**
@@ -35,7 +37,7 @@ Name for the IAM policy to be created.
 - Use naming conventions for easier management (e.g., `<service>-<purpose>-Policy`)
 - Policy ARN format: `arn:aws:iam::<account-id>:policy/<policy-name>`
 
-### aws_policy_json_file_path_local
+#### aws_policy_json_file_path_local
 Local file path to the IAM policy JSON document.
 
 - **Required**

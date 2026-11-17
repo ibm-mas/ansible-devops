@@ -10,7 +10,9 @@ This role validates if a given MAS installation is ready for the core platform t
 
 ## Role Variables
 
-### mas_instance_id
+### General Variables
+
+#### mas_instance_id
 MAS instance identifier for core platform upgrade.
 
 - **Required**
@@ -33,7 +35,7 @@ MAS instance identifier for core platform upgrade.
 
 **Note**: The role validates that all installed applications are compatible with the target MAS version before proceeding with the upgrade.
 
-### mas_channel
+#### mas_channel
 Target subscription channel for MAS core platform upgrade.
 
 - **Optional**
@@ -60,7 +62,7 @@ Target subscription channel for MAS core platform upgrade.
 
 **Note**: When unset, the role automatically selects the next release. If already on the latest release, no action is taken. The role validates that all installed applications are compatible with the target MAS version before upgrading.
 
-### mas_upgrade_dryrun
+#### mas_upgrade_dryrun
 Dry-run mode for upgrade validation only.
 
 - **Optional**
@@ -86,7 +88,7 @@ Dry-run mode for upgrade validation only.
 
 **Note**: Dry-run mode is highly recommended before production upgrades to identify potential issues. All validation checks are performed, including application compatibility, but no changes are made to the subscription channel or MAS core platform.
 
-### skip_compatibility_check
+#### skip_compatibility_check
 Skip compatibility validation before upgrade.
 
 - **Optional**

@@ -1,8 +1,11 @@
 # ocp_deprovision
 Deprovision OCP cluster in Fyre, IBM Cloud, & ROSA.
 
-## Role Variables - General
-### cluster_type
+## Role Variables
+
+### General Variables
+
+#### cluster_type
 Infrastructure provider type for cluster deprovisioning.
 
 - **Required**
@@ -30,7 +33,7 @@ Infrastructure provider type for cluster deprovisioning.
 
 **Note**: **IMPORTANT** - Must match the provider used to create the cluster. Verify cluster type before deprovisioning to avoid errors.
 
-### cluster_name
+#### cluster_name
 Name of the cluster to deprovision.
 
 - **Required**
@@ -54,8 +57,9 @@ Name of the cluster to deprovision.
 **Note**: **WARNING** - Deprovisioning permanently deletes the cluster and all its resources. Verify the cluster name carefully before proceeding. This operation cannot be undone.
 
 
-## Role Variables - ROKS
-### ibmcloud_apikey
+### ROKS
+
+#### ibmcloud_apikey
 IBM Cloud API key for authentication.
 
 - **Required** (when `cluster_type=roks`)
@@ -79,8 +83,9 @@ IBM Cloud API key for authentication.
 **Note**: The API key must have cluster deletion permissions in the resource group. Deprovisioning permanently deletes the cluster.
 
 
-## Role Variables - ROSA
-### rosa_token
+### ROSA
+
+#### rosa_token
 Red Hat OpenShift Service on AWS (ROSA) authentication token.
 
 - **Required** (when `cluster_type=rosa`)
@@ -104,8 +109,9 @@ Red Hat OpenShift Service on AWS (ROSA) authentication token.
 **Note**: Tokens expire periodically. Obtain a fresh token before deprovisioning. Deprovisioning permanently deletes the cluster and all AWS resources.
 
 
-## Role Variables - FYRE
-### fyre_username
+### FYRE
+
+#### fyre_username
 Fyre username for authentication.
 
 - **Required** (when `cluster_type=fyre`)
@@ -129,7 +135,7 @@ Fyre username for authentication.
 
 **Note**: Fyre is an internal IBM development platform. Access requires IBM credentials and appropriate permissions.
 
-### fyre_apikey
+#### fyre_apikey
 Fyre API key for authentication.
 
 - **Required** (when `cluster_type=fyre`)
@@ -153,7 +159,7 @@ Fyre API key for authentication.
 
 **Note**: Keep API keys secure. Obtain from the Fyre portal. Keys may expire and need renewal.
 
-### fyre_site
+#### fyre_site
 Fyre datacenter site location.
 
 - **Optional**
@@ -177,10 +183,10 @@ Fyre datacenter site location.
 **Note**: Must match the site where the cluster was originally provisioned. SVL is the default and most commonly used site.
 
 
-## Role Variables - IPI
+### IPI
 The following variables are only used when `cluster_type = ipi`.
 
-### ipi_dir
+#### ipi_dir
 Working directory for IPI deprovisioning.
 
 - **Optional**
@@ -203,7 +209,7 @@ Working directory for IPI deprovisioning.
 
 **Note**: Must be the same directory used during cluster provisioning. The directory contains cluster metadata required for proper cleanup of all resources.
 
-### ipi_platform
+#### ipi_platform
 Cloud platform for IPI cluster deprovisioning.
 
 - **Required** (when `cluster_type=ipi`)
@@ -227,10 +233,10 @@ Cloud platform for IPI cluster deprovisioning.
 
 **Note**: Must match the platform used during cluster provisioning. AWS and GCP are supported.
 
-## Role Variables - AWS
+### AWS
 The following variables are only used when `cluster_type = ipi` and `ipi_platform = aws`.
 
-### aws_access_key_id
+#### aws_access_key_id
 AWS access key ID for authentication.
 
 - **Required** (when `cluster_type=ipi` and `ipi_platform=aws`)
@@ -253,7 +259,7 @@ AWS access key ID for authentication.
 
 **Note**: The IAM user/role must have permissions to delete all cluster resources (VPC, EC2, ELB, Route53, IAM, etc.). Incomplete permissions may leave orphaned resources.
 
-### aws_secret_access_key
+#### aws_secret_access_key
 AWS secret access key for authentication.
 
 - **Required** (when `cluster_type=ipi` and `ipi_platform=aws`)
@@ -276,10 +282,10 @@ AWS secret access key for authentication.
 
 **Note**: Keep secret keys secure. Ensure credentials have permissions to delete all cluster resources to avoid orphaned resources.
 
-## Role Variables - GCP
+### GCP
 The following variables are only used when `cluster_type = ipi` and `ipi_platform = gcp`.
 
-### gcp_service_account_file
+#### gcp_service_account_file
 Path to GCP service account credentials file.
 
 - **Required** (when `cluster_type=ipi` and `ipi_platform=gcp`)

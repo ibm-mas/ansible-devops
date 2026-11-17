@@ -3,7 +3,10 @@ Configures Routes, Services, Gateway deployments and Istio configuration to rout
 
 
 ## Role Variables
-### mas_domain
+
+### General Variables
+
+#### mas_domain
 The external domain URL for which request handling will be configured.
 
 - **Required**
@@ -12,7 +15,7 @@ The external domain URL for which request handling will be configured.
 
 **Purpose**: Specifies the domain URL for which routes should be configured.
 
-### mas_instance
+#### mas_instance
 The instance of MAS to which requests will be routed.
 
 - **Required**
@@ -22,7 +25,7 @@ The instance of MAS to which requests will be routed.
 **Purpose**: Specifies the MAS instance installed on this cluster to which requests will be routed. The `domain` specified in this MAS instance must match the `mas_domain` variable defined here or requests will be incorrectly routed.
 Note that multiple MAS Instances may be configured on a cluster with the same domain and so traffic to a domain may be switched from one instance to another.
 
-### servicemesh_gateway_namespace
+#### servicemesh_gateway_namespace
 The namespace into which the service mesh domain configuration will be installed..
 
 - **Optional**

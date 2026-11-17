@@ -4,7 +4,9 @@ This role applies configuration files to a Maximo Application Suite installation
 
 ## Role Variables
 
-### mas_instance_id
+### General Variables
+
+#### mas_instance_id
 Unique identifier for the MAS instance to apply configurations to.
 
 - **Required**
@@ -26,7 +28,7 @@ Unique identifier for the MAS instance to apply configurations to.
 
 **Note**: This must match the instance ID used when installing MAS core. Verify the instance ID before applying configurations to avoid misconfiguration.
 
-### mas_config_dir
+#### mas_config_dir
 Local directory path containing MAS configuration YAML files to apply to the cluster.
 
 - **Required**

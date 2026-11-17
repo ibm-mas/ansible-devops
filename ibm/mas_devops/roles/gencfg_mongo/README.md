@@ -7,7 +7,9 @@ The role supports various MongoDB deployments including MongoDB Community Editio
 
 ## Role Variables
 
-### mongodb_namespace
+### General Variables
+
+#### mongodb_namespace
 Namespace identifier used in the generated configuration filename.
 
 - Optional
@@ -29,7 +31,7 @@ Namespace identifier used in the generated configuration filename.
 - Use descriptive names when managing multiple MongoDB instances
 - Filename helps with organization but doesn't affect functionality
 
-### mongodb_admin_username
+#### mongodb_admin_username
 MongoDB administrative username for authentication.
 
 - **Required**
@@ -52,7 +54,7 @@ MongoDB administrative username for authentication.
 - User must have `readWrite` role on MAS databases
 - Consider using a dedicated service account rather than the MongoDB admin user
 
-### mongodb_admin_password
+#### mongodb_admin_password
 MongoDB password for authentication.
 
 - **Required**
@@ -75,7 +77,7 @@ MongoDB password for authentication.
 - For Amazon DocumentDB, use the master user password or IAM authentication
 - Consider implementing password rotation policies
 
-### mongodb_authentication_mechanism
+#### mongodb_authentication_mechanism
 MongoDB authentication method to use for connections.
 
 - Optional
@@ -100,7 +102,7 @@ MongoDB authentication method to use for connections.
 - Amazon DocumentDB uses SCRAM authentication (use `DEFAULT`)
 - When using `PLAIN`, ensure `mongodb_authentication_database` is set to `$external`
 
-### mongodb_authentication_database
+#### mongodb_authentication_database
 MongoDB database used for authentication.
 
 - Optional
@@ -126,7 +128,7 @@ MongoDB database used for authentication.
 - For Amazon DocumentDB, use `admin`
 - Rarely needs to be changed from default unless using custom user databases
 
-### mongodb_hosts
+#### mongodb_hosts
 MongoDB connection endpoints including hostnames and ports.
 
 - **Required**
@@ -153,7 +155,7 @@ MongoDB connection endpoints including hostnames and ports.
 - Ensure hostnames are resolvable from the OpenShift cluster
 - For cloud databases, verify network connectivity and firewall rules
 
-### mongodb_retry_writes
+#### mongodb_retry_writes
 Enable MongoDB retryable writes feature.
 
 - Optional
@@ -178,7 +180,7 @@ Enable MongoDB retryable writes feature.
 - Standalone MongoDB instances may not support retryable writes
 - Improves application resilience in replica set environments
 
-### mongodb_ca_pem_local_file
+#### mongodb_ca_pem_local_file
 Local file path to the MongoDB SSL/TLS CA certificate in PEM format.
 
 - **Required**
@@ -202,7 +204,7 @@ Local file path to the MongoDB SSL/TLS CA certificate in PEM format.
 - Certificate must be in PEM format (Base64-encoded with BEGIN/END markers)
 - For self-signed certificates, this should be the CA that signed the MongoDB server certificate
 
-### mas_instance_id
+#### mas_instance_id
 MAS instance identifier for which the MongoDB configuration is being generated.
 
 - **Required**
@@ -225,7 +227,7 @@ MAS instance identifier for which the MongoDB configuration is being generated.
 - Cannot be changed after MAS installation
 - MongoDB is the system database for MAS core services
 
-### mas_config_dir
+#### mas_config_dir
 Local directory path where the generated YAML configuration file will be saved.
 
 - **Required**
@@ -248,7 +250,7 @@ Local directory path where the generated YAML configuration file will be saved.
 - Keep generated files for documentation and disaster recovery purposes
 - Can be used as input to the `suite_config` role
 
-### custom_labels
+#### custom_labels
 Custom Kubernetes labels to apply to the generated MongoCfg resource.
 
 - Optional

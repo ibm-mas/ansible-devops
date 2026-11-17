@@ -7,7 +7,9 @@ This role removes Maximo Application Suite Core Platform. Note that it does not 
 
 ## Role Variables
 
-### mas_instance_id
+### General Variables
+
+#### mas_instance_id
 MAS instance identifier to uninstall.
 
 - **Required**
@@ -30,7 +32,7 @@ MAS instance identifier to uninstall.
 
 **Note**: This role only removes the MAS core platform. Applications must be uninstalled separately using `suite_app_uninstall` before running this role. MongoDB data is preserved by default for safety.
 
-### mas_wipe_mongo_data
+#### mas_wipe_mongo_data
 Delete MongoDB databases during uninstall.
 
 - **Optional**

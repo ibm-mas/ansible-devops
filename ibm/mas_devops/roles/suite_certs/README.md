@@ -56,9 +56,11 @@ $MAS_CONFIG_DIR/certs/
 !!! note "Secret Names"
     TLS secret names for each application are defined in `suite_certs/defaults/main.yml`. Changes to secret names or adding new applications requires updating this file.
 
-## Role Variables - General
+## Role Variables
 
-### mas_instance_id
+### General Variables
+
+#### mas_instance_id
 MAS instance identifier for certificate management.
 
 - **Required**
@@ -82,7 +84,7 @@ MAS instance identifier for certificate management.
 
 **Note**: The instance ID is used to construct both namespace names and TLS secret names according to MAS naming conventions.
 
-### mas_manual_cert_mgmt
+#### mas_manual_cert_mgmt
 Enable manual certificate management mode.
 
 - **Optional**
@@ -109,7 +111,7 @@ Enable manual certificate management mode.
 
 **Note**: When enabled, you must provide all required certificate files in the correct directory structure. This mode is essential for production environments with specific certificate requirements.
 
-### mas_config_dir
+#### mas_config_dir
 Configuration directory path.
 
 - **Required**
@@ -133,7 +135,7 @@ Configuration directory path.
 
 **Note**: Organize by instance for clarity (e.g., `/masconfig/inst1/certs/`, `/masconfig/inst2/certs/`). The `certs` subdirectory is automatically appended to this path.
 
-### gitops
+#### gitops
 Enable GitOps mode (generate only, no apply).
 
 - **Optional**
@@ -159,11 +161,11 @@ Enable GitOps mode (generate only, no apply).
 
 **Note**: In GitOps mode, generated YAML files can be committed to Git and applied through your GitOps tooling (ArgoCD, Flux, etc.).
 
-## Role Variables - CIS DNS Provider (Optional)
+### CIS DNS Provider (Optional)
 
 Optional variables for users managing DNS with IBM Cloud Internet Services. When configured, this role automatically creates or updates CNAME records for MAS routes in your CIS instance.
 
-### dns_provider
+#### dns_provider
 DNS provider type.
 
 - **Optional**
@@ -189,7 +191,7 @@ DNS provider type.
 
 **Note**: Any value other than `cis` or empty will result in an error. This feature is optional and only needed if you want automatic DNS management.
 
-### mas_workspace_id
+#### mas_workspace_id
 Workspace identifier for DNS records.
 
 - **Required** (when `dns_provider=cis`)
@@ -214,7 +216,7 @@ Workspace identifier for DNS records.
 
 **Note**: Only needed when using CIS DNS integration. Not required for basic certificate management.
 
-### cis_crn
+#### cis_crn
 IBM Cloud Internet Services CRN.
 
 - **Required** (when `dns_provider=cis`)
@@ -239,7 +241,7 @@ IBM Cloud Internet Services CRN.
 
 **Note**: **SECURITY** - The CRN is not sensitive but should be kept with your infrastructure configuration. Find it in IBM Cloud Console under your CIS instance details.
 
-### cis_apikey
+#### cis_apikey
 IBM Cloud API key for CIS access.
 
 - **Required** (when `dns_provider=cis`)
@@ -264,7 +266,7 @@ IBM Cloud API key for CIS access.
 
 **Note**: **SECURITY** - API key should be kept secure and not committed to version control. Requires IAM permissions for DNS management in CIS. Obtain from IBM Cloud IAM.
 
-### cis_subdomain
+#### cis_subdomain
 CIS subdomain for CNAME records.
 
 - **Required** (when `dns_provider=cis`)
@@ -289,7 +291,7 @@ CIS subdomain for CNAME records.
 
 **Note**: The subdomain should already exist in your CIS domain. This role creates CNAME records within the subdomain, not the subdomain itself.
 
-### cis_proxy
+#### cis_proxy
 Enable CIS proxy for CNAME records.
 
 - **Optional**

@@ -64,7 +64,9 @@ This runs automatically from `mas update` when RHOAI v2 is detected.
 
 ## Role Variables
 
-### tenantName
+### General Variables
+
+#### tenantName
 Tenant identifier for the Red Hat OpenShift AI deployment.
 
 - Optional
@@ -83,7 +85,7 @@ Tenant identifier for the Red Hat OpenShift AI deployment.
 
 **Notes**: The default `user` is suitable for single-tenant deployments.
 
-### serverless_catalog_source
+#### serverless_catalog_source
 Catalog source for Red Hat OpenShift Serverless Operator.
 
 - Optional
@@ -104,7 +106,7 @@ Catalog source for Red Hat OpenShift Serverless Operator.
 - OpenShift Serverless is required for RHOAI data science pipelines
 - Verify catalog exists: `oc get catalogsource -n openshift-marketplace`
 
-### serverless_channel
+#### serverless_channel
 Subscription channel for OpenShift Serverless Operator.
 
 - Optional
@@ -123,7 +125,7 @@ Subscription channel for OpenShift Serverless Operator.
 
 **Notes**: The `stable` channel provides the latest stable release with automatic updates.
 
-### service_mesh_channel
+#### service_mesh_channel
 Subscription channel for Red Hat OpenShift Service Mesh Operator.
 
 - Optional
@@ -144,7 +146,7 @@ Subscription channel for Red Hat OpenShift Service Mesh Operator.
 - Service Mesh is required for RHOAI model serving and networking
 - The `stable` channel provides the latest stable release
 
-### service_mesh_catalog_source
+#### service_mesh_catalog_source
 Catalog source for Red Hat OpenShift Service Mesh Operator.
 
 - Optional
@@ -163,7 +165,7 @@ Catalog source for Red Hat OpenShift Service Mesh Operator.
 
 **Notes**: Verify catalog exists: `oc get catalogsource -n openshift-marketplace`
 
-### authorino_catalog_source
+#### authorino_catalog_source
 Catalog source for Authorino Operator.
 
 - Optional
@@ -184,7 +186,7 @@ Catalog source for Authorino Operator.
 - Authorino provides authorization for RHOAI model serving
 - Available in community-operators catalog by default
 
-### rhoai_channel
+#### rhoai_channel
 Subscription channel for Red Hat OpenShift AI Operator.
 
 - Optional

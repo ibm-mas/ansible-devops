@@ -694,7 +694,7 @@ Comma-separated list of IP addresses or CIDR ranges (IPv4 and IPv6) that are per
 - **Supported MAS versions**: `9.1.x` and above only. This variable is ignored when `mas_channel` is set to `9.0.x` or earlier.
 
 **Purpose**: Restricts access to MAS public routes by creating a CIS WAF custom rule with the expression:
-```
+```text
 not ip.src in {<ip1> <ip2> ...} and http.host contains "<mas_domain>"
 ```
 
@@ -703,7 +703,7 @@ not ip.src in {<ip1> <ip2> ...} and http.host contains "<mas_domain>"
 - Leave unset to allow unrestricted public access
 
 **Valid values**: Comma-separated IPs/CIDRs, e.g.:
-```
+```text
 10.0.0.0/8,192.168.1.0/24,2405:201:d000:9060::/64,49.37.171.108
 ```
 

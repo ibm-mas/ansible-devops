@@ -5,12 +5,14 @@ Create IBM Cloud resource keys (apikeys for specific services associated to the 
 
 ## Role Variables
 
-### service_instance
+### General Variables
+
+#### service_instance
 The name of the IBM Cloud service instance for which to create or manage resource keys.
 
 - **Required**
 - Environment Variable: `SERVICE_INSTANCE`
-- Default Value: None
+- Default: None
 
 **Purpose**: Identifies the IBM Cloud service instance (such as Db2, MongoDB, Cloud Object Storage, or Cloud Pak for Data) for which a resource key (service credentials) will be created or deleted.
 
@@ -38,12 +40,12 @@ The name of the IBM Cloud service instance for which to create or manage resourc
 - Resource keys provide full access to the service instance - protect them carefully
 - Each service instance can have multiple resource keys for different purposes
 
-### service_resource_key_name
+#### service_resource_key_name
 The name to assign to the resource key (service credentials).
 
 - **Optional**
 - Environment Variable: `SERVICE_RESOURCE_KEY_NAME`
-- Default Value: `<service_instance>_resource-key` (derived from service_instance)
+- Default: `<service_instance>_resource-key` (derived from service_instance)
 
 **Purpose**: Specifies a custom name for the resource key. If not provided, the role automatically generates a name by appending `_resource-key` to the service instance name.
 
@@ -75,12 +77,12 @@ The name to assign to the resource key (service credentials).
 - Keep track of key names for future deletion or rotation
 - Multiple keys can exist for the same service instance with different names
 
-### delete_service_key
+#### delete_service_key
 Controls whether to delete the specified resource key instead of creating it.
 
 - **Optional**
 - Environment Variable: `DELETE_SERVICE_KEY`
-- Default Value: `False`
+- Default: `False`
 
 **Purpose**: When set to `True`, the role will delete the specified resource key instead of creating a new one. This is used for credential rotation or cleanup operations.
 
@@ -110,12 +112,12 @@ Controls whether to delete the specified resource key instead of creating it.
 - Deletion will fail if the key doesn't exist (this is not an error condition)
 - Always verify the key name before deletion to avoid removing the wrong credentials
 
-### output_service_key_details_to_file
+#### output_service_key_details_to_file
 Controls whether to save the resource key credentials to a JSON file.
 
 - **Optional**
 - Environment Variable: `OUTPUT_SERVICE_KEY_DETAILS_TO_FILE`
-- Default Value: `False`
+- Default: `False`
 
 **Purpose**: When set to `True`, the role will export the complete resource key details and credentials to a JSON file for later use or reference.
 
@@ -146,12 +148,12 @@ Controls whether to save the resource key credentials to a JSON file.
 - The JSON structure varies by service type (Db2, COS, MongoDB, etc.)
 - Useful for troubleshooting connection issues or manual configuration
 
-### output_dir
+#### output_dir
 The directory path where the resource key JSON file will be saved.
 
 - **Optional**
 - Environment Variable: `OUTPUT_DIR`
-- Default Value: `.` (current directory, typically `ibm/mas_devops`)
+- Default: `.` (current directory, typically `ibm/mas_devops`)
 
 **Purpose**: Specifies the local filesystem directory where the resource key credentials JSON file will be written when `output_service_key_details_to_file` is enabled.
 

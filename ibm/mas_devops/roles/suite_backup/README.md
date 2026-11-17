@@ -1,8 +1,8 @@
-Backup MAS Core
-===============================================================================
+# suite_backup
 
-Overview
--------------------------------------------------------------------------------
+Backup MAS Core
+
+## Overview
 This role supports backing up MAS Core namespace resources and supporting resources
 in other namespaces; supports creating on-demand full backups.
 
@@ -13,17 +13,18 @@ in other namespaces; supports creating on-demand full backups.
     Backup can only be restored to an instance with the same MAS instance ID.
 
 
-Role Variables
--------------------------------------------------------------------------------
+## Role Variables
 
-### mas_instance_id
+### General Variables
+
+#### mas_instance_id
 The instance ID of the Maximo Application Suite installation to backup.
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
+- Default: None
 
-### mas_backup_dir
+#### mas_backup_dir
 The local directory path where backup files will be stored (for backup).
 
 - **Required**
@@ -31,14 +32,14 @@ The local directory path where backup files will be stored (for backup).
 - Default: None
 - Example: `/tmp/mas_backups`
 
-### suite_backup_version
+#### suite_backup_version
 Set version to override the default `YYYYMMDD-HHMMSS` timestamp version used in the name of the backup file.
 
 - **Optional**
 - Default: `YYYYMMDD-HHMMSS` timestamp.
 - Environment Variable: `SUITE_BACKUP_VERSION`
 
-### include_sls
+#### include_sls
 Controls whether to include the Suite SLS (Suite License Service) configuration in the backup archive.
 If you plan to install a new SLS in any recovery action then you should set this to `false`.
 
@@ -46,7 +47,7 @@ If you plan to install a new SLS in any recovery action then you should set this
 - Default: `true`
 - Environment Variable: `INCLUDE_SLS`
 
-### include_dro
+#### include_dro
 Controls whether to include the Suite DRO configuration in the backup archive. 
 If you plan to install a new DRO in any recovery action then you should set this to `false`.
 
@@ -123,7 +124,7 @@ The MAS Core backup operation performs the following steps:
 7. **Verification**: Reports backup statistics and any failures
 
 **Backup Directory Structure:**
-```
+```text
 {mas_backup_dir}/
 └── backup-{version}-suite/
     └── resources/
@@ -195,4 +196,21 @@ The MAS Core backup operation performs the following steps:
    - SLS backups (if using separate SLS)
    - DRO backups (if using separate DRO)
    - Application-specific backups
+
+## Example Playbook
+After installing the Ansible Collection you can include this role in your own custom playbooks.
+
+```yaml
+- hosts: localhost
+  vars:
+    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+    mas_backup_dir: /tmp/mas_backups
+    suite_backup_version: 20260116-130937
+  roles:
+    - ibm.mas_devops.suite_backup
+```
+
+## License
+
+EPL-2.0
 

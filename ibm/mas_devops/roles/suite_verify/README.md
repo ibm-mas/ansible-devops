@@ -4,7 +4,9 @@ Verify a MAS installation is ready to use. This role will also print out the Adm
 
 ## Role Variables
 
-### mas_instance_id
+### General Variables
+
+#### mas_instance_id
 MAS instance identifier to verify.
 
 - **Required**
@@ -27,7 +29,7 @@ MAS instance identifier to verify.
 
 **Note**: This role verifies that the MAS instance is ready to use and provides access information. Run after installation or upgrade to confirm successful deployment.
 
-### mas_hide_superuser_credentials
+#### mas_hide_superuser_credentials
 Hide superuser credentials in output.
 
 - **Optional**

@@ -145,12 +145,21 @@ class READMEValidator:
                 result.issues.append(f"Missing required section: {section_name}")
 
     def _check_heading_hierarchy(self, lines: List[str], result: ValidationResult):
-        """Check heading hierarchy is correct"""
+        """Check heading hierarchy is correct (ignores lines inside code fences)"""
         heading_pattern = r'^(#{1,6})\s+'
         prev_level = 0
         issues_found = False
+        in_code_block = False
 
         for i, line in enumerate(lines, 1):
+            # Track fenced code blocks so that comment lines (e.g. "# comment"
+            # inside ```bash blocks) are not mistaken for markdown headings
+            if line.strip().startswith('```'):
+                in_code_block = not in_code_block
+                continue
+            if in_code_block:
+                continue
+
             match = re.match(heading_pattern, line)
             if match:
                 current_level = len(match.group(1))
