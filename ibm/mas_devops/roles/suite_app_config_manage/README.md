@@ -1,0 +1,210 @@
+# suite_app_config_manage
+
+This role provides post-installation configuration actions for the Maximo Manage application. It consolidates the former `suite_manage_*_config` roles into a single role, with the `suite_app_config_manage_actions` parameter selecting which actions to run — either one at a time or several together as part of the initial configuration of a Manage workspace.
+
+!!! important "Prerequisites"
+    - Manage application must be installed and its workspace ready before running any action
+    - Actions that execute SQL against the Manage database (`bim`, `logging` with `mas_manage_logging_is_prod`) require the Db2 Warehouse instance to be available and are not supported with an external (JDBC) database
+
+## Actions
+
+| Action | Former role | Description |
+| ------ | ----------- | ----------- |
+| `attachments` | `suite_manage_attachments_config` | Configure where Manage stores attachment files: PVC file storage, IBM Cloud Object Storage or AWS S3 (CR-based configuration only) |
+| `bim` | `suite_manage_bim_config` | Configure BIM (Building Information Models) support: create the BIM folders on the mounted PVC and set the `bim.*` system properties |
+| `birt` | `suite_manage_birt_report_config` | Configure the BIRT report server bundle for Manage |
+| `custfiles` | `suite_manage_customer_files_config` | Provision the IBM COS / AWS S3 buckets (main, recovery, backup) used to store Manage customer files, and import the storage certificates |
+| `imagestitching` | `suite_manage_imagestitching_config` | Configure persistent storage for Manage image stitching files (Civil component) |
+| `import-certs` | `suite_manage_import_certs_config` | Import certificates into the ManageWorkspace CR so they are added to the Manage truststore |
+| `dbc-scripts` | `suite_manage_load_dbc_scripts` | Load DBC (database configuration) scripts into the Manage database via the maxinst pod |
+| `logging` | `suite_manage_logging_config` | Configure the COS/S3 destination for Manage server log uploads and (optionally) lock down the Admin Center on production databases |
+| `pvc` | `suite_manage_pvc_config` | Add custom persistent volumes to the ManageWorkspace CR |
+
+## Role Variables
+
+### suite_app_config_manage_actions
+The actions to run, either as a list or as a comma-separated string.
+
+- **Required**
+- Environment Variable: `SUITE_APP_CONFIG_MANAGE_ACTIONS`
+- Default: None
+
+**Purpose**: Selects which of the configuration actions are executed. Each action corresponds to one of the former `suite_manage_*_config` roles.
+
+**Valid values**: Any combination of `attachments`, `bim`, `birt`, `custfiles`, `imagestitching`, `import-certs`, `dbc-scripts`, `logging`, `pvc`
+
+**Impact**: Running multiple actions in one invocation is more efficient than invoking the role several times, for example `attachments,bim` configures both attachment storage and BIM support in a single run.
+
+### mas_instance_id
+MAS instance identifier.
+
+- **Required**
+- Environment Variable: `MAS_INSTANCE_ID`
+- Default: None
+
+**Purpose**: Identifies which MAS instance contains the Manage application to configure.
+
+### mas_workspace_id
+MAS workspace identifier.
+
+- **Required**
+- Environment Variable: `MAS_WORKSPACE_ID`
+- Default: None
+
+**Purpose**: Identifies the workspace containing the Manage application to configure.
+
+### mas_app_id
+Application identifier.
+
+- **Optional**
+- Environment Variable: `MAS_APP_ID`
+- Default: `manage`
+
+**Purpose**: Set to `health` when configuring a Health stand-alone application (supported by the `attachments`, `bim` and `dbc-scripts` actions).
+
+### mas_manage_attachments_provider
+Attachment storage provider (action: `attachments`).
+
+- **Optional**
+- Environment Variable: `MAS_MANAGE_ATTACHMENTS_PROVIDER`
+- Default: `filestorage`
+
+**Valid values**: `filestorage`, `ibm`, `aws`
+
+**Note**: The former `db` configuration mode (raw SQL against the Manage database) has been removed; only the CR-based configuration is supported. Setting `mas_manage_attachment_configuration_mode` to `db` fails with a migration message.
+
+### mas_manage_birt_report_bundle_name
+Name used for the report server bundle when one is not already configured (action: `birt`).
+
+- **Optional**
+- Environment Variable: `MANAGE_REPORT_BUNDLE_SERVER_NAME`
+- Default: `rpt`
+
+### mas_manage_custfiles_provider
+Customer files storage provider (action: `custfiles`).
+
+- **Required** for the action
+- Environment Variable: `MAS_MANAGE_CUSTFILES_PROVIDER` (falls back to the legacy `COS_TYPE`)
+
+**Valid values**: `ibm`, `aws`
+
+### mas_manage_imagestitching_pvc_name
+Name of the PVC used for image stitching files (action: `imagestitching`).
+
+- **Optional**
+- Environment Variable: `IMAGESTITCHING_PVCNAME`
+- Default: `manage-imagestitching`
+
+**Related variables**: `mas_manage_imagestitching_storage_class` (defaults to the cluster RWX storage class), `mas_manage_imagestitching_storage_size` (`20Gi`), `mas_manage_imagestitching_storage_mode` (`ReadWriteMany`), `mas_manage_imagestitching_mount_path` (`imagestitching`)
+
+### manage_certificates
+List of PEM certificate strings to import into the Manage truststore (action: `import-certs`). Requires `manage_certificates_alias_prefix`.
+
+- **Required** (or provide `manage_certificates_file_path_local`)
+- Default: None
+
+**Note**: When invoked from `suite_app_config` for the AI Service integration, these variables are set automatically.
+
+### mas_manage_dbc_script_path_local
+Local folder containing the `.dbc` scripts to load (action: `dbc-scripts`).
+
+- **Required** for the action
+- Environment Variable: `DBC_SCRIPT_PATH_LOCAL`
+- Default: None
+
+**Note**: This action is not idempotent by nature — running it again re-applies the scripts.
+
+### mas_manage_logging_provider
+Manage log upload storage provider (action: `logging`).
+
+- **Required** for the action
+- Environment Variable: `MAS_MANAGE_LOGGING_PROVIDER` (falls back to the legacy `COS_TYPE`)
+
+**Valid values**: `ibm`, `aws`
+
+**Related variables**: `mas_manage_logging_is_prod` (`false`; enables the Admin Center lockdown on production databases), `mas_manage_logging_secret_name` (`s3secretkey`), `mas_manage_logging_force` (`false`; reconfigure logging even when a destination is already set)
+
+### mas_manage_custom_persistent_volumes
+Custom persistent volume definitions as a YAML list string (action: `pvc`). Each entry requires `pvcName`, `mountPath` and `size`; `storageClassName` defaults to the cluster RWX storage class.
+
+- **Required** for the action (or provide `mas_manage_custom_persistent_volumes_file`)
+- Environment Variable: `MAS_MANAGE_CUSTOM_PERSISTENT_VOLUMES`
+- Default: None
+
+**Note**: The former discrete single-PVC variables (`MAS_APP_SETTINGS_CUSTOM_PVC_NAME`, `MAS_APP_SETTINGS_CUSTOM_MOUNT_PATH`, etc.) are replaced by the list format — express the former SRE default as a list entry with `pvcName: <instance>-<workspace>-cust-files-pvc` and `mountPath: /MeaGlobalDirs`.
+
+### db2_instance_name
+Db2 Warehouse instance name, used by the actions that execute SQL against the Manage database (`bim`, `logging` with `mas_manage_logging_is_prod`).
+
+- **Required** for those actions
+- Environment Variable: `DB2_INSTANCE_NAME`
+- Default: None
+
+**Note**: Not available when an external (JDBC) database is used; those actions fail with a clear message in that case. To find the instance name, go to the Db2 namespace and look for pods with `label=engine`. Describe the pod and find the `app` label value - that's your instance name.
+
+## Example Playbooks
+
+### Configure attachments and BIM together
+The following sample can be used to deploy Manage and configure attachment storage and BIM support as part of the same workflow:
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_app_id: manage
+    mas_app_channel: 8.4.x
+    mas_instance_id: masinst1
+    mas_workspace_id: masdev
+    db2_instance_name: db2w-manage
+    mas_app_settings_persistent_volumes_flag: true
+    mas_manage_attachments_provider: filestorage
+    mas_app_settings_bim_mount_path: /bim
+  roles:
+    - ibm.mas_devops.db2
+    - ibm.mas_devops.suite_db2_setup_for_manage
+    - ibm.mas_devops.suite_config
+    - ibm.mas_devops.suite_app_install
+    - ibm.mas_devops.suite_app_config
+    - role: ibm.mas_devops.suite_app_config_manage
+      vars:
+        suite_app_config_manage_actions:
+          - attachments
+          - bim
+```
+
+### Import certificates from a file
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_workspace_id: masdev
+    manage_certificates_file_path_local: /path/to/certs.yml
+  roles:
+    - role: ibm.mas_devops.suite_app_config_manage
+      vars:
+        suite_app_config_manage_actions: [import-certs]
+```
+
+### Add custom persistent volumes
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_workspace_id: masdev
+    mas_manage_custom_persistent_volumes: |
+      persistentVolumes:
+        - mountPath: /MeaGlobalDirs
+          pvcName: masinst1-masdev-cust-files-pvc
+          size: 100Gi
+  roles:
+    - role: ibm.mas_devops.suite_app_config_manage
+      vars:
+        suite_app_config_manage_actions: [pvc]
+```
+
+## License
+EPL-2.0

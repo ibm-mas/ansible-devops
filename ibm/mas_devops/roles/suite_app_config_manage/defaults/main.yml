@@ -1,0 +1,117 @@
+---
+# Action selection
+# ---------------------------------------------------------------------------------------------------------------------
+# The actions to run, either as a list or as a comma-separated string. Each action
+# corresponds to one of the former suite_manage_*_config roles:
+#   - attachments    (was suite_manage_attachments_config)
+#   - bim            (was suite_manage_bim_config)
+#   - birt           (was suite_manage_birt_report_config)
+#   - custfiles      (was suite_manage_customer_files_config)
+#   - imagestitching (was suite_manage_imagestitching_config)
+#   - import-certs   (was suite_manage_import_certs_config)
+#   - dbc-scripts    (was suite_manage_load_dbc_scripts)
+#   - logging        (was suite_manage_logging_config)
+#   - pvc            (was suite_manage_pvc_config)
+suite_app_config_manage_actions: "{{ lookup('env', 'SUITE_APP_CONFIG_MANAGE_ACTIONS') | default('', true) }}"
+suite_app_config_manage_actions_supported:
+  - "attachments"
+  - "bim"
+  - "birt"
+  - "custfiles"
+  - "imagestitching"
+  - "import-certs"
+  - "dbc-scripts"
+  - "logging"
+  - "pvc"
+
+# The following MAS information is needed to lookup the right Manage app instance
+# ---------------------------------------------------------------------------------------------------------------------
+mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') }}"
+mas_app_id: "{{ lookup('env', 'MAS_APP_ID') | default('manage', true) }}" # App Id is prepared for Health stand alone, but manage will be used by vast majority of cases
+manage_workspace_cr_name: "{{ lookup('env', 'MANAGE_WORKSPACE_CR_NAME') | default(mas_instance_id + '-' + mas_workspace_id, true) }}"
+
+# Manage app DB2 instance, used by actions that execute SQL against the Manage database
+# (bim, logging when mas_manage_logging_is_prod is enabled)
+# ---------------------------------------------------------------------------------------------------------------------
+db2_namespace: "{{ lookup('env', 'DB2_NAMESPACE') | default('db2u', true) }}"
+db2_instance_name: "{{ lookup('env', 'DB2_INSTANCE_NAME') }}" # e.g. db2u-manage, empty when an external (JDBC) database is used
+db2_dbname: "{{ lookup('env', 'DB2_DBNAME') | default('BLUDB', true) }}"
+
+# Attachments (action: attachments)
+# ---------------------------------------------------------------------------------------------------------------------
+mas_manage_attachments_provider: "{{ lookup('env', 'MAS_MANAGE_ATTACHMENTS_PROVIDER') | default('filestorage', true) }}" # supported options: "ibm", "aws" or "filestorage"
+mas_manage_attachments_provider_supported:
+  - "ibm"
+  - "aws"
+  - "filestorage"
+# Only the "cr" configuration mode is supported: the "db" mode (raw SQL against the
+# Manage database) has been removed. The variable is retained so that playbooks that
+# set it to "cr" continue to work, and setting it to "db" fails with a clear message.
+mas_manage_attachment_configuration_mode: "{{ lookup('env', 'MAS_MANAGE_ATTACHMENT_CONFIGURATION_MODE') | default('cr', true) }}"
+cos_region: "{{ lookup('env', 'COS_REGION') | default('us-standard', true) }}" # COS region to set mxe.cosregion bundle property
+
+# BIM (action: bim)
+# ---------------------------------------------------------------------------------------------------------------------
+mas_app_settings_bim_mount_path: "{{ lookup('env', 'MAS_APP_SETTINGS_BIM_MOUNT_PATH') | default('/bim', true) }}"
+
+# BIRT report (action: birt)
+# ---------------------------------------------------------------------------------------------------------------------
+# If a report bundle is not already configured, this name is used to define the report bundle and its route
+mas_manage_birt_report_bundle_name: "{{ lookup('env', 'MANAGE_REPORT_BUNDLE_SERVER_NAME') | default('rpt', true) }}"
+
+# Customer files (action: custfiles)
+# ---------------------------------------------------------------------------------------------------------------------
+custfiles_bucketname_default: "{{ mas_instance_id }}-{{ mas_workspace_id }}-custfiles"
+custfiles_bucketname_recovery_default: "{{ custfiles_bucketname_default }}recovery"
+custfiles_bucketname_backup_default: "{{ custfiles_bucketname_default }}backup"
+
+custfiles_bucketname: "{{ lookup('env', 'MANAGE_CUSTFILES_BUCKET_NAME') | default(custfiles_bucketname_default, true) }}"
+custfiles_bucketname_recovery: "{{ lookup('env', 'MANAGE_CUSTFILES_RECOVERY_BUCKET_NAME') | default(custfiles_bucketname_recovery_default, true) }}"
+custfiles_bucketname_backup: "{{ lookup('env', 'MANAGE_CUSTFILES_BACKUP_BUCKET_NAME') | default(custfiles_bucketname_backup_default, true) }}"
+
+# Supported providers: "ibm" or "aws". Falls back to the legacy COS_TYPE env var.
+mas_manage_custfiles_provider: "{{ lookup('env', 'MAS_MANAGE_CUSTFILES_PROVIDER') | default(lookup('env', 'COS_TYPE'), true) }}"
+mas_manage_custfiles_provider_supported:
+  - "ibm"
+  - "aws"
+
+# Image stitching (action: imagestitching)
+# ---------------------------------------------------------------------------------------------------------------------
+mas_manage_imagestitching_pvc_name: "{{ lookup('env', 'IMAGESTITCHING_PVCNAME') | default('manage-imagestitching', true) }}"
+mas_manage_imagestitching_storage_class: "{{ lookup('env', 'IMAGESTITCHING_STORAGE_CLASS') }}" # defaults to the cluster RWX storage class when not set
+mas_manage_imagestitching_storage_size: "{{ lookup('env', 'IMAGESTITCHING_STORAGE_SIZE') | default('20Gi', true) }}"
+mas_manage_imagestitching_storage_mode: "{{ lookup('env', 'IMAGESTITCHING_STORAGE_MODE') | default('ReadWriteMany', true) }}"
+mas_manage_imagestitching_mount_path: "{{ lookup('env', 'IMAGESTITCHING_STORAGE_MOUNTPATH') | default('imagestitching', true) }}"
+mas_manage_imagestitching_wait_retries: 60 # x 90s = 90 minutes wait for the image stitching deployment
+
+# Import certificates (action: import-certs)
+# ---------------------------------------------------------------------------------------------------------------------
+manage_certificates_file_path_local: "{{ lookup('env', 'MANAGE_CERTIFICATES_FILE_PATH_LOCAL') }}" # local YAML file with importedCerts entries
+manage_certificates_alias_prefix: "" # prefix used to alias certificates provided via the manage_certificates list
+
+# DBC scripts (action: dbc-scripts)
+# ---------------------------------------------------------------------------------------------------------------------
+mas_manage_dbc_script_path_local: "{{ lookup('env', 'DBC_SCRIPT_PATH_LOCAL') }}" # local folder containing the .dbc scripts to load
+maximo_tools_dir: "/opt/IBM/SMP/maximo/tools/maximo/"
+mas_manage_dbc_script_dir_remote: "{{ lookup('env', 'DBC_SCRIPT_DIR_REMOTE') | default(maximo_tools_dir ~ 'en/script/', true) }}"
+
+# Logging (action: logging)
+# ---------------------------------------------------------------------------------------------------------------------
+# Supported providers: "ibm" or "aws". Falls back to the legacy COS_TYPE env var.
+mas_manage_logging_provider: "{{ lookup('env', 'MAS_MANAGE_LOGGING_PROVIDER') | default(lookup('env', 'COS_TYPE'), true) }}"
+mas_manage_logging_provider_supported:
+  - "ibm"
+  - "aws"
+mas_manage_logging_is_prod: "{{ lookup('env', 'IS_PROD') | default('false', true) | bool }}" # enables the Admin Center lockdown on the Manage database
+mas_manage_logging_secret_name: "{{ lookup('env', 'MAS_MANAGE_LOGGING_SECRET_NAME') | default('s3secretkey', true) }}"
+mas_manage_logging_force: "{{ lookup('env', 'MAS_MANAGE_LOGGING_FORCE') | default('false', true) | bool }}" # reconfigure logging even when loggingS3Destination is already set
+
+# Custom persistent volumes (action: pvc)
+# ---------------------------------------------------------------------------------------------------------------------
+# List of persistent volume definitions, provided either as a YAML string in this
+# variable or via a file path. Each entry supports: pvcName (required), mountPath
+# (required), size (required), storageClassName (optional, defaults to the cluster
+# RWX storage class) and accessModes (optional).
+mas_manage_custom_persistent_volumes: "{{ lookup('env', 'MAS_MANAGE_CUSTOM_PERSISTENT_VOLUMES') | default('', true) }}"
+mas_manage_custom_persistent_volumes_file: "{{ lookup('env', 'MAS_MANAGE_CUSTOM_PERSISTENT_VOLUMES_FILE') | default(lookup('env', 'MAS_APP_SETTINGS_CUSTOM_PV_FILE_PATH'), true) }}"

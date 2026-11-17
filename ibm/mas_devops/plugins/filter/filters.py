@@ -309,9 +309,9 @@ def setManageBirtProperties(data, rptRoute, rptServerBundleName):
     disablequeuemanager = 0 if sb['bundleType'] == 'report' else 1
     if 'bundleLevelProperties' in sb:
       if 'mxe.report.birt.viewerurl' not in sb['bundleLevelProperties'] and 'mxe.report.birt.disablequeuemanager' not in sb['bundleLevelProperties']:
-        sb['bundleLevelProperties']+=f"mxe.report.birt.viewerurl={rptRoute}  mxe.report.birt.disablequeuemanager={disablequeuemanager}"
+        sb['bundleLevelProperties']+=f"\nmxe.report.birt.viewerurl={rptRoute}\nmxe.report.birt.disablequeuemanager={disablequeuemanager}"
     else:
-      sb['bundleLevelProperties']=f"mxe.report.birt.viewerurl={rptRoute}  mxe.report.birt.disablequeuemanager={disablequeuemanager}"
+      sb['bundleLevelProperties']=f"mxe.report.birt.viewerurl={rptRoute}\nmxe.report.birt.disablequeuemanager={disablequeuemanager}"
     sb_list.append(sb)
   return sb_list
 
