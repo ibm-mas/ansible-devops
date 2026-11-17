@@ -7,178 +7,75 @@ Also, you need to have AWS user credentials configured via `aws configure` comma
 
 ## Role Variables
 
-### mas_config_dir
-Directory where generated Kubernetes resources and VPC configuration will be saved.
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`mas_config_dir`](#mas_config_dir) | Yes | None |
+| [`aws_region`](#aws_region) | No | `us-east-1` |
+| [`vpc_action`](#vpc_action) | No | `provision` |
+| [`vpc_cidr`](#vpc_cidr) | Conditional | None |
+| [`vpc_name`](#vpc_name) | Yes | None |
+
+`vpc_cidr` is only required when `vpc_action` is `provision`; it is ignored for deprovisioning.
+
+### Configuration Storage
+
+#### mas_config_dir
+
+Local directory where generated Kubernetes resources, VPC configuration details, and any credentials or metadata related to the created VPC will be saved — for example `~/masconfig` or `/opt/mas/config`. The directory is created if it doesn't exist.
 
 - **Required**
 - Environment Variable: `MAS_CONFIG_DIR`
-- Default Value: None
+- Default: None
 
-**Purpose**: Specifies the local directory path where the role will save generated Kubernetes resources, VPC configuration details, and any credentials or metadata related to the created VPC.
+Use the same `mas_config_dir` across all MAS DevOps roles for consistency; it should be writable by the user running the playbook (an absolute path is recommended), and backed up since it contains important configuration data for subsequent MAS installation steps.
 
-**When to use**: Always required when provisioning a VPC. This directory serves as the central location for all MAS configuration artifacts and should be consistent across all roles.
+### AWS Settings
 
-**Valid values**:
-- Any valid local filesystem path (e.g., `~/masconfig`, `/opt/mas/config`)
-- Directory will be created if it doesn't exist
-- Should have write permissions for the user running the playbook
-- Recommended to use an absolute path for consistency
+#### aws_region
 
-**Impact**:
-- All VPC-related configuration files will be stored in this directory
-- Kubernetes secrets and resources will be generated here for later use
-- Required for subsequent MAS installation and configuration steps
-- Should be backed up as it contains important configuration data
-
-**Related variables**:
-- Used by all MAS DevOps roles for consistent configuration storage
-- [`vpc_name`](#vpc_name) - Used in naming generated configuration files
-
-**Notes**:
-- Use the same `mas_config_dir` across all MAS DevOps roles for consistency
-- Ensure the directory is accessible and has sufficient storage space
-- Consider using version control for the configuration directory (excluding sensitive data)
-- The directory structure follows MAS configuration conventions
-
-### aws_region
-The AWS region where the VPC will be created.
+The AWS region where the VPC will be created — for example `us-east-1`, `us-west-2`, `eu-west-1`, or `ap-southeast-1`. Must be a region your AWS account has access to.
 
 - **Optional**
 - Environment Variable: `AWS_REGION`
-- Default Value: `us-east-1`
+- Default: `us-east-1`
 
-**Purpose**: Specifies the AWS region for VPC creation. The VPC and all its associated resources (subnets, route tables, internet gateways) will be created in this region.
+The VPC and all its associated resources (subnets, route tables, internet gateways) are created in this region. Choose a region close to your users, that supports all AWS services required by MAS (EFS, DocumentDB, etc.), and that meets compliance and data residency requirements. The region cannot be changed after VPC creation (recreation is required), and it should align with the region used in other AWS roles.
 
-**When to use**: Should match the region where you plan to deploy your OpenShift cluster and MAS workloads. Consider data residency requirements and proximity to users.
+### VPC Settings
 
-**Valid values**:
-- Any valid AWS region identifier (e.g., `us-east-1`, `us-west-2`, `eu-west-1`, `ap-southeast-1`)
-- Must be a region where your AWS account has access
-- Consider regions with availability zone requirements for high availability
+#### vpc_action
 
-**Impact**:
-- Determines the geographic location of your VPC and all network resources
-- Affects network latency for resources accessing the VPC
-- Some AWS services may have different availability or pricing in different regions
-- Cannot be changed after VPC creation (requires recreation)
-
-**Related variables**:
-- Should align with the region used in other AWS roles (DocumentDB, EFS, S3)
-- [`vpc_name`](#vpc_name) - VPC identifier within the region
-
-**Notes**:
-- Choose a region close to your users for better performance
-- Ensure the region supports all AWS services required by MAS (EFS, DocumentDB, etc.)
-- Consider compliance and data residency requirements
-- Some regions may have capacity constraints for certain instance types
-
-### vpc_action
-The action to perform on the VPC (provision or deprovision).
+The action to perform on the VPC — `provision` to create a new VPC with the specified configuration (default), or `deprovision` to permanently delete the VPC identified by `vpc_name`.
 
 - **Optional**
 - Environment Variable: `VPC_ACTION`
-- Default Value: `provision`
+- Default: `provision`
 
-**Purpose**: Controls whether the role should create a new VPC or delete an existing one. This allows the same role to handle both lifecycle operations.
+`provision` creates the VPC, subnets, route tables, internet gateway, and associated resources; `deprovision` deletes the VPC and cleans up all associated resources. Ensure all OpenShift clusters and MAS workloads are removed before deprovisioning — it will fail if EC2 instances, load balancers, or other resources are still using the VPC.
 
-**When to use**:
-- Use `provision` (default) when creating a new VPC for MAS deployment
-- Use `deprovision` when cleaning up and removing the VPC after MAS uninstallation
+!!! warning
+    Deprovisioning is irreversible — all data and configurations within the VPC will be lost. Consider taking backups before deprovisioning.
 
-**Valid values**:
-- `provision` - Create a new VPC with the specified configuration
-- `deprovision` - Delete the VPC identified by `vpc_name`
+#### vpc_cidr
 
-**Impact**:
-- `provision`: Creates VPC, subnets, route tables, internet gateway, and associated resources
-- `deprovision`: Permanently deletes the VPC and all associated resources
-- Deprovisioning is irreversible and will fail if resources are still attached to the VPC
-- All data and configurations within the VPC will be lost during deprovisioning
+The CIDR block (IP address range) for the VPC — a valid IPv4 CIDR between /16 and /28 netmask from the private ranges `10.0.0.0/8`, `172.16.0.0/12`, or `192.168.0.0/16`, for example `10.0.0.0/16` (65,536 IP addresses) or `192.168.0.0/20` (4,096 IP addresses).
 
-**Related variables**:
-- [`vpc_name`](#vpc_name) - Identifies which VPC to provision or deprovision
-- [`vpc_cidr`](#vpc_cidr) - Required for provisioning, ignored for deprovisioning
-
-**Notes**:
-- Before deprovisioning, ensure all OpenShift clusters and MAS workloads are removed
-- Deprovisioning will fail if EC2 instances, load balancers, or other resources are still using the VPC
-- Consider taking backups before deprovisioning
-- The role will clean up associated resources (subnets, route tables, internet gateways)
-
-### vpc_cidr
-The CIDR block (IP address range) for the VPC.
-
-- **Required** (for provisioning)
+- **Required** for provisioning
 - Environment Variable: `VPC_CIDR`
-- Default Value: None
+- Default: None
 
-**Purpose**: Defines the IP address range for the VPC using CIDR notation. This determines the total number of IP addresses available within the VPC for subnets, instances, and other resources.
+Determines the maximum number of IP addresses available in the VPC and cannot be changed after VPC creation (recreation is required). For OpenShift on AWS (ROSA), a /16 CIDR is recommended for production. Reserve the first 4 and last 1 IP addresses in each subnet for AWS services, plan for future growth, and avoid overlapping with other VPCs (if peering is planned) or on-premises networks (if VPN connectivity is planned).
 
-**When to use**: Required when provisioning a new VPC. The CIDR block should be large enough to accommodate all planned subnets and resources while avoiding conflicts with existing networks.
+#### vpc_name
 
-**Valid values**:
-- Valid IPv4 CIDR block between /16 and /28 netmask
-- Must be from private IP ranges:
-  - `10.0.0.0/8` (10.0.0.0 - 10.255.255.255)
-  - `172.16.0.0/12` (172.16.0.0 - 172.31.255.255)
-  - `192.168.0.0/16` (192.168.0.0 - 192.168.255.255)
-- Common examples:
-  - `10.0.0.0/16` - Provides 65,536 IP addresses
-  - `172.31.0.0/16` - Provides 65,536 IP addresses
-  - `192.168.0.0/20` - Provides 4,096 IP addresses
-
-**Impact**:
-- Determines the maximum number of IP addresses available in the VPC
-- Cannot be changed after VPC creation (requires recreation)
-- Affects subnet design and IP address allocation strategy
-- Must not overlap with other VPCs if VPC peering is planned
-- Smaller CIDR blocks (/24, /28) limit scalability
-
-**Related variables**:
-- [`vpc_name`](#vpc_name) - Identifies the VPC using this CIDR block
-- [`aws_region`](#aws_region) - Region where the VPC with this CIDR is created
-
-**Notes**:
-- Plan for future growth when selecting CIDR block size
-- Reserve IP addresses for AWS services (first 4 and last 1 in each subnet)
-- For OpenShift on AWS (ROSA), a /16 CIDR is recommended for production
-- Avoid overlapping with on-premises networks if VPN connectivity is planned
-- Document your CIDR allocation strategy for network management
-
-### vpc_name
-The name tag for the VPC.
+The name tag for the VPC — any string following AWS tag naming conventions, recommended format `<environment>-<purpose>-vpc` (e.g., `prod-mas-vpc`, `dev-maximo-vpc`), unique within your AWS account.
 
 - **Required**
 - Environment Variable: `VPC_NAME`
-- Default Value: None
+- Default: None
 
-**Purpose**: Assigns a human-readable name to the VPC for identification and management purposes. This name appears in the AWS console and is used to identify the VPC in subsequent operations.
+Used as the "Name" tag on the VPC in the AWS console, to identify the VPC in CLI and API operations, and to locate the VPC during deprovisioning. Include environment indicators (dev, test, prod) and consider including the region or purpose for multi-region deployments; the name is stored as a tag and can be changed after creation.
 
-**When to use**: Always required for both provisioning and deprovisioning operations. The name should be descriptive and follow your organization's naming conventions.
-
-**Valid values**:
-- Any string that follows AWS tag naming conventions
-- Recommended format: `<environment>-<purpose>-vpc` (e.g., `prod-mas-vpc`, `dev-maximo-vpc`)
-- Should be unique within your AWS account for clarity
-- Alphanumeric characters, hyphens, and underscores are recommended
-
-**Impact**:
-- Used as the "Name" tag on the VPC in AWS console
-- Helps identify the VPC in AWS CLI and API operations
-- Used by the role to locate the VPC during deprovisioning
-- Appears in AWS cost allocation reports if cost tags are enabled
-
-**Related variables**:
-- [`vpc_cidr`](#vpc_cidr) - The IP range for this named VPC
-- [`vpc_action`](#vpc_action) - Whether to provision or deprovision this VPC
-- [`mas_config_dir`](#mas_config_dir) - Where configuration for this VPC is stored
-
-**Notes**:
-- Use consistent naming conventions across all AWS resources
-- Include environment indicators (dev, test, prod) in the name
-- The name is stored as a tag and can be changed after creation
-- Consider including the region or purpose in the name for multi-region deployments
-- Document your VPC naming strategy for team consistency
 ## Example Playbook
 
 ```yaml
@@ -204,4 +101,5 @@ ROLE_NAME=aws_vpc ansible-playbook ibm.mas_devops.run_role
 ```
 
 ## License
+
 EPL-2.0

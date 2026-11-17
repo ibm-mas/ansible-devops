@@ -1,67 +1,64 @@
 # aiservice_migration
-This role performs necessary migration tasks when AI Service is upgraded from one version to another. The role will detect whether or not a migration is required and perform the migration if necessary. If a migration has been performed, the fact `is_migration_needed` will be set to `true`. The table below shows
-which upgrade paths are currently included for migration.
 
+This role performs necessary migration tasks when AI Service is upgraded from one version to another. The role will detect whether or not a migration is required and perform the migration if necessary. If a migration has been performed, the fact `is_migration_needed` will be set to `true`. The table below shows which upgrade paths are currently included for migration.
 
 | Installed Version | Target Version | Migration Steps |
 |---|---|---|
 | 9.1 | 9.2 | Remove the cluster-scoped tenant operator and install the namespace-scoped tenant operator in each tenant namespace. Move dependent resources. Clean-up. |
 
-
-
 ## Role Variables
 
-### instance_id
-AI Service instance identifier to upgrade.
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`instance_id`](#instance_id) | Yes | None |
+| [`catalog_channel`](#catalog_channel) | No | None |
+| [`force_migration`](#force_migration) | No | `false` |
+
+### Migration Target
+
+#### instance_id
+
+AI Service instance identifier to upgrade (typically lowercase alphanumeric; case-sensitive).
 
 - **Required**
 - Environment Variable: `AISERVICE_INSTANCE_ID`
 - Default: None
 
-**Purpose**: Identifies the target AI Service instance for upgrade operations.
+Must match the instance ID from the AI Service installation; verify the instance exists before upgrading.
 
-**When to use**: Always required. Must match an existing AI Service instance ID.
+#### catalog_channel
 
-**Valid values**: Valid AI Service instance ID (typically lowercase alphanumeric)
+The subscription channel from which components such as the AI Service tenant operator will be installed during the migration (e.g. `9.0.x`, `9.1.x`). This should match the channel used to install AI Service.
 
-**Impact**: Determines which AI Service instance will be migrated. Incorrect instance ID will cause the upgrade to fail.
-
-**Notes**:
-- Must match the instance ID from AI Service installation
-- Verify instance exists before upgrading
-- Case-sensitive value
-
-### catalog_channel
-The subscription channel from which components such as the AI Service tenant operator will be installed during the migration. This should match the channel used to install AI Service.
-
+- **Optional**
 - Environment Variable: `AISERVICE_CHANNEL`
 - Default: None
 
-**Purpose**: Specifies the target subscription channel to install AI Service components during the migration. If not provided, the role automatically selects the next appropriate version.
+If not provided, the role automatically selects the next appropriate version. The role validates that the target channel is a valid upgrade path from the current version.
 
-**When to use**:
-- Must be set explicitly.
-- Must be a valid upgrade path from current version
+#### force_migration
 
-**Valid values**: Valid AI Service subscription channel (e.g., `9.0.x`, `9.1.x`)
+Skip any checks to determine if a migration is needed and perform the migration.
 
-**Impact**: Determines the target version for AI Service migration. The role validates:
-- Upgrade path compatibility (can upgrade from current to target)
-
-### force_migration
-Skip any checks to determine if a migration is needed and perform the migration
-
+- **Optional**
 - Environment Variable: `AISERVICE_FORCE_MIGRATION`
-- Default: false
+- Default: `false`
 
-**Purpose**: If set to true, the migration will be performed regardless of whether a migration is needed.
+!!! warning
+    Use this only when you are sure a migration is needed, for example to recover from an error during the migration process — forcing a migration that is not required may break your environment.
 
-**When to use**:
-- When you want to force a migration due to an error occurring during the migration process
+## Example Playbook
 
-**Valid values**: True or false
+After installing the Ansible Collection you can include this role in your own custom playbooks.
 
-**Impact**: Forces a migration to happen. Use this option only when you are sure that a migration is needed. This may break your environment if used incorrectly.
+```yaml
+- hosts: localhost
+  vars:
+    instance_id: "{{ lookup('env', 'AISERVICE_INSTANCE_ID') }}"
+    catalog_channel: 9.2.x
+  roles:
+    - ibm.mas_devops.aiservice_migration
+```
 
 ## License
 

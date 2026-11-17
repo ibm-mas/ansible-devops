@@ -21,6 +21,7 @@ See the individual pages for each of these roles for more information and full d
 
 Required environment variables
 -------------------------------------------------------------------------------
+
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `IBM_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
@@ -28,20 +29,17 @@ Required environment variables
 !!! tip
     Manage requires the user to select one or more application components to enable in the workspace. By default the `base` component at the `latest` version will be installed if no `MAS_APPWS_COMPONENTS` is set. To customise the components that are enabled use the `MAS_APPWS_COMPONENTS` environment variable, for example to enable Manage(base) and Health set it to the following:
 
-   `export MAS_APPWS_COMPONENTS="base=latest,health=latest"`
+    `export MAS_APPWS_COMPONENTS="base=latest,health=latest"`
 
-   To disable Asset Investment Optimizer, optional feature of health, set `MAS_APP_SETTINGS_AIO_FLAG` to `false`. By default this flag is set to `true` . This feature is only avalaible on Manage with health as a addon or on Health as a Standalone install. This feature is disabled on MAS Core 9.1 and later.
+    To disable Asset Investment Optimizer, an optional feature of Health, set `MAS_APP_SETTINGS_AIO_FLAG` to `false`. By default this flag is set to `true`. This feature is only available on Manage with Health as an add-on or on Health as a standalone install. This feature is disabled on MAS Core 9.1 and later.
 
-   `export MAS_APP_SETTINGS_AIO_FLAG=false`
+    `export MAS_APP_SETTINGS_AIO_FLAG=false`
 
+    **Note**: To install Manage Foundation only, which is available on MAS Core 9.1 or later, export the following environment variable:
 
-   **Note**:
+    The `MAS_APPWS_COMPONENTS` environment variable must be empty:
 
-   To install Manage Foundation only that is available on MAS Core 9.1 or later, export the following environment variable:
-
-   `MAS_APPWS_COMPONENTS` environment variable must be empty:
-
-   `export MAS_APPWS_COMPONENTS=""`
+    `export MAS_APPWS_COMPONENTS=""`
 
 Optional Cloud Pak for Data Installation
 -------------------------------------------------------------------------------
@@ -52,8 +50,6 @@ export CPD_INSTALL_PLATFORM=true
 export CPD_INSTALL_WSL=true
 export CPD_PRODUCT_VERSION=x.y.z
 ```
-
-
 
 
 Usage
@@ -74,9 +70,9 @@ ansible-playbook ibm.mas_devops.mas_add_manage
 
 
 ### Bring Your Own Database
-If you do not want to use the Db2 Universal Operator to provide the datbase for Maximo Manage then you can configure the playbook as below:
+If you do not want to use the Db2 Universal Operator to provide the database for Maximo Manage then you can configure the playbook as below:
 
-``` bash
+```bash
 export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
 export IBM_ENTITLEMENT_KEY=xxx
@@ -98,7 +94,7 @@ ansible-playbook ibm.mas_devops.mas_add_manage
 For full details of configuration options available refer to the [gencfg_jdbc](../roles/gencfg_jdbc.md) role documentation.
 
 
-### Cloud Pak For Data Integration
+### Cloud Pak for Data Integration
 To install CP4D with Watson Studio Local as an optional dependency:
 
 ```bash
