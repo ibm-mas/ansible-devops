@@ -22,25 +22,35 @@ The backup process creates a timestamped backup directory containing:
 2. **Persistent Volume Data**: Application data stored in PVCs (automatically detected from workspace CR)
 
 !!! important
+
     - An application backup can only be restored to an instance with the same MAS instance ID
     - This role backs up application resources and PV data only. Database backups must be performed separately using the appropriate database backup role
     - For Manage, see the [db2](db2.md) role for database backup
     - For Facilities, see the [db2](db2.md) role for database backup
 
-
 ## Role Variables
 
-### General Variables
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`mas_app_id`](#mas_app_id) | Yes | None |
+| [`mas_instance_id`](#mas_instance_id) | Yes | None |
+| [`mas_workspace_id`](#mas_workspace_id) | Yes | None |
+| [`mas_backup_dir`](#mas_backup_dir) | Yes | None |
+| [`mas_app_backup_version`](#mas_app_backup_version) | No | Auto-generated timestamp |
+| [`mas_app_backup_include_pvc`](#mas_app_backup_include_pvc) | No | `true` |
+
+### Backup Target
 
 #### mas_app_id
-Defines the MAS application ID for the backup action.
+
+Defines the MAS application ID for the backup action — currently supported values are `manage` and `facilities`.
 
 - **Required**
 - Environment Variable: `MAS_APP_ID`
 - Default: None
-- Valid Values: `manage`, `facilities` (currently supported)
 
 #### mas_instance_id
+
 Defines the MAS instance ID for the backup action.
 
 - **Required**
@@ -48,6 +58,7 @@ Defines the MAS instance ID for the backup action.
 - Default: None
 
 #### mas_workspace_id
+
 Defines the MAS workspace ID for the backup action.
 
 - **Required**
@@ -55,28 +66,30 @@ Defines the MAS workspace ID for the backup action.
 - Default: None
 
 #### mas_backup_dir
-Defines the directory where backups will be stored. The role will create a timestamped subdirectory within this location.
+
+Defines the directory where backups will be stored, for example `/backup/mas`. The role will create a timestamped subdirectory within this location.
 
 - **Required**
 - Environment Variable: `MAS_BACKUP_DIR`
 - Default: None
-- Example: `/backup/mas`
+
+### Backup Options
 
 #### mas_app_backup_version
-Optional custom version identifier for the backup. If not specified, defaults to timestamp format `YYYYMMDD-HHMMSS`.
 
-- Optional
+Optional custom version identifier for the backup, for example `20240315-143022` or `v1.0-prod`.
+
+- **Optional**
 - Environment Variable: `MAS_APP_BACKUP_VERSION`
-- Default: Auto-generated timestamp
-- Example: `20240315-143022` or `v1.0-prod`
+- Default: Auto-generated timestamp in `YYYYMMDD-HHMMSS` format
 
 #### mas_app_backup_include_pvc
-Controls whether persistent volume data should be backed up for application. When set to `false`, only namespace resources (CRs, secrets, subscriptions) are backed up, and PVC data is skipped.
 
-- Optional
+Controls whether persistent volume data is backed up for the application — valid values are `true` and `false`. When set to `false`, only namespace resources (CRs, secrets, subscriptions) are backed up, and PVC data is skipped.
+
+- **Optional**
 - Environment Variable: `MAS_APP_BACKUP_INCLUDE_PVC`
 - Default: `true`
-- Valid Values: `true`, `false`
 
 ## What Gets Backed Up
 

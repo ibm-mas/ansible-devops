@@ -12,128 +12,64 @@ Simulate an air-gapped/disconnected network environment for testing purposes by 
 - Changes persist across node reboots
 
 **Verification**: Check node hosts file:
+
 ```bash
 oc debug node/<node-name>
 sh-4.4# cat /host/etc/hosts
 ```
 
-
 ## Role Variables
 
-### General Variables
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`airgap_network_exclusions`](#airgap_network_exclusions) | No | 9 default registries (see below) |
+| [`registry_private_ca_file`](#registry_private_ca_file) | Conditional | None |
+| [`registry_private_ca_crt`](#registry_private_ca_crt) | No | None |
+| [`machine_config_multiupdate`](#machine_config_multiupdate) | No | `false` |
+
+`registry_private_ca_file` is only required when the private/mirrored registry uses self-signed or custom CA certificates.
+
+### Network Isolation
 
 #### airgap_network_exclusions
-Space-separated list of container registry hostnames to block.
+Space-separated list of container registry hostnames whose DNS resolution will be blocked to simulate disconnected network access. The default list covers the common registries used by MAS and OpenShift; customize it to add or remove registries based on your testing requirements.
 
-- Optional
+- **Optional**
 - Environment Variable: None (hardcoded in defaults)
 - Default: `quay.io registry.redhat.io registry.connect.redhat.com gcr.io nvcr.io icr.io cp.icr.io docker-na-public.artifactory.swg-devops.com docker-na-proxy-svl.artifactory.swg-devops.com docker-na-proxy-rtp.artifactory.swg-devops.com`
 
-**Purpose**: Defines which container registry hostnames will have DNS resolution blocked to simulate disconnected network access.
+The default registries are `quay.io` (Red Hat Quay registry), `registry.redhat.io` (Red Hat Container Catalog), `registry.connect.redhat.com` (Red Hat Partner registry), `gcr.io` (Google Container Registry), `nvcr.io` (NVIDIA Container Registry), `icr.io` (IBM Cloud Container Registry, public), `cp.icr.io` (IBM Cloud Container Registry, entitled), and `docker-na-public.artifactory.swg-devops.com`, `docker-na-proxy-svl.artifactory.swg-devops.com`, `docker-na-proxy-rtp.artifactory.swg-devops.com` (IBM internal Artifactory and proxies). DNS resolution is blocked by adding bogus IP addresses to `/etc/hosts`; the internal OpenShift image registry is not affected, and image pulls from the listed registries will fail unless mirrored registries are configured before blocking them.
 
-**When to use**: Default list covers common registries used by MAS and OpenShift. Customize to add or remove registries based on your testing requirements.
-
-**Valid values**: Space-separated list of valid hostnames. Default registries:
-
-- `quay.io` - Red Hat Quay registry
-- `registry.redhat.io` - Red Hat Container Catalog
-- `registry.connect.redhat.com` - Red Hat Partner registry
-- `gcr.io` - Google Container Registry
-- `nvcr.io` - NVIDIA Container Registry
-- `icr.io` - IBM Cloud Container Registry (public)
-- `cp.icr.io` - IBM Cloud Container Registry (entitled)
-- `docker-na-public.artifactory.swg-devops.com` - IBM internal Artifactory
-- `docker-na-proxy-svl.artifactory.swg-devops.com` - IBM internal Artifactory proxy
-- `docker-na-proxy-rtp.artifactory.swg-devops.com` - IBM internal Artifactory proxy
-
-**Impact**: Listed registries will be unreachable from cluster nodes. Image pulls from these registries will fail unless mirrored registries are configured.
-
-**Related variables**: `registry_private_ca_file`, `machine_config_multiupdate`
-
-**Notes**:
-
-- Blocks DNS resolution by adding bogus IP addresses to `/etc/hosts`
-- Does not affect internal OpenShift image registry
-- Ensure mirrored registries are configured before blocking external registries
-- Add custom registries if testing with additional image sources
+### Private Registry Trust
 
 #### registry_private_ca_file
-Local file path to the private registry CA certificate.
+Local file path to the private/mirrored registry CA certificate — an absolute or relative path to a valid PEM-encoded CA certificate file (e.g. `/tmp/registry-ca.pem`, `./certs/mirror-registry-ca.crt`).
 
-- Optional
+- **Required** when using a private registry with self-signed or custom CA certificates
 - Environment Variable: `REGISTRY_PRIVATE_CA_FILE`
 - Default: None
 
-**Purpose**: Provides the CA certificate for the private/mirrored registry that will be used in the disconnected environment.
-
-**When to use**: Required when using a private registry with self-signed or custom CA certificates in the simulated air-gap environment.
-
-**Valid values**: Absolute or relative file path to a valid PEM-encoded CA certificate file (e.g., `/tmp/registry-ca.pem`, `./certs/mirror-registry-ca.crt`).
-
-**Impact**: The CA certificate is added to the cluster's trusted certificate bundle, enabling nodes to trust the private registry.
-
-**Related variables**: `registry_private_ca_crt`, `airgap_network_exclusions`
-
-**Notes**:
-
-- Required for private registries with custom CAs
-- File must be accessible from the Ansible controller
-- Certificate must be in PEM format
-- Not needed if using a registry with publicly trusted certificates
+The file must be accessible from the Ansible controller. The certificate is added to the cluster's trusted certificate bundle, enabling nodes to trust the private registry; it is not needed if the registry uses publicly trusted certificates.
 
 #### registry_private_ca_crt
-Content of the private registry CA certificate.
+Content of the private registry CA certificate, automatically loaded from `registry_private_ca_file` and used internally by the role — do not set it manually.
 
 - **Optional** (derived from `registry_private_ca_file`)
 - Environment Variable: None (loaded from file)
 - Default: None
 
-**Purpose**: Contains the actual CA certificate content loaded from `registry_private_ca_file`. Used internally by the role.
+The PEM-encoded certificate content is embedded in a MachineConfig and distributed to all cluster nodes to configure node trust.
 
-**When to use**: Automatically populated when `registry_private_ca_file` is set. Do not set manually.
-
-**Valid values**: PEM-encoded CA certificate content.
-
-**Impact**: Certificate content is embedded in MachineConfig and distributed to all cluster nodes.
-
-**Related variables**: `registry_private_ca_file`
-
-**Notes**:
-
-- Automatically loaded from the file specified in `registry_private_ca_file`
-- Do not set this variable directly
-- Used internally by the role to configure node trust
+### MachineConfig Updates
 
 #### machine_config_multiupdate
-Enable multiple MachineConfig updates in a single operation.
+Whether multiple MachineConfig changes are applied together in a single operation or separately — `true` (apply together) or `false` (apply separately, the default).
 
-- Optional
+- **Optional**
 - Environment Variable: `MACHINE_CONFIG_MULTIUPDATE`
 - Default: `false`
 
-**Purpose**: Controls whether multiple MachineConfig changes are applied together or separately, affecting node reboot behavior.
-
-**When to use**: Set to `true` when applying multiple configuration changes to minimize node reboots. Set to `false` for safer, incremental updates.
-
-**Valid values**:
-
-- `true` - Apply multiple MachineConfig changes together
-- `false` - Apply MachineConfig changes separately (default)
-
-**Impact**:
-
-- `true`: Reduces number of node reboots but increases risk if configuration is incorrect
-- `false`: More node reboots but safer rollback if issues occur
-
-**Related variables**: None
-
-**Notes**:
-
-- MachineConfig changes trigger node reboots
-- `false` is safer for production-like testing
-- `true` can save time in development environments
-- Node reboots are required to apply host file changes
-- Monitor MachineConfigPool status: `oc get mcp`
+MachineConfig changes trigger node reboots, which are required to apply host file changes. `true` reduces the number of node reboots, saving time in development environments, but increases risk if the configuration is incorrect; `false` causes more reboots but is safer for rollback and production-like testing. Monitor progress with `oc get mcp`.
 
 ## Example Playbook
 

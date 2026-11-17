@@ -10,264 +10,138 @@ This role provides support to install and configure AI Broker:
 
 ## Role Variables
 
-### General Variables
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`tenant_action`](#tenant_action) | No | `install` |
+| [`aiservice_tenant_id`](#aiservice_tenant_id) | No | `user` |
+| [`aiservice_watsonx_action`](#aiservice_watsonx_action) | No | `install` |
+| [`aiservice_watsonxai_apikey`](#aiservice_watsonxai_apikey) | Conditional | None |
+| [`aiservice_watsonxai_url`](#aiservice_watsonxai_url) | Conditional | None |
+| [`aiservice_watsonxai_project_id`](#aiservice_watsonxai_project_id) | Conditional | None |
+| [`tenant_entitlement_type`](#tenant_entitlement_type) | No | `standard` |
+| [`tenant_entitlement_start_date`](#tenant_entitlement_start_date) | No | None |
+| [`tenant_entitlement_end_date`](#tenant_entitlement_end_date) | No | None |
+| [`aiservice_tenant_scheduling_config_file`](#aiservice_tenant_scheduling_config_file) | No | None |
+| [`aiservice_tenant_operator_config_file`](#aiservice_tenant_operator_config_file) | No | None |
+
+The WatsonX AI variables are only required when `aiservice_watsonx_action` is `install`.
+
+### Tenant Management
 
 #### tenant_action
-Action to perform on the AI Broker tenant.
 
-- Optional
+Action to perform on the AI Broker tenant — `install` (create or configure the tenant) or `remove` (delete the tenant).
+
+- **Optional**
 - Environment Variable: `TENANT_ACTION`
 - Default: `install`
 
-**Purpose**: Controls whether to create/configure or remove an AI Broker tenant.
+!!! warning
+    The `remove` action permanently deletes the tenant and all associated data.
 
-**When to use**: Set to `install` for tenant creation/configuration. Use `remove` to delete a tenant.
+#### aiservice_tenant_id
 
-**Valid values**:
+Unique identifier for the AI Broker tenant — an alphanumeric string such as `user`, `team1`, or `prod-tenant`.
 
-- `install` - Create or configure AI Broker tenant (default)
-- `remove` - Delete AI Broker tenant
-
-**Impact**: Determines whether tenant resources are created or removed. Removal is permanent and deletes all tenant data.
-
-**Related variables**: [`tenantID`](#tenantid)
-
-**Notes**: **Warning** - `remove` action permanently deletes the tenant and all associated data.
-
-#### tenantID
-Unique identifier for the AI Broker tenant.
-
-- Optional
+- **Optional**
 - Environment Variable: `AISERVICE_TENANT_ID`
 - Default: `user`
 
-**Purpose**: Identifies the AI Broker tenant for resource isolation and management in multi-tenant deployments.
+Identifies the tenant for resource isolation and management in multi-tenant deployments, and is combined with `aiservice_instance_id` to form the tenant name. The default `user` is suitable for single-tenant deployments; use descriptive names for multi-tenant environments.
 
-**When to use**: Override the default when creating multiple tenants or when organizational naming conventions require specific identifiers.
-
-**Valid values**: Alphanumeric string (e.g., `user`, `team1`, `prod-tenant`)
-
-**Impact**: Determines the tenant context for all AI Broker resources and API keys.
-
-**Related variables**: [`tenant_action`](#tenant_action), [`tenant_entitlement_type`](#tenant_entitlement_type)
-
-**Notes**: The default `user` is suitable for single-tenant deployments. Use descriptive names for multi-tenant environments.
-
-#### app_domain
-Application domain for AI Broker API endpoints.
-
-- Optional
-- Environment Variable: `APP_DOMAIN`
-- Default: None (empty string)
-
-**Purpose**: Specifies the base domain for AI Broker application routes and API endpoints.
-
-**When to use**: Required for AI Broker installation. Must match the OpenShift cluster's application domain.
-
-**Valid values**: Valid domain string in format `apps.domain` (e.g., `apps.cluster.example.com`)
-
-**Impact**: Determines the URLs for AI Broker API endpoints. Incorrect domain will prevent API access.
-
-**Related variables**: None
-
-**Notes**:
-
-- Get cluster domain: `oc get ingress.config cluster -o jsonpath='{.spec.domain}'`
-- Format must be the full apps domain (e.g., `apps.mycluster.example.com`)
+### WatsonX AI Integration
 
 #### aiservice_watsonx_action
-Action to perform on WatsonX AI integration.
 
-- Optional
+Action to perform on the WatsonX AI integration — `install` (configure WatsonX AI credentials for the tenant) or `remove` (delete the WatsonX AI integration).
+
+- **Optional**
 - Environment Variable: `AISERVICE_WATSONX_ACTION`
 - Default: `install`
 
-**Purpose**: Controls whether to configure or remove WatsonX AI integration for the tenant.
-
-**When to use**: Set to `install` to configure WatsonX AI credentials. Use `remove` to delete WatsonX AI integration.
-
-**Valid values**:
-
-- `install` - Configure WatsonX AI integration (default)
-- `remove` - Remove WatsonX AI integration
-
-**Impact**: Determines whether WatsonX AI API keys and configuration are created or removed for the tenant.
-
-**Related variables**: [`aiservice_watsonxai_apikey`](#aiservice_watsonxai_apikey), [`aiservice_watsonxai_url`](#aiservice_watsonxai_url), [`aiservice_watsonxai_project_id`](#aiservice_watsonxai_project_id)
-
-**Notes**: WatsonX AI integration enables AI model access through IBM watsonx.ai platform.
+WatsonX AI integration enables AI model access through the IBM watsonx.ai platform.
 
 #### aiservice_watsonxai_apikey
-WatsonX AI API key for authentication.
 
-- Optional
+WatsonX AI API key for authentication, obtained from the IBM Cloud console under the watsonx.ai service credentials.
+
+- **Required** when `aiservice_watsonx_action` is `install`
 - Environment Variable: `AISERVICE_WATSONXAI_APIKEY`
-- Default: None (empty string)
+- Default: None
 
-**Purpose**: Provides authentication credentials for accessing WatsonX AI services.
-
-**When to use**: Required when `aiservice_watsonx_action` is `install`. Obtain from IBM Cloud watsonx.ai service.
-
-**Valid values**: Valid WatsonX AI API key string
-
-**Impact**: Enables AI Broker to authenticate with WatsonX AI services. Invalid key will prevent AI model access.
-
-**Related variables**: [`aiservice_watsonx_action`](#aiservice_watsonx_action), [`aiservice_watsonxai_url`](#aiservice_watsonxai_url), [`aiservice_watsonxai_project_id`](#aiservice_watsonxai_project_id)
-
-**Notes**:
-
-- **Security**: Store securely, never commit to version control
-- Obtain from IBM Cloud console under watsonx.ai service credentials
-- API key is stored as Kubernetes secret
+Enables AI Broker to authenticate with WatsonX AI services; an invalid key will prevent AI model access. The API key is stored as a Kubernetes secret — store it securely and never commit it to version control.
 
 #### aiservice_watsonxai_url
-WatsonX AI service endpoint URL.
 
-- Optional
+WatsonX AI service endpoint URL for model inference and management — a valid HTTPS URL such as `https://us-south.ml.cloud.ibm.com` or `https://eu-de.ml.cloud.ibm.com`.
+
+- **Required** when `aiservice_watsonx_action` is `install`
 - Environment Variable: `AISERVICE_WATSONXAI_URL`
-- Default: None (empty string)
+- Default: None
 
-**Purpose**: Specifies the WatsonX AI API endpoint for model inference and management.
-
-**When to use**: Required when `aiservice_watsonx_action` is `install`. Obtain from IBM Cloud watsonx.ai service details.
-
-**Valid values**: Valid HTTPS URL to WatsonX AI endpoint (e.g., `https://us-south.ml.cloud.ibm.com`)
-
-**Impact**: Determines which WatsonX AI region/endpoint the AI Broker connects to.
-
-**Related variables**: [`aiservice_watsonx_action`](#aiservice_watsonx_action), [`aiservice_watsonxai_apikey`](#aiservice_watsonxai_apikey), [`aiservice_watsonxai_project_id`](#aiservice_watsonxai_project_id)
-
-**Notes**:
-
-- URL varies by IBM Cloud region
-- Common endpoints: `https://us-south.ml.cloud.ibm.com`, `https://eu-de.ml.cloud.ibm.com`
-- Verify endpoint in IBM Cloud watsonx.ai service details
+Determines which WatsonX AI region/endpoint the AI Broker connects to; the URL varies by IBM Cloud region — verify it in the IBM Cloud watsonx.ai service details.
 
 #### aiservice_watsonxai_project_id
-WatsonX AI project identifier.
 
-- Optional
+WatsonX AI project identifier (UUID format, e.g. `12345678-1234-1234-1234-123456789012`) containing the AI models and resources to be accessed.
+
+- **Required** when `aiservice_watsonx_action` is `install`
 - Environment Variable: `AISERVICE_WATSONXAI_PROJECT_ID`
-- Default: None (empty string)
+- Default: None
 
-**Purpose**: Identifies the WatsonX AI project containing the AI models and resources to be accessed.
-
-**When to use**: Required when `aiservice_watsonx_action` is `install`. Obtain from IBM Cloud watsonx.ai project settings.
-
-**Valid values**: Valid WatsonX AI project ID (UUID format)
-
-**Impact**: Determines which WatsonX AI project's models and resources are accessible to the AI Broker tenant.
-
-**Related variables**: [`aiservice_watsonx_action`](#aiservice_watsonx_action), [`aiservice_watsonxai_apikey`](#aiservice_watsonxai_apikey), [`aiservice_watsonxai_url`](#aiservice_watsonxai_url)
-
-**Notes**:
-
-- Find project ID in IBM Cloud watsonx.ai project settings
-- Format is typically a UUID (e.g., `12345678-1234-1234-1234-123456789012`)
-- Project must exist before configuring AI Broker
+Find the project ID in the IBM Cloud watsonx.ai project settings; the project must exist before configuring AI Broker.
 
 ### Entitlement Configuration
+
 Configure the tenant's entitlement to the AI Service for licensing and access control.
 
 #### tenant_entitlement_type
-Type of entitlement for the tenant.
 
-- Optional
+Type of entitlement for the tenant — the valid values depend on the AI Service deployment configuration.
+
+- **Optional**
 - Environment Variable: `AISERVICE_TENANT_ENTITLEMENT_TYPE`
-- Default: None
+- Default: `standard`
 
-**Purpose**: Specifies the entitlement type for the tenant, controlling access levels and features.
-
-**When to use**: Set when configuring tenant entitlements for licensing or feature access control.
-
-**Valid values**: Valid entitlement type string (specific values depend on AI Service configuration)
-
-**Impact**: Determines which AI Service features and capacity the tenant can access.
-
-**Related variables**: [`tenant_entitlement_start_date`](#tenant_entitlement_start_date), [`tenant_entitlement_end_date`](#tenant_entitlement_end_date)
-
-**Notes**: Entitlement types are defined by the AI Service deployment configuration.
+Determines which AI Service features and capacity the tenant can access; entitlement types are defined by the AI Service deployment configuration.
 
 #### tenant_entitlement_start_date
-Start date for tenant entitlement period.
 
-- Optional
+Start date for the tenant entitlement period, as a date string in `YYYY-MM-DD` format (e.g. `2024-01-01`).
+
+- **Optional**
 - Environment Variable: `AISERVICE_TENANT_ENTITLEMENT_START_DATE`
 - Default: None
 
-**Purpose**: Defines when the tenant's entitlement becomes active.
-
-**When to use**: Set when configuring time-bound entitlements for the tenant.
-
-**Valid values**: Date string in format `YYYY-MM-DD` (e.g., `2024-01-01`)
-
-**Impact**: Tenant cannot access AI Service before this date.
-
-**Related variables**: [`tenant_entitlement_type`](#tenant_entitlement_type), [`tenant_entitlement_end_date`](#tenant_entitlement_end_date)
-
-**Notes**: Must be in `YYYY-MM-DD` format. Ensure date is valid and in the past or present for immediate access.
+Defines when the tenant's entitlement becomes active — the tenant cannot access the AI Service before this date. Ensure the date is valid and in the past or present for immediate access.
 
 #### tenant_entitlement_end_date
-End date for tenant entitlement period.
 
-- Optional
+End date for the tenant entitlement period, as a date string in `YYYY-MM-DD` format (e.g. `2024-12-31`).
+
+- **Optional**
 - Environment Variable: `AISERVICE_TENANT_ENTITLEMENT_END_DATE`
 - Default: None
 
-**Purpose**: Defines when the tenant's entitlement expires.
+Defines when the tenant's entitlement expires — the tenant cannot access the AI Service after this date. It should be after `tenant_entitlement_start_date`; plan for entitlement renewal before expiration.
 
-**When to use**: Set when configuring time-bound entitlements for the tenant.
-
-**Valid values**: Date string in format `YYYY-MM-DD` (e.g., `2024-12-31`)
-
-**Impact**: Tenant cannot access AI Service after this date.
-
-**Related variables**: [`tenant_entitlement_type`](#tenant_entitlement_type), [`tenant_entitlement_start_date`](#tenant_entitlement_start_date)
-
-**Notes**:
-
-- Must be in `YYYY-MM-DD` format
-- Should be after `tenant_entitlement_start_date`
-- Plan for entitlement renewal before expiration
-
-### Scheduling Configuration
+### Scheduling and Operator Configuration
 
 #### aiservice_tenant_scheduling_config_file
-Path to YAML file containing scheduling configuration for pipeline and predictor workloads for tenant.
 
-- Optional
+Path to a YAML file containing scheduling configuration (tolerations and nodeSelector) for the tenant's pipeline and predictor workloads.
+
+- **Optional**
 - Environment Variable: `AISERVICE_TENANT_SCHEDULING_CONFIG_FILE`
-- Default: None (empty string)
+- Default: None
 
-**Purpose**: Specifies tolerations and nodeSelector for pipeline and predictor workloads to control pod scheduling on specific nodes.
+Use it to schedule AI workloads on dedicated nodes with specific taints, direct pipeline and predictor pods to nodes with specific labels (e.g. GPU-enabled nodes for inference workloads), or isolate AI workloads from other cluster workloads. The configuration is applied to the AIServiceTenant CR under `spec.settings.scheduling`; empty objects (`pipeline: {}` or `predictor: {}`) are allowed and will be ignored. Improper configuration may prevent pods from scheduling.
 
-**When to use**: Use when you need to:
-
-- Schedule AI workloads on dedicated nodes with specific taints
-- Direct pipeline and predictor pods to nodes with specific labels
-- Isolate AI workloads from other cluster workloads
-- Ensure GPU-enabled nodes are used for inference workloads
-
-**Valid values**: Path to a valid YAML file containing scheduling configuration
-
-**Impact**: Controls where pipeline and predictor pods are scheduled in the Kubernetes cluster. Improper configuration may prevent pods from scheduling.
-
-**Related variables**: None
-
-**Configuration File Structure**:
-
-The YAML file must contain `pipeline` and/or `predictor` objects. Each object can have:
-
-- `tolerations`: List of Kubernetes tolerations (required fields: `key`, `operator`, `effect`)
-- `nodeSelector`: Dictionary of node label key-value pairs
-
-At least one of `tolerations` or `nodeSelector` must be defined for each non-empty object.
-
-**Example Configuration File**:
+The YAML file must be valid YAML and contain `pipeline` and/or `predictor` objects. Each object can have `tolerations` (a non-empty list of Kubernetes tolerations with required fields `key`, `operator`, and `effect`, plus optional `value` and `tolerationSeconds`) and `nodeSelector` (a non-empty dictionary of node label key-value pairs) — at least one of the two must be defined for each non-empty object:
 
 ```yaml
 ---
-  # Pipeline scheduling configuration
+# Pipeline scheduling configuration
 pipeline:
   tolerations:
     - key: "aiservice-pipeline"
@@ -278,7 +152,7 @@ pipeline:
     workload-type: "aiservice-pipeline"
     node-role: "compute"
 
-  # Predictor scheduling configuration
+# Predictor scheduling configuration
 predictor:
   tolerations:
     - key: "aiservice-predictor"
@@ -294,69 +168,17 @@ predictor:
     accelerator: "gpu"
 ```
 
-**Validation Rules**:
-
-1. File must be in valid YAML format
-2. Must contain `pipeline` and/or `predictor` objects
-3. Non-empty objects must have `tolerations` or `nodeSelector` (or both)
-4. Tolerations must be a non-empty list with required fields: `key`, `operator`, `effect`
-5. Optional toleration fields: `value`, `tolerationSeconds`
-6. NodeSelector must be a non-empty dictionary
-
-**Notes**:
-
-- Configuration is applied to AIServiceTenant CR under `spec.settings.scheduling`
-- Empty objects (`pipeline: {}` or `predictor: {}`) are allowed and will be ignored
-
-**Common Use Cases**:
-
-1. **GPU Node Scheduling**: Direct predictor workloads to GPU-enabled nodes
-   ```yaml
-   predictor:
-     nodeSelector:
-       accelerator: "nvidia-gpu"
-     tolerations:
-       - key: "nvidia.com/gpu"
-         operator: "Exists"
-         effect: "NoSchedule"
-   ```
-
-2. **Dedicated Node Pools**: Isolate AI workloads on dedicated nodes
-   ```yaml
-   pipeline:
-     nodeSelector:
-       node-pool: "ai-workloads"
-     tolerations:
-       - key: "dedicated"
-         operator: "Equal"
-         value: "ai"
-         effect: "NoSchedule"
-   ```
-
-3. **Zone-based Scheduling**: Schedule workloads in specific availability zones
-   ```yaml
-   predictor:
-     nodeSelector:
-       topology.kubernetes.io/zone: "us-east-1a"
-   ```
+Common use cases include GPU node scheduling (e.g. `nodeSelector: {accelerator: nvidia-gpu}` with a toleration for the `nvidia.com/gpu` taint), dedicated node pools (e.g. `node-pool: ai-workloads` with a `dedicated=ai:NoSchedule` toleration), and zone-based scheduling (e.g. `topology.kubernetes.io/zone: us-east-1a`).
 
 #### aiservice_tenant_operator_config_file
-Path to the YAML file containing the tenant operator customization settings.
 
-- Optional
+Path to a YAML file containing the tenant operator customization settings — its content is added to the "config" field in the operator Subscription.
+
+- **Optional**
 - Environment Variable: `AISERVICE_TENANT_OPERATOR_CONFIG_FILE`
 - Default: None
 
-**Purpose**: Allows the tenant operator to be customized by setting configuration in a YAML file
-whose content is added to the "config" field in the operator Subscription.
-
-**When to use**: Set when customizing the tenant operator such as adjusting CPU/memory requests/limits.
-
-**Valid values**: Path to a valid YAML file containing the Subscription "config" fields.
-
-**Impact**: Invalid configuration will prevent the tenant operator from installing.
-
-**Related variables**: None.
+Set when customizing the tenant operator, such as adjusting CPU/memory requests/limits. Invalid configuration will prevent the tenant operator from installing.
 
 ## Example Playbook
 

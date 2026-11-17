@@ -45,74 +45,34 @@ longhorn-static             driver.longhorn.io   Delete          Immediate      
 - [Longhorn Helm Chart Settings](https://longhorn.io/docs/latest/references/helm-values/)
 - [Longhorn on OpenShift](https://github.com/longhorn/longhorn/blob/master/chart/ocp-readme.md)
 
-
 ## Role Variables
 
-### General Variables
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`longhorn_namespace`](#longhorn_namespace) | No | `longhorn-system` |
+| [`longhorn_replica_count`](#longhorn_replica_count) | No | `3` |
+
+### Longhorn Deployment
 
 #### longhorn_namespace
-Namespace for Longhorn installation.
+
+Namespace for the Longhorn installation (valid Kubernetes namespace name; created if it doesn't exist).
 
 - **Optional**
 - Environment Variable: `LONGHORN_NAMESPACE`
 - Default: `longhorn-system`
 
-**Purpose**: Specifies the OpenShift namespace where Longhorn components will be deployed.
-
-**When to use**: Use default unless you have specific namespace requirements or multiple Longhorn instances.
-
-**Valid values**: Valid Kubernetes namespace name (lowercase alphanumeric with hyphens)
-
-**Impact**: All Longhorn resources (deployments, services, storage classes) will be created in this namespace.
-
-**Related variables**: None
-
-**Notes**:
-
-- Default `longhorn-system` is the standard namespace for Longhorn
-- Namespace will be created if it doesn't exist
-- Longhorn UI will be accessible at `https://longhorn-ui-{namespace}.{clusterdomain}`
-- Storage classes are cluster-wide regardless of namespace
+All Longhorn resources (deployments, services, storage classes) are created in this namespace, and the UI is accessible at `https://longhorn-ui-{namespace}.{clusterdomain}`. Storage classes are cluster-wide regardless of namespace.
 
 #### longhorn_replica_count
-Number of data replicas for Longhorn volumes.
+
+Number of data replicas for Longhorn volumes — an integer between `1` and the number of worker nodes.
 
 - **Optional**
 - Environment Variable: `LONGHORN_REPLICA_COUNT`
 - Default: `3`
 
-**Purpose**: Determines how many copies of volume data are stored across different nodes in the cluster, directly impacting data availability and resilience.
-
-**When to use**:
-
-- Use default `3` for production deployments requiring high availability
-- Set to `2` for moderate availability with reduced storage overhead
-- Set to `1` for development/testing environments to minimize storage requirements
-
-**Valid values**: Integer between `1` and the number of worker nodes. Common values:
-
-- `3` - Production (tolerates 2 node failures, recommended)
-- `2` - Moderate availability (tolerates 1 node failure)
-- `1` - Development only (no redundancy, data loss if node fails)
-
-**Impact**:
-
-- **Availability**: Higher replica count = better fault tolerance
-- **Storage**: Each replica consumes storage space (3 replicas = 3x storage usage)
-- **Performance**: More replicas may impact write performance slightly
-- **Node Requirements**: Replica count cannot exceed number of available nodes
-
-**Related variables**: None
-
-**Notes**:
-
-- Default `3` allows system to tolerate up to 2 replica failures while maintaining data integrity
-- Setting to `1` sacrifices resilience for reduced storage requirements (development only)
-- Replicas are distributed across different nodes for fault tolerance
-- Cannot change replica count after volumes are created (requires volume recreation)
-- Ensure cluster has sufficient nodes for desired replica count
-- Consider storage capacity when setting replica count (3 replicas = 3x storage consumption)
-
+`3` (production, tolerates 2 node failures) is recommended; `2` tolerates 1 node failure with reduced storage overhead; `1` is development only with no redundancy. Each replica consumes storage (3 replicas = 3x storage usage) and replicas are distributed across different nodes, so ensure the cluster has enough nodes and capacity. The replica count cannot be changed after volumes are created without recreating them.
 
 ## Example Playbook
 
@@ -138,6 +98,6 @@ For development environments with reduced storage requirements:
     - ibm.mas_devops.longhorn
 ```
 
-
 ## License
+
 EPL-2.0

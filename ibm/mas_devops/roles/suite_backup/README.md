@@ -7,17 +7,24 @@ This role supports backing up MAS Core namespace resources and supporting resour
 in other namespaces; supports creating on-demand full backups.
 
 !!! important
-
     Supported only for MAS 9.1.x.
 
     Backup can only be restored to an instance with the same MAS instance ID.
 
-
 ## Role Variables
 
-### General Variables
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`mas_instance_id`](#mas_instance_id) | Yes | None |
+| [`mas_backup_dir`](#mas_backup_dir) | Yes | None |
+| [`suite_backup_version`](#suite_backup_version) | No | `YYYYMMDD-HHMMSS` timestamp |
+| [`include_sls`](#include_sls) | No | `true` |
+| [`include_dro`](#include_dro) | No | `true` |
+
+### Backup Target and Version
 
 #### mas_instance_id
+
 The instance ID of the Maximo Application Suite installation to backup.
 
 - **Required**
@@ -25,36 +32,42 @@ The instance ID of the Maximo Application Suite installation to backup.
 - Default: None
 
 #### mas_backup_dir
-The local directory path where backup files will be stored (for backup).
+
+The local directory path where backup files will be stored, for example `/tmp/mas_backups`.
 
 - **Required**
 - Environment Variable: `MAS_BACKUP_DIR`
 - Default: None
-- Example: `/tmp/mas_backups`
 
 #### suite_backup_version
-Set version to override the default `YYYYMMDD-HHMMSS` timestamp version used in the name of the backup file.
+
+Set a version to override the default `YYYYMMDD-HHMMSS` timestamp version used in the name of the backup file, for example `20260116-130937`.
 
 - **Optional**
-- Default: `YYYYMMDD-HHMMSS` timestamp.
 - Environment Variable: `SUITE_BACKUP_VERSION`
+- Default: `YYYYMMDD-HHMMSS` timestamp
+
+### Backup Content
 
 #### include_sls
+
 Controls whether to include the Suite SLS (Suite License Service) configuration in the backup archive.
+
+- **Optional**
+- Environment Variable: `INCLUDE_SLS`
+- Default: `true`
+
 If you plan to install a new SLS in any recovery action then you should set this to `false`.
 
-- **Optional**
-- Default: `true`
-- Environment Variable: `INCLUDE_SLS`
-
 #### include_dro
-Controls whether to include the Suite DRO configuration in the backup archive. 
-If you plan to install a new DRO in any recovery action then you should set this to `false`.
+
+Controls whether to include the Suite DRO configuration in the backup archive.
 
 - **Optional**
-- Default: `true`
 - Environment Variable: `INCLUDE_DRO`
+- Default: `true`
 
+If you plan to install a new DRO in any recovery action then you should set this to `false`.
 
 ## Backup Operations
 -------------------------------------------------------------------------------
@@ -219,4 +232,3 @@ After installing the Ansible Collection you can include this role in your own cu
 ## License
 
 EPL-2.0
-

@@ -27,72 +27,37 @@ This role provides automated installation and upgrade of ODF/OCS with local stor
 - **Storage Cluster Setup**: Creates and configures ODF/OCS storage cluster
 - **Upgrade Support**: Can upgrade existing ODF/OCS installations
 
-
 ## Role Variables
 
-### General Variables
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`lso_device_path`](#lso_device_path) | Yes | `/dev/vdb` |
+| [`ocs_action`](#ocs_action) | No | `install` |
+
+### Local Storage
 
 #### lso_device_path
-Local disk device path for block storage.
+
+Local disk device path for block storage, used by the Local Storage Operator (e.g. `/dev/vdb` on virtual machines, `/dev/sdc` on physical servers, `/dev/nvme0n1` for NVMe drives — verify with `lsblk` on the worker nodes).
 
 - **Required**
 - Environment Variable: `LSO_DEVICE_PATH`
 - Default: `/dev/vdb`
 
-**Purpose**: Specifies the local disk device path to be used by the Local Storage Operator for block storage provisioning.
+!!! danger
+    The disk must be unformatted, not in use, available on all worker nodes designated for storage, and have sufficient capacity — **all data on the specified disk will be permanently erased** during storage cluster setup.
 
-**When to use**: Always required when installing ODF/OCS. Must point to an available, unformatted local disk on worker nodes.
-
-**Valid values**: Valid Linux block device path (e.g., `/dev/vdb`, `/dev/sdc`, `/dev/nvme0n1`)
-
-**Impact**: This disk will be used for ODF/OCS storage cluster. All data on the disk will be erased during setup.
-
-**Related variables**: [`ocs_action`](#ocs_action)
-
-**Notes**:
-
-- **Critical**: Disk must be unformatted and not in use
-- All data on the specified disk will be permanently erased
-- Disk must be available on all worker nodes designated for storage
-- Verify disk path: `lsblk` on worker nodes
-- Common paths: `/dev/vdb` (virtual machines), `/dev/sdc` (physical servers)
-- For NVMe drives, use format `/dev/nvme0n1`, `/dev/nvme1n1`, etc.
-- Ensure disk has sufficient capacity for your storage requirements
+### Installation
 
 #### ocs_action
-Action to perform on ODF/OCS installation.
+
+Action to perform on the ODF/OCS installation.
 
 - **Optional**
 - Environment Variable: `OCS_ACTION`
 - Default: `install`
 
-**Purpose**: Controls whether to perform a fresh installation or upgrade of ODF/OCS operators and storage cluster.
-
-**When to use**:
-
-- Use `install` (default) for new ODF/OCS deployments
-- Use `upgrade` to update existing ODF/OCS installation to match current OpenShift version
-
-**Valid values**:
-
-- `install` - Fresh installation of Local Storage Operator, ODF/OCS operator, and storage cluster
-- `upgrade` - Upgrade existing operators and storage cluster based on OpenShift version
-
-**Impact**:
-
-- **install**: Creates new LSO and ODF/OCS operators, configures local storage, creates storage cluster
-- **upgrade**: Updates operator subscriptions and storage cluster configuration to match OpenShift version
-
-**Related variables**: [`lso_device_path`](#lso_device_path)
-
-**Notes**:
-
-- Default `install` is for new deployments
-- Use `upgrade` after OpenShift cluster upgrades to keep storage in sync
-- Upgrade process updates operators to versions compatible with current OCP version
-- Always backup data before performing upgrades
-- Verify cluster health before and after upgrade operations
-
+`install` performs a fresh installation of the Local Storage Operator, ODF/OCS operator, and storage cluster; `upgrade` updates the operator subscriptions and storage cluster configuration to versions compatible with the current OpenShift version — run it after OpenShift cluster upgrades to keep storage in sync, and always back up data first.
 
 ## Example Playbook
 
@@ -132,7 +97,6 @@ Action to perform on ODF/OCS installation.
     - ibm.mas_devops.ocs
 ```
 
-
 ## License
-EPL-2.0
 
+EPL-2.0

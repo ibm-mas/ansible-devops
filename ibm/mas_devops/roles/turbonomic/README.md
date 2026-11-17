@@ -14,168 +14,82 @@ Installs and configures [kubeturbo](https://github.com/turbonomic/kubeturbo) to 
 
 ## Role Variables
 
-### KubeTurbo Configuration
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`kubeturbo_namespace`](#kubeturbo_namespace) | No | `kubeturbo` |
+| [`kubeturbo_package_name`](#kubeturbo_package_name) | No | `kubeturbo-certified` |
+| [`turbonomic_target_name`](#turbonomic_target_name) | Yes | None |
+| [`turbonomic_server_url`](#turbonomic_server_url) | Yes | None |
+| [`turbonomic_server_version`](#turbonomic_server_version) | No | None |
+| [`turbonomic_username`](#turbonomic_username) | Yes | None |
+| [`turbonomic_password`](#turbonomic_password) | Yes | None |
 
-### General Variables
+### KubeTurbo Installation
 
 #### kubeturbo_namespace
-Namespace for KubeTurbo operator installation.
+OpenShift namespace where the KubeTurbo operator and agent are installed — a valid Kubernetes namespace name (lowercase alphanumeric and hyphens). All operator and agent components are created in this namespace, which is created if it doesn't exist.
 
 - **Optional**
 - Environment Variable: `KUBETURBO_NAMESPACE`
 - Default: `kubeturbo`
 
-**Purpose**: Specifies the OpenShift namespace where the KubeTurbo operator and agent will be installed.
+Using the default `kubeturbo` namespace is recommended for consistency; override it only for multi-tenant or custom namespace requirements.
 
-**When to use**:
+#### kubeturbo_package_name
+Name of the kubeturbo package in the CatalogSource, used to locate the PackageManifest for the operator subscription.
 
-- Use default (`kubeturbo`) for standard installations
-- Override for custom namespace requirements
-- Useful for multi-tenant or organized deployments
+- **Optional**
+- Environment Variable: None (hardcoded in defaults)
+- Default: `kubeturbo-certified`
 
-**Valid values**: Valid Kubernetes namespace name (lowercase alphanumeric and hyphens)
-
-**Impact**: Determines where kubeturbo resources are deployed. All operator and agent components will be created in this namespace.
-
-**Related variables**:
-
-- `turbonomic_target_name`: Cluster identifier in Turbonomic
-
-**Note**: The namespace will be created if it doesn't exist. Using the default `kubeturbo` namespace is recommended for consistency.
-
-### Turbonomic Server Configuration
+### Turbonomic Server
 
 #### turbonomic_target_name
-Cluster name in Turbonomic server.
+Name by which this cluster is identified in the Turbonomic ARM server — typically the cluster name or identifier, for example `prod-ocp-cluster` or `dev-cluster-01`.
 
 - **Required**
 - Environment Variable: `TURBONOMIC_TARGET_NAME`
 - Default: None
 
-**Purpose**: Defines the name by which this cluster will be identified in the Turbonomic ARM server. The kubeturbo agent uses this name when registering and sending data to Turbonomic.
-
-**When to use**:
-
-- Always required for kubeturbo installation
-- Should be unique across all clusters managed by Turbonomic
-- Use descriptive names for easy identification
-
-**Valid values**: String, typically cluster name or identifier (e.g., `prod-ocp-cluster`, `dev-cluster-01`)
-
-**Impact**: Determines how the cluster appears in Turbonomic dashboards and reports. This name is used for all resource tracking and optimization recommendations.
-
-**Related variables**:
-
-- `turbonomic_server_url`: Server to register with
-- `kubeturbo_namespace`: Where agent is deployed
-
-**Note**: Choose a meaningful name that clearly identifies the cluster in your Turbonomic environment. This name should match your cluster naming conventions.
+The kubeturbo agent uses this name when registering and sending data to Turbonomic; it determines how the cluster appears in Turbonomic dashboards and reports. Choose a unique, descriptive name that follows your cluster naming conventions and is unique across all clusters managed by the same Turbonomic server.
 
 #### turbonomic_server_url
-Turbonomic server URL.
+URL of the Turbonomic ARM server that kubeturbo connects to for sending cluster data and receiving optimization actions — a full URL including the protocol, for example `https://turbonomic.example.com` or `https://turbo-server.company.com:8080`.
 
 - **Required**
 - Environment Variable: `TURBONOMIC_SERVER_URL`
 - Default: None
 
-**Purpose**: Specifies the URL of the Turbonomic ARM server that kubeturbo will connect to for sending cluster data and receiving optimization actions.
-
-**When to use**:
-
-- Always required for kubeturbo installation
-- Must be accessible from the OpenShift cluster
-- Should include protocol (https://)
-
-**Valid values**: Full URL to Turbonomic server (e.g., `https://turbonomic.example.com`, `https://turbo-server.company.com:8080`)
-
-**Impact**: Determines which Turbonomic server receives cluster data. Kubeturbo establishes connection to this endpoint for all communication.
-
-**Related variables**:
-
-- `turbonomic_username`/`turbonomic_password`: Authentication credentials
-- `turbonomic_server_version`: Optional version specification
-- `turbonomic_target_name`: Cluster identifier on this server
-
-**Note**: Ensure the URL is accessible from the cluster network. The server must be reachable for kubeturbo to function properly.
+The server must be reachable from the OpenShift cluster network for kubeturbo to function properly — kubeturbo establishes its connection to this endpoint for all communication.
 
 #### turbonomic_server_version
-Turbonomic server version.
+Version of the Turbonomic server being connected to — a Turbonomic version string such as `8.9.4`, `8.10.0`, or `8.11.2`, used for version-specific compatibility and feature enablement.
 
 - **Optional**
 - Environment Variable: `TURBONOMIC_SERVER_VERSION`
 - Default: None
 
-**Purpose**: Specifies the version of the Turbonomic server being connected to. Used for version-specific compatibility and feature enablement.
-
-**When to use**:
-
-- Optional for most installations
-- Specify when connecting to specific Turbonomic versions
-- May be required for version-specific features or compatibility
-
-**Valid values**: Turbonomic version string (e.g., `8.9.4`, `8.10.0`, `8.11.2`)
-
-**Impact**: May affect feature availability or compatibility checks between kubeturbo agent and Turbonomic server.
-
-**Related variables**:
-
-- `turbonomic_server_url`: Server being connected to
-
-**Note**: If not specified, kubeturbo will attempt to detect server version automatically. Specify only if you need to enforce specific version compatibility.
+If not specified, kubeturbo attempts to detect the server version automatically; specify only to enforce specific version compatibility, which may affect feature availability between the kubeturbo agent and the server.
 
 #### turbonomic_username
-Turbonomic server username.
+Username for authenticating the kubeturbo agent with the Turbonomic server — a valid Turbonomic username with permissions to register targets and send data.
 
 - **Required**
 - Environment Variable: `TURBONOMIC_USERNAME`
 - Default: None
 
-**Purpose**: Provides the username for authenticating kubeturbo agent with the Turbonomic server.
-
-**When to use**:
-
-- Always required for kubeturbo installation
-- Should be a service account or dedicated user
-- Requires appropriate permissions in Turbonomic
-
-**Valid values**: Valid Turbonomic username string
-
-**Impact**: Used for authentication when kubeturbo connects to Turbonomic server. The user must have permissions to register targets and send data.
-
-**Related variables**:
-
-- `turbonomic_password`: Password for this username
-- `turbonomic_server_url`: Server to authenticate with
-- `turbonomic_target_name`: Cluster this user will register
-
-**Note**: **SECURITY** - Use a dedicated service account rather than a personal user account. Ensure the account has appropriate permissions in Turbonomic for target registration and data submission.
+!!! tip
+    Use a dedicated service account rather than a personal user account, and ensure it has the appropriate permissions in Turbonomic for target registration and data submission.
 
 #### turbonomic_password
-Turbonomic server password.
+Password for authenticating the kubeturbo agent with the Turbonomic server — must match the password for `turbonomic_username`; authentication must succeed for data transmission.
 
 - **Required**
 - Environment Variable: `TURBONOMIC_PASSWORD`
 - Default: None
 
-**Purpose**: Provides the password for authenticating kubeturbo agent with the Turbonomic server.
-
-**When to use**:
-
-- Always required for kubeturbo installation
-- Must match the password for `turbonomic_username`
-- Used for secure authentication
-
-**Valid values**: Valid password string for the specified username
-
-**Impact**: Used for authentication when kubeturbo connects to Turbonomic server. Authentication must succeed for data transmission.
-
-**Related variables**:
-
-- `turbonomic_username`: Username for this password
-- `turbonomic_server_url`: Server to authenticate with
-
-**Note**: **SECURITY** - Password should be kept secure and not committed to version control. Store in secure secret management systems. Use strong passwords following your organization's security policies.
-
+!!! warning
+    Keep the password secure and do not commit it to version control. Store it in a secure secret management system and use strong passwords following your organization's security policies.
 
 ## Example Playbook
 

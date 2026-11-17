@@ -4,60 +4,35 @@ Verify a MAS installation is ready to use. This role will also print out the Adm
 
 ## Role Variables
 
-### General Variables
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`mas_instance_id`](#mas_instance_id) | Yes | None |
+| [`mas_hide_superuser_credentials`](#mas_hide_superuser_credentials) | No | `true` |
+
+### Verification
 
 #### mas_instance_id
-MAS instance identifier to verify.
+
+MAS instance identifier to verify (lowercase alphanumeric, 3-12 characters, e.g. `prod`, `dev`, `masinst1`).
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default: None
 
-**Purpose**: Identifies which MAS instance to verify. The role checks that the instance is ready to use and retrieves access credentials.
-
-**When to use**:
-
-- Always required for verification operations
-- Must match the instance ID from MAS installation
-- Used after installation to confirm readiness
-
-**Valid values**: Lowercase alphanumeric string, 3-12 characters (e.g., `prod`, `dev`, `masinst1`)
-
-**Impact**: Determines which MAS instance is verified. The role checks instance status and retrieves the Admin Dashboard URL and superuser credentials.
-
-**Related variables**:
-
-- `mas_hide_superuser_credentials`: Controls credential display in output
-
-**Note**: This role verifies that the MAS instance is ready to use and provides access information. Run after installation or upgrade to confirm successful deployment.
+Must match the instance ID from the MAS installation. The role checks that the instance is ready to use and retrieves the Admin Dashboard URL and superuser credentials.
 
 #### mas_hide_superuser_credentials
-Hide superuser credentials in output.
+
+Hide superuser credentials in the verification output.
 
 - **Optional**
 - Environment Variable: `MAS_HIDE_SUPERUSER_CREDENTIALS`
 - Default: `true`
 
-**Purpose**: Controls whether superuser credentials are displayed in the verification output. When enabled, only the secret name is shown instead of actual credentials.
+When `true` (the default) only the name of the secret containing the credentials is shown; when `false` the actual username and password are written to the output.
 
-**When to use**:
-
-- Leave as `true` (default) for security (recommended)
-- Set to `false` only when you need to see credentials in output
-- Use `true` in CI/CD pipelines and shared environments
-
-**Valid values**: `true`, `false`
-
-**Impact**: 
-
-- `true`: Displays only the secret name containing credentials (secure)
-- `false`: Displays actual username and password in output (insecure)
-
-**Related variables**:
-
-- `mas_instance_id`: Instance whose credentials are being verified
-
-**Note**: **SECURITY** - The default `true` is recommended for security. Only set to `false` in secure, private environments where you need immediate access to credentials. Credentials can always be retrieved from the Kubernetes secret.
+!!! tip
+    Keep this set to `true` in CI/CD pipelines and shared environments. The credentials can always be retrieved directly from the Kubernetes secret, so there is rarely a need to display them.
 
 ## Example Playbook
 

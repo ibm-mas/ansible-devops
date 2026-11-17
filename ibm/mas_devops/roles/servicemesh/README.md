@@ -1,41 +1,24 @@
 # servicemesh
-Installs and configures an instance of [Red Hat OpenShift Service Mesh](https://docs.redhat.com/en/documentation/red_hat_openshift_service_mesh) for use with IBM Maximo Application Suite.
 
+Installs and configures an instance of [Red Hat OpenShift Service Mesh](https://docs.redhat.com/en/documentation/red_hat_openshift_service_mesh) for use with IBM Maximo Application Suite.
 
 ## Role Variables
 
-### General Variables
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`servicemesh_action`](#servicemesh_action) | No | `install` |
+
+### Service Mesh Configuration
 
 #### servicemesh_action
-Action to perform on Service Mesh installation.
+
+Action to perform on the Service Mesh installation.
 
 - **Optional**
 - Environment Variable: `SERVICEMESH_ACTION`
 - Default: `install`
 
-**Purpose**: Specifies whether to install, uninstall, or install-kiali.
-
-**When to use**:
-
-- Use `install` (default) for new Service Mesh deployments
-- Use `install-kiali` to install only the Kiali monitoring component
-- Use `uninstall` to remove Service Mesh
-
-**Valid values**: `install`, `uninstall`, `install-kiali`
-
-**Impact**: 
-
-- `install`: Deploys Service Mesh operator and instance
-- `install-kiali`: Deploys Service Mesh operator and instance
-- `uninstall`: Removes Service Mesh and Kiali operators and instances
-
-**Related variables**:
-
-- `servicemesh_channel`: Catalog channel to install from (defaults if not provided)
-- `servicemesh_starting_csv`: Specific CSV to install (defaults if not provided)
-- `kiali_channel`: Catalog channel to install Kiali from (defaults if not provided)
-- `kiali_starting_csv`: Specific CSV to install Kiali (defaults if not provided)
-
+Valid values are `install` (deploy the Service Mesh operator and instance, the default), `install-kiali` (deploy the Service Mesh operator and instance together with the Kiali monitoring component), and `uninstall` (remove the Service Mesh and Kiali operators and instances). The catalog channel and starting CSV for both Service Mesh and Kiali can be pinned via the `servicemesh_channel`, `servicemesh_starting_csv`, `kiali_channel`, and `kiali_starting_csv` properties, which use the operator defaults when not provided.
 
 ## Example Playbook
 

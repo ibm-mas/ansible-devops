@@ -1,7 +1,7 @@
 # smtp
 
 Generate an SMTP configuration that can be directly applied to IBM Maximo Application Suite.
-The role supports the Twilio SendGrid email provider.  [Twilio SendGrid](https://docs.sendgrid.com/)
+The role supports the [Twilio SendGrid](https://docs.sendgrid.com/) email provider.
 
 Prior to running this role, you must create an account with SendGrid.  The SendGrid account needs to support creating subusers.
 
@@ -13,515 +13,260 @@ This role will create a subuser that must be validated.  An email with a validat
 
 ## Role Variables
 
-### General Variables
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`smtp_type`](#smtp_type) | Yes | None |
+| [`mas_instance_id`](#mas_instance_id) | Yes | None |
+| [`mas_config_dir`](#mas_config_dir) | Yes | None |
+| [`mas_pod_templates_dir`](#mas_pod_templates_dir) | No | None |
+| [`custom_labels`](#custom_labels) | No | None |
+| [`sendgrid_primary_username`](#sendgrid_primary_username) | Yes | None |
+| [`sendgrid_primary_email`](#sendgrid_primary_email) | Yes | None |
+| [`sendgrid_primary_apikey`](#sendgrid_primary_apikey) | Yes | None |
+| [`sendgrid_ips`](#sendgrid_ips) | Yes | None |
+| [`sendgrid_subuser_username`](#sendgrid_subuser_username) | No | `ibm-mas_{mas_instance_id}` |
+| [`sendgrid_subuser_email`](#sendgrid_subuser_email) | Yes | None |
+| [`sendgrid_defaultrecipientemail`](#sendgrid_defaultrecipientemail) | Yes | None |
+| [`sendgrid_defaultsendername`](#sendgrid_defaultsendername) | No | Empty string |
+| [`sendgrid_defaultshouldemailpasswords`](#sendgrid_defaultshouldemailpasswords) | No | `false` |
+| [`sendgrid_configscope`](#sendgrid_configscope) | No | `system` |
+| [`sendgrid_hostname`](#sendgrid_hostname) | No | `smtp.sendgrid.net` |
+| [`sendgrid_port`](#sendgrid_port) | No | `465` |
+| [`sendgrid_security`](#sendgrid_security) | No | `SSL` |
+| [`sendgrid_authentication`](#sendgrid_authentication) | No | `true` |
+| [`sendgrid_api_url`](#sendgrid_api_url) | No | `api.sendgrid.com` |
+| [`sendgrid_debug`](#sendgrid_debug) | No | `False` |
+
+### SMTP Provider
 
 #### smtp_type
-SMTP email provider type for MAS email notifications.
+
+SMTP email provider type for MAS email notifications — `sendgrid` is currently the only supported provider.
 
 - **Required**
 - Environment Variable: `SMTP_TYPE`
 - Default: None
 
-**Purpose**: Specifies which SMTP email service provider to use for sending MAS notifications and alerts.
+Determines which SMTP provider configuration is created and which API endpoints are used. Requires an active SendGrid account with subuser support; future versions may support additional SMTP providers.
 
-**When to use**: Always required when configuring SMTP for MAS. Currently only SendGrid is supported.
-
-**Valid values**: `sendgrid` (only supported provider)
-
-**Impact**: Determines which SMTP provider configuration will be created and which API endpoints will be used.
-
-**Related variables**: [`sendgrid_primary_apikey`](#sendgrid_primary_apikey), [`sendgrid_hostname`](#sendgrid_hostname)
-
-**Notes**:
-
-- SendGrid is currently the only supported SMTP provider
-- Requires an active SendGrid account with subuser support
-- Future versions may support additional SMTP providers
+### MAS Configuration
 
 #### mas_instance_id
-MAS instance identifier for SMTP configuration.
 
-- **Required** (if generating SmtpCfg)
+MAS instance identifier the SMTP configuration applies to — a valid MAS instance ID (e.g. `prod`, `dev`, `masinst1`).
+
+- **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default: None
 
-**Purpose**: Identifies which MAS instance the SMTP configuration will be applied to.
-
-**When to use**: Required when generating SmtpCfg resource. If not set along with `mas_config_dir`, the role will not generate configuration files.
-
-**Valid values**: Valid MAS instance ID (3-12 lowercase alphanumeric characters, e.g., `prod`, `dev`, `masinst1`)
-
-**Impact**: Used to name the generated SmtpCfg resource and target the correct MAS instance.
-
-**Related variables**: [`mas_config_dir`](#mas_config_dir), [`sendgrid_subuser_username`](#sendgrid_subuser_username)
-
-**Notes**:
-
-- Must match the instance ID used during MAS installation
-- Used in default subuser username: `ibm-mas_{mas_instance_id}`
-- Both this and `mas_config_dir` must be set to generate configuration
+Must match the instance ID used during MAS installation. Used to name the generated SmtpCfg resource and in the default subuser username `ibm-mas_{mas_instance_id}`.
 
 #### mas_config_dir
-Local directory for generated SMTP configuration files.
 
-- **Required** (if generating SmtpCfg)
+Local directory where the generated SMTP configuration files are saved — any valid local filesystem path (e.g. `~/masconfig`, `/opt/mas/config`).
+
+- **Required**
 - Environment Variable: `MAS_CONFIG_DIR`
 - Default: None
 
-**Purpose**: Specifies where to save the generated SmtpCfg resource YAML file containing SMTP configuration and credentials.
-
-**When to use**: Required when generating SmtpCfg resource. If not set along with `mas_instance_id`, the role will not generate configuration files.
-
-**Valid values**: Valid local filesystem path (e.g., `~/masconfig`, `/opt/mas/config`)
-
-**Impact**: SmtpCfg YAML file will be created in this directory as `smtp-{mas_instance_id}.yml`.
-
-**Related variables**: [`mas_instance_id`](#mas_instance_id)
-
-**Notes**:
-
-- Can be applied manually: `oc apply -f $MAS_CONFIG_DIR/smtp-$MAS_INSTANCE_ID.yml`
-- Can be used with [`suite_config`](suite_config.md) role for automated configuration
-- Both this and `mas_instance_id` must be set to generate configuration
-- Use consistent directory across all MAS DevOps roles
+The SmtpCfg YAML file (containing the Secret and SmtpCfg resources) is created as `smtp-{mas_instance_id}.yml` in this directory. Apply it manually with `oc apply -f $MAS_CONFIG_DIR/smtp-$MAS_INSTANCE_ID.yml` or use it with the [suite_config](suite_config.md) role for automated configuration. Use a consistent directory across all MAS DevOps roles.
 
 #### mas_pod_templates_dir
-Directory containing pod template customizations for SMTP.
 
-- Optional
+Directory containing pod template customizations for the SMTP service pods — must contain a file named `ibm-mas-smtpcfg.yml`.
+
+- **Optional**
 - Environment Variable: `MAS_POD_TEMPLATES_DIR`
 - Default: None
 
-**Purpose**: Provides custom pod template configurations for the SMTP service pods, allowing resource limits, node selectors, and other Kubernetes pod specifications.
+The pod template configuration is inserted into the SmtpCfg spec under the `podTemplates` element. See the [BestEfforts reference](https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/ibm-mas-smtpcfg.yml) and the [Customizing Pod Templates](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads) documentation.
 
-**When to use**: Set when you need to customize SMTP pod resources, scheduling, or other pod-level configurations.
+#### custom_labels
 
-**Valid values**: Valid directory path containing `ibm-mas-smtpcfg.yml` file
+Custom key-value labels applied to the generated SMTP resources — comma-separated `key=value` pairs (e.g. `environment=production,team=platform,cost-center=engineering`).
 
-**Impact**: Pod template configuration is inserted into SmtpCfg spec under `podTemplates` element.
+- **Optional**
+- Environment Variable: `CUSTOM_LABELS`
+- Default: None
 
-**Related variables**: None
+Useful for resource organization, cost tracking, environment identification, and automation-driven resource discovery. Follow Kubernetes label naming conventions.
 
-**Notes**:
-
-- File must be named `ibm-mas-smtpcfg.yml`
-- See [BestEfforts reference](https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/ibm-mas-smtpcfg.yml)
-- Full documentation: [Customizing Pod Templates](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads)
-- Optional - only needed for custom resource requirements
+### SendGrid Primary Account
 
 #### sendgrid_primary_username
-Primary SendGrid account username.
+
+Username of the primary SendGrid account used to create the subuser for MAS email operations.
 
 - **Required**
-- Environment Variable: `SMTP_PRIMARY_USERNAME`
+- Environment Variable: `SENDGRID_PRIMARY_USERNAME`
 - Default: None
 
-**Purpose**: Identifies the primary SendGrid account that will be used to create a subuser for MAS email operations.
-
-**When to use**: Always required. Must be the username of an existing SendGrid account with subuser creation permissions.
-
-**Valid values**: Valid SendGrid account username
-
-**Impact**: Used to authenticate to SendGrid API for subuser creation and management.
-
-**Related variables**: [`sendgrid_primary_apikey`](#sendgrid_primary_apikey), [`sendgrid_primary_email`](#sendgrid_primary_email)
-
-**Notes**:
-
-- Must have permissions to create subusers in SendGrid
-- Primary account credentials are only used during setup, not stored in MAS
-- Subuser will be created under this primary account
+The account must have permissions to create subusers. Primary account credentials are only used during setup and are not stored in MAS.
 
 #### sendgrid_primary_email
-Primary SendGrid account email address.
+
+Email address registered with the primary SendGrid account.
 
 - **Required**
-- Environment Variable: `SMTP_PRIMARY_EMAIL`
+- Environment Variable: `SENDGRID_PRIMARY_EMAIL`
 - Default: None
 
-**Purpose**: Provides the email address associated with the primary SendGrid account. Validation emails will be sent to this address.
-
-**When to use**: Always required. Must match the email registered with the SendGrid primary account.
-
-**Valid values**: Valid email address registered with SendGrid account
-
-**Impact**: Subuser validation emails will be sent to this address. You must validate the subuser using the link in the email.
-
-**Related variables**: [`sendgrid_primary_username`](#sendgrid_primary_username), [`sendgrid_subuser_email`](#sendgrid_subuser_email)
-
-**Notes**:
-
-- Validation email will be sent after subuser creation
-- Must validate subuser before it can send emails
-- Can resend validation email from SendGrid admin UI if needed
-
-#### sendgrid_subuser_email
-Email address for the SendGrid subuser.
-
-- **Required**
-- Environment Variable: `SMTP_SUBUSER_EMAIL`
-- Default: None
-
-**Purpose**: Specifies the email address for the SendGrid subuser that will be created for MAS email operations.
-
-**When to use**: Always required. This subuser will be dedicated to sending MAS notifications.
-
-**Valid values**: Valid email address (can be same as primary or different)
-
-**Impact**: This email will be associated with the subuser account and used for subuser-specific operations.
-
-**Related variables**: [`sendgrid_subuser_username`](#sendgrid_subuser_username), [`sendgrid_primary_email`](#sendgrid_primary_email)
-
-**Notes**:
-
-- Subuser provides isolation from primary account
-- See [SendGrid subusers documentation](https://docs.sendgrid.com/ui/account-and-settings/subusers)
-- Can use same email as primary account if desired
-
-#### sendgrid_defaultrecipientemail
-Default recipient email address for MAS notifications.
-
-- **Required**
-- Environment Variable: `SENDGRID_DEFAULTRECIPIENTEMAIL`
-- Default: None
-
-**Purpose**: Specifies the default destination email address for MAS notifications when no specific recipient is configured.
-
-**When to use**: Always required. This is the fallback email address for system notifications.
-
-**Valid values**: Valid email address
-
-**Impact**: MAS will send notifications to this address when no other recipient is specified in the notification configuration.
-
-**Related variables**: None
-
-**Notes**:
-
-- Acts as fallback for unconfigured notifications
-- Can be overridden per notification type in MAS
-- Typically set to admin or operations team email
+Subuser validation emails are sent to this address — you must validate the subuser using the link in the email before it can send emails. The validation email can be resent from the SendGrid admin UI if needed.
 
 #### sendgrid_primary_apikey
-API key for the primary SendGrid account.
+
+API key for the primary SendGrid account, with subuser creation and IP management permissions.
 
 - **Required**
 - Environment Variable: `SENDGRID_PRIMARY_APIKEY`
 - Default: None
 
-**Purpose**: Provides authentication credentials for SendGrid API to create and configure the subuser.
-
-**When to use**: Always required. Must be an API key from the primary SendGrid account with subuser management permissions.
-
-**Valid values**: Valid SendGrid API key with appropriate permissions
-
-**Impact**: Used to authenticate SendGrid API calls for subuser creation and IP assignment.
-
-**Related variables**: [`sendgrid_primary_username`](#sendgrid_primary_username)
-
-**Notes**:
-
-- Store securely, never commit to version control
-- Requires permissions: subuser creation, IP management
-- Only used during setup, not stored in MAS configuration
-- Generate from SendGrid console: Settings > API Keys
+Generate the key from the SendGrid console (Settings > API Keys). Store it securely and never commit it to version control; it is only used during setup for subuser creation and IP assignment, not stored in MAS configuration.
 
 #### sendgrid_ips
-SendGrid IP addresses to assign to the subuser.
+
+SendGrid IP addresses to assign to the subuser — a JSON array string such as `'["192.0.2.1", "192.0.2.2"]'`.
 
 - **Required**
 - Environment Variable: `SENDGRID_IPS`
 - Default: None
 
-**Purpose**: Specifies which SendGrid IP addresses should be assigned to the subuser for sending emails.
+The IPs must already be allocated to the primary account (find them in the SendGrid console: Settings > IP Addresses). The subuser sends emails from these addresses, so their reputation affects email deliverability.
 
-**When to use**: Always required. Must be IP addresses already allocated to your primary SendGrid account.
-
-**Valid values**: JSON array of IP addresses (e.g., `'["192.0.2.1", "192.0.2.2"]'`)
-
-**Impact**: Subuser will send emails from these IP addresses. Affects email deliverability and reputation.
-
-**Related variables**: [`sendgrid_primary_apikey`](#sendgrid_primary_apikey)
-
-**Notes**:
-
-- IPs must already be allocated to primary account
-- Find IPs in SendGrid console: Settings > IP Addresses
-- Format as JSON array string
-- IP reputation affects email deliverability
+### SendGrid Subuser
 
 #### sendgrid_subuser_username
-Username for the SendGrid subuser.
 
-- Optional
-- Environment Variable: `SMTP_SUBUSER_USERNAME`
+Username for the SendGrid subuser created for MAS — alphanumeric, with hyphens and underscores allowed.
+
+- **Optional**
+- Environment Variable: `SENDGRID_SUBUSER_USERNAME`
 - Default: `ibm-mas_{mas_instance_id}`
 
-**Purpose**: Specifies the username for the SendGrid subuser that will be created for MAS.
+Must be unique within the SendGrid account. Override the default if you need a specific naming convention or share one SendGrid account across multiple MAS instances. See the [SendGrid subusers documentation](https://docs.sendgrid.com/ui/account-and-settings/subusers).
 
-**When to use**: Override default if you need a specific naming convention or have multiple MAS instances sharing a SendGrid account.
+#### sendgrid_subuser_email
 
-**Valid values**: Valid SendGrid username (alphanumeric, hyphens, underscores)
+Email address for the SendGrid subuser dedicated to sending MAS notifications — can be the same as or different from the primary account email.
 
-**Impact**: Subuser will be created with this username in SendGrid.
+- **Required**
+- Environment Variable: `SENDGRID_SUBUSER_EMAIL`
+- Default: None
 
-**Related variables**: [`mas_instance_id`](#mas_instance_id), [`sendgrid_subuser_email`](#sendgrid_subuser_email)
+The subuser provides isolation from the primary account. See the [SendGrid subusers documentation](https://docs.sendgrid.com/ui/account-and-settings/subusers).
 
-**Notes**:
+### Email Defaults
 
-- Default includes MAS instance ID for uniqueness
-- Must be unique within the SendGrid account
-- See [SendGrid subusers documentation](https://docs.sendgrid.com/ui/account-and-settings/subusers)
+#### sendgrid_defaultrecipientemail
+
+Default recipient email address for MAS notifications when no specific recipient is configured — typically an admin or operations team email.
+
+- **Required**
+- Environment Variable: `SENDGRID_DEFAULTRECIPIENTEMAIL`
+- Default: None
+
+Acts as the fallback for unconfigured notifications and can be overridden per notification type in MAS.
 
 #### sendgrid_defaultsendername
-Display name for emails sent by MAS.
 
-- Optional
+Display name shown as the sender in email clients when MAS sends notifications — any string, e.g. `MAS Notifications` or `Maximo Production`.
+
+- **Optional**
 - Environment Variable: `SENDGRID_DEFAULTSENDERNAME`
 - Default: Empty string
 
-**Purpose**: Provides a human-readable sender name that appears in email clients when MAS sends notifications.
-
-**When to use**: Set to provide a friendly sender name like "MAS Production Alerts" or "Maximo Notifications".
-
-**Valid values**: Any string (e.g., `MAS Notifications`, `Maximo Production`)
-
-**Impact**: This name appears as the sender in email clients, making emails more recognizable to recipients.
-
-**Related variables**: None
-
-**Notes**:
-
-- Improves email recognition and trust
-- Recommended for production deployments
-- Can be left empty for default behavior
+Improves email recognition and trust; recommended for production deployments and can be left empty for default behavior.
 
 #### sendgrid_defaultshouldemailpasswords
-Enable password delivery via email.
 
-- Optional
+Controls whether MAS sends user passwords via email when creating or resetting accounts — `true` or `false`.
+
+- **Optional**
 - Environment Variable: `SENDGRID_DEFAULTSHOULDEMAILPASSWORDS`
 - Default: `false`
 
-**Purpose**: Controls whether MAS should send user passwords via email when creating or resetting accounts.
-
-**When to use**: Set to `true` only if your security policy allows password transmission via email.
-
-**Valid values**:
-
-- `true` - Send passwords via email
-- `false` - Do not send passwords via email (recommended)
-
-**Impact**: When `true`, new user passwords and password resets will be emailed. When `false`, passwords must be communicated through other means.
-
-**Related variables**: None
-
-**Notes**:
-
-- **Security**: Sending passwords via email is generally not recommended
-- Default `false` follows security best practices
-- Consider alternative password delivery methods
+!!! warning
+    Sending passwords via email is generally not recommended — the default `false` follows security best practices. Only set to `true` if your security policy allows password transmission via email, and consider alternative password delivery methods.
 
 #### sendgrid_configscope
-Configuration scope for SMTP settings.
 
-- Optional
+Configuration scope for the SMTP settings — `system` is currently the only supported value.
+
+- **Optional**
 - Environment Variable: `SENDGRID_CONFIGSCOPE`
 - Default: `system`
 
-**Purpose**: Defines the scope level for SMTP configuration in MAS.
+System scope makes the SMTP configuration available to all MAS components; workspace or application scopes may be supported in future versions.
 
-**When to use**: Use default `system` for system-wide SMTP configuration. Other scopes may be supported in future versions.
-
-**Valid values**: `system` (currently only supported value)
-
-**Impact**: Determines which MAS components can use this SMTP configuration.
-
-**Related variables**: None
-
-**Notes**:
-
-- System scope makes SMTP available to all MAS components
-- Future versions may support workspace or application scopes
+### SMTP Connection
 
 #### sendgrid_hostname
-SendGrid SMTP server hostname.
 
-- Optional
+SendGrid SMTP server hostname that MAS connects to for sending emails.
+
+- **Optional**
 - Environment Variable: `SENDGRID_HOSTNAME`
 - Default: `smtp.sendgrid.net`
 
-**Purpose**: Specifies the SendGrid SMTP server hostname for email transmission.
-
-**When to use**: Use default unless SendGrid changes their SMTP endpoint or you're using a custom configuration.
-
-**Valid values**: Valid SendGrid SMTP hostname
-
-**Impact**: MAS will connect to this hostname for sending emails via SMTP protocol.
-
-**Related variables**: [`sendgrid_port`](#sendgrid_port), [`sendgrid_security`](#sendgrid_security)
-
-**Notes**:
-
-- Default is SendGrid's standard SMTP endpoint
-- Rarely needs to be changed
-- Verify with SendGrid documentation if unsure
+This is SendGrid's standard SMTP endpoint and rarely needs to be changed — verify with the SendGrid documentation if unsure.
 
 #### sendgrid_port
-SendGrid SMTP server port.
 
-- Optional
+SendGrid SMTP server port: `465` (SMTP with SSL/TLS, recommended default), `587` (SMTP with STARTTLS), or `25` (unencrypted, not recommended — often blocked by ISPs).
+
+- **Optional**
 - Environment Variable: `SENDGRID_PORT`
 - Default: `465`
 
-**Purpose**: Specifies the port number for SMTP connections to SendGrid.
-
-**When to use**: Use default `465` for SSL/TLS connections. Change only if using different security configuration.
-
-**Valid values**:
-
-- `465` - SMTP with SSL/TLS (recommended, default)
-- `587` - SMTP with STARTTLS
-- `25` - Unencrypted SMTP (not recommended)
-
-**Impact**: Determines which port MAS uses to connect to SendGrid SMTP server.
-
-**Related variables**: [`sendgrid_hostname`](#sendgrid_hostname), [`sendgrid_security`](#sendgrid_security)
-
-**Notes**:
-
-- Port 465 is recommended for secure connections
-- Must match the security setting
-- Port 25 is often blocked by ISPs
+Must match `sendgrid_security` — port 465 pairs with `SSL` and port 587 with `STARTTLS`.
 
 #### sendgrid_security
-SMTP connection security protocol.
 
-- Optional
+SMTP connection security protocol: `SSL` (recommended, default), `STARTTLS` (upgrade to TLS after initial connection), or `NONE` (no encryption, not recommended).
+
+- **Optional**
 - Environment Variable: `SENDGRID_SECURITY`
 - Default: `SSL`
 
-**Purpose**: Specifies the security protocol for SMTP connections to SendGrid.
-
-**When to use**: Use default `SSL` for secure connections on port 465. Change to `STARTTLS` if using port 587.
-
-**Valid values**:
-
-- `SSL` - SSL/TLS encryption (recommended, default)
-- `STARTTLS` - Upgrade to TLS after initial connection
-- `NONE` - No encryption (not recommended)
-
-**Impact**: Determines how SMTP connections are encrypted.
-
-**Related variables**: [`sendgrid_port`](#sendgrid_port), [`sendgrid_hostname`](#sendgrid_hostname)
-
-**Notes**:
-
-- SSL on port 465 is recommended
-- STARTTLS on port 587 is also secure
-- Never use NONE in production
+`SSL` on port 465 is recommended and `STARTTLS` on port 587 is also secure — never use `NONE` in production.
 
 #### sendgrid_authentication
-Enable SMTP authentication.
 
-- Optional
+Enables SMTP authentication for SendGrid connections — `true` or `false`.
+
+- **Optional**
 - Environment Variable: `SENDGRID_AUTHENTICATION`
 - Default: `true`
 
-**Purpose**: Controls whether SMTP authentication is required for SendGrid connections.
-
-**When to use**: Always use default `true`. Authentication is required by SendGrid.
-
-**Valid values**:
-
-- `true` - Enable authentication (required)
-- `false` - Disable authentication (will fail)
-
-**Impact**: When `true`, MAS will authenticate using subuser credentials. When `false`, connection will fail.
-
-**Related variables**: [`sendgrid_subuser_username`](#sendgrid_subuser_username)
-
-**Notes**:
-
-- Must be `true` for SendGrid
-- Authentication uses subuser credentials
-- Do not change from default
+Must remain `true`: authentication is required by SendGrid and uses the subuser credentials — disabling it will cause the connection to fail.
 
 #### sendgrid_api_url
-SendGrid API endpoint URL.
 
-- Optional
+SendGrid REST API endpoint used by the role for subuser creation and management — a valid SendGrid API hostname.
+
+- **Optional**
 - Environment Variable: `SENDGRID_API_URL`
 - Default: `api.sendgrid.com`
 
-**Purpose**: Specifies the SendGrid API endpoint for REST API calls during subuser creation and management.
+This is SendGrid's standard API endpoint and rarely needs to be changed. It is used during role execution only, not by MAS itself.
 
-**When to use**: Use default unless SendGrid changes their API endpoint or you're using a custom configuration.
-
-**Valid values**: Valid SendGrid API hostname
-
-**Impact**: Role will make REST API calls to this endpoint for subuser management.
-
-**Related variables**: [`sendgrid_primary_apikey`](#sendgrid_primary_apikey)
-
-**Notes**:
-
-- Default is SendGrid's standard API endpoint
-- Used during role execution, not by MAS
-- Rarely needs to be changed
-
-#### custom_labels
-Custom labels for MAS SMTP resources.
-
-- Optional
-- Environment Variable: `CUSTOM_LABELS`
-- Default: None
-
-**Purpose**: Allows adding custom key-value labels to SMTP-related Kubernetes resources for organization and automation.
-
-**When to use**: Set when you need to tag resources for cost tracking, environment identification, or automation purposes.
-
-**Valid values**: Comma-separated key=value pairs (e.g., `environment=production,team=platform,cost-center=engineering`)
-
-**Impact**: Labels are applied to generated SmtpCfg and related resources.
-
-**Related variables**: None
-
-**Notes**:
-
-- Useful for resource organization and tracking
-- Can be used by automation tools for resource discovery
-- Follow Kubernetes label naming conventions
+### Debugging
 
 #### sendgrid_debug
-Enable debug logging for SendGrid API calls.
 
-- Optional
+Enables display of detailed SendGrid REST API call results in Ansible logs — `True` or `False`.
+
+- **Optional**
 - Environment Variable: `SENDGRID_DEBUG`
 - Default: `False`
 
-**Purpose**: Controls whether detailed SendGrid REST API call results are displayed in Ansible logs.
-
-**When to use**: Set to `True` when troubleshooting SendGrid integration issues or subuser creation problems.
-
-**Valid values**:
-
-- `True` - Display API call results in logs
-- `False` - Normal logging (default)
-
-**Impact**: When `True`, detailed API responses are logged, which may include sensitive information.
-
-**Related variables**: None
-
-**Notes**:
-
-- Use only for troubleshooting
-- May expose sensitive data in logs
-- Disable after troubleshooting is complete
-
+!!! warning
+    Use only for troubleshooting and disable it afterwards — when `True`, detailed API responses are logged, which may include sensitive information.
 
 ## Example Playbook
 
 ### Generate a configuration
+
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
@@ -541,7 +286,6 @@ Enable debug logging for SendGrid API calls.
   roles:
     - ibm.mas_devops.smtp
 ```
-
 
 ## License
 

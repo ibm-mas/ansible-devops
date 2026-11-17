@@ -1,13 +1,14 @@
 # aiservice_rhoai
+
 This role provides support to deploy rhoai components for AI Broker Application:
 
-* Install Red Hat OpenShift Serverless Operator
-* Install Red Hat OpenShift Service Mesh Operator
-* Install Authorino Operator
-* Install Red Hat OpenShift AI Operator
-* Create DSCInitialization instance
-* Create Data Science Cluster
-* Create Create Data Science Pipelines Application
+- Install Red Hat OpenShift Serverless Operator
+- Install Red Hat OpenShift Service Mesh Operator
+- Install Authorino Operator
+- Install Red Hat OpenShift AI Operator
+- Create DSCInitialization instance
+- Create Data Science Cluster
+- Create Data Science Pipelines Application
 
 ## Actions
 
@@ -18,14 +19,14 @@ This role supports multiple actions through the `rhoai_action` variable:
 
 ### Action Variable
 
-**`rhoai_action`**
+#### rhoai_action
 
-- Optional
+Action to perform on the RHOAI installation — `install` (default) or `uninstall`.
+
+- **Optional**
 - Environment Variable: `RHOAI_ACTION`
 - Default: `install`
-- Valid values: `install`, `uninstall`
 
-**Example:**
 ```bash
 # Install RHOAI (default) - will auto-migrate ODH if detected
 export RHOAI_ACTION=install
@@ -66,168 +67,94 @@ This runs automatically from `mas update` when RHOAI v2 is detected.
 
 ## Role Variables
 
-### General Variables
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`rhoai_action`](#rhoai_action) | No | `install` |
+| [`rhoai_channel`](#rhoai_channel) | No | `stable-3.x` |
+| [`aiservice_rhoai_model_deployment_type`](#aiservice_rhoai_model_deployment_type) | No | `raw` |
+| [`serverless_catalog_source`](#serverless_catalog_source) | No | `redhat-operators` |
+| [`serverless_channel`](#serverless_channel) | No | `stable` |
+| [`service_mesh_channel`](#service_mesh_channel) | No | `stable` |
+| [`service_mesh_catalog_source`](#service_mesh_catalog_source) | No | `redhat-operators` |
+| [`authorino_catalog_source`](#authorino_catalog_source) | No | `community-operators` |
 
-#### tenantName
-Tenant identifier for the Red Hat OpenShift AI deployment.
+### RHOAI Operator
 
-- Optional
-- Environment Variable: `AISERVICE_TENANT_NAME`
-- Default: `user`
+#### rhoai_channel
 
-**Purpose**: Identifies the tenant for multi-tenant RHOAI deployments, used for resource isolation and organization.
+Subscription channel for the Red Hat OpenShift AI operator — for example `stable-3.x` (default). RHOAI is the enterprise-supported version of Open Data Hub and requires a valid Red Hat subscription for enterprise support.
 
-**When to use**: Override the default when deploying multiple RHOAI instances or when organizational naming conventions require specific tenant identifiers.
+- **Optional**
+- Environment Variable: `RHOAI_CHANNEL`
+- Default: `stable-3.x`
 
-**Valid values**: Alphanumeric string (e.g., `user`, `team1`, `prod-tenant`)
+Controls which version stream of Red Hat OpenShift AI is installed and receives updates. Setting a v3 channel when a v2 `rhods-operator` is installed triggers the automatic v2-to-v3 upgrade described above.
 
-**Impact**: Determines the tenant context for RHOAI resources and configurations.
+#### aiservice_rhoai_model_deployment_type
 
-**Related variables**: None
+Model deployment type for RHOAI — `raw` (default) or `serverless`.
 
-**Notes**: The default `user` is suitable for single-tenant deployments.
+- **Optional**
+- Environment Variable: `AISERVICE_RHOAI_MODEL_DEPLOYMENT_TYPE`
+- Default: `raw`
+
+When set to `serverless`, the role deploys model serving on OpenShift Serverless and installs the additional Serverless/ServiceMesh components and security context constraints required for it; the `raw` type uses standard deployments.
+
+### Serverless Operator
 
 #### serverless_catalog_source
-Catalog source for Red Hat OpenShift Serverless Operator.
 
-- Optional
+Catalog source for the Red Hat OpenShift Serverless Operator — a valid CatalogSource name, for example `redhat-operators` or a custom catalog.
+
+- **Optional**
 - Environment Variable: `SERVERLESS_CATALOG_SOURCE`
 - Default: `redhat-operators`
 
-**Purpose**: Specifies which operator catalog provides the OpenShift Serverless Operator required for RHOAI.
-
-**When to use**: Use default for standard deployments. Override for custom or mirrored catalogs in air-gapped environments.
-
-**Valid values**: Valid CatalogSource name (e.g., `redhat-operators`, `custom-catalog`)
-
-**Impact**: Determines the source of the Serverless operator. Incorrect catalog will prevent operator installation.
-
-**Related variables**: [`serverless_channel`](#serverless_channel)
-
-**Notes**:
-
-- OpenShift Serverless is required for RHOAI data science pipelines
-- Verify catalog exists: `oc get catalogsource -n openshift-marketplace`
+Determines the source of the Serverless operator; an incorrect catalog will prevent operator installation. Use the default for standard deployments and override for custom or mirrored catalogs in air-gapped environments. OpenShift Serverless is required for RHOAI data science pipelines — verify the catalog exists with `oc get catalogsource -n openshift-marketplace`.
 
 #### serverless_channel
-Subscription channel for OpenShift Serverless Operator.
 
-- Optional
+Subscription channel for the OpenShift Serverless Operator — a valid Serverless operator channel, for example `stable` or `stable-1.28`.
+
+- **Optional**
 - Environment Variable: `SERVERLESS_CHANNEL`
 - Default: `stable`
 
-**Purpose**: Controls which version stream of OpenShift Serverless will be installed and receive updates.
+Determines the Serverless version installed and which automatic updates are received. Use the default `stable` channel for production; it provides the latest stable release with automatic updates. Override only for specific version requirements.
 
-**When to use**: Use default `stable` for production. Override only for specific version requirements.
-
-**Valid values**: Valid Serverless operator channel (e.g., `stable`, `stable-1.28`)
-
-**Impact**: Determines the Serverless version installed and which automatic updates are received.
-
-**Related variables**: [`serverless_catalog_source`](#serverless_catalog_source)
-
-**Notes**: The `stable` channel provides the latest stable release with automatic updates.
+### Service Mesh Operator
 
 #### service_mesh_channel
-Subscription channel for Red Hat OpenShift Service Mesh Operator.
 
-- Optional
+Subscription channel for the Red Hat OpenShift Service Mesh Operator — a valid Service Mesh operator channel, for example `stable` or `stable-2.3`.
+
+- **Optional**
 - Environment Variable: `SERVICEMESH_CHANNEL`
 - Default: `stable`
 
-**Purpose**: Controls which version stream of OpenShift Service Mesh will be installed for RHOAI networking.
-
-**When to use**: Use default `stable` for production. Override for specific version requirements.
-
-**Valid values**: Valid Service Mesh operator channel (e.g., `stable`, `stable-2.3`)
-
-**Impact**: Determines the Service Mesh version installed and which automatic updates are received.
-
-**Related variables**: [`service_mesh_catalog_source`](#service_mesh_catalog_source)
-
-**Notes**:
-
-- Service Mesh is required for RHOAI model serving and networking
-- The `stable` channel provides the latest stable release
+Determines the Service Mesh version installed and which automatic updates are received. Service Mesh is required for RHOAI model serving and networking. Use the default `stable` channel for production; override only for specific version requirements.
 
 #### service_mesh_catalog_source
-Catalog source for Red Hat OpenShift Service Mesh Operator.
 
-- Optional
+Catalog source for the Red Hat OpenShift Service Mesh Operator — a valid CatalogSource name, for example `redhat-operators` or a custom catalog.
+
+- **Optional**
 - Environment Variable: `SERVICEMESH_CATALOG_SOURCE`
 - Default: `redhat-operators`
 
-**Purpose**: Specifies which operator catalog provides the OpenShift Service Mesh Operator required for RHOAI.
+Determines the source of the Service Mesh operator; an incorrect catalog will prevent operator installation. Use the default for standard deployments and override for custom or mirrored catalogs in air-gapped environments. Verify the catalog exists with `oc get catalogsource -n openshift-marketplace`.
 
-**When to use**: Use default for standard deployments. Override for custom or mirrored catalogs in air-gapped environments.
-
-**Valid values**: Valid CatalogSource name (e.g., `redhat-operators`, `custom-catalog`)
-
-**Impact**: Determines the source of the Service Mesh operator. Incorrect catalog will prevent operator installation.
-
-**Related variables**: [`service_mesh_channel`](#service_mesh_channel)
-
-**Notes**: Verify catalog exists: `oc get catalogsource -n openshift-marketplace`
+### Authorino Operator
 
 #### authorino_catalog_source
-Catalog source for Authorino Operator.
 
-- Optional
+Catalog source for the Authorino Operator — a valid CatalogSource name, for example `community-operators` or a custom catalog.
+
+- **Optional**
 - Environment Variable: `AUTHORINO_CATALOG_SOURCE`
 - Default: `community-operators`
 
-**Purpose**: Specifies which operator catalog provides the Authorino Operator for RHOAI authorization.
-
-**When to use**: Use default for standard deployments. Override for custom or mirrored catalogs in air-gapped environments.
-
-**Valid values**: Valid CatalogSource name (e.g., `community-operators`, `custom-catalog`)
-
-**Impact**: Determines the source of the Authorino operator. Incorrect catalog will prevent operator installation.
-
-**Related variables**: None
-
-**Notes**:
-
-- Authorino provides authorization for RHOAI model serving
-- Available in community-operators catalog by default
-
-#### rhoai_channel
-Subscription channel for Red Hat OpenShift AI Operator.
-
-- Optional
-- Environment Variable: `RHOAI_CHANNEL`
-- Default: `fast`
-
-**Purpose**: Controls which version stream of Red Hat OpenShift AI will be installed and receive updates.
-
-**When to use**: Use `fast` for latest features. Use `stable` for production environments requiring more testing.
-
-**Valid values**: Valid RHOAI operator channel (e.g., `fast`, `stable`)
-
-**Impact**: Determines the RHOAI version installed and update frequency. `fast` channel receives updates more quickly than `stable`.
-
-**Notes**:
-
-- `fast` channel provides latest features but may be less stable
-- `stable` channel recommended for production deployments
-- RHOAI is the enterprise-supported version of Open Data Hub
-
-**Purpose**: Specifies which operator catalog provides the Red Hat OpenShift AI Operator.
-
-**When to use**: Use default for standard deployments. Override for custom or mirrored catalogs in air-gapped environments.
-
-**Valid values**: Valid CatalogSource name (e.g., `community-operators`, `redhat-operators`, `custom-catalog`)
-
-**Impact**: Determines the source of the RHOAI operator. Incorrect catalog will prevent operator installation.
-
-**Related variables**: [`rhoai_channel`](#rhoai_channel)
-
-**Notes**:
-
-- RHOAI may be available in redhat-operators or community-operators depending on version
-- For air-gapped environments, mirror the catalog and update this variable
-- Requires valid Red Hat subscription for enterprise support
-
+Determines the source of the Authorino operator, which provides authorization for RHOAI model serving; an incorrect catalog will prevent operator installation. Authorino is available in the `community-operators` catalog by default — override for custom or mirrored catalogs in air-gapped environments.
 
 ## Example Playbook
 

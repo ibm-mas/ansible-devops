@@ -18,9 +18,11 @@ The key difference is that AI Service creates the certificate Issuer within its 
 There are two different ways this role controls DNS entries in the provider:
 
 ### Top Level DNS Entries
+
 This mode will create the entries directly under your DNS zone. Use this when the DNS zone matches the MAS domain exactly. If your MAS installation will be using the domain **mymas.mycompany.com** and you have a DNS zone for **mymas.mycompany.com** then you will be creating top-level DNS entries for MAS, e.g. **admin**, **home**, & **api**.
 
 ### Subdomain DNS Entries
+
 This mode will create DNS entries in the zone under a subdomain. Use this when your DNS zone will be used for more than just one MAS instance. If your MAS installation will be using the domain **mymas.mycompany.com** and you have a DNS zone for **mycompany.com** then you will be creating subdomain DNS entries for MAS, e.g. **admin.mymas**, **home.mymas**, & **api.mymas**.
 
 CIS and Cloudflare integrations support both modes of DNS management. A single optional variable is required to enable subdomain DNS management, in the examples above you would set these to **mymas**:
@@ -53,224 +55,162 @@ The issuer kind is controlled by `mas_issuer_kind` (`ClusterIssuer` or `Issuer`)
 
 ## Role Variables
 
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`aiservice_instance_id`](#aiservice_instance_id) | Conditional | None |
+| [`aiservice_domain`](#aiservice_domain) | No | None |
+| [`dns_provider`](#dns_provider) | Yes | None |
+| [`mas_manual_cert_mgmt`](#mas_manual_cert_mgmt) | No | `false` |
+| [`cert_manager_namespace`](#cert_manager_namespace) | No | Auto-detected |
+| [`mas_instance_id`](#mas_instance_id) | Conditional | None |
+| [`mas_workspace_id`](#mas_workspace_id) | Conditional | None |
+| [`mas_domain`](#mas_domain) | Conditional | None |
+| [`ocp_ingress`](#ocp_ingress) | No | Auto-detected |
+| [`mas_le_email`](#mas_le_email) | No | None |
+| [`mas_issuer_kind`](#mas_issuer_kind) | No | `ClusterIssuer` |
+| [`mas_ingress_controller_name`](#mas_ingress_controller_name) | No | `default` |
+| [`custom_labels`](#custom_labels) | No | None |
+| [`output_dir`](#output_dir) | No | `.` |
+| [`cloudflare_email`](#cloudflare_email) | Conditional | None |
+| [`cloudflare_apitoken`](#cloudflare_apitoken) | Conditional | None |
+| [`cloudflare_zone`](#cloudflare_zone) | Conditional | None |
+| [`cloudflare_subdomain`](#cloudflare_subdomain) | No | None |
+| [`cis_email`](#cis_email) | Conditional | None |
+| [`cis_apikey`](#cis_apikey) | Conditional | None |
+| [`cis_crn`](#cis_crn) | Conditional | None |
+| [`cis_subdomain`](#cis_subdomain) | No | None |
+| [`cis_enhanced_security`](#cis_enhanced_security) | No | `false` |
+| [`cis_service_name`](#cis_service_name) | No | `{ClusterName}-cis-{mas_instance_id}` |
+| [`cis_waf`](#cis_waf) | No | `true` |
+| [`cis_proxy`](#cis_proxy) | No | `false` |
+| [`cis_allowed_ips`](#cis_allowed_ips) | No | None |
+| [`update_dns`](#update_dns) | No | `true` |
+| [`delete_wildcards`](#delete_wildcards) | No | `false` |
+| [`override_edge_certs`](#override_edge_certs) | No | `true` |
+| [`cis_entries_to_add`](#cis_entries_to_add) | No | `all` |
+| [`route53_hosted_zone_name`](#route53_hosted_zone_name) | Conditional | None |
+| [`route53_hosted_zone_region`](#route53_hosted_zone_region) | No | `AWS_REGION`, else `us-east-2` |
+| [`route53_subdomain`](#route53_subdomain) | No | None |
+| [`route53_email`](#route53_email) | No | None |
+| [`aws_access_key_id`](#aws_access_key_id) | Conditional | None |
+| [`aws_secret_access_key`](#aws_secret_access_key) | Conditional | None |
+| [`cpd_instance_namespace`](#cpd_instance_namespace) | No | None |
+| [`cpd_prod_issuer_name`](#cpd_prod_issuer_name) | No | `{mas_instance_id}-{dns_provider}-le-prod` |
+| [`cpd_custom_domain`](#cpd_custom_domain) | No | `mas_domain` |
+| [`cpd_public_route_enabled`](#cpd_public_route_enabled) | No | `false` |
+
+Variables marked Conditional are only required in specific circumstances: in MAS mode you must set `mas_instance_id`, `mas_workspace_id`, and `mas_domain` (they are not required in AI Service mode, where `aiservice_instance_id` is required instead), and each DNS provider requires its own credentials — `cloudflare` requires `cloudflare_email`, `cloudflare_apitoken`, and `cloudflare_zone`; `cis` requires `cis_email`, `cis_apikey`, and `cis_crn`; `route53` requires `route53_hosted_zone_name` plus the AWS credentials.
+
 ### AI Service Variables
 
 #### aiservice_instance_id
-Unique identifier for the AI Service instance requiring DNS configuration.
+
+Unique identifier for the AI Service instance requiring DNS configuration — a lowercase alphanumeric string (e.g. `aiservice1`, `prod`, `dev`) that must match the instance ID used during AI Service installation.
 
 - **Required** for AI Service mode
 - Environment Variable: `AISERVICE_INSTANCE_ID`
 - Default: None
 
-**Purpose**: Identifies which AI Service instance to configure DNS entries for. When set, the role operates in AI Service mode and creates namespace-scoped Issuers instead of ClusterIssuers.
-
-**When to use**:
-
-- Required for AI Service DNS configuration
-- Must match the instance ID used during AI Service installation
-- Triggers AI Service mode (namespace-scoped Issuer creation)
-
-**Valid values**: Lowercase alphanumeric string (e.g., `aiservice1`, `prod`, `dev`)
-
-**Impact**:
-
-- Enables AI Service mode
-- DNS entries created for AI Service namespace: `aiservice-{aiservice_instance_id}`
-- Issuer created in AI Service namespace (not ClusterIssuer)
-- Issuer name format: `{aiservice_instance_id}-{provider}-le-prod`
-
-**Related variables**:
-
-- `aiservice_domain`: Custom domain for AI Service (optional)
-- When set, `mas_instance_id` and `mas_workspace_id` are not required
-
-**Note**: AI Service uses namespace-scoped Issuers within the `aiservice-{instance_id}` namespace, unlike MAS which uses cluster-wide ClusterIssuers.
+When set, the role operates in AI Service mode: DNS entries are created for the `aiservice-{aiservice_instance_id}` namespace, and a namespace-scoped Issuer (not a ClusterIssuer) is created in that namespace with the name format `{aiservice_instance_id}-{provider}-le-prod`. When this is set, `mas_instance_id` and `mas_workspace_id` are not required.
 
 #### aiservice_domain
-Custom domain name for accessing AI Service APIs and interfaces.
+
+Custom domain name for accessing AI Service APIs and interfaces — any valid DNS domain name (e.g. `aiservice.mycompany.com`, `ai.example.org`).
 
 - **Optional**
 - Environment Variable: `AISERVICE_DOMAIN`
-- Default: None (uses cluster default domain)
+- Default: None (uses the cluster's default application domain)
 
-**Purpose**: Defines the base domain used to construct all AI Service URLs and DNS entries. This domain must be managed by your chosen DNS provider.
+All AI Service routes and DNS entries are constructed from this domain, and it must align with your DNS provider zone configuration (`cloudflare_zone`, `cis_crn`, etc.). If not set, the cluster's default application domain is used for AI Service routes.
 
-**When to use**:
-
-- Set when using a custom domain for AI Service
-- Leave unset to use the cluster's default application domain
-- Must align with DNS provider zone configuration
-
-**Valid values**: Any valid DNS domain name (e.g., `aiservice.mycompany.com`, `ai.example.org`)
-
-**Impact**: DNS entries will be created for this domain in your DNS provider. All AI Service routes will use this domain.
-
-**Related variables**:
-
-- Must align with DNS provider zone configuration (`cloudflare_zone`, `cis_crn`, etc.)
-- Works with `aiservice_instance_id` to create unique DNS entries
-
-**Note**: If not set, the role will use the cluster's default application domain for AI Service routes.
-
-### General
+### DNS Provider and Certificate Management
 
 #### dns_provider
-Specifies which DNS provider to use for managing MAS domain DNS entries.
+
+Specifies which DNS provider to use for managing MAS domain DNS entries — `cis` (IBM Cloud Internet Services), `cloudflare` (Cloudflare DNS), or `route53` (AWS Route 53).
 
 - **Required**
 - Environment Variable: `DNS_PROVIDER`
 - Default: None
 
-**Purpose**: Determines which DNS service will be used to create and manage DNS records for MAS routes and endpoints. Different providers offer different features and integration capabilities.
+The selected provider determines which additional variables are required and which features are available — for example, Let's Encrypt integration is available for CIS and Cloudflare but not Route 53. This role takes no action when `mas_manual_cert_mgmt` is set to `true`.
 
-**When to use**:
+#### mas_manual_cert_mgmt
 
-- Set to `cloudflare` when using Cloudflare DNS service
-- Set to `cis` when using IBM Cloud Internet Services
-- Set to `route53` when using AWS Route 53
-- Choose based on your organization's DNS infrastructure
-
-**Valid values**: `cis`, `cloudflare`, `route53`
-
-**Impact**: The selected provider determines which additional variables are required and which features are available (e.g., Let's Encrypt integration is available for CIS and Cloudflare but not Route53).
-
-**Related variables**:
-
-- When `cloudflare`: Requires `cloudflare_email`, `cloudflare_apitoken`, `cloudflare_zone`
-- When `cis`: Requires `cis_email`, `cis_apikey`, `cis_crn`
-- When `route53`: Requires AWS Route53 specific variables
-
-**Note**: This role takes no action when `mas_manual_cert_mgmt` is set to `True`. CIS and Cloudflare support Let's Encrypt integration for automatic certificate management.
-
-#### mas_instance_id
-Unique identifier for the MAS instance requiring DNS configuration.
-
-- **Required**
-- Environment Variable: `MAS_INSTANCE_ID`
-- Default: None
-
-**Purpose**: Identifies which MAS instance to configure DNS entries for. This ID is used to generate DNS record names and ClusterIssuer resources specific to this MAS installation.
-
-**When to use**:
-
-- Always required for DNS configuration
-- Must match the instance ID used during MAS core installation
-- Used to create unique ClusterIssuer names for Let's Encrypt integration
-
-**Valid values**: Lowercase alphanumeric string, 3-12 characters (e.g., `prod`, `dev`, `inst1`)
-
-**Impact**: This ID is embedded in DNS record names and ClusterIssuer names (e.g., `{mas_instance_id}-cloudflare-le-prod`). Incorrect ID will create DNS entries for the wrong instance.
-
-**Related variables**: Works with `mas_domain` to construct full DNS names for MAS routes.
-
-**Note**: Must match the instance ID from MAS core installation. Used in ClusterIssuer names for Let's Encrypt integration.
-
-#### mas_workspace_id
-Workspace identifier for the MAS installation requiring DNS configuration.
-
-- **Required**
-- Environment Variable: `MAS_WORKSPACE_ID`
-- Default: None
-
-**Purpose**: Identifies which MAS workspace to configure DNS entries for. Workspaces are logical divisions within a MAS instance that can have separate configurations and applications.
-
-**When to use**:
-
-- Always required for DNS configuration
-- Must match a workspace ID configured in your MAS instance
-- Typically set to the primary workspace ID (e.g., `masdev`, `prod`)
-
-**Valid values**: Lowercase alphanumeric string (e.g., `masdev`, `prod`, `ws1`)
-
-**Impact**: This ID is used to generate workspace-specific DNS entries and routes. Incorrect workspace ID may result in DNS entries that don't match your MAS workspace configuration.
-
-**Related variables**: Works with `mas_instance_id` and `mas_domain` to construct workspace-specific DNS names.
-
-**Note**: Must match an existing workspace in your MAS instance. Each workspace can have its own DNS configuration.
-
-#### mas_domain
-Custom domain name for accessing MAS web interfaces and APIs.
-
-- **Required**
-- Environment Variable: `MAS_DOMAIN`
-- Default: None
-
-**Purpose**: Defines the base domain used to construct all MAS URLs and DNS entries (e.g., admin.{mas_domain}, home.{mas_domain}, api.{mas_domain}). This domain must be managed by your chosen DNS provider.
-
-**When to use**:
-
-- Always required for DNS configuration
-- Must match the domain configured in your DNS provider's zone
-- Should align with your organization's domain naming conventions
-- Must be the same domain used in MAS core installation
-
-**Valid values**: Any valid DNS domain name (e.g., `mas.mycompany.com`, `prod-mas.example.org`)
-
-**Impact**: DNS entries will be created for this domain in your DNS provider. The domain must be properly configured in your DNS provider's zone. All MAS routes will use this domain.
-
-**Related variables**:
-
-- Must align with DNS provider zone configuration (`cloudflare_zone`, `cis_crn`, etc.)
-- Works with `mas_instance_id` to create unique DNS entries
-- May use subdomain mode with `cloudflare_subdomain` or `cis_subdomain`
-
-**Note**: Ensure this domain is properly configured in your DNS provider before running this role. DNS propagation may take time after entries are created.
-
-#### ocp_ingress
-Override for the OpenShift cluster ingress domain used in DNS entries.
+Controls whether to disable automatic DNS and certificate management.
 
 - **Optional**
-- Environment Variable: `OCP_INGRESS`
-- Default: None (automatically detected from cluster)
+- Environment Variable: `MAS_MANUAL_CERT_MGMT`
+- Default: `false`
 
-**Purpose**: Allows manual specification of the OpenShift cluster's ingress domain when automatic detection fails or when you need to use a specific ingress controller. The ingress domain is used as the target for DNS CNAME records.
-
-**When to use**:
-
-- Leave unset to allow automatic detection (recommended)
-- Set only when automatic detection fails
-- Set when using a non-default ingress controller
-- Set in airgap or restricted network environments where detection may not work
-
-**Valid values**: Valid OpenShift ingress domain (e.g., `apps.cluster-name.domain.com`)
-
-**Impact**: When set, this value is used as the target for DNS CNAME records instead of the automatically detected ingress. Incorrect value will cause DNS entries to point to the wrong location.
-
-**Related variables**: Works with DNS provider variables to create CNAME records pointing to this ingress.
-
-**Note**: Automatic detection is usually sufficient. Only override if you encounter issues or have specific ingress requirements.
+When `true`, this role takes no action and all other DNS provider variables are ignored — you are responsible for creating all required DNS entries and managing certificates manually (or through alternative methods) before MAS installation. When `false` (default), the role automatically creates DNS entries and optionally configures Let's Encrypt integration.
 
 #### cert_manager_namespace
-OpenShift namespace where Certificate Manager is installed.
+
+OpenShift namespace where Certificate Manager is installed — any valid Kubernetes namespace name.
 
 - **Optional**
 - Environment Variable: `CERT_MANAGER_NAMESPACE`
 - Default: None (automatically detected)
 
-**Purpose**: Specifies the namespace where Certificate Manager is deployed. This is needed to create ClusterIssuer resources for Let's Encrypt integration in the correct location.
+ClusterIssuer resources for Let's Encrypt integration are created referencing this namespace, so an incorrect value will cause ClusterIssuer creation to fail. Automatic detection typically finds Certificate Manager in standard namespaces; only override it when using a custom installation or when detection fails.
 
-**When to use**:
+### MAS Domain and Routes
 
-- Leave unset to allow automatic detection (recommended)
-- Set only if Certificate Manager is installed in a non-standard namespace
-- Set if automatic detection fails
+#### mas_instance_id
 
-**Valid values**: Any valid Kubernetes namespace name where Certificate Manager is installed
+Unique identifier for the MAS instance requiring DNS configuration — a lowercase alphanumeric string, 3-12 characters (e.g. `prod`, `dev`, `inst1`), that must match the instance ID used during MAS core installation.
 
-**Impact**: ClusterIssuer resources for Let's Encrypt will be created referencing this namespace. Incorrect namespace will cause ClusterIssuer creation to fail.
+- **Required** for MAS mode
+- Environment Variable: `MAS_INSTANCE_ID`
+- Default: None
 
-**Related variables**: Used when creating ClusterIssuer for Cloudflare or CIS Let's Encrypt integration.
+This ID is embedded in DNS record names and ClusterIssuer names (e.g. `{mas_instance_id}-cloudflare-le-prod`), so an incorrect ID will create DNS entries for the wrong instance. Works with `mas_domain` to construct full DNS names for MAS routes.
 
-**Note**: Automatic detection typically finds Certificate Manager in standard namespaces. Only override if using a custom installation.
+#### mas_workspace_id
+
+Workspace identifier for the MAS installation requiring DNS configuration — a lowercase alphanumeric string (e.g. `masdev`, `prod`, `ws1`) that must match an existing workspace in your MAS instance, typically the primary workspace.
+
+- **Required** for MAS mode
+- Environment Variable: `MAS_WORKSPACE_ID`
+- Default: None
+
+This ID is used together with `mas_instance_id` and `mas_domain` to generate workspace-specific DNS entries and routes; an incorrect workspace ID may result in DNS entries that don't match your MAS workspace configuration.
+
+#### mas_domain
+
+Custom domain name for accessing MAS web interfaces and APIs — any valid DNS domain name (e.g. `mas.mycompany.com`, `prod-mas.example.org`).
+
+- **Required** for MAS mode
+- Environment Variable: `MAS_DOMAIN`
+- Default: None
+
+All MAS URLs and DNS entries are constructed from this domain (e.g. `admin.{mas_domain}`, `home.{mas_domain}`, `api.{mas_domain}`), and it must be the same domain used in MAS core installation and be properly configured in your DNS provider's zone before running this role. Subdomain mode is available via `cloudflare_subdomain` or `cis_subdomain`. DNS propagation may take time after entries are created.
+
+#### ocp_ingress
+
+Override for the OpenShift cluster ingress domain used as the target for DNS CNAME records — e.g. `apps.cluster-name.domain.com`.
+
+- **Optional**
+- Environment Variable: `OCP_INGRESS`
+- Default: None (automatically detected from the cluster)
+
+Leave unset to allow automatic detection (recommended); set only when automatic detection fails, when using a non-default ingress controller, or in airgap or restricted network environments where detection may not work. An incorrect value will cause DNS entries to point to the wrong location.
+
+### Let's Encrypt HTTP-01
 
 #### mas_le_email
+
 Contact email for Let's Encrypt HTTP-01 certificate issuance. Setting this is the sole signal that enables HTTP-01 mode — no separate flag is needed.
 
 - **Optional** — only required when using Let's Encrypt HTTP-01 with path-based routing
 - Environment Variable: `MAS_LE_EMAIL`
 - Default: None
 
+Only applies when `mas_routing_mode` is `path`; existing DNS-01 behaviour is unchanged when this is not set.
+
 #### mas_issuer_kind
+
 Kind of cert-manager issuer resource to create for Let's Encrypt HTTP-01 (`ClusterIssuer` or `Issuer`).
 
 - **Optional**
@@ -278,193 +218,78 @@ Kind of cert-manager issuer resource to create for Let's Encrypt HTTP-01 (`Clust
 - Default: `ClusterIssuer`
 
 #### mas_ingress_controller_name
-Name of the OpenShift IngressController used for the HTTP-01 ACME challenge solver. Only relevant when `mas_le_email` is set.
+
+Name of the OpenShift IngressController used for the HTTP-01 ACME challenge solver.
 
 - **Optional**
 - Environment Variable: `MAS_INGRESS_CONTROLLER_NAME`
 - Default: `default`
 
+Only relevant when `mas_le_email` is set.
+
+### Resource Labels and Output
+
 #### custom_labels
-Comma-separated list of key=value labels to apply to DNS-related resources.
+
+Comma-separated list of `key=value` labels to apply to DNS-related resources (e.g. `env=prod,team=platform,component=dns`).
 
 - **Optional**
 - Environment Variable: `CUSTOM_LABELS`
 - Default: None
 
-**Purpose**: Adds Kubernetes labels to DNS-related resources for organization, selection, and filtering. Labels enable resource tracking, cost allocation, and custom automation.
-
-**When to use**:
-
-- Use to add organizational metadata (e.g., `cost-center=engineering`, `environment=production`)
-- Use to enable resource tracking and cost allocation
-- Use to support custom automation or monitoring tools
-- Use to comply with organizational labeling standards
-
-**Valid values**: Comma-separated list of `key=value` pairs (e.g., `env=prod,team=platform,component=dns`)
-
-**Impact**: Labels are applied to DNS-related resources and can be used for filtering with `oc get` commands, monitoring queries, and automation scripts. Labels do not affect DNS functionality.
-
-**Related variables**: Works alongside Kubernetes resource labels for comprehensive resource management.
-
-#### mas_manual_cert_mgmt
-Controls whether to disable automatic DNS and certificate management.
-
-- **Optional**
-- Environment Variable: `MAS_MANUAL_CERT_MGMT`
-- Default: `false`
-
-**Purpose**: Allows you to opt out of automatic DNS entry creation and certificate management when you prefer to manage these manually or through alternative methods.
-
-**When to use**:
-
-- Set to `true` when managing DNS entries manually
-- Set to `true` when using custom certificate management solutions
-- Set to `true` when DNS provider integration is not available
-- Leave as `false` (default) for automated DNS and certificate management
-
-**Valid values**: `true`, `false`
-
-**Impact**: 
-
-- When `true`: This role takes no action; DNS entries and certificates must be managed manually
-- When `false`: Role automatically creates DNS entries and optionally configures Let's Encrypt integration
-
-**Related variables**: When `true`, all other DNS provider variables are ignored.
-
-**Note**: Setting to `true` means you are responsible for creating all required DNS entries and managing certificates manually. Ensure proper DNS configuration before MAS installation.
+Labels are for organization, selection, filtering, resource tracking, cost allocation, and custom automation; they do not affect DNS functionality.
 
 #### output_dir
-Local directory path where the edge routes output file will be saved.
+
+Local directory path where the edge routes output file will be saved — any valid local filesystem path (e.g. `/home/user/mas-output`, `~/masconfig`, `./output`).
 
 - **Optional**
 - Environment Variable: `OUTPUT_DIR`
 - Default: `.` (current directory)
 
-**Purpose**: Specifies where to save the `edge-routes-{mas_instance_id}.txt` file containing information about the DNS entries and routes created by this role. This file is useful for verification and troubleshooting.
-
-**When to use**:
-
-- Set to a specific directory for organized output file management
-- Use default (current directory) for simple deployments
-- Set to a shared location for team access to route information
-
-**Valid values**: Any valid local filesystem path (e.g., `/home/user/mas-output`, `~/masconfig`, `./output`)
-
-**Impact**: The edge routes file will be created in this directory. The file contains DNS entry details and can be used to verify DNS configuration.
-
-**Related variables**: Output filename includes `mas_instance_id` for identification.
-
-**Note**: Ensure the directory exists and is writable. The file provides useful information for verifying DNS setup and troubleshooting connectivity issues.
+The `edge-routes-{mas_instance_id}.txt` file containing information about the DNS entries and routes created by this role is written to this directory; it is useful for verifying DNS configuration and troubleshooting connectivity issues. Ensure the directory exists and is writable.
 
 ### Cloudflare DNS Integration
 
 #### cloudflare_email
-Email address associated with your Cloudflare account.
+
+Email address associated with your Cloudflare account, used together with `cloudflare_apitoken` to authenticate Cloudflare API requests.
 
 - **Required** if `dns_provider` is set to `cloudflare`
 - Environment Variable: `CLOUDFLARE_EMAIL`
 - Default: None
 
-**Purpose**: Provides the email address for authenticating with Cloudflare API. This email must be associated with a Cloudflare account that has access to manage the DNS zone.
-
-**When to use**:
-
-- Required when `dns_provider=cloudflare`
-- Must be the email address used to log into Cloudflare
-- Account must have permissions to manage DNS records in the target zone
-
-**Valid values**: Valid email address associated with a Cloudflare account
-
-**Impact**: Used together with `cloudflare_apitoken` to authenticate API requests. Incorrect email will cause authentication failures.
-
-**Related variables**:
-
-- `cloudflare_apitoken`: Must be set together with this email
-- `cloudflare_zone`: Zone that this account has access to manage
-
-**Note**: Ensure the Cloudflare account has appropriate permissions to create and manage DNS records in the target zone.
+The account must have permissions to create and manage DNS records in the target zone (`cloudflare_zone`); an incorrect email will cause authentication failures.
 
 #### cloudflare_apitoken
-API token for authenticating with Cloudflare API.
+
+API token for authenticating with the Cloudflare API, used together with `cloudflare_email`.
 
 - **Required** if `dns_provider` is set to `cloudflare`
 - Environment Variable: `CLOUDFLARE_APITOKEN`
 - Default: None
 
-**Purpose**: Provides the API token credential for authenticating with Cloudflare to create and manage DNS records. This token must have appropriate permissions for DNS management.
-
-**When to use**:
-
-- Required when `dns_provider=cloudflare`
-- Generate from Cloudflare dashboard with DNS edit permissions
-- Token must have access to the target DNS zone
-
-**Valid values**: Valid Cloudflare API token string
-
-**Impact**: Used together with `cloudflare_email` to authenticate API requests. Invalid or insufficient permissions will cause DNS operations to fail.
-
-**Related variables**:
-
-- `cloudflare_email`: Must be set together with this token
-- `cloudflare_zone`: Zone that this token has permissions to manage
-
-**Note**: Generate the API token following the [Cloudflare documentation](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/). Ensure the token has DNS edit permissions for the target zone. Keep this token secure and do not commit to source control.
+Generate the token from the Cloudflare dashboard with DNS edit permissions for the target zone, following the [Cloudflare documentation](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/). Keep this token secure and do not commit it to source control.
 
 #### cloudflare_zone
-DNS zone name managed by Cloudflare where MAS DNS entries will be created.
+
+DNS zone name managed by Cloudflare where MAS DNS entries will be created — e.g. `mydomain.com`, `example.org`.
 
 - **Required** if `dns_provider` is set to `cloudflare`
 - Environment Variable: `CLOUDFLARE_ZONE`
 - Default: None
 
-**Purpose**: Specifies the Cloudflare DNS zone (domain) where MAS DNS records will be created. This must be a domain that is already configured and active in your Cloudflare account.
-
-**When to use**:
-
-- Required when `dns_provider=cloudflare`
-- Must match a zone configured in your Cloudflare account
-- Should be the parent domain of `mas_domain` (or equal to it for top-level entries)
-
-**Valid values**: Valid domain name managed in Cloudflare (e.g., `mydomain.com`, `example.org`)
-
-**Impact**: DNS entries will be created in this zone. The zone must exist in Cloudflare and be accessible with the provided credentials. Incorrect zone will cause DNS operations to fail.
-
-**Related variables**:
-
-- `mas_domain`: Should be within this zone (e.g., if zone is `mydomain.com`, mas_domain could be `mas.mydomain.com`)
-- `cloudflare_subdomain`: Optional subdomain within this zone for MAS entries
-- `cloudflare_email` and `cloudflare_apitoken`: Must have access to this zone
-
-**Note**: Ensure the zone is active in Cloudflare and DNS is properly delegated before running this role.
+Must be an active zone configured in your Cloudflare account and the parent domain of `mas_domain` (or equal to it for top-level entries); the credentials used must have access to this zone. Ensure the zone is active and DNS is properly delegated before running this role.
 
 #### cloudflare_subdomain
+
 Subdomain within the Cloudflare zone for MAS DNS entries (subdomain mode).
 
 - **Optional**
 - Environment Variable: `CLOUDFLARE_SUBDOMAIN`
 - Default: None (uses top-level DNS entries)
 
-**Purpose**: Enables subdomain mode for DNS management, where MAS DNS entries are created under a subdomain rather than at the top level of the zone. This allows multiple MAS instances or other services to share the same DNS zone.
-
-**When to use**:
-
-- Use when your DNS zone will host multiple MAS instances or other services
-- Use when `mas_domain` is a subdomain of `cloudflare_zone`
-- Leave unset when `mas_domain` equals `cloudflare_zone` (top-level mode)
-
-**Valid values**: Subdomain name (e.g., if `cloudflare_zone=mycompany.com` and `mas_domain=mas.mycompany.com`, set to `mas`)
-
-**Impact**: 
-
-- When set: DNS entries created as `admin.{cloudflare_subdomain}`, `home.{cloudflare_subdomain}`, etc.
-- When unset: DNS entries created as `admin`, `home`, etc. directly in the zone
-
-**Related variables**:
-
-- `cloudflare_zone`: Parent zone for this subdomain
-- `mas_domain`: Should equal `{cloudflare_subdomain}.{cloudflare_zone}`
-
-**Note**: The relationship must be: `cloudflare_subdomain.cloudflare_zone` = `mas_domain`. For example, if zone is `mycompany.com` and mas_domain is `mas.mycompany.com`, set subdomain to `mas`.
+Use when your DNS zone will host multiple MAS instances or other services, i.e. when `mas_domain` is a subdomain of `cloudflare_zone`. When set, DNS entries are created as `admin.{cloudflare_subdomain}`, `home.{cloudflare_subdomain}`, etc.; when unset, entries are created directly in the zone as `admin`, `home`, etc. The relationship must be `{cloudflare_subdomain}.{cloudflare_zone}` = `mas_domain` — for example, if the zone is `mycompany.com` and `mas_domain` is `mas.mycompany.com`, set the subdomain to `mas`.
 
 ### IBM Cloud Internet Services DNS Integration
 
@@ -477,358 +302,195 @@ oc adm policy add-scc-to-user anyuid -z cert-manager-webhook-ibm-cis -n ibm-comm
 ```
 
 #### cis_email
+
 Email address for Let's Encrypt ClusterIssuer registration when using IBM CIS.
 
 - **Required** if `dns_provider` is set to `cis`
 - Environment Variable: `CIS_EMAIL`
 - Default: None
 
-**Purpose**: Provides the email address that will be registered with Let's Encrypt when creating the ClusterIssuer for automatic certificate management. Let's Encrypt uses this email for certificate expiration notifications and account recovery.
-
-**When to use**:
-
-- Required when `dns_provider=cis`
-- Use a monitored email address to receive Let's Encrypt notifications
-- Typically use a team or service email rather than personal email
-
-**Valid values**: Valid email address
-
-**Impact**: This email is embedded in the ClusterIssuer resource and registered with Let's Encrypt. You'll receive notifications about certificate renewals and any issues at this address.
-
-**Related variables**:
-
-- `cis_apikey` and `cis_crn`: Required together for CIS integration
-- Used in ClusterIssuer: `{mas_instance_id}-cis-le-prod`
-
-**Note**: Use a monitored email address as Let's Encrypt sends important notifications about certificate expiration and renewal issues.
+This email is embedded in the `{mas_instance_id}-cis-le-prod` ClusterIssuer and registered with Let's Encrypt, which uses it for certificate expiration notifications and account recovery — use a monitored team or service email address rather than a personal one.
 
 #### cis_apikey
+
 IBM Cloud API key for authenticating with IBM Cloud Internet Services.
 
 - **Required** if `dns_provider` is set to `cis`
 - Environment Variable: `CIS_APIKEY`
 - Default: None
 
-**Purpose**: Provides the IBM Cloud API key credential for authenticating with IBM Cloud Internet Services to create and manage DNS records and configure Let's Encrypt integration.
-
-**When to use**:
-
-- Required when `dns_provider=cis`
-- Generate from IBM Cloud IAM with appropriate CIS permissions
-- Key must have access to the CIS instance specified by `cis_crn`
-
-**Valid values**: Valid IBM Cloud API key string
-
-**Impact**: Used to authenticate all CIS API operations including DNS record management and ClusterIssuer configuration. Invalid key or insufficient permissions will cause operations to fail.
-
-**Related variables**:
-
-- `cis_crn`: CIS instance that this API key has access to
-- `cis_email`: Email for Let's Encrypt registration
-
-**Note**: Generate the API key from IBM Cloud IAM. Ensure it has appropriate permissions for the CIS instance. Keep this key secure and do not commit to source control.
+Generate the key from IBM Cloud IAM with permissions for the CIS instance specified by `cis_crn`; it authenticates all CIS API operations including DNS record management and ClusterIssuer configuration. Keep this key secure and do not commit it to source control.
 
 #### cis_crn
-Cloud Resource Name (CRN) identifying the IBM Cloud Internet Services instance.
+
+Cloud Resource Name (CRN) identifying the IBM Cloud Internet Services instance — format `crn:v1:bluemix:public:internet-svcs:...`.
 
 - **Required** if `dns_provider` is set to `cis`
 - Environment Variable: `CIS_CRN`
 - Default: None
 
-**Purpose**: Uniquely identifies the specific IBM Cloud Internet Services instance where DNS records will be managed. The CRN ensures operations target the correct CIS instance when multiple instances exist.
-
-**When to use**:
-
-- Required when `dns_provider=cis`
-- Obtain from IBM Cloud CIS instance details
-- Must correspond to the CIS instance containing your DNS zone
-
-**Valid values**: Valid IBM Cloud CRN string (format: `crn:v1:bluemix:public:internet-svcs:...`)
-
-**Impact**: All DNS operations will target this CIS instance. Incorrect CRN will cause operations to fail or target the wrong instance.
-
-**Related variables**:
-
-- `cis_apikey`: Must have permissions for this CIS instance
-- DNS zone must be configured in this CIS instance
-
-**Note**: Find the CRN in the IBM Cloud console under your CIS instance details. Ensure the CRN matches the instance containing your target DNS zone.
+Obtain the CRN from the IBM Cloud console under your CIS instance details; it must correspond to the instance containing your target DNS zone. All DNS operations target this CIS instance, so an incorrect CRN will cause operations to fail or target the wrong instance.
 
 #### cis_subdomain
+
 Subdomain within the CIS zone for MAS DNS entries (subdomain mode).
 
 - **Optional**
 - Environment Variable: `CIS_SUBDOMAIN`
 - Default: None (uses top-level DNS entries)
 
-**Purpose**: Enables subdomain mode for DNS management, where MAS DNS entries are created under a subdomain rather than at the top level of the CIS zone. This allows multiple MAS instances or other services to share the same DNS zone.
-
-**When to use**:
-
-- Use when your CIS zone will host multiple MAS instances or other services
-- Use when `mas_domain` is a subdomain of your CIS zone domain
-- Leave unset when `mas_domain` equals the CIS zone domain (top-level mode)
-
-**Valid values**: Subdomain name (e.g., if CIS zone is `mycompany.com` and `mas_domain=mas.mycompany.com`, set to `mas`)
-
-**Impact**: 
-
-- When set: DNS entries created as `admin.{cis_subdomain}`, `home.{cis_subdomain}`, etc.
-- When unset: DNS entries created as `admin`, `home`, etc. directly in the zone
-
-**Related variables**:
-
-- CIS zone domain: Parent zone for this subdomain
-- `mas_domain`: Should equal `{cis_subdomain}.{cis_zone_domain}`
-
-**Note**: The relationship must be: `cis_subdomain.{cis_zone_domain}` = `mas_domain`. For example, if CIS zone is `mycompany.com` and mas_domain is `mas.mycompany.com`, set subdomain to `mas`.
+Use when your CIS zone will host multiple MAS instances or other services, i.e. when `mas_domain` is a subdomain of your CIS zone domain. When set, DNS entries are created as `admin.{cis_subdomain}`, `home.{cis_subdomain}`, etc.; when unset, entries are created directly in the zone as `admin`, `home`, etc. The relationship must be `{cis_subdomain}.{cis_zone_domain}` = `mas_domain` — for example, if the CIS zone is `mycompany.com` and `mas_domain` is `mas.mycompany.com`, set the subdomain to `mas`.
 
 #### cis_enhanced_security
+
 Enables enhanced security features for IBM CIS DNS integration.
 
 - **Optional**
 - Environment Variable: `CIS_ENHANCED_SECURITY`
 - Default: `false`
 
-**Purpose**: Activates a comprehensive set of security enhancements for CIS including WAF configuration, proxy mode, expanded DNS entries, wildcard prevention, and edge certificates. This provides optimal security for MAS deployments using CIS.
+When enabled, this configures a WAF firewall with rules optimized for MAS (`cis_waf`), proxy mode for DNS entries so traffic is routed through CIS (`cis_proxy`), an expanded list of DNS entries for comprehensive coverage, prevention of wildcard DNS entries, and edge certificates in the CIS instance. Recommended for production environments requiring WAF and proxy protection; leave `false` for development/test environments. See the [IBM Cloud CIS security documentation](https://cloud.ibm.com/docs/cis?topic=cis-manage-your-ibm-cis-for-optimal-security) for details — enhanced security may impact performance due to proxy routing.
 
-**When to use**:
+#### cis_service_name
 
-- Set to `true` for production environments requiring enhanced security
-- Set to `true` when security compliance requires WAF and proxy protection
-- Leave as `false` for development/test environments or when enhanced features aren't needed
+Custom name for the CIS service resources created in the cluster — a valid Kubernetes resource name (lowercase alphanumeric with hyphens).
 
-**Valid values**: `true`, `false`
+- **Optional**
+- Environment Variable: `CIS_SERVICE_NAME`
+- Default: `{ClusterName}-cis-{mas_instance_id}` (auto-generated)
 
-**Impact**: When enabled, this configures:
+Leave unset to use the auto-generated name (recommended); set only when you need a specific naming convention or when the auto-generated name conflicts with existing resources. Changing it after initial deployment may cause issues with resource management.
 
-- WAF firewall with rules optimized for MAS
-- Proxy mode for DNS entries (traffic routed through CIS)
-- Expanded list of DNS entries for comprehensive coverage
-- Prevention of wildcard DNS entries
-- Edge certificates in CIS instance
-
-**Related variables**:
-
-- `cis_waf`: Controls WAF specifically (when enhanced_security is true)
-- `cis_proxy`: Controls proxy mode (when enhanced_security is true)
-
-**Note**: See [IBM Cloud CIS security documentation](https://cloud.ibm.com/docs/cis?topic=cis-manage-your-ibm-cis-for-optimal-security) for details. Enhanced security may impact performance due to proxy routing.
-
-### Enhanced IBM CIS DNS Integration Security
-
-See the `cis_enhanced_security` variable above for details.
+### Enhanced IBM CIS Security
 
 #### cis_waf
+
 Controls Web Application Firewall (WAF) configuration for CIS.
 
 - **Optional**
 - Environment Variable: `CIS_WAF`
 - Default: `true`
 
-**Purpose**: Enables or disables WAF configuration with rules optimized for MAS application functionality. WAF provides protection against common web attacks while ensuring MAS features work correctly.
-
-**When to use**:
-
-- Leave as `true` (default) for production environments requiring WAF protection
-- Set to `false` only if WAF causes issues or conflicts with other security tools
-- Typically used in conjunction with `cis_enhanced_security`
-
-**Valid values**: `true`, `false`
-
-**Impact**: 
-
-- When `true`: Configures WAF with rules that protect MAS while allowing required functionality
-- When `false`: WAF is not configured (less security protection)
-
-**Related variables**:
-
-- `cis_enhanced_security`: When true, this setting is part of enhanced security features
-- `cis_proxy`: Often used together for comprehensive security
-
-**Note**: WAF rules are specifically tuned to avoid blocking legitimate MAS application traffic. Default is `true` for security best practices.
+When `true`, the WAF is configured with rules specifically tuned to protect MAS while allowing required application functionality; when `false`, the WAF is not configured (less security protection). Set to `false` only if WAF causes issues or conflicts with other security tools. Typically used in conjunction with `cis_enhanced_security` and `cis_proxy`.
 
 #### cis_proxy
+
 Controls whether DNS entries use CIS proxy mode (traffic routed through CIS).
 
 - **Optional**
 - Environment Variable: `CIS_PROXY`
 - Default: `false`
 
-**Purpose**: Enables proxy mode for DNS entries, routing traffic through IBM CIS infrastructure. This provides additional security, DDoS protection, and performance optimization but adds latency.
+When `true`, traffic routes through CIS (orange cloud icon in the CIS console), enabling DDoS protection and CIS security features but adding latency; when `false`, DNS entries point directly to the OpenShift ingress (grey cloud icon) — lower latency but no CIS protection. Proxy mode is required for WAF and other CIS security features to function, so consider the latency vs. security tradeoff for your use case.
 
-**When to use**:
+#### cis_allowed_ips
 
-- Set to `true` for production environments requiring DDoS protection
-- Set to `true` when using CIS security features (WAF, rate limiting)
-- Set to `false` for direct routing (lower latency, less protection)
-- Typically enabled with `cis_enhanced_security`
-
-**Valid values**: `true`, `false`
-
-**Impact**: 
-
-- When `true`: Traffic routes through CIS (orange cloud icon in CIS console), enabling security features but adding latency
-- When `false`: DNS entries point directly to OpenShift ingress (grey cloud icon), lower latency but no CIS protection
-
-**Related variables**:
-
-- `cis_enhanced_security`: When true, proxy is typically enabled
-- `cis_waf`: Requires proxy mode to function
-
-**Note**: Proxy mode is required for WAF and other CIS security features to work. Consider the latency vs. security tradeoff for your use case.
-
-#### cis_service_name
-Custom name for the CIS service resources created in the cluster.
+Comma-separated list of IP addresses or CIDR ranges (IPv4 and IPv6) that are permitted to access the MAS instance, e.g. `10.0.0.0/8,192.168.1.0/24,2405:201:d000:9060::/64,49.37.171.108`.
 
 - **Optional**
-- Environment Variable: `CIS_SERVICE_NAME`
-- Default: `{ClusterName}-cis-{mas_instance_id}` (auto-generated)
-
-**Purpose**: Allows customization of the CIS service name used for resources created in the OpenShift cluster. The default name is automatically generated from the cluster name and MAS instance ID.
-
-**When to use**:
-
-- Leave unset to use the auto-generated name (recommended)
-- Set only when you need a specific naming convention
-- Set when the auto-generated name conflicts with existing resources
-
-**Valid values**: Valid Kubernetes resource name (lowercase alphanumeric with hyphens)
-
-**Impact**: This name is used for CIS-related resources in the cluster. Changing it after initial deployment may cause issues with resource management.
-
-**Related variables**: Works with `mas_instance_id` in the default naming pattern.
-
-**Note**: The default auto-generated name is usually sufficient. Only override if you have specific naming requirements or conflicts.
-
+- Environment Variable: `CIS_ALLOWED_IPS`
 - Default: None
 
+When set, a CIS WAF custom block rule is created with the expression `not ip.src in {<ip1> <ip2> ...} and http.host contains "<mas_domain>"`, denying all traffic not originating from the specified IPs on the MAS domain. When unset or empty, any existing WAF block rule for this instance is removed, restoring unrestricted access.
+
+- **Supported MAS versions**: `9.1.x` and above only; ignored when `mas_channel` is `9.0.x` or earlier
+
+Requires `dns_provider=cis` with CIS enhanced security enabled (`cis_enhanced_security` and `cis_waf`); the rule is scoped to `mas_domain` and identified in CIS by the description `mas-ip-allowlist-<mas_domain>`. IP allowlisting requires MAS `9.1.x` or above — when `mas_channel` is `9.0.x` or earlier, the WAF allowlist task is automatically skipped regardless of whether this variable is set.
+
+!!! note "Feature status reporting (SaaS)"
+    When the allowlist is added, updated or removed, the role records the progress of the change in the SaaS feature status MongoDB by calling `mas-devops-feature-status-update`. Status is written only when **all** of the following are true:
+
+    - MAS mode is enabled
+    - `cis_waf` is enabled and `mas_channel` is `9.1.x` or above
+    - `devops_mongo_uri`, `account_id`, `cluster_id` and `region_id` are all set (no status call is made when any of them is empty)
+    - The WAF rule in CIS differs from the requested `cis_allowed_ips` (no status call is made when the allowlist is already in the desired state)
+
+    Status is only ever written for the MAS instance; in AI Service mode the allowlist rule is still managed, but no status is written.
+
+    | Status | Written when |
+    |---|---|
+    | `REQUESTED` | An allowlist change is detected, before any other CIS work starts |
+    | `IN_PROGRESS` | Just before the WAF rule is created, updated or deleted |
+    | `ACTIVE` | The WAF rule was created or updated successfully |
+    | `DEACTIVATED` | The WAF rule was deleted successfully (`cis_allowed_ips` unset or empty) |
+    | `ERROR` | A failure occurs after `REQUESTED` and the allowlist change has not completed successfully, including a failed WAF rule call after its retries. A failure after `ACTIVE` / `DEACTIVATED` has been reached does not write `ERROR` |
+
+    Whether or not status reporting is active, a failed CIS call (including a failed WAF rule create / update / delete after its retries) always fails the job. The call made for each status is:
+
+    ```bash
+    mas-devops-feature-status-update status-update \
+      --region "<region_id>" \
+      --instance-id "<mas_instance_id>" \
+      --account "<account_id>" \
+      --cluster "<cluster_id>" \
+      --subscription-id "<subscription_id>" \
+      --type allow-list \
+      --feature-details '{"ips": ["<ip1>", "<ip2>"]}' \
+      --deployment-start "<start timestamp>" \
+      --status <REQUESTED|IN_PROGRESS|ACTIVE|DEACTIVATED|ERROR> \
+      --status-details '{"message": "<message>", "request_configuration": "<ip1>, <ip2>"}' \
+      --deployment-end "<end timestamp>"
+    ```
+
+    - `--feature-details` carries the requested IPs (`[]` when the allowlist is being removed).
+    - `--subscription-id` is optional and is only passed when `subscription_id` is set.
+    - `--deployment-start` is the time the change was detected (taken when the change is detected, not when the play started) and is passed unchanged on every call.
+    - `--deployment-end` is only passed for `ACTIVE`, `DEACTIVATED` and `ERROR`, and is taken when that status is written.
+    - The JSON passed to `--status-details` and `--feature-details` is built in Ansible and shell-quoted, so quotes, newlines and backslashes in CIS output are safe.
+    - For `ERROR`, `--status-details` also includes `error_code` and an `error_source` object (`gitops_version`, `filename`, `log_file` and `stacktrace`).
+
+    The following variables are used when writing the status:
+
+    | Variable | Environment variable | Default |
+    |---|---|---|
+    | `devops_mongo_uri` | `DEVOPS_MONGO_URI` | None. Status updates are skipped when empty |
+    | `account_id` | `ACCOUNT_ID` | None. Status updates are skipped when empty |
+    | `cluster_id` | `CLUSTER_ID` | None. Status updates are skipped when empty |
+    | `region_id` | `REGION_ID` | None. Status updates are skipped when empty |
+    | `subscription_id` | `SLS_SUBSCRIPTION_ID` | None. Optional, `--subscription-id` is omitted when empty |
+
+    `account_id`, `cluster_id`, `region_id` and `subscription_id` identify the **MAS instance** the status is recorded for — they are not the account, region or cluster of the CIS instance.
+
+!!! warning
+    Failures while disabling WAF rules (`cis_waf_rule.yml`) or managed ruleset rules (`cis_managed_ruleset.yml`) used to be tolerated and now fail the job in MAS mode, so that they are reported as `ERROR` and are not silently ignored.
+
+### IBM CIS DNS Entries and Edge Certificates
+
 #### update_dns
-Set this to false if you want to not update DNS entries if they already exist.
+
+Whether to update DNS entries if they already exist.
 
 - **Optional**
 - Environment Variable: `UPDATE_DNS_ENTRIES`
 - Default: `true`
 
+Set to `false` to leave existing DNS entries untouched.
+
 #### delete_wildcards
-Set this to true to force deletion of wildcard dns entries in cis.
+
+Whether to force deletion of wildcard DNS entries in CIS.
 
 - **Optional**
 - Environment Variable: `DELETE_WILDCARDS`
 - Default: `false`
 
 #### override_edge_certs
-Set this to false to not override and delete any existing edge certificates in cis instance when creating new edge certificates.
+
+Whether to override and delete any existing edge certificates in the CIS instance when creating new edge certificates.
 
 - **Optional**
 - Environment Variable: `OVERRIDE_EDGE_CERTS`
 - Default: `true`
 
+Set to `false` to keep existing edge certificates.
+
 #### cis_entries_to_add
-Comma separated list of entries to add for edge certificates. These are broken down into functional areas of MAS. The options are: `all` (include all entries - default), `core` (MAS Core), `health` (MAS Health App), `iot` (MAS IoT app), `manage` (MAS Manage app), `monitor` (MAS Monitor app), `predict` (MAS Predict app), `visualinspection` (MAS VisualInspection app), `optimizer` (MAS Optimizer app), `assist` (MAS Assist app), `arcgis` (MAS Arcgis), `reportdb` (MAS ReportDB), `facilities` (MAS Facilities app), `cpd-public` (CP4D public route — creates `cpd-public.<mas_domain>` DNS CNAME and edge certificate for VPN-free CP4D access).
+
+Comma separated list of entries to add for edge certificates, broken down into functional areas of MAS: `all` (include all entries — default), `core` (MAS Core), `health` (MAS Health App), `iot` (MAS IoT app), `manage` (MAS Manage app), `monitor` (MAS Monitor app), `predict` (MAS Predict app), `visualinspection` (MAS VisualInspection app), `optimizer` (MAS Optimizer app), `assist` (MAS Assist app), `arcgis` (MAS Arcgis), `reportdb` (MAS ReportDB), `facilities` (MAS Facilities app), `cpd-public` (CP4D public route — creates `cpd-public.<mas_domain>` DNS CNAME and edge certificate for VPN-free CP4D access).
 
 - **Optional**
 - Environment Variable: `CIS_ENTRIES_TO_ADD`
 - Default: `all`
-
-#### cis_allowed_ips
-Comma-separated list of IP addresses or CIDR ranges (IPv4 and IPv6) that are permitted to access the MAS instance. When set, a CIS WAF custom block rule is created that denies all traffic **not** originating from the specified IPs on the MAS domain. When unset or empty, any existing WAF block rule for this instance is removed.
-
-- **Optional**
-- Environment Variable: `CIS_ALLOWED_IPS`
-- Default: None
-- **Supported MAS versions**: `9.1.x` and above only. This variable is ignored when `mas_channel` is set to `9.0.x` or earlier.
-
-**Purpose**: Restricts access to MAS public routes by creating a CIS WAF custom rule with the expression:
-```text
-not ip.src in {<ip1> <ip2> ...} and http.host contains "<mas_domain>"
-```
-
-**When to use**:
-
-- Set when you want to restrict MAS access to specific IPs or corporate network ranges
-- Leave unset to allow unrestricted public access
-
-**Valid values**: Comma-separated IPs/CIDRs, e.g.:
-```text
-10.0.0.0/8,192.168.1.0/24,2405:201:d000:9060::/64,49.37.171.108
-```
-
-**Impact**:
-
-- **Set**: Creates or updates a WAF block rule scoped to `mas_domain` — only the listed IPs can access the instance
-- **Unset/empty**: Deletes the existing WAF block rule, restoring unrestricted access
-
-**MAS version requirement**:
-IP allowlisting requires MAS `9.1.x` or above. When `mas_channel` is `9.0.x` or earlier, the WAF allowlist task is automatically skipped regardless of whether `cis_allowed_ips` is set. To use IP allowlisting, ensure `mas_channel` is set to `9.1.x` or later.
-
-**Related variables**:
-
-- `cis_service_name`: CIS instance used to manage the rule
-- `cis_enhanced_security`: Should be enabled when using IP allowlisting
-- `mas_domain`: Used to scope the WAF rule to the correct MAS instance domain
-- `mas_channel`: Must be `9.1.x` or above for allowlisting to take effect
-
-**Note**: Requires `dns_provider=cis` and CIS enhanced security to be enabled. The Custom WAF rule is identified by the description `mas-ip-allowlist-<mas_domain>` and is created/updated/deleted automatically based on whether this variable is set.
-
-**Feature status reporting**:
-When the allowlist is added, updated or removed, the role records the progress of the change in the SaaS feature status MongoDB by calling `mas-devops-feature-status-update`. Status is written only when **all** of the following are true:
-
-- MAS mode is enabled
-- `cis_waf` is enabled and `mas_channel` is `9.1.x` or above
-- `devops_mongo_uri`, `account_id`, `cluster_id` and `region_id` are all set (no status call is made when any of them is empty)
-- The WAF rule in CIS differs from the requested `cis_allowed_ips` (no status call is made when the allowlist is already in the desired state)
-
-Status is only ever written for the MAS instance. In AI Service mode the allowlist rule is still managed, but no status is written.
-
-| Status | Written when |
-|---|---|
-| `REQUESTED` | An allowlist change is detected, before any other CIS work starts |
-| `IN_PROGRESS` | Just before the WAF rule is created, updated or deleted |
-| `ACTIVE` | The WAF rule was created or updated successfully |
-| `DEACTIVATED` | The WAF rule was deleted successfully (`cis_allowed_ips` unset or empty) |
-| `ERROR` | A failure occurs after `REQUESTED` and the allowlist change has not completed successfully, including a failed WAF rule call after its retries. A failure after `ACTIVE` / `DEACTIVATED` has been reached does not write `ERROR` |
-
-Whether or not status reporting is active, a failed CIS call (including a failed WAF rule create / update / delete after its retries) always fails the job.
-
-The call made for each status is:
-
-```bash
-mas-devops-feature-status-update status-update \
-  --region "<region_id>" \
-  --instance-id "<mas_instance_id>" \
-  --account "<account_id>" \
-  --cluster "<cluster_id>" \
-  --subscription-id "<subscription_id>" \
-  --type allow-list \
-  --feature-details '{"ips": ["<ip1>", "<ip2>"]}' \
-  --deployment-start "<start timestamp>" \
-  --status <REQUESTED|IN_PROGRESS|ACTIVE|DEACTIVATED|ERROR> \
-  --status-details '{"message": "<message>", "request_configuration": "<ip1>, <ip2>"}' \
-  --deployment-end "<end timestamp>"
-```
-
-- `--feature-details` carries the requested IPs (`[]` when the allowlist is being removed).
-- `--subscription-id` is optional and is only passed when `subscription_id` is set.
-- `--deployment-start` is the time the change was detected (taken when the change is detected, not when the play started) and is passed unchanged on every call.
-- `--deployment-end` is only passed for `ACTIVE`, `DEACTIVATED` and `ERROR`, and is taken when that status is written.
-- The JSON passed to `--status-details` and `--feature-details` is built in Ansible and shell-quoted, so quotes, newlines and backslashes in CIS output are safe.
-- For `ERROR`, `--status-details` also includes `error_code` and an `error_source` object (`gitops_version`, `filename`, `log_file` and `stacktrace`).
-
-The following variables are used when writing the status:
-
-| Variable | Environment variable | Default |
-|---|---|---|
-| `devops_mongo_uri` | `DEVOPS_MONGO_URI` | None. Status updates are skipped when empty |
-| `account_id` | `ACCOUNT_ID` | None. Status updates are skipped when empty |
-| `cluster_id` | `CLUSTER_ID` | None. Status updates are skipped when empty |
-| `region_id` | `REGION_ID` | None. Status updates are skipped when empty |
-| `subscription_id` | `SLS_SUBSCRIPTION_ID` | None. Optional, `--subscription-id` is omitted when empty |
-
-!!! note
-    `account_id`, `cluster_id`, `region_id` and `subscription_id` identify the **MAS instance** the status is recorded for. They are not the account, region or cluster of the CIS instance.
-
-**Behaviour change**: failures while disabling WAF rules (`cis_waf_rule.yml`) or managed ruleset rules (`cis_managed_ruleset.yml`) used to be tolerated and now fail the job in MAS mode, so that they are reported as `ERROR` and are not silently ignored.
 
 ### AWS Route 53
 
@@ -843,6 +505,7 @@ Also, you need to have AWS user credentials configured via `aws configure` comma
     This workaround is not automated, as most of the times this is not needed, but when it is, it requires the `cert-manager-controller` pod to be stopped, thus we want to avoid making this behavior as standard approach.
 
 #### route53_hosted_zone_name
+
 AWS Route53 Hosted Zone name.
 
 - **Required** if `dns_provider` is set to `route53`
@@ -850,20 +513,25 @@ AWS Route53 Hosted Zone name.
 - Default: None
 
 #### route53_hosted_zone_region
+
 AWS Route53 Hosted Zone region.
 
 - **Optional**
 - Environment Variable: `ROUTE53_HOSTED_ZONE_REGION`
-- Default: Same value as defined in `AWS_REGION`, or if none defined, then `us-east-2` is the defaulted region
+- Default: Same value as defined in `AWS_REGION`, or `us-east-2` if none is defined
 
 #### route53_subdomain
-If a subdomain is defined, this will be used to create the corresponding CNAME entries in the targeted Route53 hosted zone instance. Therefore, the Route53 subdomain + the Route53 hosted zone name defined, when combined, needs to match with the chosen MAS Domain, otherwise the DNS records won't be able to get resolved. Example: MAS Top Level Domain `my-mas-instance.mycompany.com`, AWS Route53 hosted zone name `mycompany.com`, AWS Route53 subdomain `my-mas-instance`.
+
+Subdomain used to create the corresponding CNAME entries in the targeted Route53 hosted zone.
 
 - **Optional**
 - Environment Variable: `ROUTE53_SUBDOMAIN`
 - Default: None
 
+The Route53 subdomain combined with the Route53 hosted zone name must match the chosen MAS domain, otherwise the DNS records won't be able to get resolved — e.g. MAS top level domain `my-mas-instance.mycompany.com`, AWS Route53 hosted zone name `mycompany.com`, AWS Route53 subdomain `my-mas-instance`.
+
 #### route53_email
+
 AWS Route53 contact e-mail. Will be set in the cluster issuer created in order to receive alerts.
 
 - **Optional**
@@ -871,6 +539,7 @@ AWS Route53 contact e-mail. Will be set in the cluster issuer created in order t
 - Default: None
 
 #### aws_access_key_id
+
 AWS access key ID for authentication.
 
 - **Required** if `dns_provider` is set to `route53`
@@ -878,6 +547,7 @@ AWS access key ID for authentication.
 - Default: None
 
 #### aws_secret_access_key
+
 AWS secret access key for authentication.
 
 - **Required** if `dns_provider` is set to `route53`
@@ -887,28 +557,38 @@ AWS secret access key for authentication.
 ### CloudPak for Data
 
 #### cpd_instance_namespace
+
 Namespace where the Cloud Pak for Data is installed and the `cpd` route exists.
-If set, then this role will also attempt to configure public certificates to the CPD route using the DNS provider defined.
 
 - **Optional**
 - Environment Variable: `CPD_INSTANCE_NAMESPACE`
 - Default: None
 
+If set, then this role will also attempt to configure public certificates to the CPD route using the DNS provider defined.
+
 #### cpd_prod_issuer_name
-Define the certificate issuer responsible for generating the public certificate for your CPD route.
-If not set, then it will use same issuer set for MAS instance.
+
+Certificate issuer responsible for generating the public certificate for your CPD route.
 
 - **Optional**
 - Environment Variable: `CPD_PROD_ISSUER_NAME`
-- Default: Same certificate issuer used for MAS instance
+- Default: `{mas_instance_id}-{dns_provider}-le-prod` (the same production issuer used to set up the MAS instance)
 
 #### cpd_custom_domain
-Define the custom domain for your CPD route.
-If not set, then it will use same domain set for MAS instance.
+
+Custom domain for your CPD route.
 
 - **Optional**
 - Environment Variable: `CPD_CUSTOM_DOMAIN`
-- Default: `cp4d.{{ mas_domain }}`
+- Default: Value of `mas_domain`; the CPD route and certificate are then created for `cp4d.{{ cpd_custom_domain }}`
+
+#### cpd_public_route_enabled
+
+Whether to create the `cpd-public` DNS entry and edge certificate providing VPN-free public access to the CP4D route (`cpd-public.<mas_domain>`).
+
+- **Optional**
+- Environment Variable: `CPD_PUBLIC_ROUTE_ENABLED`
+- Default: `false`
 
 ## Example Playbook
 

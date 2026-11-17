@@ -4,97 +4,79 @@ This role deploys the Red Hat Certificate Manager Operator into the target OpenS
 Certificate Manager provides certificate management capabilities for Kubernetes and OpenShift clusters, enabling automated certificate provisioning and renewal.
 
 ## Prerequisites
+
 - Red Hat Operators CatalogSource must be installed in the cluster
 - Cluster administrator access
 
 ## Role Variables
 
-### General Variables
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`cert_manager_action`](#cert_manager_action) | No | `install` |
+| [`cert_manager_channel`](#cert_manager_channel) | No | `stable-v1` |
+| [`cert_manager_operator_namespace`](#cert_manager_operator_namespace) | No | `cert-manager-operator` |
+| [`cert_manager_namespace`](#cert_manager_namespace) | No | `cert-manager` |
+| [`mas_backup_dir`](#mas_backup_dir) | Conditional | None |
+| [`certmanager_backup_version`](#certmanager_backup_version) | Conditional | Auto-generated |
+
+`mas_backup_dir` and `certmanager_backup_version` only apply when `cert_manager_action` is `backup` or `restore`. `certmanager_backup_version` is auto-generated for backup operations but must be provided explicitly for restore.
+
+### Installation
 
 #### cert_manager_action
-Specifies which operation to perform on the Certificate Manager operator.
+Action to perform on the Certificate Manager operator — one of `install` (deploy the operator and operand), `uninstall` (remove them), `backup` (save the installation resources to an archive), `restore` (recreate the installation from an archive created by the `backup` action), or `none` (skip Certificate Manager operations while running broader playbooks).
 
 - **Optional**
 - Environment Variable: `CERT_MANAGER_ACTION`
 - Default: `install`
 
-**Purpose**: Controls what action the role executes against the Certificate Manager operator. This allows the same role to handle installation, removal, or no action on the cert-manager deployment.
+`install` deploys the Red Hat Certificate Manager Operator to the `cert-manager-operator` namespace and creates the operand in the `cert-manager` namespace. `backup` and `restore` cover only the resources used for the installation — not certificates or secrets created by Certificate Manager for applications, which are backed up as part of the specific service (e.g. MongoDB, SLS) that uses them.
 
-**When to use**:
+!!! warning
+    Certificate Manager is a cluster-wide dependency used by MAS, SLS, and other components. Uninstalling it will break certificate management for all dependent applications. Only use `uninstall` if you are certain no applications depend on it.
 
-- Use `install` (default) for initial deployment or to ensure cert-manager is present
-- Use `uninstall` to remove cert-manager (use with extreme caution)
-- Use `backup` to backup the cert-manager installation resources to an archive
-- Use `restore` to restore the cert-manager installation resources from an archive created from the `backup` action
-- Use `none` to skip cert-manager operations while running broader playbooks
+#### cert_manager_channel
+Update channel for the Red Hat Certificate Manager operator subscription, for example `stable-v1`.
 
-**Valid values**: `install`, `uninstall`, `backup`, `restore`, `none`
+- **Optional**
+- Environment Variable: `REDHAT_CERT_MANAGER_CHANNEL`
+- Default: `stable-v1`
 
-**Impact**: 
+#### cert_manager_operator_namespace
+Namespace into which the Red Hat Certificate Manager Operator is installed.
 
-- `install`: Deploys Red Hat Certificate Manager Operator to `cert-manager-operator` namespace and creates operand in `cert-manager` namespace
-- `uninstall`: Removes cert-manager operator and operand (destructive operation)
-- `backup`: Stores the resources used for the installation (not certificate or secrets) in an archive location
-- `restore`: Restores the resources used for the installation (not certificate or secrets) from an archive location
-- `none`: Role takes no action
+- **Optional**
+- Environment Variable: None (hardcoded in defaults)
+- Default: `cert-manager-operator`
 
-**Related variables**: None
+#### cert_manager_namespace
+Namespace in which the Certificate Manager operand is created.
 
-**Note**: **WARNING** - Certificate Manager is a cluster-wide dependency used by MAS, SLS, and other components. Uninstalling it will break certificate management for all dependent applications. Only use `uninstall` if you are certain no applications depend on it.
+- **Optional**
+- Environment Variable: None (hardcoded in defaults)
+- Default: `cert-manager`
 
-### Backup and Restore Variables
+### Backup and Restore
 
 #### mas_backup_dir
-Directory path where Certificate Manager backup files will be stored.
+Local filesystem directory where backup archives are created (for `backup`) or read from (for `restore`) — any valid local filesystem path, for example `/backup/mas` or `/home/user/certmanager-backups`.
 
-- **Required** for backup and restore operations
+- **Required** when `cert_manager_action` is `backup` or `restore`
 - Environment Variable: `MAS_BACKUP_DIR`
 - Default: None
 
-**Purpose**: Specifies the local filesystem directory where backup archives will be created (for backup) or read from (for restore). This directory serves as the central location for all Certificate Manager backup data.
-
-**When to use**:
-
-- Required when `cert_manager_action` is set to `backup` or `restore`
-- Should be a persistent location with sufficient storage space
-- Ensure the directory is accessible and has appropriate permissions
-
-**Valid values**: Any valid local filesystem path (e.g., `/backup/mas`, `/home/user/certmanager-backups`)
-
-**Impact**: All backup files and metadata will be stored in subdirectories under this path. The backup creates a timestamped directory structure: `{mas_backup_dir}/backup-{version}-certmanager/`
-
-**Related variables**: Works with `certmanager_backup_version` to create unique backup directories.
-
-**Note**: Ensure this directory has sufficient space for backup data and is regularly backed up to external storage for disaster recovery.
+All backup files and metadata are stored under `{mas_backup_dir}/backup-{version}-certmanager/`. Use a persistent, accessible location with sufficient storage space, secure it with appropriate permissions (chmod 700 recommended), and back it up to external storage for disaster recovery.
 
 #### certmanager_backup_version
-Version identifier for the backup, used to create unique backup directories.
+Version identifier for the backup, allowing multiple backups to coexist and enabling point-in-time restores — any string suitable for directory names (alphanumeric, hyphens, underscores), auto-generated as a `YYYYMMDD-HHMMSS` timestamp (e.g. `20260122-131500`) when not provided.
 
-- **Optional** for backup (auto-generated if not provided)
-- **Required** for restore
+- **Optional** for backup (auto-generated if not provided); **Required** for restore
 - Environment Variable: `CERTMANAGER_BACKUP_VERSION`
-- Default: Auto-generated timestamp in format `YYYYMMDD-HHMMSS`
+- Default: Auto-generated timestamp in `YYYYMMDD-HHMMSS` format
 
-**Purpose**: Provides a unique identifier for each backup, allowing multiple backups to coexist and enabling point-in-time restore operations.
-
-**When to use**:
-
-- For backup: Leave unset to auto-generate a timestamp-based version, or provide a custom identifier
-- For restore: Must specify the exact version identifier of the backup to restore
-
-**Valid values**: Any string suitable for directory names (alphanumeric, hyphens, underscores). Auto-generated format: `YYYYMMDD-HHMMSS` (e.g., `20260122-131500`)
-
-**Impact**:
-
-- For backup: Creates directory `{mas_backup_dir}/backup-{version}-certmanager/`
-- For restore: Looks for backup in `{mas_backup_dir}/backup-{version}-certmanager/`
-
-**Related variables**: Works with `mas_backup_dir` to determine backup location.
-
-**Note**: When restoring, you must know the exact backup version identifier. List the contents of `mas_backup_dir` to see available backups.
+The backup is created in (for `backup`) or looked up in (for `restore`) `{mas_backup_dir}/backup-{version}-certmanager/`. When restoring, you must know the exact backup version identifier — list the contents of `mas_backup_dir` to see available backups.
 
 ## Backup and Restore Operations
--------------------------------------------------------------------------------
 
 This section provides comprehensive information about Certificate Manager backup and restore operations.
 
@@ -115,9 +97,10 @@ The Certificate Manager backup operation creates a backup of your Certificate Ma
    - OperatorGroup
 2. **Auto-discovered Secrets**: Any secrets referenced by the backed-up resources are automatically discovered and included
 
-**Note**: The backup does NOT include individual certificates or secrets created by Certificate Manager for applications. Those are backed up as part of the specific service (e.g., MongoDB, SLS) that uses them.
+The backup does **not** include individual certificates or secrets created by Certificate Manager for applications — those are backed up as part of the specific service (e.g. MongoDB, SLS) that uses them.
 
-**Backup Directory Structure:**
+Backup directory structure:
+
 ```text
 {mas_backup_dir}/
 └── backup-{version}-certmanager/
@@ -132,8 +115,6 @@ The Certificate Manager backup operation creates a backup of your Certificate Ma
 
 The Certificate Manager restore operation performs a complete restoration of the Certificate Manager operator and operand:
 
-**Steps:**
-
 1. Validates backup files and required variables
 2. Restores Projects/Namespaces
 3. Restores OperatorGroups
@@ -142,33 +123,13 @@ The Certificate Manager restore operation performs a complete restoration of the
 6. Waits for CertManager cluster Custom Resource to be created (up to 5 minutes)
 7. Waits for cert-manager-webhook deployment to be ready (up to 30 minutes)
 
-**When to use:**
-
-- Disaster recovery scenarios
-- Migrating Certificate Manager to a new cluster
-- Recreating a deleted Certificate Manager instance
-- Setting up a new environment from backup
+Use restore for disaster recovery scenarios, migrating Certificate Manager to a new cluster, recreating a deleted Certificate Manager instance, or setting up a new environment from backup.
 
 ### Important Considerations
 
-**Version Compatibility:**
-
-- Target Certificate Manager version should match the backup version
-- Version upgrades should be performed separately, not during restore
-- The restore process validates version compatibility before proceeding
-
-**Storage Requirements:**
-
-- Ensure sufficient storage in the backup directory
-- Backup directory structure: `{mas_backup_dir}/backup-{version}-certmanager/`
-- Monitor disk space during backup operations
-
-**Security:**
-
-- Backup files contain operator configuration and auto-discovered secrets
-- Secure backup directory with appropriate permissions (chmod 700 recommended)
-- Consider encrypting backups for long-term storage
-- Restrict access to backup files to authorized personnel only
+- **Version compatibility**: The target Certificate Manager version should match the backup version; version upgrades should be performed separately, not during restore. The restore process validates version compatibility before proceeding.
+- **Storage**: Ensure sufficient storage in the backup directory and monitor disk space during backup operations.
+- **Security**: Backup files contain operator configuration and auto-discovered secrets. Secure the backup directory with appropriate permissions (chmod 700 recommended), consider encrypting backups for long-term storage, and restrict access to backup files to authorized personnel only.
 
 ### Backup and Restore Best Practices
 
@@ -179,7 +140,6 @@ The Certificate Manager restore operation performs a complete restoration of the
 5. **Retention Policy**: Implement and document backup retention policies
 6. **Disaster Recovery**: Include Certificate Manager backup/restore in your DR plan
 7. **Coordinate with Services**: Coordinate Certificate Manager backups with dependent service backups
-
 
 ## Example Playbook
 After installing the Ansible Collection you can include this role in your own custom playbooks.

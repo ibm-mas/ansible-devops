@@ -4,613 +4,360 @@ This role is used to configure specific components of the application workspace 
 
 ## Role Variables
 
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`mas_instance_id`](#mas_instance_id) | Yes | None |
+| [`mas_app_id`](#mas_app_id) | Yes | None |
+| [`mas_workspace_id`](#mas_workspace_id) | Yes | None |
+| [`custom_labels`](#custom_labels) | No | None |
+| [`mas_appws_spec`](#mas_appws_spec) | No | Application-specific defaults |
+| [`mas_appws_bindings_jdbc`](#mas_appws_bindings_jdbc) | No | `system` |
+| [`mas_appws_components`](#mas_appws_components) | No | Application-specific defaults |
+| [`mas_pod_templates_dir`](#mas_pod_templates_dir) | No | None |
+| [`mas_appws_settings_deployment_size`](#mas_appws_settings_deployment_size) | No | `small` |
+| [`cpd_wsl_project_id`](#cpd_wsl_project_id) | Conditional | None |
+| [`cpd_wsl_project_name`](#cpd_wsl_project_name) | No | `wsl-mas-${mas_instance_id}-hputilities` |
+| [`mas_config_dir`](#mas_config_dir) | No | None |
+| [`cpd_product_version`](#cpd_product_version) | Conditional | None |
+| [`cpd_wml_instance_id`](#cpd_wml_instance_id) | No | `openshift` |
+| [`cpd_wml_url`](#cpd_wml_url) | No | `https://internal-nginx-svc.ibm-cpd.svc:12443` |
+| [`aiservice_instance_id`](#aiservice_instance_id) | No | None |
+| [`aiservice_tenant_id`](#aiservice_tenant_id) | Conditional | None |
+| [`mas_appws_bindings_health_wsl_flag`](#mas_appws_bindings_health_wsl_flag) | No | `false` |
+| [`mas_appws_bindings_health_wsl`](#mas_appws_bindings_health_wsl) | No | None |
+| [`mas_app_settings_aio_flag`](#mas_app_settings_aio_flag) | No | `true` |
+| [`mas_app_settings_db_schema`](#mas_app_settings_db_schema) | No | `maximo` |
+| [`mas_app_settings_demodata`](#mas_app_settings_demodata) | No | `false` |
+| [`mas_app_settings_db2vargraphic`](#mas_app_settings_db2vargraphic) | No | `true` |
+| [`mas_app_settings_tablespace`](#mas_app_settings_tablespace) | No | `MAXDATA` |
+| [`mas_app_settings_indexspace`](#mas_app_settings_indexspace) | No | `MAXINDEX` |
+| [`mas_app_settings_persistent_volumes_flag`](#mas_app_settings_persistent_volumes_flag) | No | `false` |
+| [`mas_app_settings_jms_queue_pvc_storage_class`](#mas_app_settings_jms_queue_pvc_storage_class) | No | Auto-detected |
+| [`mas_app_settings_jms_queue_pvc_name`](#mas_app_settings_jms_queue_pvc_name) | No | `manage-jms` |
+| [`mas_app_settings_jms_queue_pvc_size`](#mas_app_settings_jms_queue_pvc_size) | No | `20Gi` |
+| [`mas_app_settings_jms_queue_mount_path`](#mas_app_settings_jms_queue_mount_path) | No | `/jms` |
+| [`mas_app_settings_jms_queue_pvc_accessmode`](#mas_app_settings_jms_queue_pvc_accessmode) | No | `ReadWriteMany` |
+| [`mas_app_settings_default_jms`](#mas_app_settings_default_jms) | No | `false` |
+| [`mas_app_settings_doclinks_pvc_storage_class`](#mas_app_settings_doclinks_pvc_storage_class) | No | Auto-detected |
+| [`mas_app_settings_doclinks_pvc_name`](#mas_app_settings_doclinks_pvc_name) | No | `manage-doclinks` |
+| [`mas_app_settings_doclinks_pvc_size`](#mas_app_settings_doclinks_pvc_size) | No | `20Gi` |
+| [`mas_app_settings_doclinks_mount_path`](#mas_app_settings_doclinks_mount_path) | No | `/DOCLINKS` |
+| [`mas_app_settings_doclinks_pvc_accessmode`](#mas_app_settings_doclinks_pvc_accessmode) | No | `ReadWriteMany` |
+| [`mas_manage_kafkaimageprocessor_pvc_storageclass`](#mas_manage_kafkaimageprocessor_pvc_storageclass) | No | Auto-detected |
+| [`mas_manage_kafkaimageprocessor_pvc_size`](#mas_manage_kafkaimageprocessor_pvc_size) | No | `10Gi` |
+| [`mas_app_settings_bim_pvc_storage_class`](#mas_app_settings_bim_pvc_storage_class) | No | Auto-detected |
+| [`mas_app_settings_bim_pvc_name`](#mas_app_settings_bim_pvc_name) | No | `manage-bim` |
+| [`mas_app_settings_bim_pvc_size`](#mas_app_settings_bim_pvc_size) | No | `20Gi` |
+| [`mas_app_settings_bim_mount_path`](#mas_app_settings_bim_mount_path) | No | `/bim` |
+| [`mas_app_settings_bim_pvc_accessmode`](#mas_app_settings_bim_pvc_accessmode) | No | `ReadWriteMany` |
+| [`mas_app_settings_base_lang`](#mas_app_settings_base_lang) | No | `EN` |
+| [`mas_app_settings_secondary_langs`](#mas_app_settings_secondary_langs) | No | None |
+| [`mas_app_settings_server_bundles_size`](#mas_app_settings_server_bundles_size) | No | `dev` |
+| [`mas_app_settings_customization_archive_url`](#mas_app_settings_customization_archive_url) | No | None |
+| [`mas_app_settings_customization_archive_name`](#mas_app_settings_customization_archive_name) | No | `manage-custom-archive` |
+| [`mas_manage_encryptionsecret_crypto_key`](#mas_manage_encryptionsecret_crypto_key) | No | Auto-generated |
+| [`mas_manage_encryptionsecret_cryptox_key`](#mas_manage_encryptionsecret_cryptox_key) | Conditional | Auto-generated |
+| [`mas_manage_encryptionsecret_old_crypto_key`](#mas_manage_encryptionsecret_old_crypto_key) | No | None |
+| [`mas_manage_encryptionsecret_old_cryptox_key`](#mas_manage_encryptionsecret_old_cryptox_key) | Conditional | None |
+| [`mas_manage_encryptionsecret_aiservice_apikey`](#mas_manage_encryptionsecret_aiservice_apikey) | No | Auto-retrieved |
+| [`mas_manage_encryptionsecret_aiservice_url`](#mas_manage_encryptionsecret_aiservice_url) | Conditional | Auto-retrieved |
+| [`mas_manage_encryptionsecret_aiservice_fqn`](#mas_manage_encryptionsecret_aiservice_fqn) | Conditional | Auto-generated |
+| [`mas_app_settings_server_timezone`](#mas_app_settings_server_timezone) | No | `GMT` |
+| [`mas_ws_facilities_size`](#mas_ws_facilities_size) | No | `small` |
+| [`mas_ws_facilities_app_om_upgrade_mode`](#mas_ws_facilities_app_om_upgrade_mode) | No | `manual` |
+| [`mas_ws_facilities_pull_policy`](#mas_ws_facilities_pull_policy) | No | `IfNotPresent` |
+| [`mas_ws_facilities_liberty_extension_XML`](#mas_ws_facilities_liberty_extension_xml) | No | None |
+| [`mas_ws_facilities_server_timezone`](#mas_ws_facilities_server_timezone) | No | `UTC` |
+| [`mas_ws_facilities_vault_secret`](#mas_ws_facilities_vault_secret) | No | None |
+| [`mas_ws_facilities_dwfagents`](#mas_ws_facilities_dwfagents) | No | `[]` |
+| [`mas_ws_facilities_custom_properties`](#mas_ws_facilities_custom_properties) | No | `false` |
+| [`mas_ws_facilities_properties_file_local`](#mas_ws_facilities_properties_file_local) | No | None |
+| [`mas_ws_facilities_properties_secret_name`](#mas_ws_facilities_properties_secret_name) | No | `custom-facilities-properties` |
+| [`mas_ws_facilities_db_maxconnpoolsize`](#mas_ws_facilities_db_maxconnpoolsize) | No | `200` |
+| [`mas_ws_facilities_routes_timeout`](#mas_ws_facilities_routes_timeout) | No | `600s` |
+| [`mas_ws_facilities_storage_log_class`](#mas_ws_facilities_storage_log_class) | No | Auto-detected |
+| [`mas_ws_facilities_storage_log_mode`](#mas_ws_facilities_storage_log_mode) | No | `ReadWriteOnce` |
+| [`mas_ws_facilities_storage_log_size`](#mas_ws_facilities_storage_log_size) | No | `30` |
+| [`mas_ws_facilities_storage_userfiles_class`](#mas_ws_facilities_storage_userfiles_class) | No | Auto-detected |
+| [`mas_ws_facilities_storage_userfiles_mode`](#mas_ws_facilities_storage_userfiles_mode) | No | `ReadWriteOnce` |
+| [`mas_ws_facilities_storage_userfiles_size`](#mas_ws_facilities_storage_userfiles_size) | No | `50` |
+| [`mas_ws_facilities_dataconnectagent_deploymentmode`](#mas_ws_facilities_dataconnectagent_deploymentmode) | No | `''` |
+| [`mas_ws_facilities_extendedformulaagent_deploymentmode`](#mas_ws_facilities_extendedformulaagent_deploymentmode) | No | `''` |
+| [`mas_ws_facilities_formularecalcagent_deploymentmode`](#mas_ws_facilities_formularecalcagent_deploymentmode) | No | `''` |
+| [`mas_ws_facilities_incomingmailagent_deploymentmode`](#mas_ws_facilities_incomingmailagent_deploymentmode) | No | `''` |
+| [`mas_ws_facilities_objectmigrationagent_deploymentmode`](#mas_ws_facilities_objectmigrationagent_deploymentmode) | No | `''` |
+| [`mas_ws_facilities_objectpublishagent_deploymentmode`](#mas_ws_facilities_objectpublishagent_deploymentmode) | No | `''` |
+| [`mas_ws_facilities_maintenanceagent_deploymentmode`](#mas_ws_facilities_maintenanceagent_deploymentmode) | No | `''` |
+| [`mas_ws_facilities_reportqueueagent_deploymentmode`](#mas_ws_facilities_reportqueueagent_deploymentmode) | No | `''` |
+| [`mas_ws_facilities_wfagent_deploymentmode`](#mas_ws_facilities_wfagent_deploymentmode) | No | `''` |
+| [`mas_ws_facilities_wffutureagent_deploymentmode`](#mas_ws_facilities_wffutureagent_deploymentmode) | No | `''` |
+| [`mas_ws_facilities_wfnotificationagent_deploymentmode`](#mas_ws_facilities_wfnotificationagent_deploymentmode) | No | `''` |
+| [`mas_ws_facilities_reservesmtpagent_deploymentmode`](#mas_ws_facilities_reservesmtpagent_deploymentmode) | No | `''` |
+| [`mas_ws_facilities_scheduleragent_deploymentmode`](#mas_ws_facilities_scheduleragent_deploymentmode) | No | `''` |
+
+Variables marked as Conditional are only required in specific circumstances: `aiservice_tenant_id` and the AI Service encryption secret properties apply when AI Service integration is enabled, `cpd_wsl_project_id` and `cpd_product_version` apply to Predict / Health & Predict Utilities configuration, and the `cryptox_key` properties apply when the corresponding crypto key is set.
+
 ### Instance and Workspace Variables
 
 #### mas_instance_id
-MAS instance identifier for the target installation.
+
+MAS instance identifier for the target installation — a lowercase alphanumeric string of 3-12 characters (e.g. `prod`, `dev`, `inst1`).
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default: None
 
-**Purpose**: Identifies which MAS instance to configure. This must match the instance ID used during MAS Core installation.
-
-**When to use**:
-
-- Always required when configuring application workspaces
-- Must match the instance ID from suite_install role
-- Used to locate the correct Suite and Workspace resources
-
-**Valid values**: Lowercase alphanumeric string, 3-12 characters (e.g., `prod`, `dev`, `inst1`)
-
-**Impact**: Determines which MAS instance's application workspace will be configured. Incorrect instance ID will cause configuration to fail.
-
-**Related variables**:
-
-- `mas_app_id`: Specifies which application to configure
-- `mas_workspace_id`: Specifies which workspace to configure
-
-**Note**: This must be an existing MAS instance. The role does not create new instances.
+Must match the instance ID used during MAS Core installation (suite_install role). The role uses it to locate the correct Suite and Workspace resources; it must be an existing instance — this role does not create new instances.
 
 #### mas_app_id
-MAS application to configure.
+
+MAS application whose workspace to configure — one of `assist`, `iot`, `facilities`, `manage`, `monitor`, `optimizer`, `predict`, `visualinspection`.
 
 - **Required**
 - Environment Variable: `MAS_APP_ID`
 - Default: None
 
-**Purpose**: Specifies which MAS application workspace to configure. Different applications have different configuration options and requirements.
-
-**When to use**:
-
-- Always required when configuring application workspaces
-- Must match an installed application in the MAS instance
-- Determines which application-specific configuration is applied
-
-**Valid values**: `assist`, `iot`, `facilities`, `manage`, `monitor`, `optimizer`, `predict`, `visualinspection`
-
-**Impact**: Determines which application workspace is configured and which configuration options are available. Each application has unique configuration requirements.
-
-**Related variables**:
-
-- `mas_instance_id`: The MAS instance containing this application
-- `mas_workspace_id`: The workspace to configure
-- `mas_appws_components`: Application-specific components to configure
-
-**Note**: The application must already be installed via suite_app_install role before configuration. Different applications support different configuration variables.
+The application must already be installed via the suite_app_install role. Each application supports a different set of configuration variables.
 
 #### mas_workspace_id
-Workspace identifier for the application workspace to configure.
+
+Identifier of the workspace within the application to configure — a lowercase alphanumeric string (e.g. `masdev`, `prod`, `test`).
 
 - **Required**
 - Environment Variable: `MAS_WORKSPACE_ID`
 - Default: None
 
-**Purpose**: Identifies which workspace within the application to configure. Workspaces allow multiple isolated environments within a single application.
-
-**When to use**:
-
-- Always required when configuring application workspaces
-- Must match an existing workspace created during application installation
-- Typically matches the workspace ID used in suite_app_install
-
-**Valid values**: Lowercase alphanumeric string (e.g., `masdev`, `prod`, `test`)
-
-**Impact**: Determines which workspace is configured. Each workspace has its own configuration, data, and users.
-
-**Related variables**:
-
-- `mas_instance_id`: The MAS instance containing this workspace
-- `mas_app_id`: The application containing this workspace
-- `mas_appws_components`: Components to configure in this workspace
-
-**Note**: The workspace must already exist (created during suite_app_install). This role configures existing workspaces, it does not create new ones.
-
-#### aiservice_instance_id
-AI Service instance ID for Manage integration (Manage only).
-
-- **Optional**
-- Environment Variable: `AISERVICE_INSTANCE_ID`
-- Default: None
-
-**Purpose**: Enables automatic AI Service integration with Manage application. When set, the role retrieves credentials, configures connection, and imports certificates.
-
-**When to use**:
-
-- Only when configuring Manage application (`mas_app_id=manage`)
-- When you want to integrate AI Service capabilities into Manage
-- Requires AI Service to be installed and running in the cluster
-- Must be used together with `aiservice_tenant_id`
-
-**Valid values**: Valid AI Service instance ID (e.g., `aiservice1`, `ai-prod`)
-
-**Impact**: When configured, automatically:
-
-- Retrieves API key from tenant-specific secret
-- Extracts AI Service URL from aibroker route
-- Imports AI Service TLS certificate into Manage
-- Configures AI Service connection properties
-- Verifies AI Service health before proceeding
-
-**Related variables**:
-
-- `aiservice_tenant_id`: Required tenant ID for the integration
-- `mas_app_id`: Must be `manage` for this to apply
-
-**Note**: AI Service must be installed and healthy before configuration. The role performs automatic health checks and credential retrieval from cluster resources.
-
-#### aiservice_tenant_id
-AI Service tenant ID for the integration (Manage only).
-
-- **Optional**
-- Environment Variable: `AISERVICE_TENANT_ID`
-- Default: None
-
-**Purpose**: Specifies which AI Service tenant to use for Manage integration. Combined with instance ID to form the fully qualified tenant identifier.
-
-**When to use**:
-
-- Required when `aiservice_instance_id` is set
-- Only applies to Manage application
-- Must match an existing tenant in the AI Service instance
-
-**Valid values**: Valid AI Service tenant ID string (e.g., `tenant1`, `prod-tenant`)
-
-**Impact**: Combined with `aiservice_instance_id` to locate tenant-specific resources (API key secret, configuration). Incorrect tenant ID will cause integration to fail.
-
-**Related variables**:
-
-- `aiservice_instance_id`: Required instance ID for the integration
-- Forms secret name: `aiservice-{instance_id}-{tenant_id}----apikey-secret`
-
-**Note**: The tenant must already exist in the AI Service instance. The role retrieves credentials from the tenant-specific secret in the cluster.
+Must match a workspace created during application installation, typically the workspace ID used in suite_app_install. This role configures existing workspaces — it does not create new ones.
 
 #### custom_labels
-Comma-separated list of key=value labels to apply to workspace resources.
+
+Comma-separated list of `key=value` labels to apply to workspace resources (e.g. `env=prod,team=platform,app=manage`).
 
 - **Optional**
 - Environment Variable: `CUSTOM_LABELS`
 - Default: None
 
-**Purpose**: Adds Kubernetes labels to application workspace resources for organization, selection, and filtering. Labels enable resource tracking, cost allocation, and custom automation.
-
-**When to use**:
-
-- Use to add organizational metadata (e.g., `cost-center=engineering`, `environment=production`)
-- Use to enable resource tracking and cost allocation
-- Use to support custom automation or monitoring tools
-- Use to comply with organizational labeling standards
-
-**Valid values**: Comma-separated list of `key=value` pairs (e.g., `env=prod,team=platform,app=manage`)
-
-**Impact**: Labels are applied to workspace-specific resources and can be used for filtering with `oc get` commands, monitoring queries, and automation scripts. Labels do not affect workspace functionality.
-
-**Related variables**: Works alongside Kubernetes resource labels for comprehensive resource management.
-
-**Note**: Labels help with resource organization and are especially useful in multi-tenant or multi-workspace environments.
+Labels are useful for resource organization, tracking, cost allocation, and custom automation — especially in multi-tenant or multi-workspace environments. They can be used for filtering with `oc get` commands and monitoring queries, and do not affect workspace functionality.
 
 ### Workspace Configuration Variables
 
 #### mas_appws_spec
-Custom workspace deployment specification (overrides component-based configuration).
+
+Custom workspace deployment specification, overriding the component-based configuration. Must be valid YAML/JSON matching the application's workspace CR schema.
 
 - **Optional**
 - Environment Variable: `MAS_APPWS_SPEC`
 - Default: Application-specific defaults in `vars/defaultspecs/{mas_app_id}.yml`
 
-**Purpose**: Provides complete control over workspace deployment specification. Allows advanced customization beyond what component-based configuration offers.
+!!! warning
+    Setting `mas_appws_spec` overrides **all** settings from `mas_appws_components`. It provides complete control over the workspace spec but requires deep knowledge of the workspace CR structure — incorrect specs can cause deployment failures.
 
-**When to use**:
-
-- Use for advanced workspace customization
-- Use when you need full control over the workspace spec
-- Use when component-based configuration is insufficient
-- Leave unset for standard deployments using `mas_appws_components`
-
-**Valid values**: Valid workspace specification YAML/JSON matching the application's workspace CR schema
-
-**Impact**: **WARNING** - Overrides all settings from `mas_appws_components`. Provides complete control but requires deep knowledge of workspace CR structure. Incorrect specs can cause deployment failures.
-
-**Related variables**:
-
-- `mas_appws_components`: Simpler component-based configuration (overridden by this)
-- Application-specific default specs in `vars/defaultspecs/`
-
-**Note**: Use `mas_appws_components` for standard deployments. Only use this variable when you need advanced customization or have specific requirements not covered by component-based configuration.
+Use `mas_appws_components` for standard deployments; only use this variable when you need advanced customization beyond what component-based configuration offers.
 
 #### mas_appws_bindings_jdbc
-JDBC binding scope for the workspace.
+
+JDBC binding scope for the workspace — `system` (shared system-level database configuration), `application`, `workspace`, or `workspace-application` (combines workspace and application scopes).
 
 - **Optional**
 - Environment Variable: `MAS_APPWS_BINDINGS_JDBC`
 - Default: `system`
 
-**Purpose**: Controls the scope of JDBC database binding for the workspace. Different scopes provide different levels of isolation and sharing.
+!!! important
+    For Maximo Real Estate and Facilities applications, use the `workspace-application` scope. The default `system` scope is suitable for most other applications.
 
-**When to use**:
-
-- Use `system` (default) for shared system-level database configuration
-- Use `application` for application-level database configuration
-- Use `workspace` for workspace-specific database configuration
-- Use `workspace-application` for Maximo Real Estate and Facilities (recommended)
-
-**Valid values**: `system`, `application`, `workspace`, `workspace-application`
-
-**Impact**:
-
-- `system`: Uses system-level JDBC configuration (shared across all workspaces)
-- `application`: Uses application-level JDBC configuration
-- `workspace`: Uses workspace-specific JDBC configuration
-- `workspace-application`: Combines workspace and application scopes
-
-**Related variables**: JDBC configuration must exist at the specified scope level.
-
-**Note**: **IMPORTANT** - For Maximo Real Estate and Facilities applications, use `workspace-application` scope. The default `system` scope is suitable for most other applications.
+JDBC configuration must exist at the specified scope level.
 
 #### mas_appws_components
-Application components and versions to configure in the workspace.
+
+Application components and versions to configure in the workspace, as comma-separated `component=version` pairs (e.g. `base=latest,health=latest`).
 
 - **Optional**
 - Environment Variable: `MAS_APPWS_COMPONENTS`
 - Default: Application-specific defaults
 
-**Purpose**: Specifies which application components to configure and their versions. Different applications have different available components.
-
-**When to use**:
-
-- Use to enable specific application components
-- Use to control component versions
-- Leave unset to use application-specific defaults
-- Overridden by `mas_appws_spec` if that is set
-
-**Valid values**: Comma-separated `component=version` pairs (e.g., `base=latest,health=latest`, `base=latest,civil=latest`)
-
-**Impact**: Determines which components are configured in the workspace. Available components vary by application (e.g., Manage has base, health, civil, etc.).
-
-**Related variables**:
-
-- `mas_appws_spec`: Overrides this if set
-- `mas_app_id`: Determines available components
-
-**Note**: Component availability depends on the application. For Manage: `base`, `health`, `civil`, etc. Refer to application documentation for available components. Use `latest` for most recent version or specify exact version.
+Available components depend on the application (e.g. Manage supports `base`, `health`, `civil`, etc.); use `latest` for the most recent version or specify an exact version. Overridden by `mas_appws_spec` when that is set.
 
 #### mas_pod_templates_dir
-Directory containing pod template configuration files (Manage only).
+
+Directory containing pod template YAML files for customizing Manage workspace and component workloads (Manage only) — enabling resource requests/limits, node selectors, tolerations, and other pod-level settings.
 
 - **Optional**
 - Environment Variable: `MAS_POD_TEMPLATES_DIR`
 - Default: None
 
-**Purpose**: Specifies a directory containing pod template YAML files for customizing Manage workspace and component workloads. Enables resource requests/limits, node selectors, tolerations, and other pod-level customizations.
+Pod templates from this directory are merged into the ManageWorkspace CR and applied to specific components or the workspace itself based on filename:
 
-**When to use**:
+- `ibm-mas-manage-manageworkspace.yml` — workspace-level pod templates
+- `ibm-mas-manage-imagestitching.yml` — civil component pod templates
+- `ibm-mas-manage-slackproxy.yml` — component pod templates
+- `ibm-mas-manage-healthextworkspace.yml` — health component pod templates
 
-- Only for Manage application (`mas_app_id=manage`)
-- Use to customize pod resources (CPU, memory)
-- Use to apply node selectors or tolerations
-- Use to configure pod-level settings beyond defaults
-
-**Valid values**: Absolute path to directory containing pod template files
-
-**Impact**: Pod templates from this directory are merged into the ManageWorkspace CR. Files are applied to specific components or the workspace itself based on filename.
-
-**Related variables**:
-
-- `mas_app_id`: Must be `manage` for this to apply
-- Files must follow specific naming convention
-
-**Note**: Expected filenames:
-
-- `ibm-mas-manage-manageworkspace.yml` → workspace-level pod templates
-- `ibm-mas-manage-imagestitching.yml` → civil component pod templates
-- `ibm-mas-manage-slackproxy.yml` → component pod templates
-- `ibm-mas-manage-healthextworkspace.yml` → health component pod templates
-
-Refer to [MAS CLI BestEfforts templates](https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/) and [Customizing Pod Templates](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads) documentation.
+Refer to the [MAS CLI BestEfforts templates](https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/) and [Customizing Pod Templates](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads) documentation.
 
 ### Predict Configuration Variables
 
 #### mas_appws_settings_deployment_size
-Workload size for Predict containers (Predict only).
+
+Workload size for Predict containers — `developer` (1 replica, no high availability), `small` (2 replicas, basic high availability), `medium` (3 replicas), or `large` (higher replica count, if supported).
 
 - **Optional** (Predict only)
 - Environment Variable: `MAS_APPWS_SETTINGS_DEPLOYMENT_SIZE`
 - Default: `small`
 
-**Purpose**: Controls the deployment size and replica count for Predict application containers. Different sizes provide different levels of availability and performance.
-
-**When to use**:
-
-- Only for Predict application (`mas_app_id=predict`)
-- Use `developer` for single-node development environments
-- Use `small` (default) for standard production deployments
-- Use `medium` for higher availability requirements
-- Use `large` for maximum availability (if supported)
-
-**Valid values**: `developer`, `small`, `medium`, `large`
-
-**Impact**:
-
-- `developer`: 1 replica (no high availability)
-- `small`: 2 replicas (basic high availability)
-- `medium`: 3 replicas (enhanced high availability)
-- `large`: Higher replica count (if supported)
-
-**Related variables**:
-
-- `mas_app_id`: Must be `predict` for this to apply
-
-**Note**: The `developer` size is suitable only for development/testing. Production environments should use `small` or larger for high availability.
+The `developer` size is suitable only for development and testing; production environments should use `small` or larger for high availability.
 
 ### Watson Studio Local Variables
 
 These variables are only used when using this role to configure **Predict**, or **Health & Predict Utilities**.
 
 #### cpd_wsl_project_id
-Watson Studio analytics project ID (Predict/HP Utilities only).
 
-- **Required** (unless `cpd_wsl_project_name` and `mas_config_dir` are set)
+Watson Studio analytics project ID to use for Predict or Health & Predict Utilities configuration, in UUID format.
+
+- **Required** unless `cpd_wsl_project_name` and `mas_config_dir` are set
 - Environment Variable: `CPD_WSL_PROJECT_ID`
 - Default: None
 
-**Purpose**: Specifies the ID of the Watson Studio analytics project to use for Predict or Health & Predict Utilities configuration.
-
-**When to use**:
-
-- Required for Predict or HP Utilities configuration
-- Use when you know the project ID directly
-- Alternative: use `cpd_wsl_project_name` + `mas_config_dir` to retrieve ID from saved file
-
-**Valid values**: Valid Watson Studio project ID (UUID format)
-
-**Impact**: Links the MAS application to the specified Watson Studio project for analytics capabilities. Incorrect project ID will cause configuration to fail.
-
-**Related variables**:
-
-- `cpd_wsl_project_name`: Alternative method using project name
-- `mas_config_dir`: Required with `cpd_wsl_project_name`
-
-**Note**: The project must already exist in Watson Studio (created by cp4d_service role). Either provide this ID directly or use the name-based alternative.
+The project must already exist in Watson Studio (created by the cp4d_service role). Either provide this ID directly, or use the name-based alternative (`cpd_wsl_project_name` + `mas_config_dir`).
 
 #### cpd_wsl_project_name
-Filename containing Watson Studio project ID (Predict/HP Utilities only).
+
+Filename (without path) in `mas_config_dir` where the Watson Studio project ID is saved, as an alternative to providing `cpd_wsl_project_id` directly.
 
 - **Optional**
 - Environment Variable: `CPD_WSL_PROJECT_NAME`
 - Default: `wsl-mas-${mas_instance_id}-hputilities`
 
-**Purpose**: Specifies the filename in `mas_config_dir` where the Watson Studio project ID is saved. Alternative to providing `cpd_wsl_project_id` directly.
-
-**When to use**:
-
-- Use with `mas_config_dir` as alternative to `cpd_wsl_project_id`
-- Use when project ID was saved by cp4d_service role
-- Allows retrieving project ID from saved configuration
-
-**Valid values**: Filename (without path) where project ID is stored
-
-**Impact**: Role reads the project ID from this file in `mas_config_dir`. File must exist and contain valid project ID.
-
-**Related variables**:
-
-- `mas_config_dir`: Required directory containing this file
-- `cpd_wsl_project_id`: Alternative direct ID specification
-
-**Note**: The default filename matches the pattern used by cp4d_service role. The file should contain the Watson Studio project ID created during CP4D service setup.
+The default filename matches the pattern used by the cp4d_service role. The file must exist in `mas_config_dir` and contain a valid project ID.
 
 #### mas_config_dir
-Local directory for configuration files (Predict/HP Utilities only).
+
+Local directory containing configuration files, particularly the Watson Studio project ID files (e.g. `/home/user/masconfig`).
 
 - **Optional**
 - Environment Variable: `MAS_CONFIG_DIR`
 - Default: None
 
-**Purpose**: Specifies directory containing configuration files, particularly Watson Studio project ID files. Used with `cpd_wsl_project_name` to retrieve project IDs.
-
-**When to use**:
-
-- Use with `cpd_wsl_project_name` to retrieve Watson Studio project ID
-- Use when project ID was saved by cp4d_service role
-- Should match the directory used in cp4d_service role
-
-**Valid values**: Absolute path to existing directory (e.g., `/home/user/masconfig`, `~/masconfig`)
-
-**Impact**: Role reads Watson Studio project ID from files in this directory. Directory must exist and contain the specified project file.
-
-**Related variables**:
-
-- `cpd_wsl_project_name`: Filename to read from this directory
-- `cpd_wsl_project_id`: Alternative direct ID specification
-
-**Note**: Use the same directory across all MAS setup roles for consistency. The cp4d_service role saves project IDs here, and this role retrieves them.
+Use the same directory across all MAS setup roles for consistency — the cp4d_service role saves project IDs here, and this role retrieves them.
 
 ### Watson Machine Learning Variables
 
 These variables are only used when using this role to configure **Predict**.
 
 #### cpd_product_version
-Cloud Pak for Data version (Predict only).
+
+Cloud Pak for Data version (e.g. `4.8.0`, `4.8.5`, `5.0.0`) used to infer the correct Watson Machine Learning version for the Predict workspace configuration.
 
 - **Required** (Predict only)
 - Environment Variable: `CPD_PRODUCT_VERSION`
 - Default: None
 
-**Purpose**: Specifies the CP4D version to infer the correct Watson Machine Learning version for Predict workspace configuration.
-
-**When to use**:
-
-- Required when configuring Predict application
-- Must match the installed CP4D version in the cluster
-- Used to determine compatible WML version
-
-**Valid values**: Valid CP4D version string (e.g., `4.8.0`, `4.8.5`, `5.0.0`)
-
-**Impact**: Determines which Watson Machine Learning version is configured in Predict. Incorrect version may cause compatibility issues.
-
-**Related variables**:
-
-- `cpd_wml_instance_id`: WML instance to configure
-- `cpd_wml_url`: WML service URL
-- `mas_app_id`: Must be `predict` for this to apply
-
-**Note**: This must match the actual CP4D version installed in your cluster. The role uses this to select the appropriate WML version for Predict configuration.
+Must match the CP4D version actually installed in the cluster; an incorrect version may cause WML compatibility issues.
 
 #### cpd_wml_instance_id
-Watson Machine Learning instance identifier (Predict only).
+
+Watson Machine Learning instance identifier to configure in the Predict workspace.
 
 - **Optional** (Predict only)
 - Environment Variable: `CPD_WML_INSTANCE_ID`
 - Default: `openshift`
 
-**Purpose**: Specifies the Watson Machine Learning instance identifier to configure in Predict workspace.
-
-**When to use**:
-
-- Only for Predict application configuration
-- Use default (`openshift`) for standard deployments
-- Set custom value if using non-default WML instance
-
-**Valid values**: Valid WML instance identifier string
-
-**Impact**: Identifies which WML instance Predict will use for machine learning operations. Must match an existing WML instance in CP4D.
-
-**Related variables**:
-
-- `cpd_product_version`: CP4D version for WML compatibility
-- `cpd_wml_url`: WML service URL
-- `mas_app_id`: Must be `predict` for this to apply
-
-**Note**: The default `openshift` value is suitable for most deployments. Only change if you have a specific WML instance identifier.
+The default suits most deployments; a custom value must match an existing WML instance in CP4D.
 
 #### cpd_wml_url
-Watson Machine Learning service URL (Predict only).
+
+Watson Machine Learning service URL — typically the same as the Cloud Pak for Data URL (e.g. `https://internal-nginx-svc.{namespace}.svc:12443`).
 
 - **Optional** (Predict only)
 - Environment Variable: `CPD_WML_URL`
 - Default: `https://internal-nginx-svc.ibm-cpd.svc:12443`
 
-**Purpose**: Specifies the URL to access Watson Machine Learning service. Typically the same as the Cloud Pak for Data URL.
-
-**When to use**:
-
-- Only for Predict application configuration
-- Use default if CP4D is in `ibm-cpd` namespace
-- Set custom URL if CP4D is in different namespace or uses custom service name
-
-**Valid values**: Valid HTTPS URL to WML service (e.g., `https://internal-nginx-svc.{namespace}.svc:12443`)
-
-**Impact**: Determines how Predict connects to Watson Machine Learning. Incorrect URL will prevent Predict from accessing WML services.
-
-**Related variables**:
-
-- `cpd_product_version`: CP4D version
-- `cpd_wml_instance_id`: WML instance identifier
-- `mas_app_id`: Must be `predict` for this to apply
-
-**Note**: The default assumes CP4D is installed in the `ibm-cpd` namespace. If CP4D is in a different namespace, update the URL accordingly (e.g., `https://internal-nginx-svc.my-cpd-namespace.svc:12443`).
-
-### Manage Workspace Variables
+The default assumes CP4D is installed in the `ibm-cpd` namespace; if CP4D is in a different namespace, update the URL accordingly (e.g. `https://internal-nginx-svc.my-cpd-namespace.svc:12443`).
 
 ### AI Service Integration
 
+These variables configure the AI Service integration with the **Manage** application.
+
 #### aiservice_instance_id
-AI Service instance ID to integrate with Manage application.
+
+AI Service instance ID to integrate with the Manage application (e.g. `aiservice1`, `ai-prod`).
 
 - **Optional**
 - Environment Variable: `AISERVICE_INSTANCE_ID`
 - Default: None
 
-When configured, the role will:
-
-- Retrieve AI Service API key from the tenant-specific secret
-- Extract AI Service URL from the aibroker route
-- Import AI Service TLS certificate into Manage
-- Configure AI Service connection properties in Manage encryption secret
-- Verify AI Service health status before proceeding
+Must be used together with `aiservice_tenant_id`. When set, the role automatically retrieves the API key from the tenant-specific secret `aiservice-{instance_id}-{tenant_id}----apikey-secret`, extracts the service URL from the `aibroker` route in namespace `aiservice-{instance_id}`, imports the TLS certificate from secret `{instance_id}-public-aibroker-tls`, configures the connection properties in the Manage encryption secret, and verifies AI Service health before proceeding.
 
 #### aiservice_tenant_id
-AI Service tenant ID to use for the integration. This is combined with the instance ID to form the fully qualified tenant name.
+
+AI Service tenant ID to use for the integration (e.g. `tenant1`, `prod-tenant`), combined with the instance ID to form the fully qualified tenant name.
 
 - **Required** when `aiservice_instance_id` is set
 - Environment Variable: `AISERVICE_TENANT_ID`
 - Default: None
 
-**Note:** The AI Service integration automatically retrieves the following from the cluster:
-
-- API key from secret: `aiservice-{instance_id}-{tenant_id}----apikey-secret`
-- Service URL from route: `aibroker` in namespace `aiservice-{instance_id}`
-- TLS certificate from secret: `{instance_id}-public-aibroker-tls`
-
-The integration also performs a health check to verify AI Service is running before completing the configuration.
+The tenant must already exist in the AI Service instance; the role retrieves credentials from the tenant-specific secret in the cluster.
 
 ### Health Integration
 
 #### mas_appws_bindings_health_wsl_flag
-Enable Watson Studio binding for Health (Manage only).
+
+Whether to bind Watson Studio to the Manage Health component — `true` or `false`.
 
 - **Optional** (Manage Health only)
 - Environment Variable: `MAS_APPWS_BINDINGS_HEALTH_WSL_FLAG`
 - Default: `false`
 
-**Purpose**: Controls whether Watson Studio should be bound to the Manage Health component. Requires a system-level WatsonStudioCfg to be applied in the cluster.
-
-**When to use**:
-
-- Only for Manage application with Health component
-- Set to `true` to enable Watson Studio integration with Health
-- Leave as `false` (default) if Watson Studio integration is not needed
-
-**Valid values**: `true`, `false`
-
-**Impact**: When `true`, binds Watson Studio to Health component, enabling advanced analytics capabilities. Requires Watson Studio to be configured at system level.
-
-**Related variables**:
-
-- `mas_appws_bindings_health_wsl`: Binding scope (typically `system`)
-- `mas_app_id`: Must be `manage` with Health component
-
-**Note**: A system-level WatsonStudioCfg must exist in the cluster before enabling this. Watson Studio must be installed and configured via CP4D.
+Setting this to `true` enables Watson Studio integration with Health, providing advanced analytics capabilities. A system-level WatsonStudioCfg must exist in the cluster before enabling this (Watson Studio installed and configured via CP4D). Used together with `mas_appws_bindings_health_wsl`.
 
 #### mas_appws_bindings_health_wsl
-Watson Studio binding scope for Health (Manage only).
+
+Watson Studio binding scope for the Manage Health component — set to `system` when Watson Studio is configured at system level.
 
 - **Optional** (Manage Health only)
 - Environment Variable: `MAS_APPWS_BINDINGS_HEALTH_WSL`
 - Default: None
 
-**Purpose**: Specifies the binding scope for Watson Studio integration with Manage Health component.
+Used together with `mas_appws_bindings_health_wsl_flag=true`; Watson Studio must be installed and configured via CP4D with a system-level WatsonStudioCfg before using this binding.
 
-**When to use**:
-
-- Only for Manage application with Health component
-- Set to `system` when Watson Studio is configured at system level
-- Used together with `mas_appws_bindings_health_wsl_flag=true`
-
-**Valid values**: `system`
-
-**Impact**: Binds Watson Studio at the specified scope to Health component, enabling advanced analytics and AI capabilities.
-
-**Related variables**:
-
-- `mas_appws_bindings_health_wsl_flag`: Must be `true` to enable binding
-- `mas_app_id`: Must be `manage` with Health component
-
-**Note**: Watson Studio must be installed and configured via CP4D with a system-level WatsonStudioCfg before using this binding.
-
-- Environment Variable: `MAS_APPWS_BINDINGS_HEALTH_WSL`
-- Default: None
+### Manage Application Settings
 
 #### mas_app_settings_aio_flag
-Flag indicating if Asset Investment Optimization (AIO) resource must be loaded or not. It can be loaded only when Optimizer application is installed.
 
-- **Optional**, only supported when Optimizer application is installed
+Whether the Asset Investment Optimization (AIO) resource must be loaded into Manage — only supported when the Optimizer application is installed.
+
+- **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_AIO_FLAG`
 - Default: `true`
 
 ### DB2 Settings
 
 #### mas_app_settings_db_schema
-Name of the schema where Manage database lives in. Code also supports deprecated `mas_app_settings_db2_schema` variable name.
+
+Name of the schema where the Manage database lives; the deprecated `mas_app_settings_db2_schema` variable name is also supported.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_DB_SCHEMA`
 - Default: `maximo`
 
 #### mas_app_settings_demodata
-Flag indicating if manage demodata should be loaded or not.
+
+Whether Manage demo data should be loaded.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_DEMODATA`
 - Default: `false` (do not load demodata)
 
 #### mas_app_settings_db2vargraphic
-Flag indicating if VARGRAPHIC (if true) or VARCHAR (if false) is used. Details: https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=deploy-language-support
+
+Whether VARGRAPHIC (`true`) or VARCHAR (`false`) is used — see [Language Support](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=deploy-language-support) for details.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_DB2VARGRAPHIC`
 - Default: `true`
 
 #### mas_app_settings_tablespace
+
 Name of the Manage database tablespace.
 
 - **Optional**
@@ -618,6 +365,7 @@ Name of the Manage database tablespace.
 - Default: `MAXDATA`
 
 #### mas_app_settings_indexspace
+
 Name of the Manage database indexspace.
 
 - **Optional**
@@ -627,56 +375,65 @@ Name of the Manage database indexspace.
 ### Persistent Volumes
 
 #### mas_app_settings_persistent_volumes_flag
-Flag indicating if persistent volumes should be configured by default during Manage Workspace activation. There are two defaulted File Storage Persistent Volumes Claim resources that will be created out of the box for Manage if this flag is set to `true`:
 
-- `/DOCLINKS`: Persistent volume used to store doclinks/attachments
-- `/bim`: Persistent volume used to store Building Information Models related artifacts (models, docs and import)
+Whether persistent volumes are configured by default during Manage Workspace activation.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_PERSISTENT_VOLUMES_FLAG`
 - Default: `false`
 
+When set to `true`, two defaulted file storage Persistent Volume Claim resources are created out of the box for Manage:
+
+- `/DOCLINKS` — persistent volume used to store doclinks/attachments
+- `/bim` — persistent volume used to store Building Information Models related artifacts (models, docs and import)
+
 ### JMS Queues
 
-The following properties can be defined to customize the persistent volumes for the JMS queues setup for Manage.
+The following properties can be defined to customize the persistent volume for the JMS queues setup for Manage. JMS configuration is only performed when `mas_app_settings_server_bundles_size` is set to `jms` or `snojms`.
 
 #### mas_app_settings_jms_queue_pvc_storage_class
-Provide the persistent volume storage class to be used for JMS queue configuration. Both `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class) access modes are supported. **Note:** JMS configuration will only be done if `mas_app_settings_server_bundles_size` property is set to `jms`.
+
+Persistent volume storage class for the JMS queue configuration. Both `ReadWriteOnce` (block storage class) and `ReadWriteMany` (file storage class) access modes are supported.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_JMS_QUEUE_PVC_STORAGE_CLASS`
-- Default: None - If not set, a default storage class will be auto defined accordingly to your cluster's available storage classes
+- Default: None — a default storage class is auto-defined according to your cluster's available storage classes
 
 #### mas_app_settings_jms_queue_pvc_name
-Provide the persistent volume claim name to be used for JMS queue configuration. **Note:** JMS configuration will only be done if `mas_app_settings_server_bundles_size` property is set to `jms`.
+
+Persistent volume claim name for the JMS queue configuration.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_JMS_QUEUE_PVC_NAME`
 - Default: `manage-jms`
 
 #### mas_app_settings_jms_queue_pvc_size
-Provide the persistent volume claim size to be used for JMS queue configuration. **Note:** JMS configuration will only be done if `mas_app_settings_server_bundles_size` property is set to `jms`.
+
+Persistent volume claim size for the JMS queue configuration.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_JMS_QUEUE_PVC_SIZE`
 - Default: `20Gi`
 
 #### mas_app_settings_jms_queue_mount_path
-Provide the persistent volume storage mount path to be used for JMS queue configuration. **Note:** JMS configuration will only be done if `mas_app_settings_server_bundles_size` property is set to `jms`.
+
+Persistent volume storage mount path for the JMS queue configuration.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_JMS_QUEUE_MOUNT_PATH`
 - Default: `/jms`
 
 #### mas_app_settings_jms_queue_pvc_accessmode
-Provide the persistent volume storage access-mode to be used for JMS queue configuration. Typically you would either choose between `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class).
+
+Persistent volume storage access mode for the JMS queue configuration — typically `ReadWriteOnce` (block storage class) or `ReadWriteMany` (file storage class).
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_JMS_QUEUE_PVC_ACCESSMODE`
 - Default: `ReadWriteMany`
 
 #### mas_app_settings_default_jms
-Set this to `true` if you want to have JMS continuous queues configured.
+
+Whether JMS continuous queues are configured.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_DEFAULT_JMS`
@@ -687,35 +444,40 @@ Set this to `true` if you want to have JMS continuous queues configured.
 The following properties can be defined to customize the persistent volumes for the Doclinks/Attachments setup for Manage.
 
 #### mas_app_settings_doclinks_pvc_storage_class
-Provide the persistent volume storage class to be used for doclinks/attachments configuration. Both `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class) are supported.
+
+Persistent volume storage class for the doclinks/attachments configuration. Both `ReadWriteOnce` (block storage class) and `ReadWriteMany` (file storage class) are supported.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_DOCLINKS_PVC_STORAGE_CLASS`
-- Default: None - If not set, a default storage class will be auto defined accordingly to your cluster's available storage classes
+- Default: None — a default storage class is auto-defined according to your cluster's available storage classes
 
 #### mas_app_settings_doclinks_pvc_name
-Provide the persistent volume claim name to be used for doclinks/attachments configuration.
+
+Persistent volume claim name for the doclinks/attachments configuration.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_DOCLINKS_PVC_NAME`
 - Default: `manage-doclinks`
 
 #### mas_app_settings_doclinks_pvc_size
-Provide the persistent volume claim size to be used for doclinks/attachments configuration.
+
+Persistent volume claim size for the doclinks/attachments configuration.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_DOCLINKS_PVC_SIZE`
 - Default: `20Gi`
 
 #### mas_app_settings_doclinks_mount_path
-Provide the persistent volume storage mount path to be used for doclinks/attachments configuration.
+
+Persistent volume storage mount path for the doclinks/attachments configuration.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_DOCLINKS_MOUNT_PATH`
 - Default: `/DOCLINKS`
 
 #### mas_app_settings_doclinks_pvc_accessmode
-Provide the persistent volume storage access-mode to be used for doclinks/attachments configuration. Typically you would either choose between `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class).
+
+Persistent volume storage access mode for the doclinks/attachments configuration — typically `ReadWriteOnce` (block storage class) or `ReadWriteMany` (file storage class).
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_DOCLINKS_PVC_ACCESSMODE`
@@ -723,21 +485,24 @@ Provide the persistent volume storage access-mode to be used for doclinks/attach
 
 ### Kafka Image Processor (Civil Component)
 
-The following properties can be defined to configure the persistent volume for the Kafka Image Processor component when the Civil Infrastructure component is enabled.
+The following properties configure the persistent volume for the Kafka Image Processor component when the Civil Infrastructure component is enabled.
 
-**Important:** As of Manage 9.2, these properties are **required** when the Civil Infrastructure component is enabled. They are not supported in earlier releases. The role automatically detects the Manage version and only includes these settings when Manage >= 9.2.
+!!! important
+    As of Manage 9.2, these properties are **required** when the Civil Infrastructure component is enabled. They are not supported in earlier releases. The role automatically detects the Manage version and only includes these settings when Manage >= 9.2.
 
 #### mas_manage_kafkaimageprocessor_pvc_storageclass
-Provide the persistent volume storage class to be used for Kafka Image Processor configuration. The PVC will be created with `ReadWriteMany` access mode as it must be shared between Manage/Civil and KafkaImageProcessor deployments.
 
-- **Optional** (automatically included when Civil component is enabled in Manage 9.2+)
+Persistent volume storage class for the Kafka Image Processor configuration. The PVC is created with `ReadWriteMany` access mode, as it must be shared between the Manage/Civil and KafkaImageProcessor deployments.
+
+- **Optional** (automatically included when the Civil component is enabled in Manage 9.2+)
 - Environment Variable: `MAS_MANAGE_KAFKAIMAGEPROCESSOR_PVC_STORAGECLASS`
-- Default: None - If not set, a default storage class will be auto-defined according to your cluster's available storage classes
+- Default: None — a default storage class is auto-defined according to your cluster's available storage classes
 
 #### mas_manage_kafkaimageprocessor_pvc_size
-Provide the persistent volume claim size to be used for Kafka Image Processor configuration.
 
-- **Optional** (automatically included when Civil component is enabled in Manage 9.2+)
+Persistent volume claim size for the Kafka Image Processor configuration.
+
+- **Optional** (automatically included when the Civil component is enabled in Manage 9.2+)
 - Environment Variable: `MAS_MANAGE_KAFKAIMAGEPROCESSOR_PVC_SIZE`
 - Default: `10Gi`
 
@@ -746,35 +511,40 @@ Provide the persistent volume claim size to be used for Kafka Image Processor co
 The following properties can be defined to customize the persistent volumes for the Building Information Models setup for Manage.
 
 #### mas_app_settings_bim_pvc_storage_class
-Provide the persistent volume storage class to be used for Building Information Models configuration. Both `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class) are supported.
+
+Persistent volume storage class for the Building Information Models configuration. Both `ReadWriteOnce` (block storage class) and `ReadWriteMany` (file storage class) are supported.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_BIM_PVC_STORAGE_CLASS`
-- Default: None - If not set, a default storage class will be auto defined accordingly to your cluster's available storage classes
+- Default: None — a default storage class is auto-defined according to your cluster's available storage classes
 
 #### mas_app_settings_bim_pvc_name
-Provide the persistent volume claim name to be used for Building Information Models configuration.
+
+Persistent volume claim name for the Building Information Models configuration.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_BIM_PVC_NAME`
 - Default: `manage-bim`
 
 #### mas_app_settings_bim_pvc_size
-Provide the persistent volume claim size to be used for Building Information Models configuration.
+
+Persistent volume claim size for the Building Information Models configuration.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_BIM_PVC_SIZE`
 - Default: `20Gi`
 
 #### mas_app_settings_bim_mount_path
-Provide the persistent volume storage mount path to be used for Building Information Models configuration.
+
+Persistent volume storage mount path for the Building Information Models configuration.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_BIM_MOUNT_PATH`
 - Default: `/bim`
 
 #### mas_app_settings_bim_pvc_accessmode
-Provide the persistent volume storage access-mode to be used for Building Information Models configuration. Typically you would either choose between `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class).
+
+Persistent volume storage access mode for the Building Information Models configuration — typically `ReadWriteOnce` (block storage class) or `ReadWriteMany` (file storage class).
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_BIM_PVC_ACCESSMODE`
@@ -783,55 +553,61 @@ Provide the persistent volume storage access-mode to be used for Building Inform
 ### Supported Languages
 
 #### mas_app_settings_base_lang
-Provide the base language for Manage application. For a full list of supported languages for Manage application and its corresponding language codes, please refer to [Language Support](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=deploy-language-support) documentation.
+
+Base language for the Manage application. For a full list of supported languages and their corresponding language codes, refer to the [Language Support](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=deploy-language-support) documentation.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_BASE_LANG`
 - Default: `EN` (English)
 
 #### mas_app_settings_secondary_langs
-Provide a list of additional secondary languages for Manage application.
+
+Additional secondary languages for the Manage application, as comma-separated language codes.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_SECONDARY_LANGS`
 - Default: None
 
-Note: The more languages you add, the longer Manage will take to install and activate.
+For example, use the following to enable the Manage application with Arabic, Deutsch, and Japanese as secondary languages:
 
-Export the `MAS_APP_SETTINGS_SECONDARY_LANGS` variable with the language codes as comma-separated values. For a full list of supported languages for Manage application and its corresponding language codes, please refer to [Language Support](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=deploy-language-support) documentation.
+```bash
+export MAS_APP_SETTINGS_SECONDARY_LANGS='AR,DE,JA'
+```
 
-For example, use the following to enable Manage application with Arabic, Deutsch and Japanese as secondary languages:
-`export MAS_APP_SETTINGS_SECONDARY_LANGS='AR,DE,JA'`
+The more languages you add, the longer Manage will take to install and activate. For a full list of supported languages and their corresponding language codes, refer to the [Language Support](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=deploy-language-support) documentation.
 
 ### Server Bundle Configuration
 
 #### mas_app_settings_server_bundles_size
-Provides different flavors of server bundle configuration to handle workload for Manage application.
+
+Flavor of server bundle configuration used to handle workload for the Manage application.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_SERVER_BUNDLES_SIZE`
 - Default: `dev`
 
-For more details about Manage application server bundle configuration, refer to [Setting the server bundles for Manage application](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=manage-setting-server-bundles).
+Currently supported server bundle sizes:
 
-Currently supported server bundle sizes are:
+- `dev` — deploys Manage with the default server bundle configuration (a single bundle pod handling `all` Manage application workload)
+- `small` — deploys Manage with the most common deployment configuration (4 bundle pods, each handling workload for one main capability: `mea`, `cron`, `report`, and `ui`)
+- `jms` — Manage 8.4 and above; same server bundle configuration as `small` plus a `jms` bundle pod. Enabling the JMS pod workload also configures Manage to use default JMS messaging queues stored in the `{{ mas_app_settings_jms_queue_mount_path }}/jmsstore` persistent volume mount path
+- `snojms` — Manage 8.4 and above; includes `all` and `jms` bundle pods. Enabling the JMS pod workload also configures Manage to use default JMS messaging queues stored in the `{{ mas_app_settings_jms_queue_mount_path }}/jmsstore` persistent volume mount path
 
-- `dev` - Deploys Manage with the default server bundle configuration (i.e just 1 bundle pod handling `all` Manage application workload)
-- `small` - Deploys Manage with the most common deployment configuration (i.e 4 bundle pods, each one handling workload for each main capabilities: `mea`, `cron`, `report` and `ui`)
-- `jms` - Can be used for Manage 8.4 and above. Same server bundle configuration as `small` and includes `jms` bundle pod. Enabling JMS pod workload will also configure Manage to use default JMS messaging queues to be stored in `/{{ mas_app_settings_jms_queue_mount_path }}/jmsstore` persistent volume mount path
-- `snojms` - Can be used for Manage 8.4 and above. Includes `all` and `jms` bundle pods. Enabling JMS pod workload will also configure Manage to use default JMS messaging queues to be stored in `/{{ mas_app_settings_jms_queue_mount_path }}/jmsstore` persistent volume mount path
+For more details about the Manage application server bundle configuration, refer to [Setting the server bundles for Manage application](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=manage-setting-server-bundles).
 
 ### Customization Archive Settings
 
 #### mas_app_settings_customization_archive_url
-Provide a custom archive/file path to be included as part of Manage deployment.
+
+Custom archive/file path to be included as part of the Manage deployment.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_URL`
 - Default: None
 
 #### mas_app_settings_customization_archive_name
-Provide a custom archive file name to be associated with the archive/file path provided. Only used when `mas_app_settings_customization_archive_url` is defined.
+
+Custom archive file name to associate with the archive/file path provided; only used when `mas_app_settings_customization_archive_url` is defined.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_NAME`
@@ -839,55 +615,62 @@ Provide a custom archive file name to be associated with the archive/file path p
 
 ### Database Encryption and AI Service Secrets
 
-**Note:** The encryption secret stores both database encryption keys and AI Service integration properties when `aiservice_instance_id` is configured. The secret will contain:
+The encryption secret stores both database encryption keys and AI Service integration properties when `aiservice_instance_id` is configured. The secret contains:
 
 - Database encryption keys: `MXE_SECURITY_CRYPTO_KEY`, `MXE_SECURITY_CRYPTOX_KEY`, `MXE_SECURITY_OLD_CRYPTO_KEY`, `MXE_SECURITY_OLD_CRYPTOX_KEY`
 - AI Service connection details: `mxe.int.aibrokerapikey`, `mxe.int.aibrokerapiurl`, `mxe.int.aibrokertenantid`
 
 #### mas_manage_encryptionsecret_crypto_key
-This defines the `MXE_SECURITY_CRYPTO_KEY` value if you want to customize your Manage database encryption keys. For more details, refer to [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
+
+Custom value for the `MXE_SECURITY_CRYPTO_KEY` Manage database encryption key. For more details, refer to the [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
 
 - **Optional**
 - Environment Variable: `MAS_MANAGE_ENCRYPTIONSECRET_CRYPTO_KEY`
 - Default: Auto-generated
 
 #### mas_manage_encryptionsecret_cryptox_key
-This defines the `MXE_SECURITY_CRYPTOX_KEY` value if you want to customize your Manage database encryption keys. For more details, refer to [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
+
+Custom value for the `MXE_SECURITY_CRYPTOX_KEY` Manage database encryption key. For more details, refer to the [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
 
 - **Required** if `mas_manage_encryptionsecret_crypto_key` is set
 - Environment Variable: `MAS_MANAGE_ENCRYPTIONSECRET_CRYPTOX_KEY`
 - Default: Auto-generated
 
 #### mas_manage_encryptionsecret_old_crypto_key
-This defines the `MXE_SECURITY_OLD_CRYPTO_KEY` value if you want to customize your Manage database encryption keys. For more details, refer to [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
+
+Custom value for the `MXE_SECURITY_OLD_CRYPTO_KEY` Manage database encryption key. For more details, refer to the [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
 
 - **Optional**
 - Environment Variable: `MAS_MANAGE_ENCRYPTIONSECRET_OLD_CRYPTO_KEY`
 - Default: None
 
 #### mas_manage_encryptionsecret_old_cryptox_key
-This defines the `MXE_SECURITY_OLD_CRYPTOX_KEY` value if you want to customize your Manage database encryption keys. For more details, refer to [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
+
+Custom value for the `MXE_SECURITY_OLD_CRYPTOX_KEY` Manage database encryption key. For more details, refer to the [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
 
 - **Required** if `mas_manage_encryptionsecret_old_crypto_key` is set
 - Environment Variable: `MAS_MANAGE_ENCRYPTIONSECRET_OLD_CRYPTOX_KEY`
 - Default: None
 
 #### mas_manage_encryptionsecret_aiservice_apikey
-The AI Service API key to configure in the encryption secret. When set along with the URL and FQN, the role will add these properties to the encryption secret.
+
+AI Service API key to configure in the encryption secret. When set along with the URL and FQN, the role adds these properties to the encryption secret.
 
 - **Optional**
 - Environment Variable: `MAS_MANAGE_ENCRYPTIONSECRET_AISERVICE_APIKEY`
-- Default: Auto-retrieved from AI Service tenant secret when `aiservice_instance_id` is configured
+- Default: Auto-retrieved from the AI Service tenant secret when `aiservice_instance_id` is configured
 
 #### mas_manage_encryptionsecret_aiservice_url
-The AI Service broker URL to configure in the encryption secret.
+
+AI Service broker URL to configure in the encryption secret.
 
 - **Required** if `mas_manage_encryptionsecret_aiservice_apikey` is set
 - Environment Variable: `MAS_MANAGE_ENCRYPTIONSECRET_AISERVICE_URL`
-- Default: Auto-retrieved from AI Service route when `aiservice_instance_id` is configured
+- Default: Auto-retrieved from the AI Service route when `aiservice_instance_id` is configured
 
 #### mas_manage_encryptionsecret_aiservice_fqn
-The fully qualified AI Service tenant name (format: `{instance_id}.{tenant_id}`) to configure in the encryption secret.
+
+Fully qualified AI Service tenant name (format: `{instance_id}.{tenant_id}`) to configure in the encryption secret.
 
 - **Required** if `mas_manage_encryptionsecret_aiservice_apikey` is set
 - Environment Variable: `MAS_MANAGE_ENCRYPTIONSECRET_AISERVICE_FQN`
@@ -896,49 +679,53 @@ The fully qualified AI Service tenant name (format: `{instance_id}.{tenant_id}`)
 ### Server Timezone Setting
 
 #### mas_app_settings_server_timezone
-Sets the Manage server timezone. If you also want to have the Manage's DB2 database aligned with the same timezone, you must set `DB2_TIMEZONE` while provisioning the corresponding DB2 instance using `db2` role.
+
+Timezone for the Manage server.
 
 - **Optional**
 - Environment Variable: `MAS_APP_SETTINGS_SERVER_TIMEZONE`
 - Default: `GMT`
 
+If you also want the Manage DB2 database aligned with the same timezone, you must set `DB2_TIMEZONE` while provisioning the corresponding DB2 instance using the `db2` role.
+
 ### Facilities Workspace Variables
 
 #### mas_ws_facilities_size
-Sets the size of deployment.
+
+Size of the Facilities deployment — `small`, `medium`, or `large`.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_SIZE`
-- Default: `small` (options: `small`, `medium`, `large`)
+- Default: `small`
 
 #### mas_ws_facilities_app_om_upgrade_mode
-Sets the Application Object Migration Mode.
+
+Application Object Migration mode — `manual`, `load-only`, or `automatic`.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_APP_OM_UPGRADE_MODE`
-- Default: `manual` (options: `manual`, `load-only`, `automatic`)
+- Default: `manual`
 
 !!! warning
     Application upgrades can overwrite your custom changes — do not select `automatic` if you have customized your application. Currently supported Maximo Real Estate and Facilities release versions are `9.2.x` and above.
 
-
 #### mas_ws_facilities_pull_policy
-Sets the `imagePullPolicy` strategy for all deployments. The default is set to `IfNotPresent` to reduce the pulling operations in the cluster.
+
+`imagePullPolicy` strategy for all deployments. The default `IfNotPresent` reduces the pulling operations in the cluster.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_PULL_POLICY`
 - Default: `IfNotPresent`
 
-#### mas_ws_facilities_liberty_extension_xml_secret_name
-Provide the secret name of the secret which contains additional XML tags that needs to be added into the existing Liberty Server XML to configure the application accordingly.
+#### mas_ws_facilities_liberty_extension_XML
 
-**NOTE:** The Secret name MUST be `<workspaceId>-facilities-lexml--sn`
+Name of the secret containing additional XML tags to be added into the existing Liberty Server XML to configure the application accordingly. The secret **must** be named `<workspaceId>-facilities-lexml--sn`.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_LIBERTY_EXTENSION_XML_SECRET_NAME`
 - Default: None
 
-Sample Secret Template:
+Sample secret template:
 
 ```bash
 cat <<EOF | oc create -f -
@@ -954,22 +741,24 @@ EOF
 ```
 
 #### mas_ws_facilities_server_timezone
-Sets the Facilies application servers timezone. You should set this property only if your Facilities database is running with a timezone other from UTC. If you are creating your Facilities database using `db2` role, you must set `DB2_TIMEZONE` property to the same value while provisioning the corresponding DB2 instance.
+
+Timezone for the Facilities application servers. Set this only if your Facilities database is running with a timezone other than UTC.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_SERVER_TIMEZONE`
 - Default: `UTC`
 
-#### mas_ws_facilities_vault_secret_name
-Provide the name of the secret which contains a password to the vault with AES Encryption key. By default, this secret will be generated automatically.
+If you are creating your Facilities database using the `db2` role, you must set the `DB2_TIMEZONE` property to the same value while provisioning the corresponding DB2 instance.
 
-**NOTE:** The Secret name MUST be `<workspaceId>-facilities-vs--sn`
+#### mas_ws_facilities_vault_secret
+
+Name of the secret containing the password to the vault with the AES encryption key. The secret **must** be named `<workspaceId>-facilities-vs--sn`; by default it is generated automatically.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_VAULT_SECRET_NAME`
 - Default: None
 
-Sample Secret Template:
+Sample secret template:
 
 ```bash
 cat <<EOF | oc create -f -
@@ -985,45 +774,48 @@ EOF
 ```
 
 #### mas_ws_facilities_dwfagents
-Allows the user to add dedicated workflow agents (DWFA) to MREF. To specify a DWFA it's required to specify a JSON with a unique `name` and `members`. Each member has a unique `name` and `class` that can be classified as `user` or `group`. Below an example of the structure of the JSON:
 
-```bash
-export MAS_FACILITIES_DWFAGENTS='[{"name":"dwfa1","members":[{"name": "u1", "class": "user"}]}, {"name":"dwfa2","members":[{"name": "u2", "class": "user"},{"name":"g1", "class":"group"}]}]'
-```
+Dedicated workflow agents (DWFA) to add to MREF, as a JSON array where each DWFA has a unique `name` and `members`; each member has a unique `name` and a `class` of either `user` or `group`.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_DWFAGENTS`
 - Default: `[]`
 
+Example of the structure:
+
+```bash
+export MAS_FACILITIES_DWFAGENTS='[{"name":"dwfa1","members":[{"name": "u1", "class": "user"}]}, {"name":"dwfa2","members":[{"name": "u2", "class": "user"},{"name":"g1", "class":"group"}]}]'
+```
+
 #### mas_ws_facilities_custom_properties
-Indicates whether a custom FACILITIES.properties file is being used. When set to `true`, the role will create a secret from the provided file. When set to `false` or not provided, the operator will use its default FACILITIES.properties configuration.
+
+Whether a custom FACILITIES.properties file is being used. When set to `true`, the role creates a secret from the provided file; when `false` or not provided, the operator uses its default FACILITIES.properties configuration. Currently supported Maximo Real Estate and Facilities release versions are `9.2.x` and above.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_CUSTOM_PROPERTIES`
 - Default: `false`
-- Currently supported `Maximo Real Estate and Facilities` release versions are: `9.2.x` and above
 
 #### mas_ws_facilities_properties_file_local
-Path to the custom FACILITIES.properties file in the workspace. This file will be read and used to create a secret in the Facilities namespace. **This parameter is only used when `mas_ws_facilities_custom_properties` is set to `true`.**
+
+Path to the custom FACILITIES.properties file; the file is read and used to create a secret in the Facilities namespace. Only used when `mas_ws_facilities_custom_properties` is set to `true`. Currently supported Maximo Real Estate and Facilities release versions are `9.2.x` and above; for reference, see the sample file at `ansible-devops/docs/samples/FACILITIES.properties`.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_PROPERTIES_FILE_LOCAL`
 - Default: None
-- Currently supported `Maximo Real Estate and Facilities` release versions are: `9.2.x` and above
-- For reference, please refer to the file located at ansible-devops/docs/samples/FACILITIES.properties
 
 #### mas_ws_facilities_properties_secret_name
-Name of the secret that will be created in the `mas-<instanceId>-facilities` namespace containing the custom FACILITIES.properties file. **This parameter is only used when a custom properties file is provided.** If not specified, defaults to `custom-facilities-properties`.
+
+Name of the secret created in the `mas-<instanceId>-facilities` namespace containing the custom FACILITIES.properties file. Only used when a custom properties file is provided. Currently supported Maximo Real Estate and Facilities release versions are `9.2.x` and above.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_PROPERTIES_SECRET_NAME`
 - Default: `custom-facilities-properties`
-- Currently supported `Maximo Real Estate and Facilities` release versions are: `9.2.x` and above
 
 ### Facilities Database Settings
 
 #### mas_ws_facilities_db_maxconnpoolsize
-Sets the maximum connection pool size for database.
+
+Maximum connection pool size for the database.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_DB_MAX_POOLSIZE`
@@ -1031,8 +823,9 @@ Sets the maximum connection pool size for database.
 
 ### Facilities Routes Settings
 
-#### mas_ws_facilities_db_timout
-Sets the timeout of the application. It is a string with the structure `<timeout_value><time_unit>`, where `timeout_value` is any non zero unsigned integer number and the supported `time_unit` are microseconds (us), milliseconds (ms), seconds (s), minutes (m), hours (h), or days (d).
+#### mas_ws_facilities_routes_timeout
+
+Timeout of the application, as a string with the structure `<timeout_value><time_unit>` where `timeout_value` is any non-zero unsigned integer and the supported `time_unit` values are microseconds (us), milliseconds (ms), seconds (s), minutes (m), hours (h), or days (d).
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_ROUTES_TIMEOUT`
@@ -1041,140 +834,160 @@ Sets the timeout of the application. It is a string with the structure `<timeout
 ### Facilities Storage Settings
 
 #### mas_ws_facilities_storage_log_class
-Sets the storage class name for the Log Persistent Volume Claim used for MREF agents.
+
+Storage class name for the Log Persistent Volume Claim used for MREF agents.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_STORAGE_LOG_CLASS`
-- Default: None - If not set, a default storage class will be auto defined accordingly to your cluster's available storage classes
+- Default: None — a default storage class is auto-defined according to your cluster's available storage classes
 
 #### mas_ws_facilities_storage_log_mode
-Sets the attach mode of the Log PVC. Both `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class) are supported.
+
+Attach mode of the Log PVC. Both `ReadWriteOnce` (block storage class) and `ReadWriteMany` (file storage class) are supported.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_STORAGE_LOG_MODE`
 - Default: `ReadWriteOnce`
 
 #### mas_ws_facilities_storage_log_size
-Sets the size of the Log PVC. Defaults to 30 Gigabytes.
+
+Size of the Log PVC, in Gigabytes.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_STORAGE_LOG_SIZE`
 - Default: `30`
 
 #### mas_ws_facilities_storage_userfiles_class
-Sets the storage class name for the Userfiles PVC used for MREF agents.
+
+Storage class name for the Userfiles PVC used for MREF agents.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_STORAGE_USERFILES_CLASS`
-- Default: None - If not set, a default storage class will be auto defined accordingly to your cluster's available storage classes
+- Default: None — a default storage class is auto-defined according to your cluster's available storage classes
 
 #### mas_ws_facilities_storage_userfiles_mode
-Sets the attach mode of the Userfiles PVC. Both `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class) are supported.
+
+Attach mode of the Userfiles PVC. Both `ReadWriteOnce` (block storage class) and `ReadWriteMany` (file storage class) are supported.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_STORAGE_USERFILES_MODE`
 - Default: `ReadWriteOnce`
 
 #### mas_ws_facilities_storage_userfiles_size
-Sets the size of the Log PVC. Defaults to 50 Gigabytes.
+
+Size of the Userfiles PVC, in Gigabytes.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_STORAGE_USERFILES_SIZE`
 - Default: `50`
 
 ### Facilities Agents Deployment Flexibility Settings
-Agents Deployment Flexibility enables you to override the default agent deployment strategy defined by the size attribute. This feature is activated when at least one of the following 13 agent deployment properties is set to a valid, non-empty value. Once activated, any properties that are empty or contain invalid values will be interpreted as it was equal to `shared`.
+
+Agents Deployment Flexibility enables you to override the default agent deployment strategy defined by the size attribute. This feature is activated when at least one of the following 13 agent deployment properties is set to a valid, non-empty value. Once activated, any properties that are empty or contain invalid values will be interpreted as if they were equal to `shared`.
 
 #### mas_ws_facilities_dataconnectagent_deploymentmode
-Allow to define if the `dataconnectagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+Whether the `dataconnectagent` agent is activated in the shared `multiagents` pod, in a dedicated pod, or is disabled — allowed non-empty values are `dedicated`, `disabled`, and `shared`.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_DATACONNECTAGENT_DEPLOYMENTMODE`
-- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+- Default: `''`
 
 #### mas_ws_facilities_extendedformulaagent_deploymentmode
-Allow to define if the `extendedformulaagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+Whether the `extendedformulaagent` agent is activated in the shared `multiagents` pod, in a dedicated pod, or is disabled — allowed non-empty values are `dedicated`, `disabled`, and `shared`.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_EXTENDEDFORMULAAGENT_DEPLOYMENTMODE`
-- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+- Default: `''`
 
 #### mas_ws_facilities_formularecalcagent_deploymentmode
-Allow to define if the `formularecalcagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+Whether the `formularecalcagent` agent is activated in the shared `multiagents` pod, in a dedicated pod, or is disabled — allowed non-empty values are `dedicated`, `disabled`, and `shared`.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_FORMULARECALCAGENT_DEPLOYMENTMODE`
-- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+- Default: `''`
 
 #### mas_ws_facilities_incomingmailagent_deploymentmode
-Allow to define if the `incomingmailagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+Whether the `incomingmailagent` agent is activated in the shared `multiagents` pod, in a dedicated pod, or is disabled — allowed non-empty values are `dedicated`, `disabled`, and `shared`.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_INCOMINGMAILAGENT_DEPLOYMENTMODE`
-- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+- Default: `''`
 
 #### mas_ws_facilities_objectmigrationagent_deploymentmode
-Allow to define if the `objectmigrationagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+Whether the `objectmigrationagent` agent is activated in the shared `multiagents` pod, in a dedicated pod, or is disabled — allowed non-empty values are `dedicated`, `disabled`, and `shared`.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_OBJECTMIGRATIONAGENT_DEPLOYMENTMODE`
-- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+- Default: `''`
 
 #### mas_ws_facilities_objectpublishagent_deploymentmode
-Allow to define if the `objectpublishagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+Whether the `objectpublishagent` agent is activated in the shared `multiagents` pod, in a dedicated pod, or is disabled — allowed non-empty values are `dedicated`, `disabled`, and `shared`.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_OBJECTPUBLISHAGENT_DEPLOYMENTMODE`
-- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+- Default: `''`
 
 #### mas_ws_facilities_maintenanceagent_deploymentmode
-Allow to define if the `maintenanceagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+Whether the `maintenanceagent` agent is activated in the shared `multiagents` pod, in a dedicated pod, or is disabled — allowed non-empty values are `dedicated`, `disabled`, and `shared`.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_MAINTENANCEAGENT_DEPLOYMENTMODE`
-- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+- Default: `''`
 
 #### mas_ws_facilities_reportqueueagent_deploymentmode
-Allow to define if the `reportqueueagent` agent is activated in a the shared `multiagents` POD or in a dedicated POD. The `reportqueueagent` agent cannot be disabled.
+
+Whether the `reportqueueagent` agent is activated in the shared `multiagents` pod or in a dedicated pod — allowed non-empty values are `dedicated` and `shared`; this agent cannot be disabled.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_REPORTQUEUEAGENT_DEPLOYMENTMODE`
-- Default: `''` - Allowed non empty values: `dedicated` and `shared`
+- Default: `''`
 
 #### mas_ws_facilities_wfagent_deploymentmode
-Allow to define if the `wfagent` agent is activated in a the shared `multiagents` POD or in a dedicated POD. The `wfagent` agent cannot be disabled.
+
+Whether the `wfagent` agent is activated in the shared `multiagents` pod or in a dedicated pod — allowed non-empty values are `dedicated` and `shared`; this agent cannot be disabled.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_WFAGENT_DEPLOYMENTMODE`
-- Default: `''` - Allowed non empty values: `dedicated` and `shared`
+- Default: `''`
 
 #### mas_ws_facilities_wffutureagent_deploymentmode
-Allow to define if the `wffutureagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+Whether the `wffutureagent` agent is activated in the shared `multiagents` pod, in a dedicated pod, or is disabled — allowed non-empty values are `dedicated`, `disabled`, and `shared`.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_WFFUTUREAGENT_DEPLOYMENTMODE`
-- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+- Default: `''`
 
 #### mas_ws_facilities_wfnotificationagent_deploymentmode
-Allow to define if the `wfnotificationagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+Whether the `wfnotificationagent` agent is activated in the shared `multiagents` pod, in a dedicated pod, or is disabled — allowed non-empty values are `dedicated`, `disabled`, and `shared`.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_WFNOTIFICATIONAGENT_DEPLOYMENTMODE`
-- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+- Default: `''`
 
 #### mas_ws_facilities_reservesmtpagent_deploymentmode
-Allow to define if the `reservesmtpagent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+Whether the `reservesmtpagent` agent is activated in the shared `multiagents` pod, in a dedicated pod, or is disabled — allowed non-empty values are `dedicated`, `disabled`, and `shared`.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_RESERVESMTPAGENT_DEPLOYMENTMODE`
-- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+- Default: `''`
 
 #### mas_ws_facilities_scheduleragent_deploymentmode
-Allow to define if the `scheduleragent` agent is activated in a the shared `multiagents` POD, in a dedicated POD or is disabled.
+
+Whether the `scheduleragent` agent is activated in the shared `multiagents` pod, in a dedicated pod, or is disabled — allowed non-empty values are `dedicated`, `disabled`, and `shared`.
 
 - **Optional**
 - Environment Variable: `MAS_FACILITIES_SCHEDULERAGENT_DEPLOYMENTMODE`
-- Default: `''` - Allowed non empty values: `dedicated`, `disabled` and `shared`
+- Default: `''`
 
 ## Example Playbook
 
