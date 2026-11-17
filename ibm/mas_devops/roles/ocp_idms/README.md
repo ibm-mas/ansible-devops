@@ -298,7 +298,7 @@ Path prefix for IBM content in mirror registry.
 
 **When to use**:
 - Leave unset if images are at registry root
-- Set to match the prefix used when mirroring with `mirror_images` role
+- Set to match the prefix used when mirroring images to the registry
 - Recommended: Use catalog datestamp (e.g., `mas-241107`, `mas-241205`)
 
 **Valid values**: Valid registry path (e.g., `mas-241107`, `mas-241205`, `ibm-mas`)
@@ -441,7 +441,7 @@ Rosa login token for the rosa cli.
     setup_redhat_catalogs: true
 
   roles:
-    - ibm.mas_devops.ocp_contentsourcepolicy
+    - ibm.mas_devops.ocp_idms
 ```
 
 
