@@ -2,11 +2,12 @@
 Unit tests for verify_workloads action plugin.
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+import verify_workloads
 from ansible.errors import AnsibleError
 
-import verify_workloads
 ActionModule = verify_workloads.ActionModule
 
 

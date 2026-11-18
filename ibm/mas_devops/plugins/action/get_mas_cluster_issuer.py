@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import logging
-import urllib3
-from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
-from ansible.plugins.action import ActionBase
-from ansible.errors import AnsibleError
 
+import urllib3
+from ansible.errors import AnsibleError
+from ansible.plugins.action import ActionBase
+from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 from mas.devops.mas import getMasPublicClusterIssuer
 
 urllib3.disable_warnings()  # Disabling warnings will prevent InsecureRequestWarnings from dynClient
@@ -15,11 +15,11 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)-20s %(leveln
 class ActionModule(ActionBase):
     """
     Retrieve the Public Cluster Issuer for a MAS instance.
-    
+
     This action plugin queries the Suite custom resource and retrieves the
     certificate issuer name from spec.certificateIssuer.name. If not specified,
     it returns the default issuer name.
-    
+
     Usage Example
     -------------
     tasks:
@@ -29,7 +29,7 @@ class ActionModule(ActionBase):
         register: cluster_issuer
     """
     def run(self, tmp=None, task_vars=None):
-        super(ActionModule, self).run(tmp, task_vars)
+        super().run(tmp, task_vars)
 
         # Initialize DynamicClient and grab the task args
         host = self._task.args.get('host', None)
@@ -40,9 +40,9 @@ class ActionModule(ActionBase):
         instanceId = self._task.args.get('instance_id', None)
 
         if instanceId is None:
-            raise AnsibleError(f"Error: instance_id argument was not provided")
+            raise AnsibleError("Error: instance_id argument was not provided")
         if not isinstance(instanceId, str):
-            raise AnsibleError(f"Error: instance_id argument is not a string")
+            raise AnsibleError("Error: instance_id argument is not a string")
 
         # Get the cluster issuer name
         issuerName = getMasPublicClusterIssuer(dynClient, instanceId)

@@ -14,8 +14,6 @@ add_role_binding() to seed specific objects when a test needs to assert on
 their presence or deletion.
 """
 
-from typing import Dict, List, Optional
-
 
 # ---------------------------------------------------------------------------
 # API discovery constants
@@ -56,7 +54,7 @@ _KIND_MAP = {
 # ---------------------------------------------------------------------------
 
 
-def make_role(namespace: str, name: str, rules: List[dict] = None) -> dict:
+def make_role(namespace: str, name: str, rules: list[dict] = None) -> dict:
     """Return a minimal Role object.
 
     Args:
@@ -75,7 +73,7 @@ def make_role(namespace: str, name: str, rules: List[dict] = None) -> dict:
     }
 
 
-def make_role_binding(namespace: str, name: str, role_name: str, subjects: List[dict] = None) -> dict:
+def make_role_binding(namespace: str, name: str, role_name: str, subjects: list[dict] = None) -> dict:
     """Return a minimal RoleBinding object.
 
     Args:
@@ -111,14 +109,14 @@ class RbacMixin:
 
     def _init_rbac(self):
         """Initialise the RBAC resource stores. Called by FakeKubernetesServer.__init__."""
-        self._roles: Dict[tuple, dict] = {}
-        self._role_bindings: Dict[tuple, dict] = {}
+        self._roles: dict[tuple, dict] = {}
+        self._role_bindings: dict[tuple, dict] = {}
 
     # ------------------------------------------------------------------
     # Developer-facing API
     # ------------------------------------------------------------------
 
-    def add_role(self, namespace: str, name: str, rules: List[dict] = None):
+    def add_role(self, namespace: str, name: str, rules: list[dict] = None):
         """Register a Role in the fake server.
 
         Args:
@@ -128,7 +126,7 @@ class RbacMixin:
         """
         self._roles[(namespace, name)] = make_role(namespace, name, rules)
 
-    def add_role_binding(self, namespace: str, name: str, role_name: str, subjects: List[dict] = None):
+    def add_role_binding(self, namespace: str, name: str, role_name: str, subjects: list[dict] = None):
         """Register a RoleBinding in the fake server.
 
         Args:
@@ -143,7 +141,7 @@ class RbacMixin:
     # Internal routing (called by _Handler via generic dispatch)
     # ------------------------------------------------------------------
 
-    def _handle_apis_get(self, ns: str, resource: str, name: Optional[str]) -> Optional[tuple]:
+    def _handle_apis_get(self, ns: str, resource: str, name: str | None) -> tuple | None:
         """Handle a GET for an RBAC namespaced resource.
 
         Returns None if the resource name is not owned by this mixin, allowing
@@ -177,7 +175,7 @@ class RbacMixin:
         items = [v for (n, _), v in store.items() if n == ns]
         return 200, {"apiVersion": "rbac.authorization.k8s.io/v1", "kind": f"{kind}List", "metadata": {}, "items": items}
 
-    def _handle_apis_delete(self, ns: str, resource: str, name: Optional[str]) -> Optional[tuple]:
+    def _handle_apis_delete(self, ns: str, resource: str, name: str | None) -> tuple | None:
         """Handle a DELETE for an RBAC namespaced resource.
 
         Returns None if the resource name is not owned by this mixin.

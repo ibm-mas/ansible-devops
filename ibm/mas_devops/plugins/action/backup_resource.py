@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 
 import logging
+
 import urllib3
-
-from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
-from ansible.plugins.action import ActionBase
 from ansible.errors import AnsibleError
+from ansible.plugins.action import ActionBase
 from ansible.utils.display import Display
-
-from mas.devops.backup import backupResources 
+from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
+from mas.devops.backup import backupResources
 
 urllib3.disable_warnings()  # Disabling warnings will prevent InsecureRequestWarnings from dynClient
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)-20s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
@@ -19,7 +18,7 @@ display = Display()
 class ActionModule(ActionBase):
     """
     Backup Kubernetes resources based on a list of resource definitions
-    
+
     Usage Example
     -------------
     tasks:
@@ -38,22 +37,22 @@ class ActionModule(ActionBase):
           backup_path: "/backup/mas-suite"
     """
     def run(self, tmp=None, task_vars=None):
-        super(ActionModule, self).run(tmp, task_vars)
+        super().run(tmp, task_vars)
 
         # Initialize DynamicClient and grab the task args
         host = self._task.args.get('host', None)
         api_key = self._task.args.get('api_key', None)
-        
+
         dynClient = get_api_client(api_key=api_key, host=host)
 
         backup_resources = self._task.args.get('backup_resources')
         backup_path = self._task.args.get('backup_path')
 
         if backup_resources is None or not isinstance(backup_resources, list):
-            raise AnsibleError(f"Error: backup_resources argument must be provided as a list")
+            raise AnsibleError("Error: backup_resources argument must be provided as a list")
         if backup_path is None or backup_path == "":
-            raise AnsibleError(f"Error: backup_path argument was not provided")
-        
+            raise AnsibleError("Error: backup_path argument was not provided")
+
         display.v(f"Starting backup of MAS resources to '{backup_path}'")
 
         total_backed_up = 0
@@ -67,27 +66,27 @@ class ActionModule(ActionBase):
         for namespace_config in backup_resources:
             namespace = namespace_config.get('namespace')
             resources = namespace_config.get('resources', [])
-            
+
             # Namespace can be blank for cluster-scoped resources
             if namespace:
                 display.v(f"Processing namespace: {namespace}")
             else:
-                display.v(f"Processing cluster-scoped resources")
-            
+                display.v("Processing cluster-scoped resources")
+
             # Process each resource in the namespace (or cluster-scoped)
             for resource_def in resources:
                 kind = resource_def.get('kind')
                 api_version = resource_def.get('api_version')
                 name = resource_def.get('name')
                 labels = resource_def.get('labels', [])
-                
+
                 if not kind:
-                    display.v(f"Warning: Skipping resource without kind defined")
+                    display.v("Warning: Skipping resource without kind defined")
                     continue
-                
+
                 if not api_version:
                     raise AnsibleError(f"Error: api_version is required for resource kind '{kind}'")
-                
+
                 # Backup resources (either specific or all of that kind)
                 # Pass namespace, name, and labels as named optional arguments
                 backed_up, not_found, failed, discovered_secrets = backupResources(
@@ -97,7 +96,7 @@ class ActionModule(ActionBase):
                 total_backed_up += backed_up
                 total_not_found += not_found
                 total_failed += failed
-                
+
                 # Track failed resources with details
                 if failed > 0:
                     scope = namespace if namespace else 'cluster-scoped'
@@ -111,14 +110,14 @@ class ActionModule(ActionBase):
                         'api_version': api_version,
                         'description': resource_desc
                     })
-                
+
                 # Track discovered secrets by namespace (only if namespace is provided)
                 if discovered_secrets and namespace:
                     if namespace not in secrets_by_namespace:
                         secrets_by_namespace[namespace] = set()
                     secrets_by_namespace[namespace].update(discovered_secrets)
                     all_discovered_secrets.update(discovered_secrets)
-            
+
             display.v(f"Backup complete for named resources: {total_backed_up} resources backed up, {total_not_found} not found, {total_failed} failed")
 
         # Now backup all discovered secrets per namespace
@@ -135,7 +134,7 @@ class ActionModule(ActionBase):
                     total_backed_up += backed_up
                     total_not_found += not_found
                     total_failed += failed
-                    
+
                     # Track failed secret backups
                     if failed > 0:
                         failed_resources.append({
@@ -145,7 +144,7 @@ class ActionModule(ActionBase):
                             'api_version': 'v1',
                             'description': f"Secret/{secret_name} (auto-discovered)"
                         })
-                    
+
                     if not_found:
                         display.v(f"Warning: Referenced secret '{secret_name}' not found in namespace '{ns}'")
 
@@ -153,7 +152,7 @@ class ActionModule(ActionBase):
 
         # Determine if the backup was successful
         has_failures = total_failed > 0
-        
+
         return dict(
             message=f"Backed up {total_backed_up} MAS resources" + (f" with {total_failed} failures" if has_failures else ""),
             failed=has_failures,

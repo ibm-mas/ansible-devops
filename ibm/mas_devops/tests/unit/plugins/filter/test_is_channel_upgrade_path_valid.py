@@ -1,7 +1,6 @@
 """
 Unit tests for is_channel_upgrade_path_valid filter.
 """
-import pytest
 
 from filters import is_channel_upgrade_path_valid
 

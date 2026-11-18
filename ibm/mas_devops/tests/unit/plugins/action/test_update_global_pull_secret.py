@@ -5,11 +5,12 @@ Tests the update_global_pull_secret action which updates the global pull secret
 in openshift-config namespace with registry credentials.
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+import update_global_pull_secret
 from ansible.errors import AnsibleError
 
-import update_global_pull_secret
 ActionModule = update_global_pull_secret.ActionModule
 
 

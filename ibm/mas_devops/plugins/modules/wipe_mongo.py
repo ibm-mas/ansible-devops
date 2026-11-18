@@ -1,4 +1,3 @@
-# coding: utf-8 -*-
 # # (C) Copyright IBM Corp. 2020 All Rights Reserved.
 # Eclipse Public License 2.0 (see https://spdx.org/licenses/EPL-2.0.html)
 
@@ -49,11 +48,12 @@ author:
     - David Parker (@durera)
 '''
 
-from ansible.module_utils.basic import AnsibleModule
+import os
+import tempfile
 
 import pymongo
-import tempfile
-import os
+from ansible.module_utils.basic import AnsibleModule
+
 
 def main():
     fields = dict(
@@ -175,7 +175,7 @@ def main():
 
         # LDAP
         if params_config['authMechanism'] == 'PLAIN':
-            mongo_uri += f"authSource=$external&authMechanism=PLAIN"
+            mongo_uri += "authSource=$external&authMechanism=PLAIN"
         # Regular
         else:
             auth_source = params_config['configDb']
@@ -265,7 +265,7 @@ def main():
 
             if failed:
                 module.fail_json(
-                    msg = f"Failed to drop at least one database. See db_statuses for details.",
+                    msg = "Failed to drop at least one database. See db_statuses for details.",
                     mongo_uri=mongo_uri,
                     db_statuses=db_statuses,
                 )
