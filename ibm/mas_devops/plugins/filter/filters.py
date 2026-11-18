@@ -610,7 +610,6 @@ class FilterModule(object):
       'remove_dict_keys': remove_dict_keys,
       'is_operator_upgraded_by_version': is_operator_upgraded_by_version,
       'get_default_upgrade_channel': get_default_upgrade_channel,
-      'get_default_upgrade_channel': get_default_upgrade_channel,
       'set_storage_classes_names': set_storage_classes_names,
       'override_manage_persistent_volumes': override_manage_persistent_volumes
     }
