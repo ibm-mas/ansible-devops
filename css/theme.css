@@ -20,6 +20,10 @@
     --focus: #0f62fe;
     --interactive: #0f62fe;
 
+    /* Heading accent - blue-60 in light themes, blue-40 in dark */
+    --heading-accent: #0f62fe;
+    --h1-rule: linear-gradient(90deg, #0f62fe 0%, #0f62fe 60%, rgba(15, 98, 254, 0) 95%);
+
     /* Spacing - Carbon spacing scale */
     --spacing-01: 0.125rem;  /* 2px */
     --spacing-02: 0.25rem;   /* 4px */
@@ -102,6 +106,8 @@
     /* Dark theme link colors - Carbon blue-40/30 for better contrast */
     --link-color: #78a9ff;        /* blue-40 - WCAG AAA: 9.54:1 */
     --link-hover-color: #a6c8ff;  /* blue-30 - WCAG AAA: 12.68:1 */
+    --heading-accent: #78a9ff;    /* blue-40 */
+    --h1-rule: linear-gradient(90deg, #78a9ff 0%, #78a9ff 60%, rgba(120, 169, 255, 0) 95%);
 }
 
 [data-carbon-theme="g100"] {
@@ -115,6 +121,8 @@
     /* Dark theme link colors - Carbon blue-40/30 for better contrast */
     --link-color: #78a9ff;        /* blue-40 - WCAG AAA: 10.80:1 */
     --link-hover-color: #a6c8ff;  /* blue-30 - WCAG AAA: 14.36:1 */
+    --heading-accent: #78a9ff;    /* blue-40 */
+    --h1-rule: linear-gradient(90deg, #78a9ff 0%, #78a9ff 60%, rgba(120, 169, 255, 0) 95%);
 }
 
 /* ============================================================================
@@ -398,24 +406,49 @@ cds-breadcrumb {
     font-size: var(--font-size-08);
     margin-top: 0;
     font-weight: var(--font-weight-light);
+    /* Carbon-style accent rule beneath the page title - heavier than the
+       h2 rule (4px vs 2px), tapering off only at the tail end */
+    padding-bottom: var(--spacing-04);
+    background-image: var(--h1-rule);
+    background-repeat: no-repeat;
+    background-size: 100% 4px;
+    background-position: 0 100%;
+}
+
+/* Lede: first paragraph after the page title gets editorial emphasis */
+.rst-content h1 + p {
+    font-size: var(--font-size-04);
+    line-height: 1.6;
+    color: var(--text-secondary);
 }
 
 .rst-content h2 {
     font-size: var(--font-size-07);
     padding-bottom: var(--spacing-03);
-    border-bottom: 1px solid var(--border-subtle);
+    /* Carbon tab-indicator style: 2px accent rule under section headings */
+    border-bottom: 2px solid var(--heading-accent);
 }
 
 .rst-content h3 {
     font-size: var(--font-size-06);
+    /* Carbon side-nav active style: accent bar to the left of sub-sections */
+    border-left: 3px solid var(--heading-accent);
+    padding-left: var(--spacing-04);
 }
 
 .rst-content h4 {
     font-size: var(--font-size-05);
+    font-weight: var(--font-weight-semibold);
 }
 
 .rst-content h5 {
-    font-size: var(--font-size-04);
+    /* Carbon label style: small, semibold, tracked uppercase */
+    font-size: var(--font-size-02);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    margin-top: var(--spacing-06);
 }
 
 .rst-content h6 {
@@ -452,6 +485,22 @@ a:hover {
 
 a:visited {
     color: var(--link-color);
+}
+
+/* Carbon link spec: body-copy links are underlined */
+.rst-content p a,
+.rst-content li a,
+.rst-content td a,
+.rst-content .admonition a {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+}
+
+/* Carbon focus indicator */
+a:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
 }
 
 a.headerlink {
@@ -515,14 +564,24 @@ h4:hover a.headerlink {
     color: var(--text-primary);
 }
 
-/* Light theme inline code */
+/* Light theme inline code - Carbon blue-70 on gray-10 */
 [data-carbon-theme="white"] .rst-content p code,
 [data-carbon-theme="white"] .rst-content li code,
 [data-carbon-theme="g10"] .rst-content p code,
 [data-carbon-theme="g10"] .rst-content li code {
-    color: #c7254e;
-    background-color: #f9f2f4;
-    border-color: #f2dede;
+    color: #0043ce;  /* blue-70 */
+    background-color: #f4f4f4;  /* gray-10 */
+    border-color: #e0e0e0;  /* gray-30 */
+}
+
+/* Dark theme inline code - Carbon blue-40 on layer */
+[data-carbon-theme="g90"] .rst-content p code,
+[data-carbon-theme="g90"] .rst-content li code,
+[data-carbon-theme="g100"] .rst-content p code,
+[data-carbon-theme="g100"] .rst-content li code {
+    color: #78a9ff;  /* blue-40 */
+    background-color: var(--layer-01);
+    border-color: var(--border-subtle);
 }
 
 .rst-content pre {
@@ -568,6 +627,18 @@ h4:hover a.headerlink {
     border-radius: 4px;
 }
 
+/* Horizontal rules - fading rule instead of the harsh browser default */
+.rst-content hr {
+    border: none;
+    height: 1px;
+    margin: var(--spacing-08) 0;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        var(--border-strong) 20%,
+        var(--border-strong) 80%,
+        transparent 100%);
+}
+
 /* Blockquotes - Theme Adaptive */
 blockquote {
     position: relative;
@@ -606,7 +677,6 @@ blockquote p:last-child {
 
 .rst-content table thead {
     background-color: var(--layer-02);
-    border-bottom: 1px solid var(--border-strong);
 }
 
 .rst-content table tr th {
@@ -615,9 +685,9 @@ blockquote p:last-child {
     font-weight: var(--font-weight-semibold);
     font-size: var(--font-size-02);
     text-align: left;
-    border-bottom: 1px solid var(--border-subtle);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    /* Accent rule under the header row, matching h2 section rules */
+    border-bottom: 2px solid var(--heading-accent);
+    letter-spacing: 0.02em;
 }
 
 .rst-content table tr th a {
@@ -693,7 +763,9 @@ blockquote p:last-child {
    Admonitions - Carbon Design System Notification Pattern
    ============================================================================ */
 
-/* Base admonition styling */
+/* Base admonition styling - tinted Carbon notification/callout style.
+   Each type sets --admonition-accent; the background wash and border are
+   derived from it, so light and dark themes both get a proper color field. */
 .rst-content .admonition,
 .rst-content .note,
 .rst-content .warning,
@@ -703,11 +775,13 @@ blockquote p:last-child {
 .rst-content .danger,
 .rst-content .error,
 .rst-content .bug {
+    --admonition-accent: #0f62fe;  /* blue-60 - default for generic .admonition */
     padding: var(--spacing-05);
     margin-bottom: var(--spacing-06);
     border-radius: 0;
-    border-left: 3px solid;
-    background-color: var(--layer-01);
+    border: 1px solid color-mix(in srgb, var(--admonition-accent) 45%, transparent);
+    border-left: 4px solid var(--admonition-accent);
+    background-color: color-mix(in srgb, var(--admonition-accent) 14%, var(--background));
     color: var(--text-primary);
 }
 
@@ -718,158 +792,62 @@ blockquote p:last-child {
     display: flex;
     align-items: center;
     gap: var(--spacing-03);
-}
-
-/* Note / Info / Bug - Blue (Informational) */
-.rst-content .note,
-.rst-content .admonition,
-.rst-content .bug {
-    border-left-color: #0f62fe;  /* blue-60 */
-}
-
-.rst-content .note .admonition-title,
-.rst-content .admonition .admonition-title,
-.rst-content .bug .admonition-title {
-    color: #0f62fe;  /* blue-60 */
+    color: var(--admonition-accent);
     background-color: transparent;
 }
 
-/* Light theme - subtle blue background */
-[data-carbon-theme="white"] .rst-content .note,
-[data-carbon-theme="white"] .rst-content .admonition,
-[data-carbon-theme="white"] .rst-content .bug,
-[data-carbon-theme="g10"] .rst-content .note,
-[data-carbon-theme="g10"] .rst-content .admonition,
-[data-carbon-theme="g10"] .rst-content .bug {
-    background-color: #edf5ff;  /* blue-10 */
+/* Type accents - light themes (Carbon -60/-50/-40 tokens) */
+.rst-content .note,
+.rst-content .bug {
+    --admonition-accent: #0f62fe;  /* blue-60 */
 }
 
-/* Dark theme - use layer with lighter border */
-[data-carbon-theme="g90"] .rst-content .note,
-[data-carbon-theme="g90"] .rst-content .admonition,
-[data-carbon-theme="g90"] .rst-content .bug,
-[data-carbon-theme="g100"] .rst-content .note,
-[data-carbon-theme="g100"] .rst-content .admonition,
-[data-carbon-theme="g100"] .rst-content .bug {
-    background-color: var(--layer-02);
-    border-left-color: #78a9ff;  /* blue-40 */
-}
-
-[data-carbon-theme="g90"] .rst-content .note .admonition-title,
-[data-carbon-theme="g90"] .rst-content .admonition .admonition-title,
-[data-carbon-theme="g90"] .rst-content .bug .admonition-title,
-[data-carbon-theme="g100"] .rst-content .note .admonition-title,
-[data-carbon-theme="g100"] .rst-content .admonition .admonition-title,
-[data-carbon-theme="g100"] .rst-content .bug .admonition-title {
-    color: #78a9ff;  /* blue-40 */
-}
-
-/* Tip / Important - Green (Success) */
 .rst-content .tip,
 .rst-content .important {
-    border-left-color: #24a148;  /* green-50 */
+    --admonition-accent: #24a148;  /* green-50 */
 }
 
-.rst-content .tip .admonition-title,
-.rst-content .important .admonition-title {
-    color: #24a148;  /* green-50 */
-    background-color: transparent;
+.rst-content .warning,
+.rst-content .caution {
+    --admonition-accent: #ff832b;  /* orange-40 */
 }
 
-/* Light theme - subtle green background */
-[data-carbon-theme="white"] .rst-content .tip,
-[data-carbon-theme="white"] .rst-content .important,
-[data-carbon-theme="g10"] .rst-content .tip,
-[data-carbon-theme="g10"] .rst-content .important {
-    background-color: #defbe6;  /* green-10 */
+.rst-content .danger,
+.rst-content .error {
+    --admonition-accent: #da1e28;  /* red-60 */
 }
 
-/* Dark theme - use layer with lighter border */
+/* Type accents - dark themes (Carbon -40 tokens for contrast).
+   Ordered after the light rules and the generic dark rule so each
+   type's accent wins over the blue default. */
+[data-carbon-theme="g90"] .rst-content .admonition,
+[data-carbon-theme="g90"] .rst-content .note,
+[data-carbon-theme="g90"] .rst-content .bug,
+[data-carbon-theme="g100"] .rst-content .admonition,
+[data-carbon-theme="g100"] .rst-content .note,
+[data-carbon-theme="g100"] .rst-content .bug {
+    --admonition-accent: #78a9ff;  /* blue-40 */
+}
+
 [data-carbon-theme="g90"] .rst-content .tip,
 [data-carbon-theme="g90"] .rst-content .important,
 [data-carbon-theme="g100"] .rst-content .tip,
 [data-carbon-theme="g100"] .rst-content .important {
-    background-color: var(--layer-02);
-    border-left-color: #42be65;  /* green-40 */
+    --admonition-accent: #42be65;  /* green-40 */
 }
 
-[data-carbon-theme="g90"] .rst-content .tip .admonition-title,
-[data-carbon-theme="g90"] .rst-content .important .admonition-title,
-[data-carbon-theme="g100"] .rst-content .tip .admonition-title,
-[data-carbon-theme="g100"] .rst-content .important .admonition-title {
-    color: #42be65;  /* green-40 */
-}
-
-/* Warning / Caution - Orange (Warning) */
-.rst-content .warning,
-.rst-content .caution {
-    border-left-color: #ff832b;  /* orange-40 */
-}
-
-.rst-content .warning .admonition-title,
-.rst-content .caution .admonition-title {
-    color: #ff832b;  /* orange-40 */
-    background-color: transparent;
-}
-
-/* Light theme - subtle orange background */
-[data-carbon-theme="white"] .rst-content .warning,
-[data-carbon-theme="white"] .rst-content .caution,
-[data-carbon-theme="g10"] .rst-content .warning,
-[data-carbon-theme="g10"] .rst-content .caution {
-    background-color: #fff2e8;  /* orange-10 */
-}
-
-/* Dark theme - use layer with lighter border */
 [data-carbon-theme="g90"] .rst-content .warning,
 [data-carbon-theme="g90"] .rst-content .caution,
 [data-carbon-theme="g100"] .rst-content .warning,
 [data-carbon-theme="g100"] .rst-content .caution {
-    background-color: var(--layer-02);
-    border-left-color: #ff832b;  /* orange-40 */
+    --admonition-accent: #ff832b;  /* orange-40 */
 }
 
-[data-carbon-theme="g90"] .rst-content .warning .admonition-title,
-[data-carbon-theme="g90"] .rst-content .caution .admonition-title,
-[data-carbon-theme="g100"] .rst-content .warning .admonition-title,
-[data-carbon-theme="g100"] .rst-content .caution .admonition-title {
-    color: #ff832b;  /* orange-40 */
-}
-
-/* Danger / Error - Red (Error) */
-.rst-content .danger,
-.rst-content .error {
-    border-left-color: #da1e28;  /* red-60 */
-}
-
-.rst-content .danger .admonition-title,
-.rst-content .error .admonition-title {
-    color: #da1e28;  /* red-60 */
-    background-color: transparent;
-}
-
-/* Light theme - subtle red background */
-[data-carbon-theme="white"] .rst-content .danger,
-[data-carbon-theme="white"] .rst-content .error,
-[data-carbon-theme="g10"] .rst-content .danger,
-[data-carbon-theme="g10"] .rst-content .error {
-    background-color: #fff1f1;  /* red-10 */
-}
-
-/* Dark theme - use layer with lighter border */
 [data-carbon-theme="g90"] .rst-content .danger,
 [data-carbon-theme="g90"] .rst-content .error,
 [data-carbon-theme="g100"] .rst-content .danger,
 [data-carbon-theme="g100"] .rst-content .error {
-    background-color: var(--layer-02);
-    border-left-color: #fa4d56;  /* red-50 */
-}
-
-[data-carbon-theme="g90"] .rst-content .danger .admonition-title,
-[data-carbon-theme="g90"] .rst-content .error .admonition-title,
-[data-carbon-theme="g100"] .rst-content .danger .admonition-title,
-[data-carbon-theme="g100"] .rst-content .error .admonition-title {
-    color: #fa4d56;  /* red-50 */
+    --admonition-accent: #fa4d56;  /* red-50 */
 }
 
 .rst-content .admonition p:last-child {
@@ -1019,6 +997,21 @@ cds-header {
     --cds-icon-secondary: #c6c6c6;
     --cds-text-placeholder: rgba(244, 244, 244, 0.4);
     --cds-field: #393939;
+    --cds-focus: #ffffff;
+}
+
+/* Header menu button (mobile hamburger): icon tokens (icon defaults to white
+   theme, leaving a black hamburger on the dark header without these overrides) */
+[data-carbon-theme="white"] cds-header-menu-button,
+[data-carbon-theme="g10"] cds-header-menu-button {
+    --cds-icon-primary: #161616;
+    --cds-icon-secondary: #525252;
+}
+
+[data-carbon-theme="g90"] cds-header-menu-button,
+[data-carbon-theme="g100"] cds-header-menu-button {
+    --cds-icon-primary: #f4f4f4;
+    --cds-icon-secondary: #c6c6c6;
     --cds-focus: #ffffff;
 }
 
@@ -1418,6 +1411,28 @@ cds-tabs {
 
     .md-sidebar--primary.active {
         left: 0;
+    }
+
+    /* Expanded search takes over the full header width on mobile. Carbon sets
+       the `expanded` attribute on the host when activated; the host inherits
+       the header's themed --cds-background so the overlay always matches. */
+    cds-search[expandable][expanded] {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: var(--header-height);
+        z-index: 20;
+        background: var(--cds-background, #161616);
+    }
+
+    /* On mobile, show only the last breadcrumb item (the quick-nav dropdown) */
+    .md-breadcrumbs cds-breadcrumb-item {
+        display: none;
+    }
+
+    .md-breadcrumbs cds-breadcrumb-item:last-of-type {
+        display: flex;
     }
 
     .md-content__inner {
