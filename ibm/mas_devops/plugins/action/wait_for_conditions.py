@@ -99,6 +99,8 @@ class ActionModule(ActionBase):
             raise AnsibleError(f"Error: namespace argument was not provided")
         if name is None:
             raise AnsibleError(f"Error: name argument was not provided")
+        if not conditions:
+            raise AnsibleError(f"Error: conditions argument was not provided or is empty")
 
         response = waitForConditionsToReady(
           dynClient=dynClient,
