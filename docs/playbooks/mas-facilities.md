@@ -67,5 +67,3 @@ ansible-playbook ibm.mas_devops.mas_add_facilities
 ```
 
 For full details of configuration options available refer to the [gencfg_jdbc](../roles/gencfg_jdbc.md) role documentation.
-
-

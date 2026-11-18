@@ -93,7 +93,11 @@
           size: "{{ mas_manage_imagestitching_storage_size }}"
           storageClassName: "{{ mas_manage_imagestitching_storage_class }}"
       set_fact:
-        imagestitching_persistent_volumes: "{{ existing_persistent_volumes + [stitching_pv] }}"
+        # ansible-lint's template render cannot type-check the concatenation of
+        # the templated existing_persistent_volumes var with a list; on
+        # ansible-core >= 2.19 (required by this collection) data tagging
+        # preserves the native list type at runtime
+        imagestitching_persistent_volumes: "{{ existing_persistent_volumes + [stitching_pv] }}"  # noqa: jinja[invalid]
 
     - name: "imagestitching : Add the persistent volume definition in ManageWorkspace CR"
       when: not (stitching_pv_added | bool)

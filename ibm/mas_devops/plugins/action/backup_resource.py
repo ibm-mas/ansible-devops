@@ -165,4 +165,3 @@ class ActionModule(ActionBase):
             discovered_secrets=sorted(list(all_discovered_secrets)),
             failed_resources=failed_resources
         )
-

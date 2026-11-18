@@ -66,4 +66,3 @@ class ActionModule(ActionBase):
         except NotFoundError:
             display.v(f"- No Pods found in namespace '{db2_namespace}' with labels '{label_selector}'")
         return dict(failed=True, success=False, pod_name="", db2_version="", msg="Db2u Pod not found")
-

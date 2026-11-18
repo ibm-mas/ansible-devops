@@ -58,4 +58,3 @@ class ActionModule(ActionBase):
         return dict(
             success=upload_status
         )
-

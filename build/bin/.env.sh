@@ -47,5 +47,3 @@ if [ -z $BUILD_SYSTEM_ENV_LOADED ]; then
 else
   echo "BUILD_SYSTEM_ENV_LOADED is already defined, skipping debug and export to GitHub env file"
 fi
-
-

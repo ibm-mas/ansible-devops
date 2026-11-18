@@ -1900,52 +1900,52 @@ Deploy a new MongoDB instance using configuration from a backup and restore data
   vars:
     mongodb_provider: atlas
     mongodb_action: install
-    
+
     # Project configuration (creates project if it doesn't exist)
     atlas_org_id: "507f1f77bcf86cd799439011"
     atlas_project_name: "MAS Production"
-    
+
     # Cluster configuration
     atlas_cluster_name: "mas-cluster"
     atlas_cluster_provider: "AWS"
     atlas_aws_region: "US_EAST_1"
     atlas_cluster_size: "M10"
     atlas_mongodb_version: "7.0"
-    
+
     # Backup configuration
     atlas_backup_enabled: true
     atlas_backup_compliance_enabled: true
     atlas_compliance_authorized_email: "admin@example.com"
     atlas_compliance_authorized_first_name: "Admin"
     atlas_compliance_authorized_last_name: "User"
-    
+
     # Audit logging configuration
     atlas_audit_enabled: true
     atlas_audit_filter: '{"atype": "authenticate"}'
     atlas_audit_authorization_success: false
-    
+
     # Alert monitoring configuration
     # Basic alerts (CPU, memory, connections) are automatically enabled
     atlas_enable_alerts: true
     atlas_alert_notification_emails: "ocm-team@example.com,monitoring@example.com"
-    
+
     # Optional: Enable additional alert categories
     atlas_enable_cluster_health_alerts: true
     atlas_enable_performance_alerts: true  # Disk and query performance
-    
+
     # MAS instances (creates dedicated users for each)
     atlas_mas_instances: "inst1,inst2,inst3"
-    
+
     # PrivateLink configuration
     atlas_privatelink_enabled: true
     atlas_vpc_id: "vpc-0123456789abcdef0"
     atlas_subnet_ids: "subnet-111,subnet-222,subnet-333"
     atlas_rosa_cidr_ranges: "10.0.0.0/16"
-    
+
     # Secret management
     atlas_store_credentials_in_secret: true
     atlas_account_id: "123456789012"
-    
+
   roles:
     - ibm.mas_devops.mongodb
 ```
@@ -1956,20 +1956,20 @@ Deploy a new MongoDB instance using configuration from a backup and restore data
   any_errors_fatal: true
   vars:
     mongodb_provider: atlas
-    
+
     # AWS account ID (used to retrieve credentials from AWS Secrets Manager)
     # Secret name will be: <atlas_account_id>/mongodb-atlas
     atlas_account_id: "123456789012"
     aws_region: "us-east-1"
-    
+
     # Use existing project
     atlas_project_id: "507f1f77bcf86cd799439011"
-    
+
     # Cluster configuration
     atlas_cluster_name: "mas-dev-cluster"
     atlas_aws_region: "US_EAST_1"
     atlas_cluster_size: "M10"
-    
+
   roles:
     - ibm.mas_devops.mongodb
 ```

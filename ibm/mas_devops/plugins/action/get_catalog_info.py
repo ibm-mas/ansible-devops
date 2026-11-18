@@ -47,4 +47,3 @@ class ActionModule(ActionBase):
                 changed=False,
                 id=catalogId
             )
-

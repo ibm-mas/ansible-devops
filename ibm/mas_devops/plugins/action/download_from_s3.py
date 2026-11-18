@@ -58,4 +58,3 @@ class ActionModule(ActionBase):
         return dict(
             success=download_status
         )
-
