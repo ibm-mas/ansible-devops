@@ -2,8 +2,8 @@
 
 from ansible.errors import AnsibleError
 from ansible.plugins.action import ActionBase
+from mas.devops.data import NoSuchCatalogError, getCatalog
 
-from mas.devops.data import getCatalog, NoSuchCatalogError
 
 class ActionModule(ActionBase):
     """
@@ -17,17 +17,17 @@ class ActionModule(ActionBase):
         register: mas_catalog_metadata
     """
     def run(self, tmp=None, task_vars=None):
-        super(ActionModule, self).run(tmp, task_vars)
+        super().run(tmp, task_vars)
 
         catalogId = self._task.args.get('mas_catalog_version', None)
         failIfCatalogDoesNotExist = self._task.args.get('fail_if_catalog_does_not_exist', False)
 
         if catalogId is None:
-            raise AnsibleError(f"Error: mas_catalog_version argument was not provided")
+            raise AnsibleError("Error: mas_catalog_version argument was not provided")
         if not isinstance(catalogId, str):
-            raise AnsibleError(f"Error: mas_catalog_version argument is not a string")
+            raise AnsibleError("Error: mas_catalog_version argument is not a string")
         if not isinstance(failIfCatalogDoesNotExist, bool):
-            raise AnsibleError(f"Error: fail_if_catalog_does_not_exist argument is not a boolean")
+            raise AnsibleError("Error: fail_if_catalog_does_not_exist argument is not a boolean")
 
         try:
             catalogData = getCatalog(catalogId)

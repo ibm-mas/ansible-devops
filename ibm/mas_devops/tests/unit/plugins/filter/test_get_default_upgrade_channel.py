@@ -2,7 +2,6 @@
 Unit tests for get_default_upgrade_channel filter.
 """
 import pytest
-
 from filters import get_default_upgrade_channel
 
 

@@ -6,10 +6,11 @@
 # restricted by GSA ADP Schedule Contract with IBM Corp.
 
 
+import sys
+
 from ibm_watson_machine_learning.foundation_models import Model
 from ibm_watson_machine_learning.foundation_models.utils.enums import ModelTypes
 from ibm_watson_machine_learning.metanames import GenTextParamsMetaNames as GenParams
-import sys
 
 GenParams().get_example_values()
 

@@ -17,7 +17,6 @@ specific objects when a test needs to assert on their presence or deletion.
 RBAC resources (Role, RoleBinding) are in rbac.py.
 """
 
-from typing import Dict, List, Optional
 
 
 # ---------------------------------------------------------------------------
@@ -123,9 +122,9 @@ class WorkloadsMixin:
 
     def _init_workloads(self):
         """Initialise the workload resource stores. Called by FakeKubernetesServer.__init__."""
-        self._service_accounts: Dict[tuple, dict] = {}
-        self._configmaps: Dict[tuple, dict] = {}
-        self._secrets: Dict[tuple, dict] = {}
+        self._service_accounts: dict[tuple, dict] = {}
+        self._configmaps: dict[tuple, dict] = {}
+        self._secrets: dict[tuple, dict] = {}
 
     # ------------------------------------------------------------------
     # Developer-facing API
@@ -164,7 +163,7 @@ class WorkloadsMixin:
     # Internal routing helpers (called by _Handler)
     # ------------------------------------------------------------------
 
-    def _handle_core_get(self, ns: str, resource: str, name: Optional[str]) -> tuple:
+    def _handle_core_get(self, ns: str, resource: str, name: str | None) -> tuple:
         """Handle a GET for a core v1 namespaced resource.
 
         Args:
@@ -196,7 +195,7 @@ class WorkloadsMixin:
         items = [v for (n, _), v in store.items() if n == ns]
         return 200, {"apiVersion": "v1", "kind": f"{kind}List", "metadata": {}, "items": items}
 
-    def _handle_core_delete(self, ns: str, resource: str, name: Optional[str]) -> tuple:
+    def _handle_core_delete(self, ns: str, resource: str, name: str | None) -> tuple:
         """Handle a DELETE for a core v1 namespaced resource.
 
         Args:

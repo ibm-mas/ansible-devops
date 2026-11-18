@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 
+import base64
 import logging
-import urllib3
 
-from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
-from ansible.plugins.action import ActionBase
+import urllib3
 from ansible.errors import AnsibleError
+from ansible.plugins.action import ActionBase
 from ansible.utils.display import Display
+from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 from kubernetes.dynamic import DynamicClient
 from kubernetes.dynamic.exceptions import NotFoundError
-
-import yaml
-import base64
-
 from mas.devops.ocp import getCR, getSecret
 
 urllib3.disable_warnings()  # Disabling warnings will prevent InsecureRequestWarnings from dynClient
@@ -40,13 +37,13 @@ def isMongoRunning(mongoCR: dict) -> bool:
     Check if MongoDB Community instance is running
     return True if running, else False
     """
-    display.v(f"Checking if MongoDB Community instance is in 'Running' state")
+    display.v("Checking if MongoDB Community instance is in 'Running' state")
     if 'status' in mongoCR:
         if 'phase' in mongoCR['status']:
             if mongoCR['status']['phase'] == 'Running':
-                display.v(f"MongoDB Community instance is in 'Running' state")
+                display.v("MongoDB Community instance is in 'Running' state")
                 return True
-    display.v(f"MongoDB Community instance is not in 'Running' state")
+    display.v("MongoDB Community instance is not in 'Running' state")
     return False
 
 def getMongoceCR(dynClient: DynamicClient, mongodb_instance_name: str, mongodb_namespace: str) -> dict:
@@ -114,7 +111,7 @@ class ActionModule(ActionBase):
         ibm.mas_devops.get_mongoce_info:
     """
     def run(self, tmp=None, task_vars=None):
-        super(ActionModule, self).run(tmp, task_vars)
+        super().run(tmp, task_vars)
 
         # Initialize DynamicClient and grab the task args
         host = self._task.args.get('host', None)
@@ -126,10 +123,10 @@ class ActionModule(ActionBase):
         mongodb_namespace = self._task.args.get('mongodb_namespace')
 
         if mongodb_instance_name is None:
-            raise AnsibleError(f"Error: mongodb_instance_name argument was not provided")
+            raise AnsibleError("Error: mongodb_instance_name argument was not provided")
         if mongodb_namespace is None:
-            raise AnsibleError(f"Error: mongodb_namespace argument was not provided")
-        
+            raise AnsibleError("Error: mongodb_namespace argument was not provided")
+
         display.v(f"Retrieving MongoDB Community instance '{mongodb_instance_name}' in namespace '{mongodb_namespace}'")
 
         # 1. Check if MongoDB Community instance exists
@@ -142,9 +139,9 @@ class ActionModule(ActionBase):
         # 2. Check if MongoDB Community instance is in 'Running' state
         if not isMongoRunning(mongodb_cr):
             raise AnsibleError(f"Error: MongoDB Community instance '{mongodb_instance_name}' is not in 'Running' state")
-        
+
         display_information(mongodb_cr)
-        
+
         # 3. Lookup mongoce Pod to retrieve mongo pod name
         mongoce_pod_name = getPodNameFromLabels(
             dynClient=dynClient,
@@ -162,13 +159,19 @@ class ActionModule(ActionBase):
             secret_name=mongodb_admin_secretname
         )
         if not mongodb_admin_secret:
-            raise AnsibleError(f"Error: Could not find admin Secret '{mongodb_admin_secretname}' for MongoDB Community instance '{mongodb_instance_name}' in namespace '{mongodb_namespace}'")
+            raise AnsibleError(
+                f"Error: Could not find admin Secret '{mongodb_admin_secretname}' for MongoDB Community instance "
+                f"'{mongodb_instance_name}' in namespace '{mongodb_namespace}'"
+            )
 
         # 5. Retrieve mongodb service name
         mongodb_service_name = getMongoDBServiceName(mongodb_cr)
         if not mongodb_service_name:
-            raise AnsibleError(f"Error: Could not find MongoDB Service name for MongoDB Community instance '{mongodb_instance_name}' in namespace '{mongodb_namespace}'")
-        
+            raise AnsibleError(
+                f"Error: Could not find MongoDB Service name for MongoDB Community instance "
+                f"'{mongodb_instance_name}' in namespace '{mongodb_namespace}'"
+            )
+
         # 6. Construct mongodb_host
         mongodb_host = f"{mongoce_pod_name}.{mongodb_service_name}.{mongodb_namespace}.svc.cluster.local:27017"
 

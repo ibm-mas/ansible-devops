@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 
+import time
+
+from ansible.errors import AnsibleError
+from ansible.plugins.action import ActionBase
+from ansible.utils.display import Display
 from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 
-from ansible.plugins.action import ActionBase
-from ansible.errors import AnsibleError
-from ansible.utils.display import Display
-
-import time
 
 class ActionModule(ActionBase):
     def run(self, tmp=None, task_vars=None):
-        super(ActionModule, self).run(tmp, task_vars)
+        super().run(tmp, task_vars)
 
         # Initialize DynamicClient and grab the task args
         host = self._task.args.get('host', None)
@@ -60,16 +60,22 @@ class ActionModule(ActionBase):
 
           for resource in resources.items:
             if resource.metadata.name in ignoredResources:
-              msg = f"{resource.metadata.namespace}/{resource.metadata.name} = {resource.status.replicas} replicas/{resource.status.availableReplicas} available"
+              msg = (f"{resource.metadata.namespace}/{resource.metadata.name} = "
+                     f"{resource.status.replicas} replicas/{resource.status.availableReplicas} available")
               display.v(f"[IGNORED] {msg}")
               ignored.append(msg)
             elif resource.status.replicas == 0:
-              msg = f"{resource.metadata.namespace}/{resource.metadata.name} = {resource.status.replicas} replicas/{resource.status.availableReplicas} available"
+              msg = (f"{resource.metadata.namespace}/{resource.metadata.name} = "
+                     f"{resource.status.replicas} replicas/{resource.status.availableReplicas} available")
               display.v(f"[DISABLED] {msg}")
               disabled.append(msg)
             else:
-              msg = f"{resource.metadata.namespace}/{resource.metadata.name} = {resource.status.replicas} replicas/{resource.status.readyReplicas} ready/{resource.status.updatedReplicas} updated/{resource.status.availableReplicas} available"
-              if resource.status.replicas != resource.status.readyReplicas or resource.status.replicas != resource.status.updatedReplicas or resource.status.replicas != resource.status.availableReplicas:
+              msg = (f"{resource.metadata.namespace}/{resource.metadata.name} = {resource.status.replicas} replicas/"
+                     f"{resource.status.readyReplicas} ready/{resource.status.updatedReplicas} updated/"
+                     f"{resource.status.availableReplicas} available")
+              if (resource.status.replicas != resource.status.readyReplicas
+                      or resource.status.replicas != resource.status.updatedReplicas
+                      or resource.status.replicas != resource.status.availableReplicas):
                 display.v(f"[NOTREADY] {msg}")
                 notReady.append(msg)
                 notReadyResources.append(f"{resource.metadata.namespace}/{resource.metadata.name}")
@@ -80,7 +86,7 @@ class ActionModule(ActionBase):
 
           display.vvv(f"Finished check: allResourcesHealthyThisLoop={allResourcesHealthyThisLoop} delay: {delay}")
           if allResourcesHealthyThisLoop:
-            display.v(f"Finished check: All workloads are healthy")
+            display.v("Finished check: All workloads are healthy")
             allResourcesHealthy = True
           else:
             display.v(f"Finished check: Delaying {delay} seconds before next check")
