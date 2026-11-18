@@ -44,7 +44,7 @@ def checkStatus(username: str, password: str, clusterName: str, site: str, retry
         if "does not exist" in clusterDetails:
             display.v(" - Cluster does not exist")
             sleep(sleepTime)
-            return checkStatus(username, password, clusterName, site, errorCount+1, errorCount+1)
+            return checkStatus(username, password, clusterName, site, retryCount+1, errorCount+1)
         else:
             display.v(f" - Fatal error: {clusterDetails}")
             return False
