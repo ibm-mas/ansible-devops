@@ -118,20 +118,23 @@ def main():
         zones = json_response['result']
 
         # Looking for available zones
+        if len(zones) == 0:
+            module.fail_json(msg = f"No DNS zones found, aborting...")
+        if len(zones) > 1 and not dnsZone:
+            module.fail_json(msg = f"More than one zone found please choose one and export DNS_ZONE_ID env var.")
 
+        currentZone = None
         for zone in zones:
             if(dnsZone and dnsZone == zone['id']):
                 currentZone = zone
             elif(not dnsZone):
                 currentZone = zone
 
+        if currentZone is None:
+            module.fail_json(msg = f"DNS zone with id {dnsZone} not found, aborting...")
+
         zoneName = currentZone['name']
         zoneId = currentZone['id']
-
-        if len(zones) > 1 and not dnsZone:
-            module.fail_json(msg = f"More than one zone found please choose one and export DNS_ZONE_ID env var.")
-        elif len(zones) == 0:
-            module.fail_json(msg = f"No DNS zones found, aborting...")
 
         url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/ssl/certificate_packs?per_page=500"
 
@@ -176,7 +179,7 @@ def main():
                         if masDomain in host:
                             existingCertHosts.append(host)
 
-        exitingCertHostsFound = len(existingCertHosts)
+        existingCertHostsFound = len(existingCertHosts)
 
         entryMissing = False
         for entryName in edgeCertEntries:
@@ -190,7 +193,7 @@ def main():
     except requests.exceptions.RequestException as e:  # This is the correct syntax
         module.fail_json(msg = f"Error {e} calling : {url}")
 
-    result = {"changed": False, "reorder": entryMissing, "msg": msg, "exitingCertHostsFound": exitingCertHostsFound}
+    result = {"changed": False, "reorder": entryMissing, "msg": msg, "existingCertHostsFound": existingCertHostsFound}
     module.exit_json(**result)
 
 if __name__ == '__main__':

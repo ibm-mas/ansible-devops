@@ -322,7 +322,7 @@ class ActionModule(ActionBase):
             files_to_skip= []
 
             if skip_files_lower:
-                files_to_skip = skip_files_lower[resource_dir]
+                files_to_skip = skip_files_lower.get(resource_dir, [])
             
             # Get all YAML files in this directory
             try:

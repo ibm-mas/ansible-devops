@@ -27,8 +27,8 @@ class ActionModule(ActionBase):
         stsResult = self._checkResources(sts, "StatefulSets", retries, delay)
 
         return dict(
-          failed = (depResult["failed"] and stsResult["failed"]),
-          changed = (depResult["changed"] and stsResult["changed"]),
+          failed = (depResult["failed"] or stsResult["failed"]),
+          changed = (depResult["changed"] or stsResult["changed"]),
           message = f"{depResult['message']} / {stsResult['message']}",
           deployments = depResult,
           statefulSets = stsResult
