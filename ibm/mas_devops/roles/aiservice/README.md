@@ -1,7 +1,9 @@
 # aiservice
+
 This role provides support to install and configure AI Service for IBM Maximo Application Suite. AI Service enables AI-powered capabilities within MAS applications, particularly for Maximo Manage.
 
 The role supports the following operations:
+
 - Install AI Service API application
 - Create and delete AI Service tenants
 - Manage AI Service API keys
@@ -11,7 +13,33 @@ The role supports the following operations:
 
 ## Role Variables
 
-### General Variables
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`tenant_action`](#tenant_action) | No | `install` |
+| [`tenantName`](#tenantname) | No | `user` |
+| [`app_domain`](#app_domain) | No | Auto-detected from cluster |
+| [`aiservice_domain`](#aiservice_domain) | No | None |
+| [`ocp_enable_ipv6`](#ocp_enable_ipv6) | No | `false` |
+| [`aiservice_s3_host`](#aiservice_s3_host) | Conditional | None |
+| [`aiservice_s3_accesskey`](#aiservice_s3_accesskey) | Conditional | None |
+| [`aiservice_s3_secretkey`](#aiservice_s3_secretkey) | Conditional | None |
+| [`aiservice_s3_region`](#aiservice_s3_region) | No | `none` |
+| [`aiservice_watsonx_action`](#aiservice_watsonx_action) | No | `install` |
+| [`aiservice_watsonxai_apikey`](#aiservice_watsonxai_apikey) | Conditional | None |
+| [`aiservice_watsonxai_url`](#aiservice_watsonxai_url) | Conditional | None |
+| [`aiservice_watsonxai_project_id`](#aiservice_watsonxai_project_id) | Conditional | None |
+| [`install_db2`](#install_db2) | No | `true` |
+| [`aiservice_db_jdbc_url`](#aiservice_db_jdbc_url) | Conditional | None |
+| [`aiservice_db_username`](#aiservice_db_username) | Conditional | None |
+| [`aiservice_db_password`](#aiservice_db_password) | Conditional | None |
+| [`aiservice_db_ca_cert`](#aiservice_db_ca_cert) | No | None |
+| [`aiservice_certificate_issuer`](#aiservice_certificate_issuer) | No | None |
+| [`aiservice_certificate_duration`](#aiservice_certificate_duration) | No | `8760h0m0s` |
+| [`aiservice_certificate_renew_before`](#aiservice_certificate_renew_before) | No | `720h0m0s` |
+
+The S3 storage variables are required together when configuring S3 storage integration, the WatsonX AI variables are required when `aiservice_watsonx_action` is `install`, and the external database variables are required when `install_db2` is `false`.
+
+### Tenant and Domain Configuration
 
 #### aiservice_action
 Action to perform on the AI Service instance.
@@ -39,511 +67,232 @@ The data must already be in ODF. Run the `minio` role (`MINIO_ACTION=backup`) an
 **Related variables**: `MINIO_NAMESPACE` (default `minio`), `ODF_BUCKET_NAMESPACE` (default `openshift-storage`), `AISERVICE_UPDATE_S3_SETTLE_SECONDS` (default `60`).
 
 #### tenant_action
-Action to perform on AI Service tenant.
+
+Action to perform on the AI Service tenant — `install` or `remove`.
 
 - **Optional**
 - Environment Variable: `TENANT_ACTION`
 - Default: `install`
 
-**Purpose**: Specifies whether to install or remove an AI Service tenant. Controls tenant lifecycle management.
+`install` creates the tenant with the specified configuration; `remove` deletes the tenant and associated resources. All other variables apply only when the action is `install`.
 
-**When to use**:
-- Use `install` (default) to create a new AI Service tenant
-- Use `remove` to delete an existing AI Service tenant
-- Required for tenant management operations
-
-**Valid values**: `install`, `remove`
-
-**Impact**: 
-- `install`: Creates tenant with specified configuration
-- `remove`: Deletes tenant and associated resources
-
-**Related variables**:
-- `tenantName`: Name of tenant to install/remove
-- All other variables apply only when action is `install`
-
-**Note**: **WARNING** - `remove` action permanently deletes the tenant and all associated data. Ensure you have backups before removing a tenant.
+!!! warning
+    The `remove` action permanently deletes the tenant and **all associated data** — ensure you have backups before removing a tenant.
 
 #### tenantName
-AI Service tenant identifier.
+
+AI Service tenant identifier — a valid tenant name string (alphanumeric, lowercase recommended), unique within the AI Service instance.
 
 - **Optional**
 - Environment Variable: `AISERVICE_TENANT_NAME`
 - Default: `user`
 
-**Purpose**: Specifies the name/identifier for the AI Service tenant. Tenants provide isolation between different users or environments.
-
-**When to use**:
-- Use default (`user`) for single-tenant deployments
-- Set custom name for multi-tenant environments
-- Use descriptive names (e.g., `production`, `development`, `team-a`)
-
-**Valid values**: Valid tenant name string (alphanumeric, lowercase recommended)
-
-**Impact**: Tenant name is used in resource names, API keys, and configuration. Must be unique within the AI Service instance.
-
-**Related variables**:
-- `tenant_action`: Whether to install or remove this tenant
-- Tenant name is used in generated API key secrets
-
-**Note**: Choose meaningful tenant names for multi-tenant scenarios. The default `user` is suitable for single-tenant deployments.
+Tenants provide isolation between different users or environments. Use the default for single-tenant deployments, and descriptive names (e.g., `production`, `development`, `team-a`) for multi-tenant environments — the tenant name is used in resource names, API keys, generated API key secrets, and configuration.
 
 #### app_domain
-Application domain for AI Service routes.
+
+Application domain for AI Service routes — a domain string in the format `apps.domain` (e.g., `apps.mycluster.example.com`).
 
 - **Optional**
 - Environment Variable: `APP_DOMAIN`
 - Default: Auto-detected from cluster
 
-**Purpose**: Specifies the application domain for AI Service routes and endpoints. Used to construct the full URL for AI Service API access.
-
-**When to use**:
-- Leave unset for automatic detection from cluster configuration
-- Set explicitly when cluster domain cannot be auto-detected
-- Required for custom domain configurations
-
-**Valid values**: Domain string in format `apps.domain` (e.g., `apps.mycluster.example.com`)
-
-**Impact**: Determines the URL where AI Service API is accessible. Incorrect domain will prevent API access.
-
-**Related variables**:
-- `aiservice_domain`: Custom domain override (takes precedence if set)
-
-**Note**: The role automatically detects the cluster's application domain. Only set this if auto-detection fails or you need a custom domain. Format must be `apps.<domain>`.
+Leave unset for automatic detection from the cluster configuration, and set explicitly when the cluster domain cannot be auto-detected or for custom domain configurations. The domain determines the URL where the AI Service API is accessible — an incorrect domain will prevent API access. `aiservice_domain` takes precedence if set.
 
 #### aiservice_domain
-Custom domain override for AI Service.
+
+Custom domain override for AI Service — a valid domain string (e.g., `aiservice.example.com`).
 
 - **Optional**
 - Environment Variable: `AISERVICE_DOMAIN`
 - Default: None (uses `app_domain` or cluster default)
 
-**Purpose**: Provides a custom domain specifically for AI Service, overriding the general application domain. Useful for custom DNS configurations.
-
-**When to use**:
-- Leave unset to use `app_domain` or cluster default
-- Set when AI Service needs a different domain than other applications
-- Required for custom DNS or external domain configurations
-
-**Valid values**: Valid domain string (e.g., `aiservice.example.com`)
-
-**Impact**: When set, this domain is used instead of `app_domain` for AI Service routes. Takes precedence over `app_domain`.
-
-**Related variables**:
-- `app_domain`: General application domain (used if this is not set)
-
-**Note**: This is an advanced configuration option. Most deployments should use `app_domain` or cluster auto-detection. Only set this if AI Service requires a separate domain.
+When set, this domain is used instead of `app_domain` for AI Service routes. This is an advanced configuration option for custom DNS or external domain configurations — most deployments should use `app_domain` or cluster auto-detection, and only set this if AI Service requires a separate domain.
 
 #### ocp_enable_ipv6
-Enables SingleStack IPv6 service configuration for AI Service.
+
+Enables SingleStack IPv6 service configuration for AI Service — `true` or `false`.
 
 - **Optional**
 - Environment Variable: `OCP_ENABLE_IPV6`
-- Default: False
+- Default: `false`
 
-**Purpose**: Provide a way to enable IPv6 networking for all the services that are created by AI Service operator.
+Provides a way to enable IPv6 networking for all the services that are created by the AI Service operator. Set this when installing AI Service on an IPv6 enabled environment — when set to true, all services are created with a SingleStack IPv6 configuration.
 
-**When to use**:
-- Set when installing AI Service on an IPv6 enabled environment.
-
-**Valid values**: `true` or `false`
-
-**Impact**: When set to true, all services are created with a SingleStack IPv6 configuration.
-
-### S3 Storage Configuration Variables
+### S3 Storage Configuration
 
 #### aiservice_s3_host
-S3-compatible storage host endpoint.
 
-- **Optional**
+S3-compatible storage host endpoint — a valid S3 endpoint URL (e.g., `s3.amazonaws.com`, `s3.us-east-1.amazonaws.com`, or a MinIO endpoint).
+
+- **Optional** — required when configuring S3 storage integration
 - Environment Variable: `AISERVICE_S3_HOST`
 - Default: None
 
-**Purpose**: Specifies the endpoint URL for S3-compatible object storage used by AI Service for storing models, data, and artifacts.
-
-**When to use**:
-- Required when configuring S3 storage integration
-- Set to AWS S3 endpoint (e.g., `s3.amazonaws.com`) or compatible service
-- Must be accessible from the cluster
-
-**Valid values**: Valid S3 endpoint URL (e.g., `s3.amazonaws.com`, `s3.us-east-1.amazonaws.com`, MinIO endpoint)
-
-**Impact**: AI Service uses this storage for persistent data. Without proper S3 configuration, AI Service functionality will be limited.
-
-**Related variables**:
-- `aiservice_s3_accesskey`: Access credentials for this host
-- `aiservice_s3_secretkey`: Secret credentials for this host
-- `aiservice_s3_region`: Region for this host
-
-**Note**: All S3 variables (`aiservice_s3_*`) must be configured together for S3 integration. Supports AWS S3 and S3-compatible services like MinIO, IBM Cloud Object Storage.
+The endpoint must be accessible from the cluster. AI Service uses this storage for persistent data (models, data, and artifacts) — without proper S3 configuration, AI Service functionality will be limited. Supports AWS S3 and S3-compatible services like MinIO and IBM Cloud Object Storage. All S3 variables (`aiservice_s3_*`) must be configured together for S3 integration.
 
 #### aiservice_s3_accesskey
-S3 storage access key ID.
 
-- **Optional**
+S3 storage access key ID — a valid S3 access key string obtained from your S3 provider (AWS IAM, MinIO, etc.).
+
+- **Optional** — required when configuring S3 storage integration
 - Environment Variable: `AISERVICE_S3_ACCESSKEY`
 - Default: None
 
-**Purpose**: Provides the access key ID for authenticating to S3-compatible object storage. Part of the credential pair for S3 access.
-
-**When to use**:
-- Required when configuring S3 storage integration
-- Obtain from your S3 provider (AWS IAM, MinIO, etc.)
-- Must have permissions to create/read/write buckets and objects
-
-**Valid values**: Valid S3 access key ID string
-
-**Impact**: Without valid credentials, AI Service cannot access S3 storage, limiting functionality.
-
-**Related variables**:
-- `aiservice_s3_secretkey`: Secret key paired with this access key
-- `aiservice_s3_host`: S3 endpoint to authenticate against
-- `aiservice_s3_region`: Region for the S3 service
-
-**Note**: **SECURITY** - Keep access keys secure. Do not commit to source control. Use environment variables or secure secret management. Ensure the access key has appropriate S3 permissions for AI Service operations.
+The key must have permissions to create/read/write buckets and objects — without valid credentials, AI Service cannot access S3 storage, limiting functionality. Keep access keys secure: do not commit them to source control, and use environment variables or secure secret management.
 
 #### aiservice_s3_secretkey
-S3 storage secret access key.
 
-- **Optional**
+S3 storage secret access key — a valid S3 secret access key string, paired with the corresponding `aiservice_s3_accesskey`.
+
+- **Optional** — required when configuring S3 storage integration
 - Environment Variable: `AISERVICE_S3_SECRETKEY`
 - Default: None
 
-**Purpose**: Provides the secret access key for authenticating to S3-compatible object storage. Part of the credential pair for S3 access.
-
-**When to use**:
-- Required when configuring S3 storage integration
-- Obtain from your S3 provider (AWS IAM, MinIO, etc.)
-- Must be paired with corresponding `aiservice_s3_accesskey`
-
-**Valid values**: Valid S3 secret access key string
-
-**Impact**: Without valid credentials, AI Service cannot access S3 storage, limiting functionality.
-
-**Related variables**:
-- `aiservice_s3_accesskey`: Access key ID paired with this secret key
-- `aiservice_s3_host`: S3 endpoint to authenticate against
-- `aiservice_s3_region`: Region for the S3 service
-
-**Note**: **SECURITY** - Keep secret keys secure. Never commit to source control or expose in logs. Use environment variables or secure secret management. The secret key must match the access key ID.
+Without valid credentials, AI Service cannot access S3 storage, limiting functionality. Keep secret keys secure — never commit them to source control or expose them in logs; use environment variables or secure secret management.
 
 #### aiservice_s3_region
-S3 storage region.
+
+S3 storage region — a valid AWS region code (e.g., `us-east-1`, `eu-west-1`) or S3-compatible service region identifier.
 
 - **Optional**
 - Environment Variable: `AISERVICE_S3_REGION`
-- Default: None
+- Default: `none`
 
-**Purpose**: Specifies the AWS region or region identifier for S3-compatible object storage. Required for proper S3 API operations.
+The region must match where your S3 buckets are located — an incorrect region will cause S3 API calls to fail. For S3-compatible services, use the region identifier provided by your service; some services may not require a region.
 
-**When to use**:
-- Required when configuring S3 storage integration
-- Set to AWS region (e.g., `us-east-1`, `eu-west-1`) or compatible service region
-- Must match the region where your S3 buckets are located
-
-**Valid values**: Valid AWS region code or S3-compatible service region identifier
-
-**Impact**: Incorrect region will cause S3 API calls to fail. Must match the actual bucket location.
-
-**Related variables**:
-- `aiservice_s3_host`: S3 endpoint (may include region in URL)
-- `aiservice_s3_accesskey`: Access credentials for this region
-- `aiservice_s3_secretkey`: Secret credentials for this region
-
-**Note**: For AWS S3, use standard region codes (e.g., `us-east-1`). For S3-compatible services, use the region identifier provided by your service. Some services may not require a region.
-
-### WatsonX AI Configuration Variables
+### WatsonX AI Configuration
 
 #### aiservice_watsonx_action
-Action to perform on WatsonX AI integration.
+
+Action to perform on the WatsonX AI integration — `install` or `remove`.
 
 - **Optional**
 - Environment Variable: `AISERVICE_WATSONX_ACTION`
 - Default: `install`
 
-**Purpose**: Specifies whether to install or remove WatsonX AI integration with AI Service. Controls WatsonX integration lifecycle.
-
-**When to use**:
-- Use `install` (default) to configure WatsonX AI integration
-- Use `remove` to delete WatsonX AI integration
-- Required for WatsonX integration management
-
-**Valid values**: `install`, `remove`
-
-**Impact**: 
-- `install`: Configures AI Service to use WatsonX AI for AI/ML capabilities
-- `remove`: Removes WatsonX AI integration configuration
-
-**Related variables**:
-- `aiservice_watsonxai_apikey`: API key for WatsonX (required for install)
-- `aiservice_watsonxai_url`: WatsonX endpoint (required for install)
-- `aiservice_watsonxai_project_id`: WatsonX project (required for install)
-
-**Note**: WatsonX AI integration enables advanced AI capabilities in AI Service. All WatsonX variables must be configured together for successful integration.
+`install` configures AI Service to use WatsonX AI for AI/ML capabilities; `remove` removes the WatsonX AI integration configuration. All WatsonX variables must be configured together for successful integration.
 
 #### aiservice_watsonxai_apikey
-WatsonX AI API key for authentication.
 
-- **Optional**
+WatsonX AI API key for authentication — a valid IBM WatsonX AI API key string, obtained from IBM Cloud IAM or WatsonX AI service credentials.
+
+- **Optional** — required when `aiservice_watsonx_action` is `install`
 - Environment Variable: `AISERVICE_WATSONXAI_APIKEY`
 - Default: None
 
-**Purpose**: Provides the API key for authenticating AI Service with IBM WatsonX AI platform. Required for WatsonX AI integration.
-
-**When to use**:
-- Required when `aiservice_watsonx_action` is `install`
-- Obtain from IBM Cloud WatsonX AI service
-- Must have appropriate WatsonX AI permissions
-
-**Valid values**: Valid IBM WatsonX AI API key string
-
-**Impact**: Without valid API key, AI Service cannot access WatsonX AI capabilities. Integration will fail.
-
-**Related variables**:
-- `aiservice_watsonxai_url`: WatsonX AI endpoint to authenticate against
-- `aiservice_watsonxai_project_id`: WatsonX project to access
-- `aiservice_watsonx_action`: Whether to install or remove integration
-
-**Note**: **SECURITY** - Keep API keys secure. Do not commit to source control. Use environment variables or secure secret management. Obtain from IBM Cloud IAM or WatsonX AI service credentials.
+The key must have appropriate WatsonX AI permissions — without a valid API key, AI Service cannot access WatsonX AI capabilities and the integration will fail. Keep API keys secure: do not commit them to source control, and use environment variables or secure secret management.
 
 #### aiservice_watsonxai_url
-WatsonX AI service endpoint URL.
 
-- **Optional**
+WatsonX AI service endpoint URL — a valid WatsonX AI endpoint URL (e.g., `https://us-south.ml.cloud.ibm.com`, `https://eu-de.ml.cloud.ibm.com`).
+
+- **Optional** — required when `aiservice_watsonx_action` is `install`
 - Environment Variable: `AISERVICE_WATSONXAI_URL`
 - Default: None
 
-**Purpose**: Specifies the endpoint URL for IBM WatsonX AI service. Required for AI Service to connect to WatsonX AI platform.
-
-**When to use**:
-- Required when `aiservice_watsonx_action` is `install`
-- Set to your WatsonX AI region endpoint
-- Must be accessible from the cluster
-
-**Valid values**: Valid WatsonX AI endpoint URL (e.g., `https://us-south.ml.cloud.ibm.com`, `https://eu-de.ml.cloud.ibm.com`)
-
-**Impact**: AI Service uses this URL to access WatsonX AI APIs. Incorrect URL will prevent WatsonX integration.
-
-**Related variables**:
-- `aiservice_watsonxai_apikey`: API key for authenticating to this endpoint
-- `aiservice_watsonxai_project_id`: Project to access at this endpoint
-- `aiservice_watsonx_action`: Whether to install or remove integration
-
-**Note**: Use the WatsonX AI endpoint for your IBM Cloud region. Common endpoints: `https://us-south.ml.cloud.ibm.com` (Dallas), `https://eu-de.ml.cloud.ibm.com` (Frankfurt), `https://jp-tok.ml.cloud.ibm.com` (Tokyo).
+Use the WatsonX AI endpoint for your IBM Cloud region — common endpoints are `https://us-south.ml.cloud.ibm.com` (Dallas), `https://eu-de.ml.cloud.ibm.com` (Frankfurt), and `https://jp-tok.ml.cloud.ibm.com` (Tokyo). The endpoint must be accessible from the cluster; an incorrect URL will prevent WatsonX integration.
 
 #### aiservice_watsonxai_project_id
-WatsonX AI project identifier.
 
-- **Optional**
+WatsonX AI project identifier — a valid WatsonX AI project ID in UUID format, obtained from your WatsonX AI project settings in IBM Cloud.
+
+- **Optional** — required when `aiservice_watsonx_action` is `install`
 - Environment Variable: `AISERVICE_WATSONXAI_PROJECT_ID`
 - Default: None
 
-**Purpose**: Specifies the WatsonX AI project ID that AI Service will use for AI/ML operations. Projects organize resources and control access in WatsonX AI.
+The project organizes resources and controls access in WatsonX AI — it must have the required AI models and resources configured, and the API key must have appropriate permissions for the project. An incorrect project ID will prevent access to AI capabilities.
 
-**When to use**:
-- Required when `aiservice_watsonx_action` is `install`
-- Obtain from your WatsonX AI project in IBM Cloud
-- Project must have appropriate models and resources configured
-
-**Valid values**: Valid WatsonX AI project ID (UUID format)
-
-**Impact**: AI Service uses this project for accessing WatsonX AI models and resources. Incorrect project ID will prevent access to AI capabilities.
-
-**Related variables**:
-- `aiservice_watsonxai_apikey`: API key must have access to this project
-- `aiservice_watsonxai_url`: WatsonX endpoint where this project exists
-- `aiservice_watsonx_action`: Whether to install or remove integration
-
-**Note**: The project ID is found in your WatsonX AI project settings in IBM Cloud. Ensure the API key has appropriate permissions for the project. The project should have the required AI models and resources configured.
-
-### Database Configuration Variables
+### Database Configuration
 
 #### install_db2
-Controls whether to install in-cluster DB2 for AI Service.
+
+Controls whether to install an in-cluster DB2 database for AI Service — `true` or `false`.
 
 - **Optional**
 - Environment Variable: `INSTALL_DB2`
 - Default: `true`
 
-**Purpose**: Determines whether to deploy an in-cluster DB2 instance for AI Service or use an external database.
-
-**When to use**:
-- Use `true` (default) for development, testing, or proof-of-concept deployments
-- Use `false` for production deployments with external Oracle or DB2 databases
-
-**Valid values**: `true`, `false`
-
-**Impact**: When set to `false`, you must provide external database connection details via `aiservice_db_*` variables.
-
-**Related variables**:
-- `aiservice_db_jdbc_url`: Required when `install_db2` is `false`
-- `aiservice_db_username`: Required when `install_db2` is `false`
-- `aiservice_db_password`: Required when `install_db2` is `false`
-- `aiservice_db_ca_cert`: Optional SSL/TLS certificate for external database
-
-**Note**: External database support is available in AI Service 9.1.x only. Supported external databases: Oracle and DB2.
+Use `true` (default) for development, testing, or proof-of-concept deployments, and `false` for production deployments with external Oracle or DB2 databases — when `false`, you must provide external database connection details via the `aiservice_db_*` variables. External database support is available in AI Service 9.1.x only; supported external databases are Oracle and DB2.
 
 #### aiservice_db_jdbc_url
-JDBC connection URL for external database.
 
-- **Optional** (Required when `install_db2` is `false`)
+JDBC connection URL for the external database — for example `jdbc:oracle:thin:@//hostname:1521/servicename` (Oracle) or `jdbc:db2://hostname:50000/database` (DB2).
+
+- **Optional** — required when `install_db2` is `false`
 - Environment Variable: `AISERVICE_DB_JDBC_URL`
 - Default: None
 
-**Purpose**: Specifies the JDBC connection string for connecting AI Service to an external Oracle or DB2 database.
-
-**When to use**:
-- Required when `install_db2` is `false`
-- Must be a valid JDBC URL for Oracle or DB2
-- Database must be accessible from the cluster
-
-**Valid values**:
-- Oracle: `jdbc:oracle:thin:@//hostname:1521/servicename`
-- DB2: `jdbc:db2://hostname:50000/database`
-
-**Impact**: AI Service uses this database for persistent storage. Incorrect URL will prevent AI Service from starting.
-
-**Note**: Ensure the database exists and is properly configured before installation. The database user must have appropriate permissions to create tables and manage schema.
+AI Service uses this database for persistent storage — an incorrect URL will prevent AI Service from starting. Ensure the database exists, is accessible from the cluster, and is properly configured before installation, and that the database user has appropriate permissions to create tables and manage the schema.
 
 #### aiservice_db_username
-Database username for external database authentication.
 
-- **Optional** (Required when `install_db2` is `false`)
+Database username for external database authentication — a valid database username string, preferably a dedicated service account for AI Service.
+
+- **Optional** — required when `install_db2` is `false`
 - Environment Variable: `AISERVICE_DB_USERNAME`
 - Default: None
 
-**Purpose**: Provides the username for authenticating AI Service to the external database.
-
-**When to use**:
-- Required when `install_db2` is `false`
-- Must have appropriate database permissions
-- Should be a dedicated service account for AI Service
-
-**Valid values**: Valid database username string
-
-**Impact**: Without valid credentials, AI Service cannot connect to the database and will fail to start.
-
-**Note**: **SECURITY** - The database user must have permissions to create tables, indexes, and manage schema objects. Use a dedicated service account rather than a DBA account.
+The user must have permissions to create tables, indexes, and manage schema objects — use a dedicated service account rather than a DBA account. Without valid credentials, AI Service cannot connect to the database and will fail to start.
 
 #### aiservice_db_password
-Database password for external database authentication.
 
-- **Optional** (Required when `install_db2` is `false`)
+Database password for external database authentication — a valid database password string matching `aiservice_db_username`.
+
+- **Optional** — required when `install_db2` is `false`
 - Environment Variable: `AISERVICE_DB_PASSWORD`
 - Default: None
 
-**Purpose**: Provides the password for authenticating AI Service to the external database.
-
-**When to use**:
-- Required when `install_db2` is `false`
-- Must match the password for `aiservice_db_username`
-- Should be stored securely
-
-**Valid values**: Valid database password string
-
-**Impact**: Without valid credentials, AI Service cannot connect to the database and will fail to start.
-
-**Note**: **SECURITY** - Never commit passwords to source control. Use environment variables or secure secret management.
+Without valid credentials, AI Service cannot connect to the database and will fail to start. Never commit passwords to source control — use environment variables or secure secret management.
 
 #### aiservice_db_ca_cert
-CA certificate for external database SSL/TLS connections.
 
-- **Optional**
+CA certificate for external database SSL/TLS connections — the complete CA certificate content in PEM format, including the `-----BEGIN CERTIFICATE-----` and `-----END CERTIFICATE-----` markers.
+
+- **Optional** — required when the external database uses SSL/TLS with self-signed certificates
 - Environment Variable: `AISERVICE_DB_CA_CERT`
 - Default: None
 
-**Purpose**: Provides the CA certificate content for validating SSL/TLS connections to external databases using self-signed certificates.
-
-**When to use**:
-- Required when external database uses SSL/TLS with self-signed certificates
-- Not needed for databases with publicly trusted certificates
-- Must be the complete certificate in PEM format
-
-**Valid values**: Complete CA certificate content in PEM format (including `-----BEGIN CERTIFICATE-----` and `-----END CERTIFICATE-----` markers)
-
-**Impact**: Without the CA certificate, AI Service cannot validate SSL/TLS connections to databases using self-signed certificates.
-
-**Note**: Provide the entire certificate content, not a file path. Include all lines from `-----BEGIN CERTIFICATE-----` to `-----END CERTIFICATE-----`.
+Provide the entire certificate content, not a file path, including all lines from `-----BEGIN CERTIFICATE-----` to `-----END CERTIFICATE-----`. Not needed for databases with publicly trusted certificates — without the CA certificate, AI Service cannot validate SSL/TLS connections to databases using self-signed certificates.
 
 ### Certificate Management
 
 #### aiservice_certificate_issuer
-Name of the cert-manager Issuer to use for automatic certificate generation.
+
+Name of the cert-manager Issuer to use for automatic certificate generation — the name of any valid Issuer resource in the cluster (e.g., `prod-le-issuer`, `{mas_instance_id}-cloudflare-le-prod`).
 
 - **Optional**
 - Environment Variable: `AISERVICE_CERTIFICATE_ISSUER`
 - Default: None
 
-**Purpose**: Specifies which cert-manager Issuer will generate and manage SSL/TLS certificates for AI Service. The Issuer defines the Certificate Authority and authentication method used for certificate issuance.
-
-**When to use**:
-- Set to the Issuer created by `suite_dns` role (e.g., `{aiservice_instance_id}-cloudflare-le-prod`)
-- Set to a custom Issuer if you have specific certificate requirements
-
-**Valid values**: Name of any valid Issuer resource in the cluster (e.g., `prod-le-issuer`, `{mas_instance_id}-cloudflare-le-prod`)
-
-**Impact**: The specified Issuer will be used to generate all certificates for AI Service. If the Issuer is not properly configured or lacks necessary credentials, certificate generation will fail and AI Service will not be accessible.
-
-**Related variables**:
-- Created by `suite_dns` role for Let's Encrypt integration
-- Works with `aiservice_certificate_duration` and `aiservice_certificate_renew_before`
-
-**Note**: Ensure the Issuer is created and functional before installing AI Service. Test certificate generation with a test Certificate resource first.
+The Issuer defines the Certificate Authority and authentication method used for certificate issuance. Set it to the Issuer created by the `suite_dns` role for Let's Encrypt integration (e.g., `{aiservice_instance_id}-cloudflare-le-prod`), or a custom Issuer for specific certificate requirements. If the Issuer is not properly configured or lacks necessary credentials, certificate generation will fail and AI Service will not be accessible — ensure the Issuer is created and functional (test with a test Certificate resource) before installing AI Service.
 
 #### aiservice_certificate_duration
-Specifies the validity period for AI Service certificates.
+
+Validity period for AI Service certificates — a duration string in the format `{hours}h{minutes}m{seconds}s` (e.g., `8760h0m0s`, `2160h0m0s`, `17520h0m0s`).
 
 - **Optional**
 - Environment Variable: `AISERVICE_CERTIFICATE_DURATION`
 - Default: `8760h0m0s` (1 year)
 
-**Purpose**: Defines how long certificates will be valid before they expire. This affects how often certificates need to be renewed and the security posture of your installation.
-
-**When to use**:
-- Use default (8760h = 1 year) for most installations
-- Reduce for higher security environments requiring frequent rotation
-- Increase only if certificate renewal is problematic in your environment
-- Must be longer than `aiservice_certificate_renew_before`
-
-**Valid values**: Duration string in format `{hours}h{minutes}m{seconds}s` (e.g., `8760h0m0s`, `2160h0m0s`, `17520h0m0s`)
-
-**Impact**: Shorter durations increase security but require more frequent renewals. Longer durations reduce renewal frequency but increase risk if certificates are compromised. Cert-manager will automatically renew certificates before expiration.
-
-**Related variables**:
-- Must be greater than `aiservice_certificate_renew_before`
-- Only applies when using automatic certificate management
-- Affects all AI Service certificates
+Shorter durations increase security but require more frequent renewals; longer durations reduce renewal frequency but increase risk if certificates are compromised — cert-manager automatically renews certificates before expiration. Must be longer than `aiservice_certificate_renew_before`; only applies when using automatic certificate management and affects all AI Service certificates.
 
 #### aiservice_certificate_renew_before
-Specifies when to renew certificates before they expire.
+
+When to renew certificates before they expire — a duration string in the format `{hours}h{minutes}m{seconds}s` (e.g., `720h0m0s`, `1440h0m0s`, `168h0m0s`).
 
 - **Optional**
 - Environment Variable: `AISERVICE_CERTIFICATE_RENEW_BEFORE`
 - Default: `720h0m0s` (30 days)
 
-**Purpose**: Defines the renewal window - how far in advance cert-manager will renew certificates before they expire. This ensures certificates are renewed with sufficient time to handle any renewal issues.
-
-**When to use**:
-- Use default (720h = 30 days) for most installations
-- Increase in environments where certificate renewal may be slow or problematic
-- Decrease only if you need to minimize the number of certificate changes
-- Must be shorter than `aiservice_certificate_duration`
-
-**Valid values**: Duration string in format `{hours}h{minutes}m{seconds}s` (e.g., `720h0m0s`, `1440h0m0s`, `168h0m0s`)
-
-**Impact**: Longer renewal windows provide more time to resolve renewal issues but result in more frequent certificate changes. Shorter windows reduce certificate churn but increase risk of expiration if renewal fails.
-
-**Related variables**:
-- Must be less than `aiservice_certificate_duration`
-- Only applies when using automatic certificate management
-- Affects all AI Service certificates
-
-**Note**: Ensure this value provides adequate time to detect and resolve certificate renewal issues before expiration.
+Longer renewal windows provide more time to resolve renewal issues but result in more frequent certificate changes; shorter windows reduce certificate churn but increase risk of expiration if renewal fails. Must be shorter than `aiservice_certificate_duration` — ensure this value provides adequate time to detect and resolve certificate renewal issues before expiration. Only applies when using automatic certificate management and affects all AI Service certificates.
 
 ## Example Playbook
+
 After installing the Ansible Collection you can include this role in your own custom playbooks.
 
 ### Example 1: Basic Installation with In-Cluster DB2
+
 ```yaml
 - hosts: localhost
   vars:
@@ -562,6 +311,7 @@ After installing the Ansible Collection you can include this role in your own cu
 ```
 
 ### Example 2: Installation with External Oracle Database
+
 ```yaml
 - hosts: localhost
   vars:
@@ -587,6 +337,7 @@ After installing the Ansible Collection you can include this role in your own cu
 ```
 
 ## Run Role Playbook
+
 After installing the Ansible Collection you can easily run the role standalone using the `run_role` playbook provided.
 
 ```bash
@@ -614,4 +365,5 @@ ROLE_NAME=aiservice ansible-playbook ibm.mas_devops.run_role
 ```
 
 ## License
+
 EPL-2.0

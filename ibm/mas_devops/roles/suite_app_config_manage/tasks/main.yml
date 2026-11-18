@@ -1,0 +1,61 @@
+---
+# suite_app_config_manage : Post-installation configuration actions for the Manage
+# application. Each action consolidates one of the former suite_manage_*_config
+# roles, selected via the suite_app_config_manage_actions parameter (list or
+# comma-separated string).
+# ========================================================================
+
+# Assertions: preliminary validations
+# ------------------------------------------------------------------------
+- name: "suite_app_config_manage : Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
+
+- name: "suite_app_config_manage : Fail if mas_workspace_id is not provided"
+  assert:
+    that: mas_workspace_id is defined and mas_workspace_id != ""
+    fail_msg: "mas_workspace_id property is required"
+
+- name: "suite_app_config_manage : Normalize the actions into a list"
+  set_fact:
+    suite_manage_actions_normalized: >-
+      {{ suite_app_config_manage_actions if (suite_app_config_manage_actions is string)
+         else (suite_app_config_manage_actions | join(',')) }}
+
+- name: "suite_app_config_manage : Set the list of actions to run"
+  set_fact:
+    suite_manage_actions: "{{ suite_manage_actions_normalized.split(',') | map('trim') | select('!=', '') | list | unique }}"
+
+- name: "suite_app_config_manage : Fail if no action is provided"
+  assert:
+    that: suite_manage_actions | length > 0
+    fail_msg: >-
+      suite_app_config_manage_actions property is required and must be set to one or
+      more of the supported actions: {{ suite_app_config_manage_actions_supported | join(', ') }}
+
+- name: "suite_app_config_manage : Fail if any action is not supported"
+  vars:
+    unsupported_actions: "{{ suite_manage_actions | difference(suite_app_config_manage_actions_supported) }}"
+  assert:
+    that: unsupported_actions | length == 0
+    fail_msg: >-
+      Unsupported action(s): {{ unsupported_actions | join(', ') }}. Supported actions:
+      {{ suite_app_config_manage_actions_supported | join(', ') }}
+
+- name: "suite_app_config_manage : Debug information"
+  debug:
+    msg:
+      - "Instance ID ............................ {{ mas_instance_id }}"
+      - "Workspace ID ........................... {{ mas_workspace_id }}"
+      - "Application ID ......................... {{ mas_app_id }}"
+      - "ManageWorkspace CR ..................... {{ manage_workspace_cr_name }}"
+      - "Actions ................................ {{ suite_manage_actions | join(', ') }}"
+
+# Dispatch: run each action
+# ------------------------------------------------------------------------
+- name: "suite_app_config_manage : Run action"
+  include_tasks: "tasks/actions/{{ item }}.yml"
+  loop: "{{ suite_manage_actions }}"
+  loop_control:
+    label: "{{ item }}"
