@@ -311,4 +311,3 @@ def create_mock_storage_class(
         setattr(storage_class, key, value)
 
     return storage_class
-
