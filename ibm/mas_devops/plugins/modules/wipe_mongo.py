@@ -199,7 +199,7 @@ def main():
                 tls = True,
                 tlsCAFile = ca_file.name if ca_file is not None else None,
                 tlsAllowInvalidCertificates = False,
-                retryWrites = params_config['retryWrites']
+                retryWrites = params_config['retryWrites'] if params_config is not None else True
             )
         except Exception as ex:
             module.fail_json(msg = f"Unable to initialize mongo client: {str(ex)}")
