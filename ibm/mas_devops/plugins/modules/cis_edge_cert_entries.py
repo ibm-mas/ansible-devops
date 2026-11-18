@@ -179,7 +179,7 @@ def main():
                         if masDomain in host:
                             existingCertHosts.append(host)
 
-        exitingCertHostsFound = len(existingCertHosts)
+        existingCertHostsFound = len(existingCertHosts)
 
         entryMissing = False
         for entryName in edgeCertEntries:
@@ -193,7 +193,7 @@ def main():
     except requests.exceptions.RequestException as e:  # This is the correct syntax
         module.fail_json(msg = f"Error {e} calling : {url}")
 
-    result = {"changed": False, "reorder": entryMissing, "msg": msg, "exitingCertHostsFound": exitingCertHostsFound}
+    result = {"changed": False, "reorder": entryMissing, "msg": msg, "existingCertHostsFound": existingCertHostsFound}
     module.exit_json(**result)
 
 if __name__ == '__main__':
