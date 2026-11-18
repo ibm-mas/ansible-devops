@@ -49,6 +49,7 @@ def checkStatus(username: str, password: str, clusterName: str, site: str, retry
             display.v(f" - Fatal error: {clusterDetails}")
             return False
     if response.status_code == 423:
+            clusterDetails = response.json().get("details", None)
             display.v(f" - Fatal error: {clusterDetails}")
             return False
     elif response.status_code == 200:
