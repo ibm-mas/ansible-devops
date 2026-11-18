@@ -346,5 +346,33 @@ export MINIO_DELETE_NAMESPACE=true
 ROLE_NAME=minio ansible-playbook ibm.mas_devops.run_role
 ```
 
+## Troubleshooting
+
+### MinIO image pull failure after catalog update
+
+**Symptom**: MinIO pod fails to start with an error similar to:
+
+```
+Failed to pull image "quay.io/minio/minio@sha256:064117214...": reading manifest ... in quay.io/minio/minio: manifest unknown
+```
+
+**Cause**: The upstream `quay.io/minio/minio` image referenced by older catalog versions is no longer available. From catalog `v9-261007-amd64` onwards, Ceph (ODF) is the default S3 provider for new AI Service installs. Customers on older catalogs who continue using MinIO must update their MinIO deployment to use the IBM-hosted image built from the open-source MinIO source code.
+
+**Resolution**: Update the MinIO deployment image, then restart the pod:
+
+```bash
+oc set image deployment/minio -n minio \
+  minio=quay.io/ibmmas/minio@sha256:8816b1a6d9857bd1a99dc552aa5a4580c9748e21a4b95544691ae22931597a26
+
+oc scale deployment/minio -n minio --replicas=0
+oc scale deployment/minio -n minio --replicas=1
+```
+
+Verify the pod is running:
+
+```bash
+oc get pods -n minio
+```
+
 ## License
 EPL-2.0
