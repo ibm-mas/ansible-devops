@@ -127,12 +127,13 @@
           - "License file exists .................... {{ license_file_stat.stat.exists }}"
           - "License encoded (first 50 chars) ....... {{ db2_license_encoded[:50] }}..."
 
-# 5. Patch STMTHEAP for Db2 v12 upgrade (before subscription upgrade)
+# 5. Patch Db2 instances for v12 upgrade (before subscription upgrade)
 # -----------------------------------------------------------------------------
-# This must run before the subscription upgrade to ensure STMTHEAP has AUTOMATIC
-# keyword when upgrading from v11 to v12
-- name: "Patch STMTHEAP for Db2uCluster instances (v11 to v12 upgrade)"
-  include_tasks: "tasks/upgrade/patch-stmtheap-v12.yml"
+# This must run before the subscription upgrade to:
+#   - Fix DBT5530N tablespace errors
+#   - Ensure STMTHEAP has AUTOMATIC keyword required by v12
+- name: "Patch Db2uCluster instances for v11 to v12 upgrade"
+  include_tasks: "tasks/upgrade/patch-db2-for-v12.yml"
   vars:
     instanceKind: Db2uCluster
   when:
@@ -140,8 +141,8 @@
     - db2_channel != old_db2_channel
     - db2_v12_upgrade is defined and db2_v12_upgrade == true
 
-- name: "Patch STMTHEAP for Db2uInstance instances (v11 to v12 upgrade)"
-  include_tasks: "tasks/upgrade/patch-stmtheap-v12.yml"
+- name: "Patch Db2uInstance instances for v11 to v12 upgrade"
+  include_tasks: "tasks/upgrade/patch-db2-for-v12.yml"
   vars:
     instanceKind: Db2uInstance
   when:
