@@ -1,7 +1,7 @@
 # README Documentation Quality Assessment Report
 
-**Generated:** 2026-02-19  
-**Collection:** ibm.mas_devops  
+**Generated:** 2026-02-19
+**Collection:** ibm.mas_devops
 **Total Roles Assessed:** 77
 
 ## Executive Summary
@@ -507,6 +507,6 @@ The documentation is now fully aligned with the standards defined in CONTRIBUTIN
 
 ---
 
-**Assessment Completed:** 2026-02-19  
-**Validator Version:** validate_readme.py v1.0  
+**Assessment Completed:** 2026-02-19
+**Validator Version:** validate_readme.py v1.0
 **Collection Version:** ibm.mas_devops (latest)

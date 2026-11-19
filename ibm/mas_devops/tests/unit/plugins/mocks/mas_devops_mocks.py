@@ -4,16 +4,16 @@ Reusable MAS DevOps module mocks for testing.
 This module provides factory functions to create mock objects for
 MAS DevOps specific modules like catalog data and storage classes.
 """
+from typing import Any
 from unittest.mock import Mock
-from typing import Dict, Any, Optional
 
 
 def create_mock_catalog_data(
     catalog_id: str = "v9-240625-amd64",
     version: str = "9.0.0",
     digest: str = "sha256:abc123def456",
-    operators: Optional[list] = None
-) -> Dict[str, Any]:
+    operators: list | None = None
+) -> dict[str, Any]:
     """
     Create mock catalog data.
 
@@ -40,8 +40,8 @@ def create_mock_storage_classes(
     provider: str = "ocs",
     rwo: str = "ocs-storagecluster-ceph-rbd",
     rwx: str = "ocs-storagecluster-cephfs",
-    file: Optional[str] = None,
-    block: Optional[str] = None
+    file: str | None = None,
+    block: str | None = None
 ) -> Mock:
     """
     Create mock storage classes object.
@@ -98,7 +98,7 @@ def create_mock_subscription_result(
 def create_mock_secret(
     name: str = "ibm-entitlement",
     namespace: str = "test-ns",
-    data: Optional[Dict[str, str]] = None
+    data: dict[str, str] | None = None
 ) -> Mock:
     """
     Create mock Kubernetes secret.
@@ -124,7 +124,7 @@ def create_mock_secret(
 
 def create_mock_namespace(
     name: str = "test-ns",
-    labels: Optional[Dict[str, str]] = None
+    labels: dict[str, str] | None = None
 ) -> Mock:
     """
     Create mock Kubernetes namespace.
@@ -152,7 +152,7 @@ def create_mock_app_ready_result(
     is_ready: bool = True,
     instance_id: str = "test-instance",
     app_id: str = "manage",
-    workspace_id: Optional[str] = None
+    workspace_id: str | None = None
 ) -> bool:
     """
     Create mock result from waitForAppReady.
@@ -174,7 +174,7 @@ def create_mock_global_pull_secret_result(
     name: str = "pull-secret",
     namespace: str = "openshift-config",
     registry: str = "cp.icr.io"
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Create mock result from updateGlobalPullSecret.
 

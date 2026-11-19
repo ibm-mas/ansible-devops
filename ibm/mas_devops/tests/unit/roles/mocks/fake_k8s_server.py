@@ -31,7 +31,6 @@ import tempfile
 import textwrap
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
 import aiservice
@@ -228,12 +227,12 @@ class FakeKubernetesServer(operators.OperatorsMixin, workloads.WorkloadsMixin, r
         self._init_workloads()
         self._init_rbac()
         self._init_aiservice()
-        self._deleted: Dict[str, List[tuple]] = {}
-        self._request_log: List[str] = []
+        self._deleted: dict[str, list[tuple]] = {}
+        self._request_log: list[str] = []
 
         self._httpd = HTTPServer(("127.0.0.1", port), _Handler)
         self._httpd.fake = self  # back-reference for handler
-        self._thread: Optional[threading.Thread] = None
+        self._thread: threading.Thread | None = None
         self._kubeconfig_file = None
 
     # ------------------------------------------------------------------
@@ -287,7 +286,7 @@ class FakeKubernetesServer(operators.OperatorsMixin, workloads.WorkloadsMixin, r
     # Test assertion API
     # ------------------------------------------------------------------
 
-    def get_deleted(self, kind: str, name: Optional[str] = None, namespace: Optional[str] = None) -> List[tuple]:
+    def get_deleted(self, kind: str, name: str | None = None, namespace: str | None = None) -> list[tuple]:
         """Return (namespace, name) tuples for resources deleted for a given kind.
 
         Optionally filter by name and/or namespace.

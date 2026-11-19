@@ -1,7 +1,5 @@
-import yaml
-import re
 import copy
-import datetime
+import re
 
 
 def private_vlan(vlans):
@@ -12,7 +10,7 @@ def private_vlan(vlans):
     short_description: Provides private vlan id
     description:
         - This lookup returns a private vlan id to be used to create roks cluster
-        - It matches both datacenters and pods, e.g., defining your private/public vlans as 
+        - It matches both datacenters and pods, e.g., defining your private/public vlans as
           bcr01a.dal10 and fcr01a.dal10 since it's matching on 01a.
     options:
       _terms:
@@ -126,7 +124,7 @@ def string2dict(_string = None):
       for _item in _list:
         _item = _item.split("=")
         _dict[ _item[0] ] = _item[1]
-    except:
+    except Exception:
       print("Failed to parse parameter: "+_string)
       _dict = {}
   return _dict
@@ -155,7 +153,7 @@ def getAnnotations(annotations = None):
         for annotation in annotation_list:
             annotation = annotation.split("=")
             annotation_dict[ annotation[0] ] = annotation[1]
-    except:
+    except Exception:
         print("Annotation block processing failed, set the annotation_dict blank")
         annotation_dict =	{}
   return annotation_dict
@@ -189,8 +187,8 @@ def addAnnotationBlock(cr_definition,annotation_block = None):
     print('annotation_block ::: \n' +annotation_block)
 
     try:
-        cr_definition = re.sub('(metadata:)', annotation_block, cr_definition, 1)
-    except:
+        cr_definition = re.sub('(metadata:)', annotation_block, cr_definition, count=1)
+    except Exception:
         print("Annotation block replace failed. cr_definition not updated with annotation block")
 
     print('#--------------------')
@@ -320,7 +318,10 @@ def setManageDoclinksProperties(data, doclinkPath01, bucketName, accessKey, secr
   sb_list = []
   for sb in data:
     if 'bundleLevelProperties' in sb:
-      if 'mxe.doclink.doctypes.topLevelPaths' not in sb['bundleLevelProperties'] and 'mxe.doclink.doctypes.defpath' not in sb['bundleLevelProperties'] and 'mxe.doclink.path01' not in sb['bundleLevelProperties'] and 'mxe.doclink.securedAttachment' not in sb['bundleLevelProperties']:
+      if ('mxe.doclink.doctypes.topLevelPaths' not in sb['bundleLevelProperties']
+              and 'mxe.doclink.doctypes.defpath' not in sb['bundleLevelProperties']
+              and 'mxe.doclink.path01' not in sb['bundleLevelProperties']
+              and 'mxe.doclink.securedAttachment' not in sb['bundleLevelProperties']):
         sb['bundleLevelProperties']+=f"\nmxe.doclink.doctypes.topLevelPaths=cos:doclinks\nmxe.doclink.doctypes.defpath=cos:doclinks/default\nmxe.doclink.path01=cos:doclinks={doclinkPath01}\nmxe.doclink.securedAttachment=true\nmxe.cosbucketname={bucketName}\nmxe.cosaccesskey={accessKey}\nmxe.cossecretkey={secretAccesskey}\nmxe.cosendpointuri={bucketEndpoint}\nmxe.cosregion={cosRegion}\nmxe.attachmentstorage=com.ibm.tivoli.maximo.oslc.provider.COSAttachmentStorage"
     else:
       sb['bundleLevelProperties']=f"mxe.doclink.doctypes.topLevelPaths=cos:doclinks\nmxe.doclink.doctypes.defpath=cos:doclinks/default\nmxe.doclink.path01=cos:doclinks={doclinkPath01}\nmxe.doclink.securedAttachment=true\nmxe.cosbucketname={bucketName}\nmxe.cosaccesskey={accessKey}\nmxe.cossecretkey={secretAccesskey}\nmxe.cosendpointuri={bucketEndpoint}\nmxe.cosregion={cosRegion}\nmxe.attachmentstorage=com.ibm.tivoli.maximo.oslc.provider.COSAttachmentStorage"
@@ -332,7 +333,10 @@ def setManageFsDoclinksProperties(data, manage_url):
   sb_list = []
   for sb in data:
     if 'bundleLevelProperties' in sb:
-      if 'mxe.doclink.doctypes.topLevelPaths' not in sb['bundleLevelProperties'] and 'mxe.doclink.doctypes.defpath' not in sb['bundleLevelProperties'] and 'mxe.doclink.path01' not in sb['bundleLevelProperties'] and 'mxe.doclink.securedAttachment' not in sb['bundleLevelProperties']:
+      if ('mxe.doclink.doctypes.topLevelPaths' not in sb['bundleLevelProperties']
+              and 'mxe.doclink.doctypes.defpath' not in sb['bundleLevelProperties']
+              and 'mxe.doclink.path01' not in sb['bundleLevelProperties']
+              and 'mxe.doclink.securedAttachment' not in sb['bundleLevelProperties']):
         sb['bundleLevelProperties']+=f"\nmxe.doclink.doctypes.topLevelPaths=/DOCLINKS\nmxe.doclink.doctypes.defpath=/DOCLINKS/default\nmxe.doclink.path01=/DOCLINKS=https://{manage_url}/maximo/oslc/doclinks\nmxe.doclink.securedAttachment=true\nmxe.report.AttachDoc.validateURL=0\nmxe.attachmentstorage=null"
     else:
       sb['bundleLevelProperties']=   f"mxe.doclink.doctypes.topLevelPaths=/DOCLINKS\nmxe.doclink.doctypes.defpath=/DOCLINKS/default\nmxe.doclink.path01=/DOCLINKS=https://{manage_url}/maximo/oslc/doclinks\nmxe.doclink.securedAttachment=true\nmxe.report.AttachDoc.validateURL=0\nmxe.attachmentstorage=null"
@@ -346,7 +350,10 @@ def _setSystemProperties(data, meaweb_value, oslc_rest_value, webapp_value, rest
 
   for sb in data:
     if 'bundleLevelProperties' in sb:
-      if 'mxe.int.webappurl' not in sb['bundleLevelProperties'] and 'mxe.oslc.restwebappurl' not in sb['bundleLevelProperties'] and 'mxe.oslc.webappurl' not in sb['bundleLevelProperties'] and 'mxe.rest.webappurl' not in sb['bundleLevelProperties']:
+      if ('mxe.int.webappurl' not in sb['bundleLevelProperties']
+              and 'mxe.oslc.restwebappurl' not in sb['bundleLevelProperties']
+              and 'mxe.oslc.webappurl' not in sb['bundleLevelProperties']
+              and 'mxe.rest.webappurl' not in sb['bundleLevelProperties']):
         sb['bundleLevelProperties']+=f"\nmxe.int.webappurl={meaweb_value}\nmxe.oslc.restwebappurl={oslc_rest_value}\nmxe.oslc.webappurl={webapp_value}\nmxe.rest.webappurl={rest_webapp_value}"
     else:
       sb['bundleLevelProperties']=f"mxe.int.webappurl={meaweb_value}\nmxe.oslc.restwebappurl={oslc_rest_value}\nmxe.oslc.webappurl={webapp_value}\nmxe.rest.webappurl={rest_webapp_value}"
@@ -458,7 +465,7 @@ def is_channel_upgrade_path_valid(current: str, target: str, valid_paths: dict) 
           else:
               valid = True
       else:
-          print(f'Error: channel upgrade compatibility matrix is incorrectly defined')
+          print('Error: channel upgrade compatibility matrix is incorrectly defined')
   return valid
 
 def remove_dict_keys(data: dict, keys: list[str], deep_copy: bool = True) -> dict:
@@ -509,7 +516,7 @@ def is_operator_upgraded_by_version(cr_reconciled_version: str, opcon_version: s
 
 def get_default_upgrade_channel(current: str, valid_paths: dict) -> str:
   """
-    Gets the default target upgrade channel if the user has not supplied one. 
+    Gets the default target upgrade channel if the user has not supplied one.
     :current: The current channel version.
     :valid_paths: A dictionary of supported upgrade paths. See ibm/mas_devops/common_vars/compatibility_matrix.yml.
     :return: The default target upgrade channel.
@@ -521,7 +528,7 @@ def get_default_upgrade_channel(current: str, valid_paths: dict) -> str:
   elif isinstance(allowed_targets, list):
       default = allowed_targets[0]
   else:
-      print(f'Error: channel upgrade compatibility matrix is incorrectly defined')
+      print('Error: channel upgrade compatibility matrix is incorrectly defined')
   return default
 
 
@@ -551,7 +558,7 @@ def set_storage_classes_names(storage_list: list, storage_class_name_rwo: str, s
   """
 
   for storage_item in storage_list:
-    if 'spec' in storage_item and 'accessModes' in storage_item['spec'] and 'storageClassName' in storage_item['spec']: 
+    if 'spec' in storage_item and 'accessModes' in storage_item['spec'] and 'storageClassName' in storage_item['spec']:
       if storage_item['spec']['accessModes'][0] == 'ReadWriteMany':
         storage_item['spec']['storageClassName'] = storage_class_name_rwx
       else:
@@ -584,7 +591,7 @@ def override_manage_persistent_volumes(volumes_list: list, storage_class_name_rw
   return volumes_list
 
 
-class FilterModule(object):
+class FilterModule:
   def filters(self):
     return {
       'private_vlan': private_vlan,
@@ -609,7 +616,6 @@ class FilterModule(object):
       'is_channel_upgrade_path_valid': is_channel_upgrade_path_valid,
       'remove_dict_keys': remove_dict_keys,
       'is_operator_upgraded_by_version': is_operator_upgraded_by_version,
-      'get_default_upgrade_channel': get_default_upgrade_channel,
       'get_default_upgrade_channel': get_default_upgrade_channel,
       'set_storage_classes_names': set_storage_classes_names,
       'override_manage_persistent_volumes': override_manage_persistent_volumes
