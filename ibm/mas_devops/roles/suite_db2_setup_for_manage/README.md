@@ -1,9 +1,8 @@
 # suite_db2_setup_for_manage
 
-
 This role performs initial setup on Db2 instances for use with the Maximo Manage application. It supports both CP4D version 3.5 and 4.0, and **now supports both Db2uCluster (deprecated) and Db2uInstance (current) custom resources**.
 
-The role will copy a bash script (setupdb.sh) into the Db2 pod and execute it inside the container, performing configuration changes to the database and configuring tablespaces for Maximo Manage.
+The role will copy a bash script (setupdb.sh) into the Db2 pod and execute it inside the container, performing configuration changes to the database and configuring tablespaces for Maximo Manage. It configures database parameters, creates tablespaces, and applies performance optimizations that the Manage operator cannot yet handle automatically.
 
 ## Supported Db2 Custom Resources
 
@@ -11,244 +10,90 @@ The role will copy a bash script (setupdb.sh) into the Db2 pod and execute it in
 - **Db2uInstance** (current, recommended for new deployments)
 
 The role automatically detects which CR type is deployed and applies the appropriate configuration. No changes to your playbooks are required.
-This role performs initial Db2 database setup required for Maximo Manage application. It configures database parameters, creates tablespaces, and applies performance optimizations that the Manage operator cannot yet handle automatically.
 
 !!! warning "Downtime Risk"
     Setting `enforce_db2_config=true` will restart the Db2 instance, causing downtime. Schedule during maintenance windows or use with newly created instances.
 
 ## Role Variables
 
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`db2_instance_name`](#db2_instance_name) | Yes | None |
+| [`db2_namespace`](#db2_namespace) | No | `db2u` |
+| [`db2_dbname`](#db2_dbname) | No | `BLUDB` |
+| [`db2_config_version`](#db2_config_version) | No | `1.0.0` |
+| [`enforce_db2_config`](#enforce_db2_config) | No | `true` |
+| [`db2_helm_operator_mode`](#db2_helm_operator_mode) | No | `false` |
 
-### db2_instance_name
+### Db2 Connection
 
-Db2 instance name for Manage setup.
+#### db2_instance_name
+
+Db2 Warehouse instance name where the Manage database setup will be performed — a valid Db2 instance name (e.g. `db2w-manage`, `db2u-manage`).
 
 - **Required**
 - Environment Variable: `DB2_INSTANCE_NAME`
 - Default: None
 
-**Purpose**: Identifies the Db2 Warehouse instance where Manage database setup will be performed.
+Used to locate the correct Db2 pod. To find the instance name, go to the Db2 namespace and look for pods with `label=engine`; describe the pod and find the `app` label value.
 
-**When to use**:
-- Always required for Manage database setup
-- Must match the Db2 instance name for Manage
-- Used to locate the correct Db2 pod
+#### db2_namespace
 
-**Valid values**: Valid Db2 instance name (e.g., `db2w-manage`, `db2u-manage`)
-
-**Impact**: Determines which Db2 instance receives the Manage-specific configuration and tablespace setup.
-
-**Related variables**:
-- `db2_namespace`: Namespace containing this instance
-- `db2_dbname`: Database within this instance
-
-**Note**: To find the instance name, go to the Db2 namespace and look for pods with `label=engine`. Describe the pod and find the `app` label value.
-
-### db2_namespace
-Db2 instance namespace.
+OpenShift namespace where the Db2 instance is deployed — a valid Kubernetes namespace name.
 
 - **Optional**
 - Environment Variable: `DB2_NAMESPACE`
 - Default: `db2u`
 
-**Purpose**: Specifies the OpenShift namespace where the Db2 instance is deployed.
+The default `db2u` namespace is used by most Db2 Warehouse deployments; override it if Db2 is deployed in a custom namespace.
 
-**When to use**:
-- Use default (`db2u`) for standard Db2 deployments
-- Override if Db2 is deployed in a custom namespace
-- Required to locate the Db2 pod
+#### db2_dbname
 
-**Valid values**: Valid Kubernetes namespace name
-
-**Impact**: Determines where to find the Db2 instance for setup script execution.
-
-**Related variables**:
-- `db2_instance_name`: Instance to find in this namespace
-
-**Note**: The default `db2u` namespace is used by most Db2 Warehouse deployments.
-
-### db2_username
-Database connection username.
+Database name within the Db2 instance where the Manage setup will be performed — a valid Db2 database name that must exist before running this role.
 
 - **Optional**
-- Environment Variable: None
-- Default: `db2inst1`
-
-**Purpose**: Specifies the username for connecting to the Db2 database during setup script execution.
-
-**When to use**:
-- Use default (`db2inst1`) for standard Db2 deployments
-- Override if using custom database user
-- Must have appropriate database privileges
-
-**Valid values**: Valid Db2 username with admin privileges
-
-**Impact**: Determines which user account executes the setup script and database configuration changes.
-
-**Related variables**:
-- `db2_dbname`: Database to connect to
-- `db2_schema`: Schema to configure
-
-**Note**: The user must have sufficient privileges to create tablespaces and modify database configuration.
-
-### db2_dbname
-Database name within Db2 instance.
-
-- **Optional**
-- Environment Variable: None
+- Environment Variable: `DB2_DBNAME`
 - Default: `BLUDB`
 
-**Purpose**: Specifies the database name within the Db2 instance where Manage setup will be performed.
+`BLUDB` is the default database name for Manage deployments.
 
-**When to use**:
-- Use default (`BLUDB`) for standard Manage deployments
-- Override if using custom database name
-- Must exist before running this role
+### Db2 Configuration
 
-**Valid values**: Valid Db2 database name
+#### db2_config_version
 
-**Impact**: Determines which database receives the Manage tablespace and configuration setup.
-
-**Related variables**:
-- `db2_instance_name`: Instance containing this database
-- `db2_schema`: Schema within this database
-
-**Note**: `BLUDB` is the default database name for Manage deployments.
-
-### db2_schema
-Manage database schema name.
-
-- **Optional**
-- Environment Variable: None
-- Default: `maximo`
-
-**Purpose**: Specifies the schema name where Manage tables and objects will be created.
-
-**When to use**:
-- Use default (`maximo`) for standard Manage deployments
-- Override if using custom schema name
-- Must match Manage configuration
-
-**Valid values**: Valid Db2 schema name
-
-**Impact**: Determines which schema receives the tablespace configuration and Manage-specific setup.
-
-**Related variables**:
-- `db2_dbname`: Database containing this schema
-- `db2_username`: User accessing this schema
-
-**Note**: The default `maximo` schema is standard for Manage deployments. Ensure this matches your Manage database configuration.
-
-### db2_tablespace_data_size
-Data tablespace size.
-
-- **Optional**
-- Environment Variable: `DB2_TABLESPACE_DATA_SIZE`
-- Default: `5000 M`
-
-**Purpose**: Specifies the size of the data tablespace created for Manage application data.
-
-**When to use**:
-- Use default (`5000 M`) for small to medium deployments
-- Increase for large Manage deployments with extensive data
-- Consider data growth over time
-
-**Valid values**: Db2 size format (e.g., `5000 M`, `10 G`, `50 G`)
-
-**Impact**: Determines how much data can be stored in Manage tables. Insufficient size will prevent data insertion.
-
-**Related variables**:
-- `db2_tablespace_index_size`: Related index tablespace size
-
-**Note**: Size requirements depend on:
-- Number of assets and work orders
-- Historical data retention
-- Attachment storage (if using database)
-- Custom fields and extensions
-Start with 5GB and monitor usage. Tablespaces can be expanded later if needed.
-
-### db2_tablespace_index_size
-Index tablespace size.
-
-- **Optional**
-- Environment Variable: `DB2_TABLESPACE_INDEX_SIZE`
-- Default: `5000 M`
-
-**Purpose**: Specifies the size of the index tablespace created for Manage database indexes.
-
-**When to use**:
-- Use default (`5000 M`) for small to medium deployments
-- Increase for large Manage deployments with many indexes
-- Typically 20-30% of data tablespace size
-
-**Valid values**: Db2 size format (e.g., `5000 M`, `10 G`, `20 G`)
-
-**Impact**: Determines how many indexes can be created. Insufficient size will prevent index creation and impact performance.
-
-**Related variables**:
-- `db2_tablespace_data_size`: Related data tablespace size
-
-**Note**: Indexes improve query performance but consume space. A good rule of thumb is to allocate 20-30% of the data tablespace size for indexes. Monitor usage and adjust as needed.
-
-### db2_config_version
-
-Db2 configuration parameter version.
-
+Version of the enhanced Db2 performance parameter set to apply during setup — `1.0.0` is the currently supported version.
 
 - **Optional**
 - Environment Variable: `DB2_CONFIG_VERSION`
 - Default: `1.0.0`
-- Supported versions: `1.0.0`
 
-**Purpose**: Specifies the version of enhanced Db2 performance parameters to apply during setup.
+The parameter set includes optimizations for Manage's specific database access patterns; different versions may have different parameter sets, and future versions may include additional optimizations.
 
-**When to use**:
-- Use default (`1.0.0`) for current parameter set
-- Override only if specific version required
-- Different versions may have different parameter sets
+#### enforce_db2_config
 
-**Valid values**: `1.0.0` (currently supported version)
-
-**Impact**: Determines which set of Db2 performance parameters are applied to optimize for Manage workloads.
-
-**Related variables**:
-- `enforce_db2_config`: Controls whether parameters are applied with restart
-
-**Note**: The parameter set includes optimizations for Manage's specific database access patterns. Future versions may include additional optimizations.
-
-### enforce_db2_config
-
-Force Db2 configuration with restart.
-
+Apply the enhanced Db2 parameters with a database restart — `true` or `false`.
 
 - **Optional**
 - Environment Variable: `ENFORCE_DB2_CONFIG`
-
 - Default: `true`
 
-**Purpose**: Controls whether enhanced Db2 parameters are applied with a database restart. Restart is required for parameters to take effect but causes downtime.
+A restart is required for the parameters to take effect. Setting to `false` skips the enhanced parameter application, which is not recommended (suboptimal performance).
 
-**When to use**:
-- Set to `true` (default) for new Db2 instances
-- Set to `true` during scheduled maintenance windows
-- Set to `false` to skip parameter application (not recommended)
+!!! warning
+    Setting this to `true` will restart the Db2 instance, causing downtime for all applications using the database. Schedule during maintenance windows and, for production systems, coordinate with stakeholders. For new instances this is safe, as no applications are using the database yet.
 
-**Valid values**: `true`, `false`
+#### db2_helm_operator_mode
 
-**Impact**:
-- `true`: Applies enhanced parameters and restarts Db2 instance (causes downtime)
-- `false`: Skips enhanced parameter application (suboptimal performance)
+Set to `true` when using the new helm-based Db2 operator, which has the archive logs PVC pre-configured — `true` or `false`.
 
-**Related variables**:
-- `db2_config_version`: Version of parameters to apply
-
-**Note**: **CRITICAL** - Setting to `true` will restart the Db2 instance, causing downtime for all applications using the database. Schedule during maintenance windows. For production systems, coordinate with stakeholders. For new instances, this is safe as no applications are using the database yet.
-
-## Example Playbook
+- **Optional**
+- Environment Variable: `DB2_HELM_OPERATOR_MODE`
+- Default: `false`
 
 ## CR Type Detection
 
 The role automatically:
+
 1. Queries for both Db2uCluster and Db2uInstance resources
 2. Validates that exactly one CR type exists
 3. Applies configuration appropriate for the detected CR type
@@ -257,9 +102,10 @@ The role automatically:
    - Both CR types exist (invalid state)
    - CR is not in Ready state
 
-## Example Playbooks
+## Example Playbook
 
 ### Example 1: With Db2uCluster (Legacy)
+
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
@@ -273,6 +119,7 @@ The role automatically:
 ```
 
 ### Example 2: With Db2uInstance (Current)
+
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
@@ -285,30 +132,36 @@ The role automatically:
     - ibm.mas_devops.suite_db2_setup_for_manage
 ```
 
-**Note**: The playbook syntax is identical for both CR types. The role handles the differences automatically.
+The playbook syntax is identical for both CR types — the role handles the differences automatically.
 
 ## Troubleshooting
 
 ### Error: "Both Db2uCluster and Db2uInstance resources exist"
+
 This indicates an invalid state. Ensure only one CR type exists:
+
 ```bash
 oc get db2ucluster -n <namespace>
 oc get db2uinstance -n <namespace>
 ```
+
 Delete the unwanted CR (Db2uInstance is recommended for new deployments).
 
 ### Error: "No Db2 instance found"
+
 Verify the instance name and namespace:
+
 ```bash
 oc get db2ucluster,db2uinstance -n <namespace>
 ```
 
 ### Configuration Not Applied
+
 Check the ConfigMap to see if configuration was already applied:
+
 ```bash
 oc get configmap <instance-name>-enforce-config -n <namespace> -o yaml
 ```
-
 
 ## License
 

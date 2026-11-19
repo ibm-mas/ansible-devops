@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
 import logging
+
 import urllib3
-from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 from ansible.errors import AnsibleError
 from ansible.plugins.action import ActionBase
-
-from mas.devops.ocp import createNamespace
+from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 from mas.devops.mas import updateIBMEntitlementKey
+from mas.devops.ocp import createNamespace
 
 urllib3.disable_warnings()  # Disabling warnings will prevent InsecureRequestWarnings from dynClient
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)-20s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
@@ -28,7 +28,7 @@ class ActionModule(ActionBase):
         register: secret
     """
     def run(self, tmp=None, task_vars=None):
-        super(ActionModule, self).run(tmp, task_vars)
+        super().run(tmp, task_vars)
 
         namespace = self._task.args.get('namespace', None)
         icrUsername = self._task.args.get('icr_username', None)
@@ -39,7 +39,7 @@ class ActionModule(ActionBase):
         namespaceKyvernoLabel = self._task.args.get('namespace_kyverno_label', None)
 
         if namespace is None:
-            raise AnsibleError(f"Error: namespace argument was not provided")
+            raise AnsibleError("Error: namespace argument was not provided")
 
         # Initialize DynamicClient, ensure the namespace exists, and create/update the entitlement secret
         host = self._task.args.get('host', None)

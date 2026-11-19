@@ -4,81 +4,58 @@ Create AWS IAM policies from JSON policy documents in your AWS account. This rol
 
 IAM policies define permissions for AWS identities (users, groups, roles) to access AWS resources. This role creates customer-managed policies that can be attached to IAM users or roles.
 
-**Prerequisites**:
+## Prerequisites
+
 - AWS CLI must be installed
 - AWS credentials configured via `aws configure` or environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
 - IAM permissions to create policies
 
-
 ## Role Variables
 
-### aws_policy_name
-Name for the IAM policy to be created.
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`aws_policy_name`](#aws_policy_name) | Yes | None |
+| [`aws_policy_json_file_path_local`](#aws_policy_json_file_path_local) | Yes | None |
+
+### IAM Policy
+
+#### aws_policy_name
+
+Name for the IAM policy to be created (valid IAM policy name: alphanumeric characters plus `+=,.@-_`, 1-128 characters).
 
 - **Required**
 - Environment Variable: `AWS_POLICY_NAME`
 - Default: None
 
-**Purpose**: Provides a unique identifier for the IAM policy within your AWS account.
+Must be unique within the AWS account and cannot be changed after creation. The name forms part of the policy ARN (`arn:aws:iam::<account-id>:policy/<policy-name>`) and is used when attaching the policy to IAM users or roles.
 
-**When to use**: Always required. Use descriptive names that reflect the policy's purpose (e.g., `MAS-S3-ReadOnly`, `DocumentDB-Access-Policy`).
+#### aws_policy_json_file_path_local
 
-**Valid values**: Valid IAM policy name (alphanumeric characters, plus `+=,.@-_` symbols, 1-128 characters).
-
-**Impact**: Policy name is used in the policy ARN and for attaching to IAM users/roles.
-
-**Related variables**: `aws_policy_json_file_path_local`
-
-**Notes**:
-- Must be unique within the AWS account
-- Cannot be changed after creation
-- Use naming conventions for easier management (e.g., `<service>-<purpose>-Policy`)
-- Policy ARN format: `arn:aws:iam::<account-id>:policy/<policy-name>`
-
-### aws_policy_json_file_path_local
 Local file path to the IAM policy JSON document.
 
 - **Required**
 - Environment Variable: `AWS_POLICY_JSON_FILE_PATH_LOCAL`
 - Default: None
 
-**Purpose**: Specifies the location of the JSON file containing the IAM policy document that defines permissions.
+Must point to a valid JSON file (accessible from the Ansible controller) following AWS IAM policy syntax. A sample template is available in the role's `/files/policy-template-sample.json`. The document uses the standard structure:
 
-**When to use**: Always required. Must point to a valid JSON file with proper IAM policy syntax.
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:ListBucket"],
+      "Resource": ["arn:aws:s3:::my-bucket/*"]
+    }
+  ]
+}
+```
 
-**Valid values**: Absolute or relative file path to a valid JSON policy document (e.g., `/tmp/my-policy.json`, `./policies/s3-access.json`).
-
-**Impact**: The policy document defines what actions are allowed or denied on which AWS resources.
-
-**Related variables**: `aws_policy_name`
-
-**Notes**:
-- File must be accessible from the Ansible controller
-- Must follow AWS IAM policy JSON syntax
-- Sample template available in role's `/files/policy-template-sample.json`
-- Validate policy syntax before applying: `aws iam validate-policy-document --policy-document file://policy.json`
-- Policy document structure:
-  ```json
-  {
-    "Version": "2012-10-17",
-    "Statement": [
-      {
-        "Effect": "Allow",
-        "Action": ["s3:GetObject", "s3:ListBucket"],
-        "Resource": ["arn:aws:s3:::my-bucket/*"]
-      }
-    ]
-  }
-  ```
-- Common policy elements:
-  - `Version`: Policy language version (always `2012-10-17`)
-  - `Statement`: Array of permission statements
-  - `Effect`: `Allow` or `Deny`
-  - `Action`: AWS service actions (e.g., `s3:GetObject`)
-  - `Resource`: ARNs of resources the policy applies to
-  - `Condition`: Optional conditions for when policy applies
+Common policy elements: `Version` (always `2012-10-17`), `Statement` (array of permission statements), `Effect` (`Allow` or `Deny`), `Action` (AWS service actions, e.g. `s3:GetObject`), `Resource` (ARNs the policy applies to), and `Condition` (optional conditions for when the policy applies).
 
 ## Example Playbook
+
 After installing the Ansible Collection you can include this role in your own custom playbooks.
 
 ```yaml
@@ -91,6 +68,7 @@ After installing the Ansible Collection you can include this role in your own cu
 ```
 
 ## Run Role Playbook
+
 After installing the Ansible Collection you can easily run the role standalone using the `run_role` playbook provided.
 
 ```bash
@@ -100,4 +78,5 @@ ROLE_NAME=aws_policy ansible-playbook ibm.mas_devops.run_role
 ```
 
 ## License
+
 EPL-2.0

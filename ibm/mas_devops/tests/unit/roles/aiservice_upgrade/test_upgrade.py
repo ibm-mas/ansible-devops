@@ -1,4 +1,3 @@
-import pytest
 
 from utils import run_task, task_path
 

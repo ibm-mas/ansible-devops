@@ -1,4 +1,3 @@
-# coding: utf-8 -*-
 # # (C) Copyright IBM Corp. 2020 All Rights Reserved.
 # Eclipse Public License 2.0 (see https://spdx.org/licenses/EPL-2.0.html)
 
@@ -22,11 +21,9 @@ author:
     - David Parker (@durera)
 '''
 
-import requests
-import getpass
-import os
 import time
-from requests.exceptions import HTTPError
+
+import requests
 from ansible.module_utils.basic import AnsibleModule
 
 
@@ -95,7 +92,7 @@ def main():
     )
 
     if any(v == "" for v in [module.params['dns_entries'], module.params['cis_crn'], module.params['ibmcloud_apikey'], module.params['ocp_ingress']]):
-        module.fail_json(msg = f"Required parameters: [dns_entries, cis_crn, ibmcloud_apikey, ocp_ingress] cannot be empty")
+        module.fail_json(msg = "Required parameters: [dns_entries, cis_crn, ibmcloud_apikey, ocp_ingress] cannot be empty")
 
     changed = False
 
@@ -151,20 +148,23 @@ def main():
         zones = json_response['result']
 
         # Looking for available zones
+        if len(zones) == 0:
+            module.fail_json(msg = "No DNS zones found, aborting...")
+        if len(zones) > 1 and not dnsZone:
+            module.fail_json(msg = "More than one zone found please choose one and export DNS_ZONE_ID env var.")
 
+        currentZone = None
         for zone in zones:
             if(dnsZone and dnsZone == zone['id']):
                 currentZone = zone
             elif(not dnsZone):
                 currentZone = zone
 
+        if currentZone is None:
+            module.fail_json(msg = f"DNS zone with id {dnsZone} not found, aborting...")
+
         zoneName = currentZone['name']
         zoneId = currentZone['id']
-
-        if len(zones) > 1 and not dnsZone:
-            module.fail_json(msg = f"More than one zone found please choose one and export DNS_ZONE_ID env var.")
-        elif len(zones) == 0:
-            module.fail_json(msg = f"No DNS zones found, aborting...")
 
         url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/dns_records?per_page=3500"
 
@@ -187,7 +187,7 @@ def main():
         existingDNSIDs = [ sub['id'] for sub in dnsRecords ]
 
         count = 0
-        dnsEntries = module.params['dns_entries']        
+        dnsEntries = module.params['dns_entries']
         for line in dnsEntries:
             count += 1
             if line != "":
@@ -209,11 +209,13 @@ def main():
                     url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/dns_records/{dnsId}"
                     # proxied = True
                     if cisProxy and 'reportdb' not in entryName and 'messaging.iot' not in entryName:
-                        payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": true \n}"
+                        payload = ("{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \""
+                                   + openshiftIngress + "\",\n    \"proxied\": true \n}")
                     else:
-                        payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": false \n}"
+                        payload = ("{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \""
+                                   + openshiftIngress + "\",\n    \"proxied\": false \n}")
 
-            
+
                     headers = {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
@@ -230,9 +232,11 @@ def main():
                 # Adding DNS entry
                 url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/dns_records"
                 if cisProxy and 'reportdb' not in entryName and 'messaging.iot' not in entryName:
-                    payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": true \n}"
+                    payload = ("{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \""
+                               + openshiftIngress + "\",\n    \"proxied\": true \n}")
                 else:
-                    payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": false \n}"
+                    payload = ("{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \""
+                               + openshiftIngress + "\",\n    \"proxied\": false \n}")
 
                 headers = {
                 'Content-Type': 'application/json',
@@ -245,7 +249,7 @@ def main():
                     changed = True
                 else:
                     module.fail_json(msg = f"Failed to create DNS entry '{entryName}'. Status code: {response.status_code}, Response: {response.content}")
-        
+
         if delete_wildcards:
             for entry in existingDNSEntries:
                 if entry.startswith('*'):
@@ -255,13 +259,13 @@ def main():
                     if(response.status_code == 200):
                         changed = True
         if cis_waf:
-            url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/settings/waf"	
+            url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/settings/waf"
             payload="{\n \"value\": \"on\" \n}"
             response = requests.request("PATCH", url, headers=headers, data=payload)
             if(response.status_code == 200):
                 changed = True
-        
-    except requests.exceptions.RequestException as e:  # This is the correct syntax
+
+    except requests.exceptions.RequestException:  # This is the correct syntax
         module.fail_json(msg = f"Error calling : {url}")
 
     module.exit_json(

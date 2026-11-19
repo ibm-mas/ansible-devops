@@ -1,0 +1,32 @@
+# Pre-commit hooks for fast local feedback on changed files.
+# Install with: pip install pre-commit && pre-commit install
+#
+# Note: ansible-lint is intentionally NOT run from pre-commit. It needs the
+# collection and its dependencies installed and is slow; run it via
+# 'make lint-ansible' or rely on the CI lint job (.github/workflows/lint.yml).
+# All hooks below are Python-based and work under Git Bash on Windows.
+# Keep the tool revisions in sync with requirements-lint.txt.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-added-large-files
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.5
+    hooks:
+      - id: ruff
+        args: [--fix]
+        # Scoped to the collection, matching 'make lint-python'
+        files: ^ibm/
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.38.0
+    hooks:
+      - id: yamllint
+        args: [-c, yamllint.yaml]
+        # Scoped to the collection, matching 'make lint-yaml'
+        files: ^ibm/

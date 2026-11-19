@@ -42,20 +42,6 @@ cpd_entitlement_key: "{{ lookup('env', 'CPD_ENTITLEMENT_KEY') | default(ibm_enti
 ibm_entitlement_key_secret: ibm-entitlement-key
 skip_ibm_entitlement_injection: "{{ lookup('env', 'SKIP_IBM_ENTITLEMENT_INJECTION') | default('false', true) | bool }}"
 
-# following list of service accounts needs ibm-entitlement-key in imagePullSecret
-cpd_sa_patch_list_zen:
-  - default
-  - zen-admin-sa
-  - zen-editor-sa
-  - zen-norbac-sa
-  - zen-runtime-sa
-  - zen-viewer-sa
-  - runtime-assemblies-operator # owned by ccs-cr
-  - runtime-manager-api # owned by ccs-cr
-  - cognos-analytics-sp-sa # owned by ca-addon-cr (cognos analytics)
-  - wd-discovery-etcd-serviceaccount # owned by wd (watson discovery)
-  - wd-discovery-cn-postgres # owned by wd (watson discovery)
-
 # ------ CPD namespaces -----------------------------------------------------------------------------------------------
 
 # Specialized installations
@@ -92,7 +78,6 @@ cpd_service_block_storage_class: "{{ lookup('env', 'CPD_SERVICE_BLOCK_STORAGE_CL
 cpd_services_requiring_ccs:
   - "wsl"
   - "wml"
-  - "ca"
 
 cpd_service_installplan_approval: Automatic
 cpd_service_scale_config: "{{ lookup('env', 'CPD_SERVICE_SCALE_CONFIG') | default('small', true) }}"
@@ -223,26 +208,3 @@ cpd_service_info:
       - *ccs_dependency
       - *datarefinery_dependency
       - *ws_runtimes_dependency
-
-  # Cognos Analytics
-  ca:
-    assembly_name: cognos_analytics
-    catalog_source: ibm-operator-catalog
-    description: "Cognos Analytics"
-    operator_name: ibm-ca-operator
-    package_name: "ibm-ca-operator"
-    cr_name: "ca-addon-cr"
-    cr_api: "ca.cpd.ibm.com"
-    crd_kind: "CAService"
-    crd_name: "caservices.ca.cpd.ibm.com"
-    csv_name: "ibm-ca-operator"
-    api_version: ca.cpd.ibm.com/v1
-    component_dependencies:
-      - ccs
-    # Helm-specific metadata (CPD 5.3.1+)
-    helm_chart_name: cognos-analytics
-    helm_cluster_chart: cognos-analytics-cluster-scoped
-    case_version: "{{ cpd_components_meta.cognos_analytics.case_version }}"
-    helm_dependencies:
-      - *opensearch_dependency
-      - *ccs_dependency

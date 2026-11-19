@@ -10,110 +10,53 @@ This role validates if a given MAS installation is ready for the core platform t
 
 ## Role Variables
 
-### mas_instance_id
-MAS instance identifier for core platform upgrade.
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`mas_instance_id`](#mas_instance_id) | Yes | None |
+| [`mas_channel`](#mas_channel) | No | Auto-selected |
+| [`mas_upgrade_dryrun`](#mas_upgrade_dryrun) | No | `false` |
+| [`skip_compatibility_check`](#skip_compatibility_check) | No | `false` |
+
+### Upgrade Target
+
+#### mas_instance_id
+MAS instance identifier whose core platform will be upgraded — a lowercase alphanumeric string, 3-12 characters (e.g. `prod`, `dev`, `inst1`), matching the instance ID from the MAS installation.
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default: None
 
-**Purpose**: Identifies which MAS instance's core platform to upgrade. Used to locate and validate the MAS installation.
+The role uses this to locate the installation and validate upgrade readiness and application compatibility; an incorrect instance ID will cause the upgrade to fail.
 
-**When to use**:
-- Always required for MAS core platform upgrades
-- Must match the instance ID from MAS installation
-- Used to validate upgrade readiness and application compatibility
-
-**Valid values**: Lowercase alphanumeric string, 3-12 characters (e.g., `prod`, `dev`, `inst1`)
-
-**Impact**: Determines which MAS instance will be upgraded. Incorrect instance ID will cause upgrade to fail.
-
-**Related variables**:
-- `mas_channel`: Target upgrade channel for this instance
-
-**Note**: The role validates that all installed applications are compatible with the target MAS version before proceeding with the upgrade.
-
-### mas_channel
-Target subscription channel for MAS core platform upgrade.
+#### mas_channel
+Target subscription channel for the MAS core platform upgrade — a valid MAS subscription channel such as `8.8.x`, `8.9.x`, `8.10.x`, or `8.11.x`.
 
 - **Optional**
 - Environment Variable: `MAS_CHANNEL`
-- Default: Auto-selected based on current version
+- Default: Auto-selected based on current version (the next appropriate release)
 
-**Purpose**: Specifies the target subscription channel for MAS core platform upgrade. If not provided, the role automatically selects the next appropriate version.
+When unset, the role automatically selects the next release; if already on the latest release, no action is taken. Set it explicitly when you need a specific target version — the role validates that a supported upgrade path exists from the current version and that all installed applications are compatible with the target MAS version, and no upgrade is performed if validation fails.
 
-**When to use**:
-- Leave unset for automatic upgrade to next release
-- Set explicitly when you need a specific target version
-- Must be a valid upgrade path from current version
+### Upgrade Validation
 
-**Valid values**: Valid MAS subscription channel (e.g., `8.8.x`, `8.9.x`, `8.10.x`, `8.11.x`)
-
-**Impact**: Determines the target version for MAS core platform upgrade. The role validates:
-- Upgrade path compatibility (can upgrade from current to target)
-- Application compatibility (all apps support target MAS version)
-- If validation fails, no upgrade is performed
-
-**Related variables**:
-- `mas_instance_id`: Instance being upgraded
-- `skip_compatibility_check`: Whether to skip validation (not recommended)
-
-**Note**: When unset, the role automatically selects the next release. If already on the latest release, no action is taken. The role validates that all installed applications are compatible with the target MAS version before upgrading.
-
-### mas_upgrade_dryrun
-Dry-run mode for upgrade validation only.
+#### mas_upgrade_dryrun
+Dry-run mode, which performs all validation checks (upgrade path check, application compatibility check) without making any changes to the MAS installation — `true` or `false`.
 
 - **Optional**
 - Environment Variable: `MAS_UPGRADE_DRYRUN`
 - Default: `false`
 
-**Purpose**: Enables dry-run mode where the role performs all validation checks without making any changes to the MAS installation. Useful for testing upgrade paths.
+When `false`, validation runs and the upgrade is executed if validation passes. Dry-run mode is highly recommended before production upgrades to identify potential issues while testing and planning upgrade paths.
 
-**When to use**:
-- Set to `true` to validate upgrade without executing it
-- Use for testing and planning upgrade paths
-- Recommended before production upgrades
-- Leave as `false` (default) to perform actual upgrade
-
-**Valid values**: `true`, `false`
-
-**Impact**: 
-- `true`: Performs validation only (upgrade path check, application compatibility check) without modifying the installation
-- `false`: Performs validation and executes the upgrade if validation passes
-
-**Related variables**:
-- `skip_compatibility_check`: Controls whether compatibility validation is performed
-
-**Note**: Dry-run mode is highly recommended before production upgrades to identify potential issues. All validation checks are performed, including application compatibility, but no changes are made to the subscription channel or MAS core platform.
-
-### skip_compatibility_check
-Skip compatibility validation before upgrade.
+#### skip_compatibility_check
+Whether to skip the compatibility validation that checks the target channel against the current MAS version and all installed applications — `true` or `false`.
 
 - **Optional**
 - Environment Variable: `SKIP_COMPATIBILITY_CHECK`
 - Default: `false`
 
-**Purpose**: Controls whether compatibility validation is performed before MAS core platform upgrade. Validation checks if the target channel is compatible with current MAS version and all installed applications.
-
-**When to use**:
-- Leave as `false` (default) for safe upgrades with validation
-- Set to `true` only in exceptional cases (not recommended)
-- Use only when you have verified compatibility manually
-
-**Valid values**: `true`, `false`
-
-**Impact**: 
-- `false` (default): Performs comprehensive compatibility validation before upgrade (recommended)
-- `true`: Skips compatibility validation, allowing potentially incompatible upgrades
-
-**Related variables**:
-- `mas_upgrade_dryrun`: Controls whether upgrade is executed or only validated
-- `mas_channel`: Target channel being validated
-
-**Note**: **WARNING** - Skipping compatibility checks can lead to failed upgrades, application incompatibilities, or unstable installations. Only skip validation if you have manually verified that:
-1. The upgrade path from current to target MAS version is supported
-2. All installed applications are compatible with the target MAS version
-The default validation protects against incompatible upgrades and application version mismatches.
+!!! warning
+    Skipping compatibility checks can lead to failed upgrades, application incompatibilities, or unstable installations. Only set this to `true` in exceptional cases where you have manually verified that the upgrade path from the current to the target MAS version is supported **and** that all installed applications are compatible with the target MAS version — the default validation protects against incompatible upgrades and application version mismatches.
 
 ## Example Playbook
 
