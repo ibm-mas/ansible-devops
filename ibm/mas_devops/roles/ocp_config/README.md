@@ -1,11 +1,10 @@
 # ocp_config
 
-Configure OpenShift Container Platform cluster-level settings for optimal MAS deployment. This role provides essential tuning for ingress timeouts, TLS cipher compatibility with IBM Java Semeru FIPS mode, and OperatorHub catalog source management.
+Configure OpenShift Container Platform cluster-level settings for optimal MAS deployment. This role provides essential tuning for ingress timeouts and OperatorHub catalog source management.
 
 Key capabilities:
 
 - **Ingress timeout tuning**: Prevent request failures for long-running operations
-- **FIPS-compatible TLS ciphers**: Enable IBM Java Semeru runtime in FIPS mode
 - **Catalog source management**: Disable default Red Hat catalogs for air-gapped environments
 - **Path-based routing**: Configure namespace ownership for multi-namespace route support
 
@@ -13,59 +12,11 @@ This role configures:
 
 - Tune the `IngressController` to avoid request failures due to timeout for long running requests
 - Configure the `IngressController` namespace ownership for path-based routing support
-- Update `APIServer` and `IngressController` to set a custom `tlsSecurityProfile` to accommodate ciphers supported by IBM Java Semeru runtime. This is required for allowing the Java applications using Semeru runtime to run in FIPS mode. The following ciphers will be enabled:
-  - `TLS_AES_128_GCM_SHA256`
-  - `TLS_AES_256_GCM_SHA384`
-  - `TLS_CHACHA20_POLY1305_SHA256`
-  - `ECDHE-ECDSA-AES128-GCM-SHA256`
-  - `ECDHE-RSA-AES128-GCM-SHA256`
-  - `ECDHE-ECDSA-AES256-GCM-SHA384`
-  - `ECDHE-RSA-AES256-GCM-SHA384`
-  - `ECDHE-ECDSA-CHACHA20-POLY1305`
-  - `ECDHE-RSA-CHACHA20-POLY1305`
-  - `DHE-RSA-AES128-GCM-SHA256`
-  - `DHE-RSA-AES256-GCM-SHA384`
-  - `ECDHE-RSA-AES128-SHA256`
-  - `ECDHE-RSA-AES128-SHA`
-  - `ECDHE-RSA-AES256-SHA`
 - Disable the default Red Hat `CatalogSources`:
   - `certified-operators`
   - `community-operators`
   - `redhat-operators`
 
-
-## Role Variables - API Server
-
-### ocp_update_ciphers_for_semeru
-
-Enable custom TLS cipher configuration for IBM Java Semeru FIPS mode compatibility.
-
-- Optional
-- Environment Variable: `OCP_UPDATE_CIPHERS_FOR_SEMERU`
-- Default: `false`
-
-**Purpose**: Configures the API Server and Ingress Controller with a custom TLS security profile that includes ciphers compatible with IBM Java Semeru runtime in FIPS mode.
-
-**When to use**: Required when running MAS applications (particularly Manage) in FIPS mode with IBM Java Semeru runtime.
-
-**Valid values**:
-
-- `true` - Apply custom cipher configuration
-- `false` - Use default OpenShift cipher configuration
-
-**Impact**: When enabled, updates the `tlsSecurityProfile` on both APIServer and IngressController resources to include the following ciphers:
-
-- TLS 1.3: `TLS_AES_128_GCM_SHA256`, `TLS_AES_256_GCM_SHA384`, `TLS_CHACHA20_POLY1305_SHA256`
-- TLS 1.2: `ECDHE-ECDSA-AES128-GCM-SHA256`, `ECDHE-RSA-AES128-GCM-SHA256`, `ECDHE-ECDSA-AES256-GCM-SHA384`, `ECDHE-RSA-AES256-GCM-SHA384`, `ECDHE-ECDSA-CHACHA20-POLY1305`, `ECDHE-RSA-CHACHA20-POLY1305`, `DHE-RSA-AES128-GCM-SHA256`, `DHE-RSA-AES256-GCM-SHA384`, `ECDHE-RSA-AES128-SHA256`, `ECDHE-RSA-AES128-SHA`, `ECDHE-RSA-AES256-SHA`
-
-**Related variables**: None
-
-**Notes**:
-
-- Required for FIPS-compliant MAS deployments using Semeru runtime
-- Changes affect cluster-wide TLS configuration
-- May require cluster restart to fully apply
-- Verify compatibility with other applications in the cluster
 
 ## Role Variables - Ingress Controller
 
@@ -448,7 +399,6 @@ The path to the additional trusted CAs.
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    ocp_update_ciphers_for_semeru: True
     ocp_ingress_update_timeouts: True
     ocp_ingress_client_timeout: 30s
     ocp_ingress_server_timeout: 30s
