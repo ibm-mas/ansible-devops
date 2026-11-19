@@ -1,4 +1,4 @@
-# aiservice_rhoai
+# aiservice_rhoai 
 This role provides support to deploy rhoai components for AI Broker Application:
 
 * Install Red Hat OpenShift Serverless Operator
