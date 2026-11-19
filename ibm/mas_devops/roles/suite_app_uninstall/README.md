@@ -4,72 +4,39 @@ Uninstall Maximo Application Suite applications from a MAS instance. This role p
 
 The role supports uninstallation of all MAS applications including Assist, Health, IoT, Manage, Monitor, Optimizer, Predict, Visual Inspection, and Facilities (TRIRIGA).
 
+!!! warning
+    Application uninstallation is permanent and cannot be undone. Back up any critical data before proceeding — data in external databases (for example the Manage database) is **not** removed by this role, but everything in the application namespace is.
 
 ## Role Variables
 
-### mas_instance_id
-MAS instance identifier from which the application will be uninstalled.
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`mas_instance_id`](#mas_instance_id) | Yes | None |
+| [`mas_app_id`](#mas_app_id) | Yes | None |
+
+### Application Selection
+
+#### mas_instance_id
+
+MAS instance identifier from which the application will be uninstalled (typically 3-12 lowercase alphanumeric characters).
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default: None
 
-**Purpose**: Identifies the target MAS instance containing the application to be removed.
+Must match the instance ID used during MAS installation; the value is case-sensitive. The uninstall targets the application in the `mas-<instance-id>-<app-id>` namespace — all resources in that namespace are removed. Other applications in the same instance are not affected.
 
-**When to use**: Always required. Must match an existing MAS instance with the application installed.
+#### mas_app_id
 
-**Valid values**: Valid MAS instance ID (typically 3-12 lowercase alphanumeric characters).
-
-**Impact**: The uninstall operation will target the application in the `mas-<instance-id>-<app-id>` namespace. All resources in this namespace will be removed.
-
-**Related variables**: `mas_app_id`
-
-**Notes**:
-- Must match the instance ID used during MAS installation
-- Case-sensitive value
-- **Critical**: Uninstallation is permanent and cannot be undone
-- Always backup application data before uninstalling
-- Other applications in the same instance are not affected
-
-### mas_app_id
 MAS application identifier to be uninstalled.
 
 - **Required**
 - Environment Variable: `MAS_APP_ID`
 - Default: None
 
-**Purpose**: Specifies which MAS application will be removed from the instance.
+Valid values: `assist` (Maximo Assist), `health` (Maximo Health, formerly Predict), `iot` (Maximo IoT), `manage` (Maximo Manage), `monitor` (Maximo Monitor), `optimizer` (Maximo Optimizer), `predict` (Maximo Predict), `visualinspection` (Maximo Visual Inspection), `facilities` (Maximo Facilities, TRIRIGA).
 
-**When to use**: Always required. Must be a valid, installed application.
-
-**Valid values**:
-- `assist` - Maximo Assist
-- `health` - Maximo Health (formerly Predict)
-- `iot` - Maximo IoT
-- `manage` - Maximo Manage
-- `monitor` - Maximo Monitor
-- `optimizer` - Maximo Optimizer
-- `predict` - Maximo Predict
-- `visualinspection` - Maximo Visual Inspection
-- `facilities` - Maximo Facilities (TRIRIGA)
-
-**Impact**: The specified application and all its resources will be permanently removed. This includes:
-- Application namespace and all contained resources
-- Application custom resources (e.g., ManageApp, IoTApp)
-- Application-specific configurations
-- Application workspaces (if any)
-- Application data stored in the namespace
-
-**Related variables**: `mas_instance_id`
-
-**Notes**:
-- **Warning**: Uninstallation is irreversible
-- Application data in external databases is NOT removed
-- Backup all critical data before uninstalling
-- Application must be installed before it can be uninstalled
-- Uninstalling Manage does not remove the Manage database
-- Consider using application deactivation instead of uninstall if you may need to reinstall
-- Uninstalling an application does not affect other applications in the same instance
+Uninstalling removes the application namespace and all contained resources, application custom resources (e.g. ManageApp, IoTApp), application-specific configurations, and workspaces. If you may need to reinstall later, consider deactivating the application instead.
 
 ## Example Playbook
 

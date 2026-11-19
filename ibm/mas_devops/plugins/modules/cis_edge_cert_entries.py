@@ -1,5 +1,5 @@
 # coding: utf-8 -*-
-# # (C) Copyright IBM Corp. 2025 All Rights Reserved.
+# (C) Copyright IBM Corp. 2025 All Rights Reserved.
 # Eclipse Public License 2.0 (see https://spdx.org/licenses/EPL-2.0.html)
 
 ANSIBLE_METADATA = {
@@ -43,9 +43,19 @@ def main():
             required = True,
             no_log = True,
         ),
-        mas_instance_id = dict(
+        instance_id = dict(
             type = "str",
             required = True,
+        ),
+        mas_domain = dict(
+            type = "str",
+            required = False,
+            default = "",
+        ),
+        cis_subdomain = dict(
+            type = "str",
+            required = False,
+            default = "",
         ),
         dns_zone = dict(
             type = "str",
@@ -56,16 +66,18 @@ def main():
         supports_check_mode = True,
     )
 
-    if any(v == "" for v in [module.params['edge_cert_entries'], module.params['cis_crn'], module.params['ibmcloud_apikey'], module.params['mas_instance_id']]):
-        module.fail_json(msg = f"Required parameters: [edge_cert_entries, cis_crn, ibmcloud_apikey, mas_instance_id] cannot be empty")
+    if any(v == "" for v in [module.params['edge_cert_entries'], module.params['cis_crn'], module.params['ibmcloud_apikey'], module.params['instance_id']]):
+        module.fail_json(msg = f"Required parameters: [edge_cert_entries, cis_crn, ibmcloud_apikey, instance_id] cannot be empty")
 
     crn = module.params['cis_crn']
     ibmCloudApiKey = module.params['ibmcloud_apikey']
-    masInstanceId = module.params['mas_instance_id']
+    instanceId = module.params['instance_id']
     edgeCertEntries = module.params['edge_cert_entries']
 
     # User may want to select an specific zone
     dnsZone = module.params['dns_zone']
+    cisSubdomain = module.params['cis_subdomain']
+    masDomain = module.params['mas_domain']
 
     url = "https://iam.cloud.ibm.com/oidc/token"
 
@@ -106,20 +118,23 @@ def main():
         zones = json_response['result']
 
         # Looking for available zones
+        if len(zones) == 0:
+            module.fail_json(msg = f"No DNS zones found, aborting...")
+        if len(zones) > 1 and not dnsZone:
+            module.fail_json(msg = f"More than one zone found please choose one and export DNS_ZONE_ID env var.")
 
+        currentZone = None
         for zone in zones:
             if(dnsZone and dnsZone == zone['id']):
                 currentZone = zone
             elif(not dnsZone):
                 currentZone = zone
 
+        if currentZone is None:
+            module.fail_json(msg = f"DNS zone with id {dnsZone} not found, aborting...")
+
         zoneName = currentZone['name']
         zoneId = currentZone['id']
-
-        if len(zones) > 1 and not dnsZone:
-            module.fail_json(msg = f"More than one zone found please choose one and export DNS_ZONE_ID env var.")
-        elif len(zones) == 0:
-            module.fail_json(msg = f"No DNS zones found, aborting...")
 
         url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/ssl/certificate_packs?per_page=500"
 
@@ -140,13 +155,31 @@ def main():
 
         msg = ""
         existingCertHosts = []
+
+        # Primary filter: collect hosts from advanced certs that contain mas_instance_id
         for certs in results:
             if certs['type'] == "advanced":
                 for host in certs['hosts']:
-                    if masInstanceId in host:
+                    if instanceId in host:
                         existingCertHosts.append(host)
 
-        exitingCertHostsFound = len(existingCertHosts)
+        # Fallback filter: when no hosts matched by instance ID, use cis_subdomain
+        if len(existingCertHosts) == 0 and cisSubdomain:
+            for certs in results:
+                if certs['type'] == "advanced":
+                    for host in certs['hosts']:
+                        if cisSubdomain in host:
+                            existingCertHosts.append(host)
+
+        # Fallback filter: when no hosts matched by instance ID or subdomain, use mas_domain
+        if len(existingCertHosts) == 0 and masDomain:
+            for certs in results:
+                if certs['type'] == "advanced":
+                    for host in certs['hosts']:
+                        if masDomain in host:
+                            existingCertHosts.append(host)
+
+        existingCertHostsFound = len(existingCertHosts)
 
         entryMissing = False
         for entryName in edgeCertEntries:
@@ -160,8 +193,9 @@ def main():
     except requests.exceptions.RequestException as e:  # This is the correct syntax
         module.fail_json(msg = f"Error {e} calling : {url}")
 
-    result = {"changed": False, "reorder": entryMissing, "msg": msg, "exitingCertHostsFound": exitingCertHostsFound}
+    result = {"changed": False, "reorder": entryMissing, "msg": msg, "existingCertHostsFound": existingCertHostsFound}
     module.exit_json(**result)
 
 if __name__ == '__main__':
     main()
+    

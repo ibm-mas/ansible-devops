@@ -1,0 +1,164 @@
+---
+# Attachments action (was suite_manage_attachments_config)
+# Configure where the Manage application stores attachment files: PVC file storage,
+# IBM Cloud Object Storage or AWS S3.
+# ========================================================================
+
+# Assertions: preliminary validations
+# ------------------------------------------------------------------------
+- name: "attachments : Fail if mas_manage_attachments_provider is not supported"
+  assert:
+    that: mas_manage_attachments_provider is defined and mas_manage_attachments_provider in mas_manage_attachments_provider_supported
+    fail_msg: "mas_manage_attachments_provider property is required and must be set to one of the supported storage providers: {{ mas_manage_attachments_provider_supported }}"
+
+- name: "attachments : Fail if the db configuration mode is requested"
+  assert:
+    that: mas_manage_attachment_configuration_mode is defined and mas_manage_attachment_configuration_mode != 'db'
+    fail_msg: >-
+      The 'db' attachments configuration mode has been removed. Only the 'cr' mode is
+      supported, configure attachments via the ManageWorkspace CR server bundles.
+
+- name: "attachments : Fail if mas_app_id is not supported"
+  assert:
+    that:
+      - mas_app_id is defined and mas_app_id != ""
+      - mas_app_id is in ['manage', 'health']
+    fail_msg: "mas_app_id property is required and must be set to either 'manage' or 'health'"
+
+# Check ConfigMap: if attachments are already configured via the internal config map
+# ------------------------------------------------------------------------
+- name: "attachments : Check if attachments are already configured via internal config map"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-{{ mas_app_id }}-attachments-configmap"
+    namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
+  register: manage_attach_cm_output
+
+- name: "attachments : Set the currently configured attachments provider"
+  set_fact:
+    mas_manage_attachments_provider_current: "{{ manage_attach_cm_output.resources[0].data.mas_manage_attachments_provider | default('<Unknown>', true) }}"
+
+- name: "attachments : Debug information"
+  debug:
+    msg:
+      - "Attachments provider ........................ {{ mas_manage_attachments_provider }}"
+      - "Attachments provider (existing) ............. {{ mas_manage_attachments_provider_current }}"
+      - "{{ (mas_manage_attachments_provider_current == mas_manage_attachments_provider) | ternary('Manage attachments provider has not changed, therefore skipping as there is no further actions needed', 'Manage attachments provider has either changed or never configured, therefore it will be configured now...') }}"
+
+# Configure attachments
+# ------------------------------------------------------------------------
+- name: "attachments : Configure attachments"
+  when: mas_manage_attachments_provider_current != mas_manage_attachments_provider # only configure when attachments are not setup yet
+  block:
+    # Configure COS bucket for Manage attachments, not needed when using pvc/filestorage
+    - name: "attachments : Configure COS/S3 bucket"
+      when: mas_manage_attachments_provider in ['ibm', 'aws']
+      block:
+        - name: "attachments : Configure {{ mas_manage_attachments_provider }} cos bucket for Manage attachments"
+          include_role:
+            name: ibm.mas_devops.cos_bucket
+          vars:
+            cos_type: "{{ mas_manage_attachments_provider }}"
+
+        - name: "attachments : Setup AWS S3 bucket policies, users and access points"
+          vars:
+            aws_bucket_name: "{{ cos_bucket_name }}"
+            aws_bucket_region: "{{ cos_bucket_region }}"
+          include_tasks: "tasks/common/aws-s3-bucket-permissions.yml"
+          when: mas_manage_attachments_provider == 'aws'
+
+        - name: "attachments : Retrieve {{ mas_manage_attachments_provider }} cos certificates"
+          vars:
+            cos_type: "{{ mas_manage_attachments_provider }}"
+          include_tasks: "tasks/common/retrieve-cos-certs.yml"
+
+        - name: "attachments : Add the {{ mas_manage_attachments_provider | upper }} COS certificates in ManageWorkspace CR"
+          vars:
+            manage_certificates: "{{ cos_tls_crt }}"
+            manage_certificates_alias_prefix: "{{ mas_manage_attachments_provider }}coscertpart"
+          include_tasks: "tasks/common/import-certs.yml"
+
+    # Configure Manage server bundles with the doclinks properties
+    - name: "attachments : Lookup ManageWorkspace CR"
+      kubernetes.core.k8s_info:
+        api_version: apps.mas.ibm.com/v1
+        kind: ManageWorkspace
+        name: "{{ manage_workspace_cr_name }}"
+        namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
+      register: managews_output
+
+    - name: "attachments : Lookup Main Manage Route"
+      kubernetes.core.k8s_info:
+        api_version: route.openshift.io/v1
+        kind: Route
+        name: "{{ mas_instance_id }}-{{ mas_app_id }}-{{ mas_workspace_id }}"
+        namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
+      register: manage_route
+
+    - name: "attachments : Assert Main Manage Route is valid"
+      assert:
+        that: manage_route.resources | length > 0
+        fail_msg: "Failed! Main Manage Route {{ mas_instance_id }}-{{ mas_app_id }}-{{ mas_workspace_id }} not found..."
+
+    - name: "attachments : Set Manage Route variable"
+      set_fact:
+        manage_url: "{{ manage_route.resources[0].spec.host }}"
+
+    - name: "attachments : Set Manage bundle server properties for aws/ibm"
+      when: mas_manage_attachments_provider != 'filestorage'
+      no_log: true
+      vars:
+        attachments_bucket_endpoints:
+          aws: "https://s3.{{ cos_bucket_region }}.amazonaws.com"
+          ibm: "https://s3.{{ cos_bucket_region }}.cloud-object-storage.appdomain.cloud"
+      set_fact:
+        attachments_server_bundles: >-
+          {{ managews_output.resources[0].spec.settings.deployment.serverBundles | default([])
+             | ibm.mas_devops.setManageDoclinksProperties(
+                 'https://' ~ manage_url ~ '/maximo/oslc/cosdoclink',
+                 cos_bucket_name,
+                 cos_access_key_id,
+                 cos_secret_access_key,
+                 attachments_bucket_endpoints[mas_manage_attachments_provider],
+                 cos_region) }}
+
+    - name: "attachments : Set Manage bundle server properties for filestorage"
+      when: mas_manage_attachments_provider == 'filestorage'
+      set_fact:
+        attachments_server_bundles: "{{ managews_output.resources[0].spec.settings.deployment.serverBundles | default([]) | ibm.mas_devops.setManageFsDoclinksProperties(manage_url) }}"
+
+    - name: "attachments : Add the Server Bundle doclinks properties in ManageWorkspace CR"
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: apps.mas.ibm.com/v1
+          kind: ManageWorkspace
+          metadata:
+            name: "{{ manage_workspace_cr_name }}"
+            namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
+          spec:
+            settings:
+              deployment:
+                serverBundles: "{{ attachments_server_bundles }}"
+      register: managews_sb_output
+
+    - name: "attachments : Debug information"
+      debug:
+        msg:
+          - "ManageWorkspace Changed ............... {{ managews_sb_output.changed }}"
+
+    - name: "attachments : Wait for ManageWorkspace to be ready"
+      include_tasks: "tasks/common/wait-manageworkspace-ready.yml"
+      vars:
+        manage_ws_wait_retries: 60
+        manage_ws_wait_delay: 120
+
+    # Restart Manage bundle pods to pick up the storage provider configuration
+    - name: "attachments : Restart Manage bundles to pick up the storage provider configuration"
+      include_tasks: "tasks/actions/attachments-restart-bundles.yml"
+
+    # Set ConfigMap with the used provider once everything is successfully done (keep idempotency)
+    - name: "attachments : Set the config map with the used provider"
+      kubernetes.core.k8s:
+        apply: true
+        template: "templates/attachments-configmap.yml.j2"

@@ -1,9 +1,10 @@
 #!/bin/bash
 
-.PHONY: build build-ee install clean all
+.PHONY: build install clean all
 
 .DEFAULT_GOAL := all
 
+all: build install
 build:
 	ansible-galaxy collection build --output-path . ibm/mas_devops --force
 install:
@@ -14,9 +15,14 @@ clean:
 	rm -f ibm/mas_devops/ibm-mas_devops.tar.gz
 	rm -rf target
 	rm -rf context
-build-ee: build
-	mkdir -p ibm/mas_devops && cp ibm-mas_devops-100.0.0.tar.gz ibm/mas_devops/ibm-mas_devops.tar.gz
-	export DEV_MODE="true" && source ./build/bin/build-execution-environment.sh
-	ansible-builder build --prune-images --file build/ee/execution-environment.yml
 
-all: build install
+
+# Python Package Documentation
+# -----------------------------------------------------------------------------
+.venv-docs:
+	uv venv .venv-docs
+	uv pip install --python .venv-docs/bin/python -q mkdocs properdocs mkdocs-carbon mkdocs-glightbox mkdocs-redirects mkdocs-gen-files
+
+.PHONY: mkdocs-serve
+mkdocs-serve: .venv-docs
+	.venv-docs/bin/mkdocs serve --livereload --dev-addr localhost:9011

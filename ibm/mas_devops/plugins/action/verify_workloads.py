@@ -27,8 +27,8 @@ class ActionModule(ActionBase):
         stsResult = self._checkResources(sts, "StatefulSets", retries, delay)
 
         return dict(
-          failed = (depResult["failed"] and stsResult["failed"]),
-          changed = (depResult["changed"] and stsResult["changed"]),
+          failed = (depResult["failed"] or stsResult["failed"]),
+          changed = (depResult["changed"] or stsResult["changed"]),
           message = f"{depResult['message']} / {stsResult['message']}",
           deployments = depResult,
           statefulSets = stsResult
@@ -41,9 +41,7 @@ class ActionModule(ActionBase):
         # Consider carefully the impact of adding anything here - only add things that are utterly broken
         # AND out of our control to fix!
         ignoredResources = [
-          # [NOTREADY] ibm-cpd/wd-discovery-ranker-rest = 1 replicas/None ready/1 updated/None available
           # [NOTREADY] ibm-cpd/ax-wdp-notebooks-api-deploy = 1 replicas/None ready/1 updated/None available
-          "wd-discovery-ranker-rest",
           "ax-wdp-notebooks-api-deploy"
         ]
 

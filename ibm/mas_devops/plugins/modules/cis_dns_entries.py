@@ -142,7 +142,7 @@ def main():
             'X-Auth-User-Token': access_token
         }
 
-        response = requests.request("GET", url, headers=headers, data=payload)
+        response = _request_with_retry("GET", url, headers=headers, payload=payload)
         json_response = response.json()
 
         if response.status_code != 200:
@@ -151,20 +151,23 @@ def main():
         zones = json_response['result']
 
         # Looking for available zones
+        if len(zones) == 0:
+            module.fail_json(msg = f"No DNS zones found, aborting...")
+        if len(zones) > 1 and not dnsZone:
+            module.fail_json(msg = f"More than one zone found please choose one and export DNS_ZONE_ID env var.")
 
+        currentZone = None
         for zone in zones:
             if(dnsZone and dnsZone == zone['id']):
                 currentZone = zone
             elif(not dnsZone):
                 currentZone = zone
 
+        if currentZone is None:
+            module.fail_json(msg = f"DNS zone with id {dnsZone} not found, aborting...")
+
         zoneName = currentZone['name']
         zoneId = currentZone['id']
-
-        if len(zones) > 1 and not dnsZone:
-            module.fail_json(msg = f"More than one zone found please choose one and export DNS_ZONE_ID env var.")
-        elif len(zones) == 0:
-            module.fail_json(msg = f"No DNS zones found, aborting...")
 
         url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/dns_records?per_page=3500"
 
@@ -175,7 +178,7 @@ def main():
         'X-Auth-User-Token': access_token
         }
 
-        response = requests.request("GET", url, headers=headers, data=payload)
+        response = _request_with_retry("GET", url, headers=headers, payload=payload)
         json_response = response.json()
 
         if response.status_code != 200:

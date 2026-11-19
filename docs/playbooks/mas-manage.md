@@ -7,22 +7,21 @@ Playbook Content
 -------------------------------------------------------------------------------
 
 1. [Install Cloud Pak for Data](../roles/cp4d.md) (optional, set `CPD_INSTALL_PLATFORM`)
-2. [Add Cognos to CP4D](../roles/cp4d_service.md) (optional, set `CPD_INSTALL_COGNOS`)
-3. [Add Watson Studio Local to CP4D](../roles/cp4d_service.md) (optional, set `CPD_INSTALL_WSL`)
-4. [Create Db2 Instance using IBM Db2 Universal Operator](../roles/db2.md)
-5. [Initialize Db2 Instance for Maximo Manage](../roles/suite_db2_setup_for_manage.md)
-6. [Configure MAS to use the new Db2 Instance](../roles/suite_config.md)
-7. [Configure MAS to use BYO database](../roles/gencfg_jdbc.md) (optional, set `CONFIGURE_EXTERNAL_DB`)
-8. [Install Maximo Manage Application](../roles/suite_app_install.md)
-9. [Configure Maximo Manage Workspace](../roles/suite_app_config.md)
-10. [Configure Manage Attachments](../roles/suite_manage_attachments_config.md) (optional, set `CONFIGURE_MANAGE_ATTACHMENTS`)
-11. [Configure Manage Building Information Models](../roles/suite_manage_bim_config.md) (optional, set `CONFIGURE_MANAGE_BIM`)
+2. [Add Watson Studio Local to CP4D](../roles/cp4d_service.md) (optional, set `CPD_INSTALL_WSL`)
+3. [Create Db2 Instance using IBM Db2 Universal Operator](../roles/db2.md)
+4. [Initialize Db2 Instance for Maximo Manage](../roles/suite_db2_setup_for_manage.md)
+5. [Configure MAS to use the new Db2 Instance](../roles/suite_config.md)
+6. [Configure MAS to use BYO database](../roles/gencfg_jdbc.md) (optional, set `CONFIGURE_EXTERNAL_DB`)
+7. [Install Maximo Manage Application](../roles/suite_app_install.md)
+8. [Configure Maximo Manage Workspace](../roles/suite_app_config.md)
+9. [Configure Manage Attachments and/or Building Information Models](../roles/suite_app_config_manage.md) (optional, set `CONFIGURE_MANAGE_ATTACHMENTS` and/or `CONFIGURE_MANAGE_BIM`)
 
 See the individual pages for each of these roles for more information and full details of all configuration options available in this playbook.
 
 
 Required environment variables
 -------------------------------------------------------------------------------
+
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `IBM_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
@@ -30,20 +29,17 @@ Required environment variables
 !!! tip
     Manage requires the user to select one or more application components to enable in the workspace. By default the `base` component at the `latest` version will be installed if no `MAS_APPWS_COMPONENTS` is set. To customise the components that are enabled use the `MAS_APPWS_COMPONENTS` environment variable, for example to enable Manage(base) and Health set it to the following:
 
-   `export MAS_APPWS_COMPONENTS="base=latest,health=latest"`
+    `export MAS_APPWS_COMPONENTS="base=latest,health=latest"`
 
-   To disable Asset Investment Optimizer, optional feature of health, set `MAS_APP_SETTINGS_AIO_FLAG` to `false`. By default this flag is set to `true` . This feature is only avalaible on Manage with health as a addon or on Health as a Standalone install. This feature is disabled on MAS Core 9.1 and later.
+    To disable Asset Investment Optimizer, an optional feature of Health, set `MAS_APP_SETTINGS_AIO_FLAG` to `false`. By default this flag is set to `true`. This feature is only available on Manage with Health as an add-on or on Health as a standalone install. This feature is disabled on MAS Core 9.1 and later.
 
-   `export MAS_APP_SETTINGS_AIO_FLAG=false`
+    `export MAS_APP_SETTINGS_AIO_FLAG=false`
 
+    **Note**: To install Manage Foundation only, which is available on MAS Core 9.1 or later, export the following environment variable:
 
-   **Note**:
+    The `MAS_APPWS_COMPONENTS` environment variable must be empty:
 
-   To install Manage Foundation only that is available on MAS Core 9.1 or later, export the following environment variable:
-
-   `MAS_APPWS_COMPONENTS` environment variable must be empty:
-
-   `export MAS_APPWS_COMPONENTS=""`
+    `export MAS_APPWS_COMPONENTS=""`
 
 Optional Cloud Pak for Data Installation
 -------------------------------------------------------------------------------
@@ -51,12 +47,9 @@ Optional integration with Cloud Pak for Data is supported in Maximo Manage.  Thi
 
 ```bash
 export CPD_INSTALL_PLATFORM=true
-export CPD_INSTALL_COGNOS=true
 export CPD_INSTALL_WSL=true
 export CPD_PRODUCT_VERSION=x.y.z
 ```
-
-
 
 
 Usage
@@ -77,9 +70,9 @@ ansible-playbook ibm.mas_devops.mas_add_manage
 
 
 ### Bring Your Own Database
-If you do not want to use the Db2 Universal Operator to provide the datbase for Maximo Manage then you can configure the playbook as below:
+If you do not want to use the Db2 Universal Operator to provide the database for Maximo Manage then you can configure the playbook as below:
 
-``` bash
+```bash
 export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
 export IBM_ENTITLEMENT_KEY=xxx
@@ -101,8 +94,8 @@ ansible-playbook ibm.mas_devops.mas_add_manage
 For full details of configuration options available refer to the [gencfg_jdbc](../roles/gencfg_jdbc.md) role documentation.
 
 
-### Cloud Pak For Data Integration
-To install CP4D with Cognos and/or Watson Studio Local optional dependencies:
+### Cloud Pak for Data Integration
+To install CP4D with Watson Studio Local as an optional dependency:
 
 ```bash
 export MAS_INSTANCE_ID=inst1
@@ -110,9 +103,8 @@ export MAS_CONFIG_DIR=~/masconfig
 export IBM_ENTITLEMENT_KEY=xxx
 
 export CPD_INSTALL_PLATFORM="true"
-export CPD_INSTALL_COGNOS="true"
 export CPD_INSTALL_WSL="true"
-export CPD_PRODUCT_VERSION="4.6.6"
+export CPD_PRODUCT_VERSION="5.2.0"
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.mas_add_manage

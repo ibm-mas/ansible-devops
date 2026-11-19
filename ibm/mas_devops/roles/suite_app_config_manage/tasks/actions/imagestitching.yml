@@ -1,0 +1,161 @@
+---
+# Image stitching action (was suite_manage_imagestitching_config)
+# Configure persistent storage for Manage image stitching files, a subsystem of
+# the Civil component. Adds the image stitching PVC to the ManageWorkspace
+# persistent volumes and points the civil component at it; the Manage operator
+# creates the PVC and mounts it into the server bundle pods.
+# ========================================================================
+
+- name: "imagestitching : Set manage namespace"
+  set_fact:
+    manage_namespace: "mas-{{ mas_instance_id }}-manage"
+
+- name: "imagestitching : Retrieve ManageWorkspace CR"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ manage_workspace_cr_name }}"
+    namespace: "{{ manage_namespace }}"
+    kind: ManageWorkspace
+  register: workspaceCR
+  retries: 3
+  delay: 10
+  until:
+    - workspaceCR.resources is defined
+    - workspaceCR.resources | length > 0
+
+- name: "imagestitching : Check if Civil is enabled and image stitching is available"
+  vars:
+    civil_status: "{{ workspaceCR.resources[0].status.components.civil | default({}) }}"
+  set_fact:
+    stitching_available: "{{ civil_status.enabled is defined and civil_status.enabled | bool and civil_status.deployimagestitching is defined }}"
+
+- name: "imagestitching : Debug information"
+  debug:
+    msg: >-
+      {{ 'Image stitching is available, configuring...' if (stitching_available | bool)
+         else 'Image stitching is not available (civil component not deployed or image stitching not enabled), skipping...' }}
+
+- name: "imagestitching : Configure stitching"
+  when: stitching_available | bool
+  block:
+    # 1. Lookup storage class availability
+    # ------------------------------------------------------------------------
+    - name: "imagestitching : Load default storage class information"
+      include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
+
+    # 2. Set defaults
+    # ------------------------------------------------------------------------
+    - name: "imagestitching : Set storage class if not set by user (ReadWriteMany)"
+      when: mas_manage_imagestitching_storage_class is not defined or mas_manage_imagestitching_storage_class == ""
+      set_fact:
+        mas_manage_imagestitching_storage_class: "{{ defaultStorageClasses.rwx }}"
+
+    - name: "imagestitching : Assert that a storage class has been defined"
+      assert:
+        that: mas_manage_imagestitching_storage_class is defined and mas_manage_imagestitching_storage_class != ""
+        fail_msg: "mas_manage_imagestitching_storage_class must be defined"
+
+    - name: "imagestitching : Debug information"
+      vars:
+        civil_status: "{{ workspaceCR.resources[0].status.components.civil | default({}) }}"
+        existing_persistent_volumes: "{{ (workspaceCR.resources[0].spec.settings.deployment | default({})).persistentVolumes | default([]) }}"
+      debug:
+        msg:
+          - "Stitching PVC name ..................... {{ mas_manage_imagestitching_pvc_name }}"
+          - "Stitching storage class ................ {{ mas_manage_imagestitching_storage_class }}"
+          - "Stitching storage size ................. {{ mas_manage_imagestitching_storage_size }}"
+          - "Stitching storage mode ................. {{ mas_manage_imagestitching_storage_mode }}"
+          - "Stitching storage mountpath ............ {{ mas_manage_imagestitching_mount_path }}"
+          - "Instance ID ............................ {{ mas_instance_id }}"
+          - "Workspace ID ........................... {{ mas_workspace_id }}"
+          - "Manage namespace ....................... {{ manage_namespace }}"
+          - "MAS workspace CR name .................. {{ manage_workspace_cr_name }}"
+          - "Existing persistent volumes ............ {{ existing_persistent_volumes | length }}"
+          - "deployimagestitching ................... {{ civil_status.deployimagestitching | default('<not set>') }}"
+
+    # 3. Add the image stitching persistent volume to the ManageWorkspace CR
+    # ------------------------------------------------------------------------
+    - name: "imagestitching : Check if the stitching PV has already been defined in the workspace"
+      vars:
+        existing_persistent_volumes: "{{ (workspaceCR.resources[0].spec.settings.deployment | default({})).persistentVolumes | default([]) }}"
+      set_fact:
+        stitching_pv_added: "{{ existing_persistent_volumes | selectattr('mountPath', 'defined') | selectattr('mountPath', 'contains', mas_manage_imagestitching_mount_path) | list | length > 0 }}"
+
+    - name: "imagestitching : Set the merged persistent volumes"
+      when: not (stitching_pv_added | bool)
+      vars:
+        existing_persistent_volumes: "{{ (workspaceCR.resources[0].spec.settings.deployment | default({})).persistentVolumes | default([]) }}"
+        stitching_pv:
+          accessModes:
+            - "{{ mas_manage_imagestitching_storage_mode }}"
+          mountPath: "/{{ mas_manage_imagestitching_mount_path }}"
+          pvcName: "{{ mas_manage_imagestitching_pvc_name }}"
+          size: "{{ mas_manage_imagestitching_storage_size }}"
+          storageClassName: "{{ mas_manage_imagestitching_storage_class }}"
+      set_fact:
+        imagestitching_persistent_volumes: "{{ existing_persistent_volumes + [stitching_pv] }}"
+
+    - name: "imagestitching : Add the persistent volume definition in ManageWorkspace CR"
+      when: not (stitching_pv_added | bool)
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: apps.mas.ibm.com/v1
+          kind: ManageWorkspace
+          metadata:
+            name: "{{ manage_workspace_cr_name }}"
+            namespace: "{{ manage_namespace }}"
+          spec:
+            settings:
+              deployment:
+                persistentVolumes: "{{ imagestitching_persistent_volumes }}"
+
+    # 4. Point the civil component at the stitching PVC when not already deployed
+    # ------------------------------------------------------------------------
+    - name: "imagestitching : Retrieve Image Stitching CRs if available"
+      kubernetes.core.k8s_info:
+        api_version: apps.mas.ibm.com/v1
+        kind: Imagestitching
+      register: stitchingCR
+
+    - name: "imagestitching : Check current stitching deployment status"
+      vars:
+        civil_status: "{{ workspaceCR.resources[0].status.components.civil | default({}) }}"
+      set_fact:
+        deployimagestitching: "{{ civil_status.deployimagestitching | default(false) | bool }}"
+        stitchingcr_ready: "{{ stitchingCR.resources is defined and stitchingCR.resources | length > 0 }}"
+
+    - name: "imagestitching : Patch Manage Workspace CR with stitching pvc name"
+      when:
+        - not deployimagestitching
+        - not (stitchingcr_ready | bool)
+      kubernetes.core.k8s:
+        api_version: apps.mas.ibm.com/v1
+        name: "{{ manage_workspace_cr_name }}"
+        namespace: "{{ manage_namespace }}"
+        kind: ManageWorkspace
+        definition:
+          spec:
+            components:
+              civil:
+                imagestitchingpvcname: "{{ mas_manage_imagestitching_pvc_name }}"
+      register: manageWorkspaceUpdate
+
+    # 5. Wait for the image stitching deployment
+    # ------------------------------------------------------------------------
+    - name: "imagestitching : Wait for image stitching deployment to complete"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        label_selectors: mas.ibm.com/appType=serverBundle
+        namespace: "{{ manage_namespace }}"
+        kind: Pod
+      register: managePodCheck
+      retries: "{{ mas_manage_imagestitching_wait_retries }}"
+      delay: 90
+      until:
+        - managePodCheck.resources is defined
+        - managePodCheck.resources | length > 0
+        - managePodCheck.resources | json_query('[?containers[?volumeMounts[?contains(mountPath, `{{ mas_manage_imagestitching_mount_path }}`)]]]) | length > 0'
+
+    - name: "imagestitching : Debug information"
+      debug:
+        msg: "Stitching deployed successfully: the server bundle pods have the {{ mas_manage_imagestitching_mount_path }} volume mounted"

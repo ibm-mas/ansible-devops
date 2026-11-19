@@ -1,0 +1,19 @@
+---
+# Wait for the ManageWorkspace CR to reconcile and return to a Running/Successful
+# state after it has been patched.
+# Optional inputs (with defaults):
+#   manage_ws_wait_retries - default 60
+#   manage_ws_wait_delay   - default 60 (seconds)
+- name: "wait-manageworkspace-ready : Wait for ManageWorkspace to be ready"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ manage_workspace_cr_name }}"
+    namespace: "mas-{{ mas_instance_id }}-manage"
+    kind: ManageWorkspace
+  register: app_cr_result
+  retries: "{{ manage_ws_wait_retries | default(60) }}"
+  delay: "{{ manage_ws_wait_delay | default(60) }}"
+  until:
+    - app_cr_result.resources is defined
+    - app_cr_result.resources | length > 0
+    - app_cr_result.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select('match', 'Successful') | list | length == 1

@@ -1,12 +1,26 @@
 ---
+# Define API version and Cluster name dynamically based on install method
+# -----------------------------------------------------------------------------
+- name: "wait-zenmetastore-edb : Set cluster and api defaults for OLM"
+  when: resolved_install_method == 'olm'
+  set_fact:
+    metastore_api_version: "postgresql.k8s.enterprisedb.io/v1"
+    metastore_cluster_name: "zen-metastore-edb"
+
+- name: "wait-zenmetastore-edb : Set cluster and api defaults for Helm"
+  when: resolved_install_method == 'helm'
+  set_fact:
+    metastore_api_version: "pg.ibm.com/v1"
+    metastore_cluster_name: "zen-metastore"
+
 # 1. Wait for zen metastore cluster to start
 # -----------------------------------------------------------------------------
 - name: "wait-zenmetastore-edb : Wait for Zen Metastore EDB Cluster to be created"
   kubernetes.core.k8s_info:
-    api_version: postgresql.k8s.enterprisedb.io/v1
+    api_version: "{{ metastore_api_version }}"
     kind: Cluster
     namespace: "{{ cpd_instance_namespace }}"
-    name: "zen-metastore-edb"
+    name: "{{ metastore_cluster_name }}"
   register: zenmetastoreCluster
   retries: 120 # Give 60 minutes for the zenService to start Zen Metastore Pods (Logs show this taking ~20 minutes in a good run)
   delay: 30
@@ -16,10 +30,10 @@
 # -----------------------------------------------------------------------------
 - name: "wait-zenmetastore-edb : Wait for ZenMetastore pods to be become ready"
   kubernetes.core.k8s_info:
-    api_version: postgresql.k8s.enterprisedb.io/v1
+    api_version: "{{ metastore_api_version }}"
     kind: Cluster
     namespace: "{{ cpd_instance_namespace }}"
-    name: "zen-metastore-edb"
+    name: "{{ metastore_cluster_name }}"
   register: zenmetastoreCluster
   retries: 40 # Give 20 minutes for the pods to become ready
   delay: 30
@@ -40,9 +54,10 @@
   until:
     - commonservices_operators_output.resources is defined
     - commonservices_operators_output.resources | length > 0
-    - commonservices_operators_output.resources[0].status.overallStatus is defined
-    - commonservices_operators_output.resources[0].status.overallStatus == "Succeeded"
-    - commonservices_operators_output.resources[0].status.phase is defined
-    - commonservices_operators_output.resources[0].status.phase == "Succeeded"
+    - >-
+      (commonservices_operators_output.resources[0].status.phase is defined and
+       commonservices_operators_output.resources[0].status.phase == "Succeeded") or
+      (commonservices_operators_output.resources[0].status.overallStatus is defined and
+       commonservices_operators_output.resources[0].status.overallStatus == "Succeeded")
   retries: 60 # approx 30 minutes
   delay: 30 # seconds

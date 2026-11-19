@@ -309,21 +309,21 @@ def setManageBirtProperties(data, rptRoute, rptServerBundleName):
     disablequeuemanager = 0 if sb['bundleType'] == 'report' else 1
     if 'bundleLevelProperties' in sb:
       if 'mxe.report.birt.viewerurl' not in sb['bundleLevelProperties'] and 'mxe.report.birt.disablequeuemanager' not in sb['bundleLevelProperties']:
-        sb['bundleLevelProperties']+=f"mxe.report.birt.viewerurl={rptRoute}  mxe.report.birt.disablequeuemanager={disablequeuemanager}"
+        sb['bundleLevelProperties']+=f"\nmxe.report.birt.viewerurl={rptRoute}\nmxe.report.birt.disablequeuemanager={disablequeuemanager}"
     else:
-      sb['bundleLevelProperties']=f"mxe.report.birt.viewerurl={rptRoute}  mxe.report.birt.disablequeuemanager={disablequeuemanager}"
+      sb['bundleLevelProperties']=f"mxe.report.birt.viewerurl={rptRoute}\nmxe.report.birt.disablequeuemanager={disablequeuemanager}"
     sb_list.append(sb)
   return sb_list
 
 
-def setManageDoclinksProperties(data, doclinkPath01, bucketName, accessKey, secretAccesskey, bucketEndpoint):
+def setManageDoclinksProperties(data, doclinkPath01, bucketName, accessKey, secretAccesskey, bucketEndpoint, cosRegion=''):
   sb_list = []
   for sb in data:
     if 'bundleLevelProperties' in sb:
       if 'mxe.doclink.doctypes.topLevelPaths' not in sb['bundleLevelProperties'] and 'mxe.doclink.doctypes.defpath' not in sb['bundleLevelProperties'] and 'mxe.doclink.path01' not in sb['bundleLevelProperties'] and 'mxe.doclink.securedAttachment' not in sb['bundleLevelProperties']:
-        sb['bundleLevelProperties']+=f"\nmxe.doclink.doctypes.topLevelPaths=cos:doclinks\nmxe.doclink.doctypes.defpath=cos:doclinks/default\nmxe.doclink.path01=cos:doclinks={doclinkPath01}\nmxe.doclink.securedAttachment=true\nmxe.cosbucketname={bucketName}\nmxe.cosaccesskey={accessKey}\nmxe.cossecretkey={secretAccesskey}\nmxe.cosendpointuri={bucketEndpoint}\nmxe.attachmentstorage=com.ibm.tivoli.maximo.oslc.provider.COSAttachmentStorage"
+        sb['bundleLevelProperties']+=f"\nmxe.doclink.doctypes.topLevelPaths=cos:doclinks\nmxe.doclink.doctypes.defpath=cos:doclinks/default\nmxe.doclink.path01=cos:doclinks={doclinkPath01}\nmxe.doclink.securedAttachment=true\nmxe.cosbucketname={bucketName}\nmxe.cosaccesskey={accessKey}\nmxe.cossecretkey={secretAccesskey}\nmxe.cosendpointuri={bucketEndpoint}\nmxe.cosregion={cosRegion}\nmxe.attachmentstorage=com.ibm.tivoli.maximo.oslc.provider.COSAttachmentStorage"
     else:
-      sb['bundleLevelProperties']=f"mxe.doclink.doctypes.topLevelPaths=cos:doclinks\nmxe.doclink.doctypes.defpath=cos:doclinks/default\nmxe.doclink.path01=cos:doclinks={doclinkPath01}\nmxe.doclink.securedAttachment=true\nmxe.cosbucketname={bucketName}\nmxe.cosaccesskey={accessKey}\nmxe.cossecretkey={secretAccesskey}\nmxe.cosendpointuri={bucketEndpoint}\nmxe.attachmentstorage=com.ibm.tivoli.maximo.oslc.provider.COSAttachmentStorage"
+      sb['bundleLevelProperties']=f"mxe.doclink.doctypes.topLevelPaths=cos:doclinks\nmxe.doclink.doctypes.defpath=cos:doclinks/default\nmxe.doclink.path01=cos:doclinks={doclinkPath01}\nmxe.doclink.securedAttachment=true\nmxe.cosbucketname={bucketName}\nmxe.cosaccesskey={accessKey}\nmxe.cossecretkey={secretAccesskey}\nmxe.cosendpointuri={bucketEndpoint}\nmxe.cosregion={cosRegion}\nmxe.attachmentstorage=com.ibm.tivoli.maximo.oslc.provider.COSAttachmentStorage"
     sb_list.append(sb)
   return sb_list
 
@@ -347,9 +347,9 @@ def _setSystemProperties(data, meaweb_value, oslc_rest_value, webapp_value, rest
   for sb in data:
     if 'bundleLevelProperties' in sb:
       if 'mxe.int.webappurl' not in sb['bundleLevelProperties'] and 'mxe.oslc.restwebappurl' not in sb['bundleLevelProperties'] and 'mxe.oslc.webappurl' not in sb['bundleLevelProperties'] and 'mxe.rest.webappurl' not in sb['bundleLevelProperties']:
-        sb['bundleLevelProperties']+=f"  mxe.int.webappurl={meaweb_value}  mxe.oslc.restwebappurl={oslc_rest_value}  mxe.oslc.webappurl={webapp_value}  mxe.rest.webappurl={rest_webapp_value}"
+        sb['bundleLevelProperties']+=f"\nmxe.int.webappurl={meaweb_value}\nmxe.oslc.restwebappurl={oslc_rest_value}\nmxe.oslc.webappurl={webapp_value}\nmxe.rest.webappurl={rest_webapp_value}"
     else:
-      sb['bundleLevelProperties']=f"mxe.int.webappurl={meaweb_value}  mxe.oslc.restwebappurl={oslc_rest_value}  mxe.oslc.webappurl={webapp_value}  mxe.rest.webappurl={rest_webapp_value}"
+      sb['bundleLevelProperties']=f"mxe.int.webappurl={meaweb_value}\nmxe.oslc.restwebappurl={oslc_rest_value}\nmxe.oslc.webappurl={webapp_value}\nmxe.rest.webappurl={rest_webapp_value}"
     sb_list.append(sb)
   return sb_list
 
@@ -609,7 +609,6 @@ class FilterModule(object):
       'is_channel_upgrade_path_valid': is_channel_upgrade_path_valid,
       'remove_dict_keys': remove_dict_keys,
       'is_operator_upgraded_by_version': is_operator_upgraded_by_version,
-      'get_default_upgrade_channel': get_default_upgrade_channel,
       'get_default_upgrade_channel': get_default_upgrade_channel,
       'set_storage_classes_names': set_storage_classes_names,
       'override_manage_persistent_volumes': override_manage_persistent_volumes

@@ -17,8 +17,19 @@
     - mas_config_dir != ""
   include_vars: "/tmp/{{ mas_config_scope }}.yml"
 
-- name: Lookup db2u instance password
+- name: Lookup db2u instance password (helm mode)
   no_log: true
+  when: db2_use_helm_operator | default(false) | bool
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "c-{{db2_instance_name | lower }}-credentials"
+    namespace: "{{db2_namespace}}"
+  register: _db2_helm_credentials
+
+- name: Lookup db2u instance password (subscription mode)
+  no_log: true
+  when: not (db2_use_helm_operator | default(false) | bool)
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
@@ -26,8 +37,14 @@
     namespace: "{{db2_namespace}}"
   register: _db2_instance_password
 
-- name: Set Facts for JdbcCfg
-  no_log: true
+- name: Set Facts for JdbcCfg (helm mode)
+  when: db2_use_helm_operator | default(false) | bool
+  set_fact:
+    jdbc_instance_password: "{{ _db2_helm_credentials.resources[0].data.instancepassword | b64decode }}"
+    jdbc_url: "jdbc:db2://c-{{db2_instance_name | lower}}-db2u-engn-svc.{{ db2_namespace }}.svc:{{db2_tls_serviceport}}/{{db2_dbname}}:sslConnection=true;sslVersion={{ tls_version }};"
+
+- name: Set Facts for JdbcCfg (subscription mode)
+  when: not (db2_use_helm_operator | default(false) | bool)
   set_fact:
     jdbc_instance_password: "{{ _db2_instance_password.resources[0].data.password | b64decode }}"
     jdbc_url: "jdbc:db2://c-{{db2_instance_name | lower}}-db2u-engn-svc.{{ db2_namespace }}.svc:{{db2_tls_serviceport}}/{{db2_dbname}}:sslConnection=true;sslVersion={{ tls_version }};"

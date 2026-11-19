@@ -1,0 +1,63 @@
+---
+# Manage a CIS WAF custom rule that blocks all traffic except from IPs in cis_allowed_ips.
+# Expects : instance_id, domain
+# Status updates are only written for MAS (the status record belongs to the MAS instance).
+
+# For MAS the plan was already computed (and REQUESTED reported) by cis_ip_allowlist_requested.yml.
+- name: "cis : ip-allowlist — plan allowlist change (AI Service)"
+  when: is_aiservice_mode
+  ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist_plan.yml
+
+- name: "cis : ip-allowlist — show configuration"
+  ansible.builtin.debug:
+    msg:
+      - "Rule Description ......... {{ _cis_allowlist_rule_desc }}"
+      - "CIS Allowed IPs .......... {{ cis_allowed_ips }}"
+      - "Normalised IPs ........... {{ _cis_normalised_ips }}"
+      - "WAF Expression ........... {{ _cis_allowlist_expression | default('(none)', true) }}"
+      - "Existing Expression ...... {{ _cis_existing_expression | default('(none)', true) }}"
+      - "Existing Rule ID ......... {{ _cis_allowlist_rule_id | default('(none)', true) }}"
+      - "Action ................... {{ _cis_allowlist_action }}"
+
+- name: "cis : ip-allowlist — no change detected, skipping"
+  when: _cis_allowlist_action == 'noop'
+  ansible.builtin.debug:
+    msg: >-
+      WAF IP allowlist rule '{{ _cis_allowlist_rule_desc }}' needs no change,
+      no status update or CIS API call required for instance {{ instance_id }}
+
+- name: "cis : ip-allowlist — create, update or delete rule"
+  when: _cis_allowlist_action != 'noop'
+  block:
+
+    - name: "cis : ip-allowlist — status update: IN_PROGRESS"
+      when: is_mas_mode
+      ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist_status.yml
+      vars:
+        allowlist_status: IN_PROGRESS
+        allowlist_status_message: "{{ 'Allow list deactivation in progress.' if _cis_allowlist_action == 'delete' else 'Allow list deployment in progress.' }}"
+        allowlist_status_request: "{{ _cis_normalised_ips | join(', ') }}"
+
+    - name: "cis : ip-allowlist — {{ _cis_allowlist_action }} WAF rule"
+      ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist_waf_rule.yml
+      vars:
+        allowlist_action: "{{ _cis_allowlist_action }}"
+
+    - name: "cis : ip-allowlist — status update: ACTIVE / DEACTIVATED"
+      when:
+        - is_mas_mode
+        - _cis_rule_result.rc == 0
+      ansible.builtin.include_tasks: tasks/providers/cis/cis_ip_allowlist_status.yml
+      vars:
+        allowlist_status: "{{ 'DEACTIVATED' if _cis_allowlist_action == 'delete' else 'ACTIVE' }}"
+        allowlist_status_message: "{{ 'Allow list has been deactivated.' if _cis_allowlist_action == 'delete' else 'Allow list is active.' }}"
+        allowlist_status_request: "{{ _cis_normalised_ips | join(', ') }}"
+        allowlist_deployment_end: "{{ _cis_allowlist_deployment_end }}"
+
+    - name: "cis : ip-allowlist — result"
+      when: _cis_rule_result.rc == 0
+      ansible.builtin.debug:
+        msg: >-
+          WAF IP allowlist rule '{{ _cis_allowlist_rule_desc }}'
+          {{ {'create': 'created', 'update': 'updated', 'delete': 'deleted'}[_cis_allowlist_action] }}
+          successfully for instance {{ instance_id }}

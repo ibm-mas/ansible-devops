@@ -3,6 +3,13 @@
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/nfd_setup.yml
 
+# 1.1 Set default GPU channel based on OpenShift version if not explicitly set
+# -----------------------------------------------------------------------------
+- name: "Set default GPU channel based on OpenShift version"
+  when: gpu_channel is not defined or gpu_channel == ""
+  set_fact:
+    gpu_channel: "{{ (ocp_version_num is defined and ocp_version_num is version('4.21', '<')) | ternary('v25.3', 'v26.3') }}"
+
 # 2. Lookup the packagemanifest for gpu-operator-certified
 # -----------------------------------------------------------------------------
 - name: Get gpu-operator-certified package manifest
@@ -83,36 +90,36 @@
       include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
       vars:
         crd_name: clusterpolicies.nvidia.com
-
-    # 4.3 Create GPU Cluster Policy
-    # -----------------------------------------------------------------------------
-    - name: "Create Cluster Policy instance using latest driver"
-      when: gpu_driver_version is not defined or not gpu_driver_version
-      kubernetes.core.k8s:
-        apply: yes
-        template: "templates/clusterpolicy-v2.yml.j2"
-
-    - name: "Create Cluster Policy instance using custom driver"
-      when: gpu_driver_version is defined and gpu_driver_version
-      kubernetes.core.k8s:
-        apply: yes
-        template: "templates/clusterpolicy-customversion.yml.j2"
-
-    # 4.4. Wait for Cluster Policy to be ready
-    # -----------------------------------------------------------------------------
-    - name: "Wait for Cluster Policy instance to be ready (60s delay)"
-      kubernetes.core.k8s_info:
-        api_version: nvidia.com/v1
-        name: "gpu-cluster-policy"
-        kind: ClusterPolicy
-      register: gpu_cr_result
-      until:
-        - gpu_cr_result.resources is defined and gpu_cr_result.resources | length == 1
-        - gpu_cr_result.resources[0].status is defined
-        - gpu_cr_result.resources[0].status.state is defined
-        - gpu_cr_result.resources[0].status.state == 'ready'
-      retries: 30 # approx 30 minutes before we give up
-      delay: 60 # 1 minute
   when:
     - gpu_clusterpolicy_result.resources | length == 0
     - gpu_clusterpolicy_result.resources[0].status is not defined
+
+# 4.3 Create GPU Cluster Policy
+# -----------------------------------------------------------------------------
+- name: "Create Cluster Policy instance using latest driver"
+  when: gpu_driver_version is not defined or not gpu_driver_version
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/clusterpolicy-v3.yml.j2"
+
+- name: "Create Cluster Policy instance using custom driver"
+  when: gpu_driver_version is defined and gpu_driver_version
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/clusterpolicy-customversion.yml.j2"
+
+# 4.4. Wait for Cluster Policy to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for Cluster Policy instance to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: nvidia.com/v1
+    name: "gpu-cluster-policy"
+    kind: ClusterPolicy
+  register: gpu_cr_result
+  until:
+    - gpu_cr_result.resources is defined and gpu_cr_result.resources | length == 1
+    - gpu_cr_result.resources[0].status is defined
+    - gpu_cr_result.resources[0].status.state is defined
+    - gpu_cr_result.resources[0].status.state == 'ready'
+  retries: 30 # approx 30 minutes before we give up
+  delay: 60 # 1 minute

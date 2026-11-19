@@ -1,9 +1,10 @@
 # upload_backup_archive
 Creates a compressed archive of MAS backup directories and uploads it to AWS S3 or Artifactory.
 
-This role automates the process of packaging MAS backup directories into a single tar.gz archive and uploading it to a remote storage location. It supports multiple backup components (catalog, cert-manager, SLS, MongoDB, Db2, and MAS Suite) and allows for component-specific backup versions. The role intelligently detects which backup directories exist and only archives those that are present.
+This role automates the process of packaging MAS backup directories into a single tar.gz archive and uploading it to a remote storage location. It supports multiple backup components (IBM catalogs, cert-manager, SLS, MongoDB, Manage and Facilities applications with their Db2 databases, and the MAS Suite) and allows for component-specific backup versions. The role intelligently detects which backup directories exist and only archives those that are present.
 
 Key features:
+
 - Creates compressed tar.gz archives of MAS backup directories
 - Supports uploading to AWS S3 or S3-compatible storage
 - Supports uploading to Artifactory repositories
@@ -26,168 +27,233 @@ Key features:
 
 ## Role Variables
 
-### Required Variables
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`mas_instance_id`](#mas_instance_id) | Yes | None |
+| [`mas_backup_dir`](#mas_backup_dir) | Yes | None |
+| [`backup_version`](#backup_version) | Yes | None |
+| [`ibm_catalogs_backup_version`](#ibm_catalogs_backup_version) | No | Value of `backup_version` |
+| [`certmanager_backup_version`](#certmanager_backup_version) | No | Value of `backup_version` |
+| [`mongodb_backup_version`](#mongodb_backup_version) | No | Value of `backup_version` |
+| [`sls_backup_version`](#sls_backup_version) | No | Value of `backup_version` |
+| [`suite_backup_version`](#suite_backup_version) | No | Value of `backup_version` |
+| [`manage_backup_version`](#manage_backup_version) | No | Value of `backup_version` |
+| [`manage_db2_backup_version`](#manage_db2_backup_version) | No | Value of `backup_version` |
+| [`facilities_backup_version`](#facilities_backup_version) | No | Value of `backup_version` |
+| [`facilities_db2_backup_version`](#facilities_db2_backup_version) | No | Value of `backup_version` |
+| [`aws_access_key_id`](#aws_access_key_id) | Conditional | None |
+| [`aws_secret_access_key`](#aws_secret_access_key) | Conditional | None |
+| [`s3_bucket_name`](#s3_bucket_name) | Conditional | None |
+| [`s3_region`](#s3_region) | No | `us-east-1` |
+| [`s3_endpoint_url`](#s3_endpoint_url) | No | None |
+| [`artifactory_username`](#artifactory_username) | Conditional | None |
+| [`artifactory_token`](#artifactory_token) | Conditional | None |
+| [`artifactory_repository`](#artifactory_repository) | Conditional | None |
+| [`artifactory_url`](#artifactory_url) | No | `https://na.artifactory.swg-devops.com/artifactory` |
+| [`backup_temp_dir`](#backup_temp_dir) | No | `<mas_backup_dir>/mas-<mas_instance_id>-backup-<backup_version>` |
+| [`upload_timeout`](#upload_timeout) | No | `10800` |
+
+The S3 variables are required when uploading to AWS S3 or S3-compatible storage, and the Artifactory variables when uploading to Artifactory. If S3 credentials are provided, the S3 upload takes precedence over Artifactory.
+
+### Backup Identification
 
 #### mas_instance_id
+
 Instance ID of the MAS instance. This is used to identify the backup directories.
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
+- Default: None
 
 #### mas_backup_dir
+
 Directory containing the MAS backup folders. This is the parent directory where all component backup directories are located.
 
 - **Required**
 - Environment Variable: `MAS_BACKUP_DIR`
-- Default Value: None
+- Default: None
 
 #### backup_version
+
 Version identifier for the backup. This is used as the default version for all component backups unless component-specific versions are provided.
 
 - **Required**
 - Environment Variable: `BACKUP_VERSION`
-- Default Value: None
+- Default: None
 
 ### Component-Specific Backup Versions
 
 These variables allow you to specify different backup versions for individual components. If not provided, they default to the value of `backup_version`.
 
 #### ibm_catalogs_backup_version
-Backup version for the catalog component.
+
+Backup version for the IBM catalogs component.
 
 - **Optional**
 - Environment Variable: `IBM_CATALOGS_BACKUP_VERSION`
-- Default Value: Value of `backup_version`
+- Default: Value of `backup_version`
 
 #### certmanager_backup_version
+
 Backup version for the cert-manager component.
 
 - **Optional**
 - Environment Variable: `CERTMANAGER_BACKUP_VERSION`
-- Default Value: Value of `backup_version`
+- Default: Value of `backup_version`
 
 #### mongodb_backup_version
+
 Backup version for the MongoDB component.
 
 - **Optional**
 - Environment Variable: `MONGODB_BACKUP_VERSION`
-- Default Value: Value of `backup_version`
+- Default: Value of `backup_version`
 
 #### sls_backup_version
+
 Backup version for the SLS (Suite License Service) component.
 
 - **Optional**
 - Environment Variable: `SLS_BACKUP_VERSION`
-- Default Value: Value of `backup_version`
-
-#### db2_backup_version
-Backup version for the Db2 component.
-
-- **Optional**
-- Environment Variable: `DB2_BACKUP_VERSION`
-- Default Value: Value of `backup_version`
+- Default: Value of `backup_version`
 
 #### suite_backup_version
+
 Backup version for the MAS Suite component.
 
 - **Optional**
 - Environment Variable: `SUITE_BACKUP_VERSION`
-- Default Value: Value of `backup_version`
+- Default: Value of `backup_version`
 
 #### manage_backup_version
-Backup version for the MAS Manage app.
+
+Backup version for the MAS Manage application.
 
 - **Optional**
 - Environment Variable: `MANAGE_BACKUP_VERSION`
-- Default Value: Value of `backup_version`
+- Default: Value of `backup_version`
+
+#### manage_db2_backup_version
+
+Backup version for the Manage Db2 database component.
+
+- **Optional**
+- Environment Variable: `MANAGE_DB2_BACKUP_VERSION`
+- Default: Value of `backup_version`
+
+#### facilities_backup_version
+
+Backup version for the MAS Facilities application.
+
+- **Optional**
+- Environment Variable: `FACILITIES_BACKUP_VERSION`
+- Default: Value of `backup_version`
+
+#### facilities_db2_backup_version
+
+Backup version for the Facilities Db2 database component.
+
+- **Optional**
+- Environment Variable: `FACILITIES_DB2_BACKUP_VERSION`
+- Default: Value of `backup_version`
 
 ### S3 Upload Variables
 
 Provide these variables to upload the backup archive to AWS S3 or S3-compatible storage. If S3 credentials are provided, S3 upload takes precedence over Artifactory.
 
 #### aws_access_key_id
+
 AWS access key ID for authentication.
 
-- **Required for S3 upload**
+- **Required** for S3 upload
 - Environment Variable: `S3_ACCESS_KEY_ID`
-- Default Value: None
+- Default: None
 
 #### aws_secret_access_key
+
 AWS secret access key for authentication.
 
-- **Required for S3 upload**
+- **Required** for S3 upload
 - Environment Variable: `S3_SECRET_ACCESS_KEY`
-- Default Value: None
+- Default: None
 
 #### s3_bucket_name
+
 Name of the S3 bucket where the archive will be uploaded.
 
-- **Required for S3 upload**
+- **Required** for S3 upload
 - Environment Variable: `S3_BUCKET_NAME`
-- Default Value: None
+- Default: None
 
 #### s3_region
+
 AWS region where the S3 bucket is located.
 
 - **Optional**
 - Environment Variable: `S3_REGION`
-- Default Value: `us-east-1`
+- Default: `us-east-1`
 
 #### s3_endpoint_url
+
 Custom S3 endpoint URL for S3-compatible storage services (e.g., MinIO, Wasabi, IBM Cloud Object Storage).
 
 - **Optional**
 - Environment Variable: `S3_ENDPOINT_URL`
-- Default Value: None (uses AWS S3 endpoints)
+- Default: None (uses AWS S3 endpoints)
 
 ### Artifactory Upload Variables
 
 Provide these variables to upload the backup archive to Artifactory. Artifactory upload is used only if S3 credentials are not provided.
 
 #### artifactory_username
+
 Artifactory username for authentication.
 
-- **Required for Artifactory upload**
+- **Required** for Artifactory upload
 - Environment Variable: `ARTIFACTORY_USERNAME`
-- Default Value: None
+- Default: None
 
 #### artifactory_token
+
 Artifactory API token for authentication.
 
-- **Required for Artifactory upload**
+- **Required** for Artifactory upload
 - Environment Variable: `ARTIFACTORY_TOKEN`
-- Default Value: None
+- Default: None
 
 #### artifactory_repository
+
 Name of the Artifactory repository where the archive will be uploaded.
 
-- **Required for Artifactory upload**
+- **Required** for Artifactory upload
 - Environment Variable: `ARTIFACTORY_REPOSITORY`
-- Default Value: None
+- Default: None
 
 #### artifactory_url
+
 Base URL of the Artifactory server (e.g., `https://artifactory.example.com/artifactory`).
 
 - **Optional**
 - Environment Variable: `ARTIFACTORY_URL`
-- Default Value: `https://na.artifactory.swg-devops.com/artifactory`
+- Default: `https://na.artifactory.swg-devops.com/artifactory`
 
-### General Configuration
+### Archive and Upload Settings
 
 #### backup_temp_dir
+
 Temporary directory where the archive will be created before upload. The directory is created if it doesn't exist and cleaned up after upload.
 
 - **Optional**
 - Environment Variable: None
-- Default Value: `<mas_backup_dir>/mas-backup-{{ backup_version }}`
+- Default: `<mas_backup_dir>/mas-<mas_instance_id>-backup-<backup_version>`
 
 #### upload_timeout
+
 Maximum time in seconds to wait for the upload to complete. Useful for large archives or slow network connections.
 
 - **Optional**
 - Environment Variable: None
-- Default Value: `3600` (1 hour)
+- Default: `10800` (3 hours)
 
 ## Example Playbook
 
@@ -247,7 +313,7 @@ After installing the Ansible Collection you can include this role in your own cu
     backup_version: "20260117-191500"
     # Override specific component versions
     mongodb_backup_version: "20260116-120000"
-    db2_backup_version: "20260115-180000"
+    manage_db2_backup_version: "20260115-180000"
     aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
     aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
     s3_bucket_name: my-mas-backups
