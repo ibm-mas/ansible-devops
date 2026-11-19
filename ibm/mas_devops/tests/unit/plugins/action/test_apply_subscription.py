@@ -12,12 +12,13 @@ Tests cover:
 Note: This test uses the REAL mas.devops.olm.applySubscription() function.
 We mock the Kubernetes DynamicClient but use the real function logic.
 """
-import pytest
-from unittest.mock import Mock, patch
-from ansible.errors import AnsibleError
+from unittest.mock import patch
 
 # Import the action module (path setup is in conftest.py)
 import apply_subscription
+import pytest
+from ansible.errors import AnsibleError
+
 ActionModule = apply_subscription.ActionModule
 
 # Import mock helpers

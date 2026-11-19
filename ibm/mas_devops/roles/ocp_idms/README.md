@@ -1,5 +1,6 @@
 # ocp_idms
-Installs an **ImageDigestMirrorSet** (IDMS)for IBM Maximo Application Suite's Maximo Operator Catalog.
+
+Installs an **ImageDigestMirrorSet** (IDMS) for IBM Maximo Application Suite's Maximo Operator Catalog.
 Also install IDMS suitable for the Red Hat Operator Catalogs created by [mirror_ocp](mirror_ocp.md).
 If there are legacy **ImageContentSourcePolicies** installed by previous versions of this role, they will be deleted.
 
@@ -7,7 +8,6 @@ If PRODUCT_FAMILY is aiservice then it will install an **ImageTagMirrorSet** for
 
 !!! warning
     This role doesn't work on IBMCloud ROKS.  IBM Cloud RedHat OpenShift Service does not implement support for `ImageDigestMirrorSet`.  If you want to use image mirroring you must manually configure each worker node individually using the IBM Cloud command line tool.
-
 
 IBM Maximo Operator Catalog Content
 All content used in the MAS install is sourced from three registries: **icr.io**, **cp.icr.io**, & **quay.io**:
@@ -57,6 +57,7 @@ All content from the subset of the Red Hat operator catalogs supported by [mirro
 If you are managing the Red Hat Operator Catalogs yourself the content therein may well be different depending how you have configured mirroring.
 
 ## Hosted Control Planes
+
 When working with hosted control planes such as **ROSA with HCP**, management of the IDMS requires a specialized process because access to critical resources is restricted via standard Kubernetes resources. This collection has specific support for ROSA with HCP.
 
 Before running this role, use the `ocp_config` role to:
@@ -71,360 +72,193 @@ Running this role will then:
 !!! important
     Note that on ROSA with HCP there is no way to access `MachinePoolConfigs` to figure out the state of the nodes (e.g. whether it is `updating`). Therefore, we cannot reliably determine when (or if) the changes have been successfully applied.  This is a limitation of the ROSA with HCP implementation; we recommend to wait up to an hour after running this role for the changes to be applied across all workers on a large cluster and contact ROSA support if the IDMS does not apply successfully.
 
+## Role Variables
 
-## Role Variables - General
-### cluster_type
-Cluster type for ImageDigestMirrorSet configuration.
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`cluster_type`](#cluster_type) | Conditional | None |
+| [`product_family`](#product_family) | No | `mas` |
+| [`setup_redhat_release`](#setup_redhat_release) | No | `false` |
+| [`setup_redhat_catalogs`](#setup_redhat_catalogs) | No | `false` |
+| [`registry_private_host`](#registry_private_host) | Yes | None |
+| [`registry_private_port`](#registry_private_port) | No | None |
+| [`registry_private_ca_file`](#registry_private_ca_file) | Yes | None |
+| [`registry_username`](#registry_username) | Yes | None |
+| [`registry_password`](#registry_password) | Yes | None |
+| [`registry_prefix`](#registry_prefix) | No | None |
+| [`registry_prefix_redhat`](#registry_prefix_redhat) | Conditional | None |
+| [`redhat_catalogs_prefix`](#redhat_catalogs_prefix) | No | None |
+| [`machine_config_multiupdate`](#machine_config_multiupdate) | No | `false` |
+| [`cluster_name`](#cluster_name) | Conditional | None |
+| [`ocp_idms_working_dir`](#ocp_idms_working_dir) | No | `/tmp` |
+| [`rosa_token`](#rosa_token) | Conditional | None |
 
-- **Optional**
+The ROSA HCP variables (`cluster_type`, `cluster_name`, `rosa_token`) are only required when working with a ROSA with HCP cluster, and `registry_prefix_redhat` is required when `setup_redhat_release` or `setup_redhat_catalogs` is `true`.
+
+### Mirror Configuration
+
+#### cluster_type
+
+Cluster type for the ImageDigestMirrorSet configuration — `rosa-hcp` for a ROSA with HCP cluster (currently the only supported value).
+
+- **Optional** — only used when working with a ROSA with HCP cluster
 - Environment Variable: `CLUSTER_TYPE`
+- Default: None
 
-**Purpose**: Currently only used with ROSA HCP cluster.
+To set up the IDMS for ROSA HCP you first need to run the `ocp_config` role to configure allowed registries, and `cluster_name` must identify the target cluster.
 
-**When to use**:
-- Use rosa-hcp (`rosa-hcp`)for ROSA HCP cluster
+#### product_family
 
-**Valid values**: `rosa-hcp`
-
-**Related variables**:
-- `cluster_name`: The name of the rosa hcp cluster.
-
-**Note**: To setup idms for ROSA HCP you first need to run ocp_config role to configure allowed registries.
-
-### product_family
-Product family for ImageDigestMirrorSet configuration.
+Product family whose image source registries are configured — `mas` or `aiservice`.
 
 - **Optional**
 - Environment Variable: `PRODUCT_FAMILY`
 - Default: `mas`
 
-**Purpose**: Specifies which product family's ImageDigestMirrorSet (IDMS) to create. Different product families have different image source registries.
+`mas` creates an IDMS for the MAS-related registries (icr.io, cp.icr.io, quay.io); `aiservice` creates an ImageTagMirrorSet for the OpenDataHub registries. The two product families use different image source registries, so the IDMS/ITMS configuration varies accordingly.
 
-**When to use**:
-- Use default (`mas`) for IBM Maximo Application Suite deployments
-- Set to `aiservice` for AI Service deployments (creates ImageTagMirrorSet for OpenDataHub)
-- Determines which image registries are configured in the IDMS
+#### setup_redhat_release
 
-**Valid values**: `mas`, `aiservice`
-
-**Impact**:
-- `mas`: Creates IDMS for MAS-related registries (icr.io, cp.icr.io, quay.io)
-- `aiservice`: Creates ImageTagMirrorSet for OpenDataHub registries
-
-**Related variables**:
-- `registry_prefix`: Prefix for IBM content in target registry
-
-**Note**: MAS and AI Service have different image source registries. The IDMS/ITMS configuration varies based on the product family.
-
-### setup_redhat_release
-Enable ImageDigestMirrorSet for Red Hat release content.
+Enables an ImageDigestMirrorSet for mirrored Red Hat OpenShift platform release content — `true` or `false`.
 
 - **Optional**
 - Environment Variable: `SETUP_REDHAT_RELEASE`
 - Default: `false`
 
-**Purpose**: Controls whether to create an ImageDigestMirrorSet for mirrored Red Hat OpenShift platform release content. Required when using mirrored OpenShift platform images.
+When `true`, creates an IDMS named `ibm-mas-redhat-release` for platform images. Only enable if you have mirrored OpenShift platform images with the `mirror_ocp` role (`mirror_redhat_platform=true`) — typically for air-gapped OpenShift installations or upgrades. Requires `registry_prefix_redhat` to be set.
 
-**When to use**:
-- Set to `true` when you've mirrored OpenShift platform images with `mirror_ocp` role
-- Leave as `false` (default) if not using mirrored platform images
-- Only needed for air-gapped OpenShift installations or upgrades
+#### setup_redhat_catalogs
 
-**Valid values**: `true`, `false`
-
-**Impact**:
-- `true`: Creates IDMS named `ibm-mas-redhat-release` for platform images
-- `false`: No IDMS created for platform images
-
-**Related variables**:
-- `registry_prefix_redhat`: Prefix for Red Hat content in target registry
-- `setup_redhat_catalogs`: Related but separate (for operator catalogs)
-
-**Note**: This creates an additional IDMS policy. Only enable if you've mirrored OpenShift platform images using the `mirror_ocp` role with `mirror_redhat_platform=true`.
-
-### setup_redhat_catalogs
-Enable CatalogSources and ImageDigestMirrorSet for Red Hat operator catalogs.
+Enables CatalogSources and an ImageDigestMirrorSet for mirrored Red Hat operator catalogs — `true` or `false`.
 
 - **Optional**
 - Environment Variable: `SETUP_REDHAT_CATALOGS`
 - Default: `false`
 
-**Purpose**: Controls whether to create CatalogSources and ImageDigestMirrorSet for mirrored Red Hat operator catalog content. Required when using mirrored Red Hat operators.
+When `true`, creates CatalogSources for certified-operator-index, community-operator-index, and redhat-operator-index, plus an IDMS named `ibm-mas-redhat-catalogs` for operator images. Required for air-gapped deployments using Red Hat operators; only enable if you mirrored operator catalogs with the `mirror_ocp` role (`mirror_redhat_operators=true`). Requires `registry_prefix_redhat` to be set.
 
-**When to use**:
-- Set to `true` when you've mirrored Red Hat operator catalogs with `mirror_ocp` role
-- Leave as `false` (default) if not using mirrored operator catalogs
-- Required for air-gapped deployments using Red Hat operators
+### Target Registry
 
-**Valid values**: `true`, `false`
+#### registry_private_host
 
-**Impact**:
-- `true`: Creates CatalogSources and IDMS named `ibm-mas-redhat-catalogs` for operator images
-- `false`: No CatalogSources or IDMS created for operator catalogs
-
-**Related variables**:
-- `registry_prefix_redhat`: Prefix for Red Hat content in target registry
-- `redhat_catalogs_prefix`: Optional prefix for CatalogSource names
-- `setup_redhat_release`: Related but separate (for platform images)
-
-**Note**: This creates CatalogSources for certified-operator-index, community-operator-index, and redhat-operator-index. Only enable if you've mirrored operator catalogs using the `mirror_ocp` role with `mirror_redhat_operators=true`.
-
-
-## Role Variables - Target Registry
-### registry_private_host
-Private hostname for the mirror registry.
+Private hostname of the mirror registry accessible from within the OpenShift cluster — for example `registry.internal.example.com` or `10.0.0.100`.
 
 - **Required**
 - Environment Variable: `REGISTRY_PRIVATE_HOST`
 - Default: None
 
-**Purpose**: Specifies the private/internal hostname of the mirror registry accessible from within the OpenShift cluster. Used in ImageDigestMirrorSet to redirect image pulls.
+Cluster nodes pull images from this registry via the IDMS, so an incorrect hostname causes image pull failures. It must be the hostname accessible from within the cluster, not necessarily the public hostname — in disconnected environments this is typically an internal registry.
 
-**When to use**:
-- Always required for IDMS configuration
-- Must be the hostname accessible from cluster nodes
-- Typically an internal/private hostname or IP address
+#### registry_private_port
 
-**Valid values**: Valid hostname or IP address accessible from cluster (e.g., `registry.internal.example.com`, `10.0.0.100`)
-
-**Impact**: Cluster nodes will pull images from this registry. Incorrect hostname will cause image pull failures.
-
-**Related variables**:
-- `registry_private_port`: Port for this registry
-- `registry_private_ca_file`: CA certificate for this registry
-
-**Note**: This must be the hostname accessible from within the cluster, not necessarily the public hostname. For disconnected environments, this is typically an internal registry.
-
-### registry_private_port
-Private port for the mirror registry.
+Private port of the mirror registry — for example `443`, `5000`, or `32500`.
 
 - **Optional**
 - Environment Variable: `REGISTRY_PRIVATE_PORT`
 - Default: None
 
-**Purpose**: Specifies the private/internal port of the mirror registry accessible from within the OpenShift cluster.
+Set only if the registry uses a non-standard port; when unset, the registry URL omits the port (standard HTTPS port 443 is assumed). An incorrect port causes image pull failures.
 
-**When to use**:
-- Set if registry uses a non-standard port
-- Leave unset if registry uses standard HTTPS port (443)
-- Must match the port accessible from cluster nodes
+#### registry_private_ca_file
 
-**Valid values**: Valid port number (e.g., `443`, `5000`, `32500`)
-
-**Impact**: Cluster nodes will pull images from this port. Incorrect port will cause image pull failures.
-
-**Related variables**:
-- `registry_private_host`: Hostname for this registry
-
-**Note**: If unset, the registry URL will not include a port (assumes standard HTTPS port 443).
-
-### registry_private_ca_file
-Path to registry CA certificate file.
+Path to the mirror registry's CA certificate file — for example `~/registry-ca.crt` or `/tmp/registry-ca.pem`.
 
 - **Required**
 - Environment Variable: `REGISTRY_PRIVATE_CA_FILE`
 - Default: None
 
-**Purpose**: Specifies the path to the CA certificate file for the mirror registry. Required for cluster nodes to trust the registry's TLS certificate.
+Must be the CA certificate that signed the registry's TLS certificate — required even if the registry uses self-signed certificates. The CA is added to all cluster nodes via MachineConfig, which causes the nodes to reboot, so ensure the certificate is valid and matches the registry's TLS certificate.
 
-**When to use**:
-- Always required for IDMS configuration
-- Must be the CA certificate that signed the registry's TLS certificate
-- Required even if registry uses self-signed certificates
+#### registry_username
 
-**Valid values**: Absolute path to CA certificate file (e.g., `~/registry-ca.crt`, `/tmp/registry-ca.pem`)
-
-**Impact**: CA certificate is added to cluster nodes' trust store. Without it, nodes cannot pull images from the registry.
-
-**Related variables**:
-- `registry_private_host`: Registry using this CA certificate
-
-**Note**: The CA certificate is added to all cluster nodes via MachineConfig. This causes nodes to reboot. Ensure the certificate is valid and matches the registry's TLS certificate.
-
-### registry_username
-Username for mirror registry authentication.
+Username for authenticating to the mirror registry.
 
 - **Required**
 - Environment Variable: `REGISTRY_USERNAME`
 - Default: None
 
-**Purpose**: Provides the username for authenticating to the mirror registry. Used to create pull secrets for cluster nodes.
+The credentials are added to the cluster's global pull secret and must have pull permissions from the mirror registry. Keep credentials secure.
 
-**When to use**:
-- Always required for IDMS configuration
-- Must have pull permissions from the mirror registry
-- Credentials are stored in cluster pull secret
+#### registry_password
 
-**Valid values**: Valid username for the mirror registry
-
-**Impact**: Used to authenticate image pulls from the mirror registry. Without valid credentials, image pulls will fail.
-
-**Related variables**:
-- `registry_password`: Password paired with this username
-
-**Note**: Credentials are added to the cluster's global pull secret. Keep credentials secure.
-
-### registry_password
-Password for mirror registry authentication.
+Password for authenticating to the mirror registry, paired with `registry_username`.
 
 - **Required**
 - Environment Variable: `REGISTRY_PASSWORD`
 - Default: None
 
-**Purpose**: Provides the password for authenticating to the mirror registry. Used to create pull secrets for cluster nodes.
+The credentials are added to the cluster's global pull secret. Keep the password secure and never commit it to version control.
 
-**When to use**:
-- Always required for IDMS configuration
-- Must correspond to the provided username
-- Credentials are stored in cluster pull secret
+#### registry_prefix
 
-**Valid values**: Valid password for the mirror registry
-
-**Impact**: Used to authenticate image pulls from the mirror registry. Without valid credentials, image pulls will fail.
-
-**Related variables**:
-- `registry_username`: Username paired with this password
-
-**Note**: Credentials are added to the cluster's global pull secret. Keep passwords secure. Never commit to version control.
-
-### registry_prefix
-Path prefix for IBM content in mirror registry.
+Optional path prefix for IBM content in the mirror registry — for example `mas-241107` or `mas-241205`.
 
 - **Optional**
 - Environment Variable: `REGISTRY_PREFIX`
 - Default: None
 
-**Purpose**: Specifies an optional path prefix for IBM Maximo Operator Catalog images in the mirror registry. Helps organize registry content.
+The IDMS redirects image pulls to `{host}:{port}/{prefix}/{reponame}`, so this must match the prefix used when mirroring the images. A catalog datestamp prefix is recommended to help organize multiple mirror versions in the same registry. Red Hat content uses the separate `registry_prefix_redhat`.
 
-**When to use**:
-- Leave unset if images are at registry root
-- Set to match the prefix used when mirroring images to the registry
-- Recommended: Use catalog datestamp (e.g., `mas-241107`, `mas-241205`)
+#### registry_prefix_redhat
 
-**Valid values**: Valid registry path (e.g., `mas-241107`, `mas-241205`, `ibm-mas`)
+Optional path prefix for Red Hat release and operator catalog content in the mirror registry — for example `ocp-412`, `ocp-414`, or `ocp-419`.
 
-**Impact**: IDMS will redirect image pulls to `{host}:{port}/{prefix}/{reponame}`. Must match the actual image locations in the registry.
-
-**Related variables**:
-- `registry_private_host`: Registry containing these images
-- `registry_prefix_redhat`: Separate prefix for Red Hat content
-
-**Note**: Must match the prefix used when mirroring images. Using datestamp prefixes helps organize multiple mirror versions in the same registry.
-
-### registry_prefix_redhat
-Path prefix for Red Hat content in mirror registry.
-
-- **Optional** (Required when `setup_redhat_release=true` or `setup_redhat_catalogs=true`)
+- **Required** when `setup_redhat_release` or `setup_redhat_catalogs` is `true`
 - Environment Variable: `REGISTRY_PREFIX_REDHAT`
 - Default: None
 
-**Purpose**: Specifies an optional path prefix for Red Hat Release and Operator Catalog images in the mirror registry. Helps organize registry content.
+The IDMS redirects Red Hat image pulls to `{host}:{port}/{prefix}/{reponame}`, so this must match the prefix used when mirroring the Red Hat content with the `mirror_ocp` role. OpenShift release prefixes help organize multiple OCP versions in the same registry.
 
-**When to use**:
-- Required when `setup_redhat_release=true` or `setup_redhat_catalogs=true`
-- Set to match the prefix used when mirroring with `mirror_ocp` role
-- Recommended: Use OpenShift release (e.g., `ocp-412`, `ocp-414`)
+#### redhat_catalogs_prefix
 
-**Valid values**: Valid registry path (e.g., `ocp-412`, `ocp-414`, `ocp-419`)
-
-**Impact**: IDMS will redirect Red Hat image pulls to `{host}:{port}/{prefix}/{reponame}`. Must match the actual image locations in the registry.
-
-**Related variables**:
-- `setup_redhat_release`: Whether to create IDMS for platform images
-- `setup_redhat_catalogs`: Whether to create IDMS for operator catalogs
-- `registry_prefix`: Separate prefix for IBM content
-
-**Note**: Must match the prefix used when mirroring Red Hat content with `mirror_ocp` role. Using OpenShift release prefixes helps organize multiple OCP versions in the same registry.
-
-### redhat_catalogs_prefix
-Prefix for Red Hat CatalogSource names.
+Optional prefix for the Red Hat CatalogSource names — for example `ibm-mas`, `mas`, or `custom`.
 
 - **Optional**
 - Environment Variable: `REDHAT_CATALOGS_PREFIX`
 - Default: None
 
-**Purpose**: Specifies an optional prefix for the CatalogSource names created for Red Hat operator catalogs. Helps avoid naming conflicts.
+Only applies when `setup_redhat_catalogs` is `true`. When set to `ibm-mas` it creates `ibm-mas-certified-operator-index`, `ibm-mas-community-operator-index`, and `ibm-mas-redhat-operator-index`; when unset it creates `certified-operator-index`, `community-operator-index`, and `redhat-operator-index`. Use a prefix to distinguish these CatalogSources from others in the cluster or to avoid naming conflicts.
 
-**When to use**:
-- Leave unset for default CatalogSource names
-- Set to add a prefix to CatalogSource names (e.g., `ibm-mas`)
-- Only applies when `setup_redhat_catalogs=true`
+#### machine_config_multiupdate
 
-**Valid values**: Valid Kubernetes resource name prefix (e.g., `ibm-mas`, `mas`, `custom`)
-
-**Impact**:
-- When set to `ibm-mas`: Creates `ibm-mas-certified-operator-index`, `ibm-mas-community-operator-index`, `ibm-mas-redhat-operator-index`
-- When unset: Creates `certified-operator-index`, `community-operator-index`, `redhat-operator-index`
-
-**Related variables**:
-- `setup_redhat_catalogs`: Must be `true` for this to apply
-
-**Note**: Use a prefix if you need to distinguish these CatalogSources from others in the cluster or to avoid naming conflicts.
-
-### machine_config_multiupdate
-Enable parallel node updates during MachineConfig application.
+Enables parallel worker node updates when applying MachineConfig changes (for CA certificate installation) — `true` or `false`.
 
 - **Optional**
 - Environment Variable: `MACHINE_CONFIG_MULTIUPDATE`
 - Default: `false`
 
-**Purpose**: Controls whether multiple worker nodes can be updated in parallel when applying MachineConfig changes (for CA certificate installation). Speeds up initial setup but requires careful consideration.
+!!! warning
+    Only enable during initial cluster setup when nodes are lightly loaded and can be safely drained in parallel. In production, leave as `false` — MachineConfig changes cause node reboots, and updating one node at a time ensures workload availability during node updates.
 
-**When to use**:
-- Leave as `false` (default) for production environments
-- Set to `true` only during initial cluster setup with lightly loaded nodes
-- Only recommended when nodes can be safely drained in parallel
+### ROSA HCP
 
-**Valid values**: `true`, `false`
+Ensure you have rosa cli `1.2.61` or greater installed.
 
-**Impact**:
-- `true`: Multiple worker nodes updated in parallel (faster but riskier)
-- `false`: Worker nodes updated one at a time (slower but safer)
+#### cluster_name
 
-**Related variables**:
-- `registry_private_ca_file`: CA certificate that triggers MachineConfig updates
+Cluster name of the ROSA HCP cluster, used to target the cluster via the rosa cli.
 
-**Note**: **WARNING** - Only enable during initial setup when nodes are lightly loaded. In production, leave as `false` to ensure workload availability during node updates. MachineConfig changes cause node reboots.
-
-## Role Variables - ROSA HCP
-
-**Note**: Ensure you have rosa cli `1.2.61` or greater installed.
-
-### cluster_name
-The cluster name of the rosa hcp cluster.
-
-- **Required**
+- **Required** when `cluster_type` is `rosa-hcp`
 - Environment Variable: `CLUSTER_NAME`
+- Default: None
 
-**Purpose**: Needed for targetting the rosa hcp cluster via the rosa cli.
+#### ocp_idms_working_dir
 
-**When to use**:
-- When running ocp_idms role for rosa-hcp cluster type.
-
-### ocp_idms_working_dir
-Temporary working directory to generate the idms yamls to be applied to the cluster.
+Temporary working directory where the IDMS yamls are generated so they can be applied individually to the cluster.
 
 - **Optional**
 - Environment Variable: `OCP_IDMS_WORKING_DIR`
 - Default: `/tmp`
 
-**Purpose**: We are extracting the idms from the yml.j2 files so that we can loop over and apply them individually to the cluster.
+Ensure you have read and write access to the directory. Only used when running this role for a rosa-hcp cluster type.
 
-**When to use**:
-- When running ocp_idms role for rosa-hcp cluster type.
+#### rosa_token
 
-**Note**: Ensure you have read and write access to the directory.
+Login token for the rosa cli, authenticating it to the ROSA cluster.
 
-### rosa_token
-Rosa login token for the rosa cli.
-
-- **Required**
+- **Required** when `cluster_type` is `rosa-hcp`
 - Environment Variable: `ROSA_TOKEN`
-
-**Purpose**: Authenticates the rosa cli to the rosa cluster.
-
-**When to use**:
-- When running ocp_idms role for rosa-hcp cluster type.
+- Default: None
 
 ## Example Playbook
 
@@ -441,9 +275,8 @@ Rosa login token for the rosa cli.
     setup_redhat_catalogs: true
 
   roles:
-    - ibm.mas_devops.ocp_contentsourcepolicy
+    - ibm.mas_devops.ocp_idms
 ```
-
 
 ## License
 

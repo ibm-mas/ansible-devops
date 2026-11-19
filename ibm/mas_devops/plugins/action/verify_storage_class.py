@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
 import urllib3
-from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 from ansible.plugins.action import ActionBase
-
+from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 from mas.devops.ocp import getStorageClass
-
 
 # Disabling warnings will prevent InsecureRequestWarnings from dynClient
 urllib3.disable_warnings()
@@ -20,7 +18,7 @@ class ActionModule(ActionBase):
         ibm.mas_devops.verify_storage_class:
     """
     def run(self, tmp=None, task_vars=None):
-        super(ActionModule, self).run(tmp, task_vars)
+        super().run(tmp, task_vars)
 
         # Initialize DynamicClient and grab the task args
         host = self._task.args.get('host', None)

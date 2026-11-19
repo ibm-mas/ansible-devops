@@ -14,10 +14,9 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import yaml
-
 from mocks.fake_k8s_server import FakeKubernetesServer
 
 # Root of the ibm/mas_devops collection — two levels up from tests/unit/roles/
@@ -63,7 +62,7 @@ def _coerce_variable(value: Any) -> Any:
 def run_task(
     task_file: str,
     fake_k8s: FakeKubernetesServer,
-    variables: Optional[Dict[str, Any]] = None,
+    variables: dict[str, Any] | None = None,
     timeout: int = 60,
 ) -> subprocess.CompletedProcess:
     """Run an Ansible task file against a fake Kubernetes server.
@@ -86,7 +85,7 @@ def run_task(
             returncode == 0 for success; stdout and stderr contain Ansible output.
     """
     # Derive role_path from task_file if under roles/
-    vars_dict: Dict[str, Any] = {}
+    vars_dict: dict[str, Any] = {}
     try:
         task_path_obj = Path(task_file).resolve()
         if "roles" in task_path_obj.parts:
@@ -96,7 +95,7 @@ def run_task(
     except Exception:
         pass
 
-    playbook: Dict[str, Any] = {
+    playbook: dict[str, Any] = {
         "hosts": "localhost",
         "gather_facts": False,
         "connection": "local",

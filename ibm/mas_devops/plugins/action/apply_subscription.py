@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 
-import logging
 import urllib3
-from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 from ansible.errors import AnsibleError
 from ansible.plugins.action import ActionBase
-
-from mas.devops.olm import applySubscription, OLMException
+from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
+from mas.devops.olm import OLMException, applySubscription
 
 urllib3.disable_warnings()  # Disabling warnings will prevent InsecureRequestWarnings from dynClient
 
@@ -27,7 +25,7 @@ class ActionModule(ActionBase):
         register: subscription
     """
     def run(self, tmp=None, task_vars=None):
-        super(ActionModule, self).run(tmp, task_vars)
+        super().run(tmp, task_vars)
 
         # Target subscription
         namespace = self._task.args.get('namespace', None)
@@ -49,16 +47,16 @@ class ActionModule(ActionBase):
         startingCSV = self._task.args.get('starting_csv', None)
 
         if namespace is None:
-            raise AnsibleError(f"Error: namespace argument was not provided")
+            raise AnsibleError("Error: namespace argument was not provided")
         if not isinstance(packageName, str):
-            raise AnsibleError(f"Error: packageName argument is not a string")
-        
+            raise AnsibleError("Error: packageName argument is not a string")
+
         # Validate that Manual approval requires a startingCSV for automatic first-time approval
         if installPlanApproval == "Manual" and startingCSV is None:
             raise AnsibleError(
-                f"Error: When install_plan_approval is set to 'Manual', a starting_csv must be provided "
-                f"to allow automatic approval of the initial installation. Without starting_csv, the "
-                f"InstallPlan will remain in 'RequiresApproval' state indefinitely."
+                "Error: When install_plan_approval is set to 'Manual', a starting_csv must be provided "
+                "to allow automatic approval of the initial installation. Without starting_csv, the "
+                "InstallPlan will remain in 'RequiresApproval' state indefinitely."
             )
 
         # Initialize DynamicClient and apply the Subscription
@@ -80,7 +78,7 @@ class ActionModule(ActionBase):
                 startingCSV=startingCSV
             )
         except OLMException as e:
-            raise AnsibleError(f"Error applying subscription: {e}")
+            raise AnsibleError(f"Error applying subscription: {e}") from e
 
         if subscription is None:
             return dict(

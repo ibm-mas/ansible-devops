@@ -418,7 +418,27 @@
     label: "{{ item.kind }}/{{ item.metadata.name }}"
   failed_when: false
 
-# Install namespace-scoped chart (Operator, CR) using the native Ansible Helm module
+# The kubernetes.core.helm module fails on any server_side value (including false)
+# when helm < 4.0.0, so detect the helm version and only pass server_side on helm 4.
+- name: "Detect Helm version for {{ comp_name }}"
+  when:
+    - not cpd_helm_airgap
+    - comp_chart_name is defined and comp_chart_name != ""
+  command: helm version --short
+  register: helm_version_output
+  changed_when: false
+
+# Install namespace-scoped chart (Operator, CR) using the native Ansible Helm module.
+#
+# server_side: false -- Helm v4 defaults --server-side to "auto", which resolves to
+# server-side apply (SSA) for new releases. SSA validates every field path in the
+# rendered manifests against the API server's schema and hard-fails on undeclared
+# fields -- some CPD charts (e.g. ibm-swhcc 5.10.0) render an invalid pod-level
+# imagePullPolicy on the operator Deployment, which SSA rejects with
+# "field not declared in schema". Client-side apply (the Helm v3 behaviour)
+# silently prunes unknown fields instead, so we force it here until the affected
+# charts are fixed. Only passed when helm >= 4.0.0 (Helm v3 is already client-side
+# and the module rejects the option); requires kubernetes.core >= 6.5.0.
 - name: "Install/Upgrade {{ comp_name }} namespace-scoped chart"
   when:
     - not cpd_helm_airgap
@@ -432,6 +452,7 @@
     wait: true
     wait_timeout: "{{ cpd_helm_timeout }}"
     values: "{{ comp_helm_values }}"
+    server_side: "{{ 'false' if (helm_version_output.stdout | regex_replace('^v', '') | regex_replace('\\+.*$', '')) is version('4.0.0', '>=') else omit }}"
 
 - name: "Write Helm values to temp file for {{ comp_name }} (airgap)"
   when:
