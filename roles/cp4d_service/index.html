@@ -1046,7 +1046,7 @@ deployment.apps/spark-hb-ui                                  1/1     1          
 </tr>
 </tbody>
 </table>
-<p>The storage class variables are only required when the cluster does not provide a detectable default storage class; the Watson Studio project and MAS configuration generation variables only apply when <code>cpd_service_name</code> is <code>wsl</code>.</p>
+<p>The storage class variables are resolved in this order: explicit variable → storage classes already in use by the existing service CR → storage classes already in use by the existing platform <code>Ibmcpd</code> CR in <code>cpd_instance_namespace</code> → cluster auto-detection. They are only required when no source yields a value. When updating or upgrading an existing CP4D service the same storage classes are read back from the existing CRs, so these variables do not need to be re-provided; the Watson Studio project and MAS configuration generation variables only apply when <code>cpd_service_name</code> is <code>wsl</code>.</p>
 <h3 id="service-installation">Service Installation<a class="headerlink" href="#service-installation" title="Permanent link">¤</a></h3>
 <h4 id="cpd_service_name">cpd_service_name<a class="headerlink" href="#cpd_service_name" title="Permanent link">¤</a></h4>
 <p>Name of the CPD service to install — valid values are <code>wsl</code> (Watson Studio), <code>wml</code> (Watson Machine Learning), and <code>spark</code> (Analytics Engine powered by Apache Spark).</p>
@@ -1068,14 +1068,14 @@ deployment.apps/spark-hb-ui                                  1/1     1          
 <ul>
 <li><strong>Required</strong> when the cluster does not provide a detectable default storage class</li>
 <li>Environment Variable: <code>CPD_SERVICE_STORAGE_CLASS</code></li>
-<li>Default: Auto-detected from the cluster's default storage classes — for example <code>ibmc-file</code> on IBM Cloud or <code>efs</code> on AWS</li>
+<li>Default: Read back from the existing service CR (<code>spec.storageClass</code>, falling back to <code>spec.fileStorageClass</code>), then the existing platform <code>Ibmcpd</code> CR, then auto-detected from the cluster's default storage classes — for example <code>ibmc-file</code> on IBM Cloud or <code>efs</code> on AWS</li>
 </ul>
 <h4 id="cpd_service_block_storage_class">cpd_service_block_storage_class<a class="headerlink" href="#cpd_service_block_storage_class" title="Permanent link">¤</a></h4>
 <p>Storage class used to set <code>spec.blockStorageClass</code> in all CPD services that use block storage (read-write-once, RWO).</p>
 <ul>
 <li><strong>Required</strong> when the cluster does not provide a detectable default storage class</li>
 <li>Environment Variable: <code>CPD_SERVICE_BLOCK_STORAGE_CLASS</code></li>
-<li>Default: Auto-detected from the cluster's default storage classes — for example <code>ibmc-block</code> on IBM Cloud or <code>gp2</code> on AWS</li>
+<li>Default: Read back from the existing service CR (<code>spec.blockStorageClass</code>), then the existing platform <code>Ibmcpd</code> CR, then auto-detected from the cluster's default storage classes — for example <code>ibmc-block</code> on IBM Cloud or <code>gp2</code> on AWS</li>
 </ul>
 <h4 id="cpd_instance_namespace">cpd_instance_namespace<a class="headerlink" href="#cpd_instance_namespace" title="Permanent link">¤</a></h4>
 <p>Namespace where the CP4D instance is deployed.</p>
