@@ -223,7 +223,7 @@ deployment.apps/spark-hb-ui                                  1/1     1          
 | [`mas_instance_id`](#mas_instance_id) | No | None |
 | [`mas_config_dir`](#mas_config_dir) | No | None |
 
-The storage class variables are only required when the cluster does not provide a detectable default storage class; the Watson Studio project and MAS configuration generation variables only apply when `cpd_service_name` is `wsl`.
+The storage class variables are resolved in this order: explicit variable → storage classes already in use by the existing service CR → storage classes already in use by the existing platform `Ibmcpd` CR in `cpd_instance_namespace` → cluster auto-detection. They are only required when no source yields a value. When updating or upgrading an existing CP4D service the same storage classes are read back from the existing CRs, so these variables do not need to be re-provided; the Watson Studio project and MAS configuration generation variables only apply when `cpd_service_name` is `wsl`.
 
 ### Service Installation
 
@@ -251,7 +251,7 @@ Storage class used to set `spec.storageClass` in all CPD services that use file 
 
 - **Required** when the cluster does not provide a detectable default storage class
 - Environment Variable: `CPD_SERVICE_STORAGE_CLASS`
-- Default: Auto-detected from the cluster's default storage classes — for example `ibmc-file` on IBM Cloud or `efs` on AWS
+- Default: Read back from the existing service CR (`spec.storageClass`, falling back to `spec.fileStorageClass`), then the existing platform `Ibmcpd` CR, then auto-detected from the cluster's default storage classes — for example `ibmc-file` on IBM Cloud or `efs` on AWS
 
 #### cpd_service_block_storage_class
 
@@ -259,7 +259,7 @@ Storage class used to set `spec.blockStorageClass` in all CPD services that use 
 
 - **Required** when the cluster does not provide a detectable default storage class
 - Environment Variable: `CPD_SERVICE_BLOCK_STORAGE_CLASS`
-- Default: Auto-detected from the cluster's default storage classes — for example `ibmc-block` on IBM Cloud or `gp2` on AWS
+- Default: Read back from the existing service CR (`spec.blockStorageClass`), then the existing platform `Ibmcpd` CR, then auto-detected from the cluster's default storage classes — for example `ibmc-block` on IBM Cloud or `gp2` on AWS
 
 #### cpd_instance_namespace
 
