@@ -18,6 +18,33 @@
     that: ocsavailable is defined and ocsavailable | bool
     fail_msg: "OCS Cluster is not ready, pls install OCS first."
 
+# ODF external mode has no local Ceph cluster, so Rook typically cannot reconcile the CephObjectStore and
+# CephObjectStoreUser that this provider creates (the user ends in ReconcileFailed).  We fail fast in that
+# case, unless the object store user is already Ready, so that setups where this did work are not broken.
+- name: "Determine if OCS Cluster is running in external mode"
+  set_fact:
+    ocs_external_mode: "{{ (SCluster.resources[0].spec.externalStorage | default({})).enable | default(false) | bool }}"
+
+- name: "Check for an existing object store user (external mode only)"
+  when: ocs_external_mode | bool
+  kubernetes.core.k8s_info:
+    api_version: ceph.rook.io/v1
+    kind: CephObjectStoreUser
+    name: object
+    namespace: "openshift-storage"
+  register: ocs_existing_object_user
+
+- name: "Fail if OCS Cluster is running in external mode"
+  assert:
+    that: >-
+      not (ocs_external_mode | bool)
+      or (ocs_existing_object_user.resources | default([]) | map(attribute='status.phase', default='') | select('equalto', 'Ready') | list | length > 0)
+    fail_msg: >-
+      The OCS COS provider is not supported when ODF is deployed in external mode
+      (StorageCluster spec.externalStorage.enable is true) because the Ceph object store
+      and user cannot be reconciled. Use a different cos_type (e.g. ibm or aws) or provide
+      your own S3-compatible object storage.
+
 - name: "Print If there's OCS cluster"
   debug:
     msg:

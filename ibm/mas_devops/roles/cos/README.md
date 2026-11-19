@@ -237,7 +237,7 @@ Required (together with `mas_instance_id`) for the role to generate an ObjectSto
 
 ## Example Playbook
 
-Create the Ceph Object store on the existing OCS cluster and prepare the objectstorageCfg yaml to mas_config_dir.
+Create the Ceph Object store on the existing OCS cluster and prepare the objectstorageCfg yaml to mas_config_dir. The `ocs` provider is not supported when ODF is deployed in external mode (`StorageCluster` `spec.externalStorage.enable: true`), because the Ceph object store and user cannot be reconciled; the role fails immediately in that case. The only exception is an existing `CephObjectStoreUser` named `object` in `openshift-storage` that is already `Ready`, so setups where this previously worked continue to work.
 
 ```yaml
 - hosts: localhost

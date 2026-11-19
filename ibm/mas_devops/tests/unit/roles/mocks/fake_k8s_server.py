@@ -34,6 +34,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse
 
 import aiservice
+import ocs
 import operators
 import rbac
 import workloads
@@ -56,6 +57,8 @@ _API_GROUPS = {
         operators.API_GROUP_LIST_ENTRY,
         rbac.API_GROUP_LIST_ENTRY,
         aiservice.API_GROUP_LIST_ENTRY,
+        ocs.API_GROUP_LIST_ENTRY,
+        ocs.CEPH_API_GROUP_LIST_ENTRY,
     ],
 }
 
@@ -109,6 +112,14 @@ class _Handler(BaseHTTPRequestHandler):
             self._send_json(200, aiservice.API_GROUP)
         elif path == "/apis/aiservice.ibm.com/v1":
             self._send_json(200, aiservice.RESOURCE_LIST)
+        elif path == "/apis/ocs.openshift.io":
+            self._send_json(200, ocs.API_GROUP)
+        elif path == "/apis/ocs.openshift.io/v1":
+            self._send_json(200, ocs.RESOURCE_LIST)
+        elif path == "/apis/ceph.rook.io":
+            self._send_json(200, ocs.CEPH_API_GROUP)
+        elif path == "/apis/ceph.rook.io/v1":
+            self._send_json(200, ocs.CEPH_RESOURCE_LIST)
         else:
             self._route_resource_get(path)
 
@@ -204,7 +215,7 @@ class _Handler(BaseHTTPRequestHandler):
 # ---------------------------------------------------------------------------
 
 
-class FakeKubernetesServer(operators.OperatorsMixin, workloads.WorkloadsMixin, rbac.RbacMixin, aiservice.AIServiceMixin):
+class FakeKubernetesServer(operators.OperatorsMixin, workloads.WorkloadsMixin, rbac.RbacMixin, aiservice.AIServiceMixin, ocs.OcsMixin):
     """
     A lightweight fake Kubernetes API server for Ansible role unit testing.
 
@@ -213,6 +224,7 @@ class FakeKubernetesServer(operators.OperatorsMixin, workloads.WorkloadsMixin, r
       - workloads.WorkloadsMixin  (ServiceAccount, ConfigMap, Secret)
       - rbac.RbacMixin            (Role, RoleBinding)
       - aiservice.AIServiceMixin  (AIServiceTenant)
+      - ocs.OcsMixin              (StorageCluster, CephObjectStoreUser)
 
     Intended to be used as a context manager::
 
@@ -227,6 +239,7 @@ class FakeKubernetesServer(operators.OperatorsMixin, workloads.WorkloadsMixin, r
         self._init_workloads()
         self._init_rbac()
         self._init_aiservice()
+        self._init_ocs()
         self._deleted: dict[str, list[tuple]] = {}
         self._request_log: list[str] = []
 
