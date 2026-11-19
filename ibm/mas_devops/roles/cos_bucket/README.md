@@ -193,6 +193,8 @@ Whether to enable the object expiry rule for the IBM Cloud COS bucket.
 - Environment Variable: `COS_BUCKET_EXPIRE_RULE_ENABLE_FLAG`
 - Default: `True`
 
+With the default value (`True`), objects in the bucket are deleted after `cos_bucket_expire_rule_days` days (60 by default). Setting this to `False` is the supported way to disable this behavior — the expiry rule is still created on the bucket, but it remains in a disabled state rather than being removed.
+
 #### cos_bucket_expire_rule_days
 
 Number of days after which the current version of objects in the IBM Cloud COS bucket expires.
