@@ -1,0 +1,77 @@
+---
+# Work out what has to happen to the CIS allowlist WAF rule. The requested IPs and the change (create / update / delete / noop)
+# for custom waf rule are determined
+- name: "cis : ip-allowlist — get existing custom WAF rules"
+  ansible.builtin.shell: |
+    ibmcloud cis custom-waf rules {{ _cis_domain_id }} \
+      -i "{{ cis_service_name }}" --output json
+  register: _cis_custom_rules_result
+  failed_when: false
+
+# A failed fetch is raised at the end of the play when an allowlist was requested.
+- name: "cis : ip-allowlist — capture failure (fetch rules)"
+  when:
+    - _cis_custom_rules_result.rc != 0
+    - cis_allowed_ips | trim | length > 0
+  ansible.builtin.set_fact:
+    _cis_error:
+      rc: "{{ _cis_custom_rules_result.rc }}"
+      msg: "{{ ((_cis_custom_rules_result.stdout_lines | default([])) + (_cis_custom_rules_result.stderr_lines | default([]))) | join(' ') }}"
+
+- name: "cis : ip-allowlist — set unique rule description for MAS"
+  when: is_mas_mode
+  ansible.builtin.set_fact:
+    _cis_allowlist_rule_desc: "mas-ip-allowlist-{{ domain }}"
+
+- name: "cis : ip-allowlist — set unique rule description for AI Service"
+  when: is_aiservice_mode
+  ansible.builtin.set_fact:
+    _cis_allowlist_rule_desc: "aiservice-ip-allowlist-{{ domain }}"
+
+- name: "cis : ip-allowlist — find existing rule"
+  ansible.builtin.set_fact:
+    _cis_allowlist_rule_id: "{{ _cis_matching_rules | map(attribute='id') | list | first | default('') }}"
+    _cis_existing_expression: "{{ _cis_matching_rules | map(attribute='expression') | list | first | default('') }}"
+  vars:
+    _cis_existing_rules: >-
+      {{ ((_cis_custom_rules_result.stdout | from_json).get('rules') or [])
+         if (_cis_custom_rules_result.rc | default(1)) == 0 and (_cis_custom_rules_result.stdout | default('') | trim | length > 0)
+         else [] }}
+    _cis_matching_rules: >-
+      {{ _cis_existing_rules
+         | selectattr('description', 'defined')
+         | selectattr('description', 'equalto', _cis_allowlist_rule_desc)
+         | list }}
+
+- name: "cis : ip-allowlist — normalise allowed IPs"
+  ansible.builtin.set_fact:
+    _cis_normalised_ips: >-
+      {{ cis_allowed_ips | default('')
+         | regex_replace('(^\[|\]$)', '')
+         | regex_replace(',', ' ')
+         | split()
+         | select('match', '.+')
+         | list }}
+
+# Empty expression means "no allowlist requested" (delete path).
+- name: "cis : ip-allowlist — build WAF expression"
+  ansible.builtin.set_fact:
+    _cis_allowlist_expression: >-
+      {{ ('not ip.src in {' + (_cis_normalised_ips | join(' ')) + '} and http.host contains "' + domain + '"')
+         if _cis_normalised_ips | length > 0 else '' }}
+
+# create = no rule yet | update = expression changed | delete = no IPs requested but a rule exists
+# noop   = already up to date
+- name: "cis : ip-allowlist — decide action"
+  ansible.builtin.set_fact:
+    _cis_allowlist_action: >-
+      {{ 'noop' if (_cis_custom_rules_result.rc | default(1)) != 0
+         else (('delete' if _cis_allowlist_rule_id | length > 0 else 'noop')
+               if _cis_normalised_ips | length == 0
+               else ('create' if _cis_allowlist_rule_id | length == 0
+                     else ('noop' if _cis_existing_normalised == _cis_expected_normalised else 'update'))) }}
+  vars:
+    _cis_existing_normalised: >-
+      {{ _cis_existing_expression | trim | regex_replace('\\s+', ' ') | regex_replace('^\\((.*)\\)$', '\\1') }}
+    _cis_expected_normalised: >-
+      {{ _cis_allowlist_expression | trim | regex_replace('\\s+', ' ') | regex_replace('^\\((.*)\\)$', '\\1') }}

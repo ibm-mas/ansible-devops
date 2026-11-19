@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 
-from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
-from ansible.plugins.action import ActionBase
-from ansible.errors import AnsibleError
-from ansible.utils.display import Display
-
-import urllib3
 import logging
 
+import urllib3
+from ansible.errors import AnsibleError
+from ansible.plugins.action import ActionBase
+from ansible.utils.display import Display
+from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 from mas.devops.mas import waitForAppReady
 
 urllib3.disable_warnings()  # Disabling warnings will prevent InsecureRequestWarnings from dynClient
@@ -15,7 +14,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)-20s %(leveln
 
 class ActionModule(ActionBase):
     def run(self, tmp=None, task_vars=None):
-        super(ActionModule, self).run(tmp, task_vars)
+        super().run(tmp, task_vars)
 
         display = Display()
 
@@ -33,9 +32,9 @@ class ActionModule(ActionBase):
         delay = self._task.args.get('delay', 60)
 
         if instanceId is None:
-            raise AnsibleError(f"Error: instance_id argument was not provided")
+            raise AnsibleError("Error: instance_id argument was not provided")
         if applicationId is None:
-            raise AnsibleError(f"Error: application_id argument was not provided")
+            raise AnsibleError("Error: application_id argument was not provided")
 
         resourceName = f"{instanceId}/{applicationId}"
         if workspaceId is not None:

@@ -4,15 +4,15 @@ Reusable external API mocks for testing.
 This module provides factory functions to create mock HTTP responses
 for external APIs like Fyre.
 """
+from typing import Any
 from unittest.mock import Mock
-from typing import Dict, Any, Optional
 
 
 def create_mock_http_response(
     status_code: int = 200,
-    json_data: Optional[Dict[str, Any]] = None,
+    json_data: dict[str, Any] | None = None,
     text: str = "",
-    headers: Optional[Dict[str, str]] = None
+    headers: dict[str, str] | None = None
 ) -> Mock:
     """
     Create a mock HTTP response object.

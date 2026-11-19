@@ -1,0 +1,121 @@
+---
+# DBC scripts action (was suite_manage_load_dbc_scripts)
+# Load DBC (database configuration) scripts into the Manage (or Health) database
+# by copying them into the maxinst pod and running them with runscriptfile.sh.
+# This is a workaround for a gap in the Manage operator.
+#
+# Note: this action is not idempotent by nature, running it again re-applies the
+# scripts. Ensure the scripts themselves are idempotent if the action may be run
+# multiple times.
+# ========================================================================
+
+# Assertions: preliminary validations
+# ------------------------------------------------------------------------
+- name: "dbc-scripts : Fail if mas_app_id is not provided or not supported"
+  assert:
+    that: mas_app_id is defined and mas_app_id | length != 0 and mas_app_id in ['manage', 'health']
+    fail_msg: "mas_app_id property is required and should be one of ['manage', 'health']"
+
+- name: "dbc-scripts : Fail if mas_manage_dbc_script_path_local is not provided"
+  assert:
+    that: mas_manage_dbc_script_path_local is defined and mas_manage_dbc_script_path_local != ""
+    fail_msg: "mas_manage_dbc_script_path_local property is required"
+
+- name: "dbc-scripts : Set manage namespace"
+  set_fact:
+    manage_namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
+
+# Lookup for dbc files in the local path
+# ------------------------------------------------------------------------
+- name: "dbc-scripts : Check dbc files in {{ mas_manage_dbc_script_path_local }} folder"
+  ansible.builtin.find:
+    paths: "{{ mas_manage_dbc_script_path_local }}"
+    patterns: '*.dbc'
+    file_type: "file"
+  register: find_result
+
+- name: "dbc-scripts : Set the list of dbc files"
+  set_fact:
+    dbc_scripts: "{{ find_result.files | map(attribute='path') | list | sort }}"
+
+- name: "dbc-scripts : Fail if no DBC scripts found"
+  assert:
+    that: dbc_scripts is defined and dbc_scripts | length > 0
+    fail_msg: "No DBC scripts found in {{ mas_manage_dbc_script_path_local }}. Exiting."
+
+# Load the DBC scripts
+# ------------------------------------------------------------------------
+- name: "dbc-scripts : Lookup maxinst pod"
+  kubernetes.core.k8s_info:
+    namespace: "{{ manage_namespace }}"
+    kind: Pod
+    label_selectors:
+      - "mas.ibm.com/appType=maxinstudb"
+      - "mas.ibm.com/applicationId={{ mas_app_id }}"
+  register: dbc_pod_list
+
+- name: "dbc-scripts : Fail if no maxinst pod is found"
+  assert:
+    that: dbc_pod_list.resources is defined and dbc_pod_list.resources | length > 0
+    fail_msg: "No maxinst pod found in namespace {{ manage_namespace }}. The DBC scripts can only be loaded when the maxinst pod is running."
+
+- name: "dbc-scripts : Set maxinst pod name"
+  set_fact:
+    maxinst_pod: "{{ dbc_pod_list.resources[0].metadata.name }}"
+
+- name: "dbc-scripts : Debug information"
+  vars:
+    dbc_script_names: "{{ dbc_scripts | map('basename') | list }}"
+  debug:
+    msg:
+      - "Instance ID ............... {{ mas_instance_id }}"
+      - "App ID .................... {{ mas_app_id }}"
+      - "MAS namespace ............. {{ manage_namespace }}"
+      - "MAXINST pod ............... {{ maxinst_pod }}"
+      - "DBC Script path ........... {{ mas_manage_dbc_script_path_local }}"
+      - "DBC Scripts ............... {{ dbc_script_names }}"
+
+# Copy the DBCs from localhost to the maxinst pod
+# ------------------------------------------------------------------------
+- name: "dbc-scripts : Copy DBC script(s) to maxinst pod"
+  kubernetes.core.k8s_cp:
+    namespace: "{{ manage_namespace }}"
+    pod: "{{ maxinst_pod }}"
+    local_path: "{{ item }}"
+    remote_path: "{{ mas_manage_dbc_script_dir_remote }}"
+  with_items: "{{ dbc_scripts }}"
+  loop_control:
+    label: "{{ item | basename }}"
+
+# Ensure that the DBC script(s) have the correct permissions on the maxinst pod
+# ------------------------------------------------------------------------
+- name: "dbc-scripts : Update DBC script(s) file permissions"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ manage_namespace }}"
+    pod: "{{ maxinst_pod }}"
+    command: "chmod u+r {{ mas_manage_dbc_script_dir_remote }}{{ item | basename }}"
+  with_items: "{{ dbc_scripts }}"
+  loop_control:
+    label: "{{ item | basename }}"
+
+# Load the DBC script(s) on the maxinst pod
+# ------------------------------------------------------------------------
+- name: "dbc-scripts : Execute DBC script(s)"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ manage_namespace }}"
+    pod: "{{ maxinst_pod }}"
+    command: "sh -c 'cd {{ maximo_tools_dir }}/internal/; ./runscriptfile.sh -cscript -f{{ item | basename | split('.') | first }}'"
+  with_items: "{{ dbc_scripts }}"
+  loop_control:
+    label: "{{ item | basename }}"
+  register: _execute_dbc_script
+
+- name: "dbc-scripts : Assert that DBC script(s) were executed successfully"
+  assert:
+    that:
+      - item.rc == 0
+      - item.stdout_lines | select('equalto', 'RunScript complete: Successful') | list | length > 0
+    fail_msg: "Failed to run DBC script: {{ item.stdout_lines }}"
+  with_items: "{{ _execute_dbc_script.results }}"
+  loop_control:
+    label: "{{ item.item | basename }}"

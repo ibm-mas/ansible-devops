@@ -7,7 +7,6 @@
 
 import secrets
 import string
-import random
 
 
 def generate_api_key():

@@ -1,38 +1,44 @@
 # cp4d_service
-Install or upgrade a chosen CloudPak for Data service.  Currently supported Cloud Pak for Data release versions supported are:
 
-  - 5.1.3
-  - 5.2.0
+Install or upgrade a chosen Cloud Pak for Data service. Currently supported Cloud Pak for Data release versions are:
 
-The role will automatically install the corresponding CPD service operator channel and custom resource version associated to the chosen Cloud Pak for Data release version.
+- 5.2.0 (services installed via OLM)
+- 5.3.1 (services installed via Helm)
+- 5.4.0 (services installed via Helm)
 
-For more information about the specific CPD services channels and versions associated to a particular Cloud Pak for Data release can be found [here](https://github.ibm.com/PrivateCloud/olm-utils/tree/master/ansible-play/config-vars).
+The role automatically installs the CPD service operator channel and custom resource version associated with the chosen Cloud Pak for Data release version. For more information about the specific CPD service channels and versions associated with a particular Cloud Pak for Data release, refer to the [olm-utils configuration](https://github.ibm.com/PrivateCloud/olm-utils/tree/master/ansible-play/config-vars).
 
-Services Supported
+!!! warning "Maximo tailored installation"
+    This role only installs the CPD services that Maximo Application Suite depends on, configured in the specific way that the Maximo team use internally.  It does not support further post-install configuration of these services beyond the configuration supported by the role, and it does not support installing or configuring CPD services in any other way.
+
+    Customers who need CPD services or configuration that this role does not provide can choose to install and manage Cloud Pak for Data (including its services) themselves; the MAS applications will work against any correctly configured CPD instance.  When installing and managing CPD yourself, you are responsible for the CPD lifecycle (installation, upgrades, and any configuration you apply).
+
+## Services Supported
+
 These services can be deployed and configured using this role:
 
 - [Watson Studio](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=services-watson-studio) required by [Predict](https://www.ibm.com/docs/en/mas-cd/mhmpmh-and-p-u/continuous-delivery)
 - [Watson Machine Learning](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=services-watson-machine-learning) required by [Predict](https://www.ibm.com/docs/en/mas-cd/mhmpmh-and-p-u/continuous-delivery)
 - [Analytics Services (Apache Spark)](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=services-analytics) required by [Predict](https://www.ibm.com/docs/en/mas-cd/mhmpmh-and-p-u/continuous-delivery)
-- [Cognos Analytics](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=analytics-installing) optional dependency for [Manage application](https://www.ibm.com/docs/en/mas-cd/maximo-manage)
-
-
-Upgrade
-This role also supports seamlessly CPD services minor version upgrades, as well as patch version upgrades.  All you need to do is to define `cpd_product_version` variable to the version you target to upgrade and run this role for a particular CPD service.  It's important that before you upgrade CPD services, the CPD Control Plane/Zen is also upgraded to the same release version.
-
-For more information about IBM Cloud Pak for Data upgrade process, refer to the [CPD official documentation](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=upgrading).
 
 !!! info "Application Support"
-    For more information on how Predict and HP Utilities make use of Watson Studio, refer to [Predict/HP Utilities documentation](https://www.ibm.com/docs/en/mas-cd/mhmpmh-and-p-u/continuous-delivery?topic=administering-products)
+    For more information on how Predict and HP Utilities make use of Watson Studio, refer to the [Predict/HP Utilities documentation](https://www.ibm.com/docs/en/mas-cd/mhmpmh-and-p-u/continuous-delivery?topic=administering-products).
 
+## Upgrade
+
+This role also supports seamless CPD service minor version upgrades, as well as patch version upgrades.  All you need to do is define `cpd_product_version` to the version you want to upgrade to, and run this role for the particular CPD service.  It's important that before you upgrade CPD services, the CPD Control Plane/Zen is also upgraded to the same release version.
+
+For more information about the IBM Cloud Pak for Data upgrade process, refer to the [CPD official documentation](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=upgrading).
 
 !!! warning
     The reconcile of many CP4D resources will be marked as Failed multiple times during initial installation, these are **misleading status updates**, the install is just really slow and the operators can not properly handle this.  For example, if you are watching the install of CCS you will see that each **rabbitmq-ha** pod takes 10-15 minutes to start up and it looks like there is a problem because the pod log will just stop at a certain point.  If you see something like this as the last message in the pod log `WAL: ra_log_wal init, open tbls: ra_log_open_mem_tables, closed tbls: ra_log_closed_mem_tables` be assured that there's nothing wrong, it's just there's a long delay between that message and the next (`starting system coordination`) being logged.
 
+## Service Details
 
-## Role Variables - General
+Each service is made up of many moving parts across multiple namespaces — the subscriptions listed for each service are installed by the role, and the `oc get` output below shows what a healthy installation looks like.
 
 ### Watson Studio
+
 Subscriptions related to Watson Studio:
 
 - **cpd-platform-operator**
@@ -42,25 +48,12 @@ Subscriptions related to Watson Studio:
 - **ibm-cpd-ws-runtimes**
 
 !!! note "Search Engine Dependency"
-    - **CPD 5.1.3**: Uses **Elasticsearch** operator (`ibm-elasticsearch-operator`)
-    - **CPD 5.2.0**: Uses **OpenSearch** operator (`ibm-opensearch-operator`)
-
-Watson Studio is made up of many moving parts across multiple namespaces.
+    On CPD 5.2.0 Watson Studio uses the **OpenSearch** operator (`ibm-opensearch-operator`).
 
 In the **ibm-cpd-operators** namespace:
 
-**For CPD 5.1.3:**
-```bash
-oc -n ibm-cpd-operators get deployments
-NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
-ibm-cpd-ccs-operator                                   1/1     1            1           83m
-ibm-cpd-datarefinery-operator                          1/1     1            1           83m
-ibm-cpd-ws-operator                                    1/1     1            1           83m
-ibm-cpd-ws-runtimes-operator                           1/1     1            1           83m
-ibm-elasticsearch-operator-ibm-es-controller-manager   1/1     1            1           83m
-```
-
 **For CPD 5.2.0:**
+
 ```bash
 oc -n ibm-cpd-operators get deployments
 NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
@@ -132,6 +125,7 @@ statefulset.apps/wdp-couchdb                                 3/3     79m
 ```
 
 ### Watson Machine Learning
+
 Subscriptions related to Watson Machine Learning:
 
 - **cpd-platform-operator**
@@ -139,24 +133,12 @@ Subscriptions related to Watson Machine Learning:
 - **ibm-cpd-ccs**
 
 !!! note "Search Engine Dependency"
-    - **CPD 5.1.3**: Uses **Elasticsearch** operator (`ibm-elasticsearch-operator`)
-    - **CPD 5.2.0**: Uses **OpenSearch** operator (`ibm-opensearch-operator`)
-
-Watson Machine Learning is made up of many moving parts across multiple namespaces.
+    On CPD 5.2.0 Watson Machine Learning uses the **OpenSearch** operator (`ibm-opensearch-operator`).
 
 In the **ibm-cpd-operators** namespace:
 
-**For CPD 5.1.3:**
-```bash
-oc -n ibm-cpd-operators get deployments
-NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
-ibm-cpd-ccs-operator                                   1/1     1            1           134m
-ibm-cpd-datarefinery-operator                          1/1     1            1           134m
-ibm-cpd-wml-operator                                   1/1     1            1           49m
-ibm-elasticsearch-operator-ibm-es-controller-manager   1/1     1            1           134m
-```
-
 **For CPD 5.2.0:**
+
 ```bash
 oc -n ibm-cpd-operators get deployments
 NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
@@ -190,6 +172,7 @@ statefulset.apps/wml-deployment-agent                        1/1     21m
 ```
 
 ### Analytics Engine
+
 Subscriptions related to Analytics Engine:
 
 - **cpd-platform-operator**
@@ -220,156 +203,148 @@ deployment.apps/spark-hb-deployer-agent                      1/1     1          
 deployment.apps/spark-hb-nginx                               1/1     1            1           19m
 deployment.apps/spark-hb-register-hb-dataplane               1/1     1            1           10m
 deployment.apps/spark-hb-ui                                  1/1     1            1           19m
-
 ```
 
+## Role Variables
 
-### Cognos Analytics
-Subscriptions related to Cognos Analytics (in the **ibm-cpd-operators** namespace):
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`cpd_service_name`](#cpd_service_name) | Yes | None |
+| [`cpd_product_version`](#cpd_product_version) | Yes | Defined by the installed MAS catalog version |
+| [`cpd_service_storage_class`](#cpd_service_storage_class) | Conditional | Auto-detected |
+| [`cpd_service_block_storage_class`](#cpd_service_block_storage_class) | Conditional | Auto-detected |
+| [`cpd_instance_namespace`](#cpd_instance_namespace) | No | `ibm-cpd` |
+| [`cpd_operator_namespace`](#cpd_operator_namespace) | No | `ibm-cpd-operators` |
+| [`cpd_admin_username`](#cpd_admin_username) | No | `cpadmin` |
+| [`cpd_admin_password`](#cpd_admin_password) | No | Secret lookup |
+| [`cpd_service_scale_config`](#cpd_service_scale_config) | No | `small` |
+| [`cpd_wsl_project_name`](#cpd_wsl_project_name) | No | `wsl-mas-${mas_instance_id}-hputilities` |
+| [`cpd_wsl_project_description`](#cpd_wsl_project_description) | No | `Watson Studio Project for Maximo Application Suite` |
+| [`mas_instance_id`](#mas_instance_id) | No | None |
+| [`mas_config_dir`](#mas_config_dir) | No | None |
 
-- **cpd-platform-operator**
-- **ibm-ca-operator-controller-manager**
+The storage class variables are only required when the cluster does not provide a detectable default storage class; the Watson Studio project and MAS configuration generation variables only apply when `cpd_service_name` is `wsl`.
 
-Cognos Analytics is made up of many moving parts across multiple namespaces.
+### Service Installation
 
-In the **ibm-cpd-operators** namespace:
+#### cpd_service_name
 
-```bash
-oc -n ibm-cpd-operators get deployments
-NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
-ibm-ca-operator-controller-manager                     1/1     1            1           19m
-```
-
-In the **ibm-cpd** namespace:
-
-
-```bash
-oc -n ibm-cpd get caservice,deployments
-NAME                                   AGE
-caservice.ca.cpd.ibm.com/ca-addon-cr   19m
-
-NAME                                                                         READY   UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/cognos-analytics-cognos-analytics-addon                      1/1     1            1           9m17s
-
-```
-
-
-## Role Variables - Installation
-### cpd_service_name
-Name of the service to install, supported values are: `wsl`, `wml`, `spark`, and `ca`
+Name of the CPD service to install — valid values are `wsl` (Watson Studio), `wml` (Watson Machine Learning), and `spark` (Analytics Engine powered by Apache Spark).
 
 - **Required**
 - Environment Variable: `CPD_SERVICE_NAME`
-- Default Value: None
+- Default: None
 
-### cpd_product_version
-The product version (also known as operand version) of this service to install.
+#### cpd_product_version
+
+The Cloud Pak for Data release version (also known as the operand version) of the service to install — valid values are `5.2.0`, `5.3.1`, and `5.4.0`.
 
 - **Required**
 - Environment Variable: `CPD_PRODUCT_VERSION`
-- Default Value: Defined by the installed MAS catalog version
+- Default: Defined by the installed MAS catalog version
 
-### cpd_service_storage_class
-This is used to set `spec.storageClass` in all CPD services that uses file storage class (read-write-many RWX).
+The role automatically selects the operator channel and custom resource version associated with this release version. When upgrading, the CPD Control Plane/Zen must already be upgraded to the same release version.
 
-- **Required**, unless IBMCloud storage classes are available.
+#### cpd_service_storage_class
+
+Storage class used to set `spec.storageClass` in all CPD services that use file storage (read-write-many, RWX).
+
+- **Required** when the cluster does not provide a detectable default storage class
 - Environment Variable: `CPD_SERVICE_STORAGE_CLASS`
-- Default Value: Auto determined if default storage classes are provided and available by your cloud provider. i.e `ibmc-file` for IBM Cloud, `efs` for AWS.
+- Default: Auto-detected from the cluster's default storage classes — for example `ibmc-file` on IBM Cloud or `efs` on AWS
 
-### cpd_service_block_storage_class
-This is used to set `spec.blockStorageClass` in all CPD services that uses block storage class (read-write-only RWO).
+#### cpd_service_block_storage_class
 
-- **Required**, unless IBMCloud storage classes are available.
+Storage class used to set `spec.blockStorageClass` in all CPD services that use block storage (read-write-once, RWO).
+
+- **Required** when the cluster does not provide a detectable default storage class
 - Environment Variable: `CPD_SERVICE_BLOCK_STORAGE_CLASS`
-- Default Value: Auto determined if default storage classes are provided and available by your cloud provider. i.e `ibmc-block` for IBM Cloud, `gp2` for AWS.
+- Default: Auto-detected from the cluster's default storage classes — for example `ibmc-block` on IBM Cloud or `gp2` on AWS
 
-### cpd_instance_namespace
+#### cpd_instance_namespace
+
 Namespace where the CP4D instance is deployed.
 
-- Optional
+- **Optional**
 - Environment Variable: `CPD_INSTANCE_NAMESPACE`
-- Default Value: `ibm-cpd`
+- Default: `ibm-cpd`
 
-### cpd_operator_namespace
-Namespace where the CP4D instance is deployed.
+#### cpd_operator_namespace
 
-- Optional
+Namespace where the CP4D operators are deployed.
+
+- **Optional**
 - Environment Variable: `CPD_OPERATORS_NAMESPACE`
-- Default Value: `ibm-cpd-operators`
+- Default: `ibm-cpd-operators`
 
-### cpd_admin_username
-The CP4D Admin username to authenticate with CP4D APIs. If you didn't change the initial admin username after installing CP4D then you don't need to provide this.
+#### cpd_admin_username
 
-- Optional
+The CP4D admin username used to authenticate with the CP4D APIs.
+
+- **Optional**
 - Environment Variable: `CPD_ADMIN_USERNAME`
-- Default Value:
-  - `admin` (CPD 4.6)
-  - `cpadmin` (CPD 4.8 and newer)
+- Default: `cpadmin`
 
-### cpd_admin_password
-The CP4D Admin User password to call CP4D API to provision Discovery Instance. If you didn't change the initial admin password after CP4D install, you don't need to provide it.  The initial admin user password for `admin` or `cpdamin` will be used.
+Only needed if you changed the initial admin username after installing CP4D.
 
-- Optional
+#### cpd_admin_password
+
+The CP4D admin password used to call the CP4D APIs (for example, to provision the Watson Studio project).
+
+- **Optional**
 - Environment Variable: `CPD_ADMIN_PASSWORD`
-- Default Value:
-    - CPD 4.6: Looked up from the `admin-user-details` secret in the `cpd_instance_namespace` namespace
-    - CPD 4.8 and newer: Looked up from the `ibm-iam-bindinfo-platform-auth-idp-credentials` secret in the `cpd_instance_namespace` namespace
+- Default: Looked up from the `ibm-iam-bindinfo-platform-auth-idp-credentials` secret in the `cpd_instance_namespace` namespace
 
-### cpd_service_scale_config
-Adjust and scale the resources for your Cloud Pak for Data services to increase processing capacity.
-For more information, refer to [Managing resources](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.6.x?topic=services-manually-scaling) in IBM Cloud Pak for Data documentation.
+Only needed if you changed the initial admin password after the CP4D install; otherwise the initial admin password for `admin` or `cpadmin` is used.
 
-- Optional
+#### cpd_service_scale_config
+
+Adjusts and scales the resources allocated to your Cloud Pak for Data services to increase processing capacity. For more information, refer to [Managing resources](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.6.x?topic=services-manually-scaling) in the IBM Cloud Pak for Data documentation.
+
+- **Optional**
 - Environment Variable: `CPD_SERVICE_SCALE_CONFIG`
-- Default Value: `small`
+- Default: `small`
 
-## Role Variables - Watson Studio
-### cpd_wsl_project_name
-Stores the CP4D Watson Studio Project name that can be used to configure HP Utilities application in MAS.
+### Watson Studio Project
 
-- Optional, only supported when `cpd_service_name` = `wsl`
+#### cpd_wsl_project_name
+
+Name of the CP4D Watson Studio project that can be used to configure the HP Utilities application in MAS.
+
+- **Optional**, only supported when `cpd_service_name` is `wsl`
 - Environment Variable: `CPD_WSL_PROJECT_NAME`
-- Default Value: `wsl-mas-${mas_instance_id}-hputilities`
+- Default: `wsl-mas-${mas_instance_id}-hputilities`
 
-### cpd_wsl_project_description
-Optional - Stores the CP4D Watson Studio Project description that can be used to configure HP Utilities application in MAS.
+#### cpd_wsl_project_description
 
-- Optional, only supported when `cpd_service_name` = `wsl`
+Description of the CP4D Watson Studio project that can be used to configure the HP Utilities application in MAS.
+
+- **Optional**, only supported when `cpd_service_name` is `wsl`
 - Environment Variable: `CPD_WSL_PROJECT_DESCRIPTION`
-- Default Value: `Watson Studio Project for Maximo Application Suite`
+- Default: `Watson Studio Project for Maximo Application Suite`
 
+### MAS Configuration Generation
 
-## Role Variables - MAS Configuration Generation
-### mas_instance_id
-The instance ID of Maximo Application Suite that a generated configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a resource template.
+#### mas_instance_id
 
-- Optional, only supported when `cpd_service_name` = `wsl`
+The instance ID of the Maximo Application Suite instance that the generated configuration will target. If this or `mas_config_dir` is not set, the role will not generate a resource template.
+
+- **Optional**, only supported when `cpd_service_name` is `wsl`
 - Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
+- Default: None
 
-### mas_config_dir
-Local directory to save the generated resource definition.  This can be used to manually configure a MAS instance, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a resource template.
+#### mas_config_dir
 
-- Optional, only supported when `cpd_service_name` = `wsl`
+Local directory to save the generated resource definition. This can be used to manually configure a MAS instance, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` is not set, the role will not generate a resource template.
+
+- **Optional**, only supported when `cpd_service_name` is `wsl`
 - Environment Variable: `MAS_CONFIG_DIR`
-- Default Value: None
-
+- Default: None
 
 ## Example Playbook
 
-### Install Watson Studio on CPD 5.1.3
-```yaml
-- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    cpd_product_version: 5.1.3
-    cpd_service_storage_class: ibmc-file-gold-gid
-    cpd_service_name: wsl
-  roles:
-    - ibm.mas_devops.cp4d_service
-```
-
 ### Install Watson Studio on CPD 5.2.0
+
 ```yaml
 - hosts: localhost
   any_errors_fatal: true

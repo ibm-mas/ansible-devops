@@ -2,11 +2,12 @@
 Unit tests for wait_for_conditions action plugin.
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+import wait_for_conditions
 from ansible.errors import AnsibleError
 
-import wait_for_conditions
 ActionModule = wait_for_conditions.ActionModule
 
 

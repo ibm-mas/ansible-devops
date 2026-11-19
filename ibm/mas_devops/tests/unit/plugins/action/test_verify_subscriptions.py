@@ -5,12 +5,14 @@ This module tests the verify_subscriptions action which checks if Subscriptions
 are at the latest known operator version with retry logic.
 """
 
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import Mock, MagicMock, patch
-from ansible.errors import AnsibleError
 
 # Import the action module
 import verify_subscriptions
+from ansible.errors import AnsibleError
+
 ActionModule = verify_subscriptions.ActionModule
 
 

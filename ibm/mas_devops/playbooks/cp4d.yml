@@ -8,12 +8,40 @@
     install_watson_studio: "{{ lookup('env', 'CPD_INSTALL_WSL') | default('False', False) | bool }}"
     install_watson_machine_learning: "{{ lookup('env', 'CPD_INSTALL_WML') | default('False', true) | bool }}"
     install_analytics_engine: "{{ lookup('env', 'CPD_INSTALL_SPARK') | default('False', true) | bool }}"
-    install_cognos_analytics: "{{ lookup('env', 'CPD_INSTALL_COGNOS') | default('False', true) | bool }}"
-    cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') | default('5.2.0', true) }}"
+    cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') | default('5.4.0', true) }}"
+
+  pre_tasks:
+    - name: Important Notice
+      debug:
+        msg: |
+          *********************************************************************
+          ************************* IMPORTANT NOTICE **************************
+          *********************************************************************
+          *                                                                   *
+          *  These playbooks are samples to demonstrate how to use the roles  *
+          *  in this collection.                                              *
+          *                                                                   *
+          *  They are NOT INTENDED FOR PRODUCTION USE as-is, they are a       *
+          *  starting point for power users to aid in the development of      *
+          *  their own Ansible playbooks using the roles in this collection   *
+          *                                                                   *
+          *  The recommended way to install MAS is to use the MAS CLI, which  *
+          *  uses this Ansible Collection to deliver a complete managed       *
+          *  lifecycle for your MAS instance.                                 *
+          *                                                                   *
+          *  https://ibm-mas.github.io/cli/                                   *
+          *                                                                   *
+          *********************************************************************
 
   roles:
     # Cloud Pak for Data Platform (~1 1/2 hours)
     - role: ibm.mas_devops.ibm_catalogs
+      when: install_cp4d_platform == true
+
+    - role: ibm.mas_devops.cert_manager
+      when: install_cp4d_platform == true
+
+    - role: ibm.mas_devops.cp4d
       when: install_cp4d_platform == true
 
     # Watson Studio (~3 hours)
@@ -33,9 +61,3 @@
       when: install_analytics_engine == true
       vars:
         cpd_service_name: spark
-
-    # Cognos Analytics (~1 hour)
-    - role: ibm.mas_devops.cp4d_service
-      when: install_cognos_analytics == true
-      vars:
-        cpd_service_name: ca

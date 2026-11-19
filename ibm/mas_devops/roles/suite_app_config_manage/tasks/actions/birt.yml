@@ -1,0 +1,66 @@
+---
+# BIRT report action (was suite_manage_birt_report_config)
+# Configure the BIRT report server bundle for the Manage application.
+# ========================================================================
+
+- name: "birt : Lookup ManageWorkspace CR"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: ManageWorkspace
+    name: "{{ manage_workspace_cr_name }}"
+    namespace: "mas-{{ mas_instance_id }}-manage"
+  register: managews_output
+
+- name: "birt : Set Manage server bundles"
+  set_fact:
+    birt_server_bundles: "{{ (managews_output.resources[0].spec.settings.deployment | default({})).serverBundles | default([]) }}"
+
+- name: "birt : Check if report bundle is already configured"
+  when: birt_server_bundles | selectattr('bundleType', 'equalto', 'report') | map(attribute='name') | list | length > 0
+  set_fact:
+    existing_manage_report_name: "{{ birt_server_bundles | selectattr('bundleType', 'equalto', 'report') | map(attribute='name') | list | first }}"
+
+- name: "birt : Get Suite instance domain"
+  include_tasks: "tasks/common/get-suite-domain.yml"
+
+# When a report bundle exists, we use the existing report bundle name to define the
+# manage report route. When no report bundle exists, the
+# mas_manage_birt_report_bundle_name property defines its name.
+- name: "birt : Configure Manage report route"
+  set_fact:
+    manage_report_route: "https://{{ mas_workspace_id }}-{{ existing_manage_report_name | default(mas_manage_birt_report_bundle_name, true) }}.manage.{{ mas_domain }}"
+
+- name: "birt : Debug information"
+  debug:
+    msg:
+      - "Report bundle name ....................... {{ existing_manage_report_name | default(mas_manage_birt_report_bundle_name, true) }}"
+      - "Report route ............................. {{ manage_report_route }}"
+
+- name: "birt : Set Manage bundle server properties"
+  set_fact:
+    birt_server_bundles: "{{ birt_server_bundles | ibm.mas_devops.setManageBirtProperties(manage_report_route, existing_manage_report_name | default(mas_manage_birt_report_bundle_name, true)) }}"
+
+- name: "birt : Add the Server Bundle birt properties in ManageWorkspace CR"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps.mas.ibm.com/v1
+      kind: ManageWorkspace
+      metadata:
+        name: "{{ manage_workspace_cr_name }}"
+        namespace: "mas-{{ mas_instance_id }}-manage"
+      spec:
+        settings:
+          deployment:
+            serverBundles: "{{ birt_server_bundles }}"
+  register: managews_sb_output
+
+- name: "birt : Debug information"
+  debug:
+    msg:
+      - "ManageWorkspace Changed ............... {{ managews_sb_output.changed }}"
+
+- name: "birt : Wait for ManageWorkspace to be ready"
+  include_tasks: "tasks/common/wait-manageworkspace-ready.yml"
+  vars:
+    manage_ws_wait_retries: 60
+    manage_ws_wait_delay: 60
