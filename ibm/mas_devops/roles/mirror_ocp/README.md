@@ -45,7 +45,8 @@ Three catalogs are mirrored, containing the following content:
 18. serverless-operator (required by ibm.mas_devops.aiservice_rhoai role, OCP 4.18+)
 19. servicemeshoperator (required by ibm.mas_devops.aiservice_rhoai role, OCP 4.18+)
 20. authorino-operator (required by ibm.mas_devops.aiservice_rhoai role, OCP 4.18+)
-21. lvms-operator (not used by any of our roles, but used in SNO installations)
+21. rhods-operator (required by ibm.mas_devops.aiservice_rhoai role; channel `stable` for RHOAI v2 and, on OCP 4.20+, channel `stable-3.x` for RHOAI v3)
+22. lvms-operator (not used by any of our roles, but used in SNO installations)
 
 ### Additional Images
 
