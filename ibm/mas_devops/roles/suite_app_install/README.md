@@ -29,6 +29,7 @@ This role is used to install a specified application in Maximo Application Suite
 | [`mas_app_settings_iot_mqttbroker_pvc_size`](#mas_app_settings_iot_mqttbroker_pvc_size) | No | `100Gi` |
 | [`mas_appws_upgrade_type`](#mas_appws_upgrade_type) | No | `regularUpgrade` |
 | [`mas_app_settings_monitor_deployment_size`](#mas_app_settings_monitor_deployment_size) | No | `dev` |
+| [`mas_app_settings_predict_deployment_size`](#mas_app_settings_predict_deployment_size) | No | `small` |
 
 The Artifactory credentials are only required when `mas_app_catalog_source` is set to a development catalog, and `mas_entitlement_key` is only required for production installations using official IBM releases. The IoT storage class variables are only required when auto-detection cannot find a suitable storage class (and always when `mas_app_settings_iot_deployment_size` is not `dev`).
 
@@ -291,6 +292,18 @@ Deployment size profile for MAS Monitor, which determines resource allocations a
 - Default: `dev`
 
 `dev` allocates minimal resources suitable for development only, `small` moderate resources suitable for small to medium production deployments, and `large` maximum resources suitable for large-scale production deployments with extensive monitoring. Application support: Monitor 8.6+. Ensure your cluster has sufficient resources for the selected size — this cannot be easily changed after deployment without reinstallation.
+
+### Predict Configuration
+
+#### mas_app_settings_predict_deployment_size
+
+Deployment size profile for MAS Predict, which determines resource allocations and scaling characteristics — `developer` (1 replica, no high availability), `small` (2 replicas, basic high availability), `medium` (3 replicas), or `large` (higher replica count, if supported).
+
+- **Optional**
+- Environment Variable: `MAS_APP_SETTINGS_PREDICT_DEPLOYMENT_SIZE` (the legacy `PREDICT_DEPLOYMENT_SIZE` is also still supported)
+- Default: `small`
+
+Used in the default Predict application spec; it has no effect when you provide your own [`mas_app_spec`](#mas_app_spec). The `developer` size is suitable only for development and testing. The workspace-level size is set separately with [`mas_appws_settings_deployment_size`](../suite_app_config/README.md#mas_appws_settings_deployment_size).
 
 ## Example Playbook
 
