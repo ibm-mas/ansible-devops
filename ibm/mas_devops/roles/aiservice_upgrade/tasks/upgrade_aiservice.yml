@@ -15,6 +15,11 @@
         sourceNamespace: "{{ aiservice_sub_info.resources[0].spec.sourceNamespace }}"
     apply: true
 
+- name: "upgrade : Wait for install plan approval"
+  ibm.mas_devops.wait_for_subscription_approval:
+    namespace: "{{ aiservice_namespace }}"
+    package_name: ibm-aiservice
+
 
 # 2. Check the Subscription
 # -----------------------------------------------------------------------------
@@ -30,7 +35,7 @@
   delay: 30 # seconds
   until:
     - updated_aiservice_sub_info.resources[0].status.installPlanGeneration > aiservice_sub_info.resources[0].status.installPlanGeneration
-    - updated_aiservice_sub_info.resources[0].status.state == "AtLatestKnown"
+    - updated_aiservice_sub_info.resources[0].status.state == "AtLatestKnown" or (olm_approval_mode == 'Manual' and updated_aiservice_sub_info.resources[0].status.state == "UpgradePending")
 
 - name: "upgrade : Debug Subscription"
   debug:

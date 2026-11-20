@@ -22,8 +22,15 @@
     retries: 30 # Allow up to 30 minutes
     delay: 60 # 1 minute
 
-# 3. Wait for all subscriptions in all namespaces to get into AtLatestKnown state
+# 3. Wait for any install plans awaiting manual approval (cluster-wide), then
+#    wait for all subscriptions in all namespaces to get into AtLatestKnown state
 # -----------------------------------------------------------------------------
+- name: Wait for install plan approval
+  when:
+    - verify_subscriptions
+    - olm_approval_mode == 'Manual'
+  ibm.mas_devops.wait_for_subscription_approval:
+
 - name: Check Subscription Status
   when: verify_subscriptions
   ibm.mas_devops.verify_subscriptions:

@@ -46,13 +46,13 @@
     that: app_sub_info.resources[0].spec.channel in upgrade_requirement[mas_app_id][mas_app_upgrade_target_channel]
     fail_msg: "Unable to upgrade from {{ app_sub_info.resources[0].spec.channel }} to {{ mas_app_upgrade_target_channel }}"
 
-- name: "{{ mas_app_id }} : Check that install plan approvals are set to 'Automatic'"
+- name: "{{ mas_app_id }} : Check that install plan approvals are set to 'Automatic' or 'Manual'"
   when:
     - app_sub_info.resources[0].spec.channel != mas_app_upgrade_target_channel
     - app_sub_info.resources[0].spec.installPlanApproval is defined
   assert:
-    that: app_sub_info.resources[0].spec.installPlanApproval == 'Automatic'
-    fail_msg: "Automatic install plan approvals must be enabled to upgrade via this role"
+    that: app_sub_info.resources[0].spec.installPlanApproval in ['Automatic', 'Manual']
+    fail_msg: "Install plan approvals must be set to 'Automatic' or 'Manual' to upgrade via this role"
 
 
 # 2. Lookup the OperatorCondition

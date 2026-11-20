@@ -16,6 +16,26 @@ This role validates if a given MAS installation is ready for the core platform t
 | [`mas_channel`](#mas_channel) | No | Auto-selected |
 | [`mas_upgrade_dryrun`](#mas_upgrade_dryrun) | No | `false` |
 | [`skip_compatibility_check`](#skip_compatibility_check) | No | `false` |
+| [`olm_approval_mode`](#olm_approval_mode) | No | `Automatic` |
+| [`olm_approval_timeout`](#olm_approval_timeout) | No | `7200` |
+
+### OLM Install Plan Approval
+
+#### olm_approval_mode
+
+- **Optional**
+- Environment Variable: `OLM_APPROVAL_MODE`
+- Default: `Automatic`
+
+When set to `Manual`, the subscription channel update this role performs generates install plans that wait for human approval: the role pauses with instructions whenever an install plan is waiting for approval, and never approves it automatically. See [OLM Manual Install Plan Approvals](https://ibm-mas.github.io/ansible-devops/olm-manual-approvals/) for the full details.
+
+#### olm_approval_timeout
+
+- **Optional**
+- Environment Variable: `OLM_APPROVAL_TIMEOUT`
+- Default: `7200`
+
+Seconds to wait for each individual install plan approval before the role fails (2 hours by default).
 
 ### Upgrade Target
 

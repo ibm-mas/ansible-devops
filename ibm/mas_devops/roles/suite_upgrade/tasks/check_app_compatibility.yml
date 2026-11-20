@@ -45,14 +45,14 @@
     that: checkapp_sub_info.resources[0].spec.channel in compatibility_matrix[mas_channel][check_app.id]
     fail_msg: "Unable to upgrade to {{ mas_channel }} because ibm-mas-{{ check_app.id }} is subscribed to a channel that is not compatible with this release ({{ checkapp_sub_info.resources[0].spec.channel }}).  Supported channels are: {{ compatibility_matrix[mas_channel][check_app.id] }}"
 
-- name: "{{ check_app.id }} : Check that install plan approvals are set to 'Automatic'"
+- name: "{{ check_app.id }} : Check that install plan approvals are set to 'Automatic' or 'Manual'"
   when:
     - checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
     - checkapp_sub_info.resources[0].spec.installPlanApproval is defined
     - checkapp_sub_info.resources[0].spec.channel != mas_channel
   assert:
-    that: checkapp_sub_info.resources[0].spec.installPlanApproval == 'Automatic'
-    fail_msg: "Automatic install plan approvals must be enabled to upgrade via this role"
+    that: checkapp_sub_info.resources[0].spec.installPlanApproval in ['Automatic', 'Manual']
+    fail_msg: "Install plan approvals must be set to 'Automatic' or 'Manual' to upgrade via this role"
 
 
 # 2. Lookup the OperatorCondition

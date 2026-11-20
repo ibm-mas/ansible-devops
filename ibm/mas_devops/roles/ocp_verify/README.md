@@ -15,8 +15,28 @@ For example, in IBMCloud ROKS we have seen delays of over an hour before the Red
 | [`verify_ingress`](#verify_ingress) | No | `true` |
 | [`cluster_name`](#cluster_name) | Conditional | None |
 | [`ocp_ingress_tls_secret_name`](#ocp_ingress_tls_secret_name) | No | `router-certs-default` |
+| [`olm_approval_mode`](#olm_approval_mode) | No | `Automatic` |
+| [`olm_approval_timeout`](#olm_approval_timeout) | No | `7200` |
 
 `cluster_name` is only used when `verify_ingress` is `true`, and is only needed in specific cluster configurations.
+
+### OLM Install Plan Approval
+
+#### olm_approval_mode
+
+- **Optional**
+- Environment Variable: `OLM_APPROVAL_MODE`
+- Default: `Automatic`
+
+When set to `Manual`, this role waits (cluster-wide) for any install plans awaiting human approval before checking subscription status — this is the gate for subscriptions that roll implicitly after a catalog digest update. The role never approves an install plan automatically. See [OLM Manual Install Plan Approvals](https://ibm-mas.github.io/ansible-devops/olm-manual-approvals/) for the full details.
+
+#### olm_approval_timeout
+
+- **Optional**
+- Environment Variable: `OLM_APPROVAL_TIMEOUT`
+- Default: `7200`
+
+Seconds to wait for each individual install plan approval (per namespace) before the role fails (2 hours by default).
 
 ### Verification Checks
 
