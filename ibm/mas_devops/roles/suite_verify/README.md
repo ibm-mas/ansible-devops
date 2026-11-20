@@ -8,6 +8,7 @@ Verify a MAS installation is ready to use. This role will also print out the Adm
 |----------|----------|---------|
 | [`mas_instance_id`](#mas_instance_id) | Yes | None |
 | [`mas_hide_superuser_credentials`](#mas_hide_superuser_credentials) | No | `true` |
+| [`mas_manual_route_mgmt`](#mas_manual_route_mgmt) | No | `false` |
 
 ### Verification
 
@@ -33,6 +34,16 @@ When `true` (the default) only the name of the secret containing the credentials
 
 !!! tip
     Keep this set to `true` in CI/CD pipelines and shared environments. The credentials can always be retrieved directly from the Kubernetes secret, so there is rarely a need to display them.
+
+#### mas_manual_route_mgmt
+
+Set to `true` when the MAS instance uses manual route management (`manualRouteMgmt`, always the case when Service Mesh is in use).
+
+- **Optional**
+- Environment Variable: `MAS_MANUAL_ROUTE_MGMT`
+- Default: `false`
+
+With manual route management the MAS operator does not create Routes, so the Admin Dashboard Route cannot be looked up during suite-verify. When `true`, the role reads the host from the `routeref-<instance>-admin` ConfigMap in the core namespace and prints a message explaining that the Route is managed manually.
 
 ## Example Playbook
 

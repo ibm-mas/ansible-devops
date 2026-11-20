@@ -1,0 +1,70 @@
+---
+{#
+  common_templates/networkpolicy-allow-egress.yml.j2
+  
+  Reusable NetworkPolicy that permits egress traffic.
+  The caller provides fully-formed egress rules — this template makes no
+  assumptions about selector types (namespace name, label, expression, pod, IP).
+  
+  Required variables:
+    netpol_name          Name for the NetworkPolicy resource
+    netpol_namespace     Namespace to apply this policy in
+    netpol_egress_rules  List of egress rule dicts, each matching the
+                         Kubernetes NetworkPolicyEgressRule schema:
+                           to:    list of NetworkPolicyPeer objects (optional — omit for allow-all)
+                           ports: list of {port, protocol} dicts (optional — omit for all ports)
+  
+  Optional variables:
+    netpol_pod_selector  matchLabels dict to scope to specific pods (default: {} = all pods)
+  
+  Examples:
+  
+    # Allow all pods to reach istiod:15012 by namespace name label
+    netpol_egress_rules:
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: istio-system
+        ports:
+          - port: 15012
+            protocol: TCP
+  
+    # Allow egress to any namespace (open egress)
+    netpol_egress_rules:
+      - {}
+  
+    # Allow egress to pods matching a label in a specific namespace
+    netpol_egress_rules:
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: my-namespace
+            podSelector:
+              matchLabels:
+                app: my-app
+        ports:
+          - port: 8080
+            protocol: TCP
+  
+    # Allow egress to an IP block
+    netpol_egress_rules:
+      - to:
+          - ipBlock:
+              cidr: 10.0.0.0/8
+              except:
+                - 10.1.0.0/16
+        ports:
+          - port: 443
+            protocol: TCP
+#}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: "{{ netpol_name }}"
+  namespace: "{{ netpol_namespace }}"
+spec:
+  podSelector:
+    matchLabels: {{ netpol_pod_selector | default({}) | to_json }}
+  egress: {{ netpol_egress_rules | to_json }}
+  policyTypes:
+    - Egress

@@ -1,0 +1,74 @@
+---
+{#
+  common_templates/networkpolicy-allow-ingress.yml.j2
+  
+  Reusable NetworkPolicy that permits ingress traffic.
+  The caller provides fully-formed ingress rules — this template makes no
+  assumptions about selector types (namespace name, label, expression, pod, IP).
+  
+  Required variables:
+    netpol_name           Name for the NetworkPolicy resource
+    netpol_namespace      Namespace to apply this policy in
+    netpol_ingress_rules  List of ingress rule dicts, each matching the
+                          Kubernetes NetworkPolicyIngressRule schema:
+                            from:  list of NetworkPolicyPeer objects (optional — omit for allow-all)
+                            ports: list of {port, protocol} dicts (optional — omit for all ports)
+  
+  Optional variables:
+    netpol_pod_selector  matchLabels dict to scope to specific pods (default: {} = all pods)
+  
+  Examples:
+  
+    # Allow Prometheus scraping on port 15020 from monitoring namespaces
+    netpol_ingress_rules:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: openshift-monitoring
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: openshift-user-workload-monitoring
+        ports:
+          - port: 15020
+            protocol: TCP
+  
+    # Allow all ingress (open policy)
+    netpol_ingress_rules:
+      - {}
+  
+    # Allow ingress from any namespace (any-namespace selector)
+    netpol_ingress_rules:
+      - from:
+          - namespaceSelector: {}
+  
+    # Allow ingress from namespaces by a custom label
+    netpol_ingress_rules:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                network.openshift.io/policy-group: ingress
+        ports:
+          - port: 443
+            protocol: TCP
+  
+    # Allow ingress from specific pods in a specific namespace
+    netpol_ingress_rules:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: my-namespace
+            podSelector:
+              matchLabels:
+                app: my-app
+#}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: "{{ netpol_name }}"
+  namespace: "{{ netpol_namespace }}"
+spec:
+  podSelector:
+    matchLabels: {{ netpol_pod_selector | default({}) | to_json }}
+  ingress: {{ netpol_ingress_rules | to_json }}
+  policyTypes:
+    - Ingress

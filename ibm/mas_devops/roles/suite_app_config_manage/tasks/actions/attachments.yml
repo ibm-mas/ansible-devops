@@ -88,7 +88,11 @@
         namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
       register: managews_output
 
+    # With manual route management (always the case with Service Mesh) MAS does not create
+    # Routes, it creates a routeref-<route-name> ConfigMap holding the Route definition.
+    # The Route may not exist yet at this point, so read the host from the routeref instead.
     - name: "attachments : Lookup Main Manage Route"
+      when: not mas_manual_route_mgmt
       kubernetes.core.k8s_info:
         api_version: route.openshift.io/v1
         kind: Route
@@ -97,13 +101,46 @@
       register: manage_route
 
     - name: "attachments : Assert Main Manage Route is valid"
+      when: not mas_manual_route_mgmt
       assert:
         that: manage_route.resources | length > 0
         fail_msg: "Failed! Main Manage Route {{ mas_instance_id }}-{{ mas_app_id }}-{{ mas_workspace_id }} not found..."
 
     - name: "attachments : Set Manage Route variable"
+      when: not mas_manual_route_mgmt
       set_fact:
         manage_url: "{{ manage_route.resources[0].spec.host }}"
+
+    - name: "attachments : Lookup Main Manage routeref ConfigMap (manual route management)"
+      when: mas_manual_route_mgmt
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: ConfigMap
+        name: "routeref-{{ mas_instance_id }}-{{ mas_app_id }}-{{ mas_workspace_id }}"
+        namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
+      register: manage_routeref
+
+    - name: "attachments : Assert Main Manage routeref is valid (manual route management)"
+      when: mas_manual_route_mgmt
+      assert:
+        that: manage_routeref.resources | length > 0
+        fail_msg: >-
+          Failed! Manual route management is enabled so MAS does not create Routes, but the route reference
+          ConfigMap routeref-{{ mas_instance_id }}-{{ mas_app_id }}-{{ mas_workspace_id }} was not found in
+          namespace mas-{{ mas_instance_id }}-{{ mas_app_id }}...
+
+    - name: "attachments : Set Manage Route variable from routeref (manual route management)"
+      when: mas_manual_route_mgmt
+      set_fact:
+        manage_url: "{{ (manage_routeref.resources[0].data['route.yml'] | from_yaml).spec.host }}"
+
+    - name: "attachments : Manual route management information"
+      when: mas_manual_route_mgmt
+      debug:
+        msg: >-
+          Manual route management is enabled: using host {{ manage_url }} from ConfigMap
+          routeref-{{ mas_instance_id }}-{{ mas_app_id }}-{{ mas_workspace_id }}.
+          The Route may not exist yet. Route needs to be configured manually.
 
     - name: "attachments : Set Manage bundle server properties for aws/ibm"
       when: mas_manage_attachments_provider != 'filestorage'
