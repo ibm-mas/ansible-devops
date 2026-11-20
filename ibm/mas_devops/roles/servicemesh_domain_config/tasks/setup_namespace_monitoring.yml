@@ -39,15 +39,21 @@
           - port: 15020
             protocol: TCP
 
-# 3. Allow every pod to reach istiod:15012 for mTLS certificate bootstrapping
+# 3. Allow all egress traffic from every pod in the namespace
 # -----------------------------------------------------------------------------
-- name: "Apply istiod egress NetworkPolicy in {{ target_namespace }}"
+# The policy selects all pods (podSelector: {}) and defines a single empty egress
+# rule ({}), which permits egress to any destination on any port. This is
+# deliberately open (not restricted to istiod:15012) so that sidecars can reach
+# istiod for mTLS certificate bootstrapping, and MAS pods can still reach the
+# other namespaces/services they depend on, regardless of any other policies in the namespace.
+# Skipped for the gateway namespace, which does not get an egress policy.
+- name: "Apply allow-all egress NetworkPolicy in {{ target_namespace }}"
   when: target_namespace != servicemesh_gateway_namespace
   kubernetes.core.k8s:
     apply: yes
     template: "{{ role_path }}/../../common_templates/networkpolicy-allow-egress.yml.j2"
   vars:
-    netpol_name: allow-istiod-egress
+    netpol_name: allow-all-egress
     netpol_namespace: "{{ target_namespace }}"
     netpol_pod_selector: {}
     netpol_egress_rules:
