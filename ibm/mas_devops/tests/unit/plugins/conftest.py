@@ -17,6 +17,25 @@ if mocks_path not in sys.path:
     sys.path.insert(0, mocks_path)
 
 
+# Make the collection importable as ansible_collections.ibm.mas_devops, so that
+# the plugins under test can import shared helpers from plugins/module_utils
+# the same way ansible's collection loader resolves them at runtime. The repo
+# root (the directory containing ibm/) is added to the namespace package path:
+# ansible_collections is a native namespace package, so it merges entries
+# (site-packages holds kubernetes.core etc., the repo root holds ibm/).
+import ansible_collections  # noqa: E402
+
+# Note: ansible_collections.__path__ is a dynamic _NamespacePath that is
+# recomputed (dropping manual appends) whenever sys.path is mutated, which
+# pytest's prepend import mode does during collection. Replacing it with a
+# plain list freezes the entries, so the repo root survives.
+# From tests/unit/plugins the repo root is five levels up
+# (plugins -> unit -> tests -> mas_devops -> ibm -> repo root).
+repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+if repo_root not in list(ansible_collections.__path__):
+    ansible_collections.__path__ = [*ansible_collections.__path__, repo_root]
+
+
 @pytest.fixture
 def mock_task():
     """

@@ -19,6 +19,17 @@ if plugins_action_path not in sys.path:
     sys.path.insert(0, plugins_action_path)
 
 
+@pytest.fixture(autouse=True)
+def isolate_olm_approval_env(monkeypatch):
+    """
+    Remove the OLM approval environment variables for every action plugin
+    test, so tests are deterministic regardless of the developer's shell.
+    Tests that exercise the env var behavior set it explicitly.
+    """
+    monkeypatch.delenv("OLM_APPROVAL_MODE", raising=False)
+    monkeypatch.delenv("OLM_APPROVAL_TIMEOUT", raising=False)
+
+
 @pytest.fixture
 def action_module_base(mock_task):
     """

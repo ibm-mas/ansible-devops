@@ -12,7 +12,7 @@ Tests cover:
 Note: This test uses the REAL mas.devops.olm.applySubscription() function.
 We mock the Kubernetes DynamicClient but use the real function logic.
 """
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 # Import the action module (path setup is in conftest.py)
 import apply_subscription
@@ -233,6 +233,178 @@ class TestApplySubscription:
         # Verify config was passed
         call_args = mock_apply_sub.call_args
         assert call_args[0][6] == config_data  # config is 7th argument
+
+    @patch('apply_subscription.get_api_client')
+    @patch('apply_subscription.applySubscription')
+    def test_default_path_does_not_opt_in_to_new_style(self, mock_apply_sub, mock_get_api_client, action_module):
+        """Regression: with no approval mode set (no arg, no env var) the library
+        call keeps its legacy shape -- no new-style approval handling kwargs"""
+        mock_get_api_client.return_value = kubernetes_mocks.create_mock_dynamic_client()
+        mock_apply_sub.return_value = kubernetes_mocks.create_mock_subscription(
+            name='ibm-sls-sub', namespace='test-namespace', state='AtLatestKnown'
+        )
+
+        action_module._task.args = {
+            'namespace': 'test-namespace',
+            'package_name': 'ibm-sls',
+            'package_channel': '3.x'
+        }
+
+        result = action_module.run()
+
+        assert result['success'] is True
+        kwargs = mock_apply_sub.call_args.kwargs
+        assert 'onApprovalRequired' not in kwargs
+        assert 'autoApproveInitialInstall' not in kwargs
+        assert kwargs['installPlanApproval'] is None
+
+    @patch('apply_subscription.get_api_client')
+    @patch('apply_subscription.applySubscription')
+    def test_manual_mode_from_env_uses_release_and_waits(self, mock_apply_sub, mock_get_api_client, action_module, monkeypatch):
+        """Manual mode from OLM_APPROVAL_MODE: applySubscription releases when an
+        install plan is pending and the module waits for the human approval"""
+        monkeypatch.setenv('OLM_APPROVAL_MODE', 'Manual')
+        mock_get_api_client.return_value = kubernetes_mocks.create_mock_dynamic_client()
+
+        subscription = kubernetes_mocks.create_mock_subscription(
+            name='ibm-sls-sub', namespace='test-namespace', state='UpgradePending'
+        )
+        approvalInfo = {
+            'installPlan': 'install-plan-1',
+            'namespace': 'test-namespace',
+            'subscription': 'ibm-sls-sub',
+            'package': 'ibm-sls',
+            'csvNames': ['ibm-sls.v3.8.0'],
+            'currentCSV': None,
+            'targetCSV': 'ibm-sls.v3.8.0',
+            'created': '2026-11-15T10:00:00Z',
+        }
+        mock_apply_sub.return_value = (subscription, approvalInfo)
+
+        action_module._task.args = {
+            'namespace': 'test-namespace',
+            'package_name': 'ibm-sls',
+            'package_channel': '3.x'
+        }
+
+        with patch('apply_subscription.waitForSubscriptionApproval') as mock_wait:
+            result = action_module.run()
+
+        assert result['success'] is True
+        kwargs = mock_apply_sub.call_args.kwargs
+        assert kwargs['installPlanApproval'] == 'Manual'
+        assert kwargs['onApprovalRequired'] == 'return'
+        mock_wait.assert_called_once()
+        assert mock_wait.call_args.kwargs['packageName'] == 'ibm-sls'
+        assert mock_wait.call_args.kwargs['targetCSV'] == 'ibm-sls.v3.8.0'
+        assert mock_wait.call_args.kwargs['approvalMode'] == 'Manual'
+
+    @patch('apply_subscription.get_api_client')
+    @patch('apply_subscription.applySubscription')
+    def test_manual_mode_without_starting_csv_no_longer_fatal(self, mock_apply_sub, mock_get_api_client, action_module, monkeypatch):
+        """Manual mode without starting_csv is now supported (the module waits for
+        approval instead of requiring a starting_csv to auto-approve)"""
+        monkeypatch.setenv('OLM_APPROVAL_MODE', 'Manual')
+        mock_get_api_client.return_value = kubernetes_mocks.create_mock_dynamic_client()
+        mock_apply_sub.return_value = kubernetes_mocks.create_mock_subscription(
+            name='ibm-sls-sub', namespace='test-namespace', state='AtLatestKnown'
+        )
+
+        action_module._task.args = {
+            'namespace': 'test-namespace',
+            'package_name': 'ibm-sls',
+            'package_channel': '3.x'
+        }
+
+        result = action_module.run()
+
+        assert result['success'] is True
+
+    @patch('apply_subscription.get_api_client')
+    @patch('apply_subscription.applySubscription')
+    def test_approval_mode_arg_overrides_env(self, mock_apply_sub, mock_get_api_client, action_module, monkeypatch):
+        """An explicit install_plan_approval argument wins over OLM_APPROVAL_MODE,
+        keeping legacy call shape for Automatic"""
+        monkeypatch.setenv('OLM_APPROVAL_MODE', 'Manual')
+        mock_get_api_client.return_value = kubernetes_mocks.create_mock_dynamic_client()
+        mock_apply_sub.return_value = kubernetes_mocks.create_mock_subscription(
+            name='ibm-sls-sub', namespace='test-namespace', state='AtLatestKnown'
+        )
+
+        action_module._task.args = {
+            'namespace': 'test-namespace',
+            'package_name': 'ibm-sls',
+            'package_channel': '3.x',
+            'install_plan_approval': 'Automatic'
+        }
+
+        result = action_module.run()
+
+        assert result['success'] is True
+        kwargs = mock_apply_sub.call_args.kwargs
+        assert kwargs['installPlanApproval'] == 'Automatic'
+        assert 'onApprovalRequired' not in kwargs
+
+    @patch('apply_subscription.get_api_client')
+    def test_invalid_approval_mode_env_raises(self, mock_get_api_client, action_module, monkeypatch):
+        """An invalid OLM_APPROVAL_MODE fails fast, naming the env var"""
+        monkeypatch.setenv('OLM_APPROVAL_MODE', 'banana')
+        mock_get_api_client.return_value = kubernetes_mocks.create_mock_dynamic_client()
+
+        action_module._task.args = {
+            'namespace': 'test-namespace',
+            'package_name': 'ibm-sls',
+            'package_channel': '3.x'
+        }
+
+        with pytest.raises(AnsibleError, match="OLM_APPROVAL_MODE must be one of"):
+            action_module.run()
+
+    @patch('apply_subscription.get_api_client')
+    @patch('apply_subscription.applySubscription')
+    def test_approval_mode_mismatch_with_existing_subscription(self, mock_apply_sub, mock_get_api_client, action_module, monkeypatch):
+        """OLM_APPROVAL_MODE conflicting with the existing subscription for the
+        package fails fast (managed-subscription mismatch check)"""
+        monkeypatch.setenv('OLM_APPROVAL_MODE', 'Automatic')
+        mock_get_api_client.return_value = kubernetes_mocks.create_mock_dynamic_client()
+
+        existing = Mock()
+        existing.metadata.name = 'ibm-sls-sub'
+        existing.spec.installPlanApproval = 'Manual'
+
+        action_module._task.args = {
+            'namespace': 'test-namespace',
+            'package_name': 'ibm-sls',
+            'package_channel': '3.x'
+        }
+
+        with patch('apply_subscription.getSubscription', return_value=existing):
+            with pytest.raises(AnsibleError, match="approval mode mismatch for ibm-sls in test-namespace"):
+                action_module.run()
+
+        mock_apply_sub.assert_not_called()
+
+    @patch('apply_subscription.get_api_client')
+    @patch('apply_subscription.applySubscription')
+    def test_no_mismatch_check_when_mode_unset(self, mock_apply_sub, mock_get_api_client, action_module):
+        """With no approval mode set there is no mismatch check -- existing
+        subscriptions are not even looked up"""
+        mock_get_api_client.return_value = kubernetes_mocks.create_mock_dynamic_client()
+        mock_apply_sub.return_value = kubernetes_mocks.create_mock_subscription(
+            name='ibm-sls-sub', namespace='test-namespace', state='AtLatestKnown'
+        )
+
+        action_module._task.args = {
+            'namespace': 'test-namespace',
+            'package_name': 'ibm-sls',
+            'package_channel': '3.x'
+        }
+
+        with patch('apply_subscription.getSubscription') as mock_get_sub:
+            result = action_module.run()
+
+        assert result['success'] is True
+        mock_get_sub.assert_not_called()
 
 
 # Made with Bob
