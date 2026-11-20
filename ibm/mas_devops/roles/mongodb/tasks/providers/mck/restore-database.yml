@@ -1,0 +1,36 @@
+---
+# Check mongodb restore required variables
+# -----------------------------------------------------------------------------
+- name: "Fail if required variables for Mongodb database restore are not provided"
+  ibm.mas_devops.verify_backup_restore_vars:
+    mas_instance_id: "{{ mas_instance_id }}"
+    mas_backup_dir: "{{ mas_backup_dir }}"
+    mongodb_backup_version: "{{ mongodb_backup_version }}"
+    mongodb_instance_name: "{{ mongodb_instance_name }}"
+    action: "restore"
+    component: "mongodb"
+
+- name: "Set fact: backup dir paths"
+  set_fact:
+    mongodb_backup_dir: "{{ mas_backup_dir }}/backup-{{ mongodb_backup_version }}-mongoce"
+    mongodb_data_path: "{{ mas_backup_dir }}/backup-{{ mongodb_backup_version }}-mongoce/data"
+
+# Check for existing MongoDb install
+# -----------------------------------------------------------------------------
+- name: "Check for existing MongoDB installation in namespace {{ mongodb_namespace }}"
+  ibm.mas_devops.verify_mongoce_version:
+    mongodb_instance_name: "{{ mongodb_instance_name }}"
+    mongodb_namespace: "{{ mongodb_namespace }}"
+  register: existing_mongo_info
+
+# If MongoDB is not running the restore would be skipped and the run would still look successful
+# while no data has been restored, so fail with a clear message instead
+- name: "Fail if MongoDB instance {{ mongodb_instance_name }} is not running in namespace {{ mongodb_namespace }}"
+  assert:
+    that:
+      - existing_mongo_info is defined
+      - existing_mongo_info.running
+    fail_msg: "MongoDB instance '{{ mongodb_instance_name }}' is not running in namespace '{{ mongodb_namespace }}'. Database restore was NOT performed, no data has been restored."
+
+- name: "Start Database restore process."
+  include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/restore-database.yml"
