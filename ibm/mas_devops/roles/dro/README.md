@@ -26,8 +26,28 @@ Installs [Data Reporter Operator](https://github.com/redhat-marketplace/redhat-m
 | [`dro_include_isrg_root_cert`](#dro_include_isrg_root_cert) | No | `true` |
 | [`custom_labels`](#custom_labels) | No | None |
 | [`mas_pod_templates_dir`](#mas_pod_templates_dir) | No | None |
+| [`olm_approval_mode`](#olm_approval_mode) | No | `Automatic` |
+| [`olm_approval_timeout`](#olm_approval_timeout) | No | `7200` |
 
 Some variables are conditionally required: generating a BasCfg requires both `mas_instance_id` and `mas_config_dir` (plus the `dro_contact` fields), and connecting to an existing DRO instance requires all three of `dro_endpoint_url`, `dro_api_key`, and `dro_crt_path`.
+
+### OLM Install Plan Approval
+
+#### olm_approval_mode
+
+- **Optional**
+- Environment Variable: `OLM_APPROVAL_MODE`
+- Default: `Automatic`
+
+When set to `Manual`, the subscriptions this role creates use manual install plan approval: the role pauses with instructions whenever an install plan is waiting for approval, and never approves it automatically. See [OLM Manual Install Plan Approvals](https://ibm-mas.github.io/ansible-devops/olm-manual-approvals/) for the full details.
+
+#### olm_approval_timeout
+
+- **Optional**
+- Environment Variable: `OLM_APPROVAL_TIMEOUT`
+- Default: `7200`
+
+Seconds to wait for each individual install plan approval before the role fails (2 hours by default).
 
 ### Installation
 

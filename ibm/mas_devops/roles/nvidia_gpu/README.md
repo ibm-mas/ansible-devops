@@ -19,6 +19,26 @@ The role automatically installs the Node Feature Discovery (NFD) Operator as a p
 | [`gpu_driver_repository_path`](#gpu_driver_repository_path) | No | `nvcr.io/nvidia` |
 | [`nfd_namespace`](#nfd_namespace) | No | `openshift-nfd` |
 | [`nfd_channel`](#nfd_channel) | No | `stable` |
+| [`olm_approval_mode`](#olm_approval_mode) | No | `Automatic` |
+| [`olm_approval_timeout`](#olm_approval_timeout) | No | `7200` |
+
+### OLM Install Plan Approval
+
+#### olm_approval_mode
+
+- **Optional**
+- Environment Variable: `OLM_APPROVAL_MODE`
+- Default: `Automatic`
+
+When set to `Manual`, the subscriptions this role creates use manual install plan approval: the role pauses with instructions whenever an install plan is waiting for approval, and never approves it automatically. See [OLM Manual Install Plan Approvals](https://ibm-mas.github.io/ansible-devops/olm-manual-approvals/) for the full details.
+
+#### olm_approval_timeout
+
+- **Optional**
+- Environment Variable: `OLM_APPROVAL_TIMEOUT`
+- Default: `7200`
+
+Seconds to wait for each individual install plan approval before the role fails (2 hours by default).
 
 ### GPU Operator Variables
 
