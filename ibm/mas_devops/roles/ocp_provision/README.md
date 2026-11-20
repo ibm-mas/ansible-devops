@@ -46,6 +46,8 @@ Fyre clusters will be automatically reconfigured to enable NFS storage.  By defa
 | [`fyre_worker_cpu`](#fyre_worker_cpu) | Conditional | `8` |
 | [`fyre_worker_memory`](#fyre_worker_memory) | Conditional | `32` |
 | [`fyre_worker_additional_disks`](#fyre_worker_additional_disks) | No | None |
+| [`fyre_worker_base_disk`](#fyre_worker_base_disk) | No | None |
+| [`fyre_master_base_disk`](#fyre_master_base_disk) | No | None |
 | [`fyre_nfs_image_registry_size`](#fyre_nfs_image_registry_size) | No | `100Gi` |
 | [`ocp_enable_ipv6`](#ocp_enable_ipv6) | No | `false` |
 | [`ipi_platform`](#ipi_platform) | No | `aws` |
@@ -469,6 +471,24 @@ Additional disks to attach to every worker node — a comma-separated list of di
 - Default: None
 
 For example `400,400` adds two 400GB disks to each worker; total additional storage = disk sizes x [`fyre_worker_count`](#fyre_worker_count). Useful for testing storage configurations or providing extra capacity.
+
+#### fyre_worker_base_disk
+Base disk size in GB for each worker node when using product_group quota — an integer between 40 and 500 (Fyre API limits).
+
+- **Optional**
+- Environment Variable: `FYRE_WORKER_BASE_DISK`
+- Default: None
+
+When unset, the Fyre API default (250 GB per worker) applies. Reducing this can significantly save disk quota on development and test clusters — for example a 4-worker cluster defaults to at least 1000 GB of worker base disks.
+
+#### fyre_master_base_disk
+Base disk size in GB for each master node when using product_group quota — an integer between 40 and 500 (Fyre API limits).
+
+- **Optional**
+- Environment Variable: `FYRE_MASTER_BASE_DISK`
+- Default: None
+
+When unset, the Fyre API default (100 GB per master) applies. As with [`fyre_worker_base_disk`](#fyre_worker_base_disk), reducing this saves disk quota on development and test clusters.
 
 #### fyre_nfs_image_registry_size
 Size of NFS storage allocated for the OpenShift image registry when NFS storage is configured on Fyre clusters — a Kubernetes storage size such as `50Gi`, `100Gi`, or `200Gi`.

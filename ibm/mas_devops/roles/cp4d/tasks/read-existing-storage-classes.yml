@@ -1,0 +1,91 @@
+---
+# Read storage classes back from an existing Ibmcpd CR so that update/upgrade of
+# an existing CP4D instance does not require the storage class parameters to be
+# re-provided by the caller (e.g. the mas update pipeline).
+#
+# Resolution precedence (steps 3-4 are completed by determine-storage-classes.yml):
+#   1. Explicit cpd_primary_storage_class / cpd_metadata_storage_class
+#      (CPD_PRIMARY_STORAGE_CLASS / CPD_METADATA_STORAGE_CLASS env vars)
+#   2. Existing Ibmcpd CR in cpd_instance_namespace (this file)
+#   3. Cluster-default auto-detection
+#   4. Assert
+
+# 1. Lookup existing Ibmcpd CRs
+# -----------------------------------------------------------------------------
+- name: "read-existing-storage-classes : Lookup existing Ibmcpd CRs in {{ cpd_instance_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: cpd.ibm.com/v1
+    kind: Ibmcpd
+    namespace: "{{ cpd_instance_namespace }}"
+  register: existing_ibmcpd_cr_lookup
+
+# 2. Select the CR to read from
+# -----------------------------------------------------------------------------
+# Prefer the CR named cpd_platform_cr_name ('ibmcpd-cr' by default), then the
+# legacy 'ibmcpd' name, then a single CR of any other name. When there are
+# multiple CRs and none of them matches a known name the situation is ambiguous,
+# so we skip the read-back and fall through to cluster-default auto-detection.
+- name: "read-existing-storage-classes : Select the Ibmcpd CR named '{{ cpd_platform_cr_name }}'"
+  when:
+    - existing_ibmcpd_cr_lookup.resources | default([]) | selectattr('metadata.name', 'equalto', cpd_platform_cr_name) | list | length > 0
+  set_fact:
+    existing_ibmcpd_cr: "{{ existing_ibmcpd_cr_lookup.resources | selectattr('metadata.name', 'equalto', cpd_platform_cr_name) | first }}"
+
+- name: "read-existing-storage-classes : Select the legacy Ibmcpd CR named 'ibmcpd'"
+  when:
+    - existing_ibmcpd_cr_lookup.resources | default([]) | selectattr('metadata.name', 'equalto', cpd_platform_cr_name) | list | length == 0
+    - existing_ibmcpd_cr_lookup.resources | default([]) | selectattr('metadata.name', 'equalto', 'ibmcpd') | list | length > 0
+  set_fact:
+    existing_ibmcpd_cr: "{{ existing_ibmcpd_cr_lookup.resources | selectattr('metadata.name', 'equalto', 'ibmcpd') | first }}"
+
+- name: "read-existing-storage-classes : Select the only Ibmcpd CR"
+  when:
+    - existing_ibmcpd_cr_lookup.resources | default([]) | selectattr('metadata.name', 'equalto', cpd_platform_cr_name) | list | length == 0
+    - existing_ibmcpd_cr_lookup.resources | default([]) | selectattr('metadata.name', 'equalto', 'ibmcpd') | list | length == 0
+    - existing_ibmcpd_cr_lookup.resources | default([]) | length == 1
+  set_fact:
+    existing_ibmcpd_cr: "{{ existing_ibmcpd_cr_lookup.resources[0] }}"
+
+- name: "read-existing-storage-classes : Ignore ambiguous Ibmcpd CRs"
+  when:
+    - existing_ibmcpd_cr_lookup.resources | default([]) | length > 1
+    - existing_ibmcpd_cr_lookup.resources | default([]) | selectattr('metadata.name', 'equalto', cpd_platform_cr_name) | list | length == 0
+    - existing_ibmcpd_cr_lookup.resources | default([]) | selectattr('metadata.name', 'equalto', 'ibmcpd') | list | length == 0
+  debug:
+    msg:
+      - "Multiple Ibmcpd CRs exist and none is named '{{ cpd_platform_cr_name }}' or 'ibmcpd'"
+      - "Skipping storage class read-back, cluster-default auto-detection will be used"
+
+# 3. Read the storage classes from the selected CR
+# -----------------------------------------------------------------------------
+# Field fallback chain (matches the lookup previously performed by the mas cli):
+#   file/RWX:  spec.storageClass (CPD 5.x) -> spec.fileStorageClass (CPD 4.x)
+#   block/RWO: spec.zenCoreMetadbStorageClass -> spec.blockStorageClass
+- name: "read-existing-storage-classes : Set primary storage class (RWX) from existing Ibmcpd CR"
+  vars:
+    _existing_file_sc: "{{ existing_ibmcpd_cr.spec.storageClass | default(existing_ibmcpd_cr.spec.fileStorageClass | default('', true), true) }}"
+  when:
+    - existing_ibmcpd_cr is defined
+    - cpd_primary_storage_class is not defined or cpd_primary_storage_class == ""
+    - _existing_file_sc != ""
+  set_fact:
+    cpd_primary_storage_class: "{{ _existing_file_sc }}"
+
+- name: "read-existing-storage-classes : Set metadata storage class (RWO) from existing Ibmcpd CR"
+  vars:
+    _existing_block_sc: "{{ existing_ibmcpd_cr.spec.zenCoreMetadbStorageClass | default(existing_ibmcpd_cr.spec.blockStorageClass | default('', true), true) }}"
+  when:
+    - existing_ibmcpd_cr is defined
+    - cpd_metadata_storage_class is not defined or cpd_metadata_storage_class == ""
+    - _existing_block_sc != ""
+  set_fact:
+    cpd_metadata_storage_class: "{{ _existing_block_sc }}"
+
+# 4. Debug what was read
+# -----------------------------------------------------------------------------
+- name: "read-existing-storage-classes : Debug storage classes read from existing Ibmcpd CR"
+  debug:
+    msg:
+      - "Existing Ibmcpd CR ....................... {{ existing_ibmcpd_cr.metadata.name | default('<none>', true) }}"
+      - "Primary storage class (RWX) .............. {{ cpd_primary_storage_class | default('<not set>', true) }}"
+      - "Metadata storage class (RWO) ............. {{ cpd_metadata_storage_class | default('<not set>', true) }}"
