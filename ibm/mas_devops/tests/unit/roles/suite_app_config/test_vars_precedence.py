@@ -12,7 +12,7 @@ import re
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import pytest
 import yaml
@@ -29,10 +29,10 @@ CLEARED_ENV_PREFIXES = ("MAS_APP_", "MAS_APPWS_", "PREDICT_")
 def _resolve(
     role: Path,
     varsFile: Path,
-    names: list,
-    playVars: Optional[Dict[str, Any]] = None,
-    env: Optional[Dict[str, str]] = None,
-) -> Dict[str, Any]:
+    names: list[str],
+    playVars: dict[str, Any] | None = None,
+    env: dict[str, str] | None = None,
+) -> dict[str, Any]:
     """Resolve variables the way a role does when it loads a vars file.
 
     Builds a temporary role whose defaults/main.yml is a copy of the real role's defaults
@@ -103,7 +103,7 @@ def _resolve(
         return json.loads(outFile.read_text())
 
 
-def _configVars(app: str, names: list, playVars=None, env=None) -> Dict[str, Any]:
+def _configVars(app: str, names: list[str], playVars=None, env=None) -> dict[str, Any]:
     """Resolve suite_app_config variables for an application."""
     return _resolve(CONFIG_ROLE, CONFIG_ROLE / "vars" / f"{app}.yml", names, playVars, env)
 
