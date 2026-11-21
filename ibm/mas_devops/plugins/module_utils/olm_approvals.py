@@ -110,9 +110,11 @@ def waitForSubscriptionApproval(dynClient, display, namespace, packageName=None,
     fetched once and the function returns immediately when nothing is
     blocking. When install plans are waiting:
 
-    1. If approvalMode is "Automatic" this is an approval mode mismatch and a
-       ValueError is raised (install plans awaiting approval make no sense in
-       a namespace the collection is managing as Automatic).
+    1. If approvalMode is anything other than "Manual" (including unset, which
+       is an Automatic context) this is an approval mode mismatch and a
+       ValueError is raised with the approve commands and the remedy (install
+       plans awaiting approval in an Automatic context used to slow-fail the
+       calling role's readiness waits; now they fail fast with instructions).
     2. The human-facing notices (what is pending, what it will change, the oc
        command to approve it) are displayed, then the wait begins. A status
        line ("Waiting for install plan approval since <x>, approval deadline
@@ -135,12 +137,15 @@ def waitForSubscriptionApproval(dynClient, display, namespace, packageName=None,
     if not status["blocking"]:
         return status
 
-    if approvalMode == "Automatic":
-        pending = ", ".join(approval["installPlan"] for approval in status["pendingApprovals"])
+    if approvalMode != "Manual":
+        # Includes an unset (None) mode: pending install plans in an
+        # Automatic context are a mode mismatch that must fail fast (with
+        # instructions) rather than hang the calling role's readiness waits
+        commands = "\n".join(f"  {approveCommand(approval)}" for approval in status["pendingApprovals"])
         raise ValueError(
-            f"Install plans are waiting for manual approval in namespace {namespace} ({pending}) "
-            "but the effective approval mode is 'Automatic'. This is a mismatch between OLM_APPROVAL_MODE "
-            "(or the install_plan_approval argument) and the state of the cluster"
+            f"Install plans are waiting for manual approval in namespace {namespace}, but the effective "
+            f"approval mode is '{approvalMode or 'Automatic'}'. Either grant approval:\n{commands}\n"
+            "or set OLM_APPROVAL_MODE=Manual so that the automation waits for the approvals instead"
         )
 
     # Mixed namespaces (OLM auto-created dependency subscriptions) behave the

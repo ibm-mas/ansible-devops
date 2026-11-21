@@ -56,10 +56,18 @@ the `oc patch` command shown in the messages, or via the OpenShift Console
 
 ## Approval mode mismatches
 
-`OLM_APPROVAL_MODE` is a contract with the cluster. If the collection is asked
-to manage a subscription whose existing approval mode conflicts with the
-requested one, the task fails fast with an error naming the subscription and
-both modes.
+The effective approval mode (task argument > `OLM_APPROVAL_MODE` > `Automatic`) is a
+contract with the cluster, and it is always a concrete value:
+
+- When the collection is asked to manage a subscription whose existing approval mode
+  differs from the effective one, the task **fails fast** with an error naming the
+  subscription, both modes, and the remedy — instead of slow-failing later in the
+  operator readiness waits. This includes the default: re-applying a `Manual`
+  subscription with no mode set (Automatic) fails immediately.
+- When install plans are pending in a namespace the collection is verifying as
+  Automatic (including with no mode set), `ocp_verify` fails fast with the approve
+  commands and the `OLM_APPROVAL_MODE=Manual` remedy — under Manual mode it waits
+  for the approvals instead.
 
 Real namespaces can legitimately contain a **mix** of modes: OLM automatically
 creates dependency subscriptions (for example `ibm-truststore-mgr` alongside

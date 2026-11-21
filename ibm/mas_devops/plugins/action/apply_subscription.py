@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import os
+
 import urllib3
 from ansible.errors import AnsibleError
 from ansible.plugins.action import ActionBase
@@ -37,6 +39,12 @@ class ActionModule(ActionBase):
     approve it, then waits for the approval to be given out-of-band (never
     approving on your behalf) before returning. The wait budget is the
     OLM_APPROVAL_TIMEOUT environment variable (default 7200 seconds).
+
+    The effective approval mode is resolved as task argument > OLM_APPROVAL_MODE
+    environment variable > Automatic, and is always a concrete value: when the
+    existing subscription for the package uses a different mode the module
+    fails fast with instructions, rather than slow-failing later in the
+    operator readiness waits.
     """
     def run(self, tmp=None, task_vars=None):
         super().run(tmp, task_vars)
@@ -59,7 +67,9 @@ class ActionModule(ActionBase):
 
         # Install plan approval and starting CSV (optional). The effective
         # approval mode is resolved as task argument > OLM_APPROVAL_MODE env
-        # var > unset (leave the subscription's approval mode untouched)
+        # var > Automatic: it is always a concrete value, and a mismatch with
+        # an existing subscription fails fast rather than slow-failing later
+        # in the operator readiness waits
         installPlanApprovalArg = self._task.args.get('install_plan_approval', None)
         startingCSV = self._task.args.get('starting_csv', None)
 
@@ -72,6 +82,8 @@ class ActionModule(ActionBase):
             installPlanApproval = resolveApprovalMode(installPlanApprovalArg)
         except ValueError as e:
             raise AnsibleError(f"Error: {e}") from e
+        if installPlanApproval is None:
+            installPlanApproval = "Automatic"
         timeout = resolveApprovalTimeout(self._task.args.get('approval_timeout', None))
 
         # Initialize DynamicClient
@@ -80,21 +92,30 @@ class ActionModule(ActionBase):
 
         dynClient = get_api_client(api_key=api_key, host=host)
 
-        # Fail fast when the requested approval mode conflicts with the
-        # existing subscription for this package (OLM_APPROVAL_MODE must match
-        # what is found). Only the subscription this collection manages is
-        # checked: OLM auto-creates dependency subscriptions with a different
-        # mode, and mixed namespaces are valid (they behave the same as Manual)
-        if installPlanApproval is not None:
-            existingSubscription = getSubscription(dynClient, namespace, packageName)
-            if existingSubscription is not None:
-                existingMode = getattr(existingSubscription.spec, "installPlanApproval", None) or "Automatic"
-                if existingMode != installPlanApproval:
-                    modeSource = "install_plan_approval" if installPlanApprovalArg is not None else "the OLM_APPROVAL_MODE environment variable"
-                    raise AnsibleError(
-                        f"Error: approval mode mismatch for {packageName} in {namespace}: the existing subscription "
-                        f"{existingSubscription.metadata.name} uses '{existingMode}' but {modeSource} is set to '{installPlanApproval}'"
-                    )
+        # Fail fast when the existing subscription for this package uses a
+        # different approval mode than the effective one. This runs even when
+        # no mode was requested (default Automatic): re-applying a Manual
+        # subscription as Automatic used to slow-fail in the operator
+        # readiness waits, and now fails immediately with instructions.
+        # Only the subscription this collection manages is checked: OLM
+        # auto-creates dependency subscriptions with a different mode, and
+        # mixed namespaces are valid (they behave the same as Manual)
+        existingSubscription = getSubscription(dynClient, namespace, packageName)
+        if existingSubscription is not None:
+            existingMode = getattr(existingSubscription.spec, "installPlanApproval", None) or "Automatic"
+            if existingMode != installPlanApproval:
+                if installPlanApprovalArg is not None:
+                    modeSource = f"install_plan_approval is set to '{installPlanApproval}'"
+                elif os.environ.get("OLM_APPROVAL_MODE"):
+                    modeSource = f"the OLM_APPROVAL_MODE environment variable is set to '{installPlanApproval}'"
+                else:
+                    modeSource = "the approval mode is not set (default 'Automatic')"
+                raise AnsibleError(
+                    f"Error: approval mode mismatch for {packageName} in {namespace}: the existing subscription "
+                    f"{existingSubscription.metadata.name} uses '{existingMode}' but {modeSource}. "
+                    f"Set OLM_APPROVAL_MODE={existingMode} to manage this subscription as '{existingMode}', "
+                    "or approve any pending install plans before re-running"
+                )
 
         try:
             if installPlanApproval == "Manual":

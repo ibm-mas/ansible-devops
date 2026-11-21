@@ -25,10 +25,13 @@
 # 3. Wait for any install plans awaiting manual approval (cluster-wide), then
 #    wait for all subscriptions in all namespaces to get into AtLatestKnown state
 # -----------------------------------------------------------------------------
+# Unconditional by design: under Manual mode this waits for the approvals (this
+# is the gate for subscriptions that roll implicitly after a catalog digest
+# update), and under Automatic mode pending install plans fail fast with
+# instructions instead of slow-failing the subscription/workload checks below.
+# It is a no-op when nothing is pending.
 - name: Wait for install plan approval
-  when:
-    - verify_subscriptions
-    - olm_approval_mode == 'Manual'
+  when: verify_subscriptions
   ibm.mas_devops.wait_for_subscription_approval:
 
 - name: Check Subscription Status

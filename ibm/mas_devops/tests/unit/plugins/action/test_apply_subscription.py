@@ -25,6 +25,18 @@ ActionModule = apply_subscription.ActionModule
 import kubernetes_mocks
 
 
+@pytest.fixture(autouse=True)
+def no_existing_subscription():
+    """Default the managed-subscription mismatch lookup to 'no existing
+    subscription' for every test: the mismatch check now runs on every call
+    (even with no approval mode set), and the mock DynamicClient's
+    auto-attributes would otherwise look like a mismatching subscription.
+    Tests that exercise the mismatch check patch getSubscription themselves
+    (an inner patch takes precedence over this one)."""
+    with patch('apply_subscription.getSubscription', return_value=None):
+        yield
+
+
 class TestApplySubscription:
     """Tests for apply_subscription action plugin"""
 
@@ -256,7 +268,9 @@ class TestApplySubscription:
         kwargs = mock_apply_sub.call_args.kwargs
         assert 'onApprovalRequired' not in kwargs
         assert 'autoApproveInitialInstall' not in kwargs
-        assert kwargs['installPlanApproval'] is None
+        # With no mode requested the effective mode defaults to Automatic,
+        # and it is passed through explicitly
+        assert kwargs['installPlanApproval'] == 'Automatic'
 
     @patch('apply_subscription.get_api_client')
     @patch('apply_subscription.applySubscription')
@@ -386,13 +400,18 @@ class TestApplySubscription:
 
     @patch('apply_subscription.get_api_client')
     @patch('apply_subscription.applySubscription')
-    def test_no_mismatch_check_when_mode_unset(self, mock_apply_sub, mock_get_api_client, action_module):
-        """With no approval mode set there is no mismatch check -- existing
-        subscriptions are not even looked up"""
+    def test_mismatch_check_runs_when_mode_unset(self, mock_apply_sub, mock_get_api_client, action_module):
+        """With no approval mode requested (default Automatic) an existing
+        Manual subscription for the package still fails fast -- this is the
+        slow-fail-to-fast-fail bug fix"""
         mock_get_api_client.return_value = kubernetes_mocks.create_mock_dynamic_client()
         mock_apply_sub.return_value = kubernetes_mocks.create_mock_subscription(
             name='ibm-sls-sub', namespace='test-namespace', state='AtLatestKnown'
         )
+
+        existing = Mock()
+        existing.metadata.name = 'ibm-sls-sub'
+        existing.spec.installPlanApproval = 'Manual'
 
         action_module._task.args = {
             'namespace': 'test-namespace',
@@ -400,11 +419,11 @@ class TestApplySubscription:
             'package_channel': '3.x'
         }
 
-        with patch('apply_subscription.getSubscription') as mock_get_sub:
-            result = action_module.run()
+        with patch('apply_subscription.getSubscription', return_value=existing):
+            with pytest.raises(AnsibleError, match="approval mode is not set \\(default 'Automatic'\\)"):
+                action_module.run()
 
-        assert result['success'] is True
-        mock_get_sub.assert_not_called()
+        mock_apply_sub.assert_not_called()
 
 
 # Made with Bob

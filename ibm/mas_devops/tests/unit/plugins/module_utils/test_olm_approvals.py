@@ -119,6 +119,20 @@ class TestWaitForSubscriptionApproval:
             with pytest.raises(ValueError, match="Install plans are waiting for manual approval in namespace test-namespace"):
                 olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode="Automatic")
 
+    def test_unset_mode_mismatch_raises_with_remedy(self):
+        display = Mock()
+        status = makeStatus(approvalMode="Manual", pendingApprovals=[APPROVAL])
+        with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=status):
+            with pytest.raises(ValueError) as excinfo:
+                olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode=None)
+
+        # An unset mode is an Automatic context: fail fast with the approve
+        # commands and the OLM_APPROVAL_MODE=Manual remedy
+        message = str(excinfo.value)
+        assert "approval mode is 'Automatic'" in message
+        assert "oc patch installplan/install-plan-1" in message
+        assert "OLM_APPROVAL_MODE=Manual" in message
+
     def test_manual_wait_displays_notices_and_waits_for_operator(self):
         display = Mock()
         blocking = makeStatus(pendingApprovals=[APPROVAL])
