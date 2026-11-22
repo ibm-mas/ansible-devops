@@ -427,3 +427,69 @@ class TestApplySubscription:
 
 
 # Made with Bob
+
+    @patch('apply_subscription.get_api_client')
+    @patch('apply_subscription.applySubscription')
+    def test_manual_mode_preserves_existing_automatic_subscription(self, mock_apply_sub, mock_get_api_client, action_module, monkeypatch):
+        """A resolved Manual mode over an existing Automatic subscription warns
+        and preserves the subscription's Automatic mode (it keeps rolling
+        freely) instead of failing -- this is what keeps mixed-approval
+        clusters updatable"""
+        monkeypatch.setenv('OLM_APPROVAL_MODE', 'Manual')
+        mock_get_api_client.return_value = kubernetes_mocks.create_mock_dynamic_client()
+        mock_apply_sub.return_value = kubernetes_mocks.create_mock_subscription(
+            name='ibm-sls-sub', namespace='test-namespace', state='AtLatestKnown'
+        )
+
+        existing = Mock()
+        existing.metadata.name = 'ibm-sls-sub'
+        existing.spec.installPlanApproval = 'Automatic'
+
+        action_module._task.args = {
+            'namespace': 'test-namespace',
+            'package_name': 'ibm-sls',
+            'package_channel': '3.x'
+        }
+
+        with patch('apply_subscription.getSubscription', return_value=existing):
+            with patch('apply_subscription.Display') as mock_display:
+                result = action_module.run()
+
+        assert result['success'] is True
+        # The warning explains the preserve decision
+        mock_display.return_value.warning.assert_called_once()
+        warningText = mock_display.return_value.warning.call_args[0][0]
+        assert 'preserving the subscription\'s Automatic approval mode' in warningText
+        # The subscription is applied with its existing Automatic mode and the
+        # legacy (non-waiting) call shape
+        kwargs = mock_apply_sub.call_args.kwargs
+        assert kwargs['installPlanApproval'] == 'Automatic'
+        assert 'onApprovalRequired' not in kwargs
+
+    @patch('apply_subscription.get_api_client')
+    @patch('apply_subscription.applySubscription')
+    def test_explicit_arg_conflicting_with_existing_subscription_fails(self, mock_apply_sub, mock_get_api_client, action_module):
+        """An explicit install_plan_approval argument is imposing: it fails on
+        conflict in either direction (here Manual over an existing Automatic
+        subscription, which a resolved Manual mode would have preserved)"""
+        mock_get_api_client.return_value = kubernetes_mocks.create_mock_dynamic_client()
+        mock_apply_sub.return_value = kubernetes_mocks.create_mock_subscription(
+            name='ibm-sls-sub', namespace='test-namespace', state='AtLatestKnown'
+        )
+
+        existing = Mock()
+        existing.metadata.name = 'ibm-sls-sub'
+        existing.spec.installPlanApproval = 'Automatic'
+
+        action_module._task.args = {
+            'namespace': 'test-namespace',
+            'package_name': 'ibm-sls',
+            'package_channel': '3.x',
+            'install_plan_approval': 'Manual'
+        }
+
+        with patch('apply_subscription.getSubscription', return_value=existing):
+            with pytest.raises(AnsibleError, match="install_plan_approval is set to 'Manual'"):
+                action_module.run()
+
+        mock_apply_sub.assert_not_called()

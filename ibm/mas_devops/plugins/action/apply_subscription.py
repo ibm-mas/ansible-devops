@@ -41,10 +41,20 @@ class ActionModule(ActionBase):
     OLM_APPROVAL_TIMEOUT environment variable (default 7200 seconds).
 
     The effective approval mode is resolved as task argument > OLM_APPROVAL_MODE
-    environment variable > Automatic, and is always a concrete value: when the
-    existing subscription for the package uses a different mode the module
-    fails fast with instructions, rather than slow-failing later in the
-    operator readiness waits.
+    environment variable > Automatic, and is always a concrete value. When the
+    existing subscription for the package uses a different mode the mismatch
+    check is asymmetric:
+
+    - An explicit install_plan_approval argument fails on conflict in either
+      direction (it is imposing)
+    - A resolved Automatic mode (including the unset default) over an existing
+      Manual subscription fails fast: the automation never turns off human
+      gating
+    - A resolved Manual mode over an existing Automatic subscription preserves
+      the subscription's Automatic mode with a warning (it keeps rolling
+      freely) -- this is what keeps mixed-approval clusters updatable, since
+      mas update/upgrade pass Manual for their whole scope while some of the
+      subscriptions they re-apply are Automatic
     """
     def run(self, tmp=None, task_vars=None):
         super().run(tmp, task_vars)
@@ -97,6 +107,19 @@ class ActionModule(ActionBase):
         # no mode was requested (default Automatic): re-applying a Manual
         # subscription as Automatic used to slow-fail in the operator
         # readiness waits, and now fails immediately with instructions.
+        #
+        # The check is asymmetric (owner-confirmed semantics):
+        # - An explicit install_plan_approval argument is imposing: it fails
+        #   on conflict in either direction
+        # - A requested Automatic mode (including the unset default) over an
+        #   existing Manual subscription is fatal: the automation must never
+        #   turn off human gating
+        # - A requested Manual mode over an existing Automatic subscription
+        #   preserves the subscription's Automatic mode with a warning (it
+        #   keeps rolling freely). This is what keeps mixed-approval clusters
+        #   updatable: mas update/upgrade pass Manual for their whole scope
+        #   while some of the subscriptions they re-apply are Automatic
+        #
         # Only the subscription this collection manages is checked: OLM
         # auto-creates dependency subscriptions with a different mode, and
         # mixed namespaces are valid (they behave the same as Manual)
@@ -105,17 +128,34 @@ class ActionModule(ActionBase):
             existingMode = getattr(existingSubscription.spec, "installPlanApproval", None) or "Automatic"
             if existingMode != installPlanApproval:
                 if installPlanApprovalArg is not None:
-                    modeSource = f"install_plan_approval is set to '{installPlanApproval}'"
-                elif os.environ.get("OLM_APPROVAL_MODE"):
-                    modeSource = f"the OLM_APPROVAL_MODE environment variable is set to '{installPlanApproval}'"
+                    # An explicit task argument is imposing in both directions
+                    raise AnsibleError(
+                        f"Error: approval mode mismatch for {packageName} in {namespace}: the existing subscription "
+                        f"{existingSubscription.metadata.name} uses '{existingMode}' but install_plan_approval is set to "
+                        f"'{installPlanApproval}'. Set install_plan_approval={existingMode} to manage this subscription as '{existingMode}'"
+                    )
+                elif existingMode == "Manual":
+                    # We cannot turn off human gating on an existing Manual
+                    # subscription: fail fast with the remedy
+                    if os.environ.get("OLM_APPROVAL_MODE"):
+                        modeSource = f"the OLM_APPROVAL_MODE environment variable is set to '{installPlanApproval}'"
+                    else:
+                        modeSource = "the approval mode is not set (default 'Automatic')"
+                    raise AnsibleError(
+                        f"Error: approval mode mismatch for {packageName} in {namespace}: the existing subscription "
+                        f"{existingSubscription.metadata.name} uses 'Manual' but {modeSource}. "
+                        "Manual install plan approval cannot be disabled by the automation; "
+                        "set OLM_APPROVAL_MODE=Manual so that the automation waits for the approvals instead"
+                    )
                 else:
-                    modeSource = "the approval mode is not set (default 'Automatic')"
-                raise AnsibleError(
-                    f"Error: approval mode mismatch for {packageName} in {namespace}: the existing subscription "
-                    f"{existingSubscription.metadata.name} uses '{existingMode}' but {modeSource}. "
-                    f"Set OLM_APPROVAL_MODE={existingMode} to manage this subscription as '{existingMode}', "
-                    "or approve any pending install plans before re-running"
-                )
+                    # Requested Manual over an existing Automatic subscription:
+                    # warn and preserve the existing mode rather than flipping
+                    # it, so the subscription keeps rolling freely
+                    display.warning(
+                        f"Existing subscription {existingSubscription.metadata.name} for {packageName} in {namespace} is set to "
+                        f"Automatic, but the OLM approval mode is Manual: preserving the subscription's Automatic approval mode"
+                    )
+                    installPlanApproval = existingMode
 
         try:
             if installPlanApproval == "Manual":

@@ -60,10 +60,21 @@ The effective approval mode (task argument > `OLM_APPROVAL_MODE` > `Automatic`) 
 contract with the cluster, and it is always a concrete value:
 
 - When the collection is asked to manage a subscription whose existing approval mode
-  differs from the effective one, the task **fails fast** with an error naming the
-  subscription, both modes, and the remedy — instead of slow-failing later in the
-  operator readiness waits. This includes the default: re-applying a `Manual`
-  subscription with no mode set (Automatic) fails immediately.
+  differs from the effective one, the mismatch check is **asymmetric**
+  (owner-confirmed semantics):
+  - An explicit `install_plan_approval` task argument is imposing: it fails fast on
+    conflict in either direction, with an error naming the subscription, both modes,
+    and the remedy.
+  - A resolved `Automatic` mode (including the default, when no mode is set) over an
+    existing `Manual` subscription **fails fast**: the automation never turns off
+    human gating. Re-applying a `Manual` subscription with no mode set fails
+    immediately with the `OLM_APPROVAL_MODE=Manual` remedy, instead of slow-failing
+    later in the operator readiness waits.
+  - A resolved `Manual` mode over an existing `Automatic` subscription **warns and
+    preserves** the subscription's `Automatic` mode — it keeps rolling freely. This
+    is what keeps mixed-approval clusters updatable: `mas update` / `mas upgrade`
+    pass `Manual` for their whole scope while some of the subscriptions they
+    re-apply are `Automatic`.
 - When install plans are pending in a namespace the collection is verifying as
   Automatic (including with no mode set), `ocp_verify` fails fast with the approve
   commands and the `OLM_APPROVAL_MODE=Manual` remedy — under Manual mode it waits
