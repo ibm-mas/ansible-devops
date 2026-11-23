@@ -6,6 +6,7 @@ the collection-side behavior (env var resolution, notice formatting, the
 wait/timeout orchestration and the approval mode mismatch check), not the
 python-devops library itself.
 """
+
 from unittest.mock import Mock, patch
 
 import pytest
@@ -96,7 +97,7 @@ class TestFormatApprovalNotice:
 
     def test_approve_command_is_a_merge_patch(self):
         command = olm_approvals.approveCommand(APPROVAL)
-        assert command == "oc patch installplan/install-plan-1 -n test-namespace --type merge -p '{\"spec\":{\"approved\":true}}'"
+        assert command == 'oc patch installplan/install-plan-1 -n test-namespace --type merge -p \'{"spec":{"approved":true}}\''
         assert "or use the OpenShift Console" in olm_approvals.formatApprovalNotice(APPROVAL)[3]
 
 
@@ -107,24 +108,31 @@ class TestWaitForSubscriptionApproval:
         display = Mock()
         status = makeStatus(pendingApprovals=[])
         with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=status):
-            result = olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace")
+            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={}):
+                result = olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace")
 
         assert result is status
+        assert result["waited"] is False
         display.display.assert_not_called()
 
     def test_automatic_mode_mismatch_raises(self):
         display = Mock()
         status = makeStatus(approvalMode="Automatic", pendingApprovals=[APPROVAL])
         with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=status):
-            with pytest.raises(ValueError, match="Install plans are waiting for manual approval in namespace test-namespace"):
-                olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode="Automatic")
+            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={}) as mockRefs:
+                with pytest.raises(ValueError, match="Install plans are waiting for manual approval in namespace test-namespace"):
+                    olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode="Automatic")
+
+        # An Automatic namespace never enters the generation race pre-gate
+        mockRefs.assert_not_called()
 
     def test_unset_mode_mismatch_raises_with_remedy(self):
         display = Mock()
         status = makeStatus(approvalMode="Manual", pendingApprovals=[APPROVAL])
         with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=status):
-            with pytest.raises(ValueError) as excinfo:
-                olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode=None)
+            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={}):
+                with pytest.raises(ValueError) as excinfo:
+                    olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode=None)
 
         # An unset mode is an Automatic context: fail fast with the approve
         # commands and the OLM_APPROVAL_MODE=Manual remedy
@@ -138,16 +146,22 @@ class TestWaitForSubscriptionApproval:
         blocking = makeStatus(pendingApprovals=[APPROVAL])
         final = makeStatus(pendingApprovals=[])
         with patch.object(olm_approvals, "getNamespaceApprovalStatus", side_effect=[blocking, final]):
-            with patch.object(olm_approvals, "waitForNamespaceApprovals") as mockWait:
-                with patch.object(olm_approvals, "waitForInstallPlanComplete") as mockPlanComplete:
-                    with patch.object(olm_approvals, "waitForSubscriptionStable") as mockStable:
-                        result = olm_approvals.waitForSubscriptionApproval(
-                            Mock(), display, "test-namespace",
-                            packageName="test-operator", targetCSV="test-operator.v2.0.0",
-                            timeout=600, approvalMode="Manual"
-                        )
+            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={}):
+                with patch.object(olm_approvals, "waitForNamespaceApprovals") as mockWait:
+                    with patch.object(olm_approvals, "waitForInstallPlanComplete") as mockPlanComplete:
+                        with patch.object(olm_approvals, "waitForSubscriptionStable") as mockStable:
+                            result = olm_approvals.waitForSubscriptionApproval(
+                                Mock(),
+                                display,
+                                "test-namespace",
+                                packageName="test-operator",
+                                targetCSV="test-operator.v2.0.0",
+                                timeout=600,
+                                approvalMode="Manual",
+                            )
 
         assert result is final
+        assert result["waited"] is True
         displayed = " ".join(str(call.args[0]) for call in display.display.call_args_list)
         assert "Waiting for manual approval of install plan install-plan-1" in displayed
         assert "oc patch installplan/install-plan-1" in displayed
@@ -167,12 +181,11 @@ class TestWaitForSubscriptionApproval:
         blocking = makeStatus(approvalMode="Mixed", pendingApprovals=[APPROVAL])
         final = makeStatus(pendingApprovals=[])
         with patch.object(olm_approvals, "getNamespaceApprovalStatus", side_effect=[blocking, final]):
-            with patch.object(olm_approvals, "waitForNamespaceApprovals"):
-                with patch.object(olm_approvals, "waitForInstallPlanComplete"):
-                    with patch.object(olm_approvals, "waitForSubscriptionStable"):
-                        result = olm_approvals.waitForSubscriptionApproval(
-                            Mock(), display, "test-namespace", approvalMode="Manual"
-                        )
+            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={}):
+                with patch.object(olm_approvals, "waitForNamespaceApprovals"):
+                    with patch.object(olm_approvals, "waitForInstallPlanComplete"):
+                        with patch.object(olm_approvals, "waitForSubscriptionStable"):
+                            result = olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode="Manual")
 
         assert result is final
         displayed = " ".join(str(call.args[0]) for call in display.display.call_args_list)
@@ -182,9 +195,10 @@ class TestWaitForSubscriptionApproval:
         display = Mock()
         blocking = makeStatus(pendingApprovals=[APPROVAL])
         with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=blocking):
-            with patch.object(olm_approvals, "waitForNamespaceApprovals", side_effect=OLMTimeoutError("timed out")):
-                with pytest.raises(OLMTimeoutError) as excinfo:
-                    olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", timeout=300, approvalMode="Manual")
+            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={}):
+                with patch.object(olm_approvals, "waitForNamespaceApprovals", side_effect=OLMTimeoutError("timed out")):
+                    with pytest.raises(OLMTimeoutError) as excinfo:
+                        olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", timeout=300, approvalMode="Manual")
 
         assert "Timed out after 300s" in str(excinfo.value)
         assert "oc patch installplan/install-plan-1" in str(excinfo.value)
@@ -195,12 +209,11 @@ class TestWaitForSubscriptionApproval:
         final = makeStatus(pendingApprovals=[])
 
         with patch.object(olm_approvals, "getNamespaceApprovalStatus", side_effect=[blocking, final]):
-            with patch.object(olm_approvals, "waitForNamespaceApprovals") as mockWait:
-                with patch.object(olm_approvals, "waitForInstallPlanComplete"):
-                    with patch.object(olm_approvals, "waitForSubscriptionStable"):
-                        olm_approvals.waitForSubscriptionApproval(
-                            Mock(), display, "test-namespace", timeout=7200, approvalMode="Manual"
-                        )
+            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={}):
+                with patch.object(olm_approvals, "waitForNamespaceApprovals") as mockWait:
+                    with patch.object(olm_approvals, "waitForInstallPlanComplete"):
+                        with patch.object(olm_approvals, "waitForSubscriptionStable"):
+                            olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", timeout=7200, approvalMode="Manual")
 
         onPending = mockWait.call_args.kwargs["onPending"]
         noticesBeforeStatusLines = display.display.call_count
@@ -221,12 +234,11 @@ class TestWaitForSubscriptionApproval:
         final = makeStatus(pendingApprovals=[])
 
         with patch.object(olm_approvals, "getNamespaceApprovalStatus", side_effect=[blocking, final]):
-            with patch.object(olm_approvals, "waitForNamespaceApprovals") as mockWait:
-                with patch.object(olm_approvals, "waitForInstallPlanComplete"):
-                    with patch.object(olm_approvals, "waitForSubscriptionStable"):
-                        olm_approvals.waitForSubscriptionApproval(
-                            Mock(), display, "test-namespace", timeout=7200, approvalMode="Manual"
-                        )
+            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={}):
+                with patch.object(olm_approvals, "waitForNamespaceApprovals") as mockWait:
+                    with patch.object(olm_approvals, "waitForInstallPlanComplete"):
+                        with patch.object(olm_approvals, "waitForSubscriptionStable"):
+                            olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", timeout=7200, approvalMode="Manual")
 
         onPending = mockWait.call_args.kwargs["onPending"]
         assert onPending(blocking, 1) is not False
@@ -242,5 +254,96 @@ class TestWaitForSubscriptionApproval:
             assert onPending(blocking, 2) is not False
 
         assert display.display.call_count == baseline + 1
+
+
+class TestWaitForSubscriptionApprovalGenerationRace:
+    """Tests for the creation-to-generation race pre-gate.
+
+    A Manual/Mixed namespace snapshot taken moments after Subscription
+    creation (or a Subscription patch) can miss the InstallPlans OLM has not
+    generated yet: the pre-gate waits for generation (fresh Subscriptions,
+    no installPlanRef) and settles on status stability (pre-existing
+    Subscriptions, possibly just patched) before the blocking check runs.
+    """
+
+    def test_fresh_subscription_waits_for_generation_then_notices(self):
+        display = Mock()
+        before = makeStatus(pendingApprovals=[])
+        blocking = makeStatus(pendingApprovals=[APPROVAL])
+        final = makeStatus(pendingApprovals=[])
+
+        with patch.object(olm_approvals, "getNamespaceApprovalStatus", side_effect=[before, blocking, final]):
+            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={"test-operator": None}):
+                with patch.object(olm_approvals, "waitForSubscriptionInstallPlans") as mockGenerate:
+                    with patch.object(olm_approvals, "waitForSubscriptionResolution") as mockSettle:
+                        with patch.object(olm_approvals, "waitForNamespaceApprovals"):
+                            result = olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode="Manual")
+
+        # All Subscriptions were fresh: the ref appearing is the resolution
+        # event, so no settle poll is needed
+        mockGenerate.assert_called_once()
+        mockSettle.assert_not_called()
+        assert result["waited"] is True
+
+    def test_settled_subscription_settles_before_checking(self):
+        display = Mock()
+        before = makeStatus(pendingApprovals=[])
+        blocking = makeStatus(pendingApprovals=[APPROVAL])
+        final = makeStatus(pendingApprovals=[])
+
+        with patch.object(olm_approvals, "getNamespaceApprovalStatus", side_effect=[before, blocking, final]):
+            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={"test-operator": "install-plan-0"}):
+                with patch.object(olm_approvals, "waitForSubscriptionInstallPlans") as mockGenerate:
+                    with patch.object(olm_approvals, "waitForSubscriptionResolution") as mockSettle:
+                        with patch.object(olm_approvals, "waitForNamespaceApprovals"):
+                            result = olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode="Manual")
+
+        # A pre-existing ref means the Subscription may have been patched
+        # moments ago: settle on status stability instead of generation
+        mockGenerate.assert_not_called()
+        mockSettle.assert_called_once()
+        assert result["waited"] is True
+
+    def test_mixed_fresh_and_settled_subscriptions_wait_both_ways(self):
+        display = Mock()
+        before = makeStatus(pendingApprovals=[])
+        final = makeStatus(pendingApprovals=[])
+
+        with patch.object(olm_approvals, "getNamespaceApprovalStatus", side_effect=[before, final]):
+            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={"fresh": None, "settled": "install-plan-0"}):
+                with patch.object(olm_approvals, "waitForSubscriptionInstallPlans") as mockGenerate:
+                    with patch.object(olm_approvals, "waitForSubscriptionResolution") as mockSettle:
+                        olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode="Manual")
+
+        mockGenerate.assert_called_once()
+        mockSettle.assert_called_once()
+
+    def test_generation_wait_failure_propagates(self):
+        display = Mock()
+        before = makeStatus(pendingApprovals=[])
+
+        with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=before):
+            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={"test-operator": None}):
+                with patch.object(
+                    olm_approvals,
+                    "waitForSubscriptionInstallPlans",
+                    side_effect=OLMTimeoutError("Timed out after 600s waiting for OLM to generate InstallPlans"),
+                ):
+                    with pytest.raises(OLMTimeoutError, match="Timed out after 600s"):
+                        olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode="Manual")
+
+    def test_automatic_namespace_skips_the_pre_gate(self):
+        display = Mock()
+        status = makeStatus(approvalMode="Automatic", pendingApprovals=[])
+
+        with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=status):
+            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs") as mockRefs:
+                result = olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace")
+
+        # OLM approves by itself in Automatic namespaces: no pre-gate, no
+        # delay, exactly the behavior before the race fix
+        mockRefs.assert_not_called()
+        assert result["waited"] is False
+
 
 # Made with Bob

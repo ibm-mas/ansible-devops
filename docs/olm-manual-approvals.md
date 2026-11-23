@@ -94,6 +94,40 @@ namespace / per subscription stage), not the whole run: a long installation
 with several sequential approval gates can take longer in total. Set it to a
 value that reflects how quickly a human is expected to respond.
 
+## Install plan generation
+
+The approval gate has to distinguish "no InstallPlan is pending **yet**" from
+"no InstallPlan is **coming**" — a distinction a single namespace snapshot
+cannot make in the moments after a Subscription is created (OLM takes a few
+seconds to generate the first InstallPlan) or patched (the old InstallPlan is
+replaced, not removed, only when the new one is generated). In Manual and
+Mixed namespaces the gate closes this race before deciding that nothing is
+pending:
+
+- **Fresh Subscriptions** (no `status.installPlanRef`): the gate blocks until
+  OLM generates their InstallPlans — normally seconds. If OLM has not
+  resolved them after 10 minutes the gate fails naming the Subscriptions,
+  with pointers at the Subscription status conditions and catalog health.
+  When every Subscription in the namespace was fresh, this is all that is
+  needed: the ref appearing is itself the resolution event.
+- **Pre-existing Subscriptions** (an `installPlanRef` was already present —
+  untouched, or patched moments ago; indistinguishable at the gate): the gate
+  settles on **status stability** instead, waiting until the Subscriptions'
+  resolution fields (state, installPlanRef, installedCSV,
+  installPlanGeneration, currentCSV) have been unchanged for a few
+  consecutive polls (~1 minute). An update that is coming churns these fields
+  within seconds; no update leaves them quiet.
+
+The cluster-wide gate (no `namespace`) uses the same settle poll before
+discovering pending InstallPlans, so that right after a catalog digest update
+it does not race OLM's re-resolution of every Subscription.
+
+These waits are deliberately **not configurable**: they are failure ceilings
+for unhealthy clusters (a stuck OLM fails loudly after 10 minutes instead of
+silently hanging the calling role's readiness waits), not delays paid by
+healthy runs — a fresh install pays seconds, and an update with nothing to
+approve pays about a minute.
+
 ## Support matrix
 
 - **All roles using the `apply_subscription` module** (suite_install,
@@ -103,7 +137,8 @@ value that reflects how quickly a human is expected to respond.
 - **Template-based dependency roles** (cp4d, dro, eck, kafka, nvidia_gpu,
   ocp_efs, ocs, turbonomic): subscriptions are rendered with the effective
   approval mode and each role waits for approvals before waiting for the
-  operator to be ready.
+  operator to be ready — including waiting for OLM to generate the install
+  plans of just-created subscriptions (see [Install plan generation](#install-plan-generation)).
 - **Update and upgrade flows**: channel changes under manual approval generate
   pending install plans that are waited on before the flow continues.
 - **mongodb** is not OLM-based and is unaffected.
