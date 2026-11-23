@@ -92,7 +92,7 @@
     that:
       - aws_msk_secret_result is defined and aws_msk_secret_result != None and aws_msk_secret_result != ''
       - aws_msk_secret_result.stdout | length > 0
-      - aws_msk_secret_result.stdout | from_json | json_query('ARN')
+      - aws_msk_secret_result.stdout | from_json | json_query('ARN') | length > 0
 
 - name: "Set Fact, MSK Secret arn"
   set_fact:
@@ -142,9 +142,9 @@
   assert:
     that:
       - msk_config_result is defined and msk_config_result != None and msk_config_result != ''
-      - msk_config_result.stdout | from_json | json_query('Arn')
-      - msk_config_result.stdout | from_json | json_query('Revision')
-      - msk_config_result.stdout | from_json | json_query('State')
+      - msk_config_result.stdout | from_json | json_query('Arn') | length > 0
+      - msk_config_result.stdout | from_json | json_query('Revision') is not none
+      - msk_config_result.stdout | from_json | json_query('State') | length > 0
       - (msk_config_result.stdout | from_json | json_query('State') ) == 'ACTIVE'
 
 - name: "Debug msk_config"
@@ -205,8 +205,8 @@
   assert:
     that:
       - msk_config_result is defined and msk_config_result != None and msk_config_result != ''
-      - msk_config_result.stdout | from_json | json_query('ClusterInfo.ClusterArn')
-      - msk_config_result.stdout | from_json | json_query('ClusterInfo.State')
+      - msk_config_result.stdout | from_json | json_query('ClusterInfo.ClusterArn') | length > 0
+      - msk_config_result.stdout | from_json | json_query('ClusterInfo.State') | length > 0
 
 - name: "Get MSK Cluster Arn"
   set_fact:

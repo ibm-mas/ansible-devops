@@ -1,0 +1,118 @@
+---
+# Read storage classes back from existing CP4D CRs so that update/upgrade of an
+# existing CP4D service does not require the storage class parameters to be
+# re-provided by the caller (e.g. the mas update pipeline).
+#
+# Resolution precedence (steps 4-5 are completed by determine-storage-classes.yml):
+#   1. Explicit cpd_service_storage_class / cpd_service_block_storage_class
+#      (CPD_SERVICE_STORAGE_CLASS / CPD_SERVICE_BLOCK_STORAGE_CLASS env vars)
+#   2. Existing service CR (WS / WmlBase / AnalyticsEngine) in cpd_instance_namespace
+#   3. Existing platform Ibmcpd CR in cpd_instance_namespace
+#   4. Cluster-default auto-detection
+#   5. Assert
+
+# 1. Lookup the existing service CR
+# -----------------------------------------------------------------------------
+# NOTE: only the CR coordinate fields of cpd_service_info are accessed here --
+# other keys (case_version etc.) reference cpd_components_meta, which is not
+# loaded yet at this point in the role flow.
+- name: "read-existing-storage-classes : Lookup existing {{ cpd_service_name | default('unknown') }} CR in {{ cpd_instance_namespace }}"
+  when:
+    - cpd_service_info is defined
+    - cpd_service_name is defined
+    - cpd_service_name != ""
+    - cpd_service_name in cpd_service_info
+  kubernetes.core.k8s_info:
+    api_version: "{{ cpd_service_info[cpd_service_name].api_version }}"
+    kind: "{{ cpd_service_info[cpd_service_name].crd_kind }}"
+    name: "{{ cpd_service_info[cpd_service_name].cr_name }}"
+    namespace: "{{ cpd_instance_namespace }}"
+  register: existing_cpd_service_cr_lookup
+
+# 2. Read the storage classes from the service CR
+# -----------------------------------------------------------------------------
+# Field fallback chain: spec.storageClass -> spec.fileStorageClass for the file
+# storage class, spec.blockStorageClass for the block storage class. Service CRs
+# do not use zenCoreMetadbStorageClass.
+- name: "read-existing-storage-classes : Set file storage class (RWX) from existing service CR"
+  vars:
+    _service_file_sc: "{{ existing_cpd_service_cr_lookup.resources[0].spec.storageClass | default(existing_cpd_service_cr_lookup.resources[0].spec.fileStorageClass | default('', true), true) }}"
+  when:
+    - cpd_service_storage_class is not defined or cpd_service_storage_class == ""
+    - existing_cpd_service_cr_lookup.resources | default([]) | length > 0
+    - _service_file_sc != ""
+  set_fact:
+    cpd_service_storage_class: "{{ _service_file_sc }}"
+
+- name: "read-existing-storage-classes : Set block storage class (RWO) from existing service CR"
+  vars:
+    _service_block_sc: "{{ existing_cpd_service_cr_lookup.resources[0].spec.blockStorageClass | default('', true) }}"
+  when:
+    - cpd_service_block_storage_class is not defined or cpd_service_block_storage_class == ""
+    - existing_cpd_service_cr_lookup.resources | default([]) | length > 0
+    - _service_block_sc != ""
+  set_fact:
+    cpd_service_block_storage_class: "{{ _service_block_sc }}"
+
+# 3. Fall back to the platform Ibmcpd CR
+# -----------------------------------------------------------------------------
+# This mirrors what the mas update pipeline passes today (it derives the service
+# storage classes from the Ibmcpd CR), so this is the natural fallback when the
+# service CR does not exist yet or does not carry storage class fields.
+- name: "read-existing-storage-classes : Lookup existing Ibmcpd CRs in {{ cpd_instance_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: cpd.ibm.com/v1
+    kind: Ibmcpd
+    namespace: "{{ cpd_instance_namespace }}"
+  register: existing_ibmcpd_cr_lookup
+
+- name: "read-existing-storage-classes : Select the Ibmcpd CR named '{{ cpd_platform_cr_name }}'"
+  when:
+    - existing_ibmcpd_cr_lookup.resources | default([]) | selectattr('metadata.name', 'equalto', cpd_platform_cr_name) | list | length > 0
+  set_fact:
+    existing_ibmcpd_cr: "{{ existing_ibmcpd_cr_lookup.resources | selectattr('metadata.name', 'equalto', cpd_platform_cr_name) | first }}"
+
+- name: "read-existing-storage-classes : Select the legacy Ibmcpd CR named 'ibmcpd'"
+  when:
+    - existing_ibmcpd_cr_lookup.resources | default([]) | selectattr('metadata.name', 'equalto', cpd_platform_cr_name) | list | length == 0
+    - existing_ibmcpd_cr_lookup.resources | default([]) | selectattr('metadata.name', 'equalto', 'ibmcpd') | list | length > 0
+  set_fact:
+    existing_ibmcpd_cr: "{{ existing_ibmcpd_cr_lookup.resources | selectattr('metadata.name', 'equalto', 'ibmcpd') | first }}"
+
+- name: "read-existing-storage-classes : Select the only Ibmcpd CR"
+  when:
+    - existing_ibmcpd_cr_lookup.resources | default([]) | selectattr('metadata.name', 'equalto', cpd_platform_cr_name) | list | length == 0
+    - existing_ibmcpd_cr_lookup.resources | default([]) | selectattr('metadata.name', 'equalto', 'ibmcpd') | list | length == 0
+    - existing_ibmcpd_cr_lookup.resources | default([]) | length == 1
+  set_fact:
+    existing_ibmcpd_cr: "{{ existing_ibmcpd_cr_lookup.resources[0] }}"
+
+# 4. Read the storage classes from the selected Ibmcpd CR
+# -----------------------------------------------------------------------------
+- name: "read-existing-storage-classes : Set file storage class (RWX) from existing Ibmcpd CR"
+  vars:
+    _existing_file_sc: "{{ existing_ibmcpd_cr.spec.storageClass | default(existing_ibmcpd_cr.spec.fileStorageClass | default('', true), true) }}"
+  when:
+    - cpd_service_storage_class is not defined or cpd_service_storage_class == ""
+    - existing_ibmcpd_cr is defined
+    - _existing_file_sc != ""
+  set_fact:
+    cpd_service_storage_class: "{{ _existing_file_sc }}"
+
+- name: "read-existing-storage-classes : Set block storage class (RWO) from existing Ibmcpd CR"
+  vars:
+    _existing_block_sc: "{{ existing_ibmcpd_cr.spec.zenCoreMetadbStorageClass | default(existing_ibmcpd_cr.spec.blockStorageClass | default('', true), true) }}"
+  when:
+    - cpd_service_block_storage_class is not defined or cpd_service_block_storage_class == ""
+    - existing_ibmcpd_cr is defined
+    - _existing_block_sc != ""
+  set_fact:
+    cpd_service_block_storage_class: "{{ _existing_block_sc }}"
+
+# 5. Debug what was read
+# -----------------------------------------------------------------------------
+- name: "read-existing-storage-classes : Debug storage classes read from existing CP4D CRs"
+  debug:
+    msg:
+      - "File storage class (RWX) .................. {{ cpd_service_storage_class | default('<not set>', true) }}"
+      - "Block storage class (RWO) ................. {{ cpd_service_block_storage_class | default('<not set>', true) }}"

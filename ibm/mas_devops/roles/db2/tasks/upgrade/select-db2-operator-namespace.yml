@@ -1,0 +1,35 @@
+---
+# Select the namespace of the Db2 operator subscription that will be upgraded
+# -----------------------------------------------------------------------------
+# Inputs:
+#   db2_operator_namespaces: list of namespaces containing a db2u-operator subscription
+#   db2_namespace: target namespace of the Db2 instances being upgraded
+#
+# Output:
+#   current_db2_operator_namespace
+#
+# Other products (e.g. Cloud Pak for Data in cpd-operators) can legitimately own their own Db2 operator
+# subscription.  When multiple subscriptions exist we proceed as long as one of them is in the target
+# db2_namespace, and leave the others untouched.
+- name: Assert db2 operator is installed
+  assert:
+    that: db2_operator_namespaces | length > 0
+    fail_msg: "DB2 operator was not found in the cluster. Aborting DB2 upgrade."
+
+- name: Assert there is just one db2 operator running, or one in the target db2_namespace
+  assert:
+    that: >-
+      db2_operator_namespaces | length == 1
+      or db2_namespace in db2_operator_namespaces
+    fail_msg:
+      - "There are multiple subscriptions for DB2 in the cluster and none of them are in the target Db2 namespace '{{ db2_namespace }}'."
+      - "Make sure you just have one DB2 operator running, or set the Db2 namespace to the one containing the operator to upgrade."
+      - "DB2 operator namespaces identified: {{ db2_operator_namespaces }}"
+
+- name: Define db2_operator_namespace based on the lookup
+  set_fact:
+    current_db2_operator_namespace: "{{ db2_namespace if db2_namespace in db2_operator_namespaces else db2_operator_namespaces[0] }}"
+
+- name: Debug selected db2 operator namespace
+  debug:
+    msg: "Selected Db2 operator namespace: {{ current_db2_operator_namespace }}"

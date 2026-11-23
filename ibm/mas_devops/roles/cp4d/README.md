@@ -112,7 +112,7 @@ persistentvolumeclaim/zen-metastore-edb-2              Bound    pvc-741ea444-b6f
 | [`cpd_instance_namespace`](#cpd_instance_namespace) | No | `ibm-cpd` |
 | [`cpd_scale_config`](#cpd_scale_config) | No | `medium` |
 
-The storage class variables are only required when auto-detection does not find a known storage class; for production deployments we recommend always setting them explicitly.
+The storage class variables are resolved in this order: explicit variable → storage classes already in use by an existing `Ibmcpd` CR in `cpd_instance_namespace` → cluster auto-detection. They are only required when no source yields a value; for production deployments we recommend always setting them explicitly. When updating or upgrading an existing CP4D instance the same storage classes are read back from the existing CR, so these variables do not need to be re-provided.
 
 ### Installation
 
@@ -154,9 +154,9 @@ Primary storage class for CP4D — must support ReadWriteMany (RWX) access mode 
 
 - **Required** when auto-detection does not find a known storage class
 - Environment Variable: `CPD_PRIMARY_STORAGE_CLASS`
-- Default: Auto-detected (`ibmc-file-gold-gid`, `ocs-storagecluster-cephfs`, or `azurefiles-premium`)
+- Default: Read back from an existing `Ibmcpd` CR (`spec.storageClass`, falling back to `spec.fileStorageClass`), then auto-detected (`ibmc-file-gold-gid`, `ocs-storagecluster-cephfs`, or `azurefiles-premium`)
 
-CP4D uses this for shared file storage across pods; a storage class that does not support RWX will cause the deployment to fail. See [CP4D Storage Considerations](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.6.x?topic=planning-storage-considerations) for details.
+CP4D uses this for shared file storage across pods; a storage class that does not support RWX will cause the deployment to fail. When an existing `Ibmcpd` CR is present (update/upgrade scenarios) the storage class already in use is preferred over cluster auto-detection, so the value does not need to be re-provided. See [CP4D Storage Considerations](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.6.x?topic=planning-storage-considerations) for details.
 
 #### cpd_metadata_storage_class
 
@@ -164,9 +164,9 @@ Storage class for the CP4D Zen metadata database — must support ReadWriteOnce 
 
 - **Required** when auto-detection does not find a known storage class
 - Environment Variable: `CPD_METADATA_STORAGE_CLASS`
-- Default: Auto-detected (`ibmc-block-gold`, `ocs-storagecluster-ceph-rbd`, or `managed-premium`)
+- Default: Read back from an existing `Ibmcpd` CR (`spec.zenCoreMetadbStorageClass`, falling back to `spec.blockStorageClass`), then auto-detected (`ibmc-block-gold`, `ocs-storagecluster-ceph-rbd`, or `managed-premium`)
 
-The Zen metadata database uses this for persistent storage; a storage class that does not support RWO will cause the deployment to fail.
+The Zen metadata database uses this for persistent storage; a storage class that does not support RWO will cause the deployment to fail. When an existing `Ibmcpd` CR is present (update/upgrade scenarios) the storage class already in use is preferred over cluster auto-detection, so the value does not need to be re-provided.
 
 ### Namespaces
 

@@ -21,7 +21,8 @@
    "fips": {{ ('yes' if ocp_fips_enabled else 'no') | to_json }},
    "master": {
      "cpu": 4,
-     "memory": 16
+     "memory": 16{% if fyre_master_base_disk is defined and fyre_master_base_disk != "" %},
+     "base_disk_size": {{ fyre_master_base_disk | int | to_json }}{% endif +%}
    },
    "api": {
      "count": 1,
@@ -32,7 +33,8 @@
      {
        "count": {{ fyre_worker_count | int | to_json }},
        "cpu": {{ fyre_worker_cpu | int | to_json }},
-       "memory": {{ fyre_worker_memory | int | to_json }}{% if fyre_worker_additional_disks is defined and fyre_worker_additional_disks != "" %},
+       "memory": {{ fyre_worker_memory | int | to_json }}{% if fyre_worker_base_disk is defined and fyre_worker_base_disk != "" %},
+       "base_disk_size": {{ fyre_worker_base_disk | int | to_json }}{% endif %}{% if fyre_worker_additional_disks is defined and fyre_worker_additional_disks != "" %},
        "additional_disk": {{ (fyre_worker_additional_disks | split(',') | map('trim') | list) | to_json }}{% endif %}
      }
    ]

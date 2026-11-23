@@ -23,6 +23,9 @@ Optional environment variables
 - `CPD_SERVICE_STORAGE_CLASS` Storage class (ReadWriteMany) to use for CP4D service file storage
 - `CPD_SERVICE_BLOCK_STORAGE_CLASS` Storage class (ReadWriteOnce) to use for CP4D service block storage
 
+!!! note
+    The storage class variables are only needed for fresh installs, or to override what the roles would resolve themselves: when the CP4D platform or a service is already installed, the roles read the storage classes already in use back from the existing custom resources, falling back to cluster auto-detection when none are found.
+
 See the [cp4d](../roles/cp4d.md) and [cp4d_service](../roles/cp4d_service.md) role documentation for the full set of supported environment variables.
 
 Usage
