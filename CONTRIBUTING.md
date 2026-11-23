@@ -113,6 +113,36 @@ This test layer covers:
 - Integration Verification Tests (Dependencies): exercise integration points between application and their dependencies (e.g. predict x watson studion, assist x watson discovery, manage x db2)
 - Build Verification Test: functional tests that guarantee application is accessible and basically working
 
+## Linting
+
+The collection is linted in CI on every push ([lint.yml](.github/workflows/lint.yml)) with yamllint (YAML), ruff (Python) and ansible-lint (Ansible content). The same checks are available locally:
+
+```bash
+# One-time setup: install the lint toolchain into your virtualenv
+make dev-deps
+
+# Lint everything (YAML, Python and Ansible content)
+make lint
+
+# Or individually
+make lint-yaml
+make lint-python
+make lint-ansible
+```
+
+`make lint-ansible` will build the collection and install it together with its dependencies into `~/.ansible/lint-collections` (configurable via `LINT_COLLECTIONS_PATH`) so that ansible-lint can resolve module references; this happens automatically as part of the target.
+
+### Optional: pre-commit hooks
+
+For sub-second feedback on changed files at commit time, install the pre-commit hooks (all hooks are Python-based and work under Git Bash on Windows):
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+This runs ruff (with auto-fix), yamllint and some file hygiene checks on every commit. Note that ansible-lint is deliberately not run from pre-commit (it is slow and needs the collection dependencies installed) — run it via `make lint-ansible` or rely on the CI lint job.
+
 ## README Documentation Standards
 
 ### Overview

@@ -541,4 +541,3 @@ For detailed information about individual backup and restore operations, refer t
 - [Db2 Backup/Restore](../roles/db2.md)
 - [Manage Application Backup](../roles/suite_app_backup.md)
 - [Manage Application Restore](../roles/suite_app_restore.md)
-

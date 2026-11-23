@@ -60,7 +60,7 @@
     mongodb_ns_instance: "{{ mas_instance_id }}"
 
 - name: "Set fact: rename mongodb ns"
-  when: masbr_restore_to_diff_instance
+  when: masbr_restore_to_diff_instance | bool
   set_fact:
     mongodb_ns_rename: >-
       --nsFrom="*_{{ masbr_restore_from_yaml.source.instance }}_*.*" --nsTo="*_{{ mas_instance_id }}_*.*"
@@ -93,7 +93,7 @@
     --authenticationDatabase=admin --ssl --sslCAFile={{ mongodb_ca_file }}
     {{ '--oplogReplay' if _job_type == 'incr' }}
     {{ mongodb_ns_filter if _job_type == 'full' }}
-    {{ mongodb_ns_rename if masbr_restore_to_diff_instance }}
+    {{ mongodb_ns_rename if masbr_restore_to_diff_instance | bool }}
     --drop --dir={{ mongodb_restore_folder }}/{{ _job_name }}
     |& tee -a {{ mongodb_restore_log }}
     {{ exec_in_pod_end }}

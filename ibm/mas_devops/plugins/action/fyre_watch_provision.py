@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-import requests
-import urllib3
 from time import sleep
 
+import requests
+import urllib3
 from ansible.errors import AnsibleError
 from ansible.plugins.action import ActionBase
 from ansible.utils.display import Display
@@ -44,11 +44,12 @@ def checkStatus(username: str, password: str, clusterName: str, site: str, retry
         if "does not exist" in clusterDetails:
             display.v(" - Cluster does not exist")
             sleep(sleepTime)
-            return checkStatus(username, password, clusterName, site, errorCount+1, errorCount+1)
+            return checkStatus(username, password, clusterName, site, retryCount+1, errorCount+1)
         else:
             display.v(f" - Fatal error: {clusterDetails}")
             return False
     if response.status_code == 423:
+            clusterDetails = response.json().get("details", None)
             display.v(f" - Fatal error: {clusterDetails}")
             return False
     elif response.status_code == 200:
@@ -67,7 +68,7 @@ def checkStatus(username: str, password: str, clusterName: str, site: str, retry
 
 class ActionModule(ActionBase):
     def run(self, tmp=None, task_vars=None):
-        super(ActionModule, self).run(tmp, task_vars)
+        super().run(tmp, task_vars)
 
         FYRE_USERNAME = self._task.args.get('username', None)
         FYRE_APIKEY = self._task.args.get('apikey', None)
@@ -75,13 +76,13 @@ class ActionModule(ActionBase):
         fyreSite = self._task.args.get('fyre_site', None)
 
         if FYRE_USERNAME is None:
-            raise AnsibleError(f"Error: fyre_username argument was not provided")
+            raise AnsibleError("Error: fyre_username argument was not provided")
         if FYRE_APIKEY is None:
-            raise AnsibleError(f"Error: fyre_password argument was not provided")
+            raise AnsibleError("Error: fyre_password argument was not provided")
         if clusterName is None:
-            raise AnsibleError(f"Error: cluster_name argument was not provided")
+            raise AnsibleError("Error: cluster_name argument was not provided")
         if fyreSite is None:
-            raise AnsibleError(f"Error: fyre_site argument was not provided")
+            raise AnsibleError("Error: fyre_site argument was not provided")
 
         urllib3.disable_warnings()
 

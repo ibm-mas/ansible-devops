@@ -74,8 +74,8 @@ The role does not generate a password — set it explicitly and store it securel
 Storage class for the MinIO persistent volume claim — a valid storage class name available in the cluster.
 
 - **Optional**
-- Environment Variable: None
-- Default: Cluster's default RWX storage class (auto-detected)
+- Environment Variable: `MINIO_STORAGE_CLASS`
+- Default: Cluster's default RWX storage class (auto-detected). The role fails if the value is not set and no default can be detected.
 
 The PVC (`minio-pvc`) requests 40Gi with ReadWriteOnce access mode using this storage class. Verify available storage classes with `oc get storageclass`; consider the performance characteristics of the storage class when selecting it.
 

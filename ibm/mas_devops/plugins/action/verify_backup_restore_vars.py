@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from ansible.plugins.action import ActionBase
 from ansible.errors import AnsibleError
+from ansible.plugins.action import ActionBase
 
 
 class ActionModule(ActionBase):
@@ -47,7 +47,7 @@ class ActionModule(ActionBase):
     }
 
     def run(self, tmp=None, task_vars=None):
-        super(ActionModule, self).run(tmp, task_vars)
+        super().run(tmp, task_vars)
 
         component = self._task.args.get('component', None)
         action = self._task.args.get('action', None)
@@ -57,13 +57,13 @@ class ActionModule(ActionBase):
 
         if action not in self.REQUIRED[component]:
             raise AnsibleError(f"Unknown action '{action}' for component '{component}'. Allowed: {list(self.REQUIRED[component])}")
-        
+
         missing_args = []
         for req_arg in self.REQUIRED[component][action]:
             r_arg = self._task.args.get(req_arg, None)
             if r_arg is None or r_arg == '':
                 missing_args.append(req_arg)
-        
+
         if len(missing_args) > 0:
             raise AnsibleError(f"Missing required arguments for component '{component}' action '{action}': {missing_args}")
         else:
@@ -72,5 +72,3 @@ class ActionModule(ActionBase):
                 failed=False,
                 msg=f"All required arguments for component '{component}' action '{action}' are provided."
                 )
-
-        

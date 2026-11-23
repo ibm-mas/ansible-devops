@@ -4,8 +4,8 @@ Reusable Kubernetes mock objects for testing.
 This module provides factory functions to create mock Kubernetes objects
 including DynamicClient, resource APIs, and Kubernetes resources.
 """
-from unittest.mock import Mock, MagicMock
-from typing import List, Optional, Dict, Any
+from typing import Any
+from unittest.mock import MagicMock, Mock
 
 
 def create_mock_dynamic_client() -> MagicMock:
@@ -72,7 +72,7 @@ def create_mock_resource(
     return resource
 
 
-def create_mock_resource_list(items: Optional[List[Mock]] = None) -> Mock:
+def create_mock_resource_list(items: list[Mock] | None = None) -> Mock:
     """
     Create a mock Kubernetes resource list.
 
@@ -140,9 +140,9 @@ def create_mock_deployment(
     name: str = "test-deployment",
     namespace: str = "test-ns",
     replicas: int = 1,
-    ready_replicas: Optional[int] = None,
-    updated_replicas: Optional[int] = None,
-    available_replicas: Optional[int] = None
+    ready_replicas: int | None = None,
+    updated_replicas: int | None = None,
+    available_replicas: int | None = None
 ) -> Mock:
     """
     Create a mock Deployment resource.
@@ -170,9 +170,9 @@ def create_mock_statefulset(
     name: str = "test-statefulset",
     namespace: str = "test-ns",
     replicas: int = 1,
-    ready_replicas: Optional[int] = None,
-    updated_replicas: Optional[int] = None,
-    available_replicas: Optional[int] = None
+    ready_replicas: int | None = None,
+    updated_replicas: int | None = None,
+    available_replicas: int | None = None
 ) -> Mock:
     """
     Create a mock StatefulSet resource.
@@ -200,7 +200,7 @@ def create_mock_mas_suite(
     name: str = "test-instance",
     namespace: str = "mas-test-core",
     version: str = "9.0.0",
-    conditions: Optional[List[Dict[str, Any]]] = None
+    conditions: list[dict[str, Any]] | None = None
 ) -> Mock:
     """
     Create a mock MAS Suite resource.
@@ -235,7 +235,7 @@ def create_mock_mas_app(
     app_id: str = "manage",
     namespace: str = "mas-test-manage",
     version: str = "9.0.0",
-    conditions: Optional[List[Dict[str, Any]]] = None
+    conditions: list[dict[str, Any]] | None = None
 ) -> Mock:
     """
     Create a mock MAS Application resource.
@@ -311,4 +311,3 @@ def create_mock_storage_class(
         setattr(storage_class, key, value)
 
     return storage_class
-

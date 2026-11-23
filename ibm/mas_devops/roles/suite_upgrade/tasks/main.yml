@@ -16,8 +16,9 @@
 
 # 3. Determine upgrade target
 # -----------------------------------------------------------------------------
-# Default mas_channel based on the current version of the
-# installed MAS core if not provided by the user specifically
+# When mas_channel is not provided by the user the target is auto-selected
+# as the next release after the currently installed MAS core channel. When
+# mas_channel is provided it is the target channel for the upgrade.
 - name: "Get subscription for ibm-mas"
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
@@ -37,9 +38,17 @@
 - name: "Set upgrade target explicitly"
   when:
     - mas_channel is defined and mas_channel != ""
-    - mas_channel in upgrade_path
   set_fact:
-    target_mas_channel: "{{ upgrade_path[mas_channel] }}"
+    target_mas_channel: "{{ mas_channel }}"
+
+- name: "Assert that the explicitly defined upgrade target is a known channel"
+  when:
+    - mas_channel is defined and mas_channel != ""
+  assert:
+    that: mas_channel in upgrade_requirement['core']
+    fail_msg: >-
+      Unknown MAS core channel '{{ mas_channel }}', supported channels are:
+      {{ upgrade_requirement['core'].keys() | list | join(', ') }}
 
 - name: "Assert upgrade target is defined"
   assert:
@@ -104,16 +113,18 @@
   ansible.builtin.set_fact:
     mas_channel: "{{ op_channels_in_pm[op_channel_idx_in_pm_with_feature | int].name }}"
   when:
-    - mas_channel is not defined
+    # Only try the -feature channel when the exact target channel was not found
+    - (op_channel_idx_in_pm | type_debug) == 'list' or (op_channel_idx_in_pm | int(default=-1)) < 0
     - op_channel_idx_in_pm_with_feature is defined
     - (op_channel_idx_in_pm_with_feature | type_debug) != 'list'
     - (op_channel_idx_in_pm_with_feature | int(default=-1)) >= 0
 
 - name: Raise error if channel not found
   ansible.builtin.fail:
-    msg: "Upgrade not possible. Channel {{ mas_channel }} not found in PackageManifest."
+    msg: "Upgrade not possible. Neither {{ target_mas_channel }} nor {{ fallback_target_channel }} found in PackageManifest ibm-mas."
   when:
-    - mas_channel is not defined
+    - (op_channel_idx_in_pm | type_debug) == 'list' or (op_channel_idx_in_pm | int(default=-1)) < 0
+    - (op_channel_idx_in_pm_with_feature | type_debug) == 'list' or (op_channel_idx_in_pm_with_feature | int(default=-1)) < 0
 
 
 # 5. Provide debug information

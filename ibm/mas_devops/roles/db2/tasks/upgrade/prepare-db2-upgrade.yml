@@ -41,22 +41,10 @@
   shell: oc get subs -A | grep db2u-operator | awk '{print $1}'
   register: db2_operator_namespace_lookup
 
-- name: Assert db2 operator is installed
-  assert:
-    that: db2_operator_namespace_lookup.stdout_lines | length > 0
-    fail_msg: "DB2 operator was not found in the cluster. Aborting DB2 upgrade."
-
-- name: Assert there is just one db2 operator running
-  assert:
-    that: db2_operator_namespace_lookup.stdout_lines | length == 1
-    fail_msg:
-      - "There are multiple subscriptions for DB2 in the cluster."
-      - "Make sure you just have one DB2 operator running."
-      - "DB2 operator namespaces identified: {{ db2_operator_namespace_lookup.stdout_lines }}"
-
-- name: Define db2_operator_namespace based on the lookup
-  set_fact:
-    current_db2_operator_namespace: "{{ db2_operator_namespace_lookup.stdout }}"
+- name: Select the db2 operator namespace to upgrade
+  include_tasks: "tasks/upgrade/select-db2-operator-namespace.yml"
+  vars:
+    db2_operator_namespaces: "{{ db2_operator_namespace_lookup.stdout_lines }}"
 
 - debug:
     msg: "DB2 subscription/operator is currently running in '{{ current_db2_operator_namespace }}' namespace"

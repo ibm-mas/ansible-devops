@@ -13,12 +13,12 @@ not mocks. We only mock external dependencies like Kubernetes API.
 Setup: Install mas.devops package in editable mode:
     pip install -e ../python-devops
 """
-import pytest
-from unittest.mock import Mock
-from ansible.errors import AnsibleError
 
 # Import the action module (path setup is in conftest.py)
 import get_catalog_info
+import pytest
+from ansible.errors import AnsibleError
+
 ActionModule = get_catalog_info.ActionModule
 
 

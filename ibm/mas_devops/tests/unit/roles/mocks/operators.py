@@ -13,7 +13,6 @@ logic, and developer-facing add_* methods for OLM resources:
   - OperatorCondition
 """
 
-from typing import Dict, List, Optional
 
 # ---------------------------------------------------------------------------
 # API discovery constants
@@ -93,7 +92,7 @@ def make_subscription(
     namespace: str,
     name: str,
     installed_csv: str,
-    current_csv: Optional[str] = None,
+    current_csv: str | None = None,
     install_plan_generation: int = 1,
     channel: str = "stable",
     source: str = "ibm-operator-catalog",
@@ -152,7 +151,7 @@ def make_csv(namespace: str, name: str) -> dict:
     }
 
 
-def make_install_plan(namespace: str, name: str, csv_names: List[str]) -> dict:
+def make_install_plan(namespace: str, name: str, csv_names: list[str]) -> dict:
     """Return a minimal OLM InstallPlan object.
 
     Args:
@@ -210,7 +209,7 @@ def _not_found(kind: str, name: str) -> dict:
     }
 
 
-def _deleted(kind: str, name: Optional[str]) -> dict:
+def _deleted(kind: str, name: str | None) -> dict:
     return {
         "kind": "Status",
         "apiVersion": "v1",
@@ -240,10 +239,10 @@ class OperatorsMixin:
 
     def _init_operators(self):
         """Initialise the OLM resource stores. Called by FakeKubernetesServer.__init__."""
-        self._subscriptions: Dict[tuple, dict] = {}
-        self._csvs: Dict[tuple, dict] = {}
-        self._install_plans: Dict[tuple, dict] = {}
-        self._operator_conditions: Dict[tuple, dict] = {}
+        self._subscriptions: dict[tuple, dict] = {}
+        self._csvs: dict[tuple, dict] = {}
+        self._install_plans: dict[tuple, dict] = {}
+        self._operator_conditions: dict[tuple, dict] = {}
 
     # ------------------------------------------------------------------
     # Developer-facing API
@@ -254,7 +253,7 @@ class OperatorsMixin:
         namespace: str,
         name: str,
         installed_csv: str,
-        current_csv: Optional[str] = None,
+        current_csv: str | None = None,
         install_plan_generation: int = 1,
         channel: str = "stable",
         source: str = "ibm-operator-catalog",
@@ -285,7 +284,7 @@ class OperatorsMixin:
         """
         self._csvs[(namespace, name)] = make_csv(namespace, name)
 
-    def add_install_plan(self, namespace: str, name: str, csv_names: List[str]):
+    def add_install_plan(self, namespace: str, name: str, csv_names: list[str]):
         """Register an InstallPlan in the fake server.
 
         Args:
@@ -308,7 +307,7 @@ class OperatorsMixin:
     # Internal routing (called by _Handler via generic dispatch)
     # ------------------------------------------------------------------
 
-    def _handle_apis_get(self, ns: str, resource: str, name: Optional[str]) -> Optional[tuple]:
+    def _handle_apis_get(self, ns: str, resource: str, name: str | None) -> tuple | None:
         """Handle a GET for an OLM namespaced resource.
 
         Returns None if the resource name is not owned by this mixin, allowing
@@ -349,7 +348,7 @@ class OperatorsMixin:
 
         return None
 
-    def _handle_apis_patch(self, ns: str, resource: str, name: str, body: dict) -> Optional[tuple]:
+    def _handle_apis_patch(self, ns: str, resource: str, name: str, body: dict) -> tuple | None:
         """Handle a PATCH for an OLM namespaced resource.
 
         For Subscriptions, bumps installPlanGeneration and merges the spec so
@@ -386,7 +385,7 @@ class OperatorsMixin:
 
         return 200, obj
 
-    def _handle_apis_delete(self, ns: str, resource: str, name: Optional[str]) -> Optional[tuple]:
+    def _handle_apis_delete(self, ns: str, resource: str, name: str | None) -> tuple | None:
         """Handle a DELETE for an OLM namespaced resource.
 
         Returns None if the resource name is not owned by this mixin.
