@@ -204,6 +204,41 @@ Whether SLS enforces client authentication via mutual TLS (mTLS) — `True` or `
 
 When `True`, clients must register with SLS and use mTLS certificates for API calls (secure). Setting to `False` removes authentication requirements, allowing unauthenticated API access — use only in development/testing environments; production deployments should always enforce authentication. Works with `sls_registration_open` to control client registration and access.
 
+#### sls_reporting_sampling_period
+Control the sampling period
+
+- **Optional**
+- Environment Variable: `SLS_REPORTING_SAMPLING_PERIOD`
+- Default: `900`
+
+#### sls_reporting_report_generation_period
+Control the frequency of report generation.
+
+- **Optional**
+- Environment Variable: `SLS_REPORTING_REPORT_GENERATION_PERIOD`
+- Default: `3600`
+
+#### sls_reporting_max_hourly_reports
+Control the number of hourly reports retained.
+
+- **Optional**
+- Environment Variable: `SLS_REPORTING_MAX_HOURLY_REPORTS`
+- Default: `3600`
+
+#### sls_reporting_max_daily_reports
+Control the number of daily reports retained.
+
+- **Optional**
+- Environment Variable: `SLS_REPORTING_MAX_DAILY_REPORTS`
+- Default: `3600`
+
+#### sls_reporting_max_monthly_reports
+Control the number of monthly reports retained.
+
+- **Optional**
+- Environment Variable: `SLS_REPORTING_MAX_MONTHLY_REPORTS`
+- Default: `3600`
+
 #### sls_mongo_retrywrites
 
 Whether SLS uses the MongoDB retryable writes feature — `true` or `false`.
