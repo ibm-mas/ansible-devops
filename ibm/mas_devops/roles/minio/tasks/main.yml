@@ -1,20 +1,14 @@
 ---
-# minio/tasks/main.yml
-# =============================================================================
-# Main dispatcher for MinIO actions
-# Supports: install, backup, uninstall
+- name: Load variables (main)
+  include_vars: "vars/main.yml"
 
-- name: "Run the selected action"
-  include_tasks: "tasks/{{ minio_action }}/main.yml"
-  when:
-    - minio_action != "none"
-    - minio_action in ["install", "backup", "uninstall"]
+# Load default storage class (if not provided by the user)
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/determine-storage-classes.yml
 
-- name: "Fail if minio_action is invalid"
-  fail:
-    msg: "minio_action must be one of ['install', 'backup', 'uninstall', 'none']"
-  when:
-    - minio_action not in ["none", "install", "backup", "uninstall"]
+- name: Load minio defaults using version from the catalog
+  block:
+    - include_tasks: "{{ role_path }}/../../common_tasks/determine-ibmcatalog-tag.yml"
 
     - ibm.mas_devops.get_catalog_info:
         mas_catalog_version: "{{ catalog_tag }}"
