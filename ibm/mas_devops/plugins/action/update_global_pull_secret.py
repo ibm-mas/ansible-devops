@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import logging
+
 import urllib3
-from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 from ansible.errors import AnsibleError
 from ansible.plugins.action import ActionBase
-
+from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 from mas.devops.ocp import updateGlobalPullSecret
 
 urllib3.disable_warnings()  # Disabling warnings will prevent InsecureRequestWarnings from dynClient
@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)-20s %(leveln
 class ActionModule(ActionBase):
     """
     Update the global pull secret in openshift-config namespace with registry credentials.
-    
+
     Usage Example
     -------------
     tasks:
@@ -26,18 +26,18 @@ class ActionModule(ActionBase):
         register: result
     """
     def run(self, tmp=None, task_vars=None):
-        super(ActionModule, self).run(tmp, task_vars)
+        super().run(tmp, task_vars)
 
         registryUrl = self._task.args.get('registry_url', None)
         username = self._task.args.get('username', None)
         password = self._task.args.get('password', None)
 
         if registryUrl is None:
-            raise AnsibleError(f"Error: registry_url argument was not provided")
+            raise AnsibleError("Error: registry_url argument was not provided")
         if username is None:
-            raise AnsibleError(f"Error: username argument was not provided")
+            raise AnsibleError("Error: username argument was not provided")
         if password is None:
-            raise AnsibleError(f"Error: password argument was not provided")
+            raise AnsibleError("Error: password argument was not provided")
 
         # Initialize DynamicClient and update the global pull secret
         host = self._task.args.get('host', None)

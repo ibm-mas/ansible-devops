@@ -9,12 +9,14 @@ mas.devops.mas.updateIBMEntitlementKey() functions. We only mock the
 Kubernetes API client.
 """
 
-import pytest
 from unittest.mock import Mock, patch
-from ansible.errors import AnsibleError
+
+import pytest
 
 # Import the action module
 import update_ibm_entitlement
+from ansible.errors import AnsibleError
+
 ActionModule = update_ibm_entitlement.ActionModule
 
 

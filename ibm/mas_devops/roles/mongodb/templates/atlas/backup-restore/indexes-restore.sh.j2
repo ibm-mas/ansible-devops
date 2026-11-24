@@ -34,15 +34,15 @@ log_warning() {
 restore_indexes() {
     log_info "Starting MongoDB index restore..."
     log_info "Index file: ${INDEX_FILE_PATH}"
-    
+
     # Restore indexes for each database and collection
     log_info "Restoring indexes..."
-    
+
 {% for db_name, collections in index_data.items() %}
 {% for collection_name, indexes in collections.items() %}
     # Restore indexes for {{ db_name }}.{{ collection_name }}
     log_info "Processing {{ db_name }}.{{ collection_name }}..."
-    
+
     mongosh "${MONGODB_URI}" --eval '
     db = db.getSiblingDB("{{ db_name }}");
 {% for index in indexes %}
@@ -72,10 +72,10 @@ restore_indexes() {
         log_error "Failed to restore indexes for {{ db_name }}.{{ collection_name }}"
         return 1
     }
-    
+
 {% endfor %}
 {% endfor %}
-    
+
     log_info "Index restore completed successfully"
     return 0
 }

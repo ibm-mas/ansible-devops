@@ -1,4 +1,3 @@
-# coding: utf-8 -*-
 # (C) Copyright IBM Corp. 2025 All Rights Reserved.
 # Eclipse Public License 2.0 (see https://spdx.org/licenses/EPL-2.0.html)
 
@@ -23,8 +22,8 @@ author:
 '''
 
 import requests
-from requests.exceptions import HTTPError
 from ansible.module_utils.basic import AnsibleModule
+
 
 def main():
 
@@ -67,7 +66,7 @@ def main():
     )
 
     if any(v == "" for v in [module.params['edge_cert_entries'], module.params['cis_crn'], module.params['ibmcloud_apikey'], module.params['instance_id']]):
-        module.fail_json(msg = f"Required parameters: [edge_cert_entries, cis_crn, ibmcloud_apikey, instance_id] cannot be empty")
+        module.fail_json(msg = "Required parameters: [edge_cert_entries, cis_crn, ibmcloud_apikey, instance_id] cannot be empty")
 
     crn = module.params['cis_crn']
     ibmCloudApiKey = module.params['ibmcloud_apikey']
@@ -119,9 +118,9 @@ def main():
 
         # Looking for available zones
         if len(zones) == 0:
-            module.fail_json(msg = f"No DNS zones found, aborting...")
+            module.fail_json(msg = "No DNS zones found, aborting...")
         if len(zones) > 1 and not dnsZone:
-            module.fail_json(msg = f"More than one zone found please choose one and export DNS_ZONE_ID env var.")
+            module.fail_json(msg = "More than one zone found please choose one and export DNS_ZONE_ID env var.")
 
         currentZone = None
         for zone in zones:
@@ -133,7 +132,6 @@ def main():
         if currentZone is None:
             module.fail_json(msg = f"DNS zone with id {dnsZone} not found, aborting...")
 
-        zoneName = currentZone['name']
         zoneId = currentZone['id']
 
         url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/ssl/certificate_packs?per_page=500"
@@ -186,7 +184,7 @@ def main():
             if not any(entryName == host for host in existingCertHosts):
                 entryMissing = True
                 msg = msg + f"{entryName} not in exisitng hosts. \n "
-        
+
         if not entryMissing:
             msg = "All expected edge cert hosts present in existing edge certificates"
 
@@ -198,4 +196,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    

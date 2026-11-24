@@ -90,6 +90,8 @@ Attachment storage provider (action: `attachments`) — `filestorage`, `ibm`, or
 
 Only the CR-based configuration is supported: the former `db` configuration mode (raw SQL against the Manage database) has been removed, and setting `mas_manage_attachment_configuration_mode` to `db` fails with a migration message. The variable is retained so that playbooks setting it to `cr` continue to work.
 
+When the provider is `ibm`, the bucket is created via the [`cos_bucket`](../cos_bucket/README.md) role with an object expiry rule **enabled by default** that deletes objects after 60 days — set `COS_BUCKET_EXPIRE_RULE_ENABLE_FLAG=False` to disable the rule, or adjust the retention period with `COS_BUCKET_EXPIRE_RULE_DAYS`.
+
 #### mas_manage_custfiles_provider
 
 Customer files storage provider (action: `custfiles`) — `ibm` or `aws`.

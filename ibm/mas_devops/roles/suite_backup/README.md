@@ -107,11 +107,15 @@ The MAS Core backup operation captures all critical resources needed to restore 
 - **MAS Internal Resources** (internal.mas.ibm.com):
   - CoreIDP
 - **MAS Configuration Resources** (config.mas.ibm.com):
-  - AppCfg, IDPCfg, JdbcCfg, KafkaCfg, McpiCfg, MongoCfg
+  - IDPCfg, JdbcCfg, KafkaCfg, McpiCfg, MongoCfg
   - ObjectStorageCfg, PushNotificationCfg, ScimCfg
   - SmtpCfg, WatsonStudioCfg
+  - AppCfg (MAS 9.1 and later only)
+  - AiCfg (MAS 9.2 and later only)
   - BasCfg (if `include_dro` is true)
   - SlsCfg (if `include_sls` is true)
+
+The MAS version is auto-detected from the installed `ibm-mas` operator subscription channel, and version-specific resource kinds (AppCfg, AiCfg) are only included in the backup when the installed MAS version defines them.
 
 **Certificate Manager Resources:**
 
@@ -134,9 +138,10 @@ The MAS Core backup operation performs the following steps:
 2. **Version Generation**: Creates or uses provided backup version identifier
 3. **Certificate Manager Detection**: Detects the Certificate Manager installation and namespace
 4. **Cluster Issuer Detection**: Identifies the public cluster issuer in use
-5. **Resource Discovery**: Identifies all MAS Core resources and auto-discovers referenced secrets
-6. **Backup Execution**: Exports all resources to YAML files in the backup directory
-7. **Verification**: Reports backup statistics and any failures
+5. **MAS Version Detection**: Detects the installed MAS version from the `ibm-mas` subscription channel
+6. **Resource Discovery**: Identifies all MAS Core resources and auto-discovers referenced secrets
+7. **Backup Execution**: Exports all resources to YAML files in the backup directory
+8. **Verification**: Reports backup statistics and any failures
 
 **Backup Directory Structure:**
 ```text

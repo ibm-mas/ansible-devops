@@ -37,21 +37,21 @@ def find_readme_files(base_path: Path) -> List[Path]:
 def find_missing_language_tags(readme_path: Path) -> List[Tuple[int, str]]:
     """Find code blocks missing language tags and return (line_number, next_line_preview)"""
     missing_tags = []
-    
+
     try:
         with open(readme_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
     except Exception as e:
         print(f"Error reading {readme_path}: {e}", file=sys.stderr)
         return missing_tags
-    
+
     in_code_block = False
     i = 0
-    
+
     while i < len(lines):
         line = lines[i].rstrip()
         stripped = line.strip()
-        
+
         # Check if this is a code fence (must be at start of line, possibly with leading whitespace)
         # Ignore ``` that appear in the middle of text or after other content
         if stripped.startswith('```') and stripped == '```' or (stripped.startswith('```') and len(stripped) > 3 and stripped[3:].strip() == ''):
@@ -71,9 +71,9 @@ def find_missing_language_tags(readme_path: Path) -> List[Tuple[int, str]]:
             else:
                 # This is a closing fence
                 in_code_block = False
-        
+
         i += 1
-    
+
     return missing_tags
 
 
@@ -81,40 +81,40 @@ def main():
     if len(sys.argv) < 2:
         print("Usage: python3 report_missing_code_tags.py <path>")
         sys.exit(1)
-    
+
     path = Path(sys.argv[1])
     if not path.exists():
         print(f"Error: Path does not exist: {path}")
         sys.exit(1)
-    
+
     # Find README files
     readme_files = find_readme_files(path)
-    
+
     if not readme_files:
         print("No README.md files found")
         sys.exit(0)
-    
+
     print(f"Scanning {len(readme_files)} README files for code blocks missing language tags...\n")
-    
+
     total_missing = 0
     files_with_issues = 0
-    
+
     for readme_path in readme_files:
         missing_tags = find_missing_language_tags(readme_path)
-        
+
         if missing_tags:
             files_with_issues += 1
             total_missing += len(missing_tags)
-            
+
             # Print each missing tag location in format: filename:linenumber
             for line_num, preview in missing_tags:
                 print(f"{readme_path}:{line_num}")
-    
+
     # Summary to stderr
     print(f"\n# Files scanned: {len(readme_files)}", file=sys.stderr)
     print(f"# Files with missing tags: {files_with_issues}", file=sys.stderr)
     print(f"# Total code blocks missing language tags: {total_missing}", file=sys.stderr)
-    
+
     if total_missing > 0:
         sys.exit(1)
     else:

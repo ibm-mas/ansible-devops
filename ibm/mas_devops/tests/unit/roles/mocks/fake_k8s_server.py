@@ -7,6 +7,7 @@ state, routing, and developer-facing add_* methods live in the mixin modules:
   operators.py  -- OLM resources (Subscription, ClusterServiceVersion, InstallPlan)
   workloads.py  -- Core v1 and RBAC resources (ServiceAccount, ConfigMap, Secret,
                    Role, RoleBinding)
+  cpd.py        -- Cloud Pak for Data resources (Ibmcpd, WS, WmlBase, AnalyticsEngine)
 
 Usage::
 
@@ -31,10 +32,10 @@ import tempfile
 import textwrap
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
 import aiservice
+import cpd
 import operators
 import rbac
 import workloads
@@ -57,6 +58,7 @@ _API_GROUPS = {
         operators.API_GROUP_LIST_ENTRY,
         rbac.API_GROUP_LIST_ENTRY,
         aiservice.API_GROUP_LIST_ENTRY,
+        *cpd.API_GROUP_LIST_ENTRIES,
     ],
 }
 
@@ -110,6 +112,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._send_json(200, aiservice.API_GROUP)
         elif path == "/apis/aiservice.ibm.com/v1":
             self._send_json(200, aiservice.RESOURCE_LIST)
+        elif path in cpd.DISCOVERY_ROUTES:
+            self._send_json(200, cpd.DISCOVERY_ROUTES[path])
         else:
             self._route_resource_get(path)
 
@@ -205,7 +209,7 @@ class _Handler(BaseHTTPRequestHandler):
 # ---------------------------------------------------------------------------
 
 
-class FakeKubernetesServer(operators.OperatorsMixin, workloads.WorkloadsMixin, rbac.RbacMixin, aiservice.AIServiceMixin):
+class FakeKubernetesServer(operators.OperatorsMixin, workloads.WorkloadsMixin, rbac.RbacMixin, aiservice.AIServiceMixin, cpd.CpdMixin):
     """
     A lightweight fake Kubernetes API server for Ansible role unit testing.
 
@@ -214,6 +218,7 @@ class FakeKubernetesServer(operators.OperatorsMixin, workloads.WorkloadsMixin, r
       - workloads.WorkloadsMixin  (ServiceAccount, ConfigMap, Secret)
       - rbac.RbacMixin            (Role, RoleBinding)
       - aiservice.AIServiceMixin  (AIServiceTenant)
+      - cpd.CpdMixin              (Ibmcpd, WS, WmlBase, AnalyticsEngine)
 
     Intended to be used as a context manager::
 
@@ -228,12 +233,13 @@ class FakeKubernetesServer(operators.OperatorsMixin, workloads.WorkloadsMixin, r
         self._init_workloads()
         self._init_rbac()
         self._init_aiservice()
-        self._deleted: Dict[str, List[tuple]] = {}
-        self._request_log: List[str] = []
+        self._init_cpd()
+        self._deleted: dict[str, list[tuple]] = {}
+        self._request_log: list[str] = []
 
         self._httpd = HTTPServer(("127.0.0.1", port), _Handler)
         self._httpd.fake = self  # back-reference for handler
-        self._thread: Optional[threading.Thread] = None
+        self._thread: threading.Thread | None = None
         self._kubeconfig_file = None
 
     # ------------------------------------------------------------------
@@ -287,7 +293,7 @@ class FakeKubernetesServer(operators.OperatorsMixin, workloads.WorkloadsMixin, r
     # Test assertion API
     # ------------------------------------------------------------------
 
-    def get_deleted(self, kind: str, name: Optional[str] = None, namespace: Optional[str] = None) -> List[tuple]:
+    def get_deleted(self, kind: str, name: str | None = None, namespace: str | None = None) -> list[tuple]:
         """Return (namespace, name) tuples for resources deleted for a given kind.
 
         Optionally filter by name and/or namespace.

@@ -2,13 +2,12 @@
 
 import logging
 import os
+
 import urllib3
-
-from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
-from ansible.plugins.action import ActionBase
 from ansible.errors import AnsibleError
+from ansible.plugins.action import ActionBase
 from ansible.utils.display import Display
-
+from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 from mas.devops.restore import loadYamlFile, restoreResource
 
 urllib3.disable_warnings()  # Disabling warnings will prevent InsecureRequestWarnings from dynClient
@@ -19,7 +18,7 @@ display = Display()
 # Custom logging handler to forward Python logs to Ansible display
 class AnsibleDisplayHandler(logging.Handler):
     """Custom logging handler that forwards log messages to Ansible's display system"""
-    
+
     def emit(self, record):
         try:
             msg = self.format(record)
@@ -38,16 +37,16 @@ def setup_logging():
     """Setup logging to output to both console and Ansible display"""
     # Create formatter
     formatter = logging.Formatter('%(asctime)s %(name)-20s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-    
+
     # Setup root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
-    
+
     # Add Ansible display handler
     ansible_handler = AnsibleDisplayHandler()
     ansible_handler.setFormatter(formatter)
     root_logger.addHandler(ansible_handler)
-    
+
     # Also add console handler for direct execution/debugging
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
@@ -66,7 +65,7 @@ def filter_fields(resource_data: dict, fields_to_filter: dict, resource_kind: st
         resource_data: The resource dictionary to modify
         fields_to_filter: Dictionary mapping resource kinds to lists of field paths to filter out
         resource_kind: The kind of the current resource (e.g., 'Suite', 'Secret', 'ConfigMap')
-    
+
     Returns:
         dict: Modified resource data with specified fields removed
 
@@ -78,7 +77,7 @@ def filter_fields(resource_data: dict, fields_to_filter: dict, resource_kind: st
             ]
         }
     """
-    
+
     if not fields_to_filter or resource_kind not in fields_to_filter:
         return resource_data
 
@@ -109,15 +108,15 @@ def filter_fields(resource_data: dict, fields_to_filter: dict, resource_kind: st
 def apply_overrides(resource_data: dict, override_values: dict, resource_kind: str) -> dict:
     """
     Apply override values to a resource based on key paths, filtered by resource kind.
-    
+
     Args:
         resource_data: The resource dictionary to modify
         override_values: Dictionary mapping resource kinds to lists of override dictionaries
         resource_kind: The kind of the current resource (e.g., 'Suite', 'Secret', 'ConfigMap')
-        
+
     Returns:
         dict: Modified resource data
-        
+
     Example:
         override_values = {
             'Suite': [
@@ -131,21 +130,21 @@ def apply_overrides(resource_data: dict, override_values: dict, resource_kind: s
     """
     if not override_values or resource_kind not in override_values:
         return resource_data
-    
+
     kind_overrides = override_values[resource_kind]
     if not kind_overrides:
         return resource_data
-    
+
     for override_dict in kind_overrides:
         for key_path, new_value in override_dict.items():
             # Skip if value is NO_OVERRIDE (use backup value)
             if new_value == "NO_OVERRIDE":
                 display.vvv(f"Skipping override for {resource_kind}: {key_path} (NO_OVERRIDE)")
                 continue
-            
+
             # Split the key path by dots to navigate nested structure
             keys = key_path.split('.')
-            
+
             # Navigate to the parent of the target key
             current = resource_data
             for i, key in enumerate(keys[:-1]):
@@ -163,7 +162,7 @@ def apply_overrides(resource_data: dict, override_values: dict, resource_kind: s
                 old_value = current.get(final_key, '<not set>')
                 current[final_key] = new_value
                 display.vvv(f"Applied override for {resource_kind}: {key_path}: {old_value} -> {new_value}")
-    
+
     return resource_data
 
 
@@ -171,11 +170,11 @@ class ActionModule(ActionBase):
     """
     Restore Kubernetes resources from a backup archive directory.
     Automatically discovers and restores all resources found in the backup.
-    
+
     - If a resource doesn't exist, it will be created
     - If a resource exists and replace_resource=True, it will be updated (replaced)
     - If a resource exists and replace_resource=False, it will be skipped
-    
+
     Usage Example
     -------------
     tasks:
@@ -186,12 +185,12 @@ class ActionModule(ActionBase):
             - Secret
             - ConfigMap
           replace_resource: true
-      
+
       - name: "Restore all resources (skip existing)"
         ibm.mas_devops.restore_resource:
           backup_path: "/backup/backup-20250115-120000-suite"
           replace_resource: false
-      
+
       - name: "Restore resources with overrides, filter_values and skip_files"
         ibm.mas_devops.restore_resource:
           backup_path: "/backup/backup-20250115-120000-suite"
@@ -215,7 +214,7 @@ class ActionModule(ActionBase):
               - jdbc-credentials.yaml
     """
     def run(self, tmp=None, task_vars=None):
-        super(ActionModule, self).run(tmp, task_vars)
+        super().run(tmp, task_vars)
 
         # Initialize DynamicClient and grab the task args
         host = self._task.args.get('host', None)
@@ -231,27 +230,27 @@ class ActionModule(ActionBase):
         skip_files = self._task.args.get('skip_files', None)
 
         if backup_path is None or backup_path == "":
-            raise AnsibleError(f"Error: backup_path argument was not provided")
-        
+            raise AnsibleError("Error: backup_path argument was not provided")
+
         # Check if backup path exists
         if not os.path.exists(backup_path):
             raise AnsibleError(f"Error: backup_path does not exist: {backup_path}")
-        
+
         # Check if resources directory exists
         resources_path = os.path.join(backup_path, 'resources')
         if not os.path.exists(resources_path):
             raise AnsibleError(f"Error: resources directory not found in backup: {resources_path}")
-        
+
         display.v(f"Starting restore of MAS resources from '{backup_path}'")
         display.v(f"Replace existing resources: {'enabled' if replace_resource else 'disabled'}")
         if override_values:
             override_kinds = ', '.join(override_values.keys())
             display.v(f"Override values will be applied for resource kinds: {override_kinds}")
-        
+
         if filter_values:
             filter_kinds = ', '.join(filter_values.keys())
             display.v(f"Filter values will be applied for resource kinds: {filter_kinds}")
-        
+
         skip_files_lower = None
         if skip_files:
             display.v(f"Skip files will be applied for resource kinds: {', '.join(skip_files.keys())}")
@@ -265,11 +264,11 @@ class ActionModule(ActionBase):
 
         # Discover all resource types in the backup
         try:
-            resource_dirs = [d for d in os.listdir(resources_path) 
+            resource_dirs = [d for d in os.listdir(resources_path)
                            if os.path.isdir(os.path.join(resources_path, d))]
         except Exception as e:
-            raise AnsibleError(f"Error listing resource directories in {resources_path}: {e}")
-        
+            raise AnsibleError(f"Error listing resource directories in {resources_path}: {e}") from e
+
         if not resource_dirs:
             display.warning(f"No resource directories found in {resources_path}")
             return dict(
@@ -283,9 +282,9 @@ class ActionModule(ActionBase):
                 failed_count=0,
                 failed_resources=[]
             )
-        
+
         display.v(f"Found {len(resource_dirs)} resource type(s) in backup: {', '.join(sorted(resource_dirs))}")
-        
+
         # Filter resource directories if specific kinds requested
         if resource_kinds:
             # Convert resource_kinds to lowercase directory names (add 's' suffix)
@@ -296,12 +295,12 @@ class ActionModule(ActionBase):
                 if not dir_name.endswith('s'):
                     dir_name = dir_name + 's'
                 requested_dirs.add(dir_name)
-            
+
             # Filter to only requested directories
             resource_dirs = [d for d in resource_dirs if d in requested_dirs]
-            
+
             if not resource_dirs:
-                display.warning(f"None of the requested resource kinds found in backup")
+                display.warning("None of the requested resource kinds found in backup")
                 return dict(
                     message="No requested resources found to restore",
                     failed=False,
@@ -313,9 +312,9 @@ class ActionModule(ActionBase):
                     failed_count=0,
                     failed_resources=[]
                 )
-            
+
             display.v(f"Restoring {len(resource_dirs)} requested resource type(s): {', '.join(sorted(resource_dirs))}")
-        
+
         # Process each resource directory
         for resource_dir in sorted(resource_dirs):
             resource_dir_path = os.path.join(resources_path, resource_dir)
@@ -323,20 +322,20 @@ class ActionModule(ActionBase):
 
             if skip_files_lower:
                 files_to_skip = skip_files_lower.get(resource_dir, [])
-            
+
             # Get all YAML files in this directory
             try:
                 yaml_files = [f for f in os.listdir(resource_dir_path) if f.endswith('.yaml')]
             except Exception as e:
                 display.warning(f"Error listing files in {resource_dir_path}: {e}")
                 continue
-            
+
             if not yaml_files:
                 display.v(f"No YAML files found in {resource_dir}/")
                 continue
-            
+
             display.v(f"Restoring {len(yaml_files)} resource(s) from {resource_dir}/")
-            
+
             # Process each YAML file
             for yaml_file in sorted(yaml_files):
 
@@ -346,7 +345,7 @@ class ActionModule(ActionBase):
                     continue
 
                 yaml_file_path = os.path.join(resource_dir_path, yaml_file)
-                
+
                 # Load the resource data
                 resource_data = loadYamlFile(yaml_file_path)
                 if not resource_data:
@@ -359,22 +358,22 @@ class ActionModule(ActionBase):
                         'error': 'Failed to load YAML file'
                     })
                     continue
-                
+
                 # Apply overrides if provided
                 if override_values:
                     resource_kind = resource_data.get('kind', 'Unknown')
                     resource_data = apply_overrides(resource_data, override_values, resource_kind)
-                
+
                 # Filter values if provided
                 if filter_values:
                     resource_kind = resource_data.get('kind', 'Unknown')
                     resource_data = filter_fields(resource_data, filter_values, resource_kind)
-                
+
                 # Restore the resource
                 success, resource_name, status_msg = restoreResource(
                     dynClient, resource_data, namespace=None, replace_resource=replace_resource
                 )
-                
+
                 if success:
                     if status_msg == "updated":
                         # Resource was updated
@@ -394,16 +393,18 @@ class ActionModule(ActionBase):
                         'description': f"{kind}/{resource_name}",
                         'error': status_msg
                     })
-            
+
             display.v(f"Progress: {total_created} created, {total_updated} updated, {total_skipped} skipped, {total_failed} failed")
 
         display.v(f"Restore complete: {total_created} resources created, {total_updated} updated, {total_skipped} skipped, {total_failed} failed")
 
         # Determine if the restore was successful
         has_failures = total_failed > 0
-        
+
         return dict(
-            message=f"Restored {total_created + total_updated} MAS resources ({total_created} created, {total_updated} updated, {total_skipped} skipped)" + (f" with {total_failed} failures" if has_failures else ""),
+            message=(f"Restored {total_created + total_updated} MAS resources ({total_created} created, "
+                     f"{total_updated} updated, {total_skipped} skipped)")
+                     + (f" with {total_failed} failures" if has_failures else ""),
             failed=has_failures,
             changed=(total_created + total_updated) > 0,
             success=not has_failures,

@@ -4,10 +4,11 @@ Action plugin specific fixtures.
 This module provides fixtures specifically for testing action plugins,
 including common setup for ActionModule instantiation.
 """
-import pytest
-from unittest.mock import Mock
-import sys
 import os
+import sys
+from unittest.mock import Mock
+
+import pytest
 
 # This code runs when conftest.py is loaded, BEFORE test collection
 # Path structure: ibm/mas_devops/tests/unit/plugins/action/conftest.py

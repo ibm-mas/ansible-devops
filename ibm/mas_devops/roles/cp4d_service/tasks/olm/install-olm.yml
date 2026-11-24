@@ -143,13 +143,34 @@
     package_channel: "{{ cpd_components_meta.ws_runtimes.sub_channel }}"
     catalog_source: "ibm-operator-catalog"
 
-# Install Elasticsearch subscription for specific services
-- name: "Create Elasticsearch Subscription"
+# Install OpenSearch subscription for specific services
+# CPD 5.2.0 replaces the opencontent-elasticsearch operator with
+# opencontent-opensearch (ibm-opensearch-operator), which is also what
+# 'mas mirror' mirrors into air-gapped environments (#2074)
+- name: "Clean up legacy Elasticsearch operator subscription from {{ cpd_operators_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    name: ibm-elasticsearch-operator
+  register: legacy_elasticsearch_sub
+
+- name: "Delete legacy Elasticsearch operator subscription"
+  when: legacy_elasticsearch_sub.resources | default([]) | length > 0
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    name: ibm-elasticsearch-operator
+  ignore_errors: true
+
+- name: "Create OpenSearch Subscription"
   when: cpd_service_name is in ['wsl','wml']
   ibm.mas_devops.apply_subscription:
     namespace: "{{ cpd_operators_namespace }}"
-    package_name: "ibm-elasticsearch-operator"
-    package_channel: "{{ cpd_components_meta.opencontent_elasticsearch.sub_channel }}"
+    package_name: "ibm-opensearch-operator"
+    package_channel: "{{ cpd_components_meta.opencontent_opensearch.sub_channel }}"
     catalog_source: "ibm-operator-catalog"
 
 

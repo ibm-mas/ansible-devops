@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
-from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
-from ansible.plugins.action import ActionBase
-from ansible.errors import AnsibleError
-from ansible.utils.display import Display
-from kubernetes.dynamic import DynamicClient
-import time
-import urllib3
 import logging
+import time
+
+import urllib3
+from ansible.errors import AnsibleError
+from ansible.plugins.action import ActionBase
+from ansible.utils.display import Display
+from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
+from kubernetes.dynamic import DynamicClient
 
 urllib3.disable_warnings()  # Disabling warnings will prevent InsecureRequestWarnings from dynClient
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)-20s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
@@ -32,7 +33,7 @@ def waitForConditionsToReady(dynClient: DynamicClient, apiVersion: str, kind: st
         attempts += 1
         conditionsReady = 0
 
-        logger.info(f"Checking required conditions:")
+        logger.info("Checking required conditions:")
         resourceAPI = dynClient.resources.get(api_version=apiVersion, kind=kind)
         resource = resourceAPI = resourceAPI.get(namespace=namespace, name=name)
 
@@ -63,7 +64,7 @@ def waitForConditionsToReady(dynClient: DynamicClient, apiVersion: str, kind: st
                 # Sleep before another attempt
                 time.sleep(120)
         else:
-          logger.info(f"The required conditions have all transitioned to 'True'")
+          logger.info("The required conditions have all transitioned to 'True'")
           return dict(
             message=f"{kind} '{name}' is ready ({', '.join(conditionsToWaitFor)})",
             success=True,
@@ -75,7 +76,7 @@ def waitForConditionsToReady(dynClient: DynamicClient, apiVersion: str, kind: st
 
 class ActionModule(ActionBase):
     def run(self, tmp=None, task_vars=None):
-        super(ActionModule, self).run(tmp, task_vars)
+        super().run(tmp, task_vars)
 
         # Initialize DynamicClient and grab the task args
         host = self._task.args.get('host', None)
@@ -92,15 +93,15 @@ class ActionModule(ActionBase):
         retries = self._task.args.get('retries', 50)
 
         if api_version is None:
-            raise AnsibleError(f"Error: api_version argument was not provided")
+            raise AnsibleError("Error: api_version argument was not provided")
         if kind is None:
-            raise AnsibleError(f"Error: kind argument was not provided")
+            raise AnsibleError("Error: kind argument was not provided")
         if namespace is None:
-            raise AnsibleError(f"Error: namespace argument was not provided")
+            raise AnsibleError("Error: namespace argument was not provided")
         if name is None:
-            raise AnsibleError(f"Error: name argument was not provided")
+            raise AnsibleError("Error: name argument was not provided")
         if not conditions:
-            raise AnsibleError(f"Error: conditions argument was not provided or is empty")
+            raise AnsibleError("Error: conditions argument was not provided or is empty")
 
         response = waitForConditionsToReady(
           dynClient=dynClient,

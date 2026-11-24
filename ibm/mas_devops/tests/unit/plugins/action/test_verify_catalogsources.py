@@ -5,12 +5,13 @@ This module tests the verify_catalogsources action which checks if CatalogSource
 are ready with retry logic.
 """
 
-import pytest
 from unittest.mock import Mock, patch
-from ansible.errors import AnsibleError
+
+import pytest
 
 # Import the action module
 import verify_catalogsources
+from ansible.errors import AnsibleError
 
 ActionModule = verify_catalogsources.ActionModule
 
