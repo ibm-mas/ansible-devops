@@ -37,7 +37,7 @@ class TestWaitForSubscriptionApproval:
         return ActionModule(**action_module_base)
 
     @patch("wait_for_subscription_approval.get_api_client")
-    @patch("wait_for_subscription_approval.waitForSubscriptionApproval")
+    @patch("wait_for_subscription_approval.waitForSubscriptionApproval", autospec=True)
     def test_namespace_mode_delegates_to_helper(self, mock_wait, mock_get_api_client, action_module):
         """Test the single-namespace mode passes through package and timeout"""
         mock_get_api_client.return_value = Mock()
@@ -57,7 +57,7 @@ class TestWaitForSubscriptionApproval:
         assert mock_wait.call_args.kwargs["timeout"] == 600
 
     @patch("wait_for_subscription_approval.get_api_client")
-    @patch("wait_for_subscription_approval.waitForSubscriptionApproval")
+    @patch("wait_for_subscription_approval.waitForSubscriptionApproval", autospec=True)
     def test_message_reports_granted_only_when_the_wait_actually_waited(self, mock_wait, mock_get_api_client, action_module):
         """The success message must not claim approvals were granted when nothing was ever pending"""
         mock_get_api_client.return_value = Mock()
@@ -71,7 +71,7 @@ class TestWaitForSubscriptionApproval:
         assert result["message"] == "All install plan approvals have been granted in: test-namespace"
 
     @patch("wait_for_subscription_approval.get_api_client")
-    @patch("wait_for_subscription_approval.waitForSubscriptionApproval")
+    @patch("wait_for_subscription_approval.waitForSubscriptionApproval", autospec=True)
     def test_cluster_wide_mode_waits_for_every_namespace(self, mock_wait, mock_get_api_client, action_module):
         """Test the cluster-wide mode (no namespace) discovers and waits for each namespace"""
         mock_get_api_client.return_value = Mock()
@@ -130,7 +130,7 @@ class TestWaitForSubscriptionApproval:
         assert "No install plans are waiting for approval" in result["message"]
 
     @patch("wait_for_subscription_approval.get_api_client")
-    @patch("wait_for_subscription_approval.waitForSubscriptionApproval")
+    @patch("wait_for_subscription_approval.waitForSubscriptionApproval", autospec=True)
     def test_timeout_raises_ansible_error(self, mock_wait, mock_get_api_client, action_module):
         """Test that OLMTimeoutError is converted to an actionable AnsibleError"""
         mock_get_api_client.return_value = Mock()
@@ -142,7 +142,7 @@ class TestWaitForSubscriptionApproval:
             action_module.run()
 
     @patch("wait_for_subscription_approval.get_api_client")
-    @patch("wait_for_subscription_approval.waitForSubscriptionApproval")
+    @patch("wait_for_subscription_approval.waitForSubscriptionApproval", autospec=True)
     def test_olm_exception_raises_ansible_error(self, mock_wait, mock_get_api_client, action_module):
         """Test that OLMException is converted to AnsibleError"""
         mock_get_api_client.return_value = Mock()

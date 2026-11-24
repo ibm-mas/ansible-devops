@@ -301,7 +301,10 @@ class TestApplySubscription:
             'package_channel': '3.x'
         }
 
-        with patch('apply_subscription.waitForSubscriptionApproval') as mock_wait:
+        # autospec: the mock carries the real gate signature, so a call with
+        # a stale kwarg (e.g. the removed targetCSV) fails here instead of in
+        # a cluster run
+        with patch('apply_subscription.waitForSubscriptionApproval', autospec=True) as mock_wait:
             result = action_module.run()
 
         assert result['success'] is True
@@ -310,8 +313,10 @@ class TestApplySubscription:
         assert kwargs['onApprovalRequired'] == 'return'
         mock_wait.assert_called_once()
         assert mock_wait.call_args.kwargs['packageName'] == 'ibm-sls'
-        assert mock_wait.call_args.kwargs['targetCSV'] == 'ibm-sls.v3.8.0'
         assert mock_wait.call_args.kwargs['approvalMode'] == 'Manual'
+        # The convergence gate derives its target from the PackageManifest
+        # itself; no targetCSV is passed any more
+        assert 'targetCSV' not in mock_wait.call_args.kwargs
 
     @patch('apply_subscription.get_api_client')
     @patch('apply_subscription.applySubscription')

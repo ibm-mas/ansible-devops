@@ -178,11 +178,13 @@ class ActionModule(ActionBase):
                     pollInterval=30
                 )
                 if isinstance(result, tuple):
-                    subscription, approvalInfo = result
+                    # applySubscription released with a pending approval: the
+                    # gate prints the notices and waits for the human to
+                    # approve it (never approving on their behalf)
+                    subscription, _ = result
                     waitForSubscriptionApproval(
                         dynClient, display, namespace,
                         packageName=packageName,
-                        targetCSV=approvalInfo.get("targetCSV"),
                         timeout=timeout,
                         approvalMode="Manual"
                     )

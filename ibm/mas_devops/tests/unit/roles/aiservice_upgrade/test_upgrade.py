@@ -1,4 +1,3 @@
-
 from utils import run_task, task_path
 
 _TASK_FILE = task_path("aiservice_upgrade", "tenant", "upgrade.yml")
@@ -27,13 +26,9 @@ def _base_variables(namespace: str, channel: str = "v9.1.x") -> dict:
                 "installPlanGeneration": 1,
             },
         },
-        # Pre-upgrade subscription snapshot — used in the until: comparison
-        "aiservice_sub_info": {"resources": [{"status": {"installPlanGeneration": 1}}]},
         "aiservice_tenant_channel": channel,
         # Pre-upgrade operator version (used only in a debug message)
         "opcon_version": _OLD_VERSION,
-        # Override the 5-minute pause so tests run instantly
-        "aiservice_tenant_upgrade_pause_minutes": 0,
     }
 
 
@@ -46,8 +41,18 @@ class TestTenantUpgrade:
             namespace,
             "ibm-aiservice-tenant",
             f"ibm-aiservice-tenant.v{_OLD_VERSION}",
+            # currentCSV is the channel head the subscription is rolling to;
+            # the fake server promotes installedCSV to it when the channel
+            # patch is applied (the rollout the convergence gate waits for)
+            current_csv=f"ibm-aiservice-tenant.v{_NEW_VERSION}",
             install_plan_generation=1,
             channel="v9-1",
+        )
+        # The channel head the convergence gate resolves its target from
+        fake_k8s.add_package_manifest(
+            "openshift-marketplace",
+            "ibm-aiservice-tenant",
+            {"9.2.x": f"ibm-aiservice-tenant.v{_NEW_VERSION}"},
         )
         # OperatorCondition returned by the label-selector list — must be exactly 1
         fake_k8s.add_operator_condition(namespace, _OPCON_NAME)
@@ -63,6 +68,12 @@ class TestTenantUpgrade:
         assert sub["spec"]["channel"] == target_channel
         assert sub["status"]["installPlanGeneration"] > 1
 
+        # The convergence gate resolved the channel head from the PackageManifest
+        # (a skipped target would have logged the warning instead)
+        assert any("packagemanifests" in path for path in fake_k8s._request_log), "the approval gate did not consult the PackageManifest"
+        assert (
+            "Cannot determine the channel head" not in result.stdout
+        ), "the approval gate skipped the subscription instead of converging on the manifest target"
+
         # Verify the delete_truststore_operator subtask was invoked (it always GETs this subscription)
-        assert any("ibm-truststore-mgr" in path for path in fake_k8s._request_log), \
-            "delete_truststore_operator subtask was not called"
+        assert any("ibm-truststore-mgr" in path for path in fake_k8s._request_log), "delete_truststore_operator subtask was not called"
