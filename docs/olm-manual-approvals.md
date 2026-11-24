@@ -12,7 +12,7 @@ Manual approval mode is controlled with two environment variables:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OLM_APPROVAL_MODE` | `Automatic` | `Automatic` (no behavior change) or `Manual` |
-| `OLM_APPROVAL_TIMEOUT` | `7200` | Seconds to wait for each approval before failing (2 hours) |
+| `OLM_APPROVAL_TIMEOUT` | `7200` | Seconds to wait for each approval, however it is issued (human under Manual, OLM under Automatic), before failing (2 hours) |
 
 !!! note
     These variables are read directly by the `apply_subscription` and
@@ -91,42 +91,54 @@ processing regardless of which subscription generated them.
 
 `OLM_APPROVAL_TIMEOUT` budgets **each individual approval wait** (per
 namespace / per subscription stage), not the whole run: a long installation
-with several sequential approval gates can take longer in total. Set it to a
-value that reflects how quickly a human is expected to respond.
+with several sequential approval gates can take longer in total. It applies
+to the approval **however the approval is issued** — a human granting it
+under Manual mode, or OLM granting it itself under Automatic mode (where the
+budget covers OLM's approval plus the resulting rollout to the channel
+head). Set it to a value that reflects how quickly the approval is expected
+to be granted and applied.
 
-## Install plan generation
+## Subscription convergence
 
-The approval gate has to distinguish "no InstallPlan is pending **yet**" from
-"no InstallPlan is **coming**" — a distinction a single namespace snapshot
-cannot make in the moments after a Subscription is created (OLM takes a few
-seconds to generate the first InstallPlan) or patched (the old InstallPlan is
-replaced, not removed, only when the new one is generated). In Manual and
-Mixed namespaces the gate closes this race before deciding that nothing is
-pending:
+The approval gate is a **deterministic target-state wait**: for every
+Subscription in the namespace it knows the target (the `currentCSV` of the
+Subscription's channel in the operator's PackageManifest) and the current
+state (`status.installedCSV`), and it returns only when every Subscription
+has reached its channel head. This is what closes the creation race — a
+Subscription created or patched moments before the gate runs is simply
+not-yet-converged, whether its InstallPlan has not been generated yet, is
+awaiting approval, or is still installing — and why the same wait works for
+both approval modes: under Manual the approvals come from a human, under
+Automatic from OLM, and in both cases the gate waits for the resulting
+convergence. InstallPlans being namespace-scoped, every Subscription in the
+namespace is considered, not just the one the calling role created.
 
-- **Fresh Subscriptions** (no `status.installPlanRef`): the gate blocks until
-  OLM generates their InstallPlans — normally seconds. If OLM has not
-  resolved them after 10 minutes the gate fails naming the Subscriptions,
-  with pointers at the Subscription status conditions and catalog health.
-  When every Subscription in the namespace was fresh, this is all that is
-  needed: the ref appearing is itself the resolution event.
-- **Pre-existing Subscriptions** (an `installPlanRef` was already present —
-  untouched, or patched moments ago; indistinguishable at the gate): the gate
-  settles on **status stability** instead, waiting until the Subscriptions'
-  resolution fields (state, installPlanRef, installedCSV,
-  installPlanGeneration, currentCSV) have been unchanged for a few
-  consecutive polls (~1 minute). An update that is coming churns these fields
-  within seconds; no update leaves them quiet.
+Notes on the edges:
 
-The cluster-wide gate (no `namespace`) uses the same settle poll before
-discovering pending InstallPlans, so that right after a catalog digest update
-it does not race OLM's re-resolution of every Subscription.
+- **Unresolvable targets**: a Subscription whose package has no
+  PackageManifest (or whose channel is absent from it) is skipped with a
+  warning and never blocks the gate — nothing can be approved for it, and a
+  removed catalog must not wedge installs.
+- **Fail fast**: a Subscription with an active `ResolutionFailed` condition
+  (bad channel, missing dependency, catalog problem) or a Failed InstallPlan
+  fails the gate immediately with an actionable error in **both** modes,
+  rather than burning the timeout.
+- **Timeout**: the per-wait budget is `OLM_APPROVAL_TIMEOUT` in both modes.
+  On expiry under Manual the approve commands are repeated in the error;
+  under Automatic each non-converged Subscription is listed as
+  `installedCSV -> targetCSV`.
+- **Notices**: under Manual, the pending InstallPlans are the human-facing
+  notices (what is pending, the `oc patch` command) — displayed when first
+  seen, including plans that appear mid-wait (for example the second step of
+  a multi-step upgrade path). Under Automatic an equivalent status line
+  reports how many subscriptions are still rolling to their channel head.
 
-These waits are deliberately **not configurable**: they are failure ceilings
-for unhealthy clusters (a stuck OLM fails loudly after 10 minutes instead of
-silently hanging the calling role's readiness waits), not delays paid by
-healthy runs — a fresh install pays seconds, and an update with nothing to
-approve pays about a minute.
+The one remaining timing window is the **cluster-wide gate** (no
+`namespace`, used after a catalog digest update): the PackageManifest itself
+lags the catalog update, so the gate settles on Subscription status
+stability (~1 minute of quiet) before discovering pending InstallPlans —
+there is no deterministic signal for catalog-to-manifest propagation. This
+settle is deliberately not configurable.
 
 ## Support matrix
 
@@ -136,11 +148,16 @@ approve pays about a minute.
   effective approval mode and every wait in the flow handles pending approvals.
 - **Template-based dependency roles** (cp4d, dro, eck, kafka, nvidia_gpu,
   ocp_efs, ocs, turbonomic): subscriptions are rendered with the effective
-  approval mode and each role waits for approvals before waiting for the
-  operator to be ready — including waiting for OLM to generate the install
-  plans of just-created subscriptions (see [Install plan generation](#install-plan-generation)).
+  approval mode and each role's gate waits until every subscription in the
+  namespace has reached its channel head (see
+  [Subscription convergence](#subscription-convergence)) — which also covers
+  the install plan generation of just-created subscriptions.
 - **Update and upgrade flows**: channel changes under manual approval generate
-  pending install plans that are waited on before the flow continues.
+  pending install plans that are waited on before the flow continues. The
+  convergence gate returns only once the subscription is at the new channel
+  head, so the flows' former settle pauses and installPlanGeneration bump
+  checks have been removed (suite_upgrade, suite_app_upgrade,
+  aiservice_upgrade, kafka, ocs).
 - **mongodb** is not OLM-based and is unaffected.
 
 ## Standalone wait
@@ -153,7 +170,7 @@ directly:
 - name: Wait for install plan approval
   ibm.mas_devops.wait_for_subscription_approval:
     namespace: mas-inst1-core
-    package_name: ibm-mas   # optional: also waits for the operator to settle
+    package_name: ibm-mas   # optional: echoed in the result as packageStatus
     timeout: 7200           # optional: defaults to OLM_APPROVAL_TIMEOUT
 ```
 

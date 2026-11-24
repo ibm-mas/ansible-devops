@@ -26,13 +26,40 @@ APPROVAL = {
 }
 
 
-def makeStatus(namespace="test-namespace", approvalMode="Manual", pendingApprovals=None):
+def makeStatus(namespace="test-namespace", approvalMode="Manual", pendingApprovals=None, subscriptions=None, converged=True):
     pendingApprovals = pendingApprovals if pendingApprovals is not None else []
     return {
         "namespace": namespace,
         "approvalMode": approvalMode,
         "pendingApprovals": pendingApprovals,
         "blocking": len(pendingApprovals) > 0,
+        "subscriptions": subscriptions if subscriptions is not None else [],
+        "failedInstallPlans": [],
+        "converged": converged,
+    }
+
+
+def makeSubscriptionEntry(
+    name="test-operator",
+    package="test-operator",
+    converged=True,
+    installedCSV="test-operator.v2.0.0",
+    targetCSV="test-operator.v2.0.0",
+    skipped=False,
+    skipReason=None,
+):
+    return {
+        "name": name,
+        "package": package,
+        "channel": "stable",
+        "state": "AtLatestKnown" if converged else "UpgradePending",
+        "installedCSV": installedCSV,
+        "targetCSV": targetCSV,
+        "installPlanRef": "install-plan-1",
+        "converged": converged,
+        "skipped": skipped,
+        "skipReason": skipReason,
+        "resolutionError": None,
     }
 
 
@@ -104,13 +131,14 @@ class TestFormatApprovalNotice:
 class TestWaitForSubscriptionApproval:
     """Tests for the wait orchestration in waitForSubscriptionApproval."""
 
-    def test_noop_when_nothing_pending(self):
+    def test_converged_namespace_returns_without_waiting(self):
         display = Mock()
         status = makeStatus(pendingApprovals=[])
         with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=status):
-            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={}):
+            with patch.object(olm_approvals, "waitForSubscriptionConvergence", return_value=status) as mockWait:
                 result = olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace")
 
+        mockWait.assert_called_once()
         assert result is status
         assert result["waited"] is False
         display.display.assert_not_called()
@@ -119,18 +147,18 @@ class TestWaitForSubscriptionApproval:
         display = Mock()
         status = makeStatus(approvalMode="Automatic", pendingApprovals=[APPROVAL])
         with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=status):
-            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={}) as mockRefs:
+            with patch.object(olm_approvals, "waitForSubscriptionConvergence") as mockWait:
                 with pytest.raises(ValueError, match="Install plans are waiting for manual approval in namespace test-namespace"):
                     olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode="Automatic")
 
-        # An Automatic namespace never enters the generation race pre-gate
-        mockRefs.assert_not_called()
+        # The mismatch fails before any wait begins
+        mockWait.assert_not_called()
 
     def test_unset_mode_mismatch_raises_with_remedy(self):
         display = Mock()
         status = makeStatus(approvalMode="Manual", pendingApprovals=[APPROVAL])
         with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=status):
-            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={}):
+            with patch.object(olm_approvals, "waitForSubscriptionConvergence"):
                 with pytest.raises(ValueError) as excinfo:
                     olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode=None)
 
@@ -141,24 +169,20 @@ class TestWaitForSubscriptionApproval:
         assert "oc patch installplan/install-plan-1" in message
         assert "OLM_APPROVAL_MODE=Manual" in message
 
-    def test_manual_wait_displays_notices_and_waits_for_operator(self):
+    def test_manual_wait_displays_notices_and_waits_for_convergence(self):
         display = Mock()
         blocking = makeStatus(pendingApprovals=[APPROVAL])
         final = makeStatus(pendingApprovals=[])
-        with patch.object(olm_approvals, "getNamespaceApprovalStatus", side_effect=[blocking, final]):
-            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={}):
-                with patch.object(olm_approvals, "waitForNamespaceApprovals") as mockWait:
-                    with patch.object(olm_approvals, "waitForInstallPlanComplete") as mockPlanComplete:
-                        with patch.object(olm_approvals, "waitForSubscriptionStable") as mockStable:
-                            result = olm_approvals.waitForSubscriptionApproval(
-                                Mock(),
-                                display,
-                                "test-namespace",
-                                packageName="test-operator",
-                                targetCSV="test-operator.v2.0.0",
-                                timeout=600,
-                                approvalMode="Manual",
-                            )
+        with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=blocking):
+            with patch.object(olm_approvals, "waitForSubscriptionConvergence", return_value=final) as mockWait:
+                result = olm_approvals.waitForSubscriptionApproval(
+                    Mock(),
+                    display,
+                    "test-namespace",
+                    packageName="test-operator",
+                    timeout=600,
+                    approvalMode="Manual",
+                )
 
         assert result is final
         assert result["waited"] is True
@@ -168,52 +192,137 @@ class TestWaitForSubscriptionApproval:
 
         mockWait.assert_called_once()
         assert mockWait.call_args.kwargs["timeout"] == 600
-        onPending = mockWait.call_args.kwargs["onPending"]
-        assert onPending is not None
+        assert mockWait.call_args.kwargs["onPending"] is not None
 
-        mockPlanComplete.assert_called_once()
-        assert mockPlanComplete.call_args.args[2] == "install-plan-1"
-        mockStable.assert_called_once()
-        assert mockStable.call_args.kwargs["targetCSV"] == "test-operator.v2.0.0"
+    def test_automatic_context_runs_the_convergence_wait_too(self):
+        display = Mock()
+        unconverged = makeStatus(
+            approvalMode="Automatic",
+            pendingApprovals=[],
+            subscriptions=[makeSubscriptionEntry(converged=False, installedCSV=None)],
+            converged=False,
+        )
+        with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=unconverged):
+            with patch.object(olm_approvals, "waitForSubscriptionConvergence", return_value=unconverged) as mockWait:
+                result = olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", timeout=600, approvalMode="Automatic")
+
+        # Automatic runs the same convergence wait (OLM issues the approvals
+        # itself; the wait is for the resulting rollout)
+        mockWait.assert_called_once()
+        assert mockWait.call_args.kwargs["timeout"] == 600
+        assert result["waited"] is False
+
+    def test_package_status_is_echoed_in_the_result(self):
+        display = Mock()
+        entry = makeSubscriptionEntry(name="test-operator", package="test-operator")
+        final = makeStatus(pendingApprovals=[], subscriptions=[entry], converged=True)
+        with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=makeStatus(pendingApprovals=[])):
+            with patch.object(olm_approvals, "waitForSubscriptionConvergence", return_value=final):
+                result = olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", packageName="test-operator")
+
+        assert result["packageStatus"] is entry
 
     def test_mixed_namespace_reported_not_fatal(self):
         display = Mock()
         blocking = makeStatus(approvalMode="Mixed", pendingApprovals=[APPROVAL])
         final = makeStatus(pendingApprovals=[])
-        with patch.object(olm_approvals, "getNamespaceApprovalStatus", side_effect=[blocking, final]):
-            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={}):
-                with patch.object(olm_approvals, "waitForNamespaceApprovals"):
-                    with patch.object(olm_approvals, "waitForInstallPlanComplete"):
-                        with patch.object(olm_approvals, "waitForSubscriptionStable"):
-                            result = olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode="Manual")
+        with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=blocking):
+            with patch.object(olm_approvals, "waitForSubscriptionConvergence", return_value=final):
+                result = olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode="Manual")
 
         assert result is final
         displayed = " ".join(str(call.args[0]) for call in display.display.call_args_list)
         assert "mix of approval modes" in displayed
 
+    def test_new_plan_appearing_mid_wait_gets_a_notice(self):
+        display = Mock()
+        blocking = makeStatus(pendingApprovals=[APPROVAL])
+        final = makeStatus(pendingApprovals=[])
+        with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=blocking):
+            with patch.object(olm_approvals, "waitForSubscriptionConvergence", return_value=final) as mockWait:
+                olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode="Manual")
+
+        onPending = mockWait.call_args.kwargs["onPending"]
+        noticesBefore = display.display.call_count
+
+        # A second plan appears mid-wait (a multi-step upgrade path): it gets
+        # its notice too, the already-noticed plan does not get a repeat
+        secondApproval = dict(APPROVAL, installPlan="install-plan-2")
+        midWait = makeStatus(pendingApprovals=[APPROVAL, secondApproval], converged=False)
+        assert onPending(midWait, 2) is not False
+
+        displayed = " ".join(str(call.args[0]) for call in display.display.call_args_list[noticesBefore:])
+        assert "Waiting for manual approval of install plan install-plan-2" in displayed
+        assert displayed.count("Waiting for manual approval of install plan install-plan-1") == 0
+
+    def test_late_mismatch_fails_fast_in_automatic_context(self):
+        display = Mock()
+        initial = makeStatus(approvalMode="Automatic", pendingApprovals=[])
+        with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=initial):
+            with patch.object(olm_approvals, "waitForSubscriptionConvergence", return_value=initial) as mockWait:
+                olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode=None)
+
+        onPending = mockWait.call_args.kwargs["onPending"]
+
+        # A plan appears after the initial snapshot (a just-created
+        # Subscription's first plan): the same mismatch, caught late
+        lateBlocking = makeStatus(approvalMode="Automatic", pendingApprovals=[APPROVAL], converged=False)
+        with pytest.raises(ValueError, match="Install plans are waiting for manual approval"):
+            onPending(lateBlocking, 1)
+
+    def test_waited_true_when_pending_only_seen_mid_wait(self):
+        display = Mock()
+        initial = makeStatus(pendingApprovals=[])
+        final = makeStatus(pendingApprovals=[])
+        midWait = makeStatus(pendingApprovals=[APPROVAL], converged=False)
+
+        def runWait(dynClient, namespace, timeout=None, pollInterval=30, onPending=None):
+            onPending(midWait, 1)
+            return final
+
+        with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=initial):
+            with patch.object(olm_approvals, "waitForSubscriptionConvergence", side_effect=runWait):
+                result = olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode="Manual")
+
+        assert result["waited"] is True
+
     def test_timeout_error_repeats_approve_commands(self):
         display = Mock()
         blocking = makeStatus(pendingApprovals=[APPROVAL])
         with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=blocking):
-            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={}):
-                with patch.object(olm_approvals, "waitForNamespaceApprovals", side_effect=OLMTimeoutError("timed out")):
-                    with pytest.raises(OLMTimeoutError) as excinfo:
-                        olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", timeout=300, approvalMode="Manual")
+            with patch.object(olm_approvals, "waitForSubscriptionConvergence", side_effect=OLMTimeoutError("timed out")):
+                with pytest.raises(OLMTimeoutError) as excinfo:
+                    olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", timeout=300, approvalMode="Manual")
 
         assert "Timed out after 300s" in str(excinfo.value)
         assert "oc patch installplan/install-plan-1" in str(excinfo.value)
+
+    def test_timeout_in_automatic_context_reraises_subscription_list(self):
+        display = Mock()
+        unconverged = makeStatus(approvalMode="Automatic", pendingApprovals=[], subscriptions=[makeSubscriptionEntry(converged=False)], converged=False)
+        with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=unconverged):
+            with patch.object(
+                olm_approvals,
+                "waitForSubscriptionConvergence",
+                side_effect=OLMTimeoutError(
+                    "Timed out after 300s waiting for Subscriptions in test-namespace to reach their channel head:\n  test-operator: v1 -> v2"
+                ),
+            ):
+                with pytest.raises(OLMTimeoutError) as excinfo:
+                    olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", timeout=300, approvalMode="Automatic")
+
+        # Automatic: the underlying per-Subscription message is re-raised
+        # unchanged (there are no approve commands to repeat)
+        assert "test-operator: v1 -> v2" in str(excinfo.value)
 
     def test_status_line_logged_on_first_poll_and_then_time_gated(self):
         display = Mock()
         blocking = makeStatus(pendingApprovals=[APPROVAL])
         final = makeStatus(pendingApprovals=[])
 
-        with patch.object(olm_approvals, "getNamespaceApprovalStatus", side_effect=[blocking, final]):
-            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={}):
-                with patch.object(olm_approvals, "waitForNamespaceApprovals") as mockWait:
-                    with patch.object(olm_approvals, "waitForInstallPlanComplete"):
-                        with patch.object(olm_approvals, "waitForSubscriptionStable"):
-                            olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", timeout=7200, approvalMode="Manual")
+        with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=blocking):
+            with patch.object(olm_approvals, "waitForSubscriptionConvergence", return_value=final) as mockWait:
+                olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", timeout=7200, approvalMode="Manual")
 
         onPending = mockWait.call_args.kwargs["onPending"]
         noticesBeforeStatusLines = display.display.call_count
@@ -228,17 +337,33 @@ class TestWaitForSubscriptionApproval:
         assert onPending(blocking, 2) is not False
         assert display.display.call_count == noticesBeforeStatusLines + 1
 
+    def test_automatic_status_line_names_unconverged_subscriptions(self):
+        display = Mock()
+        unconverged = makeStatus(
+            approvalMode="Automatic",
+            pendingApprovals=[],
+            subscriptions=[makeSubscriptionEntry(name="test-operator", converged=False, installedCSV=None)],
+            converged=False,
+        )
+        with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=unconverged):
+            with patch.object(olm_approvals, "waitForSubscriptionConvergence", return_value=unconverged) as mockWait:
+                olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", timeout=7200, approvalMode="Automatic")
+
+        onPending = mockWait.call_args.kwargs["onPending"]
+        assert onPending(unconverged, 1) is not False
+        statusLine = str(display.display.call_args.args[0])
+        assert "Waiting for 1 subscription(s) in test-namespace to reach their channel head" in statusLine
+        assert "test-operator" in statusLine
+        assert "approval deadline" in statusLine
+
     def test_status_line_logged_again_after_interval(self):
         display = Mock()
         blocking = makeStatus(pendingApprovals=[APPROVAL])
         final = makeStatus(pendingApprovals=[])
 
-        with patch.object(olm_approvals, "getNamespaceApprovalStatus", side_effect=[blocking, final]):
-            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={}):
-                with patch.object(olm_approvals, "waitForNamespaceApprovals") as mockWait:
-                    with patch.object(olm_approvals, "waitForInstallPlanComplete"):
-                        with patch.object(olm_approvals, "waitForSubscriptionStable"):
-                            olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", timeout=7200, approvalMode="Manual")
+        with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=blocking):
+            with patch.object(olm_approvals, "waitForSubscriptionConvergence", return_value=final) as mockWait:
+                olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", timeout=7200, approvalMode="Manual")
 
         onPending = mockWait.call_args.kwargs["onPending"]
         assert onPending(blocking, 1) is not False
@@ -254,96 +379,6 @@ class TestWaitForSubscriptionApproval:
             assert onPending(blocking, 2) is not False
 
         assert display.display.call_count == baseline + 1
-
-
-class TestWaitForSubscriptionApprovalGenerationRace:
-    """Tests for the creation-to-generation race pre-gate.
-
-    A Manual/Mixed namespace snapshot taken moments after Subscription
-    creation (or a Subscription patch) can miss the InstallPlans OLM has not
-    generated yet: the pre-gate waits for generation (fresh Subscriptions,
-    no installPlanRef) and settles on status stability (pre-existing
-    Subscriptions, possibly just patched) before the blocking check runs.
-    """
-
-    def test_fresh_subscription_waits_for_generation_then_notices(self):
-        display = Mock()
-        before = makeStatus(pendingApprovals=[])
-        blocking = makeStatus(pendingApprovals=[APPROVAL])
-        final = makeStatus(pendingApprovals=[])
-
-        with patch.object(olm_approvals, "getNamespaceApprovalStatus", side_effect=[before, blocking, final]):
-            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={"test-operator": None}):
-                with patch.object(olm_approvals, "waitForSubscriptionInstallPlans") as mockGenerate:
-                    with patch.object(olm_approvals, "waitForSubscriptionResolution") as mockSettle:
-                        with patch.object(olm_approvals, "waitForNamespaceApprovals"):
-                            result = olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode="Manual")
-
-        # All Subscriptions were fresh: the ref appearing is the resolution
-        # event, so no settle poll is needed
-        mockGenerate.assert_called_once()
-        mockSettle.assert_not_called()
-        assert result["waited"] is True
-
-    def test_settled_subscription_settles_before_checking(self):
-        display = Mock()
-        before = makeStatus(pendingApprovals=[])
-        blocking = makeStatus(pendingApprovals=[APPROVAL])
-        final = makeStatus(pendingApprovals=[])
-
-        with patch.object(olm_approvals, "getNamespaceApprovalStatus", side_effect=[before, blocking, final]):
-            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={"test-operator": "install-plan-0"}):
-                with patch.object(olm_approvals, "waitForSubscriptionInstallPlans") as mockGenerate:
-                    with patch.object(olm_approvals, "waitForSubscriptionResolution") as mockSettle:
-                        with patch.object(olm_approvals, "waitForNamespaceApprovals"):
-                            result = olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode="Manual")
-
-        # A pre-existing ref means the Subscription may have been patched
-        # moments ago: settle on status stability instead of generation
-        mockGenerate.assert_not_called()
-        mockSettle.assert_called_once()
-        assert result["waited"] is True
-
-    def test_mixed_fresh_and_settled_subscriptions_wait_both_ways(self):
-        display = Mock()
-        before = makeStatus(pendingApprovals=[])
-        final = makeStatus(pendingApprovals=[])
-
-        with patch.object(olm_approvals, "getNamespaceApprovalStatus", side_effect=[before, final]):
-            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={"fresh": None, "settled": "install-plan-0"}):
-                with patch.object(olm_approvals, "waitForSubscriptionInstallPlans") as mockGenerate:
-                    with patch.object(olm_approvals, "waitForSubscriptionResolution") as mockSettle:
-                        olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode="Manual")
-
-        mockGenerate.assert_called_once()
-        mockSettle.assert_called_once()
-
-    def test_generation_wait_failure_propagates(self):
-        display = Mock()
-        before = makeStatus(pendingApprovals=[])
-
-        with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=before):
-            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs", return_value={"test-operator": None}):
-                with patch.object(
-                    olm_approvals,
-                    "waitForSubscriptionInstallPlans",
-                    side_effect=OLMTimeoutError("Timed out after 600s waiting for OLM to generate InstallPlans"),
-                ):
-                    with pytest.raises(OLMTimeoutError, match="Timed out after 600s"):
-                        olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode="Manual")
-
-    def test_automatic_namespace_skips_the_pre_gate(self):
-        display = Mock()
-        status = makeStatus(approvalMode="Automatic", pendingApprovals=[])
-
-        with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=status):
-            with patch.object(olm_approvals, "getSubscriptionInstallPlanRefs") as mockRefs:
-                result = olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace")
-
-        # OLM approves by itself in Automatic namespaces: no pre-gate, no
-        # delay, exactly the behavior before the race fix
-        mockRefs.assert_not_called()
-        assert result["waited"] is False
 
 
 # Made with Bob

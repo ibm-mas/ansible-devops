@@ -17,26 +17,10 @@
     namespace: "{{ kafka_namespace }}"
     package_name: "{{ kafka_operator_name }}"
 
-- name: "Pause for 30 seconds before checking subscription status..."
-  pause:
-    seconds: 30
-
-- name: "Wait kafka subscription to update installedCSV"
-  kubernetes.core.k8s_info:
-    api_version: operators.coreos.com/v1alpha1
-    name: "{{ kafka_operator_name }}"
-    namespace: "{{ kafka_namespace }}"
-    kind: Subscription
-  register: kafka_updated_sub_info
-  retries: 20
-  delay: 30 # Retry for approx 10 minutes (30s * 20 attempts) before giving up
-  until:
-    - kafka_updated_sub_info.resources is defined
-    - kafka_updated_sub_info.resources | length > 0
-    - kafka_updated_sub_info.resources[0].status is defined
-    - kafka_updated_sub_info.resources[0].status.installedCSV is defined
-    - kafka_updated_sub_info.resources[0].status.currentCSV is defined
-    - kafka_updated_sub_info.resources[0].status.currentCSV == kafka_updated_sub_info.resources[0].status.installedCSV or (olm_approval_mode == 'Manual' and kafka_updated_sub_info.resources[0].status.state == 'UpgradePending')
+# The convergence gate returns only once the subscription has reached the new
+# channel head (its installedCSV equals the channel's currentCSV), so the
+# subscription status poll and settle pauses that used to follow it are no
+# longer needed.
 
 - name: "Wait for {{ kafka_operator_name }} to be ready (60s delay)"
   kubernetes.core.k8s_info:
@@ -60,10 +44,6 @@
     - kafka_operator_deployment.resources[0].status.updatedReplicas == kafka_operator_deployment.resources[0].status.replicas
   retries: 30 # Approximately 15 minutes before we give up
   delay: 30 # 30 seconds
-
-- name: "Pause for 30 seconds before continuing upgrade process..."
-  pause:
-    seconds: 30
 
 # 2. Lookup the updated OperatorCondition
 # -----------------------------------------------------------------------------

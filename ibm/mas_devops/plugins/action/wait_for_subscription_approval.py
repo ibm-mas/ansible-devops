@@ -18,10 +18,12 @@ urllib3.disable_warnings()  # Disabling warnings will prevent InsecureRequestWar
 
 class ActionModule(ActionBase):
     """
-    Wait for manual install plan approvals. This module never approves
-    anything: it displays what is pending (and how to approve it with oc) and
-    waits for the approval to be given out-of-band, then waits for the
-    affected operator to finish installing before returning.
+    Wait for install plan approvals and subscription convergence. This module
+    never approves anything: under Manual approval it displays what is pending
+    (and how to approve it with oc) and waits for the approval to be given
+    out-of-band; under Automatic approval OLM issues the approvals itself. In
+    both modes it then waits until every Subscription in the namespace has
+    reached its channel head before returning.
 
     Usage Example
     -------------
@@ -29,7 +31,7 @@ class ActionModule(ActionBase):
       - name: "Wait for install plan approval"
         ibm.mas_devops.wait_for_subscription_approval:
           namespace: test-namespace
-          package_name: ibm-sls (optional, waits for the operator to settle too)
+          package_name: ibm-sls (optional, echoed in the result as packageStatus)
           timeout: 7200 (optional, defaults to the OLM_APPROVAL_TIMEOUT env var or 7200)
           poll_interval: 30 (optional)
 

@@ -21,12 +21,7 @@ from datetime import datetime, timezone
 from mas.devops.olm import (
     OLMTimeoutError,
     getNamespaceApprovalStatus,
-    getSubscriptionInstallPlanRefs,
-    waitForInstallPlanComplete,
-    waitForNamespaceApprovals,
-    waitForSubscriptionInstallPlans,
-    waitForSubscriptionResolution,
-    waitForSubscriptionStable,
+    waitForSubscriptionConvergence,
 )
 
 # Default per-wait budget for a human to grant approval (2 hours), in seconds
@@ -105,73 +100,73 @@ def _formatTimestamp(timestamp):
     return datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
-def waitForSubscriptionApproval(dynClient, display, namespace, packageName=None, targetCSV=None, timeout=None, pollInterval=30, approvalMode=None):
+def waitForSubscriptionApproval(dynClient, display, namespace, packageName=None, timeout=None, pollInterval=30, approvalMode=None):
     """
-    Wait for the install plans in a namespace to be approved by a human.
+    Wait for every Subscription in a namespace to reach its channel head.
 
-    Before deciding that nothing is pending, the creation-to-generation race
-    is closed for Manual/Mixed namespaces (the mode where a missed install
-    plan means nobody is ever notified and the operator never installs):
+    The wait is deterministic: each Subscription's target (the currentCSV of
+    its channel in the operator's PackageManifest) is known up front, so
+    there is no timing window in which a just-created or just-patched
+    Subscription can be mistaken for a settled one. A Subscription that has
+    not converged is simply not done -- whether its InstallPlan has not been
+    generated yet, is awaiting approval, or is still installing -- and
+    InstallPlans being namespace-scoped, every Subscription in the namespace
+    is considered, not just the one the calling role created.
 
-    1. A Subscription created moments ago has no installPlanRef until OLM
-       generates its first InstallPlan (seconds); when any Subscription is in
-       that state waitForSubscriptionInstallPlans blocks until the plans
-       exist. When every Subscription was fresh, the ref appearing is itself
-       the resolution event and no further wait is needed.
-    2. A Subscription patched moments ago (a channel change) keeps its old
-       installPlanRef throughout, so a presence check cannot see the new plan
-       coming; when any Subscription already had a ref at entry,
-       waitForSubscriptionResolution settles on status stability instead
-       (~1 minute of quiet means no change is coming).
+    Both approval modes run the same convergence wait; the only difference
+    is the messaging:
 
-    Only then does the cheap snapshot decide. When install plans are waiting:
+    1. Under Manual approval the pending InstallPlans are the human-facing
+       notices (what is pending, what it will change, the oc command to
+       approve it). They are displayed when first seen -- including plans
+       that appear mid-wait, for example the second step of a multi-step
+       upgrade path -- and a status line ("Waiting for install plan approval
+       since <x>, approval deadline <y>") repeats every STATUS_INTERVAL
+       seconds so it is clear the wait has not died.
+    2. Under Automatic approval OLM issues the approvals itself; the wait
+       is for the resulting rollout, with an equivalent status line.
 
-    1. If approvalMode is anything other than "Manual" (including unset, which
-       is an Automatic context) this is an approval mode mismatch and a
-       ValueError is raised with the approve commands and the remedy (install
-       plans awaiting approval in an Automatic context used to slow-fail the
-       calling role's readiness waits; now they fail fast with instructions).
-    2. The human-facing notices (what is pending, what it will change, the oc
-       command to approve it) are displayed, then the wait begins. A status
-       line ("Waiting for install plan approval since <x>, approval deadline
-       <y>") is displayed on the first poll and every STATUS_INTERVAL seconds
-       after that, so it is clear the wait has not died.
-    3. Once the approvals are given, the install plan for packageName (when
-       provided) is waited to Complete and the subscription to settle at
-       targetCSV (AtLatestKnown, or UpgradePending with installedCSV ==
-       targetCSV under Manual approval).
+    The timeout (resolved by the caller via resolveApprovalTimeout) budgets
+    the approval however it is issued: a human under Manual, OLM under
+    Automatic. On expiry it is fatal in both modes -- under Manual the
+    approve commands are repeated in the error, under Automatic each
+    non-converged Subscription is listed as installedCSV -> targetCSV.
+
+    When install plans are pending in a namespace whose effective context is
+    anything other than "Manual" (including unset, which is an Automatic
+    context) this is an approval mode mismatch and a ValueError is raised
+    with the approve commands and the OLM_APPROVAL_MODE=Manual remedy --
+    both from the initial snapshot and for plans that appear mid-wait
+    (pending install plans in an Automatic context used to slow-fail the
+    calling role's readiness waits; now they fail fast with instructions).
+
+    Subscriptions that cannot converge fail the wait immediately with an
+    actionable error (ResolutionFailed condition or a Failed InstallPlan),
+    in both modes, rather than burning the timeout.
 
     Mixed-mode namespaces (OLM auto-creates dependency subscriptions with
     default Automatic approval inside Manual namespaces) behave the same as
     Manual: reported, never fatal.
 
-    The returned status dict is the python-devops namespace approval status
-    with one added key: waited (bool), True only when the human wait path
-    actually ran, so callers can distinguish "approvals were granted" from
-    "there was never anything to approve".
+    packageName does not narrow the wait (and never did narrow the approval
+    wait): it is echoed in the returned status as packageStatus so callers
+    can confirm the Subscription they care about, while sibling
+    subscriptions in the namespace are waited on equally.
 
-    Raises OLMTimeoutError (with the approve commands repeated in the
-    message) when the timeout expires, and ValueError on the Automatic
-    mismatch. Both are translated by the action plugins.
+    The returned status dict is the python-devops namespace convergence
+    status with two added keys: waited (bool, True only when install plans
+    were observed awaiting approval at some point, so callers can
+    distinguish "approvals were granted" from "there was never anything to
+    approve") and packageStatus (the per-Subscription status entry matching
+    packageName, or None).
+
+    Raises OLMTimeoutError when the timeout expires (with the approve
+    commands repeated in the message under Manual) and ValueError on the
+    Automatic mismatch. Both are translated by the action plugins.
     """
     status = getNamespaceApprovalStatus(dynClient, namespace)
 
-    if status["approvalMode"] in ("Manual", "Mixed"):
-        refs = getSubscriptionInstallPlanRefs(dynClient, namespace)
-        freshSubscriptions = any(ref is None for ref in refs.values())
-        existingSubscriptions = any(ref is not None for ref in refs.values())
-        if freshSubscriptions:
-            waitForSubscriptionInstallPlans(dynClient, namespace)
-        if existingSubscriptions:
-            waitForSubscriptionResolution(dynClient, namespace)
-        if freshSubscriptions or existingSubscriptions:
-            status = getNamespaceApprovalStatus(dynClient, namespace)
-
-    if not status["blocking"]:
-        status["waited"] = False
-        return status
-
-    if approvalMode != "Manual":
+    if status["blocking"] and approvalMode != "Manual":
         # Includes an unset (None) mode: pending install plans in an
         # Automatic context are a mode mismatch that must fail fast (with
         # instructions) rather than hang the calling role's readiness waits
@@ -190,46 +185,89 @@ def waitForSubscriptionApproval(dynClient, display, namespace, packageName=None,
             "subscriptions with default Automatic approval); treating the namespace as Manual"
         )
 
-    for approval in status["pendingApprovals"]:
-        for line in formatApprovalNotice(approval):
-            display.display(line)
+    manualContext = approvalMode == "Manual"
 
+    # The install plans already pending at entry get their notices up front;
+    # plans that appear mid-wait get theirs from the onPending callback below
+    seenPlanNames = set()
+    for approval in status["pendingApprovals"]:
+        seenPlanNames.add(approval["installPlan"])
+        if manualContext:
+            for line in formatApprovalNotice(approval):
+                display.display(line)
+
+    waited = status["blocking"]
     startTime = datetime.now(timezone.utc)
     startTs = startTime.timestamp()
     deadlineTs = startTs + timeout if timeout is not None else None
     lastStatusLog = [None]
 
     def onPending(pendingStatus, pollCount):
+        nonlocal waited
+        waited = waited or pendingStatus["blocking"]
+
+        if not manualContext and pendingStatus["blocking"]:
+            # A plan appeared after the initial snapshot (a just-created
+            # Subscription's first plan, or a channel change's new plan):
+            # the same mismatch as above, caught late
+            commands = "\n".join(f"  {approveCommand(approval)}" for approval in pendingStatus["pendingApprovals"])
+            raise ValueError(
+                f"Install plans are waiting for manual approval in namespace {namespace}, but the effective "
+                f"approval mode is '{approvalMode or 'Automatic'}'. Either grant approval:\n{commands}\n"
+                "or set OLM_APPROVAL_MODE=Manual so that the automation waits for the approvals instead"
+            )
+
+        if manualContext:
+            for approval in pendingStatus["pendingApprovals"]:
+                if approval["installPlan"] not in seenPlanNames:
+                    seenPlanNames.add(approval["installPlan"])
+                    for line in formatApprovalNotice(approval):
+                        display.display(line)
+
         now = datetime.now(timezone.utc).timestamp()
         if lastStatusLog[0] is None or now - lastStatusLog[0] >= STATUS_INTERVAL:
             lastStatusLog[0] = now
-            if deadlineTs is not None:
-                display.display(f"Waiting for install plan approval since {_formatTimestamp(startTs)}, " f"approval deadline {_formatTimestamp(deadlineTs)}")
+            if manualContext:
+                if deadlineTs is not None:
+                    display.display(
+                        f"Waiting for install plan approval since {_formatTimestamp(startTs)}, " f"approval deadline {_formatTimestamp(deadlineTs)}"
+                    )
+                else:
+                    display.display(f"Waiting for install plan approval since {_formatTimestamp(startTs)} (no timeout)")
             else:
-                display.display(f"Waiting for install plan approval since {_formatTimestamp(startTs)} (no timeout)")
+                unconverged = [entry["name"] for entry in pendingStatus["subscriptions"] if entry["converged"] is False]
+                if deadlineTs is not None:
+                    display.display(
+                        f"Waiting for {len(unconverged)} subscription(s) in {namespace} to reach their channel head "
+                        f"({', '.join(unconverged)}), approval deadline {_formatTimestamp(deadlineTs)}"
+                    )
+                else:
+                    display.display(
+                        f"Waiting for {len(unconverged)} subscription(s) in {namespace} to reach their channel head ({', '.join(unconverged)}) (no timeout)"
+                    )
         # Returning False aborts the wait; anything else keeps waiting
         return True
 
     try:
-        waitForNamespaceApprovals(dynClient, namespace, timeout=timeout, pollInterval=pollInterval, onPending=onPending)
+        finalStatus = waitForSubscriptionConvergence(dynClient, namespace, timeout=timeout, pollInterval=pollInterval, onPending=onPending)
     except OLMTimeoutError as e:
-        # Re-raise with the approve commands so the failure is actionable on
-        # its own: the notices have likely scrolled away by now
-        current = getNamespaceApprovalStatus(dynClient, namespace)
-        commands = "\n".join(f"  {approveCommand(approval)}" for approval in current["pendingApprovals"])
-        raise OLMTimeoutError(
-            f"Timed out after {timeout}s waiting for manual install plan approval in namespace {namespace}. " f"To grant approval run:\n{commands}"
-        ) from e
+        if manualContext:
+            # Re-raise with the approve commands so the failure is actionable
+            # on its own: the notices have likely scrolled away by now
+            current = getNamespaceApprovalStatus(dynClient, namespace)
+            commands = "\n".join(f"  {approveCommand(approval)}" for approval in current["pendingApprovals"])
+            raise OLMTimeoutError(
+                f"Timed out after {timeout}s waiting for manual install plan approval in namespace {namespace}. " f"To grant approval run:\n{commands}"
+            ) from e
+        # Automatic: the underlying message already lists each Subscription
+        # as installedCSV -> targetCSV
+        raise
 
-    # The approvals have been given: wait for the install plan to complete
-    # and the subscription to settle before handing control back to the role
+    finalStatus["waited"] = waited
+    finalStatus["packageStatus"] = None
     if packageName is not None:
-        for approval in status["pendingApprovals"]:
-            if approval.get("package") == packageName or approval.get("subscription") == packageName:
-                waitForInstallPlanComplete(dynClient, namespace, approval["installPlan"], timeout=timeout, pollInterval=pollInterval)
+        for entry in finalStatus["subscriptions"]:
+            if entry["package"] == packageName or entry["name"] == packageName:
+                finalStatus["packageStatus"] = entry
                 break
-        waitForSubscriptionStable(dynClient, namespace, packageName, timeout=timeout, pollInterval=pollInterval, targetCSV=targetCSV)
-
-    finalStatus = getNamespaceApprovalStatus(dynClient, namespace)
-    finalStatus["waited"] = True
     return finalStatus
