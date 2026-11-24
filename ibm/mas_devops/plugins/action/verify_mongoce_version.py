@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 
 import urllib3
-from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
-from ansible.plugins.action import ActionBase
 from ansible.errors import AnsibleError
+from ansible.plugins.action import ActionBase
 from ansible.utils.display import Display
+from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 from kubernetes.dynamic import DynamicClient
-from kubernetes.dynamic.exceptions import NotFoundError
-
 from mas.devops.ocp import getCR
 
 # Disabling warnings will prevent InsecureRequestWarnings from dynClient
@@ -19,13 +17,13 @@ def isMongoRunning(mongoCR: dict) -> bool:
     Check if MongoDB Community instance is running
     return True if running, else False
     """
-    display.v(f"Checking if MongoDB Community instance is in 'Running' state")
+    display.v("Checking if MongoDB Community instance is in 'Running' state")
     if 'status' in mongoCR:
         if 'phase' in mongoCR['status']:
             if mongoCR['status']['phase'] == 'Running':
-                display.v(f"MongoDB Community instance is in 'Running' state")
+                display.v("MongoDB Community instance is in 'Running' state")
                 return True
-    display.v(f"MongoDB Community instance is not in 'Running' state")
+    display.v("MongoDB Community instance is not in 'Running' state")
     return False
 
 def getMongoceCR(dynClient: DynamicClient, mongodb_instance_name: str, mongodb_namespace: str) -> dict:
@@ -56,7 +54,7 @@ class ActionModule(ActionBase):
         ibm.mas_devops.verify_mongoce_version:
     """
     def run(self, tmp=None, task_vars=None):
-        super(ActionModule, self).run(tmp, task_vars)
+        super().run(tmp, task_vars)
 
         # Initialize DynamicClient and grab the task args
         host = self._task.args.get('host', None)
@@ -68,9 +66,9 @@ class ActionModule(ActionBase):
         mongodb_namespace = self._task.args.get('mongodb_namespace')
 
         if mongodb_instance_name is None:
-            raise AnsibleError(f"Error: mongodb_instance_name argument was not provided")
+            raise AnsibleError("Error: mongodb_instance_name argument was not provided")
         if mongodb_namespace is None:
-            raise AnsibleError(f"Error: mongodb_namespace argument was not provided")
+            raise AnsibleError("Error: mongodb_namespace argument was not provided")
 
         # Check for existing MongoDb install
         mongodbCR = getMongoceCR(
@@ -89,15 +87,19 @@ class ActionModule(ActionBase):
                 running=False
             )
         elif isMongoRunning(mongodbCR):
-            display.v(f"MongoDB Community instance '{mongodb_instance_name}' is running version '{mongodbCR['spec']['version']}' in namespace '{mongodb_namespace}'")
+            display.v(
+                f"MongoDB Community instance '{mongodb_instance_name}' is running version "
+                f"'{mongodbCR['spec']['version']}' in namespace '{mongodb_namespace}'"
+            )
             return dict(
-                message=f"MongoDB Community instance '{mongodb_instance_name}' is running version '{mongodbCR['spec']['version']}' in namespace '{mongodb_namespace}'",
+                message=(f"MongoDB Community instance '{mongodb_instance_name}' is running version "
+                         f"'{mongodbCR['spec']['version']}' in namespace '{mongodb_namespace}'"),
                 success=True,
                 failed=False,
                 exist=True,
                 running=True,
                 mongoce_version=mongodbCR['spec']['version']
-            ) 
+            )
         else:
             display.v(f"MongoDB Community instance '{mongodb_instance_name}' is NOT in 'Running' state in namespace '{mongodb_namespace}'")
             return dict(

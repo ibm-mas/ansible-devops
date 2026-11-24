@@ -15,35 +15,35 @@ Dependencies
 * IBM Suite License Service installed on OCP cluster or external instance or details from external instance
 * IBM Data Reporter Operator installed on OCP cluster or external instance or details from external instance
 * Object Storage
-  - Minio (installed on the same cluster as aiservice)
+  - MinIO (installed on the same cluster as AI Service)
   - AWS S3 (Provide details to connect to AWS S3. Bucket names must be unique globally. Ensure to use a unique bucket prefix when using AWS S3)
 
 Overview
 -------------------------------------------------------------------------------
-This playbook will add **AI Service v9.1.x** to OCP cluster.
+This playbook will add **AI Service v9.1.x** to an OCP cluster.
 
-This playbook can be ran against any OCP cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
+This playbook can be run against any OCP cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
 
 * Install dependencies:
-    - IBM Maximo Operator Catalog 
-    - RedHat Certificate Manager 
-    - MongoDb **optional if SLS is not being installed on same cluster**
+    - IBM Maximo Operator Catalog
+    - Red Hat Certificate Manager
+    - MongoDB **optional if SLS is not being installed on same cluster**
     - IBM Suite License Service (~10 Minutes) **optional if customer chooses to use SLS from external cluster**
     - IBM Data Reporter Operator (~10 Minutes) **optional if customer chooses to use DRO from external cluster**
     - IBM Db2
-    - Minio (~5 minutes) **optional if customer choose to use external object storage**
-* Install ODH:
-    - Install Red Hat OpenShift Serverless Operator **Required when using serverless deployment mode for ODH**
-    - Install Red Hat OpenShift Service Mesh Operator **Required when using serverless deployment mode for ODH**
+    - MinIO (~5 minutes) **optional if customer chooses to use external object storage**
+* Install RHOAI:
+    - Install Red Hat OpenShift Serverless Operator **Required when using serverless deployment mode**
+    - Install Red Hat OpenShift Service Mesh Operator **Required when using serverless deployment mode**
     - Install Authorino Operator
-    - Install Open Data Hub Operator
+    - Install Red Hat OpenShift AI Operator
     - Create DSCInitialization instance
     - Create DataScienceCluster instance
 * Install AI Service (using playbook):
     - Install application (~20 Minutes)
     - Configure AI Service (kmodels, tenant, etc) (~20 Minutes)
 
-All timings are estimates, see the individual pages for each of these playbooks for more information. Use this sample playbook as a starting point for installing application, just customize the application install and configure stages at the end of the playbook.
+All timings are estimates, see the individual pages for each of these playbooks for more information. Use this sample playbook as a starting point for installing the application, just customize the application install and configure stages at the end of the playbook.
 
 Required environment variables
 -------------------------------------------------------------------------------
@@ -55,29 +55,29 @@ Required environment variables
 * `AISERVICE_S3_ACCESSKEY` Access Key for object storage provider
 * `AISERVICE_S3_SECRETKEY` Secret key for object storage provider
 * `AISERVICE_S3_HOST` Your object storage provider host
-* `AISERVICE_S3_REGION` Your object storage provider region - only when use AWS S3 instance
+* `AISERVICE_S3_REGION` Your object storage provider region - only when using an AWS S3 instance
 * `AISERVICE_S3_SSL` Is your object storage SSL enabled? (true/false)
 * `AISERVICE_S3_TENANTS_BUCKET` Bucket name to store tenants info
 * `AISERVICE_S3_TEMPLATES_BUCKET` Bucket name to store templates info
 * `AISERVICE_S3_BUCKET_PREFIX` Bucket prefix configured with object storage provider
-* `AISERVICE_WATSONXAI_APIKEY` You WatsonX AI api key
-* `AISERVICE_WATSONXAI_URL` You WatsonX AI url
-* `AISERVICE_WATSONXAI_PROJECT_ID` You WatsonX projedt Id
+* `AISERVICE_WATSONXAI_APIKEY` Your WatsonX AI api key
+* `AISERVICE_WATSONXAI_URL` Your WatsonX AI url
+* `AISERVICE_WATSONXAI_PROJECT_ID` Your WatsonX project ID
 
 !!! tip
 
-    AI service supports **AWS** and **Minio** storage providers.
+    AI Service supports **AWS** and **MinIO** storage providers.
 
 Required environment variables (SaaS)
 -------------------------------------------------------------------------------
 
-* `AISERVICE_SAAS` specify if saas deployment (default value is: false)
+* `AISERVICE_SAAS` specify if this is a SaaS deployment (default value is: false)
 * `MAS_CONFIG_DIR` specify config location, mandatory when `AISERVICE_SAAS=true`
 * `AISERVICE_DOMAIN` specify cluster domain, mandatory when `AISERVICE_SAAS=true`
 * `AISERVICE_SLS_URL` specify SLS url, mandatory when `AISERVICE_SAAS=true`
-* `AISERVICE_SLS_REGISTRATION_KEY` specify sls registration key, mandatory when `AISERVICE_SAAS=true`, to get value: look in `ibm-sls` namespace, pod `sls-api-licensing-xxx` and in `Environment` tab check `REGISTRATION_KEY` value
+* `AISERVICE_SLS_REGISTRATION_KEY` specify SLS registration key, mandatory when `AISERVICE_SAAS=true`, to get the value: look in the `ibm-sls` namespace, pod `sls-api-licensing-xxx` and in the `Environment` tab check the `REGISTRATION_KEY` value
 * `AISERVICE_DRO_URL` specify DRO url, mandatory when `AISERVICE_SAAS=true`
-* `AISERVICE_DRO_TOKEN` specify DRO token, mandatory when `AISERVICE_SAAS=true` to get value: go to `mas-{{ instance_id }}-core` and look in secret `dro-apikey`
+* `AISERVICE_DRO_TOKEN` specify DRO token, mandatory when `AISERVICE_SAAS=true`, to get the value: go to `mas-{{ instance_id }}-core` and look in the secret `dro-apikey`
 * `DB2_INSTANCE_NAME` specify DB2 instance name (default value is: aiservice), mandatory when `AISERVICE_SAAS=true`
 * `IBM_ENTITLEMENT_KEY` specify IBM Entitlement key, mandatory when `AISERVICE_SAAS=true`
 
@@ -87,14 +87,14 @@ Optional environment variables
 * `MAS_ICR_CP` Provide custom registry for AI service applications
 * `MAS_ICR_CPOPEN` Provide custom registry for AI service operator
 * `MAS_CATALOG_VERSION` Your custom AI service catalog version
-* `ARTIFACTORY_USERNAME` Your artifactory user name to access - this is needed if user deploy from custom registry for example `docker-na-public.artifactory.swg-devops.com`
-* `ARTIFACTORY_TOKEN` Your artifactory token for user to access - this is needed if user deploy from custom registry for example `docker-na-public.artifactory.swg-devops.com`
+* `ARTIFACTORY_USERNAME` Your artifactory user name to access - this is needed if the user deploys from a custom registry for example `docker-na-public.artifactory.swg-devops.com`
+* `ARTIFACTORY_TOKEN` Your artifactory token for the user to access - this is needed if the user deploys from a custom registry for example `docker-na-public.artifactory.swg-devops.com`
 * `AISERVICE_TENANT_ACTION` Whether to install or remove tenant (default value is: install)
 * `AISERVICE_APIKEY_ACTION` Whether to install or remove or update apikey (default value is: install)
 * `AISERVICE_WATSONX_ACTION` Whether to install or remove watsonx secret (default value is: install)
 * `AISERVICE_S3_ACTION` Whether to install or remove s3 (default value is: install)
 * `INSTALL_DB2` Whether to install DB2 (default value is: false)
-* `INSTALL_MINIO` Whether to install minio (default value is: false)
+* `INSTALL_MINIO` Whether to install MinIO (default value is: false)
 * `INSTALL_SLS` Whether to install IBM Suite License Service (default value is: false)
 * `INSTALL_DRO` Whether to install IBM Data Reporter Operator (default value is: false)
 * `AISERVICE_DB2_USERNAME` The username to use for authentication with the database
@@ -103,12 +103,12 @@ Optional environment variables
 * `USE_AWS_DB2` A flag indicating whether to use an AWS-hosted DB2 instance (default value is: false)
 * `AISERVICE_DOMAIN` Provide custom domain (default value is: empty)
 * `AISERVICE_WATSONXAI_CA_CRT` provide WatsonX AI CA certificate
-* `AISERVICE_WATSONXAI_FULL` optional on prem to define if WatsonX AI engine is full or light (true/false)
-* `AISERVICE_WATSONXAI_DEPLOYMENT_ID` optional on prem define deployment Id
-* `AISERVICE_WATSONXAI_SPACE_ID` optional on prem define space Id
-* `AISERVICE_WATSONXAI_INSTANCE_ID` optional on prem define instance id (default: openshift)
-* `AISERVICE_WATSONXAI_USERNAME` optional on prem define user name
-* `AISERVICE_WATSONXAI_VERSION` optional on prem define version of CPD
+* `AISERVICE_WATSONXAI_FULL` optional on-premises, define if WatsonX AI engine is full or light (true/false)
+* `AISERVICE_WATSONXAI_DEPLOYMENT_ID` optional on-premises, define deployment ID
+* `AISERVICE_WATSONXAI_SPACE_ID` optional on-premises, define space ID
+* `AISERVICE_WATSONXAI_INSTANCE_ID` optional on-premises, define instance id (default: openshift)
+* `AISERVICE_WATSONXAI_USERNAME` optional on-premises, define user name
+* `AISERVICE_WATSONXAI_VERSION` optional on-premises, define version of CPD
 * `AISERVICE_CERTIFICATE_ISSUER` Optional to specify pre-configured certificate issuer to use for AI Service public certificates
 * `AISERVICE_CERTIFICATE_DURATION` Optional to specify expiration duration for public certificates (default: 8760h0m0s)
 * `AISERVICE_CERTIFICATE_RENEW_BEFORE` Optional to specify when to renew public certificates before they expire (default: 72h0m0s)
@@ -120,7 +120,7 @@ Usage
 
 !!! tip
 
-    For S3 manage please make sure you have deployed dependencies
+    For S3 management, please make sure you have deployed the dependencies
 
 Install boto3 python module (use python environment):
 
@@ -130,11 +130,11 @@ source /tmp/venv/bin/activate
 python3 -m pip install boto3
 ```
 
-Run playbooks for deploy AI service:
+Run the playbooks to deploy AI Service:
 
-* `AISERVICE_SLS_REGISTRATION_KEY` - value can be found in `ibm-sls` namespace, in pod  `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY`
-* `AISERVICE_DRO_TOKEN` - go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
-* In `AWS` for `AISERVICE_S3_TENANTS_BUCKET`,  `AISERVICE_S3_TEMPLATES_BUCKET` user need to create S3 buckets with unique name
+* `AISERVICE_SLS_REGISTRATION_KEY` - the value can be found in the `ibm-sls` namespace, in pod `sls-api-licensing-85699fb57-9lmrq`, please look in the environments tab, then value `REGISTRATION_KEY`
+* `AISERVICE_DRO_TOKEN` - go to the `mas-instance_id-core` namespace and in secrets find `dro-apikey`
+* In `AWS`, for `AISERVICE_S3_TENANTS_BUCKET` and `AISERVICE_S3_TEMPLATES_BUCKET`, the user needs to create S3 buckets with unique names
 
 ```bash
 export ARTIFACTORY_USERNAME=""
@@ -155,7 +155,7 @@ export SLS_MONGODB_CFG_FILE=${MAS_CONFIG_DIR}/mongo-mongoce.yml
 export SLS_LICENSE_ID=""
 export SLS_LICENSE_FILE=""
 export INSTALL_DB2=""
-export INSTALL_MINIO="" 
+export INSTALL_MINIO=""
 export INSTALL_MONGO=""
 export INSTALL_SLS=""
 export INSTALL_DRO=""
@@ -265,7 +265,7 @@ ansible-playbook playbooks/run_role.yml
 
 Create Tenant
 -------------------------------------------------------------------------------
-The `AISERVICE_SLS_REGISTRATION_KEY` value can be found in `ibm-sls` namespace, in pod `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY` .  To obtain the `AISERVICE_DRO_TOKEN` go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
+The `AISERVICE_SLS_REGISTRATION_KEY` value can be found in the `ibm-sls` namespace, in pod `sls-api-licensing-85699fb57-9lmrq`, please look in the environments tab, then value `REGISTRATION_KEY`.  To obtain the `AISERVICE_DRO_TOKEN`, go to the `mas-instance_id-core` namespace and in secrets find `dro-apikey`.
 
 ```bash
 export AISERVICE_TENANT_NAME="user7"
@@ -298,4 +298,4 @@ ansible-playbook playbooks/run_role.yml
 
 !!! tip
 
-    To create addidional tenants we don't need to specify buckets
+    To create additional tenants, we don't need to specify the buckets

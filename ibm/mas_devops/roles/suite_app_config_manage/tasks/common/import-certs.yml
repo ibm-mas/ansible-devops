@@ -1,0 +1,92 @@
+---
+# Import certificates into the ManageWorkspace CR (spec.settings.deployment.importedCerts).
+# New certificates are merged with any certificates already imported in the CR.
+# Inputs:
+#   manage_certificates               - list of PEM certificate strings (requires
+#                                       manage_certificates_alias_prefix)
+#   manage_certificates_file_path_local - local YAML file with importedCerts entries
+#                                         carrying their own alias definitions
+#   manage_certificates_alias_prefix  - alias prefix for certificates provided via
+#                                       the manage_certificates list
+- name: "import-certs : Reset working variables"
+  set_fact:
+    manage_new_imported_certs: []
+    manage_merged_imported_certs: []
+
+- name: "import-certs : Fail if no certificates source is provided"
+  assert:
+    that: >-
+      (manage_certificates is defined and manage_certificates | length > 0) or
+      (manage_certificates_file_path_local is defined and manage_certificates_file_path_local != '')
+    fail_msg: "Either `manage_certificates` or `manage_certificates_file_path_local` property must be defined"
+
+- name: "import-certs : Fail if alias prefix is missing for certificates provided as a list"
+  when: manage_certificates is defined and manage_certificates | length > 0
+  assert:
+    that: manage_certificates_alias_prefix is defined and manage_certificates_alias_prefix != ''
+    fail_msg: "manage_certificates_alias_prefix property is required when manage_certificates is provided"
+
+- name: "import-certs : Load certificates from file"
+  when: manage_certificates_file_path_local is defined and manage_certificates_file_path_local != ''
+  set_fact:
+    manage_certs_from_file: "{{ lookup('file', manage_certificates_file_path_local) | from_yaml }}"
+
+- name: "import-certs : Set new certificates from file"
+  when: manage_certificates_file_path_local is defined and manage_certificates_file_path_local != ''
+  set_fact:
+    manage_new_imported_certs: "{{ manage_certs_from_file.importedCerts | default([]) }}"
+
+- name: "import-certs : Build new certificate entries from list input"
+  when: manage_certificates is defined and manage_certificates | length > 0
+  set_fact:
+    manage_new_imported_certs: "{{ manage_new_imported_certs + [{'alias': manage_certificates_alias_prefix ~ (index + 1), 'crt': item | trim}] }}"
+  loop: "{{ manage_certificates }}"
+  loop_control:
+    index_var: index
+
+- name: "import-certs : Fail if there are no certificates to be added"
+  assert:
+    that: manage_new_imported_certs | length > 0
+    fail_msg: "There should be at least one certificate to be imported."
+
+- name: "import-certs : Lookup ManageWorkspace CR to retrieve existing imported certificates"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: ManageWorkspace
+    name: "{{ manage_workspace_cr_name }}"
+    namespace: "mas-{{ mas_instance_id }}-manage"
+  register: managews_output
+
+- name: "import-certs : Extract existing Manage certificates"
+  set_fact:
+    existing_manage_imported_certs: "{{ (managews_output.resources[0].spec.settings.deployment | default({})).importedCerts | default([]) }}"
+    manage_imported_certs_seen: []
+
+- name: "import-certs : Merge new certificates into existing Manage certificates"
+  set_fact:
+    manage_merged_imported_certs: "{{ manage_merged_imported_certs + [item] }}"
+    manage_imported_certs_seen: "{{ manage_imported_certs_seen + [item.crt | trim] }}"
+  when: (item.crt | trim) not in manage_imported_certs_seen
+  loop: "{{ existing_manage_imported_certs + manage_new_imported_certs }}"
+
+- name: "import-certs : Add the new certificates in ManageWorkspace CR"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps.mas.ibm.com/v1
+      kind: ManageWorkspace
+      metadata:
+        name: "{{ manage_workspace_cr_name }}"
+        namespace: "mas-{{ mas_instance_id }}-manage"
+      spec:
+        settings:
+          deployment:
+            importedCerts: "{{ manage_merged_imported_certs }}"
+
+- name: "import-certs : Debug information"
+  vars:
+    new_cert_count: "{{ manage_merged_imported_certs | length - existing_manage_imported_certs | length }}"
+  debug:
+    msg:
+      - "Certificates already imported ............ {{ existing_manage_imported_certs | length }}"
+      - "New certificates imported ................ {{ new_cert_count }}"
+      - "Total certificates in ManageWorkspace ... {{ manage_merged_imported_certs | length }}"

@@ -42,7 +42,7 @@
     # This is an incremental backup, need to restore based on full backup first
     # -------------------------------------------------------------------------
     - name: "Restore based on full backup"
-      when: masbr_restore_from_incr
+      when: masbr_restore_from_incr | bool
       block:
         - name: "Copy based on full backup file from specified storage location to pod"
           include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/restore-database-perform.yml"
@@ -52,10 +52,10 @@
 
     # Restore databases from the specified Full or Incremental backup
     # -------------------------------------------------------------------------
-    - name: "Restore databases from the specified {{ 'Incremental' if masbr_restore_from_incr else 'Full' }} backup"
+    - name: "Restore databases from the specified {{ 'Incremental' if masbr_restore_from_incr | bool else 'Full' }} backup"
       include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/restore-database-perform.yml"
       vars:
-        _job_type: "{{ 'incr' if masbr_restore_from_incr else 'full' }}"
+        _job_type: "{{ 'incr' if masbr_restore_from_incr | bool else 'full' }}"
         _job_name: "{{ masbr_restore_from }}"
 
     # Do some post restoration tasks

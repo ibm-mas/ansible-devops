@@ -1,0 +1,245 @@
+---
+# Event Streams action (was configure_manage_eventstreams)
+# Configure Manage to use IBM Cloud Event Streams: import the Event Streams
+# certificates into the ManageWorkspace CR, set the mxe.int/oslc/rest system
+# properties on the server bundles, and insert the Kafka message hub provider,
+# queues and cron task definitions into the Manage database.
+#
+# Note: this action inserts a dummy Kafka password during configuration (not
+# the actual one), the real password must be configured manually via the
+# Manage administration dashboard afterwards.
+# ========================================================================
+
+# Assertions: preliminary validations
+# ------------------------------------------------------------------------
+- name: "eventstreams : Fail if mas_manage_eventstreams_name is not provided"
+  assert:
+    that: mas_manage_eventstreams_name is defined and mas_manage_eventstreams_name != ""
+    fail_msg: "mas_manage_eventstreams_name property is required"
+
+- name: "eventstreams : Fail if ibmcloud_apikey is not provided"
+  assert:
+    that: ibmcloud_apikey is defined and ibmcloud_apikey != ""
+    fail_msg: "ibmcloud_apikey property is required"
+
+- name: "eventstreams : Fail if cpd_meta_namespace is not provided"
+  assert:
+    that: cpd_meta_namespace is defined and cpd_meta_namespace != ""
+    fail_msg: "cpd_meta_namespace property is required"
+
+- name: "eventstreams : Fail if db2_instance_name is not provided"
+  assert:
+    that: db2_instance_name is defined and db2_instance_name != ""
+    fail_msg: "db2_instance_name property is required"
+
+- name: "eventstreams : Set manage namespace"
+  set_fact:
+    mas_app_namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
+
+- name: "eventstreams : Debug information"
+  debug:
+    msg:
+      - "Event Streams Name ................ {{ mas_manage_eventstreams_name }}"
+      - "Event Streams Location ............ {{ mas_manage_eventstreams_location }}"
+      - "DB2 Instance Name ................. {{ db2_instance_name }}"
+      - "DB2 Warehouse Database ............ {{ db2wh_dbname }}"
+      - "Instance ID ........................ {{ mas_instance_id }}"
+      - "Application ID ..................... {{ mas_app_id }}"
+      - "Workspace ID ........................ {{ mas_workspace_id }}"
+      - "MAS app namespace .................. {{ mas_app_namespace }}"
+
+# 1. Check the application workspace is ready
+# ------------------------------------------------------------------------
+- name: "eventstreams : Wait for ManageWorkspace to be ready"
+  include_tasks: "tasks/common/wait-manageworkspace-ready.yml"
+  vars:
+    manage_ws_wait_retries: 20
+    manage_ws_wait_delay: 60
+
+- name: "eventstreams : Retrieve ManageWorkspace CR"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: ManageWorkspace
+    name: "{{ manage_workspace_cr_name }}"
+    namespace: "{{ mas_app_namespace }}"
+  register: managews_output
+
+- name: "eventstreams : Fail if ManageWorkspace CR is not found"
+  assert:
+    that: managews_output.resources is defined and managews_output.resources | length > 0
+    fail_msg: "ManageWorkspace CR {{ manage_workspace_cr_name }} not found in namespace {{ mas_app_namespace }}"
+
+# 2. Fetch the Event Streams instance information from IBM Cloud
+# ------------------------------------------------------------------------
+- name: "eventstreams : Fetch IBM Cloud resource group id"
+  ibm.cloudcollection.ibm_resource_group_info:
+    name: "{{ ibmcloud_resourcegroup }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: rg_info
+
+- name: "eventstreams : Fetch IBM Event Streams instance information"
+  ibm.cloudcollection.ibm_resource_instance_info:
+    resource_group_id: "{{ rg_info.resource.id }}"
+    name: "{{ mas_manage_eventstreams_name }}"
+    service: "{{ mas_manage_eventstreams_service }}"
+    location: "{{ mas_manage_eventstreams_location }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: es_info
+  failed_when: es_info.rc != 0 and "No resource instance found" not in es_info.stderr
+
+- name: "eventstreams : Set the Event Streams Kafka broker list"
+  set_fact:
+    es_brokers: "{{ es_info.resource.extensions | dict2items | selectattr('key', 'match', '^kafka_brokers_sasl\\.\\d+$') | sort(attribute='key') | map(attribute='value') | list }}"
+
+- name: "eventstreams : Fail if no Kafka brokers are found"
+  assert:
+    that: es_brokers | length > 0
+    fail_msg: "No Kafka brokers found for Event Streams instance {{ mas_manage_eventstreams_name }}"
+
+# 3. Retrieve the Event Streams certificates and import them into the ManageWorkspace CR
+# ------------------------------------------------------------------------
+- name: "eventstreams : Retrieve Event Streams certificates using openssl"
+  vars:
+    es_host: "{{ es_brokers[0].split(':')[0] }}"
+    es_port: "{{ es_brokers[0].split(':')[1] }}"
+  ansible.builtin.shell:
+    cmd: "openssl s_client -servername {{ es_host }} -connect {{ es_host }}:{{ es_port }} -showcerts </dev/null 2>/dev/null"
+  register: get_es_certs_r
+  ignore_errors: true
+
+- name: "eventstreams : Fail if the certificate chain could not be retrieved"
+  assert:
+    that: get_es_certs_r.rc == 0
+    fail_msg: >-
+      Failed to retrieve certificates from {{ es_brokers[0] }} using openssl:
+      {{ get_es_certs_r.stderr | default('unknown error') }}
+
+- name: "eventstreams : Extract Event Streams certificate content"
+  set_fact:
+    es_tls_crt: "{{ get_es_certs_r.stdout | regex_findall('(-----BEGIN .+?-----[\\s\\S]*?-----END .*?-----)', multiline=True, ignorecase=True) }}"
+
+- name: "eventstreams : Assert Event Streams certificate content exists"
+  assert:
+    that: es_tls_crt | length > 1 # must contain at least leaf and intermediate cert
+
+- name: "eventstreams : Add the Event Streams certificates in ManageWorkspace CR"
+  vars:
+    manage_certificates: "{{ [es_tls_crt[1], lookup('file', role_path ~ '/files/eventstreams-isrg-root-x1.crt')] }}"
+    manage_certificates_alias_prefix: "ES.cert"
+  include_tasks: "tasks/common/import-certs.yml"
+
+# 4. Set the Manage system properties on the server bundles
+# ------------------------------------------------------------------------
+- name: "eventstreams : Get Suite instance domain"
+  include_tasks: "tasks/common/get-suite-domain.yml"
+
+- name: "eventstreams : Set Manage URL property values"
+  set_fact:
+    meaweb_value: "https://{{ mas_manage_eventstreams_manage_url_subdomain }}.manage.{{ mas_domain }}/meaweb"
+    oslc_rest_value: "https://{{ mas_manage_eventstreams_manage_url_subdomain }}.manage.{{ mas_domain }}/maxrest/oslc"
+    webapp_value: "https://{{ mas_manage_eventstreams_manage_url_subdomain }}.manage.{{ mas_domain }}/maximo/oslc"
+    rest_webapp_value: "https://{{ mas_manage_eventstreams_manage_url_subdomain }}.manage.{{ mas_domain }}/maxrest"
+
+- name: "eventstreams : Set Manage bundle server properties"
+  set_fact:
+    eventstreams_server_bundles: "{{ managews_output.resources[0].spec.settings.deployment.serverBundles | default([]) | ibm.mas_devops.setSystemProperties(meaweb_value, oslc_rest_value, webapp_value, rest_webapp_value) }}"
+
+- name: "eventstreams : Add the Server Bundle system properties in ManageWorkspace CR"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps.mas.ibm.com/v1
+      kind: ManageWorkspace
+      metadata:
+        name: "{{ manage_workspace_cr_name }}"
+        namespace: "{{ mas_app_namespace }}"
+      spec:
+        settings:
+          deployment:
+            serverBundles: "{{ eventstreams_server_bundles }}"
+  register: managews_sb_output
+
+- name: "eventstreams : Debug information"
+  debug:
+    msg:
+      - "ManageWorkspace Changed ............... {{ managews_sb_output.changed }}"
+
+- name: "eventstreams : Wait for ManageWorkspace to be ready"
+  include_tasks: "tasks/common/wait-manageworkspace-ready.yml"
+  vars:
+    manage_ws_wait_retries: 20
+    manage_ws_wait_delay: 60
+
+# 5. Configure the external messaging system for Event Streams
+# ------------------------------------------------------------------------
+# The Manage database used with Event Streams runs in a CP4D Db2 Warehouse
+# instance with a deterministic pod name.
+- name: "eventstreams : Set the CP4D DB2 Warehouse pod name"
+  set_fact:
+    db2_pod_name: "c-db2wh-{{ db2_instance_name }}-db2u-0"
+
+- name: "eventstreams : Create temporary Event Streams configuration scripts"
+  ansible.builtin.tempfile:
+    state: file
+    suffix: .sh
+  register: es_script_tempfile
+
+- name: "eventstreams : Render the message hub provider configuration script"
+  ansible.builtin.template:
+    src: eventstreams-configmsgprovider.sh.j2
+    dest: "{{ es_script_tempfile.path }}-configmsgprovider.sh"
+    mode: "0600"
+
+- name: "eventstreams : Render the cron task configuration script"
+  ansible.builtin.template:
+    src: eventstreams-configcrontask.sh.j2
+    dest: "{{ es_script_tempfile.path }}-configcrontask.sh"
+    mode: "0600"
+
+- name: "eventstreams : Copy the configuration scripts into the DB2 Warehouse pod"
+  kubernetes.core.k8s_cp:
+    namespace: "{{ cpd_meta_namespace }}"
+    pod: "{{ db2_pod_name }}"
+    local_path: "{{ item.src }}"
+    remote_path: "/tmp/{{ item.dest }}"
+  loop:
+    - src: "{{ es_script_tempfile.path }}-configmsgprovider.sh"
+      dest: configmsgprovider.sh
+    - src: "{{ es_script_tempfile.path }}-configcrontask.sh"
+      dest: configcrontask.sh
+  loop_control:
+    label: "{{ item.dest }}"
+
+- name: "eventstreams : Run the message hub provider configuration script"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ cpd_meta_namespace }}"
+    pod: "{{ db2_pod_name }}"
+    command: ["bash", "-c", "su - db2inst1 -c 'bash /tmp/configmsgprovider.sh | tee /tmp/configmsgprovider.log'"]
+  register: config_msgprovider_output
+  changed_when: true
+
+- name: "eventstreams : Fail if the message hub provider configuration failed"
+  assert:
+    that: config_msgprovider_output.rc == 0
+    fail_msg: "Message hub provider configuration failed: {{ config_msgprovider_output.stdout_lines | default([]) }}"
+
+- name: "eventstreams : Run the cron task configuration script"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ cpd_meta_namespace }}"
+    pod: "{{ db2_pod_name }}"
+    command: ["bash", "-c", "su - db2inst1 -c 'bash /tmp/configcrontask.sh | tee /tmp/configcrontask.log'"]
+  register: config_crontask_output
+  changed_when: true
+
+- name: "eventstreams : Fail if the cron task configuration failed"
+  assert:
+    that: config_crontask_output.rc == 0
+    fail_msg: "Cron task configuration failed: {{ config_crontask_output.stdout_lines | default([]) }}"
+
+- name: "eventstreams : Remove the local temporary Event Streams configuration scripts"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ es_script_tempfile.path }}-configmsgprovider.sh"
+    - "{{ es_script_tempfile.path }}-configcrontask.sh"
+    - "{{ es_script_tempfile.path }}"

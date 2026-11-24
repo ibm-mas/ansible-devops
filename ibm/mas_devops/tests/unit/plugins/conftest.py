@@ -4,10 +4,11 @@ Shared fixtures for all tests in the MAS DevOps test suite.
 This module provides common fixtures that can be used across all test modules,
 including mock objects for Ansible tasks, Kubernetes clients, and display utilities.
 """
-import pytest
-from unittest.mock import Mock, MagicMock, patch
-import sys
 import os
+import sys
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
 
 # Add the mocks directory to the path so we can import mock helpers
 # Path: unit/plugins/conftest.py -> mocks/

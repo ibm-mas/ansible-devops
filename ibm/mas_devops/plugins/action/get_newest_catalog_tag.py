@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
-from ansible.plugins.action import ActionBase
 from ansible.errors import AnsibleError
+from ansible.plugins.action import ActionBase
+from mas.devops.data import NoSuchCatalogError, getNewestCatalogTag
 
-from mas.devops.data import getNewestCatalogTag, NoSuchCatalogError
 
 class ActionModule(ActionBase):
     def run(self, tmp=None, task_vars=None):
-        super(ActionModule, self).run(tmp, task_vars)
+        super().run(tmp, task_vars)
 
         # Initialize DynamicClient and grab the task args
         arch = self._task.args['arch']

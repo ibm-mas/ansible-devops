@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 
+import time
+
+from ansible.errors import AnsibleError
+from ansible.plugins.action import ActionBase
+from ansible.utils.display import Display
 from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 
-from ansible.plugins.action import ActionBase
-from ansible.errors import AnsibleError
-from ansible.utils.display import Display
-
-import time
 
 class ActionModule(ActionBase):
     def run(self, tmp=None, task_vars=None):
-        super(ActionModule, self).run(tmp, task_vars)
+        super().run(tmp, task_vars)
         display = Display()
 
         # Initialize DynamicClient and grab the task args
@@ -34,16 +34,19 @@ class ActionModule(ActionBase):
           notAtLatest = []
 
           for subscription in subs.items:
-            state = subscription.status.state
+            # A newly created Subscription has no status until OLM reconciles it
+            state = getattr(subscription.status, 'state', None) if subscription.status else None
+            if state is None:
+              state = "Pending (no status yet)"
             installPlanApproval = getattr(subscription.spec, 'installPlanApproval', 'Automatic')
             display.v(f"* {subscription.metadata.namespace}/{subscription.metadata.name} = {state} (approval: {installPlanApproval})")
-            
+
             # Accept both "AtLatestKnown" and "UpgradePending" with Manual approval as valid states
             # UpgradePending with Manual approval means the operator is installed at the desired version
             # but newer versions are available that require manual approval
             isValidState = (state == "AtLatestKnown" or
                            (state == "UpgradePending" and installPlanApproval == "Manual"))
-            
+
             if not isValidState:
               allSubscriptionsAtLatestThisLoop = False
               notAtLatest.append(f"{subscription.metadata.namespace}/{subscription.metadata.name} = {state} (approval: {installPlanApproval})")
@@ -65,4 +68,4 @@ class ActionModule(ActionBase):
             notAtLatest=notAtLatest
           )
         else:
-          raise AnsibleError(f"Error: One or more subscriptions did not update to the latest known operator version")
+          raise AnsibleError("Error: One or more subscriptions did not update to the latest known operator version")

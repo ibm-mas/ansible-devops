@@ -2,6 +2,7 @@
 Brief one-line description of what the role does.
 
 Detailed description paragraph(s) explaining the role's purpose, key features, and any important context users should know. Include information about:
+
 - What the role accomplishes
 - Key capabilities or features
 - Integration points with other roles or systems
@@ -16,43 +17,46 @@ List of requirements that must be met before using this role. Remove this sectio
 - Environment setup (e.g., environment variables that must be configured)
 
 Example:
+
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) must be installed
 - AWS credentials configured via `aws configure` or environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
 - OpenShift cluster must be accessible via `oc` CLI
 
 ## Role Variables
 
-### General Variables
-Group general or commonly used variables here.
+Start the section with a quick-reference table listing every variable with its
+required status and default, linking each name to its detail section below:
+
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`variable_name`](#variable_name) | No | `value` |
+| [`another_variable`](#another_variable) | Yes | None |
+
+### <Meaningful Category Name>
+Group variables by what they have in common — e.g. Storage Variables, AWS Variables,
+Authentication Variables, Backup and Restore Variables. The category name must tell the
+reader what the variables in it share; generic names such as "General Variables" are not
+allowed (the README validator enforces this).
 
 #### variable_name
-Clear, concise description of what this variable does and when to use it. Include any important notes about valid values, constraints, or relationships with other variables.
+Clear, concise description of what the variable does, including valid values and any
+important constraints. Keep it to one or two sentences; fold examples into the description
+rather than separate labeled blocks.
 
 - **Required** or **Optional**
 - Environment Variable: `ENV_VAR_NAME`
-- Default Value: `default_value` or `None`
+- Default: `default_value` or `None`
+
+Follow the bullets with at most one short paragraph of context (when the variable applies,
+how it relates to others). Use `!!! warning` / `!!! tip` admonitions for critical caveats
+instead of long Notes lists.
 
 #### another_variable
 Description of the variable.
 
 - **Required**
 - Environment Variable: `ANOTHER_ENV_VAR`
-- Default Value: None
-
-### Category-Specific Variables
-Create additional subsections for related variables. Common categories include:
-- Installation Variables
-- Configuration Variables
-- Advanced Configuration
-- Provider-Specific Variables (e.g., AWS Variables, IBM Cloud Variables)
-- Feature-Specific Variables
-
-#### category_variable
-Description of the variable.
-
-- **Optional**
-- Environment Variable: `CATEGORY_VAR`
-- Default Value: `default`
+- Default: None
 
 ## Example Playbook
 After installing the Ansible Collection you can include this role in your own custom playbooks.

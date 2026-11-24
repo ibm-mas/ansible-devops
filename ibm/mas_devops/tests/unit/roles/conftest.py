@@ -5,8 +5,8 @@ Provides a started FakeKubernetesServer for each test and ensures the mocks
 package is on sys.path so all role test modules can import from it directly.
 """
 
-import sys
 import os
+import sys
 
 import pytest
 

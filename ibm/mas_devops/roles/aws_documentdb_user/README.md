@@ -4,221 +4,129 @@ Create dedicated database users in AWS DocumentDB for Maximo Application Suite i
 
 AWS DocumentDB is a MongoDB-compatible database service that can serve as the system database for MAS. This role creates instance-specific users with proper authentication credentials.
 
-**Prerequisites**:
+## Prerequisites
+
 - MongoDB Shell (mongosh) must be installed
 - AWS DocumentDB cluster must be running and accessible
 - Master user credentials for DocumentDB must be available
 
-
 ## Role Variables
 
-### mas_instance_id
-MAS instance identifier for which the DocumentDB user will be created.
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`mas_instance_id`](#mas_instance_id) | Yes | None |
+| [`mas_config_dir`](#mas_config_dir) | No | None |
+| [`docdb_host`](#docdb_host) | Conditional | None |
+| [`docdb_port`](#docdb_port) | Conditional | None |
+| [`docdb_hosts`](#docdb_hosts) | Conditional | None |
+| [`docdb_master_username`](#docdb_master_username) | Yes | None |
+| [`docdb_master_password`](#docdb_master_password) | Yes | None |
+| [`user_action`](#user_action) | No | `add` |
+| [`docdb_instance_password`](#docdb_instance_password) | No | Auto-generated |
+
+Either `docdb_hosts` or both `docdb_host` and `docdb_port` must be set to define the DocumentDB connection; if all are set, `docdb_hosts` takes precedence.
+
+### MAS Integration
+
+#### mas_instance_id
+
+MAS instance identifier for which the DocumentDB user will be created — a valid MAS instance ID (typically 3-12 lowercase alphanumeric characters) that must match the instance ID used during MAS installation.
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default: None
 
-**Purpose**: Identifies the MAS instance and is used to generate the DocumentDB username and Kubernetes secret name.
+Determines the generated username (`<mas_instance_id>-docdb-user`) and the Kubernetes secret name (`docdb-<mas_instance_id>-instance-credentials`).
 
-**When to use**: Always required. Must match the MAS instance that will use this DocumentDB.
+#### mas_config_dir
 
-**Valid values**: Valid MAS instance ID (typically 3-12 lowercase alphanumeric characters).
+Local directory where the generated Kubernetes secret YAML will be saved — a valid directory path where the Ansible controller has write permissions.
 
-**Impact**: Used to create username format `<instance-id>-docdb-user` and secret name `docdb-<instance-id>-instance-credentials`.
+- **Optional**
+- Environment Variable: `MAS_CONFIG_DIR`
+- Default: None
 
-**Related variables**: `mas_config_dir`
+When set, a YAML file with the DocumentDB credentials secret (`docdb-<instance-id>-instance-credentials.yaml`) is created in this directory, which can be applied with `oc apply -f <file>`. Useful for GitOps workflows or manual secret management — keep the generated files secure as they contain credentials.
 
-**Notes**:
-- Username will be `<mas_instance_id>-docdb-user`
-- Secret name will be `docdb-<mas_instance_id>-instance-credentials`
-- Must match the instance ID used during MAS installation
+### Connection Details
 
-### docdb_host
-AWS DocumentDB cluster endpoint hostname.
+#### docdb_host
 
-- **Required** if `docdb_hosts` is not set
+AWS DocumentDB cluster endpoint hostname, for single-host connections — for example `docdb-cluster.abc123.us-east-1.docdb.amazonaws.com`.
+
+- **Required** when `docdb_hosts` is not set
 - Environment Variable: `DOCDB_HOST`
 - Default: None
 
-**Purpose**: Specifies the DocumentDB cluster endpoint for single-host connection configuration.
+Combined with `docdb_port` to form the connection string; `docdb_hosts` takes precedence if both are set. Use the cluster endpoint for automatic failover — instance endpoints can also be used but do not provide it. Obtain from the AWS DocumentDB console or CLI.
 
-**When to use**: Use for simple single-endpoint connections. For replica sets with multiple endpoints, use `docdb_hosts` instead.
+#### docdb_port
 
-**Valid values**: Valid DocumentDB cluster endpoint hostname (e.g., `docdb-cluster.abc123.us-east-1.docdb.amazonaws.com`).
+Port number for DocumentDB connections, typically `27017` (the default MongoDB/DocumentDB port).
 
-**Impact**: Combined with `docdb_port` to form the connection string. If `docdb_hosts` is also set, `docdb_hosts` takes precedence.
-
-**Related variables**: `docdb_port`, `docdb_hosts`
-
-**Notes**:
-- Use cluster endpoint for automatic failover
-- Instance endpoints can also be used but don't provide automatic failover
-- `docdb_hosts` takes precedence if both are set
-- Obtain from AWS DocumentDB console or CLI
-
-### docdb_port
-AWS DocumentDB connection port.
-
-- **Required** if `docdb_hosts` is not set
+- **Required** when `docdb_hosts` is not set
 - Environment Variable: `DOCDB_PORT`
 - Default: None
 
-**Purpose**: Specifies the port number for DocumentDB connections.
+Combined with `docdb_host` to form the connection string. Not used when `docdb_hosts` is set (the port is included in the hosts string). Must match the port configured in the DocumentDB cluster.
 
-**When to use**: Required when using `docdb_host`. Not needed if using `docdb_hosts` (port included in hosts string).
+#### docdb_hosts
 
-**Valid values**: Valid port number, typically `27017` (default MongoDB port).
+Complete DocumentDB connection string with multiple endpoints for replica set configurations, as a comma-separated list of `host:port` pairs — for example `docdb-1.abc.us-east-1.docdb.amazonaws.com:27017,docdb-2.abc.us-east-1.docdb.amazonaws.com:27017,docdb-3.abc.us-east-1.docdb.amazonaws.com:27017`.
 
-**Impact**: Combined with `docdb_host` to form the connection string.
-
-**Related variables**: `docdb_host`, `docdb_hosts`
-
-**Notes**:
-- Default DocumentDB port is `27017`
-- Must match the port configured in DocumentDB cluster
-- Not used if `docdb_hosts` is set
-
-### docdb_hosts
-AWS DocumentDB connection string with multiple hosts and ports.
-
-- **Required** if both `docdb_host` and `docdb_port` are not set
+- **Required** when both `docdb_host` and `docdb_port` are not set
 - Environment Variable: `DOCDB_HOSTS`
 - Default: None
 
-**Purpose**: Provides a complete connection string with multiple DocumentDB endpoints for replica set configurations.
+Enables connection to multiple DocumentDB instances for high availability and automatic failover, and takes precedence over `docdb_host` and `docdb_port` when all are set. Recommended for production deployments — include all replica set members for best availability.
 
-**When to use**: Use for replica set deployments with multiple endpoints. Takes precedence over `docdb_host` and `docdb_port` if all are set.
+### Master Credentials
 
-**Valid values**: Comma-separated list of `host:port` pairs (e.g., `docdb-1.abc.us-east-1.docdb.amazonaws.com:27017,docdb-2.abc.us-east-1.docdb.amazonaws.com:27017,docdb-3.abc.us-east-1.docdb.amazonaws.com:27017`).
+#### docdb_master_username
 
-**Impact**: Enables connection to multiple DocumentDB instances for high availability and automatic failover.
-
-**Related variables**: `docdb_host`, `docdb_port`
-
-**Notes**:
-- **Recommended** for production deployments
-- Takes precedence over `docdb_host` and `docdb_port`
-- Include all replica set members for best availability
-- Format: `host1:port1,host2:port2,host3:port3`
-- Obtain from AWS DocumentDB cluster details
-
-### docdb_master_username
-AWS DocumentDB master username for administrative access.
+AWS DocumentDB master username for administrative access — the master username configured during DocumentDB cluster creation.
 
 - **Required**
 - Environment Variable: `DOCDB_MASTER_USERNAME`
 - Default: None
 
-**Purpose**: Provides the master user credentials to create the MAS-specific database user.
+Used to authenticate to DocumentDB and create the new MAS user, so it must have `userAdmin` or equivalent permissions to create users and grant roles. Credentials are only used during user creation, not stored permanently — obtain from AWS Secrets Manager or a secure credential store.
 
-**When to use**: Always required. Must be the master username configured during DocumentDB cluster creation.
+#### docdb_master_password
 
-**Valid values**: Valid DocumentDB master username.
-
-**Impact**: Used to authenticate to DocumentDB and create the new MAS user. Must have permissions to create users and grant roles.
-
-**Related variables**: `docdb_master_password`
-
-**Notes**:
-- This is the master user created with the DocumentDB cluster
-- Credentials are only used during user creation, not stored permanently
-- Ensure master user has `userAdmin` or equivalent permissions
-- Obtain from AWS Secrets Manager or secure credential store
-
-### docdb_master_password
-AWS DocumentDB master password for administrative access.
+AWS DocumentDB master password for administrative access — the master password configured during DocumentDB cluster creation.
 
 - **Required**
 - Environment Variable: `DOCDB_MASTER_PASSWORD`
 - Default: None
 
-**Purpose**: Provides the master user password to authenticate and create the MAS-specific database user.
+Used together with `docdb_master_username` to authenticate and create the MAS-specific database user. Store it securely, never commit it to version control, and rotate it regularly per security best practices.
 
-**When to use**: Always required. Must be the master password configured during DocumentDB cluster creation.
+### User Management
 
-**Valid values**: Valid DocumentDB master password string.
+#### user_action
 
-**Impact**: Used to authenticate to DocumentDB and create the new MAS user.
+Action to perform on the DocumentDB user — `add` (create the user, default) or `remove` (delete the user).
 
-**Related variables**: `docdb_master_username`
-
-**Notes**:
-- Store securely and never commit to version control
-- Credentials are only used during user creation
-- Consider using AWS Secrets Manager for credential management
-- Rotate master password regularly per security best practices
-
-### docdb_instance_password
-Password for the MAS-specific DocumentDB user being created.
-
-- Optional
-- Environment Variable: `DOCDB_INSTANCE_PASSWORD`
-- Default: Auto-generated if not provided
-
-**Purpose**: Specifies the password for the new MAS DocumentDB user. If not provided, a secure password is automatically generated.
-
-**When to use**: Provide if you need a specific password. Otherwise, let the role generate a secure random password.
-
-**Valid values**: Strong password string meeting DocumentDB password requirements.
-
-**Impact**: This password will be stored in the Kubernetes secret and used by MAS to connect to DocumentDB.
-
-**Related variables**: `mas_instance_id`, `mas_config_dir`
-
-**Notes**:
-- Auto-generation is recommended for security
-- If provided, ensure it meets complexity requirements
-- Password is stored in Kubernetes secret `docdb-<instance-id>-instance-credentials`
-- Keep password secure and rotate regularly
-
-### user_action
-Action to perform on the DocumentDB user.
-
-- Optional
+- **Optional**
 - Environment Variable: `USER_ACTION`
 - Default: `add`
 
-**Purpose**: Controls whether to create or remove the DocumentDB user.
+Use `remove` when decommissioning a MAS instance; note that removing the user does not delete the Kubernetes secret. User removal can be verified by connecting to DocumentDB with `mongosh` and checking the users.
 
-**When to use**: Set to `add` to create user (default), or `remove` to delete the user.
+#### docdb_instance_password
 
-**Valid values**:
-- `add` - Create the DocumentDB user (default)
-- `remove` - Delete the DocumentDB user
+Password for the MAS-specific DocumentDB user being created — a strong password string meeting DocumentDB password requirements.
 
-**Impact**: Determines whether the role creates or removes the user from DocumentDB.
+- **Optional**
+- Environment Variable: `DOCDB_INSTANCE_PASSWORD`
+- Default: Auto-generated
 
-**Related variables**: `mas_instance_id`
+If not provided, a secure random password is generated (recommended). The password is stored in the Kubernetes secret `docdb-<instance-id>-instance-credentials` and used by MAS to connect to DocumentDB — keep it secure and rotate it regularly.
 
-**Notes**:
-- Default `add` is for normal user creation
-- Use `remove` when decommissioning a MAS instance
-- Removing user does not delete the Kubernetes secret
-- Verify user removal: `mongosh` to DocumentDB and check users
+## Example Playbook
 
-### mas_config_dir
-Local directory where the generated Kubernetes secret YAML will be saved.
-
-- Optional
-- Environment Variable: `MAS_CONFIG_DIR`
-- Default: None
-
-**Purpose**: Specifies the output directory for the generated Kubernetes secret containing DocumentDB credentials.
-
-**When to use**: Set when you want to save the generated secret YAML for later application or documentation.
-
-**Valid values**: Valid directory path where the Ansible controller has write permissions.
-
-**Impact**: If set, a YAML file with the DocumentDB credentials secret will be created in this directory.
-
-**Related variables**: `mas_instance_id`
-
-**Notes**:
-- Secret filename: `docdb-<instance-id>-instance-credentials.yaml`
-- Can be applied with: `oc apply -f <file>`
-- Keep generated files secure as they contain credentials
-- Useful for GitOps workflows or manual secret management
+### Single-host connection
 
 ```yaml
 - hosts: localhost
@@ -234,6 +142,8 @@ Local directory where the generated Kubernetes secret YAML will be saved.
     - ibm.mas_devops.aws_documentdb_user
 ```
 
+### Replica set connection
+
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
@@ -243,16 +153,6 @@ Local directory where the generated Kubernetes secret YAML will be saved.
     docdb_master_password: test-pass-***
     docdb_hosts: test1.aws-01:27017,test1.aws-02:27017,test1.aws-03:27017
 
-  roles:
-    - ibm.mas_devops.aws_documentdb_user
-```
-
-## Example Playbook
-
-```yaml
-- hosts: localhost
-  vars:
-    # Add required variables here
   roles:
     - ibm.mas_devops.aws_documentdb_user
 ```

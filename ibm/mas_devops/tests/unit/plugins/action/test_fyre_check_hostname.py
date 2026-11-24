@@ -8,16 +8,18 @@ Tests cover:
 - API error responses
 - Rate limiting scenarios
 """
-import pytest
-from unittest.mock import patch, Mock
-from ansible.errors import AnsibleError
+from unittest.mock import patch
 
 # Import the action module (path setup is in conftest.py)
 import fyre_check_hostname
+import pytest
+from ansible.errors import AnsibleError
+
 ActionModule = fyre_check_hostname.ActionModule
 
 # Import mock helpers (path setup is in root conftest.py)
 import external_api_mocks
+
 create_mock_fyre_hostname_available_response = external_api_mocks.create_mock_fyre_hostname_available_response
 create_mock_fyre_hostname_unavailable_response = external_api_mocks.create_mock_fyre_hostname_unavailable_response
 create_mock_fyre_unauthorized_response = external_api_mocks.create_mock_fyre_unauthorized_response
@@ -181,7 +183,7 @@ class TestFyreCheckHostname:
         mock_get.return_value = create_mock_fyre_hostname_available_response()
 
         # Act
-        result = action_module.run()
+        action_module.run()
 
         # Assert
         call_args = mock_get.call_args
