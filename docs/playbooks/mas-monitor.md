@@ -28,7 +28,7 @@ Required environment variables
 Optional environment variables
 -------------------------------------------------------------------------------
 
-- `MAS_APP_SETTINGS_MONITOR_DEPLOYMENT_SIZE` Define the Monitor deployment size, one of `dev`, `small` or `large`. Defaults to `dev`.
+- `MAS_APP_SETTINGS_MONITOR_DEPLOYMENT_SIZE` Define the Monitor deployment size, one of `dev`, `small` or `medium`. Defaults to `dev`.
 
 Usage
 -------------------------------------------------------------------------------
