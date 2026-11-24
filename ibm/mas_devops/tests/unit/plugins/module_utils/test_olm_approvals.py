@@ -604,6 +604,36 @@ class TestWaitForClusterApproval:
                     with pytest.raises(OLMException, match="broken-operator in namespace ns-a failed to resolve"):
                         olm_approvals.waitForClusterApproval(Mock(), display, approvalMode="Manual")
 
+    def test_transient_resolution_error_with_pending_plan_keeps_waiting(self):
+        display = Mock()
+        # The pending plan belongs to subscription "test-operator" (the
+        # APPROVAL fixture's subscription)
+        approvalA = makeClusterApproval(namespace="ns-a", installPlan="install-plan-a")
+        pending = PendingSequence([approvalA])
+        # Poll 1: the subscription carries a transient ResolutionFailed
+        # condition while its own install plan awaits approval (OLM emits
+        # "constraints not satisfiable ... exists and is not referenced by a
+        # subscription" during the pending transition). This must NOT fail
+        # the gate -- it is the wait working. Poll 2: approved and converged.
+        transient = makeSubscriptionEntry(name="test-operator", converged=False)
+        transient["resolutionError"] = "constraints not satisfiable: clusterserviceversion ibm-sls.v3.13.1 exists and is not referenced by a subscription"
+        states = NamespaceStates(
+            {
+                "ns-a": [
+                    makeStatus(namespace="ns-a", pendingApprovals=[approvalA], subscriptions=[transient], converged=False),
+                    makeStatus(namespace="ns-a", pendingApprovals=[]),
+                ]
+            }
+        )
+        with patch.object(olm_approvals, "waitForSubscriptionResolution"):
+            with patch.object(olm_approvals, "getPendingInstallPlans", side_effect=pending):
+                with patch.object(olm_approvals, "getNamespaceConvergenceStatus", side_effect=states):
+                    result = olm_approvals.waitForClusterApproval(Mock(), display, approvalMode="Manual")
+
+        assert result["waited"] is True
+        assert result["namespaces"] == ["ns-a"]
+        assert result["statuses"]["ns-a"]["converged"] is True
+
     def test_failed_install_plan_fails_fast_naming_the_plan(self):
         display = Mock()
         approvalA = makeClusterApproval(namespace="ns-a", installPlan="install-plan-a")

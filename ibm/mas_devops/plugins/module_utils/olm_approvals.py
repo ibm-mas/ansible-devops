@@ -323,8 +323,10 @@ def waitForClusterApproval(dynClient, display, timeout=None, pollInterval=30, ap
        discovery no longer lists it (an approved plan can still be rolling
        out).
     5. Fail-fast (both modes) on subscriptions that cannot converge:
-       ResolutionFailed conditions and Failed install plans raise immediately
-       rather than burning the deadline.
+       ResolutionFailed conditions (except on a Subscription with an install
+       plan of its own pending approval -- that condition is the expected
+       transient of the pending transition, not a breakage) and Failed
+       install plans raise immediately rather than burning the deadline.
 
     Each namespace carries its own timeout budget, with the clock starting
     when the namespace is first observed (gate start for the initially
@@ -449,8 +451,18 @@ def waitForClusterApproval(dynClient, display, timeout=None, pollInterval=30, ap
                     "subscriptions with default Automatic approval); treating the namespace as Manual"
                 )
 
+            # A Subscription with an install plan of its own pending approval
+            # commonly carries a transient ResolutionFailed condition while
+            # the plan awaits approval (the resolver cannot satisfy the
+            # transition until the plan is applied: "constraints not
+            # satisfiable ... clusterserviceversion X exists and is not
+            # referenced by a subscription"). That is the wait working, not a
+            # broken Subscription: only fail fast when the Subscription has
+            # nothing pending of its own (a bad channel generates no install
+            # plan at all).
+            pendingSubscriptions = {approval["subscription"] for approval in status["pendingApprovals"]}
             for entry in status["subscriptions"]:
-                if entry.get("resolutionError"):
+                if entry.get("resolutionError") and entry["name"] not in pendingSubscriptions:
                     raise OLMException(
                         f"Subscription {entry['name']} in namespace {namespace} failed to resolve: {entry['resolutionError']} "
                         f"(check 'oc get subscription -n {namespace}' and the health of the catalog sources)"

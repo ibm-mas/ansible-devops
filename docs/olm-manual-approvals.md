@@ -122,7 +122,14 @@ Notes on the edges:
 - **Fail fast**: a Subscription with an active `ResolutionFailed` condition
   (bad channel, missing dependency, catalog problem) or a Failed InstallPlan
   fails the gate immediately with an actionable error in **both** modes,
-  rather than burning the timeout.
+  rather than burning the timeout — **except** a Subscription with an install
+  plan of its own pending approval: while an upgrade plan awaits approval
+  OLM's resolver transiently reports "constraints not satisfiable …
+  clusterserviceversion X exists and is not referenced by a subscription"
+  (the old CSV is installed, the Subscription requires the new one, and the
+  transition cannot be satisfied until the plan is approved). That condition
+  is the wait working, so it is not fatal; the per-namespace deadline still
+  bounds a genuinely wedged state.
 - **Timeout**: the per-wait budget is `OLM_APPROVAL_TIMEOUT` in both modes.
   On expiry under Manual the approve commands are repeated in the error;
   under Automatic each non-converged Subscription is listed as
