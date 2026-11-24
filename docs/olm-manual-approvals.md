@@ -176,6 +176,37 @@ directly:
     timeout: 7200           # optional: defaults to OLM_APPROVAL_TIMEOUT
 ```
 
-With no `namespace`, the module discovers every namespace in the cluster with
-install plans awaiting approval and waits for each in turn — this is the gate
-used after a catalog digest update, where every subscription rolls implicitly.
+### Cluster-wide mode
+
+With no `namespace`, the module is the cluster-wide gate used after a catalog
+digest update, where every subscription rolls implicitly. The full scope is
+disclosed **up front**: every pending install plan across every namespace,
+grouped by namespace with its `oc patch` command, before any waiting starts —
+so you can plan the order you approve in, and grant the approvals in any
+order while the gate waits on all namespaces together. A heartbeat line
+naming every still-outstanding namespace repeats while you work.
+
+- **Scope** is pending-plan-based by design: only namespaces with install
+  plans actually awaiting approval are waited on, so an unrelated converged
+  subscription in a shared namespace (e.g. `openshift-operators`) never wedges
+  the gate. Namespaces whose plans appear mid-wait (e.g. the second step of a
+  multi-step upgrade path) join the scope and get their notices when first
+  seen.
+- **Per-namespace timeout budget**: each namespace carries its own
+  `OLM_APPROVAL_TIMEOUT` budget, with the clock starting when the namespace
+  is first observed by the gate — a namespace you approve last does not get a
+  fresh full budget after the gate spent hours on earlier ones. On expiry the
+  error lists every still-outstanding namespace with its non-converged
+  subscriptions and the repeated approve commands.
+
+### Where the cluster-wide gate runs: `ocp_verify`
+
+The gate is invoked by the `ocp_verify` role through its own
+`verify_subscription_approvals` variable (default `False`, env
+`VERIFY_SUBSCRIPTION_APPROVALS`), ordered before `verify_subscriptions`. It
+is enabled in exactly one place: the update pipeline's `post-update-verify`
+task — the one context where subscriptions roll implicitly and waiting for
+the approvals is the job. In every verification-only context (pre-flight and
+final checks in the install, update and upgrade pipelines) the gate does not
+run at all: a pending approval there is not the check's problem, and inviting
+an approval workflow seconds before a catalog change would be wrong.

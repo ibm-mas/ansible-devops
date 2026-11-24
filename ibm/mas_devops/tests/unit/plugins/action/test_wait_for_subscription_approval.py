@@ -68,66 +68,61 @@ class TestWaitForSubscriptionApproval:
         result = action_module.run()
 
         assert result["success"] is True
-        assert result["message"] == "All install plan approvals have been granted in: test-namespace"
+        assert result["message"] == "All install plan approvals have been granted in: test-namespace (and all subscriptions are at their channel head)"
 
     @patch("wait_for_subscription_approval.get_api_client")
     @patch("wait_for_subscription_approval.waitForSubscriptionApproval", autospec=True)
-    def test_cluster_wide_mode_waits_for_every_namespace(self, mock_wait, mock_get_api_client, action_module):
-        """Test the cluster-wide mode (no namespace) discovers and waits for each namespace"""
+    @patch("wait_for_subscription_approval.waitForClusterApproval", autospec=True)
+    def test_cluster_wide_mode_delegates_to_the_cluster_helper(self, mock_cluster_wait, mock_wait, mock_get_api_client, action_module):
+        """The cluster-wide mode (no namespace) is a single waitForClusterApproval call.
+
+        The helper owns the full-scope up-front report and the unified
+        multi-namespace wait (the settle-before-discover ordering is covered
+        by the module_utils tests); the plugin just passes through the
+        resolved timeout/poll interval and maps the result.
+        """
         mock_get_api_client.return_value = Mock()
-        mock_wait.side_effect = [makeStatus("ns-a"), makeStatus("ns-b")]
-        with patch("wait_for_subscription_approval.getPendingInstallPlans") as mockPending:
-            with patch("wait_for_subscription_approval.waitForSubscriptionResolution"):
-                mockPending.return_value = [
-                    {"installPlan": "plan-2", "namespace": "ns-b"},
-                    {"installPlan": "plan-1", "namespace": "ns-a"},
-                ]
+        mock_cluster_wait.return_value = {"waited": True, "namespaces": ["ns-a", "ns-b"], "statuses": {}}
 
-                action_module._task.args = {}
+        action_module._task.args = {"timeout": 600, "poll_interval": 15}
 
-                result = action_module.run()
+        result = action_module.run()
 
         assert result["success"] is True
         assert result["namespaces"] == ["ns-a", "ns-b"]
-        # Cluster-wide waits are per namespace, in a stable order, with no package filter
-        assert [call.args[2] for call in mock_wait.call_args_list] == ["ns-a", "ns-b"]
-        assert all("packageName" not in call.kwargs or call.kwargs["packageName"] is None for call in mock_wait.call_args_list)
+        assert result["message"] == "All install plan approvals have been granted in: ns-a, ns-b (and all subscriptions are at their channel head)"
+        mock_cluster_wait.assert_called_once()
+        assert mock_cluster_wait.call_args.kwargs["timeout"] == 600
+        assert mock_cluster_wait.call_args.kwargs["pollInterval"] == 15
+        # The per-namespace helper is not used in cluster-wide mode
+        mock_wait.assert_not_called()
 
     @patch("wait_for_subscription_approval.get_api_client")
-    def test_cluster_wide_mode_settles_before_discovering_pending(self, mock_get_api_client, action_module):
-        """The cluster-wide mode settles Subscription statuses before discovering pending InstallPlans.
-
-        Right after a catalog digest update OLM may not have generated the
-        new InstallPlans yet: settling first (a period of status stability)
-        means the discovery is not racing OLM's re-resolution.
-        """
-        mock_get_api_client.return_value = Mock()
-
-        callOrder = []
-        with patch("wait_for_subscription_approval.waitForSubscriptionResolution", side_effect=lambda *args, **kwargs: callOrder.append("settle")):
-            with patch("wait_for_subscription_approval.getPendingInstallPlans", side_effect=lambda *args, **kwargs: callOrder.append("discover") or []):
-                action_module._task.args = {}
-
-                result = action_module.run()
-
-        assert result["success"] is True
-        assert "No install plans are waiting for approval" in result["message"]
-        assert callOrder == ["settle", "discover"]
-
-    @patch("wait_for_subscription_approval.get_api_client")
-    @patch("wait_for_subscription_approval.getPendingInstallPlans")
-    def test_cluster_wide_mode_with_nothing_pending(self, mock_pending, mock_get_api_client, action_module):
+    @patch("wait_for_subscription_approval.waitForClusterApproval", autospec=True)
+    def test_cluster_wide_mode_with_nothing_pending(self, mock_cluster_wait, mock_get_api_client, action_module):
         """Test the cluster-wide mode is a no-op success when nothing is pending"""
         mock_get_api_client.return_value = Mock()
-        mock_pending.return_value = []
+        mock_cluster_wait.return_value = {"waited": False, "namespaces": [], "statuses": {}}
 
-        with patch("wait_for_subscription_approval.waitForSubscriptionResolution"):
-            action_module._task.args = {}
+        action_module._task.args = {}
 
-            result = action_module.run()
+        result = action_module.run()
 
         assert result["success"] is True
+        assert result["namespaces"] == []
         assert "No install plans are waiting for approval" in result["message"]
+
+    @patch("wait_for_subscription_approval.get_api_client")
+    @patch("wait_for_subscription_approval.waitForClusterApproval", autospec=True)
+    def test_cluster_wide_mode_timeout_raises_ansible_error(self, mock_cluster_wait, mock_get_api_client, action_module):
+        """Test that OLMTimeoutError from the cluster gate is converted to an actionable AnsibleError"""
+        mock_get_api_client.return_value = Mock()
+        mock_cluster_wait.side_effect = OLMTimeoutError("Timed out waiting for install plan approval in namespace ns-a")
+
+        action_module._task.args = {}
+
+        with pytest.raises(AnsibleError, match="Timed out waiting for install plan approval"):
+            action_module.run()
 
     @patch("wait_for_subscription_approval.get_api_client")
     @patch("wait_for_subscription_approval.waitForSubscriptionApproval", autospec=True)

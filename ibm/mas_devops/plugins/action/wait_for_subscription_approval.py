@@ -5,11 +5,12 @@ from ansible.errors import AnsibleError
 from ansible.plugins.action import ActionBase
 from ansible.utils.display import Display
 from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
-from mas.devops.olm import OLMException, OLMTimeoutError, getPendingInstallPlans, waitForSubscriptionResolution
+from mas.devops.olm import OLMException, OLMTimeoutError
 
 from ansible_collections.ibm.mas_devops.plugins.module_utils.olm_approvals import (
     resolveApprovalMode,
     resolveApprovalTimeout,
+    waitForClusterApproval,
     waitForSubscriptionApproval,
 )
 
@@ -37,6 +38,11 @@ class ActionModule(ActionBase):
 
       - name: "Wait for install plan approval (all namespaces)"
         ibm.mas_devops.wait_for_subscription_approval:
+          # The cluster-wide gate: the full scope of pending approvals is
+          # disclosed up front (every plan across every namespace, with its oc
+          # command) and the namespaces are waited on together -- approvals
+          # may be granted in any order. Each namespace carries its own
+          # timeout budget from when it is first observed.
     """
 
     def run(self, tmp=None, task_vars=None):
@@ -65,31 +71,19 @@ class ActionModule(ActionBase):
 
         try:
             if namespace is not None:
-                statuses = [
-                    waitForSubscriptionApproval(
-                        dynClient, display, namespace, packageName=packageName, timeout=timeout, pollInterval=pollInterval, approvalMode=approvalMode
-                    )
-                ]
+                result = waitForSubscriptionApproval(
+                    dynClient, display, namespace, packageName=packageName, timeout=timeout, pollInterval=pollInterval, approvalMode=approvalMode
+                )
+                waitedFor = [result["namespace"]] if result.get("waited") else []
+                resultNamespaces = [result["namespace"]]
             else:
-                # Cluster-wide: settle first. Right after a catalog digest
-                # update OLM may not have generated the new InstallPlans yet,
-                # and a single snapshot cannot distinguish "not generated
-                # yet" from "none coming" -- waitForSubscriptionResolution
-                # returns once Subscription statuses have been stable for a
-                # few polls (~1 minute), so the discovery below is not racing
-                # OLM's re-resolution.
-                waitForSubscriptionResolution(dynClient, namespace=None)
-
-                # Discover every namespace with install plans awaiting
-                # approval and wait for each in turn (each with its own
-                # timeout budget). This is the gate for subscriptions that
-                # roll implicitly, e.g. after a catalog digest update.
-                pending = getPendingInstallPlans(dynClient, namespace=None)
-                namespaces = sorted({approval["namespace"] for approval in pending})
-                statuses = [
-                    waitForSubscriptionApproval(dynClient, display, pendingNamespace, timeout=timeout, pollInterval=pollInterval, approvalMode=approvalMode)
-                    for pendingNamespace in namespaces
-                ]
+                # Cluster-wide gate: settle, disclose the full scope up front,
+                # then wait on every namespace together (approvals may be
+                # granted in any order). This is the gate for subscriptions
+                # that roll implicitly, e.g. after a catalog digest update.
+                result = waitForClusterApproval(dynClient, display, timeout=timeout, pollInterval=pollInterval, approvalMode=approvalMode)
+                waitedFor = result["namespaces"] if result["waited"] else []
+                resultNamespaces = result["namespaces"]
         except OLMTimeoutError as e:
             raise AnsibleError(f"Error: {e}") from e
         except OLMException as e:
@@ -100,10 +94,9 @@ class ActionModule(ActionBase):
         # Only claim approvals were granted when the wait actually waited:
         # the status "waited" flag is False when there was never anything
         # pending (the honest message then is that nothing is waiting)
-        waitedFor = [status["namespace"] for status in statuses if status.get("waited")]
         if waitedFor:
-            message = f"All install plan approvals have been granted in: {', '.join(waitedFor)}"
+            message = f"All install plan approvals have been granted in: {', '.join(waitedFor)} (and all subscriptions are at their channel head)"
         else:
             message = "No install plans are waiting for approval"
 
-        return dict(message=message, success=True, failed=False, changed=False, namespaces=[status["namespace"] for status in statuses])
+        return dict(message=message, success=True, failed=False, changed=False, namespaces=resultNamespaces)
