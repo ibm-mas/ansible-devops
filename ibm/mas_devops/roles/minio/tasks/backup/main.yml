@@ -90,69 +90,69 @@
         securityContext:
           fsGroup: 1000
         initContainers:
-        - name: install-mc
-          image: "{{ ubi_image }}"
-          command: ["/bin/sh", "-c"]
-          args:
-          - |
-            curl -4 -sL -o /shared/mc https://github.com/minio/mc/releases/download/{{ mc_version }}/mc.linux-amd64.{{ mc_version }}
-            chmod +x /shared/mc
-          securityContext:
-            runAsUser: 0
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-              - ALL
-              add:
-              - CHOWN
-              - DAC_OVERRIDE
-          volumeMounts:
-          - name: shared-bin
-            mountPath: /shared
+          - name: install-mc
+            image: "{{ ubi_image }}"
+            command: ["/bin/sh", "-c"]
+            args:
+              - |
+                curl -4 -sL -o /shared/mc https://github.com/minio/mc/releases/download/{{ mc_version }}/mc.linux-amd64.{{ mc_version }}
+                chmod +x /shared/mc
+            securityContext:
+              runAsUser: 0
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
+                add:
+                  - CHOWN
+                  - DAC_OVERRIDE
+            volumeMounts:
+              - name: shared-bin
+                mountPath: /shared
         containers:
-        - name: mc
-          image: "{{ ubi_image }}"
-          command: ["/bin/sh", "-c"]
-          args:
-          - |
-            export PATH=/shared:$PATH
-            mkdir -p /tmp/.mc
-            cp /config/config.json /tmp/.mc/config.json
-            mkdir -p /backup/metadata /backup/objects
-            sleep 3600
-          env:
-          - name: MC_CONFIG_DIR
-            value: /tmp/.mc
-          - name: HOME
-            value: /tmp
-          securityContext:
-            runAsUser: 1000
-            runAsNonRoot: true
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-              - ALL
-          volumeMounts:
-          - name: mc-config
-            mountPath: /config
-            readOnly: true
-          - name: shared-bin
-            mountPath: /shared
-            readOnly: true
-          - name: backup
-            mountPath: /backup
-          - name: tmp
-            mountPath: /tmp
+          - name: mc
+            image: "{{ ubi_image }}"
+            command: ["/bin/sh", "-c"]
+            args:
+              - |
+                export PATH=/shared:$PATH
+                mkdir -p /tmp/.mc
+                cp /config/config.json /tmp/.mc/config.json
+                mkdir -p /backup/metadata /backup/objects
+                sleep 3600
+            env:
+              - name: MC_CONFIG_DIR
+                value: /tmp/.mc
+              - name: HOME
+                value: /tmp
+            securityContext:
+              runAsUser: 1000
+              runAsNonRoot: true
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
+            volumeMounts:
+              - name: mc-config
+                mountPath: /config
+                readOnly: true
+              - name: shared-bin
+                mountPath: /shared
+                readOnly: true
+              - name: backup
+                mountPath: /backup
+              - name: tmp
+                mountPath: /tmp
         volumes:
-        - name: mc-config
-          configMap:
-            name: minio-backup-config
-        - name: shared-bin
-          emptyDir: {}
-        - name: backup
-          emptyDir: {}
-        - name: tmp
-          emptyDir: {}
+          - name: mc-config
+            configMap:
+              name: minio-backup-config
+          - name: shared-bin
+            emptyDir: {}
+          - name: backup
+            emptyDir: {}
+          - name: tmp
+            emptyDir: {}
         restartPolicy: Never
 
 - name: Wait for backup pod to be ready
