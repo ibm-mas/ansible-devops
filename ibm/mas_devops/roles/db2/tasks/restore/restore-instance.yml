@@ -30,33 +30,62 @@
 - name: Detect Certificate Manager installation
   include_tasks: "{{ role_path }}/../../common_tasks/detect_cert_manager.yml"
 
-# Verify only one db2ucluster instance file is present in backup archive
+# # Verify only one db2ucluster instance file is present in backup archive
+# # -----------------------------------------------------------------------------
+# - name: Get files from {{ db2_resources_path }}/db2uclusters directory
+#   set_fact:
+#     instance_files: "{{ lookup('fileglob', '{{ db2_resources_path }}/db2uclusters/*', wantlist=True) }}"
+
+# - name: Assert exactly one Db2uCluster CR exists
+#   assert:
+#     that:
+#       - instance_files | length == 1
+#     fail_msg: "Db2uCluster Directory must contain exactly one file"
+
+# - name: Set fact db2ucluster cr
+#   set_fact:
+#     db2ucluster_cr_cfg: "{{ lookup('file', '{{ instance_files[0] }}') | from_yaml }}"
+
+# # Get Db2u details from backup CR
+# # -----------------------------------------------------------------------------
+# - name: Set fact db2u namespace and instance name from backup CR
+#   set_fact:
+#     db2_namespace: "{{ db2ucluster_cr_cfg.metadata.namespace }}"
+#     db2_instance_name: "{{ db2ucluster_cr_cfg.metadata.name }}"
+#     db2_version: "{{ db2ucluster_cr_cfg.spec.version }}"
+#     db2_dbname: "{{ db2ucluster_cr_cfg.spec.environment.database.name }}"
+#     db2_type: "{{ db2ucluster_cr_cfg.spec.environment.dbType }}"
+
+# Detect CR type and load configuration
 # -----------------------------------------------------------------------------
-- name: Get files from {{ db2_resources_path }}/db2uclusters directory
+- name: "Detect Db2 CR type from backup"
+  include_tasks: "{{ role_path }}/tasks/restore/detect-cr-type.yml"
+
+- name: "Load {{ db2_cr_type }} CR configuration from backup"
   set_fact:
-    instance_files: "{{ lookup('fileglob', '{{ db2_resources_path }}/db2uclusters/*', wantlist=True) }}"
+    db2_cr_cfg: "{{ lookup('file', '{{ db2_cr_file }}') | from_yaml }}"
 
-- name: Assert exactly one Db2uCluster CR exists
-  assert:
-    that:
-      - instance_files | length == 1
-    fail_msg: "Db2uCluster Directory must contain exactly one file"
-
-- name: Set fact db2ucluster cr
-  set_fact:
-    db2ucluster_cr_cfg: "{{ lookup('file', '{{ instance_files[0] }}') | from_yaml }}"
-
-# Get Db2u details from backup CR
+# Extract configuration based on CR type
 # -----------------------------------------------------------------------------
-- name: Set fact db2u namespace and instance name from backup CR
+- name: "Extract configuration from Db2uCluster"
   set_fact:
-    db2_namespace: "{{ db2ucluster_cr_cfg.metadata.namespace }}"
-    db2_instance_name: "{{ db2ucluster_cr_cfg.metadata.name }}"
-    db2_version: "{{ db2ucluster_cr_cfg.spec.version }}"
-    db2_dbname: "{{ db2ucluster_cr_cfg.spec.environment.database.name }}"
-    db2_type: "{{ db2ucluster_cr_cfg.spec.environment.dbType }}"
+    db2_namespace: "{{ db2_cr_cfg.metadata.namespace }}"
+    db2_instance_name: "{{ db2_cr_cfg.metadata.name }}"
+    db2_version: "{{ db2_cr_cfg.spec.version }}"
+    db2_dbname: "{{ db2_cr_cfg.spec.environment.database.name }}"
+    db2_type: "{{ db2_cr_cfg.spec.environment.dbType }}"
+  when: db2_cr_type == "Db2uCluster"
 
-- name: "Db2uCluster restore information"
+- name: "Extract configuration from Db2uInstance"
+  set_fact:
+    db2_namespace: "{{ db2_cr_cfg.metadata.namespace }}"
+    db2_instance_name: "{{ db2_cr_cfg.metadata.name }}"
+    db2_version: "{{ db2_cr_cfg.spec.version }}"
+    db2_dbname: "{{ db2_cr_cfg.spec.environment.databases[0].name }}"
+    db2_type: "{{ db2_cr_cfg.spec.environment.dbType }}"
+  when: db2_cr_type == "Db2uInstance"
+
+- name: "{{ db2_cr_type }} restore information"
   debug:
     msg:
       - "Db2u Namespace ................. {{ db2_namespace }}"
@@ -64,6 +93,7 @@
       - "Db2u version ................... {{ db2_version }}"
       - "Db2u Database Name ............. {{ db2_dbname }}"
       - "Db2u Database Type ............. {{ db2_type }}"
+      - "CR Type ........................ {{ db2_cr_type }}"
       - "MAS Instance ID ................ {{ mas_instance_id | default('undefined') }}"
       - "Backup Version ................. {{ db2_backup_version }}"
       - "Backup Path .................... {{ db2_backup_path }}"
@@ -145,12 +175,12 @@
 
 # 6. Wait until the Db2uCluster CRD is available
 # -----------------------------------------------------------------------------
-- name: "Wait until the Db2uCluster CRD is available"
+- name: "Wait until the {{ db2_cr_type }} CRD is available"
   include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
   vars:
-    crd_name: "db2uclusters.db2u.databases.ibm.com"
+    crd_name: "{{ 'db2uclusters.db2u.databases.ibm.com' if db2_cr_type == 'Db2uCluster' else 'db2uinstances.db2u.databases.ibm.com' }}"
 
-# 7. Restore Db2uCluster
+# 7. Restore {{ db2_cr_type }}
 # -----------------------------------------------------------------------------
 
 - name: "Overriding storage class name with default storage class in CR"
@@ -162,27 +192,49 @@
   include_tasks: "tasks/restore/retrieve_db2_passwords.yml"
   no_log: true
 
-- name: "Restore Db2uCluster resources"
+- name: "Restore {{ db2_cr_type }} resources"
   ibm.mas_devops.restore_resource:
     backup_path: "{{ db2_backup_path }}"
     resource_kinds:
-      - Db2uCluster
+      - "{{ db2_cr_type }}"
     override_values:
-      Db2uCluster:
+      "{{ db2_cr_type }}":
         - spec.environment.database.ssl.secretName: "db2u-certificate-{{ db2_instance_name | lower }}"
         - spec.environment.instance.password: "{{ _db2_instance_password }}"
         - spec.environment.ldap.password: "{{ _db2_ldappassword }}"
         - spec.environment.ldap.blueAdminPassword: "{{ _db2_ldapblueadmin_password }}"
         - spec.storage: "{{ _db2_storages }}"
-  register: cr_result
   when:
     - namespace_result.success
+    - db2_cr_type == "Db2uCluster"
+  register: cr_result_cluster
+
+- name: "Restore {{ db2_cr_type }} resources"
+  ibm.mas_devops.restore_resource:
+    backup_path: "{{ db2_backup_path }}"
+    resource_kinds:
+      - "{{ db2_cr_type }}"
+    override_values:
+      "{{ db2_cr_type }}":
+        - spec.environment.databases[0].ssl.secretName: "db2u-certificate-{{ db2_instance_name | lower }}"
+        - spec.environment.instance.password: "{{ _db2_instance_password }}"
+        - spec.environment.ldap.password: "{{ _db2_ldappassword }}"
+        - spec.environment.ldap.blueAdminPassword: "{{ _db2_ldapblueadmin_password }}"
+        - spec.storage: "{{ _db2_storages }}"
+  when:
+    - namespace_result.success
+    - db2_cr_type == "Db2uInstance"
+  register: cr_result_instance
+
+- name: "Set unified cr_result"
+  set_fact:
+    cr_result: "{{ cr_result_cluster if db2_cr_type == 'Db2uCluster' else cr_result_instance }}"
 
 # 8. Set timezone
 # -----------------------------------------------------------------------------
 - name: "Determine if timezone is set in the CR"
   set_fact:
-    db2_timezone: "{{ db2ucluster_cr_cfg.spec.advOpts.timezone | default('') }}"
+    db2_timezone: "{{ db2_cr_cfg.spec.advOpts.timezone | default('') }}"
 
 - name: "Set db2 instance timezone"
   include_tasks: "tasks/install/setup_timezone.yml"
@@ -190,13 +242,13 @@
     - db2_timezone is defined and db2_timezone != ""
 
 # 9. Wait for the cluster to be ready
-# -----------------------------------------------------------------------------
-- name: "Wait for db2u instance to be ready (5m delay)"
+# ------------------------------------------------------------------------------
+- name: "Wait for {{ db2_cr_type }} instance to be ready (5m delay)"
   kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ db2_instance_name | lower }}"
     namespace: "{{db2_namespace}}"
-    kind: Db2uCluster
+    kind: "{{ db2_cr_type }}"
   register: db2_cluster_lookup
   until:
     - db2_cluster_lookup.resources is defined
