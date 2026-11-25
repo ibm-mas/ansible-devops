@@ -164,7 +164,7 @@ settle is deliberately not configurable.
   convergence gate returns only once the subscription is at the new channel
   head, so the flows' former settle pauses and installPlanGeneration bump
   checks have been removed (suite_upgrade, suite_app_upgrade,
-  aiservice_upgrade, kafka, ocs). The aiservice per-tenant subscription
+  aiservice_upgrade, kafka, ocs, db2). The aiservice per-tenant subscription
   upgrades are gated too — they previously had no gate at all, and their
   former `AtLatestKnown` check would have hung under Manual approval.
 - **mongodb** is not OLM-based and is unaffected.
