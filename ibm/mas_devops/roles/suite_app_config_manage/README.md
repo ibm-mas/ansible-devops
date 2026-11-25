@@ -29,6 +29,7 @@ This role provides post-installation configuration actions for the Maximo Manage
 | [`mas_instance_id`](#mas_instance_id) | Yes | None |
 | [`mas_workspace_id`](#mas_workspace_id) | Yes | None |
 | [`mas_app_id`](#mas_app_id) | No | `manage` |
+| [`mas_manual_route_mgmt`](#mas_manual_route_mgmt) | No | `false` |
 | [`mas_manage_attachments_provider`](#mas_manage_attachments_provider) | No | `filestorage` |
 | [`mas_manage_custfiles_provider`](#mas_manage_custfiles_provider) | Conditional | Legacy `COS_TYPE` |
 | [`mas_manage_logging_provider`](#mas_manage_logging_provider) | Conditional | Legacy `COS_TYPE` |
@@ -77,6 +78,16 @@ Application identifier — set to `health` when configuring a Health stand-alone
 - **Optional**
 - Environment Variable: `MAS_APP_ID`
 - Default: `manage`
+
+#### mas_manual_route_mgmt
+
+Set to `true` when the MAS instance uses manual route management (`manualRouteMgmt`, always the case when Service Mesh is in use) — used by the `attachments` action.
+
+- **Optional**
+- Environment Variable: `MAS_MANUAL_ROUTE_MGMT`
+- Default: `false`
+
+With manual route management the MAS operator does not create Routes, so the `attachments` action cannot look up the application Route. When `true`, the action reads the application host from the `routeref-<instance>-<app>-<workspace>` ConfigMap in the application namespace instead, and fails if that ConfigMap does not exist.
 
 ### Storage Providers
 

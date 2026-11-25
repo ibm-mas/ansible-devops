@@ -78,13 +78,36 @@
 
 # 5. Print MAS login information
 # -----------------------------------------------------------------------------
+# When manual route management is enabled (always the case with Service Mesh) MAS
+# does not create any Routes. Instead it writes a routeref-<route-name> ConfigMap
+# that holds the Route definition, so the admin host is read from there.
 - name: Lookup Route for admin
+  when: not mas_manual_route_mgmt
   kubernetes.core.k8s_info:
     api_version: route.openshift.io/v1
     kind: Route
     name: "{{ mas_instance_id}}-admin"
     namespace: "{{ mas_namespace }}"
   register: admin_route
+
+- name: "Lookup routeref ConfigMap for admin (manual route management)"
+  when: mas_manual_route_mgmt
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: "routeref-{{ mas_instance_id }}-admin"
+    namespace: "{{ mas_namespace }}"
+  register: admin_routeref
+
+- name: "Check routeref ConfigMap for admin exists (manual route management)"
+  when: mas_manual_route_mgmt
+  debug:
+    msg: >-
+      {{
+        'Found ConfigMap routeref-' ~ mas_instance_id ~ '-admin in namespace ' ~ mas_namespace
+        if admin_routeref.resources | default([]) | length > 0
+        else 'WARNING: Manual route management is enabled but ConfigMap routeref-' ~ mas_instance_id ~ '-admin was not found in namespace ' ~ mas_namespace
+      }}
 
 - name: "Lookup cluster subdomain"
   kubernetes.core.k8s_info:
@@ -94,9 +117,20 @@
   register: cluster_subdomain
 
 - name: "Maximo Application Suite Authentication Summary:"
+  when: not mas_manual_route_mgmt
   debug:
     msg:
       - "Maximo Application Suite is Ready, use the superuser credentials to authenticate"
       - "Admin Dashboard ... https://{{ admin_route.resources[0].spec.host | default ('UNDEFINED')}}{{ '/admin' if mas_routing_mode == 'path' else '' }}"
+      - "Username .......... {{ superuser_username }}"
+      - "Password .......... {{ superuser_password }}"
+
+- name: "Maximo Application Suite Authentication Summary (manual route management):"
+  when: mas_manual_route_mgmt
+  debug:
+    msg:
+      - "Maximo Application Suite is Ready"
+      - "Route management ... Manual (manualRouteMgmt is enabled): MAS has not created any Routes instead routeref-{{ mas_instance_id }}-admin configMap is created which contains admin route reference which can be used to create the route manually."
+      - "Once the routes are configured, use the superuser credentials to authenticate"
       - "Username .......... {{ superuser_username }}"
       - "Password .......... {{ superuser_password }}"

@@ -1,16 +1,39 @@
 ---
-- name: "Service Mesh: Debug properties"
+# servicemesh — role entry point
+# Installs, configures, or uninstalls Red Hat OpenShift Service Mesh (OSSM v3)
+# for use with IBM Maximo Application Suite.
+#
+# Required variables:
+#   (none — all variables have defaults)
+#
+# Optional variables:
+#   servicemesh_action          Action to perform: install | install-kiali | uninstall
+#                               (default: install)
+#   servicemesh_channel         OLM channel for the Service Mesh operator
+#   servicemesh_starting_csv    Pinned CSV for the Service Mesh operator
+#   servicemesh_namespace       Namespace for the Istio control plane
+#   servicemesh_cni_namespace   Namespace for the Istio CNI plugin
+#   install_kiali               Whether to also install Kiali (default: false)
+#   kiali_channel               OLM channel for the Kiali operator
+#   kiali_starting_csv          Pinned CSV for the Kiali operator
+#   istio_version               Istio version for the IstioCNI resource
+#   prometheus_url              Prometheus URL passed to Kiali configuration
+# -----------------------------------------------------------------------------
+
+# 1. Log resolved configuration
+# -----------------------------------------------------------------------------
+- name: "Debug: resolved configuration"
   debug:
     msg:
-      - "Service Mesh action ......................... {{ servicemesh_action }}"
-      - "Service Mesh channel................... {{ servicemesh_channel }}"
-      - "Service Mesh namespace ................... {{ servicemesh_namespace }}"
+      - "Service Mesh action .................. {{ servicemesh_action }}"
+      - "Service Mesh channel ................. {{ servicemesh_channel }}"
+      - "Service Mesh namespace ............... {{ servicemesh_namespace }}"
+      - "Service Mesh CNI namespace ........... {{ servicemesh_cni_namespace }}"
+      - "Install Kiali ........................ {{ install_kiali }}"
+      - "Istio version ........................ {{ istio_version }}"
 
-# 1. Perform the selected action
+# 2. Dispatch to the selected action
 # -----------------------------------------------------------------------------
-# Three actions are supported:
-# - install
-# - install-kiali
-# - uninstall
-- include_tasks: "{{ servicemesh_action }}/main.yml"
+- name: "Run action: {{ servicemesh_action }}"
   when: servicemesh_action in ['install', 'uninstall', 'install-kiali']
+  include_tasks: "{{ servicemesh_action }}/main.yml"
