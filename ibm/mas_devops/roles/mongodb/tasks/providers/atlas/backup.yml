@@ -32,43 +32,29 @@
 
 # 2. Retrieve Atlas API credentials from AWS Secrets Manager
 # -----------------------------------------------------------------------------
+- name: "Fail if Atlas secret name or region is not provided"
+  assert:
+    that:
+      - atlas_aws_secret_name is defined and atlas_aws_secret_name != "" and not atlas_aws_secret_name.startswith("/")
+      - atlas_aws_region is defined and atlas_aws_region != ""
+    fail_msg: "atlas_aws_secret_name and atlas_aws_region are required to read the Atlas API keys from AWS Secrets Manager"
+
 - name: "Retrieve Atlas credentials from AWS Secrets Manager"
-  when:
-    - atlas_account_id is defined
-    - atlas_account_id != ""
-    - atlas_aws_region is defined
   block:
-    - name: "Check if AWS CLI is available"
-      command: which aws
-      register: aws_cli_check
-      failed_when: false
-      changed_when: false
-
-    - name: "Fail if AWS CLI is not installed"
-      fail:
-        msg: "AWS CLI is not installed or not in PATH."
-      when: aws_cli_check.rc != 0
-
     - name: "Get Atlas API credentials from AWS Secrets Manager"
-      shell: |
-        aws secretsmanager get-secret-value \
-          --secret-id "{{ atlas_aws_secret_name }}" \
-          --region "{{ atlas_aws_region }}" \
-          --query SecretString \
-          --output text
-      register: atlas_secret_output
-      failed_when: atlas_secret_output.rc != 0
+      set_fact:
+        atlas_secret_raw: "{{ lookup('amazon.aws.aws_secret', atlas_aws_secret_name, region=atlas_aws_region, errors='strict') }}"
       no_log: true
 
     - name: "Parse Atlas credentials from secret"
       set_fact:
-        atlas_credentials: "{{ atlas_secret_output.stdout | from_json }}"
+        atlas_credentials: "{{ atlas_secret_raw if atlas_secret_raw is mapping else (atlas_secret_raw | from_json) }}"
       no_log: true
 
     - name: "Set Atlas API keys"
       set_fact:
-        atlas_public_key: "{{ atlas_credentials.mongodb_atlas_api_pub_key }}"
-        atlas_private_key: "{{ atlas_credentials.mongodb_atlas_api_pri_key }}"
+        atlas_public_key: "{{ atlas_credentials.public_api_key }}"
+        atlas_private_key: "{{ atlas_credentials.private_api_key }}"
       no_log: true
 
   rescue:
@@ -111,12 +97,28 @@
       Content-Type: "application/json"
     body:
       description: "on-demand backup - {{ catalog_build_id }}"
-      retentionInDays: "{{ atlas_backup_retention_days | default(7) | int }}"
+      retentionInDays: "{{ atlas_backup_retention_days | default(30) | int }}"
     body_format: json
     status_code: [200, 201]
     timeout: "{{ atlas_api_timeout }}"
   register: atlas_snapshot_trigger
-  no_log: false
+  no_log: true
+  ignore_errors: true
+  failed_when: false
+
+# no_log hides the Atlas API keys; the status and error below are shown so a failure can be diagnosed
+- name: "Show Atlas snapshot response (status and error only, no request arguments)"
+  debug:
+    msg:
+      - "HTTP status ....... {{ atlas_snapshot_trigger.status | default('none') }}"
+      - "Error message ..... {{ atlas_snapshot_trigger.msg | default('none') }}"
+      - "Response body ..... {{ atlas_snapshot_trigger.json | default({}) | to_json }}"
+
+- name: "Fail if Atlas did not accept the snapshot request"
+  assert:
+    that:
+      - atlas_snapshot_trigger.status in [200, 201]
+    fail_msg: "Atlas returned HTTP {{ atlas_snapshot_trigger.status | default('none') }}. See the response above."
 
 - name: "Extract snapshot ID from response"
   set_fact:
@@ -142,6 +144,7 @@
       Accept: "application/vnd.atlas.2023-01-01+json"
     status_code: 200
     timeout: "{{ atlas_api_timeout }}"
+  no_log: true
   register: atlas_snapshot_status
   retries: 60
   delay: 30
@@ -171,11 +174,11 @@
 # -----------------------------------------------------------------------------
 - name: "Store backup info in S3"
   amazon.aws.s3_object:
-    bucket: "massaas-cos-saas-stable-as-s-dev-fra-backup"
+    bucket: "mref-backflow-test-bucket"
     object: "releases/{{ catalog_build_id }}/mongo/mongo-backup.txt"
     content: "snapshot_id={{ atlas_snapshot_id }}\nsnapshot_timestamp={{ atlas_snapshot_timestamp }}\nexpires_at={{ atlas_snapshot_expires_at }}\nsnapshot_type={{ atlas_snapshot_type }}\nmongod_version={{ atlas_snapshot_mongod_version }}\ncatalog_build_id={{ catalog_build_id }}\ncluster_name={{ atlas_cluster_name }}\nproject_id={{ atlas_project_id }}\nmas_instance_id={{ mas_instance_id }}"
     mode: put
-    region: "eu-central-1"
+    region: "us-east-1"
   register: atlas_s3_upload
 
 - name: "Backup info stored successfully"

@@ -35,43 +35,29 @@
 
 # 2. Retrieve Atlas API credentials from AWS Secrets Manager
 # -----------------------------------------------------------------------------
+- name: "Fail if Atlas secret name or region is not provided"
+  assert:
+    that:
+      - atlas_aws_secret_name is defined and atlas_aws_secret_name != "" and not atlas_aws_secret_name.startswith("/")
+      - atlas_aws_region is defined and atlas_aws_region != ""
+    fail_msg: "atlas_aws_secret_name and atlas_aws_region are required to read the Atlas API keys from AWS Secrets Manager"
+
 - name: "Retrieve Atlas credentials from AWS Secrets Manager"
-  when:
-    - atlas_account_id is defined
-    - atlas_account_id != ""
-    - atlas_aws_region is defined
   block:
-    - name: "Check if AWS CLI is available"
-      command: which aws
-      register: aws_cli_check
-      failed_when: false
-      changed_when: false
-
-    - name: "Fail if AWS CLI is not installed"
-      fail:
-        msg: "AWS CLI is not installed or not in PATH."
-      when: aws_cli_check.rc != 0
-
     - name: "Get Atlas API credentials from AWS Secrets Manager"
-      shell: |
-        aws secretsmanager get-secret-value \
-          --secret-id "{{ atlas_aws_secret_name }}" \
-          --region "{{ atlas_aws_region }}" \
-          --query SecretString \
-          --output text
-      register: atlas_secret_output
-      failed_when: atlas_secret_output.rc != 0
+      set_fact:
+        atlas_secret_raw: "{{ lookup('amazon.aws.aws_secret', atlas_aws_secret_name, region=atlas_aws_region, errors='strict') }}"
       no_log: true
 
     - name: "Parse Atlas credentials from secret"
       set_fact:
-        atlas_credentials: "{{ atlas_secret_output.stdout | from_json }}"
+        atlas_credentials: "{{ atlas_secret_raw if atlas_secret_raw is mapping else (atlas_secret_raw | from_json) }}"
       no_log: true
 
     - name: "Set Atlas API keys"
       set_fact:
-        atlas_public_key: "{{ atlas_credentials.mongodb_atlas_api_pub_key }}"
-        atlas_private_key: "{{ atlas_credentials.mongodb_atlas_api_pri_key }}"
+        atlas_public_key: "{{ atlas_credentials.public_api_key }}"
+        atlas_private_key: "{{ atlas_credentials.private_api_key }}"
       no_log: true
 
   rescue:
@@ -90,10 +76,10 @@
 # -----------------------------------------------------------------------------
 - name: "Read backup info from S3"
   amazon.aws.s3_object:
-    bucket: "massaas-cos-saas-stable-as-s-dev-fra-backup"
+    bucket: "mref-backflow-test-bucket"
     object: "releases/{{ catalog_build_id }}/mongo/mongo-backup.txt"
     mode: getstr
-    region: "eu-central-1"
+    region: "us-east-1"
   register: atlas_s3_backup_info
 
 - name: "Parse snapshot ID from backup info"
@@ -116,7 +102,23 @@
       Accept: "application/vnd.atlas.2025-03-12+json"
     status_code: 200
     timeout: "{{ atlas_api_timeout }}"
+  no_log: true
+  ignore_errors: true
   register: atlas_snapshot_dbs_page1
+
+# no_log hides the Atlas API keys; the status and error below are shown so a failure can be diagnosed
+- name: "Show snapshot database list response (status and error only, no request arguments)"
+  debug:
+    msg:
+      - "HTTP status ....... {{ atlas_snapshot_dbs_page1.status | default('none') }}"
+      - "Error message ..... {{ atlas_snapshot_dbs_page1.msg | default('none') }}"
+      - "Response body ..... {{ atlas_snapshot_dbs_page1.json | default({}) | to_json }}"
+
+- name: "Fail if Atlas did not return the snapshot database list"
+  assert:
+    that:
+      - atlas_snapshot_dbs_page1.status | default(0) == 200
+    fail_msg: "Atlas returned HTTP {{ atlas_snapshot_dbs_page1.status | default('none') }} for the snapshot database list. See the response above."
 
 - name: "List databases in snapshot (remaining pages)"
   uri:
@@ -130,6 +132,7 @@
     status_code: 200
     timeout: "{{ atlas_api_timeout }}"
   loop: "{{ range(2, ((atlas_snapshot_dbs_page1.json.totalCount | int) / 500) | round(0, 'ceil') | int + 1) | list }}"
+  no_log: true
   register: atlas_snapshot_dbs_more
 
 - name: "Collect snapshot database names"
@@ -207,7 +210,22 @@
     body_format: json
     status_code: 201
     timeout: "{{ atlas_api_timeout }}"
+  no_log: true
+  ignore_errors: true
   register: atlas_restore_trigger
+
+- name: "Show restore trigger response (status and error only, no request arguments)"
+  debug:
+    msg:
+      - "HTTP status ....... {{ atlas_restore_trigger.status | default('none') }}"
+      - "Error message ..... {{ atlas_restore_trigger.msg | default('none') }}"
+      - "Response body ..... {{ atlas_restore_trigger.json | default({}) | to_json }}"
+
+- name: "Fail if Atlas did not accept the restore request"
+  assert:
+    that:
+      - atlas_restore_trigger.status | default(0) == 201
+    fail_msg: "Atlas returned HTTP {{ atlas_restore_trigger.status | default('none') }} for the restore request. See the response above."
 
 - name: "Extract restore job ID"
   set_fact:
@@ -233,6 +251,7 @@
       Accept: "application/vnd.atlas.2025-03-12+json"
     status_code: 200
     timeout: "{{ atlas_api_timeout }}"
+  no_log: true
   register: atlas_restore_status
   retries: 60
   delay: 30
