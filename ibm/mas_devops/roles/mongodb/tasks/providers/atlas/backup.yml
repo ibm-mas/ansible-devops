@@ -179,7 +179,20 @@
     content: "snapshot_id={{ atlas_snapshot_id }}\nsnapshot_timestamp={{ atlas_snapshot_timestamp }}\nexpires_at={{ atlas_snapshot_expires_at }}\nsnapshot_type={{ atlas_snapshot_type }}\nmongod_version={{ atlas_snapshot_mongod_version }}\ncatalog_build_id={{ catalog_build_id }}\ncluster_name={{ atlas_cluster_name }}\nproject_id={{ atlas_project_id }}\nmas_instance_id={{ mas_instance_id }}"
     mode: put
     region: "us-east-1"
+  no_log: true
+  ignore_errors: true
   register: atlas_s3_upload
+
+# no_log hides the presigned URL (it contains the AWS access key ID); only the message is shown so a failure can be diagnosed
+- name: "Show S3 upload result (message only, no URL)"
+  debug:
+    msg: "S3 upload message ..... {{ atlas_s3_upload.msg | default('none') }}"
+
+- name: "Fail if the backup info was not stored in S3"
+  assert:
+    that:
+      - not (atlas_s3_upload.failed | default(false))
+    fail_msg: "Storing the backup info in S3 failed. See the message above."
 
 - name: "Backup info stored successfully"
   debug:
