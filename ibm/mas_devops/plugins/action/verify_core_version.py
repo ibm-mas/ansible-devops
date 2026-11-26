@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 
+import time
+
+from ansible.errors import AnsibleError
+from ansible.plugins.action import ActionBase
+from ansible.utils.display import Display
 from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 
-from ansible.plugins.action import ActionBase
-from ansible.errors import AnsibleError
-from ansible.utils.display import Display
-
-import time
 
 class ActionModule(ActionBase):
     def run(self, tmp=None, task_vars=None):
-        super(ActionModule, self).run(tmp, task_vars)
+        super().run(tmp, task_vars)
         display = Display()
 
         # Initialize DynamicClient and grab the task args
@@ -27,7 +27,6 @@ class ActionModule(ActionBase):
 
         masSuites = dynClient.resources.get(api_version="core.mas.ibm.com/v1", kind='Suite')
         versionMatching = False
-        version = ""
         attempts = 0
         while attempts < retries and not versionMatching:
 
@@ -53,4 +52,4 @@ class ActionModule(ActionBase):
             version=core_version
           )
         else:
-          raise AnsibleError(f"Error: MAS core version is not matched")
+          raise AnsibleError("Error: MAS core version is not matched")

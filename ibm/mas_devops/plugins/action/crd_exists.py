@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import logging
+
 import urllib3
-from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 from ansible.errors import AnsibleError
 from ansible.plugins.action import ActionBase
-
+from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 from mas.devops.ocp import crdExists
 
 urllib3.disable_warnings()  # Disabling warnings will prevent InsecureRequestWarnings from dynClient
@@ -22,7 +22,7 @@ class ActionModule(ActionBase):
         register: crd_exists
     """
     def run(self, tmp=None, task_vars=None):
-        super(ActionModule, self).run(tmp, task_vars)
+        super().run(tmp, task_vars)
 
         # Target subscription
         crdName = self._task.args.get('crdName', None)

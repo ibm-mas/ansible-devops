@@ -5,11 +5,12 @@ Tests the verify_core_version action which checks if MAS core version matches
 the expected version with retry logic.
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+import verify_core_version
 from ansible.errors import AnsibleError
 
-import verify_core_version
 ActionModule = verify_core_version.ActionModule
 
 

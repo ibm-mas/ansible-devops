@@ -39,6 +39,7 @@ API token for Artifactory access to enable installation of development catalog s
 After installing the Ansible Collection you can include this role in your own custom playbooks.
 
 ```yaml
+
 - hosts: localhost
   vars:
     mas_catalog_version: v9-240625-amd64
@@ -92,6 +93,7 @@ AWS Route53 Hosted Zone region.
 After installing the Ansible Collection you can include this role in your own custom playbooks.
 
 ```yaml
+
 - hosts: localhost
   vars:
     route53_hosted_zone_name: mycompany.com
@@ -194,6 +196,7 @@ Provide a list of comma-separated key=value pairs which will be applied as label
 After installing the Ansible Collection you can include this role in your own custom playbooks.
 
 ```yaml
+
 - hosts: localhost
   vars:
     mas_instance_id: inst1
@@ -291,6 +294,7 @@ The name of the storage class to configure the MongoDB operator to use for persi
 After installing the Ansible Collection you can include this role in your own custom playbooks.
 
 ```yaml
+
 - hosts: localhost
   vars:
     mongodb_provider: community

@@ -18,10 +18,6 @@ if [ -f "$SEMVER_RELEASE_LEVEL_FILE" ]; then
   export SEMVER_RELEASE_LEVEL=$(cat ${SEMVER_RELEASE_LEVEL_FILE})
 fi
 
-# Docker does not support "+" characters from semvar syntax so we replace "+" with "_"
-# We should not actually deploy any "+build" releases anyway
-export DOCKER_TAG=$(echo "$VERSION" | sed -e's/\+/_/g')
-
 if [ -z $BUILD_SYSTEM_ENV_LOADED ]; then
   echo "BUILD_SYSTEM_ENV_LOADED is not defined yet"
   export BUILD_SYSTEM_ENV_LOADED=1
@@ -32,7 +28,6 @@ if [ -z $BUILD_SYSTEM_ENV_LOADED ]; then
     echo "VERSION=$VERSION" >> $GITHUB_ENV
     echo "VERSION_FILE=$VERSION_FILE" >> $GITHUB_ENV
     echo "VERSION=$VERSION" >> $GITHUB_ENV
-    echo "DOCKER_TAG=$DOCKER_TAG" >> $GITHUB_ENV
     echo "SEMVER_RELEASE_LEVEL_FILE=$SEMVER_RELEASE_LEVEL_FILE" >> $GITHUB_ENV
     echo "SEMVER_RELEASE_LEVEL=$SEMVER_RELEASE_LEVEL" >> $GITHUB_ENV
     echo "BUILD_SYSTEM_ENV_LOADED=1" >> $GITHUB_ENV
@@ -46,12 +41,9 @@ if [ -z $BUILD_SYSTEM_ENV_LOADED ]; then
   echo_highlight ""
   echo_highlight "VERSION_FILE ............... $VERSION_FILE"
   echo_highlight "VERSION .................... $VERSION"
-  echo_highlight "DOCKER_TAG ................. $DOCKER_TAG"
   echo_highlight ""
   echo_highlight "SEMVER_RELEASE_LEVEL_FILE .. $SEMVER_RELEASE_LEVEL_FILE"
   echo_highlight "SEMVER_RELEASE_LEVEL ....... $SEMVER_RELEASE_LEVEL"
 else
   echo "BUILD_SYSTEM_ENV_LOADED is already defined, skipping debug and export to GitHub env file"
 fi
-
-

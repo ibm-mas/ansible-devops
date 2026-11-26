@@ -1,0 +1,80 @@
+---
+# Run SQL statements against the Manage DB2 database. The statements are executed
+# in the DB2 engine pod as the db2inst1 user, one statement per line via db2 -tvf.
+# Inputs:
+#   db2_sql_statements - list of SQL statements to execute
+#   db2_namespace, db2_instance_name, db2_dbname
+- name: "run-db2-sql : Fail if db2_instance_name is not provided"
+  assert:
+    that: db2_instance_name is defined and db2_instance_name != ""
+    fail_msg: >-
+      db2_instance_name property is required to execute SQL against the Manage database.
+      It is not available when an external (JDBC) database is used.
+
+- name: "run-db2-sql : Lookup DB2 engine pod"
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ db2_namespace }}"
+    label_selectors:
+      - "type=engine"
+      - "app={{ db2_instance_name }}"
+  register: db2_pod
+
+- name: "run-db2-sql : Fail if no DB2 engine pod is found"
+  assert:
+    that: db2_pod.resources is defined and db2_pod.resources | length > 0
+    fail_msg: "No DB2 engine pod found for instance {{ db2_instance_name }} in namespace {{ db2_namespace }}"
+
+- name: "run-db2-sql : Set DB2 pod name"
+  set_fact:
+    db2_pod_name: "{{ db2_pod.resources[0].metadata.name }}"
+
+- name: "run-db2-sql : Create temporary SQL script"
+  ansible.builtin.tempfile:
+    state: file
+    suffix: .sql
+  register: db2_sql_tempfile
+
+- name: "run-db2-sql : Render SQL script"
+  ansible.builtin.copy:
+    dest: "{{ db2_sql_tempfile.path }}"
+    mode: "0600"
+    content: |
+      db2 connect to {{ db2_dbname }}
+      {% for statement in db2_sql_statements %}
+      db2 "{{ statement }}"
+      {% endfor %}
+  no_log: true
+
+- name: "run-db2-sql : Copy SQL script into the DB2 pod {{ db2_pod_name }}"
+  kubernetes.core.k8s_cp:
+    namespace: "{{ db2_namespace }}"
+    pod: "{{ db2_pod_name }}"
+    local_path: "{{ db2_sql_tempfile.path }}"
+    remote_path: "/tmp/{{ db2_sql_tempfile.path | basename }}"
+  no_log: true
+
+- name: "run-db2-sql : Execute SQL script on the DB2 pod"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ db2_namespace }}"
+    pod: "{{ db2_pod_name }}"
+    command: ["bash", "-c", "su - db2inst1 -c 'db2 -tvf /tmp/{{ db2_sql_tempfile.path | basename }}'"]
+  register: db2_sql_output
+  changed_when: true
+
+- name: "run-db2-sql : Fail if the SQL execution failed"
+  assert:
+    that: db2_sql_output.rc == 0
+    fail_msg: "SQL execution failed: {{ db2_sql_output.stdout_lines | default([]) }}"
+
+- name: "run-db2-sql : Remove the SQL script from the DB2 pod"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ db2_namespace }}"
+    pod: "{{ db2_pod_name }}"
+    command: ["bash", "-c", "rm -f /tmp/{{ db2_sql_tempfile.path | basename }}"]
+  changed_when: false
+
+- name: "run-db2-sql : Remove the local temporary SQL script"
+  ansible.builtin.file:
+    path: "{{ db2_sql_tempfile.path }}"
+    state: absent

@@ -1,0 +1,85 @@
+---
+# BIM action (was suite_manage_bim_config)
+# Configure file storage PVCs as persistent storage for Manage BIM (Building
+# Information Models): create the BIM folders on the mounted PVC and set the
+# bim.import.dir, bim.import.docdir and bim.model.dir properties.
+# ========================================================================
+
+# Assertions: preliminary validations
+# ------------------------------------------------------------------------
+- name: "bim : Fail if db2_instance_name is not provided"
+  assert:
+    that: db2_instance_name is defined and db2_instance_name != ""
+    fail_msg: >-
+      db2_instance_name property is required. It is not available when an external
+      (JDBC) database is used.
+
+- name: "bim : Fail if mas_app_settings_bim_mount_path is not provided"
+  assert:
+    that: mas_app_settings_bim_mount_path is defined and mas_app_settings_bim_mount_path != ""
+    fail_msg: "mas_app_settings_bim_mount_path property is required"
+
+- name: "bim : Fail if mas_app_id is not supported"
+  assert:
+    that:
+      - mas_app_id is defined and mas_app_id != ""
+      - mas_app_id is in ['manage', 'health']
+    fail_msg: "mas_app_id property is required and must be set to either 'manage' or 'health'"
+
+# 1. Create BIM folders in the maxinst pod PVC mounted path
+# ------------------------------------------------------------------------
+# BIM needs three folders to be configured in the PVC mounted path:
+# /{{ mas_app_settings_bim_mount_path }}/import
+# /{{ mas_app_settings_bim_mount_path }}/docs
+# /{{ mas_app_settings_bim_mount_path }}/models
+- name: "bim : Set manage namespace"
+  set_fact:
+    manage_namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
+
+- name: "bim : Lookup maxinst pod in {{ manage_namespace }} namespace"
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ manage_namespace }}"
+    label_selectors:
+      - "mas.ibm.com/appType=maxinstudb"
+  register: maxinst_pod
+
+- name: "bim : Fail if no maxinst pod is found"
+  assert:
+    that: maxinst_pod.resources is defined and maxinst_pod.resources | length > 0
+    fail_msg: "No maxinst pod found in namespace {{ manage_namespace }}"
+
+- name: "bim : Set maxinst pod name"
+  set_fact:
+    maxinst_pod_name: "{{ maxinst_pod.resources[0].metadata.name }}"
+
+- name: "bim : Create BIM folders in the PVC mounted path in maxinst pod (docs, import and models)"
+  kubernetes.core.k8s_exec:
+    namespace: "{{ manage_namespace }}"
+    pod: "{{ maxinst_pod_name }}"
+    command: ["bash", "-c", "mkdir -p {{ mas_app_settings_bim_mount_path }}/{docs,import,models}"]
+  register: setup_bim_folders_output
+  changed_when: true
+
+- name: "bim : Fail if the BIM folder creation failed"
+  assert:
+    that: setup_bim_folders_output.rc == 0
+    fail_msg: "Failed to create BIM folders in the maxinst pod: {{ setup_bim_folders_output.stderr_lines | default([]) }}"
+
+# 2. Update Manage database with BIM information
+# ------------------------------------------------------------------------
+- name: "bim : Update Manage database with the BIM folder properties"
+  vars:
+    db2_sql_statements:
+      - "UPDATE MAXIMO.MAXPROPVALUE SET PROPVALUE = '{{ mas_app_settings_bim_mount_path }}/import' WHERE PROPNAME = 'bim.import.dir'"
+      - "UPDATE MAXIMO.MAXPROPVALUE SET PROPVALUE = '{{ mas_app_settings_bim_mount_path }}/docs' WHERE PROPNAME = 'bim.import.docdir'"
+      - "UPDATE MAXIMO.MAXPROPVALUE SET PROPVALUE = '{{ mas_app_settings_bim_mount_path }}/models' WHERE PROPNAME = 'bim.model.dir'"
+  include_tasks: "tasks/common/run-db2-sql.yml"
+
+- name: "bim : Debug information"
+  debug:
+    msg:
+      - "{{ mas_app_id | capitalize }} BIM mounted path ................. {{ mas_app_settings_bim_mount_path }}"
+      - "{{ mas_app_id | capitalize }} BIM 'docs' folder ................ bim.import.docdir: {{ mas_app_settings_bim_mount_path }}/docs"
+      - "{{ mas_app_id | capitalize }} BIM 'import' folder .............. bim.import.dir: {{ mas_app_settings_bim_mount_path }}/import"
+      - "{{ mas_app_id | capitalize }} BIM 'models' folder .............. bim.model.dir: {{ mas_app_settings_bim_mount_path }}/models"

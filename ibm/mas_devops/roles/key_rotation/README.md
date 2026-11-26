@@ -1,62 +1,95 @@
 # key_rotation
 
-Create new apikey for user in cloud account and delete the existing one.
+Create a new API key for a user in a cloud account and delete the existing one.
 
-## Role Variables - General
-### cluster_type
-Required.  Specify the cluster type, supported values are `roks`, and `rosa`.
+## Role Variables
 
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`cluster_type`](#cluster_type) | Yes | None |
+| [`ibmcloud_apikey`](#ibmcloud_apikey) | Yes (ROKS) | None |
+| [`ibmcloud_keyname`](#ibmcloud_keyname) | Yes (ROKS) | None |
+| [`ibmcloud_output_keydir`](#ibmcloud_output_keydir) | No | `/tmp` |
+| [`aws_region`](#aws_region) | Yes (ROSA/IPI-AWS) | `us-east-1` |
+| [`aws_username`](#aws_username) | Yes (ROSA/IPI-AWS) | None |
+| [`aws_access_key_id`](#aws_access_key_id) | Yes (ROSA/IPI-AWS) | None |
+| [`aws_secret_access_key`](#aws_secret_access_key) | Yes (ROSA/IPI-AWS) | None |
+
+### Cluster Selection
+
+#### cluster_type
+
+Specify the cluster type.
+
+- **Required**
 - Environment Variable: `CLUSTER_TYPE`
-- Default Value: None
+- Default: None
 
+Supported values are `roks` and `rosa`.
 
-## Role Variables - ROKS
-### ibmcloud_apikey
+### ROKS Variables
 
-- Required. A new key will be created and this key will be deleted.
+Used when `cluster_type` is `roks`.
+
+#### ibmcloud_apikey
+
+IBM Cloud API key — a new key will be created and this key will be deleted.
+
+- **Required** when `cluster_type` is `roks`
 - Environment Variable: `IBMCLOUD_APIKEY`
 - Default: None
 
-### ibmcloud_keyname
+#### ibmcloud_keyname
 
-- Required. A new key will be created and this key will be deleted.
+Name for the newly created IBM Cloud API key — a new key will be created and the existing key deleted.
+
+- **Required** when `cluster_type` is `roks`
 - Environment Variable: `IBMCLOUD_KEYNAME`
 - Default: None
 
-### ibmcloud_output_keydir
+#### ibmcloud_output_keydir
 
-- Optional.
+Directory where the newly created key is written.
+
+- **Optional**
 - Environment Variable: `IBMCLOUD_OUTPUT_KEYDIR`
-- Default: '/tmp'
+- Default: `/tmp`
 
+### ROSA and IPI/AWS Variables
 
-## Role Variables - ROSA or IPI/AWS
-The following variables are used when `cluster_type = rosa` or `cluster_type=ipe` and `cluster_platform=aws`.
+Used when `cluster_type` is `rosa`, or `cluster_type` is `ipi` with `ipi_platform` set to `aws`.
 
-### aws_region
+#### aws_region
 
-- **Required** when `cluster_type = rosa` or `cluster_type = ipi` and `ipi_platform = aws` 
+AWS region of the cluster.
+
+- **Required** when `cluster_type` is `rosa` or `ipi` (with `ipi_platform = aws`)
 - Environment Variable: `AWS_REGION`
-- Default Value: us-east-1
+- Default: `us-east-1`
 
-### aws_username
+#### aws_username
 
-- Required.
+AWS user for which the access key is rotated.
+
+- **Required** when `cluster_type` is `rosa` or `ipi` (with `ipi_platform = aws`)
 - Environment Variable: `AWS_USERNAME`
 - Default: None
 
-### aws_access_key_id
+#### aws_access_key_id
 
-- Required. A new key will be created and this key will be deleted.
+AWS access key ID — a new key will be created and this key will be deleted.
+
+- **Required** when `cluster_type` is `rosa` or `ipi` (with `ipi_platform = aws`)
 - Environment Variable: `AWS_ACCESS_KEY_ID`
 - Default: None
 
-### aws_secret_access_key
+#### aws_secret_access_key
 
-- Required. A new key will be created and this key will be deleted.
+AWS secret access key matching `aws_access_key_id`.
+
+- **Required** when `cluster_type` is `rosa` or `ipi` (with `ipi_platform = aws`)
 - Environment Variable: `AWS_SECRET_ACCESS_KEY`
 - Default: None
-
 
 ## Example Playbook
 

@@ -56,12 +56,6 @@ function install_yq_farah() {
   yq --version || exit 1
 }
 
-# Install ansible-builder
-# ----------
-function install_ansible_builder() {
-  python -m pip install ansible-builder || exit 1
-}
-
 # These should be loaded already, but just incase!
 # ------------------------------------------------
 if [[ -z "$BUILD_SYSTEM_ENV_LOADED" ]]; then

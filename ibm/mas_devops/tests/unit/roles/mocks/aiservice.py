@@ -8,8 +8,6 @@ logic, and developer-facing add_* methods for AIService custom resources:
   - AIServiceTenant
 """
 
-from typing import Dict, Optional
-
 
 # ---------------------------------------------------------------------------
 # API discovery constants
@@ -90,7 +88,7 @@ class AIServiceMixin:
 
     def _init_aiservice(self):
         """Initialise the AIService resource stores. Called by FakeKubernetesServer.__init__."""
-        self._aiservice_tenants: Dict[tuple, dict] = {}
+        self._aiservice_tenants: dict[tuple, dict] = {}
 
     # ------------------------------------------------------------------
     # Developer-facing API
@@ -110,7 +108,7 @@ class AIServiceMixin:
     # Internal routing (called by _Handler via generic dispatch)
     # ------------------------------------------------------------------
 
-    def _handle_apis_get(self, ns: str, resource: str, name: Optional[str]) -> Optional[tuple]:
+    def _handle_apis_get(self, ns: str, resource: str, name: str | None) -> tuple | None:
         """Handle a GET for an AIService namespaced resource.
 
         Returns None if the resource is not owned by this mixin.

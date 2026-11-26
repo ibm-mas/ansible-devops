@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-import logging
-import os
 import urllib3
 from ansible.errors import AnsibleError
 from ansible.plugins.action import ActionBase
@@ -28,7 +26,7 @@ class ActionModule(ActionBase):
         register: mas_catalog_metadata
     """
     def run(self, tmp=None, task_vars=None):
-        super(ActionModule, self).run(tmp, task_vars)
+        super().run(tmp, task_vars)
 
         local_dir = self._task.args.get('local_dir', None)
         bucket_name = self._task.args.get('bucket_name', None)
@@ -39,25 +37,24 @@ class ActionModule(ActionBase):
         region_name = self._task.args.get('region_name', None)
 
         if local_dir is None:
-            raise AnsibleError(f"Error: local_dir argument was not provided")
+            raise AnsibleError("Error: local_dir argument was not provided")
         if bucket_name is None:
-            raise AnsibleError(f"Error: bucket_name argument was not provided")
+            raise AnsibleError("Error: bucket_name argument was not provided")
         if object_name is None:
-            raise AnsibleError(f"Error: object_name argument was not provided")
+            raise AnsibleError("Error: object_name argument was not provided")
         if aws_access_key_id is None:
-            raise AnsibleError(f"Error: aws_access_key_id argument was not provided")
+            raise AnsibleError("Error: aws_access_key_id argument was not provided")
         if aws_secret_access_key is None:
-            raise AnsibleError(f"Error: aws_secret_access_key argument was not provided")
-        
+            raise AnsibleError("Error: aws_secret_access_key argument was not provided")
+
         endpoint_url = normalize_endpoint_url(endpoint=endpoint_url)
 
         download_status = downloadFromS3(
-            local_dir=local_dir, bucket_name=bucket_name, object_name=object_name, 
-            endpoint_url=endpoint_url, aws_access_key_id=aws_access_key_id, 
+            local_dir=local_dir, bucket_name=bucket_name, object_name=object_name,
+            endpoint_url=endpoint_url, aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key, region_name=region_name
             )
-        
+
         return dict(
             success=download_status
         )
-

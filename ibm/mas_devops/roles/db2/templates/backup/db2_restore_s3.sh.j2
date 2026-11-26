@@ -182,7 +182,7 @@ if [ -z "$MASTER_KEY_LABEL" ]; then
     exit 1
 else
     echo "INFO: Master key label: ${MASTER_KEY_LABEL}"
-    
+
     # Check if MASTER_KEY_LABEL exists in the source keystore
     SOURCE_KEYSTORE_LOC=$(db2 get dbm cfg | grep KEYSTORE_LOCATION | awk -F'= ' '{print $2}')
     SOURCE_LABELS=$(gsk8capicmd_64 -cert -list all -db ${SOURCE_KEYSTORE_LOC} -stashed 2>&1 | awk '/^#/ { print $2 }')
@@ -191,7 +191,7 @@ else
         echo "INFO: Extracting secret key from backup keystore..."
         gsk8capicmd_64 -secretkey -extract -db ${POD_BACKUP_PATH}/keystore.p12 -stashed -label ${MASTER_KEY_LABEL} -format ascii -target ${POD_BACKUP_PATH}/master_key_label.kdb
         echo "INFO: Secret key extraction completed"
-        
+
         echo "INFO: Adding master key to target keystore..."
         result=$(gsk8capicmd_64 -secretkey -add -db ${SOURCE_KEYSTORE_LOC} -stashed -label ${MASTER_KEY_LABEL} -file ${POD_BACKUP_PATH}/master_key_label.kdb 2>&1)
         rc=$?
@@ -462,4 +462,3 @@ echo "  Status          : SUCCESS-RestoreSuccess"
 echo "========================================================================"
 echo ""
 exit 0
-

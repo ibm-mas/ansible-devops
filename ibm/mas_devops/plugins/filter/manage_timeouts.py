@@ -1,5 +1,6 @@
 from ansible.utils.display import Display
 
+
 def calculateManageTimeouts(masAppwsComponents):
     """Calculate appropriate timeout values for Manage app configuration.
 
@@ -51,6 +52,6 @@ def calculateManageTimeouts(masAppwsComponents):
     return timeoutConfigs[config]
 
 
-class FilterModule(object):
+class FilterModule:
     def filters(self):
         return {"calculate_manage_timeouts": calculateManageTimeouts}
