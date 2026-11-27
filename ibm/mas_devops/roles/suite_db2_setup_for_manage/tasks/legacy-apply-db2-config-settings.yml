@@ -30,6 +30,9 @@
 - name: Run script to make changes take effect
   shell: oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc '/db2u/scripts/apply-db2cfg-settings.sh --setting all | tee /tmp/apply-db2cfg-settings.log' db2inst1
   register: prepare_cmds_status
+  until: prepare_cmds_status.rc == 0
+  retries: 10
+  delay: 30 # seconds
 
 - fail: msg="Failed to execute the script /db2u/scripts/apply-db2cfg-settings.sh on DB2 instance"
   when:
