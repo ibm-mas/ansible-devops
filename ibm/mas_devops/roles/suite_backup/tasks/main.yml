@@ -43,15 +43,48 @@
     msg: "Failed to detect MAS cluster issuer"
   when: mas_cluster_issuer.failed
 
-# 4. Build the config.mas.ibm.com resource list based on include flags
+# 4. Detect the installed MAS version, some config.mas.ibm.com kinds are
+#    only defined in specific MAS versions (e.g. AppCfg in 9.1, AiCfg in 9.2)
+# -----------------------------------------------------------------------------
+- name: "Get subscription for ibm-mas"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ mas_core_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/ibm-mas.{{ mas_core_namespace }}"
+  register: mas_core_subscription
+
+- name: "Fail if unable to detect the installed MAS version"
+  fail:
+    msg: >-
+      Unable to find the ibm-mas Subscription in namespace {{ mas_core_namespace }},
+      cannot detect the installed MAS version
+  when:
+    - mas_core_subscription.resources is not defined or
+      mas_core_subscription.resources | length == 0
+
+- name: "Set fact: installed MAS version (major.minor)"
+  set_fact:
+    mas_installed_version: "{{ mas_core_subscription.resources[0].spec.channel.split('.')[:2] | join('.') }}"
+
+- name: "Set facts: MAS version gates"
+  set_fact:
+    mas_ge_91: "{{ mas_installed_version is version('9.1', '>=') }}"
+    mas_ge_92: "{{ mas_installed_version is version('9.2', '>=') }}"
+
+- name: "Display detected MAS version"
+  debug:
+    msg:
+      - "Installed MAS version ................... {{ mas_installed_version }}"
+      - "MAS 9.1 or later ........................ {{ mas_ge_91 }}"
+      - "MAS 9.2 or later ........................ {{ mas_ge_92 }}"
+
+# 5. Build the config.mas.ibm.com resource list based on include flags
 # -----------------------------------------------------------------------------
 - name: "Set fact: base config resources list"
   set_fact:
     config_resources:
-      - kind: AiCfg # 9.2 and later
-        api_version: config.mas.ibm.com/v1
-      - kind: AppCfg # 9.1 and later
-        api_version: config.mas.ibm.com/v1
       - kind: IDPCfg
         api_version: config.mas.ibm.com/v1
       - kind: JdbcCfg
@@ -73,6 +106,16 @@
       - kind: WatsonStudioCfg
         api_version: config.mas.ibm.com/v1
 
+- name: "Add AppCfg to config resources if MAS 9.1 or later"
+  set_fact:
+    config_resources: "{{ config_resources + [{'kind': 'AppCfg', 'api_version': 'config.mas.ibm.com/v1'}] }}"
+  when: mas_ge_91 | bool
+
+- name: "Add AiCfg to config resources if MAS 9.2 or later"
+  set_fact:
+    config_resources: "{{ config_resources + [{'kind': 'AiCfg', 'api_version': 'config.mas.ibm.com/v1'}] }}"
+  when: mas_ge_92 | bool
+
 - name: "Add BasCfg to config resources if include_dro is true"
   set_fact:
     config_resources: "{{ config_resources + [{'kind': 'BasCfg', 'api_version': 'config.mas.ibm.com/v1'}] }}"
@@ -83,7 +126,7 @@
     config_resources: "{{ config_resources + [{'kind': 'SlsCfg', 'api_version': 'config.mas.ibm.com/v1'}] }}"
   when: include_sls | bool
 
-# 5. Build the core namespace resources list
+# 6. Build the core namespace resources list
 # -----------------------------------------------------------------------------
 - name: "Set fact: mas core namespace resources"
   set_fact:
@@ -108,6 +151,10 @@
       - kind: Secret
         api_version: v1
         name: "{{ mas_instance_id }}-credentials-superuser"
+      # local password policy settings
+      - kind: Secret
+        api_version: v1
+        name: "{{ mas_instance_id }}-password-policy"
       # public cert in case of manual managed certs
       - kind: Secret
         api_version: v1
@@ -117,7 +164,7 @@
         api_version: cert-manager.io/v1
         labels:
           - "mas.ibm.com/instanceId={{ mas_instance_id }}"
-      # addons.mas.ibm.com (9.1 and later)
+      # addons.mas.ibm.com
       - kind: MVIEdge
         api_version: addons.mas.ibm.com/v1
       - kind: ReplicaDB
@@ -137,7 +184,7 @@
   set_fact:
     mas_core_namespace_resources: "{{ mas_core_namespace_resources + config_resources }}"
 
-# 6. Set the backup_resources we want to backup. Note that if the resource doesn't
+# 7. Set the backup_resources we want to backup. Note that if the resource doesn't
 #    exist, the backup will still succeed. If a resource contains `secretName` key
 #    then the secret will be backed up as well.
 # -----------------------------------------------------------------------------
@@ -171,7 +218,7 @@
       - namespace: "{{ mas_core_namespace }}"
         resources: "{{ mas_core_namespace_resources }}"
 
-# 7. Call the backup_resources plugin to execute the backup to the path provided
+# 8. Call the backup_resources plugin to execute the backup to the path provided
 # -----------------------------------------------------------------------------
 - name: "Backup MAS Suite resources (referenced secrets are auto-discovered)"
   ibm.mas_devops.backup_resource:
@@ -179,7 +226,7 @@
     backup_path: "{{ suite_backup_path }}"
   register: backup_result
 
-# 8. Show the results
+# 9. Show the results
 # -----------------------------------------------------------------------------
 - name: "Display backup results"
   debug:
@@ -191,7 +238,7 @@
       - "Secrets auto-discovered: {{ backup_result.discovered_secrets_count }}"
       - "Backup location: {{ suite_backup_path }}"
 
-# 9. Fail task if any errors occurred.
+# 10. Fail task if any errors occurred.
 # -----------------------------------------------------------------------------
 - name: "Display failed resources"
   debug:

@@ -2,11 +2,12 @@
 Unit tests for wait_for_app_ready action plugin.
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+import wait_for_app_ready
 from ansible.errors import AnsibleError
 
-import wait_for_app_ready
 ActionModule = wait_for_app_ready.ActionModule
 
 

@@ -4,186 +4,93 @@ This role will verify that the target OCP cluster is ready to be setup for MAS.
 
 For example, in IBMCloud ROKS we have seen delays of over an hour before the Red Hat Operator catalog is ready to use.  This will cause attempts to install anything from that CatalogSource to fail as the timeouts built into the roles in this collection are designed to catch problems with an install, rather than a half-provisioned cluster that is not properly ready to use yet.
 
-
 ## Role Variables
 
-### verify_cluster
-Enable cluster health verification.
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`verify_cluster`](#verify_cluster) | No | `true` |
+| [`verify_catalogsources`](#verify_catalogsources) | No | `true` |
+| [`verify_subscriptions`](#verify_subscriptions) | No | `true` |
+| [`verify_workloads`](#verify_workloads) | No | `true` |
+| [`verify_ingress`](#verify_ingress) | No | `true` |
+| [`cluster_name`](#cluster_name) | Conditional | None |
+| [`ocp_ingress_tls_secret_name`](#ocp_ingress_tls_secret_name) | No | `router-certs-default` |
+
+`cluster_name` is only used when `verify_ingress` is `true`, and is only needed in specific cluster configurations.
+
+### Verification Checks
+
+#### verify_cluster
+
+Enable cluster health verification — `true` to verify the cluster is healthy and ready by checking the ClusterVersion resource Ready condition, `false` to skip (default `true`).
 
 - **Optional**
 - Environment Variable: `VERIFY_CLUSTER`
 - Default: `true`
 
-**Purpose**: Verifies that the OCP cluster is healthy and ready to use by checking the ClusterVersion resource Ready condition.
+Fails if the cluster is not ready within 1 hour. This check ensures the cluster is fully provisioned and ready; in some environments (e.g., IBMCloud ROKS), clusters may take time to become fully ready, and the 1-hour timeout accommodates typical provisioning delays. Recommended to keep enabled for production deployments.
 
-**When to use**:
-- Leave as `true` (default) for comprehensive cluster verification
-- Set to `false` only to skip cluster health checks
-- Recommended to keep enabled for production deployments
+#### verify_catalogsources
 
-**Valid values**: `true`, `false`
-
-**Impact**: 
-- `true`: Verifies cluster Ready condition (fails if not ready within 1 hour)
-- `false`: Skips cluster health verification
-
-**Related variables**:
-- Other `verify_*` variables control additional verification checks
-
-**Note**: This check ensures the cluster is fully provisioned and ready. In some environments (e.g., IBMCloud ROKS), clusters may take time to become fully ready. The 1-hour timeout accommodates typical provisioning delays.
-
-### verify_catalogsources
-Enable catalog source health verification.
+Enable catalog source health verification — `true` to verify that all installed OCP catalog sources are healthy and ready to provide operators, `false` to skip (default `true`).
 
 - **Optional**
 - Environment Variable: `VERIFY_CATALOGSOURCES`
 - Default: `true`
 
-**Purpose**: Verifies that all installed OCP catalog sources are healthy and ready to provide operators.
+Verifies that all CatalogSources report `lastObservedState` as `READY`, failing if not ready within 30 minutes. Catalog sources must be ready before operators can be installed — this check prevents operator installation failures due to unavailable catalogs, and the 30-minute timeout accommodates typical sync delays (e.g., on IBMCloud ROKS).
 
-**When to use**:
-- Leave as `true` (default) for comprehensive verification
-- Set to `false` only to skip catalog source checks
-- Critical for ensuring operator installation will succeed
+#### verify_subscriptions
 
-**Valid values**: `true`, `false`
-
-**Impact**: 
-- `true`: Verifies all CatalogSources report `lastObservedState` as `READY` (fails if not ready within 30 minutes)
-- `false`: Skips catalog source verification
-
-**Related variables**:
-- `verify_cluster`: Cluster-level health check
-- `verify_subscriptions`: Operator subscription verification
-
-**Note**: Catalog sources must be ready before operators can be installed. In some environments (e.g., IBMCloud ROKS), catalog sources may take time to sync. The 30-minute timeout accommodates typical delays. This check prevents operator installation failures due to unavailable catalogs.
-
-### verify_subscriptions
-Enable operator subscription verification.
+Enable operator subscription verification — `true` to verify that all operator subscriptions are up to date and at their latest known version, `false` to skip (default `true`).
 
 - **Optional**
 - Environment Variable: `VERIFY_SUBSCRIPTIONS`
 - Default: `true`
 
-**Purpose**: Verifies that all operator subscriptions are up to date and at their latest known version.
+Verifies that all Subscriptions report `state` as `AtLatestKnown`, failing if not ready within 2 hours — the timeout accommodates operator installation and upgrade processes, ensuring operators are properly installed and ready to manage resources.
 
-**When to use**:
-- Leave as `true` (default) for comprehensive verification
-- Set to `false` only to skip subscription checks
-- Important for ensuring operators are properly installed
+#### verify_workloads
 
-**Valid values**: `true`, `false`
-
-**Impact**: 
-- `true`: Verifies all Subscriptions report `state` as `AtLatestKnown` (fails if not ready within 5 hours)
-- `false`: Skips subscription verification
-
-**Related variables**:
-- `verify_catalogsources`: Catalog source health (prerequisite)
-- `verify_workloads`: Workload deployment verification
-
-**Note**: Subscriptions must be at latest known version before operators are fully functional. The 5-hour timeout accommodates operator installation and upgrade processes. This check ensures operators are properly installed and ready to manage resources.
-
-### verify_workloads
-Enable workload deployment verification.
+Enable workload deployment verification — `true` to verify that all deployments and statefulsets are fully rolled out, `false` to skip (default `true`).
 
 - **Optional**
 - Environment Variable: `VERIFY_WORKLOADS`
 - Default: `true`
 
-**Purpose**: Verifies that all deployments and statefulsets are fully rolled out with all replicas updated and available.
+Verifies that all Deployments and StatefulSets have `updatedReplicas` and `availableReplicas` equal to `replicas`, failing if not ready within 3 hours. Workloads must be fully deployed before the cluster is ready for MAS installation; the timeout accommodates large-scale deployments and rolling updates.
 
-**When to use**:
-- Leave as `true` (default) for comprehensive verification
-- Set to `false` only to skip workload checks
-- Critical for ensuring cluster workloads are healthy
+#### verify_ingress
 
-**Valid values**: `true`, `false`
-
-**Impact**: 
-- `true`: Verifies all Deployments and StatefulSets have `updatedReplicas` and `availableReplicas` equal to `replicas` (fails if not ready within 10 hours)
-- `false`: Skips workload verification
-
-**Related variables**:
-- `verify_subscriptions`: Operator subscription verification (prerequisite)
-- `verify_cluster`: Cluster-level health check
-
-**Note**: Workloads must be fully deployed before the cluster is ready for MAS installation. The 10-hour timeout accommodates large-scale deployments and rolling updates. This check ensures all pods are running and ready.
-
-### verify_ingress
-Enable ingress TLS certificate verification.
+Enable ingress TLS certificate verification — `true` to verify that the cluster ingress TLS certificate can be obtained, `false` to skip (default `true`).
 
 - **Optional**
 - Environment Variable: `VERIFY_INGRESS`
 - Default: `true`
 
-**Purpose**: Verifies that the cluster ingress TLS certificate can be obtained. This certificate is required by multiple roles in the collection.
+Many roles in this collection require the cluster ingress certificate; this check ensures the certificate is accessible before proceeding with MAS installation.
 
-**When to use**:
-- Leave as `true` (default) for comprehensive verification
-- Set to `false` only to skip ingress certificate checks
-- Required for roles that need cluster ingress certificate
+### Ingress Certificate Lookup
 
-**Valid values**: `true`, `false`
+#### cluster_name
 
-**Impact**: 
-- `true`: Verifies ingress TLS certificate can be retrieved
-- `false`: Skips ingress certificate verification
-
-**Related variables**:
-- `cluster_name`: Cluster name for certificate lookup
-- `ocp_ingress_tls_secret_name`: Secret name containing certificate
-
-**Note**: Many roles in this collection require the cluster ingress certificate. This check ensures the certificate is accessible before proceeding with MAS installation.
-
-### cluster_name
-Cluster name for ingress certificate lookup.
+Cluster name used to determine the default router certificate name in certain cluster configurations — a string matching your cluster name.
 
 - **Optional** (only used when `verify_ingress=true`)
 - Environment Variable: `CLUSTER_NAME`
 - Default: None
 
-**Purpose**: Specifies the cluster name used to determine the default router certificate name in certain cluster configurations.
+Used to construct the ingress TLS secret name in cluster configurations where the secret name includes the cluster name. Only needed in specific configurations — most clusters use the default secret name and don't require this variable.
 
-**When to use**:
-- Only required when `verify_ingress=true`
-- Set when cluster setup requires cluster name for certificate lookup
-- Leave unset if certificate can be found without cluster name
+#### ocp_ingress_tls_secret_name
 
-**Valid values**: String matching your cluster name
-
-**Impact**: Used to construct the ingress TLS secret name in cluster configurations where the secret name includes the cluster name.
-
-**Related variables**:
-- `verify_ingress`: Must be `true` for this variable to be used
-- `ocp_ingress_tls_secret_name`: Alternative way to specify certificate secret
-
-**Note**: Only needed in specific cluster configurations. Most clusters use the default secret name and don't require this variable.
-
-### ocp_ingress_tls_secret_name
-Ingress TLS secret name.
+Name of the Kubernetes secret in the `openshift-ingress` namespace containing the cluster's default router certificate.
 
 - **Optional** (only used when `verify_ingress=true`)
 - Environment Variable: `OCP_INGRESS_TLS_SECRET_NAME`
 - Default: `router-certs-default`
 
-**Purpose**: Specifies the name of the Kubernetes secret containing the cluster's default router certificate.
-
-**When to use**:
-- Only applies when `verify_ingress=true`
-- Use default (`router-certs-default`) for most clusters
-- Override only if your cluster uses a different secret name
-
-**Valid values**: String matching the secret name in `openshift-ingress` namespace
-
-**Impact**: Determines which secret is checked for the ingress TLS certificate. Incorrect name will cause verification to fail.
-
-**Related variables**:
-- `verify_ingress`: Must be `true` for this variable to be used
-- `cluster_name`: Alternative way to determine secret name
-
-**Note**: The default `router-certs-default` works for most OCP clusters. Only override if your cluster uses a custom ingress certificate secret name.
-
+The default `router-certs-default` works for most OCP clusters — only override it if your cluster uses a custom ingress certificate secret name; an incorrect name will cause verification to fail.
 
 ## Example Playbook
 
@@ -198,7 +105,6 @@ Ingress TLS secret name.
   roles:
     - ibm.mas_devops.ocp_verify
 ```
-
 
 ## License
 

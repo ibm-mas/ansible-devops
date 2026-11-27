@@ -10,14 +10,14 @@ OneClick Install for MAS Core
 
 Overview
 -------------------------------------------------------------------------------
-This playbook will install and configure IBM Maximo Application Suite Core along with all necessary dependencies.  This can be ran against any OCP cluster regardless of its type, whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.  It will take approximately 90 minutes to set up MAS core services and all of its dependencies, at the end of the process you will be able to login to the MAS admin dashboard to install any applications that you wish to use, or you can use our other playbooks to automate the installation of those applications (including any additional dependencies)
+This playbook will install and configure IBM Maximo Application Suite Core along with all necessary dependencies.  This can be run against any OCP cluster regardless of its type, whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.  It will take approximately 90 minutes to set up MAS core services and all of its dependencies, at the end of the process you will be able to login to the MAS admin dashboard to install any applications that you wish to use, or you can use our other playbooks to automate the installation of those applications (including any additional dependencies).
 
 Playbook Content
 -------------------------------------------------------------------------------
 
 1. [Install IBM Operator Catalogs](../roles/ibm_catalogs.md) (1 minute)
 2. [Install Certificate Manager Operator](../roles/cert_manager.md) (3 minutes)
-3. [Install Mongodb Operator and Create a Cluster](../roles/mongodb.md) (10 minutes, skipped if SKIP_MONGO set to TRUE)
+3. [Install MongoDB Operator and Create a Cluster](../roles/mongodb.md) (10 minutes, skipped if SKIP_MONGO set to TRUE)
 4. [Install and bootstrap IBM Suite License Service](../roles/sls.md) (10 minutes)
 5. [Generate a MAS Workspace Configuration](../roles/gencfg_workspace.md) (1 minute)
 6. [Configure Cloud Internet Services Integration for Maximo Application Suite](../roles/suite_dns.md) (Optional, 1 minute)
@@ -32,7 +32,7 @@ Preparation
 -------------------------------------------------------------------------------
 
 ### 1. IBM Entitlement key
-Access [Container Software Library](https://myibm.ibm.com/products-services/containerlibrary) using your IBMId to access your entitlement key
+Access [Container Software Library](https://myibm.ibm.com/products-services/containerlibrary) using your IBMId to obtain your entitlement key
 
 ### 2. MAS License File
 Access [IBM License Key Center](https://licensing.flexnetoperations.com/), on the **Get Keys** menu select **IBM AppPoint Suites**.  Select `IBM MAXIMO APPLICATION SUITE AppPOINT LIC` and on the next page fill in the information as below:
@@ -63,12 +63,12 @@ Usage
 - `DRO_CONTACT_LASTNAME` Primary contact last name
 
 ### Optional environment variables (for this playbook only)
-- `SKIP_MONGO` Controls whether to use an custom MongoDB configuration instead of deploying a new MongoDB cluster.
+- `SKIP_MONGO` Controls whether to use a custom MongoDB configuration instead of deploying a new MongoDB cluster.
   - If set to `"true"`, the playbook will skip the mongo role and expect that MongoDB connection details are provided via a YAML configuration file in the directory specified by `MAS_CONFIG_DIR`.
   - If set to `"false"` (or left unset), the playbook will deploy MongoDB using the `ibm.mas_devops.mongodb` role.
 
-### Storage Class Configuraton
-Storage class configuration is built into the collection and the playbook will auto-select the appropriate storage classes when it detects the presence of certain storage classes in your cluster (IBM Cloud Storage or OpenShift Container Storage).  If you are running the install on a cluster that does not have these storage classes then you will also must configure the following environment variables:
+### Storage Class Configuration
+Storage class configuration is built into the collection and the playbook will auto-select the appropriate storage classes when it detects the presence of certain storage classes in your cluster (IBM Cloud Storage or OpenShift Container Storage).  If you are running the install on a cluster that does not have these storage classes then you must also configure the following environment variables:
 
 #### ReadWriteMany Access Mode
 Usually fulfilled by file storage classes:
@@ -144,7 +144,9 @@ ansible-playbook ibm.mas_devops.mas_install_core
     If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti --pull always quay.io/ibmmas/cli`
 
 !!! tip
-    Enable login for Maximo Application Suite self-signed certificates. <br>
-    If you are using self-signed certificates in a development or test environment, you must manually enable login by using either of the following methods: <br>
-    Download the certificates from the cluster and add them to your local certificate manager. <br>
-    In your browser, go to the Maximo Application Suite API URL: "https://api.mas_domain/" and then accept the certificate security risks. After you accept the risks, an AIUC01999E error is displayed. This message is expected. You can now continue with the setup process.
+    Enable login for Maximo Application Suite self-signed certificates.
+
+    If you are using self-signed certificates in a development or test environment, you must manually enable login by using either of the following methods:
+
+    - Download the certificates from the cluster and add them to your local certificate manager.
+    - In your browser, go to the Maximo Application Suite API URL: "https://api.mas_domain/" and then accept the certificate security risks. After you accept the risks, an AIUC01999E error is displayed. This message is expected. You can now continue with the setup process.

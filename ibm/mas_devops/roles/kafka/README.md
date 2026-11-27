@@ -15,454 +15,377 @@ This role provides support to install a Kafka Cluster using [Strimzi](https://st
 
     This file can be directly applied using `oc apply -f $MAS_CONFIG_DIR/kafkacfg-amqstreams-system.yaml` or used in conjunction with the [suite_config](suite_config.md) role.
 
+## Prerequisites
+
+To run this role successfully you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
+Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role.
+
 ## Role Variables
 
-### General Variables
+| Variable | Required | Default |
+|----------|----------|---------|
+| [`kafka_action`](#kafka_action) | No | `install` |
+| [`kafka_provider`](#kafka_provider) | No | `strimzi` |
+| [`mas_instance_id`](#mas_instance_id) | Conditional | None |
+| [`mas_config_dir`](#mas_config_dir) | Conditional | None |
+| [`kafka_version`](#kafka_version) | No | Provider-specific |
+| [`kafka_namespace`](#kafka_namespace) | No | Provider-specific |
+| [`kafka_cluster_name`](#kafka_cluster_name) | No | `maskafka` |
+| [`kafka_cluster_size`](#kafka_cluster_size) | No | `small` |
+| [`kafka_storage_class`](#kafka_storage_class) | No | Auto-detected (RWO) |
+| [`kafka_storage_size`](#kafka_storage_size) | No | `100Gi` |
+| [`zookeeper_storage_class`](#zookeeper_storage_class) | No | Auto-detected (RWO) |
+| [`zookeeper_storage_size`](#zookeeper_storage_size) | No | `10Gi` |
+| [`kafka_user_name`](#kafka_user_name) | No | `masuser` |
+| [`kafka_user_password`](#kafka_user_password) | No | Auto-generated |
+| [`custom_labels`](#custom_labels) | No | None |
+| [`ibmcloud_apikey`](#ibmcloud_apikey) | Conditional | None |
+| [`eventstreams_resourcegroup`](#eventstreams_resourcegroup) | No | `Default` / `IBMCLOUD_RESOURCEGROUP` |
+| [`eventstreams_name`](#eventstreams_name) | Conditional | None |
+| [`eventstreams_plan`](#eventstreams_plan) | No | `standard` |
+| [`eventstreams_location`](#eventstreams_location) | No | `us-east` / `IBMCLOUD_REGION` |
+| [`eventstreams_retention`](#eventstreams_retention) | No | `1209600000` |
+| [`eventstreams_create_manage_jms_topics`](#eventstreams_create_manage_jms_topics) | No | `True` |
+| [`aws_region`](#aws_region) | Conditional | None |
+| [`vpc_id`](#vpc_id) | Conditional | None |
+| [`aws_msk_cidr_az1`](#aws_msk_cidr_az1) | Conditional | None |
+| [`aws_msk_cidr_az2`](#aws_msk_cidr_az2) | Conditional | None |
+| [`aws_msk_cidr_az3`](#aws_msk_cidr_az3) | Conditional | None |
+| [`aws_msk_ingress_cidr`](#aws_msk_ingress_cidr) | Conditional | None |
+| [`aws_msk_egress_cidr`](#aws_msk_egress_cidr) | Conditional | None |
+| [`aws_kafka_user_name`](#aws_kafka_user_name) | Conditional | None |
+| [`aws_kafka_user_password`](#aws_kafka_user_password) | No | None |
+| [`aws_msk_instance_type`](#aws_msk_instance_type) | No | `kafka.m5.large` |
+| [`aws_msk_volume_size`](#aws_msk_volume_size) | No | `100` |
+| [`aws_msk_instance_number`](#aws_msk_instance_number) | No | `3` |
+| [`aws_msk_secret`](#aws_msk_secret) | No | `AmazonMSK_SECRET_{{kafka_cluster_name}}` |
+
+`mas_instance_id` and `mas_config_dir` are required together to generate the MAS KafkaCfg configuration. The IBM Event Streams variables marked conditional are required when `kafka_provider` is `ibm`, and the AWS MSK variables marked conditional are required when `kafka_provider` is `aws`.
+
+### Actions and Providers
 
 #### kafka_action
-Specifies which operation to perform on the Kafka cluster.
+
+Specifies which operation to perform on the Kafka cluster — `install`, `upgrade`, or `uninstall`.
 
 - **Optional**
 - Environment Variable: `KAFKA_ACTION`
-- Default Value: `install`
+- Default: `install`
 
-**Purpose**: Controls what action the role executes against Kafka deployments. This allows the same role to handle installation, upgrades, and removal of Kafka clusters.
-
-**When to use**:
-- Use `install` (default) for initial Kafka deployment
-- Use `upgrade` to upgrade existing Kafka cluster (Strimzi and Red Hat AMQ Streams only)
-- Use `uninstall` to remove Kafka cluster and operator
-
-**Valid values**: `install`, `upgrade`, `uninstall`
-
-**Impact**: 
-- `install`: Deploys Kafka operator and creates cluster
-- `upgrade`: Upgrades existing Kafka cluster (only for Strimzi and Red Hat providers)
-- `uninstall`: Removes Kafka cluster and operator
-
-**Related variables**:
-- `kafka_provider`: Upgrade action only supported for `strimzi` and `redhat` providers
-- `kafka_version`: Target version when upgrading
-
-**Note**: The `upgrade` action is only available for Strimzi and Red Hat AMQ Streams providers. IBM Event Streams and AWS MSK do not support in-place upgrades through this role.
+`install` deploys the Kafka operator and creates the cluster, `upgrade` upgrades an existing Kafka cluster, and `uninstall` removes the Kafka cluster and operator. The `upgrade` action is only available for the `strimzi` and `redhat` providers — IBM Event Streams and AWS MSK do not support in-place upgrades through this role. When upgrading, `kafka_version` defines the target version.
 
 #### kafka_provider
-Specifies which Kafka provider to use for deployment.
+
+Specifies which Kafka provider to use for deployment — `strimzi`, `redhat`, `ibm`, or `aws`.
 
 - **Optional**
 - Environment Variable: `KAFKA_PROVIDER`
-- Default Value: `strimzi`
+- Default: `strimzi`
 
-**Purpose**: Determines which Kafka implementation to deploy. Different providers offer different features, licensing models, and deployment targets (on-cluster vs cloud-managed).
+`strimzi` (default, recommended) deploys open-source Kafka on OpenShift using the Strimzi operator with no additional license, `redhat` deploys AMQ Streams (requires a separate Red Hat AMQ license not included with MAS), `ibm` provisions IBM Event Streams in IBM Cloud (managed service, requires an IBM Cloud account and incurs costs), and `aws` provisions AWS MSK in your AWS account (managed service, requires an AWS account and incurs costs). Different providers require different additional variables, and `kafka_action=upgrade` is only supported for `strimzi` and `redhat`.
 
-**When to use**:
-- Use `strimzi` (default) for open-source Kafka on OpenShift (recommended, no additional license required)
-- Use `redhat` for Red Hat AMQ Streams (requires separate license not included with MAS)
-- Use `ibm` for IBM Event Streams on IBM Cloud (managed service, additional cost)
-- Use `aws` for AWS MSK (managed service, additional cost)
+!!! important
+    The MAS license does not include entitlement for Red Hat AMQ Streams — Strimzi is recommended for open-source Kafka.
 
-**Valid values**: `strimzi`, `redhat`, `ibm`, `aws`
+### MAS Configuration Generation
 
-**Impact**: 
-- `strimzi`: Deploys open-source Kafka using Strimzi operator (no additional license)
-- `redhat`: Deploys AMQ Streams (requires Red Hat AMQ license)
-- `ibm`: Provisions IBM Event Streams in IBM Cloud (requires IBM Cloud account and incurs costs)
-- `aws`: Provisions AWS MSK in AWS account (requires AWS account and incurs costs)
+#### mas_instance_id
 
-**Related variables**:
-- Different providers require different additional variables
-- `kafka_action=upgrade` only supported for `strimzi` and `redhat`
+MAS instance ID for generating the KafkaCfg configuration — a lowercase alphanumeric string of 3-12 characters (e.g., `prod`, `dev`, `inst1`).
 
-**Note**: **IMPORTANT** - MAS license does NOT include entitlement for Red Hat AMQ Streams. Strimzi is recommended for open-source Kafka. IBM and AWS providers provision managed cloud services with additional costs.
+- **Optional** — required together with `mas_config_dir` for KafkaCfg generation
+- Environment Variable: `MAS_INSTANCE_ID`
+- Default: None
+
+Must match the instance ID of your MAS installation. When set along with `mas_config_dir`, the role generates a KafkaCfg YAML file targeting this MAS instance; if either variable is not set, no KafkaCfg template is generated and you will need to configure MAS manually.
+
+#### mas_config_dir
+
+Local directory path where the generated KafkaCfg will be saved — any valid local filesystem path (e.g., `/home/user/masconfig`, `~/masconfig`, `./config`).
+
+- **Optional** — required together with `mas_instance_id` for KafkaCfg generation
+- Environment Variable: `MAS_CONFIG_DIR`
+- Default: None
+
+When set with `mas_instance_id`, generates `kafkacfg-{provider}-system.yaml` in this directory; the file can be applied with `oc apply` or used with the suite_config role. Use the same directory across all MAS setup roles for consistency, and ensure the directory exists and is writable. If either `mas_instance_id` or `mas_config_dir` is not set, no KafkaCfg template is generated.
 
 ### Red Hat AMQ Streams & Strimzi Variables
 
 #### kafka_version
-Kafka version to deploy (Strimzi and Red Hat AMQ Streams only).
+
+Kafka version to deploy — a valid Kafka version supported by the operator (e.g., `3.8.0`, `3.9.0`).
 
 - **Optional**
 - Environment Variable: `KAFKA_VERSION`
-- Default Value: `3.8.0` for AMQ Streams, `3.9.0` for Strimzi
+- Default: `3.9.0` for Strimzi, `3.8.0` for Red Hat AMQ Streams, `3.3.1` for AWS MSK
 
-**Purpose**: Specifies which Apache Kafka version to deploy when using Strimzi or Red Hat AMQ Streams providers. The version must be supported by the installed operator.
+For Strimzi, the supported versions for strimzi-cluster-operator.v0.45.0 are `3.8.0`, `3.8.1`, and `3.9.0`. Before changing this value, verify the version is supported by your [AMQ Streams operator](https://access.redhat.com/documentation/en-us/red_hat_amq_streams) or [Strimzi operator](https://strimzi.io/downloads/) — incompatible versions will cause deployment failures. This variable only applies to the Strimzi, Red Hat AMQ Streams, and AWS MSK providers, not IBM Event Streams.
 
-**When to use**:
-- Leave as default for standard deployments
-- Set explicitly when you need a specific Kafka version
-- Verify version compatibility with operator before changing
+#### kafka_namespace
 
-**Valid values**: Valid Kafka version supported by the operator (e.g., `3.8.0`, `3.9.0`)
-
-**Impact**: Determines which Kafka version is deployed. Incompatible versions will cause deployment failures.
-
-**Related variables**:
-- `kafka_provider`: Only applies to `strimzi` and `redhat` providers
-- Operator version determines available Kafka versions
-
-**Note**: Before changing this value, verify the version is supported by your [AMQ Streams operator](https://access.redhat.com/documentation/en-us/red_hat_amq_streams) or [Strimzi operator](https://strimzi.io/downloads/). This variable does not apply to IBM Event Streams or AWS MSK providers.
-
-### kafka_namespace
-OpenShift namespace where Kafka operator and cluster will be deployed.
+OpenShift namespace where the Kafka operator and cluster will be deployed — any valid Kubernetes namespace name (e.g., `strimzi`, `amq-streams`, `kafka-prod`).
 
 - **Optional**
 - Environment Variable: `KAFKA_NAMESPACE`
-- Default Value: `amq-streams` for AMQ Streams, `strimzi` for Strimzi
+- Default: `strimzi` for the Strimzi provider, `amq-streams` for Red Hat AMQ Streams
 
-**Purpose**: Specifies the namespace for deploying the Kafka operator and Kafka cluster resources. This isolates Kafka resources from other applications.
+All Kafka resources (operator, cluster, topics, users) are created in this namespace. Use the default for standard single-cluster deployments, and set a custom namespace (unique per cluster) when organizing multiple Kafka deployments. This variable only applies to the Strimzi and Red Hat providers.
 
-**When to use**:
-- Use default for standard single-cluster deployments
-- Set to custom namespace when organizing multiple Kafka deployments
-- Must be unique if deploying multiple Kafka clusters
+#### kafka_cluster_name
 
-**Valid values**: Any valid Kubernetes namespace name (e.g., `strimzi`, `amq-streams`, `kafka-prod`)
-
-**Impact**: All Kafka resources (operator, cluster, topics, users) are created in this namespace.
-
-**Related variables**:
-- `kafka_provider`: Default namespace depends on provider (`strimzi` or `amq-streams`)
-- `kafka_cluster_name`: Cluster created within this namespace
-
-**Note**: The default namespace differs by provider: `strimzi` for Strimzi provider, `amq-streams` for Red Hat AMQ Streams. This variable only applies to Strimzi and Red Hat providers.
-
-### kafka_cluster_name
-Name for the Kafka cluster resource.
+Name for the Kafka cluster resource — a valid Kubernetes resource name (lowercase alphanumeric with hyphens, e.g., `maskafka`, `kafka-prod`, `mas-kafka`).
 
 - **Optional**
 - Environment Variable: `KAFKA_CLUSTER_NAME`
-- Default Value: `maskafka`
+- Default: `maskafka`
 
-**Purpose**: Defines the name of the Kafka custom resource that will be created. This name is used to identify the Kafka cluster and is embedded in resource names.
+This name is used throughout the Kafka deployment in resource names (services, pods, secrets) and appears in the generated KafkaCfg for MAS. For AWS MSK it is also used in the generated AWS resource names (security group, cluster configuration, KMS key, and secret). Choose a meaningful name — the default `maskafka` is suitable for single-cluster MAS deployments.
 
-**When to use**:
-- Use default (`maskafka`) for standard MAS deployments
-- Set to custom name when deploying multiple Kafka clusters
-- Use descriptive names for multi-cluster environments
+#### kafka_cluster_size
 
-**Valid values**: Valid Kubernetes resource name (lowercase alphanumeric with hyphens, e.g., `maskafka`, `kafka-prod`, `mas-kafka`)
-
-**Impact**: This name is used throughout the Kafka deployment in resource names (services, pods, secrets). It appears in the generated KafkaCfg for MAS.
-
-**Related variables**:
-- `kafka_namespace`: Cluster created within this namespace
-- Used in generated KafkaCfg when `mas_instance_id` is provided
-
-**Note**: Choose a meaningful name as it appears in many resource names. The default `maskafka` is suitable for single-cluster MAS deployments.
-
-### kafka_cluster_size
-Predefined configuration size for the Kafka cluster.
+Predefined configuration size for the Kafka cluster — `small` or `large`.
 
 - **Optional**
 - Environment Variable: `KAFKA_CLUSTER_SIZE`
-- Default Value: `small`
+- Default: `small`
 
-**Purpose**: Selects a predefined resource configuration for the Kafka cluster. Different sizes allocate different amounts of CPU, memory, and replicas for Kafka brokers and Zookeeper nodes.
+`small` allocates fewer resources, suitable for development, test, or small workloads; `large` allocates more resources (CPU, memory, replicas) for production workloads with higher throughput requirements. `kafka_storage_size` and `zookeeper_storage_size` should align with the cluster size — production environments typically require the `large` configuration for adequate performance and reliability.
 
-**When to use**:
-- Use `small` (default) for development, test, or small production environments
-- Use `large` for production environments with higher throughput requirements
-- Choose based on expected message volume and performance needs
+#### kafka_storage_class
 
-**Valid values**: `small`, `large`
-
-**Impact**: 
-- `small`: Fewer resources, suitable for dev/test or small workloads
-- `large`: More resources (CPU, memory, replicas) for production workloads
-
-**Related variables**:
-- `kafka_storage_size`: Storage size should align with cluster size
-- `zookeeper_storage_size`: Zookeeper storage should align with cluster size
-
-**Note**: The `small` configuration is suitable for development and testing. Production environments typically require the `large` configuration for adequate performance and reliability.
-
-### kafka_storage_class
-Storage class for Kafka broker persistent storage (must support ReadWriteOnce).
+Storage class for Kafka broker persistent storage, where Kafka stores message logs and data — any storage class name supporting ReadWriteOnce (RWO) access mode.
 
 - **Optional**
 - Environment Variable: `KAFKA_STORAGE_CLASS`
-- Default Value: Auto-detected from available storage classes in cluster
+- Default: Auto-detected from available storage classes in the cluster
 
-**Purpose**: Specifies the storage class for Kafka broker persistent storage, which requires ReadWriteOnce (RWO) access mode. This is where Kafka stores message logs and data.
+Leave unset for automatic detection (recommended), or set explicitly when you need a specific storage class. Kafka broker performance depends heavily on storage performance — block-based storage classes (e.g., `ibmc-block-gold`, `ocs-storagecluster-ceph-rbd`) typically provide better performance and are recommended for production workloads. A storage class that does not support RWO will cause the deployment to fail. This variable only applies to the Strimzi and Red Hat AMQ Streams providers.
 
-**When to use**:
-- Leave unset for automatic detection (recommended)
-- Set explicitly when you need a specific storage class
-- Must be a storage class supporting RWO access mode
-- Typically block-based storage for performance
+#### kafka_storage_size
 
-**Valid values**: Any storage class name supporting ReadWriteOnce access mode
-
-**Impact**: Kafka broker performance depends heavily on storage performance. Choose high-performance storage for production workloads. Incorrect storage class or one not supporting RWO will cause deployment to fail.
-
-**Related variables**:
-- `kafka_storage_size`: Size of storage for Kafka brokers
-- `zookeeper_storage_class`: Separate storage class for Zookeeper
-
-**Note**: Block-based storage classes typically provide better performance for Kafka (e.g., `ibmc-block-gold`, `ocs-storagecluster-ceph-rbd`). This variable only applies to Strimzi and Red Hat AMQ Streams providers.
-
-### kafka_storage_size
-Size of persistent storage for Kafka brokers.
+Size of persistent storage for Kafka brokers, where Kafka stores all message logs and topic data — Kubernetes storage size format (e.g., `100Gi`, `500Gi`, `1Ti`, `2Ti`).
 
 - **Optional**
 - Environment Variable: `KAFKA_STORAGE_SIZE`
-- Default Value: `100Gi`
+- Default: `100Gi`
 
-**Purpose**: Specifies the size of persistent volumes for Kafka broker storage. This is where Kafka stores all message logs and topic data.
+The default is suitable for small deployments only — production environments typically require 500Gi or more depending on message volume and retention (plan storage based on daily message volume × retention days). Insufficient storage will cause Kafka to stop accepting messages when volumes fill up; monitor usage and expand as needed.
 
-**When to use**:
-- Use default (`100Gi`) for development/test environments
-- Increase significantly for production based on message volume and retention
-- Plan for message throughput and retention period
-- Monitor usage and expand as needed
+#### zookeeper_storage_class
 
-**Valid values**: Kubernetes storage size format (e.g., `100Gi`, `500Gi`, `1Ti`, `2Ti`)
-
-**Impact**: Insufficient storage will cause Kafka to stop accepting messages when volumes fill up. Size appropriately for your message volume and retention requirements.
-
-**Related variables**:
-- `kafka_storage_class`: Storage class for these volumes
-- `kafka_cluster_size`: Larger clusters may need more storage
-- Message retention settings affect storage requirements
-
-**Note**: The default `100Gi` is suitable for small deployments only. Production environments typically require 500Gi or more depending on message volume and retention. Plan storage based on daily message volume × retention days.
-
-### zookeeper_storage_class
-Storage class for Zookeeper persistent storage (must support ReadWriteOnce).
+Storage class for Zookeeper persistent storage, where Zookeeper stores cluster metadata and coordination data — any storage class name supporting ReadWriteOnce (RWO) access mode.
 
 - **Optional**
 - Environment Variable: `ZOOKEEPER_STORAGE_CLASS`
-- Default Value: Auto-detected from available storage classes in cluster
+- Default: Auto-detected from available storage classes in the cluster
 
-**Purpose**: Specifies the storage class for Zookeeper persistent storage, which requires ReadWriteOnce (RWO) access mode. Zookeeper stores cluster metadata and coordination data.
+Leave unset for automatic detection (recommended), or set explicitly when you need a specific storage class — it can be the same as or different from `kafka_storage_class`. Zookeeper is critical for Kafka cluster coordination, so reliable storage is essential; a storage class that does not support RWO will cause the deployment to fail. This variable only applies to the Strimzi and Red Hat AMQ Streams providers.
 
-**When to use**:
-- Leave unset for automatic detection (recommended)
-- Set explicitly when you need a specific storage class
-- Must be a storage class supporting RWO access mode
-- Can be same as or different from `kafka_storage_class`
+#### zookeeper_storage_size
 
-**Valid values**: Any storage class name supporting ReadWriteOnce access mode
-
-**Impact**: Zookeeper is critical for Kafka cluster coordination. Reliable storage is essential. Incorrect storage class or one not supporting RWO will cause deployment to fail.
-
-**Related variables**:
-- `zookeeper_storage_size`: Size of storage for Zookeeper
-- `kafka_storage_class`: Separate storage class for Kafka brokers
-
-**Note**: Zookeeper storage requirements are typically much smaller than Kafka broker storage. This variable only applies to Strimzi and Red Hat AMQ Streams providers.
-
-### zookeeper_storage_size
-Size of persistent storage for Zookeeper nodes.
+Size of persistent storage for Zookeeper nodes, which store cluster metadata, configuration, and coordination data — Kubernetes storage size format (e.g., `10Gi`, `20Gi`, `50Gi`).
 
 - **Optional**
 - Environment Variable: `ZOOKEEPER_STORAGE_SIZE`
-- Default Value: `10Gi`
+- Default: `10Gi`
 
-**Purpose**: Specifies the size of persistent volumes for Zookeeper storage. Zookeeper stores cluster metadata, configuration, and coordination data.
+The default is sufficient for most deployments — Zookeeper storage requirements are typically much smaller than Kafka broker storage and grow slowly with cluster size. Increase only for very large Kafka clusters with a very large number of topics and partitions.
 
-**When to use**:
-- Use default (`10Gi`) for most deployments
-- Increase only for very large Kafka clusters with many topics/partitions
-- Zookeeper storage needs are typically much smaller than Kafka broker storage
+#### kafka_user_name
 
-**Valid values**: Kubernetes storage size format (e.g., `10Gi`, `20Gi`, `50Gi`)
-
-**Impact**: Insufficient Zookeeper storage can cause cluster coordination issues. However, Zookeeper storage requirements are typically modest.
-
-**Related variables**:
-- `zookeeper_storage_class`: Storage class for these volumes
-- `kafka_storage_size`: Kafka broker storage (typically much larger)
-
-**Note**: The default `10Gi` is sufficient for most deployments. Zookeeper storage requirements grow slowly with cluster size. Only increase if you have a very large number of topics and partitions.
-
-### kafka_user_name
-Username for MAS to authenticate with Kafka.
+Username for MAS to authenticate with Kafka — a valid Kafka username string (e.g., `masuser`, `mas-kafka-user`), unique within the Kafka cluster.
 
 - **Optional**
 - Environment Variable: `KAFKA_USER_NAME`
-- Default Value: `masuser`
+- Default: `masuser`
 
-**Purpose**: Defines the Kafka user that will be created for MAS to authenticate with the Kafka cluster. This user is configured with appropriate permissions for MAS operations.
+This user is created in Kafka with the necessary permissions for MAS operations, and its credentials are included in the generated KafkaCfg when `mas_instance_id` is provided. Set a custom name when organizational policies require specific usernames. This variable only applies to the Strimzi and Red Hat AMQ Streams providers.
 
-**When to use**:
-- Use default (`masuser`) for standard MAS deployments
-- Set to custom name when organizational policies require specific usernames
-- Must be unique within the Kafka cluster
+#### kafka_user_password
 
-**Valid values**: Valid Kafka username string (e.g., `masuser`, `mas-kafka-user`)
-
-**Impact**: This user is created in Kafka with necessary permissions and credentials are included in the generated KafkaCfg for MAS.
-
-**Related variables**:
-- `kafka_user_password`: Password for this user (Strimzi 0.25.0+/AMQ Streams 2.x+)
-- Used in generated KafkaCfg when `mas_instance_id` is provided
-
-**Note**: The default `masuser` is suitable for most deployments. This variable only applies to Strimzi and Red Hat AMQ Streams providers.
-
-### kafka_user_password
-Password for the Kafka user (Strimzi 0.25.0+/AMQ Streams 2.x+).
+Password for the Kafka user, used for SCRAM-SHA authentication — a strong password string meeting security requirements.
 
 - **Optional**
 - Environment Variable: `KAFKA_USER_PASSWORD`
-- Default Value: Randomly generated if not specified
+- Default: Randomly generated if not specified
 
-**Purpose**: Sets the password for the Kafka user specified in `kafka_user_name`. This password is used for SCRAM-SHA authentication.
+Leave unset for automatic random password generation (recommended for security); this feature requires Strimzi operator [0.25.0](https://github.com/strimzi/strimzi-kafka-operator/blob/main/CHANGELOG.md#0250) or AMQ Streams 2.x+. The password is stored in Kafka secrets and included in the generated KafkaCfg for MAS — keep passwords secure and do not commit them to source control.
 
-**When to use**:
-- Leave unset for automatic random password generation (recommended)
-- Set explicitly when you need a specific password
-- Requires Strimzi operator 0.25.0+ or AMQ Streams 2.x+
+#### custom_labels
 
-**Valid values**: Strong password string meeting security requirements
-
-**Impact**: This password is stored in Kafka secrets and included in the generated KafkaCfg for MAS. If not set, a secure random password is generated automatically.
-
-**Related variables**:
-- `kafka_user_name`: User for which this password is set
-- Used in generated KafkaCfg when `mas_instance_id` is provided
-
-**Note**: Automatic password generation is recommended for security. This feature requires Strimzi operator version [0.25.0](https://github.com/strimzi/strimzi-kafka-operator/blob/main/CHANGELOG.md#0250) or AMQ Streams 2.x+. Keep passwords secure and do not commit to source control.
-
-### mas_instance_id
-MAS instance ID for generating KafkaCfg configuration.
-
-- **Optional**
-- Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
-
-**Purpose**: Identifies which MAS instance the generated KafkaCfg will target. When set (along with `mas_config_dir`), the role generates a KafkaCfg resource for configuring MAS to use this Kafka cluster.
-
-**When to use**:
-- Set when you want to generate MAS configuration automatically
-- Must match the instance ID of your MAS installation
-- Required together with `mas_config_dir` for KafkaCfg generation
-
-**Valid values**: Lowercase alphanumeric string, 3-12 characters (e.g., `prod`, `dev`, `inst1`)
-
-**Impact**: When set with `mas_config_dir`, generates a KafkaCfg YAML file that can be applied to configure MAS. Without this, no MAS configuration is generated.
-
-**Related variables**:
-- `mas_config_dir`: Required together with this for KafkaCfg generation
-- Generated KafkaCfg targets this MAS instance
-
-**Note**: If either `mas_instance_id` or `mas_config_dir` is not set, the role will not generate a KafkaCfg template. You'll need to configure MAS manually.
-
-### mas_config_dir
-Local directory path where generated KafkaCfg will be saved.
-
-- **Optional**
-- Environment Variable: `MAS_CONFIG_DIR`
-- Default Value: None
-
-**Purpose**: Specifies where to save the generated KafkaCfg YAML file. This file can be manually applied to configure MAS or used with the suite_config role for automated configuration.
-
-**When to use**:
-- Set when you want to generate MAS configuration automatically
-- Use the same directory across all MAS setup roles for consistency
-- Required together with `mas_instance_id` for KafkaCfg generation
-
-**Valid values**: Any valid local filesystem path (e.g., `/home/user/masconfig`, `~/masconfig`, `./config`)
-
-**Impact**: When set with `mas_instance_id`, generates `kafkacfg-{provider}-system.yaml` in this directory. The file can be applied with `oc apply` or used with suite_config role.
-
-**Related variables**:
-- `mas_instance_id`: Required together with this for KafkaCfg generation
-- `kafka_provider`: Affects the generated filename
-
-**Note**: If either `mas_instance_id` or `mas_config_dir` is not set, no KafkaCfg template is generated. Ensure the directory exists and is writable.
-
-### custom_labels
-Comma-separated list of key=value labels to apply to Kafka resources.
+Comma-separated list of `key=value` labels to apply to Kafka resources (e.g., `env=prod,team=platform,component=kafka`).
 
 - **Optional**
 - Environment Variable: `CUSTOM_LABELS`
-- Default Value: None
+- Default: None
 
-**Purpose**: Adds Kubernetes labels to Kafka-related resources for organization, selection, and filtering. Labels enable resource tracking, cost allocation, and custom automation.
+Use for organizational metadata (e.g., `cost-center=engineering`, `environment=production`), resource tracking, cost allocation, and custom automation or monitoring. Labels can be used for filtering with `oc get` commands, monitoring queries, and automation scripts, but do not affect Kafka functionality. This variable applies to the Strimzi and Red Hat AMQ Streams providers, and is especially useful in multi-tenant environments.
 
-**When to use**:
-- Use to add organizational metadata (e.g., `cost-center=engineering`, `environment=production`)
-- Use to enable resource tracking and cost allocation
-- Use to support custom automation or monitoring tools
-- Use to comply with organizational labeling standards
+### IBM Event Streams Variables
 
-**Valid values**: Comma-separated list of `key=value` pairs (e.g., `env=prod,team=platform,component=kafka`)
+#### ibmcloud_apikey
 
-**Impact**: Labels are applied to Kafka-related resources and can be used for filtering with `oc get` commands, monitoring queries, and automation scripts. Labels do not affect Kafka functionality.
+IBM Cloud API Key — must have access to manage (provision/deprovision) IBM Cloud Event Streams.
 
-**Related variables**: Works alongside Kubernetes resource labels for comprehensive resource management.
-
-**Note**: This variable applies to Strimzi and Red Hat AMQ Streams providers. Labels help with resource organization and are especially useful in multi-tenant environments.
-
-IBM Cloud Evenstreams Role Variables
-
-### ibmcloud_apikey
-Defines IBM Cloud API Key. This API Key needs to have access to manage (provision/deprovision) IBM Cloud Event Streams.
-
-- Required
+- **Required** when `kafka_provider` is `ibm`
 - Environment Variable: `IBMCLOUD_APIKEY`
-- Default Value: None
+- Default: None
 
-### eventstreams_resourcegroup
-Defines the IBM Cloud Resource Group to target the Event Streams instance.
+#### eventstreams_resourcegroup
 
-- Optional
+IBM Cloud Resource Group to target the Event Streams instance.
+
+- **Optional**
 - Environment Variable: `EVENTSTREAMS_RESOURCEGROUP`
-- Default Value: `Default` or value defined by `IBMCLOUD_RESOURCEGROUP`
+- Default: `Default` or the value defined by `IBMCLOUD_RESOURCEGROUP`
 
-### eventstreams_name
+#### eventstreams_name
+
 Event Streams instance name.
 
-- Required
+- **Required** when `kafka_provider` is `ibm`
 - Environment Variable: `EVENTSTREAMS_NAME`
-- Default Value: None
+- Default: None
 
-### eventstreams_plan
+#### eventstreams_plan
+
 Event Streams instance plan.
 
-- Optional
+- **Optional**
 - Environment Variable: `EVENTSTREAMS_PLAN`
-- Default Value: `standard`
+- Default: `standard`
 
-### eventstreams_location
+#### eventstreams_location
 
-- Optional
+IBM Cloud location where the Event Streams instance will be provisioned.
+
+- **Optional**
 - Environment Variable: `EVENTSTREAMS_LOCATION`
-- Default Value: `us-east` or value defined by `IBMCLOUD_REGION`
+- Default: `us-east` or the value defined by `IBMCLOUD_REGION`
 
-### eventstreams_retention
-Event Streams topic retention period (in miliseconds).
+#### eventstreams_retention
 
-- Optional
+Event Streams topic retention period, in milliseconds.
+
+- **Optional**
 - Environment Variable: `EVENTSTREAMS_RETENTION`
-- Default Value: `1209600000`
+- Default: `1209600000`
 
-### eventstreams_create_manage_jms_topic
+#### eventstreams_create_manage_jms_topics
+
 Defines whether to create specific Manage application JMS topics by default.
 
-- Optional
+- **Optional**
 - Environment Variable: `EVENTSTREAMS_CREATE_MANAGE_JMS_TOPICS`
-- Default Value: `True`
+- Default: `True`
 
-### mas_instance_id
-The instance ID of Maximo Application Suite that the KafkaCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a KafkaCfg template.
+### AWS MSK Variables
 
-- Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
+See [`kafka_version`](#kafka_version) (default `3.3.1` for AWS MSK) and [`kafka_cluster_name`](#kafka_cluster_name) (used in the generated AWS resource names) — both apply to AWS MSK as well.
 
-### mas_config_dir
-Local directory to save the generated KafkaCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Kafka cluster, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a KafkaCfg template.
+#### aws_region
 
-- Environment Variable: `MAS_CONFIG_DIR`
-- Default Value: None
+AWS region where the MSK cluster will be deployed.
 
-### custom_labels
-List of comma separated key=value pairs for setting custom labels on instance specific resources.
+- **Required** when `kafka_provider` is `aws`
+- Environment Variable: `AWS_REGION`
+- Default: None
 
-- Optional
-- Environment Variable: `CUSTOM_LABELS`
-- Default Value: None
+#### vpc_id
 
+The AWS Virtual Private Cloud identifier (VPC ID) where the MSK instance will be hosted.
+
+- **Required** when `kafka_provider` is `aws`
+- Environment Variable: `VPC_ID`
+- Default: None
+
+#### aws_msk_cidr_az1
+
+The CIDR address for the first Availability Zone subnet. This information is found in the subnet details under your VPC.
+
+- **Required** when `kafka_provider` is `aws`
+- Environment Variable: `AWS_MSK_CIDR_AZ1`
+- Default: None
+
+#### aws_msk_cidr_az2
+
+The CIDR address for the second Availability Zone subnet. This information is found in the subnet details under your VPC.
+
+- **Required** when `kafka_provider` is `aws`
+- Environment Variable: `AWS_MSK_CIDR_AZ2`
+- Default: None
+
+#### aws_msk_cidr_az3
+
+The CIDR address for the third Availability Zone subnet. This information is found in the subnet details under your VPC.
+
+- **Required** when `kafka_provider` is `aws`
+- Environment Variable: `AWS_MSK_CIDR_AZ3`
+- Default: None
+
+#### aws_msk_ingress_cidr
+
+The IPv4 CIDR address for ingress connection. This information is found in the subnet details under your VPC.
+
+- **Required** when `kafka_provider` is `aws`
+- Environment Variable: `AWS_MSK_INGRESS_CIDR`
+- Default: None
+
+#### aws_msk_egress_cidr
+
+The IPv4 CIDR address for egress connection. This information is found in the subnet details under your VPC.
+
+- **Required** when `kafka_provider` is `aws`
+- Environment Variable: `AWS_MSK_EGRESS_CIDR`
+- Default: None
+
+#### aws_kafka_user_name
+
+The name of the user to setup in the cluster for MAS.
+
+- **Required** when `kafka_provider` is `aws`
+- Environment Variable: `AWS_KAFKA_USER_NAME`
+- Default: None
+
+#### aws_kafka_user_password
+
+The password of the user to setup in the cluster for MAS.
+
+- **Optional**
+- Environment Variable: `AWS_KAFKA_USER_PASSWORD`
+- Default: None
+
+#### aws_msk_instance_type
+
+The type/flavor of your MSK instance.
+
+- **Optional**
+- Environment Variable: `AWS_MSK_INSTANCE_TYPE`
+- Default: `kafka.m5.large`
+
+#### aws_msk_volume_size
+
+The storage/volume size of your MSK instance.
+
+- **Optional**
+- Environment Variable: `AWS_MSK_VOLUME_SIZE`
+- Default: `100`
+
+#### aws_msk_instance_number
+
+The number of broker/instances of your MSK instance.
+
+- **Optional**
+- Environment Variable: `AWS_MSK_INSTANCE_NUMBER`
+- Default: `3`
+
+#### aws_msk_secret
+
+AWS MSK Secret name — the secret name must begin with the prefix `AmazonMSK_`.
+
+- **Optional**
+- Environment Variable: `AWS_MSK_SECRET`
+- Default: `AmazonMSK_SECRET_{{kafka_cluster_name}}`
 
 ## Example Playbook
 
@@ -479,134 +402,6 @@ List of comma separated key=value pairs for setting custom labels on instance sp
   roles:
     - ibm.mas_devops.kafka
 ```
-
-### AWS MSK Variables
-
-## Prerequisites
-To run this role successfully you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
-Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role.
-
-### kafka_version
-The version of Kafka to deploy for AWS MSK.
-
-- Environment Variable: `KAFKA_VERSION`
-- Default Value: `3.3.1`
-
-### kafka_cluster_name
-The name of the Kafka cluster that will be created
-
-- Required
-- Environment Variable: `KAFKA_CLUSTER_NAME`
-- Default Value: `maskafka`
-
-### aws_region
-
-- Required
-- Environment Variable: `AWS_REGION`
-- Default Value: None
-
-### vpc_id
-The AWS Virtual Private Cloud identifier (VPC ID) where the MSK instance will be hosted.
-
-- Required
-- Environment Variable: `VPC_ID`
-- Default Value: None
-
-### aws_msk_cidr_az1
-The CIDR address for the first Availability Zone subnet. This information is found in the subnet details under your VPC.
-
-- Required
-- Environment Variable: `AWS_MSK_CIDR_AZ1`
-- Default Value: None
-
-### aws_msk_cidr_az2
-The CIDR address for the second Availability Zone subnet. This information is found in the subnet details under your VPC.
-
-- Required
-- Environment Variable: `AWS_MSK_CIDR_AZ2`
-- Default Value: None
-
-### aws_msk_cidr_az3
-The CIDR address for the third Availability Zone subnet. This information is found in the subnet details under your VPC.
-
-- Required
-- Environment Variable: `AWS_MSK_CIDR_AZ3`
-- Default Value: None
-
-### aws_msk_ingress_cidr
-The IPv4 CIDR address for ingress connection. This information is found in the subnet details under your VPC.
-
-- Required
-- Environment Variable: `AWS_MSK_INGRESS_CIDR`
-- Default Value: None
-
-### aws_msk_egress_cidr
-The IPv4 CIDR address for egress connection. This information is found in the subnet details under your VPC.
-
-- Required
-- Environment Variable: `AWS_MSK_EGRESS_CIDR`
-- Default Value: None
-
-### aws_kafka_user_name
-The name of the user to setup in the cluster for MAS.
-
-- Required
-- Environment Variable: `AWS_KAFKA_USER_NAME`
-- Default Value: None
-
-### aws_kafka_user_password
-The password of the user to setup in the cluster for MAS.
-
-- Optional
-- Environment Variable: `AWS_KAFKA_USER_PASSWORD`
-- Default Value: None
-
-### aws_msk_instance_type
-The type/flavor of your MSK instance.
-
-- Optional
-- Environment Variable: `AWS_MSK_INSTANCE_TYPE`
-- Default Value: `kafka.m5.large`
-
-### aws_msk_volume_size
-The storage/volume size of your MSK instance.
-
-- Optional
-- Environment Variable: `AWS_MSK_VOLUME_SIZE`
-- Default Value: `100`
-
-### aws_msk_instance_number
-The number of broker/instances of your MSK instance.
-
-- Optional
-- Environment Variable: `AWS_MSK_INSTANCE_NUMBER`
-- Default Value: `3`
-
-### mas_instance_id
-The instance ID of Maximo Application Suite that the KafkaCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a KafkaCfg template.
-
-- Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
-
-### mas_config_dir
-Local directory to save the generated KafkaCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Kafka cluster, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a KafkaCfg template.
-
-- Environment Variable: `MAS_CONFIG_DIR`
-- Default Value: None
-
-### custom_labels
-List of comma separated key=value pairs for setting custom labels on instance specific resources.
-
-- Optional
-- Environment Variable: `CUSTOM_LABELS`
-- Default Value: None
-
-### aws_msk_secret
-AWS MSK Secret name. The secret name must begin with the prefix AmazonMSK_. If this is not set, then default secret name will be AmazonMSK_SECRET_{{kafka_cluster_name}}
-
-- Optional
-- Environment Variable: `AWS_MSK_SECRET`
-- Default Value: `AmazonMSK_SECRET_{{kafka_cluster_name}}'`
 
 ### Install AWS MSK
 

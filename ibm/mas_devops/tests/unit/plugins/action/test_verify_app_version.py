@@ -2,11 +2,12 @@
 Unit tests for verify_app_version action plugin.
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+import verify_app_version
 from ansible.errors import AnsibleError
 
-import verify_app_version
 ActionModule = verify_app_version.ActionModule
 
 

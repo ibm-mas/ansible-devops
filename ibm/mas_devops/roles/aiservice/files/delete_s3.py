@@ -15,8 +15,9 @@
 # [default]
 # region = YOUR_PREFERRED_REGION
 
-import boto3
 import sys
+
+import boto3
 
 s3_resource = boto3.resource('s3')
 

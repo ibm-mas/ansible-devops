@@ -2,11 +2,12 @@
 Unit tests for verify_workloads action plugin.
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+import verify_workloads
 from ansible.errors import AnsibleError
 
-import verify_workloads
 ActionModule = verify_workloads.ActionModule
 
 
@@ -219,7 +220,7 @@ class TestVerifyWorkloads:
         # Create workload that should be ignored
         mock_dep = Mock()
         mock_dep.metadata.namespace = 'ibm-cpd'
-        mock_dep.metadata.name = 'wd-discovery-ranker-rest'
+        mock_dep.metadata.name = 'ax-wdp-notebooks-api-deploy'
         mock_dep.status.replicas = 1
         mock_dep.status.readyReplicas = None
         mock_dep.status.updatedReplicas = 1

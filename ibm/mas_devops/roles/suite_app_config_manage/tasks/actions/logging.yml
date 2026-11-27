@@ -1,0 +1,114 @@
+---
+# Logging action (was suite_manage_logging_config)
+# Configure the destination for Manage server log uploads: an IBM COS or AWS S3
+# bucket (loggingS3Destination in the ManageWorkspace CR), and optionally (when
+# mas_manage_logging_is_prod is enabled) deactivate all Admin Center routes
+# except log upload on the Manage database.
+# ========================================================================
+
+# Assertions: preliminary validations
+# ------------------------------------------------------------------------
+- name: "logging : Fail if mas_manage_logging_provider is not supported"
+  assert:
+    that: mas_manage_logging_provider is defined and mas_manage_logging_provider in mas_manage_logging_provider_supported
+    fail_msg: "mas_manage_logging_provider property is required and must be set to one of the supported storage providers: {{ mas_manage_logging_provider_supported }}"
+
+- name: "logging : Fail if db2_instance_name is not provided when is_prod is enabled"
+  when: mas_manage_logging_is_prod | bool
+  assert:
+    that: db2_instance_name is defined and db2_instance_name != ""
+    fail_msg: >-
+      db2_instance_name property is required when mas_manage_logging_is_prod is enabled.
+      It is not available when an external (JDBC) database is used.
+
+# Check if logging is already set up for the ManageWorkspace
+# ------------------------------------------------------------------------
+- name: "logging : Lookup ManageWorkspace CR to check if logging is already setup"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: ManageWorkspace
+    name: "{{ manage_workspace_cr_name }}"
+    namespace: "mas-{{ mas_instance_id }}-manage"
+  register: managews_output
+
+- name: "logging : Set the current logging destination"
+  set_fact:
+    mas_manage_logging_current_destination: "{{ (managews_output.resources[0].spec.settings.deployment | default({})).loggingS3Destination | default('') }}"
+
+- name: "logging : Debug information"
+  debug:
+    msg: >-
+      {{ 'Manage logging destination is already configured, skipping (set mas_manage_logging_force to reconfigure)...'
+         if (mas_manage_logging_current_destination != '' and not (mas_manage_logging_force | bool))
+         else 'Manage logging destination is not configured yet, configuring now...' }}
+
+# Configure logging
+# ------------------------------------------------------------------------
+- name: "logging : Configure logging"
+  when: mas_manage_logging_current_destination == '' or mas_manage_logging_force | bool
+  block:
+    - name: "logging : Configure {{ mas_manage_logging_provider }} bucket for Manage logging"
+      include_role:
+        name: ibm.mas_devops.cos_bucket
+      vars:
+        cos_type: "{{ mas_manage_logging_provider }}"
+
+    - name: "logging : Setup AWS S3 bucket policies, users and access points"
+      vars:
+        aws_bucket_name: "{{ cos_bucket_name }}"
+        aws_bucket_region: "{{ cos_bucket_region }}"
+      include_tasks: "tasks/common/aws-s3-bucket-permissions.yml"
+      when: mas_manage_logging_provider == 'aws'
+
+    - name: "logging : Create the logging bucket credentials secret in Manage namespace"
+      kubernetes.core.k8s:
+        apply: true
+        template: "templates/logging-bucket-creds.yml.j2"
+      no_log: true
+
+    - name: "logging : Retrieve {{ mas_manage_logging_provider }} certificates"
+      vars:
+        cos_type: "{{ mas_manage_logging_provider }}"
+      include_tasks: "tasks/common/retrieve-cos-certs.yml"
+
+    - name: "logging : Add the {{ mas_manage_logging_provider | upper }} COS certificates in ManageWorkspace CR"
+      vars:
+        manage_certificates: "{{ cos_tls_crt }}"
+        manage_certificates_alias_prefix: "{{ mas_manage_logging_provider }}coscertpart"
+      include_tasks: "tasks/common/import-certs.yml"
+
+    - name: "logging : Add the `loggingS3Destination` in ManageWorkspace CR"
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: apps.mas.ibm.com/v1
+          kind: ManageWorkspace
+          metadata:
+            name: "{{ manage_workspace_cr_name }}"
+            namespace: "mas-{{ mas_instance_id }}-manage"
+          spec:
+            settings:
+              deployment:
+                loggingS3Destination:
+                  accessKey: "{{ cos_access_key_id }}"
+                  bucketName: "{{ cos_bucket_name }}"
+                  endpointURL: "{{ cos_url }}"
+                  secretKey:
+                    secretName: "{{ mas_manage_logging_secret_name }}"
+      no_log: true
+
+    - name: "logging : Wait for ManageWorkspace to be ready"
+      include_tasks: "tasks/common/wait-manageworkspace-ready.yml"
+      vars:
+        manage_ws_wait_retries: 20
+        manage_ws_wait_delay: 60
+
+# Deactivate all the Admin Center functionality except upload log to COS
+# !!!! Only run the DELETE statements below against a PROD database
+# ------------------------------------------------------------------------
+- name: "logging : Deactivate all the Admin Center"
+  when: mas_manage_logging_is_prod | bool
+  vars:
+    db2_sql_statements:
+      - "DELETE FROM MAXIMO.APIROUTE WHERE ROUTE IN ('toolslog','icheckerrepair','managestart','icheckerreport','managestop')"
+      - "COMMIT"
+  include_tasks: "tasks/common/run-db2-sql.yml"
