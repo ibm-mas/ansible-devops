@@ -98,7 +98,7 @@
     - name: Install ODF, it is not ready
       when:
         - migrate_s3 | bool
-        - (_storage_cluster.resources | length == 0) or (_storage_cluster.resources[0].status.phase | default('') != 'Ready')
+        - (_storage_cluster.resources | length == 0) or (_storage_cluster.resources[0].status.phase | default('') != 'Ready' and not _storage_cluster.resources[0].spec.externalStorage.enable | default(false))
       include_role:
         name: ibm.mas_devops.ocs
 
@@ -114,7 +114,7 @@
       delay: 30
       until:
         - _storage_cluster.resources | length > 0
-        - _storage_cluster.resources[0].status.phase | default('') == 'Ready'
+        - _storage_cluster.resources[0].status.phase | default('') == 'Ready' or _storage_cluster.resources[0].spec.externalStorage.enable | default(false)
       ignore_errors: true
 
     - name: Check noobaa-admin
@@ -137,7 +137,7 @@
       assert:
         that:
           - _storage_cluster.resources | length > 0
-          - _storage_cluster.resources[0].status.phase | default('') == 'Ready'
+          - _storage_cluster.resources[0].status.phase | default('') == 'Ready' or _storage_cluster.resources[0].spec.externalStorage.enable | default(false)
           - _noobaa_admin.resources | length > 0
         fail_msg: "ODF is not ready in '{{ odf_namespace }}' (StorageCluster Ready and secret noobaa-admin are required). MinIO has not been changed."
 

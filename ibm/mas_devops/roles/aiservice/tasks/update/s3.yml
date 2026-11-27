@@ -33,7 +33,8 @@
   assert:
     that:
       - aiservice_update_s3_storage_cluster.resources | length > 0
-      - aiservice_update_s3_storage_cluster.resources[0].status.phase == 'Ready'
+      # External ODF can stay Progressing while it works, NooBaa is checked by the playbook
+      - aiservice_update_s3_storage_cluster.resources[0].status.phase == 'Ready' or aiservice_update_s3_storage_cluster.resources[0].spec.externalStorage.enable | default(false)
     fail_msg: "ODF StorageCluster in '{{ aiservice_odf_namespace }}' is not Ready. Install ODF (see the ocs role) before migrating."
 
 - name: "update s3 : Set the names of the buckets AI Service uses"
