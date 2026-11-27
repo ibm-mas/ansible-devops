@@ -23,6 +23,21 @@ Manual approval mode is controlled with two environment variables:
     the collection's usual per-role environment variable convention: approval
     mode applies globally to everything the collection does with subscriptions.
 
+## Layering
+
+All approval policy is implemented once in the `mas.devops.olm` module of the
+[python-devops](https://github.com/ibm-mas/python-devops) package (required by
+this collection at `mas-devops >= 100.1.0`): the single-namespace and
+cluster-wide convergence waits, the fail-fast on Subscriptions that can never
+converge, approval mode mismatch detection, the per-namespace deadlines, and
+the notice / approve-command text. The collection's
+`plugins/module_utils/olm_approvals.py` is a thin display layer over it: it
+resolves task arguments (delegating the environment variable precedence to the
+package) and owns the Ansible-facing output — notices, heartbeats and the
+full-scope reports — emitted from the package's `onPending` callbacks. The
+action plugins translate the package's exceptions to `AnsibleError`. A change
+to approval behavior is a change in python-devops, once.
+
 ## What it looks like
 
 When a subscription's progress is gated on an approval, the role logs what is
@@ -122,14 +137,19 @@ Notes on the edges:
 - **Fail fast**: a Subscription with an active `ResolutionFailed` condition
   (bad channel, missing dependency, catalog problem) or a Failed InstallPlan
   fails the gate immediately with an actionable error in **both** modes,
-  rather than burning the timeout — **except** a Subscription with an install
-  plan of its own pending approval: while an upgrade plan awaits approval
-  OLM's resolver transiently reports "constraints not satisfiable …
+  rather than burning the timeout — **except** a Subscription whose own
+  install plan is carrying it to its channel head: while an upgrade plan is
+  pending approval, or has been approved and is still applying, OLM's
+  resolver transiently reports "constraints not satisfiable …
   clusterserviceversion X exists and is not referenced by a subscription"
   (the old CSV is installed, the Subscription requires the new one, and the
-  transition cannot be satisfied until the plan is approved). That condition
-  is the wait working, so it is not fatal; the per-namespace deadline still
-  bounds a genuinely wedged state.
+  transition cannot be satisfied until the plan has finished applying — the
+  new CSV created, the old one garbage-collected — which can take minutes
+  after approval). That condition is the wait working, so it is not fatal;
+  the per-namespace deadline still bounds a genuinely wedged state. A
+  referenced plan that does *not* contain the channel head (the stale
+  Completed plan of a previous install) offers no such excuse — no new plan
+  was generated, so the failure is real and fails fast.
 - **Timeout**: the per-wait budget is `OLM_APPROVAL_TIMEOUT` in both modes.
   On expiry under Manual the approve commands are repeated in the error;
   under Automatic each non-converged Subscription is listed as

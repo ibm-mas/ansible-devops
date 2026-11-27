@@ -2,9 +2,11 @@
 Unit tests for the olm_approvals module_utils helper.
 
 The mas.devops.olm functions the helper calls are mocked: these tests cover
-the collection-side behavior (env var resolution, notice formatting, the
-wait/timeout orchestration and the approval mode mismatch check), not the
-python-devops library itself.
+the collection-side behavior (task arg and env var resolution, the display
+orchestration -- notices, heartbeats, full-scope reports -- and the timeout
+re-raise), not the python-devops library itself. The library's own policy
+(the convergence waits, fail-fast, mismatch detection, deadlines) is tested
+in python-devops test/src/test_olm_approvals.py.
 """
 
 from unittest.mock import Mock, patch
@@ -60,6 +62,7 @@ def makeSubscriptionEntry(
         "skipped": skipped,
         "skipReason": skipReason,
         "resolutionError": None,
+        "transitionInFlight": False,
     }
 
 
@@ -108,26 +111,6 @@ class TestResolveApprovalTimeout:
         assert olm_approvals.resolveApprovalTimeout(None) == 7200
 
 
-class TestFormatApprovalNotice:
-    """Tests for the human-facing notice formatting."""
-
-    def test_notice_contains_plan_package_and_csv_transition(self):
-        lines = olm_approvals.formatApprovalNotice(APPROVAL)
-        assert lines[0] == "Waiting for manual approval of install plan install-plan-1 in namespace test-namespace"
-        assert "test-operator.v1.0.0 -> test-operator.v2.0.0" in lines[1]
-        assert "test-operator.v2.0.0" in lines[2]
-
-    def test_notice_handles_no_current_csv(self):
-        approval = dict(APPROVAL, currentCSV=None)
-        lines = olm_approvals.formatApprovalNotice(approval)
-        assert "(not installed) -> test-operator.v2.0.0" in lines[1]
-
-    def test_approve_command_is_a_merge_patch(self):
-        command = olm_approvals.approveCommand(APPROVAL)
-        assert command == 'oc patch installplan/install-plan-1 -n test-namespace --type merge -p \'{"spec":{"approved":true}}\''
-        assert "or use the OpenShift Console" in olm_approvals.formatApprovalNotice(APPROVAL)[3]
-
-
 class TestWaitForSubscriptionApproval:
     """Tests for the wait orchestration in waitForSubscriptionApproval."""
 
@@ -148,7 +131,7 @@ class TestWaitForSubscriptionApproval:
         status = makeStatus(approvalMode="Automatic", pendingApprovals=[APPROVAL])
         with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=status):
             with patch.object(olm_approvals, "waitForSubscriptionConvergence") as mockWait:
-                with pytest.raises(ValueError, match="Install plans are waiting for manual approval in namespace test-namespace"):
+                with pytest.raises(OLMException, match="Install plans are waiting for manual approval in namespace test-namespace"):
                     olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode="Automatic")
 
         # The mismatch fails before any wait begins
@@ -159,7 +142,7 @@ class TestWaitForSubscriptionApproval:
         status = makeStatus(approvalMode="Manual", pendingApprovals=[APPROVAL])
         with patch.object(olm_approvals, "getNamespaceApprovalStatus", return_value=status):
             with patch.object(olm_approvals, "waitForSubscriptionConvergence"):
-                with pytest.raises(ValueError) as excinfo:
+                with pytest.raises(OLMException) as excinfo:
                     olm_approvals.waitForSubscriptionApproval(Mock(), display, "test-namespace", approvalMode=None)
 
         # An unset mode is an Automatic context: fail fast with the approve
@@ -267,7 +250,7 @@ class TestWaitForSubscriptionApproval:
         # A plan appears after the initial snapshot (a just-created
         # Subscription's first plan): the same mismatch, caught late
         lateBlocking = makeStatus(approvalMode="Automatic", pendingApprovals=[APPROVAL], converged=False)
-        with pytest.raises(ValueError, match="Install plans are waiting for manual approval"):
+        with pytest.raises(OLMException, match="Install plans are waiting for manual approval"):
             onPending(lateBlocking, 1)
 
     def test_waited_true_when_pending_only_seen_mid_wait(self):
@@ -381,318 +364,154 @@ class TestWaitForSubscriptionApproval:
         assert display.display.call_count == baseline + 1
 
 
-class PendingSequence:
-    """Side effect for getPendingInstallPlans: one list per call, last repeats."""
-
-    def __init__(self, *polls):
-        self.polls = list(polls)
-        self.calls = []
-
-    def __call__(self, dynClient, namespace=None):
-        self.calls.append(namespace)
-        return self.polls.pop(0) if len(self.polls) > 1 else self.polls[0]
-
-
-class NamespaceStates:
-    """Side effect for getNamespaceConvergenceStatus: per-namespace poll sequences, last repeats."""
-
-    def __init__(self, initial):
-        self.states = {namespace: list(sequence) for namespace, sequence in initial.items()}
-        self.calls = {namespace: 0 for namespace in initial}
-
-    def __call__(self, dynClient, namespace):
-        self.calls[namespace] += 1
-        sequence = self.states[namespace]
-        return sequence.pop(0) if len(sequence) > 1 else sequence[0]
-
-
 def makeClusterApproval(namespace="test-namespace", installPlan="install-plan-1"):
     """An approval info dict for a different namespace/plan than APPROVAL."""
     return dict(APPROVAL, namespace=namespace, installPlan=installPlan)
 
 
+def makeClusterStatus(pendingApprovals, outstanding, statuses=None, deadlines=None):
+    """A cluster status payload as waitForClusterConvergence delivers it to onPending."""
+    if statuses is None:
+        statuses = {namespace: makeStatus(namespace=namespace, pendingApprovals=[]) for namespace in outstanding}
+    if deadlines is None:
+        deadlines = {namespace: None for namespace in outstanding}
+    return {
+        "pendingApprovals": pendingApprovals,
+        "statuses": statuses,
+        "outstanding": outstanding,
+        "deadlines": deadlines,
+    }
+
+
+def runClusterWait(polls, final=None):
+    """Side effect for waitForClusterConvergence: replay poll cluster statuses through onPending, then return final."""
+
+    def sideEffect(dynClient, timeout=None, pollInterval=30, approvalMode=None, onPending=None):
+        for pollCount, clusterStatus in enumerate(polls, start=1):
+            if onPending is not None:
+                onPending(clusterStatus, pollCount)
+        if final is None:
+            return {"waited": True, "namespaces": [], "statuses": {}}
+        return final
+
+    return sideEffect
+
+
 class TestWaitForClusterApproval:
-    """Tests for the cluster-wide gate in waitForClusterApproval."""
+    """Tests for the cluster-wide display layer in waitForClusterApproval."""
 
-    @pytest.fixture(autouse=True)
-    def no_sleep(self):
-        with patch.object(olm_approvals.time, "sleep"):
-            yield
-
-    def test_nothing_pending_is_a_no_op_success(self):
+    def test_no_op_result_and_arguments_pass_through(self):
         display = Mock()
-        callOrder = []
-        with patch.object(olm_approvals, "waitForSubscriptionResolution", side_effect=lambda *args, **kwargs: callOrder.append("settle")):
-            with patch.object(olm_approvals, "getPendingInstallPlans", side_effect=lambda *args, **kwargs: callOrder.append("discover") or []):
+        result = {"waited": False, "namespaces": [], "statuses": {}}
+        with patch.object(olm_approvals, "waitForClusterConvergence", return_value=result) as mockWait:
+            outcome = olm_approvals.waitForClusterApproval(Mock(), display, timeout=300, pollInterval=15, approvalMode="Manual")
 
-                result = olm_approvals.waitForClusterApproval(Mock(), display, approvalMode="Manual")
-
-        # Settle before discovery: right after a catalog digest update OLM may
-        # not have generated the new install plans yet
-        assert callOrder == ["settle", "discover"]
-        assert result["waited"] is False
-        assert result["namespaces"] == []
-        assert result["statuses"] == {}
+        # The package's result is returned unchanged, nothing is displayed
+        # when there was never anything pending, and every argument passes
+        # through with the display callback attached
+        assert outcome is result
         display.display.assert_not_called()
+        mockWait.assert_called_once()
+        assert mockWait.call_args.kwargs["timeout"] == 300
+        assert mockWait.call_args.kwargs["pollInterval"] == 15
+        assert mockWait.call_args.kwargs["approvalMode"] == "Manual"
+        assert mockWait.call_args.kwargs["onPending"] is not None
 
     def test_full_scope_report_prints_every_plan_up_front(self):
         display = Mock()
-        events = []
         approvalA = makeClusterApproval(namespace="ns-a", installPlan="install-plan-a")
         approvalB = makeClusterApproval(namespace="ns-b", installPlan="install-plan-b")
+        # Poll 1 is the pre-snapshot report poll the package fires right
+        # after discovery: every pending plan must be disclosed there
+        polls = [makeClusterStatus([approvalA, approvalB], ["ns-a", "ns-b"])]
+        with patch.object(olm_approvals, "waitForClusterConvergence", side_effect=runClusterWait(polls)):
+            olm_approvals.waitForClusterApproval(Mock(), display, approvalMode="Manual")
 
-        def recordDisplay(line):
-            events.append(("display", str(line)))
-            return None
+        displayed = [str(call.args[0]) for call in display.display.call_args_list]
+        assert "2 install plan(s) awaiting manual approval across 2 namespace(s) -- approve them in any order:" in displayed
+        assert any("Waiting for manual approval of install plan install-plan-a" in line and "ns-a" in line for line in displayed)
+        assert any("Waiting for manual approval of install plan install-plan-b" in line and "ns-b" in line for line in displayed)
 
-        display.display.side_effect = recordDisplay
-        pending = PendingSequence([approvalA, approvalB], [approvalA, approvalB])
-
-        def recordSnapshot(dynClient, namespace):
-            events.append(("snapshot", namespace))
-            return makeStatus(namespace=namespace, pendingApprovals=[])
-
-        with patch.object(olm_approvals, "waitForSubscriptionResolution"):
-            with patch.object(olm_approvals, "getPendingInstallPlans", side_effect=pending):
-                with patch.object(olm_approvals, "getNamespaceConvergenceStatus", side_effect=recordSnapshot):
-                    result = olm_approvals.waitForClusterApproval(Mock(), display, approvalMode="Manual")
-
-        assert result["waited"] is True
-        assert result["namespaces"] == ["ns-a", "ns-b"]
-        # Both namespaces' notices are displayed before the first convergence
-        # snapshot: the full scope is disclosed up front, not namespace by
-        # namespace as the human works through them
-        firstSnapshot = next(index for index, event in enumerate(events) if event[0] == "snapshot")
-        displayedBeforeSnapshot = [line for kind, line in events[:firstSnapshot]]
-        assert any("install-plan-a" in line and "ns-a" in line for line in displayedBeforeSnapshot)
-        assert any("install-plan-b" in line and "ns-b" in line for line in displayedBeforeSnapshot)
-        assert any("approve them in any order" in line for line in displayedBeforeSnapshot)
-
-        # Each plan is noticed exactly once (no repeats on later polls)
-        allDisplayed = [line for kind, line in events if kind == "display"]
-        assert "\n".join(allDisplayed).count("Waiting for manual approval of install plan install-plan-a") == 1
-        assert "\n".join(allDisplayed).count("Waiting for manual approval of install plan install-plan-b") == 1
-
-    def test_namespaces_converge_in_any_order(self):
-        display = Mock()
-        approvalA = makeClusterApproval(namespace="ns-a", installPlan="install-plan-a")
-        approvalB = makeClusterApproval(namespace="ns-b", installPlan="install-plan-b")
-        pending = PendingSequence([approvalA, approvalB], [approvalA, approvalB], [approvalB], [approvalB])
-
-        # ns-a converges on poll 2, ns-b only on poll 3: the gate keeps
-        # waiting for ns-b regardless of order (and does not re-wait for ns-a)
-        states = NamespaceStates(
-            {
-                "ns-a": [makeStatus(namespace="ns-a", pendingApprovals=[approvalA], converged=False), makeStatus(namespace="ns-a", pendingApprovals=[])],
-                "ns-b": [
-                    makeStatus(namespace="ns-b", pendingApprovals=[approvalB], converged=False),
-                    makeStatus(namespace="ns-b", pendingApprovals=[approvalB], converged=False),
-                    makeStatus(namespace="ns-b", pendingApprovals=[]),
-                ],
-            }
-        )
-        with patch.object(olm_approvals, "waitForSubscriptionResolution"):
-            with patch.object(olm_approvals, "getPendingInstallPlans", side_effect=pending):
-                with patch.object(olm_approvals, "getNamespaceConvergenceStatus", side_effect=states):
-                    result = olm_approvals.waitForClusterApproval(Mock(), display, approvalMode="Manual")
-
-        assert result["namespaces"] == ["ns-a", "ns-b"]
-        assert result["statuses"]["ns-a"]["converged"] is True
-        assert result["statuses"]["ns-b"]["converged"] is True
-        # ns-a is snapshotted on polls 1-2 only (converged namespaces leave
-        # the scope); ns-b on polls 1-3
-        assert states.calls["ns-a"] == 2
-        assert states.calls["ns-b"] == 3
-
-    def test_late_entrant_namespace_joins_the_scope(self):
-        display = Mock()
-        approvalA = makeClusterApproval(namespace="ns-a", installPlan="install-plan-a")
-        approvalC = makeClusterApproval(namespace="ns-c", installPlan="install-plan-c")
-        # ns-c's plan only appears on poll 2 (e.g. a multi-step upgrade path
-        # in a namespace the initial discovery did not see)
-        pending = PendingSequence([approvalA], [approvalA, approvalC], [approvalA, approvalC], [approvalA, approvalC])
-        states = NamespaceStates(
-            {
-                "ns-a": [
-                    makeStatus(namespace="ns-a", pendingApprovals=[approvalA], converged=False),
-                    makeStatus(namespace="ns-a", pendingApprovals=[]),
-                ],
-                "ns-c": [
-                    makeStatus(namespace="ns-c", pendingApprovals=[approvalC], converged=False),
-                    makeStatus(namespace="ns-c", pendingApprovals=[]),
-                ],
-            }
-        )
-        with patch.object(olm_approvals, "waitForSubscriptionResolution"):
-            with patch.object(olm_approvals, "getPendingInstallPlans", side_effect=pending):
-                with patch.object(olm_approvals, "getNamespaceConvergenceStatus", side_effect=states):
-                    result = olm_approvals.waitForClusterApproval(Mock(), display, approvalMode="Manual")
-
-        assert result["namespaces"] == ["ns-a", "ns-c"]
-        displayed = " ".join(str(call.args[0]) for call in display.display.call_args_list)
-        assert "Waiting for manual approval of install plan install-plan-c" in displayed
-
-    def test_new_plan_in_scoped_namespace_gets_a_notice_without_repeats(self):
+    def test_new_plan_appearing_mid_wait_gets_a_notice_without_repeats(self):
         display = Mock()
         approvalA = makeClusterApproval(namespace="ns-a", installPlan="install-plan-a")
         approvalB = makeClusterApproval(namespace="ns-a", installPlan="install-plan-b")
-        pending = PendingSequence([approvalA], [approvalA, approvalB], [approvalA, approvalB], [approvalA, approvalB])
-        states = NamespaceStates(
-            {
-                "ns-a": [
-                    makeStatus(namespace="ns-a", pendingApprovals=[approvalA], converged=False),
-                    makeStatus(namespace="ns-a", pendingApprovals=[approvalA, approvalB], converged=False),
-                    makeStatus(namespace="ns-a", pendingApprovals=[]),
-                ]
-            }
-        )
-        with patch.object(olm_approvals, "waitForSubscriptionResolution"):
-            with patch.object(olm_approvals, "getPendingInstallPlans", side_effect=pending):
-                with patch.object(olm_approvals, "getNamespaceConvergenceStatus", side_effect=states):
-                    olm_approvals.waitForClusterApproval(Mock(), display, approvalMode="Manual")
+        polls = [
+            makeClusterStatus([approvalA], ["ns-a"]),
+            makeClusterStatus([approvalA, approvalB], ["ns-a"]),
+        ]
+        with patch.object(olm_approvals, "waitForClusterConvergence", side_effect=runClusterWait(polls)):
+            olm_approvals.waitForClusterApproval(Mock(), display, approvalMode="Manual")
 
         displayed = "\n".join(str(call.args[0]) for call in display.display.call_args_list)
-        # The second plan gets its notice when first seen; the first is not repeated
+        assert "Waiting for manual approval of install plan install-plan-b" in displayed
         assert displayed.count("Waiting for manual approval of install plan install-plan-a") == 1
-        assert displayed.count("Waiting for manual approval of install plan install-plan-b") == 1
 
-    def test_mode_mismatch_at_discovery_lists_all_namespaces(self):
+    def test_mixed_namespace_reported_once_not_fatal(self):
         display = Mock()
         approvalA = makeClusterApproval(namespace="ns-a", installPlan="install-plan-a")
-        approvalB = makeClusterApproval(namespace="ns-b", installPlan="install-plan-b")
-        with patch.object(olm_approvals, "waitForSubscriptionResolution"):
-            with patch.object(olm_approvals, "getPendingInstallPlans", return_value=[approvalA, approvalB]):
-                with pytest.raises(ValueError) as excinfo:
-                    olm_approvals.waitForClusterApproval(Mock(), display, approvalMode=None)
-
-        message = str(excinfo.value)
-        # An unset mode is an Automatic context: fail fast with the approve
-        # commands from every namespace at once, and the remedy
-        assert "2 namespace(s) (ns-a, ns-b)" in message
-        assert "oc patch installplan/install-plan-a" in message
-        assert "oc patch installplan/install-plan-b" in message
-        assert "OLM_APPROVAL_MODE=Manual" in message
-        display.display.assert_not_called()
-
-    def test_mixed_namespace_reported_not_fatal(self):
-        display = Mock()
-        approvalA = makeClusterApproval(namespace="ns-a", installPlan="install-plan-a")
-        pending = PendingSequence([approvalA], [approvalA])
         mixed = makeStatus(namespace="ns-a", approvalMode="Mixed", pendingApprovals=[approvalA], converged=False)
-        converged = makeStatus(namespace="ns-a", approvalMode="Mixed", pendingApprovals=[])
-        states = NamespaceStates({"ns-a": [mixed, converged]})
-        with patch.object(olm_approvals, "waitForSubscriptionResolution"):
-            with patch.object(olm_approvals, "getPendingInstallPlans", side_effect=pending):
-                with patch.object(olm_approvals, "getNamespaceConvergenceStatus", side_effect=states):
-                    result = olm_approvals.waitForClusterApproval(Mock(), display, approvalMode="Manual")
+        polls = [
+            makeClusterStatus([approvalA], ["ns-a"]),
+            makeClusterStatus([approvalA], ["ns-a"], statuses={"ns-a": mixed}),
+            makeClusterStatus([approvalA], ["ns-a"], statuses={"ns-a": mixed}),
+        ]
+        with patch.object(olm_approvals, "waitForClusterConvergence", side_effect=runClusterWait(polls)):
+            olm_approvals.waitForClusterApproval(Mock(), display, approvalMode="Manual")
 
-        assert result["waited"] is True
         displayed = " ".join(str(call.args[0]) for call in display.display.call_args_list)
         assert "mix of approval modes" in displayed
+        # Reported exactly once despite appearing on every later poll
+        assert displayed.count("mix of approval modes") == 1
 
-    def test_resolution_failed_fails_fast_naming_the_namespace(self):
+    def test_heartbeat_names_outstanding_namespaces_with_deadlines(self):
         display = Mock()
         approvalA = makeClusterApproval(namespace="ns-a", installPlan="install-plan-a")
-        pending = PendingSequence([approvalA], [approvalA])
-        entry = makeSubscriptionEntry(name="broken-operator", converged=False)
-        entry["resolutionError"] = "no matching package in catalog"
-        broken = makeStatus(namespace="ns-a", pendingApprovals=[approvalA], subscriptions=[entry], converged=False)
-        states = NamespaceStates({"ns-a": [broken]})
-        with patch.object(olm_approvals, "waitForSubscriptionResolution"):
-            with patch.object(olm_approvals, "getPendingInstallPlans", side_effect=pending):
-                with patch.object(olm_approvals, "getNamespaceConvergenceStatus", side_effect=states):
-                    with pytest.raises(OLMException, match="broken-operator in namespace ns-a failed to resolve"):
-                        olm_approvals.waitForClusterApproval(Mock(), display, approvalMode="Manual")
+        outstanding = makeStatus(namespace="ns-a", pendingApprovals=[approvalA], converged=False)
+        polls = [
+            makeClusterStatus([approvalA], ["ns-a"]),
+            makeClusterStatus([approvalA], ["ns-a"], statuses={"ns-a": outstanding}, deadlines={"ns-a": None}),
+        ]
+        with patch.object(olm_approvals, "waitForClusterConvergence", side_effect=runClusterWait(polls)):
+            olm_approvals.waitForClusterApproval(Mock(), display, approvalMode="Manual")
 
-    def test_transient_resolution_error_with_pending_plan_keeps_waiting(self):
-        display = Mock()
-        # The pending plan belongs to subscription "test-operator" (the
-        # APPROVAL fixture's subscription)
-        approvalA = makeClusterApproval(namespace="ns-a", installPlan="install-plan-a")
-        pending = PendingSequence([approvalA])
-        # Poll 1: the subscription carries a transient ResolutionFailed
-        # condition while its own install plan awaits approval (OLM emits
-        # "constraints not satisfiable ... exists and is not referenced by a
-        # subscription" during the pending transition). This must NOT fail
-        # the gate -- it is the wait working. Poll 2: approved and converged.
-        transient = makeSubscriptionEntry(name="test-operator", converged=False)
-        transient["resolutionError"] = "constraints not satisfiable: clusterserviceversion ibm-sls.v3.13.1 exists and is not referenced by a subscription"
-        states = NamespaceStates(
-            {
-                "ns-a": [
-                    makeStatus(namespace="ns-a", pendingApprovals=[approvalA], subscriptions=[transient], converged=False),
-                    makeStatus(namespace="ns-a", pendingApprovals=[]),
-                ]
-            }
-        )
-        with patch.object(olm_approvals, "waitForSubscriptionResolution"):
-            with patch.object(olm_approvals, "getPendingInstallPlans", side_effect=pending):
-                with patch.object(olm_approvals, "getNamespaceConvergenceStatus", side_effect=states):
-                    result = olm_approvals.waitForClusterApproval(Mock(), display, approvalMode="Manual")
-
-        assert result["waited"] is True
-        assert result["namespaces"] == ["ns-a"]
-        assert result["statuses"]["ns-a"]["converged"] is True
-
-    def test_failed_install_plan_fails_fast_naming_the_plan(self):
-        display = Mock()
-        approvalA = makeClusterApproval(namespace="ns-a", installPlan="install-plan-a")
-        pending = PendingSequence([approvalA], [approvalA])
-        failed = makeStatus(namespace="ns-a", pendingApprovals=[approvalA], converged=False)
-        failed["failedInstallPlans"] = ["install-plan-9"]
-        states = NamespaceStates({"ns-a": [failed]})
-        with patch.object(olm_approvals, "waitForSubscriptionResolution"):
-            with patch.object(olm_approvals, "getPendingInstallPlans", side_effect=pending):
-                with patch.object(olm_approvals, "getNamespaceConvergenceStatus", side_effect=states):
-                    with pytest.raises(OLMException, match="install-plan-9"):
-                        olm_approvals.waitForClusterApproval(Mock(), display, approvalMode="Manual")
-
-    def test_deadline_expiry_lists_every_outstanding_namespace(self):
-        display = Mock()
-        approvalA = makeClusterApproval(namespace="ns-a", installPlan="install-plan-a")
-        approvalB = makeClusterApproval(namespace="ns-b", installPlan="install-plan-b")
-        # timeout=0: both namespaces expire on the first poll
-        pending = PendingSequence([approvalA, approvalB])
-        entryA = makeSubscriptionEntry(name="op-a", converged=False, installedCSV="op-a.v1", targetCSV="op-a.v2")
-        entryB = makeSubscriptionEntry(name="op-b", converged=False, installedCSV="op-b.v1", targetCSV="op-b.v2")
-        states = NamespaceStates(
-            {
-                "ns-a": [makeStatus(namespace="ns-a", pendingApprovals=[approvalA], subscriptions=[entryA], converged=False)],
-                "ns-b": [makeStatus(namespace="ns-b", pendingApprovals=[approvalB], subscriptions=[entryB], converged=False)],
-            }
-        )
-        with patch.object(olm_approvals, "waitForSubscriptionResolution"):
-            with patch.object(olm_approvals, "getPendingInstallPlans", side_effect=pending):
-                with patch.object(olm_approvals, "getNamespaceConvergenceStatus", side_effect=states):
-                    with pytest.raises(OLMTimeoutError) as excinfo:
-                        olm_approvals.waitForClusterApproval(Mock(), display, timeout=0, approvalMode="Manual")
-
-        message = str(excinfo.value)
-        # Whichever namespace is checked first fails the gate, and the error
-        # names that namespace's outstanding subscription and approve commands
-        assert "Timed out waiting for install plan approval in namespace ns-" in message
-        assert "op-" in message
-        assert "oc patch installplan/" in message
-
-    def test_heartbeat_names_every_outstanding_namespace(self):
-        display = Mock()
-        approvalA = makeClusterApproval(namespace="ns-a", installPlan="install-plan-a")
-        approvalB = makeClusterApproval(namespace="ns-b", installPlan="install-plan-b")
-        pending = PendingSequence([approvalA, approvalB])
-        outstandingA = makeStatus(namespace="ns-a", pendingApprovals=[approvalA], converged=False)
-        outstandingB = makeStatus(namespace="ns-b", pendingApprovals=[approvalB], converged=False)
-        states = NamespaceStates({"ns-a": [outstandingA], "ns-b": [outstandingB]})
-        with patch.object(olm_approvals, "waitForSubscriptionResolution"):
-            with patch.object(olm_approvals, "getPendingInstallPlans", side_effect=pending):
-                with patch.object(olm_approvals, "getNamespaceConvergenceStatus", side_effect=states):
-                    with pytest.raises(OLMTimeoutError):  # timeout=0 below
-                        olm_approvals.waitForClusterApproval(Mock(), display, timeout=0, approvalMode="Manual")
-
-        # The first poll's status line names the full outstanding scope
-        statusLines = [str(call.args[0]) for call in display.display.call_args_list if "Waiting for install plan approval since" in str(call.args[0])]
+        displayed = [str(call.args[0]) for call in display.display.call_args_list]
+        statusLines = [line for line in displayed if line.startswith("Waiting for install plan approval since")]
+        # The heartbeat fires on the first snapshot poll (not the report
+        # poll) and names the outstanding namespace with its plan count
         assert len(statusLines) == 1
-        assert "ns-a" in statusLines[0] and "ns-b" in statusLines[0]
-        assert "deadline" in statusLines[0]
+        assert "outstanding: ns-a (1 plans, deadline none)" in statusLines[0]
 
+    def test_heartbeat_repeats_only_after_the_interval(self):
+        display = Mock()
+        approvalA = makeClusterApproval(namespace="ns-a", installPlan="install-plan-a")
+        outstanding = makeStatus(namespace="ns-a", pendingApprovals=[approvalA], converged=False)
+        polls = [
+            makeClusterStatus([approvalA], ["ns-a"]),
+            makeClusterStatus([approvalA], ["ns-a"], statuses={"ns-a": outstanding}),
+            makeClusterStatus([approvalA], ["ns-a"], statuses={"ns-a": outstanding}),
+            makeClusterStatus([approvalA], ["ns-a"], statuses={"ns-a": outstanding}),
+        ]
+        with patch.object(olm_approvals, "waitForClusterConvergence", side_effect=runClusterWait(polls)) as mockWait:
+            olm_approvals.waitForClusterApproval(Mock(), display, approvalMode="Manual")
 
-# Made with Bob
+        onPending = mockWait.call_args.kwargs["onPending"]
+        baseline = sum(1 for call in display.display.call_args_list if str(call.args[0]).startswith("Waiting for install plan approval since"))
+
+        # A poll seconds later does not log again (5 minute interval)
+        assert onPending(makeClusterStatus([approvalA], ["ns-a"], statuses={"ns-a": outstanding}), 5) is True
+        after = sum(1 for call in display.display.call_args_list if str(call.args[0]).startswith("Waiting for install plan approval since"))
+        assert after == baseline
+
+        # Advance wall clock past the status interval: the next poll logs
+        # again (datetime itself is immutable, so the module's datetime
+        # binding is replaced with a fake whose now() returns the advanced
+        # time)
+        future = olm_approvals.datetime.now(olm_approvals.timezone.utc).timestamp() + olm_approvals.STATUS_INTERVAL + 1
+        fake_datetime = Mock(wraps=olm_approvals.datetime)
+        fake_datetime.now = Mock(return_value=olm_approvals.datetime.fromtimestamp(future, tz=olm_approvals.timezone.utc))
+        with patch.object(olm_approvals, "datetime", fake_datetime):
+            assert onPending(makeClusterStatus([approvalA], ["ns-a"], statuses={"ns-a": outstanding}), 6) is True
+
+        final = sum(1 for call in display.display.call_args_list if str(call.args[0]).startswith("Waiting for install plan approval since"))
+        assert final == baseline + 1
