@@ -34,24 +34,24 @@ from datetime import datetime, timezone
 from mas.devops.olm import (
     DEFAULT_APPROVAL_TIMEOUT,
     VALID_APPROVAL_MODES,
+    OLMTimeoutError,
     formatApproveCommands,
     formatInstallPlanApprovalNotice,
     formatUtcTimestamp,
     getNamespaceApprovalStatus,
     raiseIfApprovalModeMismatch,
-    resolveApprovalMode as resolveApprovalModeFromEnv,
-    resolveApprovalTimeout as resolveApprovalTimeoutFromEnv,
+    resolveApprovalMode,
+    resolveApprovalTimeout,
     waitForClusterConvergence,
     waitForSubscriptionConvergence,
 )
-from mas.devops.olm import OLMTimeoutError
 
 # How often (seconds) the "still waiting" status line is repeated while a
 # wait is in progress -- the underlying poll is much faster than this
 STATUS_INTERVAL = 300
 
 
-def resolveApprovalMode(taskArg=None):
+def resolveTaskApprovalMode(taskArg=None):
     """
     Resolve the effective install plan approval mode for a task.
 
@@ -65,10 +65,10 @@ def resolveApprovalMode(taskArg=None):
     """
     if taskArg is not None and taskArg not in VALID_APPROVAL_MODES:
         raise ValueError(f"install_plan_approval must be one of: {', '.join(VALID_APPROVAL_MODES)} (found '{taskArg}')")
-    return resolveApprovalModeFromEnv(explicit=taskArg)
+    return resolveApprovalMode(explicit=taskArg)
 
 
-def resolveApprovalTimeout(taskArg=None):
+def resolveTaskApprovalTimeout(taskArg=None):
     """
     Resolve the per-wait approval timeout in seconds.
 
@@ -78,7 +78,7 @@ def resolveApprovalTimeout(taskArg=None):
     """
     if taskArg is not None:
         return int(taskArg)
-    resolved = resolveApprovalTimeoutFromEnv()
+    resolved = resolveApprovalTimeout()
     return DEFAULT_APPROVAL_TIMEOUT if resolved is None else resolved
 
 

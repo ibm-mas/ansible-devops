@@ -8,8 +8,8 @@ from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import 
 from mas.devops.olm import OLMException, OLMTimeoutError
 
 from ansible_collections.ibm.mas_devops.plugins.module_utils.olm_approvals import (
-    resolveApprovalMode,
-    resolveApprovalTimeout,
+    resolveTaskApprovalMode,
+    resolveTaskApprovalTimeout,
     waitForClusterApproval,
     waitForSubscriptionApproval,
 )
@@ -55,12 +55,12 @@ class ActionModule(ActionBase):
         pollInterval = self._task.args.get("poll_interval", 30)
 
         try:
-            approvalMode = resolveApprovalMode(self._task.args.get("approval_mode", None))
+            approvalMode = resolveTaskApprovalMode(self._task.args.get("approval_mode", None))
         except ValueError as e:
             raise AnsibleError(f"Error: {e}") from e
 
         try:
-            timeout = resolveApprovalTimeout(timeoutArg)
+            timeout = resolveTaskApprovalTimeout(timeoutArg)
         except ValueError as e:
             raise AnsibleError(f"Error: approval timeout must be an integer number of seconds: {e}") from e
 

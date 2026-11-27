@@ -10,8 +10,8 @@ from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import 
 from mas.devops.olm import OLMException, OLMTimeoutError, applySubscription, getSubscription
 
 from ansible_collections.ibm.mas_devops.plugins.module_utils.olm_approvals import (
-    resolveApprovalMode,
-    resolveApprovalTimeout,
+    resolveTaskApprovalMode,
+    resolveTaskApprovalTimeout,
     waitForSubscriptionApproval,
 )
 
@@ -56,32 +56,33 @@ class ActionModule(ActionBase):
       mas update/upgrade pass Manual for their whole scope while some of the
       subscriptions they re-apply are Automatic
     """
+
     def run(self, tmp=None, task_vars=None):
         super().run(tmp, task_vars)
         display = Display()
 
         # Target subscription
-        namespace = self._task.args.get('namespace', None)
-        config = self._task.args.get('config', None)
+        namespace = self._task.args.get("namespace", None)
+        config = self._task.args.get("config", None)
 
         # From which package?
-        packageName = self._task.args.get('package_name', None)
-        packageChannel = self._task.args.get('package_channel', None)
+        packageName = self._task.args.get("package_name", None)
+        packageChannel = self._task.args.get("package_channel", None)
 
         # From which catalog?
-        catalogSource = self._task.args.get('catalog_source', None)
-        catalogSourceNamespace = self._task.args.get('catalog_source_namespace', None)
+        catalogSource = self._task.args.get("catalog_source", None)
+        catalogSourceNamespace = self._task.args.get("catalog_source_namespace", None)
 
         # Which install mode?
-        installMode = self._task.args.get('install_mode', 'OwnNamespace')
+        installMode = self._task.args.get("install_mode", "OwnNamespace")
 
         # Install plan approval and starting CSV (optional). The effective
         # approval mode is resolved as task argument > OLM_APPROVAL_MODE env
         # var > Automatic: it is always a concrete value, and a mismatch with
         # an existing subscription fails fast rather than slow-failing later
         # in the operator readiness waits
-        installPlanApprovalArg = self._task.args.get('install_plan_approval', None)
-        startingCSV = self._task.args.get('starting_csv', None)
+        installPlanApprovalArg = self._task.args.get("install_plan_approval", None)
+        startingCSV = self._task.args.get("starting_csv", None)
 
         if namespace is None:
             raise AnsibleError("Error: namespace argument was not provided")
@@ -89,16 +90,16 @@ class ActionModule(ActionBase):
             raise AnsibleError("Error: packageName argument is not a string")
 
         try:
-            installPlanApproval = resolveApprovalMode(installPlanApprovalArg)
+            installPlanApproval = resolveTaskApprovalMode(installPlanApprovalArg)
         except ValueError as e:
             raise AnsibleError(f"Error: {e}") from e
         if installPlanApproval is None:
             installPlanApproval = "Automatic"
-        timeout = resolveApprovalTimeout(self._task.args.get('approval_timeout', None))
+        timeout = resolveTaskApprovalTimeout(self._task.args.get("approval_timeout", None))
 
         # Initialize DynamicClient
-        host = self._task.args.get('host', None)
-        api_key = self._task.args.get('api_key', None)
+        host = self._task.args.get("host", None)
+        api_key = self._task.args.get("api_key", None)
 
         dynClient = get_api_client(api_key=api_key, host=host)
 
@@ -175,19 +176,14 @@ class ActionModule(ActionBase):
                     installPlanApproval=installPlanApproval,
                     startingCSV=startingCSV,
                     onApprovalRequired="return",
-                    pollInterval=30
+                    pollInterval=30,
                 )
                 if isinstance(result, tuple):
                     # applySubscription released with a pending approval: the
                     # gate prints the notices and waits for the human to
                     # approve it (never approving on their behalf)
                     subscription, _ = result
-                    waitForSubscriptionApproval(
-                        dynClient, display, namespace,
-                        packageName=packageName,
-                        timeout=timeout,
-                        approvalMode="Manual"
-                    )
+                    waitForSubscriptionApproval(dynClient, display, namespace, packageName=packageName, timeout=timeout, approvalMode="Manual")
                 else:
                     subscription = result
             else:
@@ -201,7 +197,7 @@ class ActionModule(ActionBase):
                     config,
                     installMode,
                     installPlanApproval=installPlanApproval,
-                    startingCSV=startingCSV
+                    startingCSV=startingCSV,
                 )
         except OLMTimeoutError as e:
             raise AnsibleError(f"Error applying subscription: {e}") from e
@@ -209,17 +205,12 @@ class ActionModule(ActionBase):
             raise AnsibleError(f"Error applying subscription: {e}") from e
 
         if subscription is None:
-            return dict(
-                message=f"Failed to apply subscription for {packageName} in {namespace} ({installMode})",
-                success=False,
-                failed=True,
-                changed=False
-            )
+            return dict(message=f"Failed to apply subscription for {packageName} in {namespace} ({installMode})", success=False, failed=True, changed=False)
 
         return dict(
             message=f"Successfully applied subscription for {packageName} in {namespace}: {subscription.metadata.name} ({installMode})",
             success=True,
             failed=False,
             changed=False,
-            **subscription.to_dict()
+            **subscription.to_dict(),
         )

@@ -73,42 +73,42 @@ def isolate_olm_approval_env(monkeypatch):
 
 
 class TestResolveApprovalMode:
-    """Tests for resolveApprovalMode precedence and validation."""
+    """Tests for resolveTaskApprovalMode precedence and validation."""
 
     def test_task_arg_takes_precedence_over_env(self, monkeypatch):
         monkeypatch.setenv("OLM_APPROVAL_MODE", "Manual")
-        assert olm_approvals.resolveApprovalMode("Automatic") == "Automatic"
+        assert olm_approvals.resolveTaskApprovalMode("Automatic") == "Automatic"
 
     def test_env_used_when_no_task_arg(self, monkeypatch):
         monkeypatch.setenv("OLM_APPROVAL_MODE", "Manual")
-        assert olm_approvals.resolveApprovalMode(None) == "Manual"
+        assert olm_approvals.resolveTaskApprovalMode(None) == "Manual"
 
     def test_none_when_neither_set(self):
-        assert olm_approvals.resolveApprovalMode(None) is None
+        assert olm_approvals.resolveTaskApprovalMode(None) is None
 
     def test_invalid_env_value_raises(self, monkeypatch):
         monkeypatch.setenv("OLM_APPROVAL_MODE", "banana")
         with pytest.raises(ValueError, match="OLM_APPROVAL_MODE must be one of"):
-            olm_approvals.resolveApprovalMode(None)
+            olm_approvals.resolveTaskApprovalMode(None)
 
     def test_invalid_task_arg_raises(self):
         with pytest.raises(ValueError, match="install_plan_approval must be one of"):
-            olm_approvals.resolveApprovalMode("banana")
+            olm_approvals.resolveTaskApprovalMode("banana")
 
 
 class TestResolveApprovalTimeout:
-    """Tests for resolveApprovalTimeout precedence."""
+    """Tests for resolveTaskApprovalTimeout precedence."""
 
     def test_task_arg_takes_precedence_over_env(self, monkeypatch):
         monkeypatch.setenv("OLM_APPROVAL_TIMEOUT", "600")
-        assert olm_approvals.resolveApprovalTimeout(300) == 300
+        assert olm_approvals.resolveTaskApprovalTimeout(300) == 300
 
     def test_env_used_when_no_task_arg(self, monkeypatch):
         monkeypatch.setenv("OLM_APPROVAL_TIMEOUT", "600")
-        assert olm_approvals.resolveApprovalTimeout(None) == 600
+        assert olm_approvals.resolveTaskApprovalTimeout(None) == 600
 
     def test_default_when_neither_set(self):
-        assert olm_approvals.resolveApprovalTimeout(None) == 7200
+        assert olm_approvals.resolveTaskApprovalTimeout(None) == 7200
 
 
 class TestWaitForSubscriptionApproval:
