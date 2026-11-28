@@ -41,7 +41,14 @@ jobs:
           pip install -r $GITHUB_WORKSPACE/ibm/mas_devops/requirements.txt
           pip install -r $GITHUB_WORKSPACE/ibm/mas_devops/tests/requirements-test.txt
 
-          # Check if there's a local python-devops package in this repo
+          # Check if there's a matching python-devops branch for this branch build.
+          # The probe uses git ls-remote rather than the GitHub REST API:
+          # api.github.com is rate-limited by IP and GitHub-hosted runners
+          # share addresses, so an API 403/5xx would silently fall back to
+          # stable and break branch builds that depend on branch-only
+          # python-devops APIs. ls-remote uses the same git transport the
+          # install below uses, so if the probe succeeds the install cannot
+          # fail for a missing branch.
           if [[ "$GITHUB_REF_TYPE" == "branch" ]]; then
               # python-devops main branch is named "stable" rather than "master"
               PYTHON_BRANCH_NAME=$GITHUB_REF_NAME
@@ -49,9 +56,7 @@ jobs:
                   PYTHON_BRANCH_NAME=stable
               fi
 
-              RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "https://api.github.com/repos/ibm-mas/python-devops/branches/${PYTHON_BRANCH_NAME}")
-
-              if [[ "${RESPONSE}" == "200" ]]; then
+              if git ls-remote --exit-code --heads https://github.com/ibm-mas/python-devops.git "${PYTHON_BRANCH_NAME}" > /dev/null; then
                   echo "Installing development build of python-devops from GitHub branch ${PYTHON_BRANCH_NAME}"
               else
                   echo "Branch ${PYTHON_BRANCH_NAME} not found, defaulting to stable"

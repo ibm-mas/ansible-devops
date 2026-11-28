@@ -128,8 +128,6 @@
 - name: Create Subscription ibm_metrics_operator
   kubernetes.core.k8s:
     template: "templates/subscription/imo_subscription.yml"
-    wait: yes
-    wait_timeout: 60
   when: (imo_subscription.resources is defined) and (imo_subscription.resources | length == 0)
 
 # 9. Install ibm-data-reporter-operator
@@ -167,12 +165,14 @@
 - name: "Create Subscription ibm-data-reporter-operator"
   kubernetes.core.k8s:
     template: "templates/subscription/dro_subscription.yml"
-    wait: yes
-    wait_timeout: 60
   when: (dro_subscription.resources is defined) and (dro_subscription.resources | length == 0)
 
-# 10. Wait until the marketplaceconfigs CRD is available
+# 10. Wait for install plan approval, then until the marketplaceconfigs CRD is available
 # -----------------------------------------------------------------------------
+- name: "Wait for install plan approval"
+  ibm.mas_devops.wait_for_subscription_approval:
+    namespace: "{{ dro_namespace }}"
+
 - name: "Wait until the marketplaceconfigs CRD is available"
   include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
   vars:

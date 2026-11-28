@@ -56,6 +56,7 @@ _API_GROUPS = {
     "apiVersion": "v1",
     "groups": [
         operators.API_GROUP_LIST_ENTRY,
+        operators.PACKAGES_API_GROUP_LIST_ENTRY,
         rbac.API_GROUP_LIST_ENTRY,
         aiservice.API_GROUP_LIST_ENTRY,
         *cpd.API_GROUP_LIST_ENTRIES,
@@ -104,6 +105,10 @@ class _Handler(BaseHTTPRequestHandler):
             self._send_json(200, operators.RESOURCE_LIST)
         elif path == "/apis/operators.coreos.com/v2":
             self._send_json(200, operators.RESOURCE_LIST_V2)
+        elif path == "/apis/packages.operators.coreos.com":
+            self._send_json(200, operators.PACKAGES_API_GROUP)
+        elif path == "/apis/packages.operators.coreos.com/v1":
+            self._send_json(200, operators.PACKAGES_RESOURCE_LIST)
         elif path == "/apis/rbac.authorization.k8s.io":
             self._send_json(200, rbac.API_GROUP)
         elif path == "/apis/rbac.authorization.k8s.io/v1":

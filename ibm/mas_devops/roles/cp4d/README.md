@@ -111,8 +111,28 @@ persistentvolumeclaim/zen-metastore-edb-2              Bound    pvc-741ea444-b6f
 | [`cpd_operators_namespace`](#cpd_operators_namespace) | No | `ibm-cpd-operators` |
 | [`cpd_instance_namespace`](#cpd_instance_namespace) | No | `ibm-cpd` |
 | [`cpd_scale_config`](#cpd_scale_config) | No | `medium` |
+| [`olm_approval_mode`](#olm_approval_mode) | No | `Automatic` |
+| [`olm_approval_timeout`](#olm_approval_timeout) | No | `7200` |
 
 The storage class variables are resolved in this order: explicit variable → storage classes already in use by an existing `Ibmcpd` CR in `cpd_instance_namespace` → cluster auto-detection. They are only required when no source yields a value; for production deployments we recommend always setting them explicitly. When updating or upgrading an existing CP4D instance the same storage classes are read back from the existing CR, so these variables do not need to be re-provided.
+
+### OLM Install Plan Approval
+
+#### olm_approval_mode
+
+- **Optional**
+- Environment Variable: `OLM_APPROVAL_MODE`
+- Default: `Automatic`
+
+When set to `Manual`, the subscriptions this role creates use manual install plan approval: the role pauses with instructions whenever an install plan is waiting for approval, and never approves it automatically. See [OLM Manual Install Plan Approvals](https://ibm-mas.github.io/ansible-devops/olm-manual-approvals/) for the full details.
+
+#### olm_approval_timeout
+
+- **Optional**
+- Environment Variable: `OLM_APPROVAL_TIMEOUT`
+- Default: `7200`
+
+Seconds to wait for each individual install plan approval before the role fails (2 hours by default).
 
 ### Installation
 

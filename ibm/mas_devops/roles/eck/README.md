@@ -23,8 +23,28 @@ oc -n eck get secret mas-es-elastic-user -o go-template='{{.data.elastic | base6
 | [`es_domain`](#es_domain) | No | None |
 | [`kibana_domain`](#kibana_domain) | No | None |
 | [`letsencrypt_email`](#letsencrypt_email) | No | None |
+| [`olm_approval_mode`](#olm_approval_mode) | No | `Automatic` |
+| [`olm_approval_timeout`](#olm_approval_timeout) | No | `7200` |
 
 The three remote Elasticsearch variables are only required when forwarding logs to a remote Elasticsearch instance, and must all be set together.
+
+### OLM Install Plan Approval
+
+#### olm_approval_mode
+
+- **Optional**
+- Environment Variable: `OLM_APPROVAL_MODE`
+- Default: `Automatic`
+
+When set to `Manual`, the subscriptions this role creates use manual install plan approval: the role pauses with instructions whenever an install plan is waiting for approval, and never approves it automatically. See [OLM Manual Install Plan Approvals](https://ibm-mas.github.io/ansible-devops/olm-manual-approvals/) for the full details.
+
+#### olm_approval_timeout
+
+- **Optional**
+- Environment Variable: `OLM_APPROVAL_TIMEOUT`
+- Default: `7200`
+
+Seconds to wait for each individual install plan approval before the role fails (2 hours by default).
 
 ### ECK Components
 

@@ -22,8 +22,24 @@
     retries: 30 # Allow up to 30 minutes
     delay: 60 # 1 minute
 
-# 3. Wait for all subscriptions in all namespaces to get into AtLatestKnown state
+# 3. Wait for any install plans awaiting manual approval (cluster-wide), then
+#    wait for all subscriptions in all namespaces to get into AtLatestKnown state
 # -----------------------------------------------------------------------------
+# The approval gate is the update's convergence point: subscriptions roll
+# implicitly after a catalog digest update, and this is where the automation
+# waits for the human to approve them (the full scope is disclosed up front,
+# in any order). Under Automatic mode pending install plans fail fast with
+# instructions instead of slow-failing the subscription/workload checks below.
+# Gated on its own flag and off by default: it is enabled only where waiting
+# is the job (the update pipeline's post-update-verify). In pure verification
+# contexts (pre-flight and final checks) it must NOT run -- a pending approval
+# there is not this check's problem, and inviting an approval workflow seconds
+# before a catalog change would be wrong. It is a no-op when nothing is
+# pending.
+- name: Wait for install plan approval
+  when: verify_subscription_approvals
+  ibm.mas_devops.wait_for_subscription_approval:
+
 - name: Check Subscription Status
   when: verify_subscriptions
   ibm.mas_devops.verify_subscriptions:

@@ -73,10 +73,6 @@
             path: "/spec/source"
             value: "redhat-operators"
 
-    - name: "Pause for 1 minutes before continuing..."
-      pause:
-        minutes: 1
-
     - name: "Update source in ocs-operator subscription"
       kubernetes.core.k8s_json_patch:
         api_version: operators.coreos.com/v1alpha1
@@ -88,10 +84,6 @@
             path: "/spec/source"
             value: "redhat-operators"
 
-    - name: "Pause for 1 minutes before continuing..."
-      pause:
-        minutes: 1
-
     - name: "Install ODF in Cluster"
       kubernetes.core.k8s:
         apply: yes
@@ -102,9 +94,17 @@
         storage_operator_source: "redhat-operators"
         storage_operator_source_namespace: openshift-marketplace
 
-    - name: "Pause for 5 minutes before continuing..."
-      pause:
-        minutes: 5
+    - name: "Wait for install plan approval"
+      ibm.mas_devops.wait_for_subscription_approval:
+        namespace: openshift-local-storage
+
+    - name: "Wait for install plan approval"
+      ibm.mas_devops.wait_for_subscription_approval:
+        namespace: openshift-storage
+
+    # The convergence gates above return only once the subscriptions have
+    # reached their channel heads, and the StorageCluster wait below retries
+    # for 15 minutes, so no settle pause is needed here.
 
 - name: "Determine if upgrade is needed for odf"
   when:
@@ -123,9 +123,9 @@
             path: "/spec/channel"
             value: "stable-{{ ocp_version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
 
-    - name: "Pause for 2 minutes before continuing..."
-      pause:
-        minutes: 2
+    - name: "Wait for install plan approval"
+      ibm.mas_devops.wait_for_subscription_approval:
+        namespace: openshift-storage
 
 - name: "Display message if the storage operator is not in cluster"
   when:

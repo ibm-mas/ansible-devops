@@ -15,35 +15,17 @@
         sourceNamespace: "{{ core_sub_info.resources[0].spec.sourceNamespace }}"
     apply: true
 
-
-# 2. Check the Subscription
-# -----------------------------------------------------------------------------
-- name: "upgrade : Get updated subscription for ibm-mas"
-  kubernetes.core.k8s_info:
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
+- name: "upgrade : Wait for install plan approval"
+  ibm.mas_devops.wait_for_subscription_approval:
     namespace: "{{ mas_namespace }}"
-    label_selectors:
-      - "operators.coreos.com/ibm-mas.{{ mas_namespace }}"
-  register: updated_suite_sub_info
-  retries: 20 # about 10 minutes
-  delay: 30 # seconds
-  until:
-    - updated_suite_sub_info.resources[0].status.installPlanGeneration > suite_sub_info.resources[0].status.installPlanGeneration
-    - updated_suite_sub_info.resources[0].status.state == "AtLatestKnown"
+    package_name: ibm-mas
 
-- name: "upgrade : Debug Subscription"
-  debug:
-    var: updated_suite_sub_info
+# The convergence gate returns only once the subscription has reached the new
+# channel head, so the installPlanGeneration bump check and settle pause that
+# used to follow it are no longer needed: the operator is at the target
+# version when the gate returns.
 
-# No easy way to determine the end of the installPlanGeneration as it depends on if we have a patch versions of the
-# new version in the catalog. No patch versions means just one installPlanGeneration increase. Catalog has patches means
-# two installPlanGenerateion increase. Wait for 5 minutes like we do for apps
-- name: "Pause for 5 minutes before checking upgrade status..."
-  pause:
-    minutes: 5
-
-# 3. Lookup the OperatorCondition
+# 2. Lookup the OperatorCondition
 # -----------------------------------------------------------------------------
 - name: "upgrade : Lookup OperatorCondition for ibm-mas"
   kubernetes.core.k8s_info:

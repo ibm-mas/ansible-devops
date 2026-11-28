@@ -11,8 +11,10 @@ logic, and developer-facing add_* methods for OLM resources:
 
   operators.coreos.com/v2:
   - OperatorCondition
-"""
 
+  packages.operators.coreos.com/v1:
+  - PackageManifest
+"""
 
 # ---------------------------------------------------------------------------
 # API discovery constants
@@ -36,6 +38,24 @@ API_GROUP_LIST_ENTRY = {
         {"groupVersion": "operators.coreos.com/v2", "version": "v2"},
     ],
     "preferredVersion": {"groupVersion": "operators.coreos.com/v1alpha1", "version": "v1alpha1"},
+}
+
+PACKAGES_API_GROUP = {
+    "kind": "APIGroup",
+    "apiVersion": "v1",
+    "name": "packages.operators.coreos.com",
+    "versions": [
+        {"groupVersion": "packages.operators.coreos.com/v1", "version": "v1"},
+    ],
+    "preferredVersion": {"groupVersion": "packages.operators.coreos.com/v1", "version": "v1"},
+}
+
+PACKAGES_API_GROUP_LIST_ENTRY = {
+    "name": "packages.operators.coreos.com",
+    "versions": [
+        {"groupVersion": "packages.operators.coreos.com/v1", "version": "v1"},
+    ],
+    "preferredVersion": {"groupVersion": "packages.operators.coreos.com/v1", "version": "v1"},
 }
 
 RESOURCE_LIST = {
@@ -77,6 +97,21 @@ RESOURCE_LIST_V2 = {
             "singularName": "operatorcondition",
             "namespaced": True,
             "kind": "OperatorCondition",
+            "verbs": ["get", "list"],
+        },
+    ],
+}
+
+PACKAGES_RESOURCE_LIST = {
+    "kind": "APIResourceList",
+    "apiVersion": "v1",
+    "groupVersion": "packages.operators.coreos.com/v1",
+    "resources": [
+        {
+            "name": "packagemanifests",
+            "singularName": "packagemanifest",
+            "namespaced": True,
+            "kind": "PackageManifest",
             "verbs": ["get", "list"],
         },
     ],
@@ -193,6 +228,32 @@ def make_operator_condition(namespace: str, name: str) -> dict:
     }
 
 
+def make_package_manifest(namespace: str, package: str, channels: dict[str, str], default_channel: str | None = None) -> dict:
+    """Return a minimal PackageManifest object.
+
+    Args:
+        namespace (str): Catalog source namespace (usually "openshift-marketplace")
+        package (str): Package name (the manifest's metadata.name)
+        channels (dict): Channel name -> currentCSV (the channel head)
+        default_channel (str, optional): Default channel. Defaults to the first channel.
+
+    Returns:
+        dict: PackageManifest resource body
+    """
+    return {
+        "apiVersion": "packages.operators.coreos.com/v1",
+        "kind": "PackageManifest",
+        "metadata": {"name": package, "namespace": namespace},
+        "status": {
+            "packageName": package,
+            "catalogSource": "ibm-operator-catalog",
+            "catalogSourceNamespace": namespace,
+            "defaultChannel": default_channel or next(iter(channels)),
+            "channels": [{"name": channel, "currentCSV": current_csv} for channel, current_csv in channels.items()],
+        },
+    }
+
+
 # ---------------------------------------------------------------------------
 # Shared response helpers
 # ---------------------------------------------------------------------------
@@ -225,6 +286,7 @@ def _deleted(kind: str, name: str | None) -> dict:
 
 _API_VERSION = "operators.coreos.com/v1alpha1"
 _API_VERSION_V2 = "operators.coreos.com/v2"
+_PACKAGES_API_VERSION = "packages.operators.coreos.com/v1"
 
 
 class OperatorsMixin:
@@ -235,6 +297,7 @@ class OperatorsMixin:
         _csvs: In-memory store of ClusterServiceVersion resources keyed by (namespace, name).
         _install_plans: In-memory store of InstallPlan resources keyed by (namespace, name).
         _operator_conditions: In-memory store of OperatorCondition resources keyed by (namespace, name).
+        _package_manifests: In-memory store of PackageManifest resources keyed by (namespace, name).
     """
 
     def _init_operators(self):
@@ -243,6 +306,7 @@ class OperatorsMixin:
         self._csvs: dict[tuple, dict] = {}
         self._install_plans: dict[tuple, dict] = {}
         self._operator_conditions: dict[tuple, dict] = {}
+        self._package_manifests: dict[tuple, dict] = {}
 
     # ------------------------------------------------------------------
     # Developer-facing API
@@ -303,6 +367,21 @@ class OperatorsMixin:
         """
         self._operator_conditions[(namespace, name)] = make_operator_condition(namespace, name)
 
+    def add_package_manifest(self, namespace: str, package: str, channels: dict[str, str], default_channel: str | None = None):
+        """Register a PackageManifest in the fake server.
+
+        The channel heads are what the subscription convergence gate resolves
+        its targets from, so a test driving the approval gate registers the
+        manifest whose channels match the subscription's channel.
+
+        Args:
+            namespace (str): Catalog source namespace (usually "openshift-marketplace")
+            package (str): Package name
+            channels (dict): Channel name -> currentCSV (the channel head)
+            default_channel (str, optional): Default channel. Defaults to the first channel.
+        """
+        self._package_manifests[(namespace, package)] = make_package_manifest(namespace, package, channels, default_channel)
+
     # ------------------------------------------------------------------
     # Internal routing (called by _Handler via generic dispatch)
     # ------------------------------------------------------------------
@@ -346,6 +425,13 @@ class OperatorsMixin:
             items = [v for (n, _), v in self._operator_conditions.items() if n == ns]
             return 200, {"apiVersion": _API_VERSION_V2, "kind": "OperatorConditionList", "metadata": {}, "items": items}
 
+        if resource == "packagemanifests":
+            if name:
+                obj = self._package_manifests.get((ns, name))
+                return (200, obj) if obj else (404, _not_found("PackageManifest", name))
+            items = [v for (n, _), v in self._package_manifests.items() if n == ns]
+            return 200, {"apiVersion": _PACKAGES_API_VERSION, "kind": "PackageManifestList", "metadata": {}, "items": items}
+
         return None
 
     def _handle_apis_patch(self, ns: str, resource: str, name: str, body: dict) -> tuple | None:
@@ -378,10 +464,16 @@ class OperatorsMixin:
         if "spec" in body:
             obj.setdefault("spec", {}).update(body["spec"])
 
-        # Bump installPlanGeneration so the until: condition resolves
+        # Model the convergence the subscription approval gate waits for: the
+        # channel change resolves (installPlanGeneration bumps, state returns
+        # to AtLatestKnown) and the CSV rolls out to the channel's head
+        # (installedCSV promotes to currentCSV). Tests that do not set
+        # currentCSV ahead of installedCSV are unaffected by the promotion.
         obj.setdefault("status", {})
         obj["status"]["installPlanGeneration"] = obj["status"].get("installPlanGeneration", 1) + 1
         obj["status"]["state"] = "AtLatestKnown"
+        if obj["status"].get("currentCSV"):
+            obj["status"]["installedCSV"] = obj["status"]["currentCSV"]
 
         return 200, obj
 

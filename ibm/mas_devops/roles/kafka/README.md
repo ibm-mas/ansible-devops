@@ -59,8 +59,28 @@ Also, you need to have AWS user credentials configured via `aws configure` comma
 | [`aws_msk_volume_size`](#aws_msk_volume_size) | No | `100` |
 | [`aws_msk_instance_number`](#aws_msk_instance_number) | No | `3` |
 | [`aws_msk_secret`](#aws_msk_secret) | No | `AmazonMSK_SECRET_{{kafka_cluster_name}}` |
+| [`olm_approval_mode`](#olm_approval_mode) | No | `Automatic` |
+| [`olm_approval_timeout`](#olm_approval_timeout) | No | `7200` |
 
 `mas_instance_id` and `mas_config_dir` are required together to generate the MAS KafkaCfg configuration. The IBM Event Streams variables marked conditional are required when `kafka_provider` is `ibm`, and the AWS MSK variables marked conditional are required when `kafka_provider` is `aws`.
+
+### OLM Install Plan Approval
+
+#### olm_approval_mode
+
+- **Optional**
+- Environment Variable: `OLM_APPROVAL_MODE`
+- Default: `Automatic`
+
+When set to `Manual`, the subscriptions this role creates use manual install plan approval: the role pauses with instructions whenever an install plan is waiting for approval, and never approves it automatically. See [OLM Manual Install Plan Approvals](https://ibm-mas.github.io/ansible-devops/olm-manual-approvals/) for the full details.
+
+#### olm_approval_timeout
+
+- **Optional**
+- Environment Variable: `OLM_APPROVAL_TIMEOUT`
+- Default: `7200`
+
+Seconds to wait for each individual install plan approval before the role fails (2 hours by default).
 
 ### Actions and Providers
 

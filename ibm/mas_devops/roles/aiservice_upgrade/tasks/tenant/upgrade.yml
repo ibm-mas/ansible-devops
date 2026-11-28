@@ -14,29 +14,16 @@
         sourceNamespace: "{{ tenant_subscription.spec.sourceNamespace }}"
     apply: true
 
-- name: "Get upgraded subscription for ibm-aiservice-tenant in namespace {{ tenant_subscription.metadata.namespace }}"
-  kubernetes.core.k8s_info:
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    name: "{{ tenant_subscription.metadata.name }}"
+- name: "Wait for install plan approval"
+  ibm.mas_devops.wait_for_subscription_approval:
     namespace: "{{ tenant_subscription.metadata.namespace }}"
-  register: updated_aiservice_sub_info
-  retries: 20 # about 10 minutes
-  delay: 30 # seconds
-  until:
-    - updated_aiservice_sub_info.resources[0].status.installPlanGeneration > aiservice_sub_info.resources[0].status.installPlanGeneration
-    - updated_aiservice_sub_info.resources[0].status.state == "AtLatestKnown"
+    package_name: ibm-aiservice-tenant
 
-- name: "upgrade : Debug Subscription"
-  debug:
-    var: updated_aiservice_sub_info
-
-# # No easy way to determine the end of the installPlanGeneration as it depends on if we have a patch versions of the
-# # new version in the catalog. No patch versions means just one installPlanGeneration increase. Catalog has patches means
-# # two installPlanGenerateion increase. Wait for 5 minutes like we do for apps
-- name: "Pause for 5 minutes before checking upgrade status..."
-  pause:
-    minutes: "{{ aiservice_tenant_upgrade_pause_minutes | default(5) }}"
+# The convergence gate returns only once the subscription has reached the new
+# channel head, so the installPlanGeneration bump check and settle pause that
+# used to follow it are no longer needed. This also makes tenant upgrades work
+# under Manual approval: the gate surfaces the approval notices and waits for
+# the out-of-band approval, where the former AtLatestKnown check would hang.
 
 - name: "Lookup OperatorCondition for ibm-aiservice-tenant"
   kubernetes.core.k8s_info:
