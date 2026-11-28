@@ -158,7 +158,11 @@
       until:
         - managePodCheck.resources is defined
         - managePodCheck.resources | length > 0
-        - managePodCheck.resources | json_query('[?containers[?volumeMounts[?contains(mountPath, `{{ mas_manage_imagestitching_mount_path }}`)]]]) | length > 0'
+        # ansible-core >= 2.19 (required by this collection) evaluates `until` as a native Jinja
+        # expression, where template delimiters ({{ }}) are a syntax error; the JMESPath literal
+        # is built with string concatenation instead. The containers live under spec.containers
+        # on the Pod resources returned by k8s_info
+        - managePodCheck.resources | json_query('[?spec.containers[?volumeMounts[?contains(mountPath, `' ~ mas_manage_imagestitching_mount_path ~ '`)]]]') | length > 0
 
     - name: "imagestitching : Debug information"
       debug:
