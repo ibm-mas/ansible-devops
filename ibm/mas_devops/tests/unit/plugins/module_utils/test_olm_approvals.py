@@ -62,7 +62,6 @@ def makeSubscriptionEntry(
         "skipped": skipped,
         "skipReason": skipReason,
         "resolutionError": None,
-        "transitionInFlight": False,
     }
 
 

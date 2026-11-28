@@ -28,8 +28,8 @@ Manual approval mode is controlled with two environment variables:
 All approval policy is implemented once in the `mas.devops.olm` module of the
 [python-devops](https://github.com/ibm-mas/python-devops) package (required by
 this collection at `mas-devops >= 100.1.0`): the single-namespace and
-cluster-wide convergence waits, the fail-fast on Subscriptions that can never
-converge, approval mode mismatch detection, the per-namespace deadlines, and
+cluster-wide convergence waits, the fail-fast on Failed install plans,
+approval mode mismatch detection, the per-namespace deadlines, and
 the notice / approve-command text. The collection's
 `plugins/module_utils/olm_approvals.py` is a thin display layer over it: it
 resolves task arguments (delegating the environment variable precedence to the
@@ -134,26 +134,25 @@ Notes on the edges:
   PackageManifest (or whose channel is absent from it) is skipped with a
   warning and never blocks the gate — nothing can be approved for it, and a
   removed catalog must not wedge installs.
-- **Fail fast**: a Subscription with an active `ResolutionFailed` condition
-  (bad channel, missing dependency, catalog problem) or a Failed InstallPlan
-  fails the gate immediately with an actionable error in **both** modes,
-  rather than burning the timeout — **except** a Subscription whose own
-  install plan is carrying it to its channel head: while an upgrade plan is
-  pending approval, or has been approved and is still applying, OLM's
-  resolver transiently reports "constraints not satisfiable …
-  clusterserviceversion X exists and is not referenced by a subscription"
-  (the old CSV is installed, the Subscription requires the new one, and the
-  transition cannot be satisfied until the plan has finished applying — the
-  new CSV created, the old one garbage-collected — which can take minutes
-  after approval). That condition is the wait working, so it is not fatal;
-  the per-namespace deadline still bounds a genuinely wedged state. A
-  referenced plan that does *not* contain the channel head (the stale
-  Completed plan of a previous install) offers no such excuse — no new plan
-  was generated, so the failure is real and fails fast.
+- **Fail fast**: a Failed InstallPlan (referenced by a non-converged
+  Subscription) fails the gate immediately with an actionable error in
+  **both** modes, rather than burning the timeout — it is a terminal state
+  OLM will not recover from on its own. Anything else that has not converged
+  yet is simply waited on. In particular, an active `ResolutionFailed`
+  condition is never acted on mid-wait: OLM's namespace-level resolver sets
+  it on *every* Subscription in a namespace whose resolution fails, and the
+  failure is frequently transient — most notably around manual approvals,
+  where the condition persists until the replaced CSV is garbage-collected,
+  even after the Subscription itself has reached its channel head. The gate
+  deliberately does not try to distinguish transient from permanent
+  resolution failures (that means chasing OLM internals that change between
+  versions); the gate condition is the convergence itself, the per-namespace
+  deadline bounds the wait, and the condition is reported in the timeout
+  error as the reason a Subscription did not converge.
 - **Timeout**: the per-wait budget is `OLM_APPROVAL_TIMEOUT` in both modes.
   On expiry under Manual the approve commands are repeated in the error;
-  under Automatic each non-converged Subscription is listed as
-  `installedCSV -> targetCSV`.
+  each non-converged Subscription is listed as `installedCSV -> targetCSV`
+  with its resolution error when OLM is reporting one.
 - **Notices**: under Manual, the pending InstallPlans are the human-facing
   notices (what is pending, the `oc patch` command) — displayed when first
   seen, including plans that appear mid-wait (for example the second step of

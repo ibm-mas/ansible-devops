@@ -6,9 +6,9 @@ plugins.
 
 Thin ansible layer over the python-devops implementations (mas.devops.olm):
 all policy and formatting live in the package -- the single-namespace and
-cluster-wide convergence waits, the fail-fast on Subscriptions that can
-never converge, the approval mode mismatch detection, the per-namespace
-deadlines, the approve command and notice text. This module resolves task
+cluster-wide convergence waits, the fail-fast on Failed install plans, the
+approval mode mismatch detection, the per-namespace deadlines, the approve
+command and notice text. This module resolves task
 arguments (the package owns the OLM_APPROVAL_MODE / OLM_APPROVAL_TIMEOUT
 environment variable precedence) and owns the Display output: the
 human-facing notices, heartbeats and full-scope reports, emitted from the
@@ -87,8 +87,8 @@ def waitForSubscriptionApproval(dynClient, display, namespace, packageName=None,
     Wait for every Subscription in a namespace to reach its channel head.
 
     Thin display layer over the package's waitForSubscriptionConvergence
-    (which owns the wait, the deadline and the fail-fast on Subscriptions
-    that cannot converge). This wrapper contributes:
+    (which owns the wait, the deadline and the fail-fast on Failed install
+    plans). This wrapper contributes:
 
     1. The approval mode mismatch check (the package's raiseIfApprovalModeMismatch):
        install plans pending in anything other than a Manual context (including
@@ -123,8 +123,8 @@ def waitForSubscriptionApproval(dynClient, display, namespace, packageName=None,
 
     Raises OLMTimeoutError when the timeout expires (with the approve
     commands repeated in the message under Manual) and OLMException on the
-    approval mode mismatch and on Subscriptions that cannot converge. Both
-    are translated by the action plugins.
+    approval mode mismatch and on Failed install plans. Both are translated
+    by the action plugins.
     """
     status = getNamespaceApprovalStatus(dynClient, namespace)
 
@@ -229,7 +229,7 @@ def waitForClusterApproval(dynClient, display, timeout=None, pollInterval=30, ap
 
     Thin display layer over the package's waitForClusterConvergence (which
     owns the settle, the discovery, the late-entrant scope, the per-namespace
-    deadlines, the mismatch policy and the fail-fast). This wrapper
+    deadlines, the mismatch policy and the Failed-plan fail-fast). This wrapper
     contributes the human-facing output under Manual approval:
 
     - The full-scope report, up front: every pending install plan across
@@ -249,7 +249,7 @@ def waitForClusterApproval(dynClient, display, timeout=None, pollInterval=30, ap
     statuses (namespace -> final convergence status).
 
     Raises OLMTimeoutError when a namespace's deadline expires, OLMException
-    on the approval mode mismatch and on Subscriptions that cannot converge.
+    on the approval mode mismatch and on Failed install plans.
     Both are translated by the action plugins.
     """
     manualContext = approvalMode == "Manual"
