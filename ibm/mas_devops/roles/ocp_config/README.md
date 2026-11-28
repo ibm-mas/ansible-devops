@@ -1,11 +1,10 @@
 # ocp_config
 
-Configure OpenShift Container Platform cluster-level settings for optimal MAS deployment. This role provides essential tuning for ingress timeouts, TLS cipher compatibility with IBM Java Semeru FIPS mode, and OperatorHub catalog source management.
+Configure OpenShift Container Platform cluster-level settings for optimal MAS deployment. This role provides essential tuning for ingress timeouts and OperatorHub catalog source management.
 
 Key capabilities:
 
 - **Ingress timeout tuning**: Prevent request failures for long-running operations
-- **FIPS-compatible TLS ciphers**: Enable IBM Java Semeru runtime in FIPS mode
 - **Catalog source management**: Disable default Red Hat catalogs for air-gapped environments
 - **Path-based routing**: Configure namespace ownership for multi-namespace route support
 
@@ -13,21 +12,6 @@ This role configures:
 
 - Tune the `IngressController` to avoid request failures due to timeout for long running requests
 - Configure the `IngressController` namespace ownership for path-based routing support
-- Update `APIServer` and `IngressController` to set a custom `tlsSecurityProfile` to accommodate ciphers supported by IBM Java Semeru runtime. This is required for allowing the Java applications using Semeru runtime to run in FIPS mode. The following ciphers will be enabled:
-  - `TLS_AES_128_GCM_SHA256`
-  - `TLS_AES_256_GCM_SHA384`
-  - `TLS_CHACHA20_POLY1305_SHA256`
-  - `ECDHE-ECDSA-AES128-GCM-SHA256`
-  - `ECDHE-RSA-AES128-GCM-SHA256`
-  - `ECDHE-ECDSA-AES256-GCM-SHA384`
-  - `ECDHE-RSA-AES256-GCM-SHA384`
-  - `ECDHE-ECDSA-CHACHA20-POLY1305`
-  - `ECDHE-RSA-CHACHA20-POLY1305`
-  - `DHE-RSA-AES128-GCM-SHA256`
-  - `DHE-RSA-AES256-GCM-SHA384`
-  - `ECDHE-RSA-AES128-SHA256`
-  - `ECDHE-RSA-AES128-SHA`
-  - `ECDHE-RSA-AES256-SHA`
 - Disable the default Red Hat `CatalogSources`:
   - `certified-operators`
   - `community-operators`
@@ -37,7 +21,6 @@ This role configures:
 
 | Variable | Required | Default |
 |----------|----------|---------|
-| [`ocp_update_ciphers_for_semeru`](#ocp_update_ciphers_for_semeru) | No | `false` |
 | [`ocp_ingress_controller_name`](#ocp_ingress_controller_name) | No | `default` |
 | [`ocp_ingress_update_timeouts`](#ocp_ingress_update_timeouts) | No | `false` |
 | [`ocp_ingress_client_timeout`](#ocp_ingress_client_timeout) | No | `30s` |
@@ -56,20 +39,6 @@ This role configures:
 | [`ocp_additional_trusted_ca_dir`](#ocp_additional_trusted_ca_dir) | No | `/tmp` |
 
 `rosa_token` is only required when `cluster_type=rosa-hcp`; the allowed registries and additional trusted CA settings currently work with ROSA HCP clusters only.
-
-### API Server
-
-#### ocp_update_ciphers_for_semeru
-Apply a custom TLS security profile — including ciphers compatible with the IBM Java Semeru runtime — to both the `APIServer` and `IngressController` resources. Required when running MAS applications (particularly Manage) in FIPS mode with IBM Java Semeru runtime.
-
-- **Optional**
-- Environment Variable: `OCP_UPDATE_CIPHERS_FOR_SEMERU`
-- Default: `false`
-
-When enabled, the `tlsSecurityProfile` on both resources is updated to enable TLS 1.3 ciphers `TLS_AES_128_GCM_SHA256`, `TLS_AES_256_GCM_SHA384`, and `TLS_CHACHA20_POLY1305_SHA256`, plus TLS 1.2 ciphers `ECDHE-ECDSA-AES128-GCM-SHA256`, `ECDHE-RSA-AES128-GCM-SHA256`, `ECDHE-ECDSA-AES256-GCM-SHA384`, `ECDHE-RSA-AES256-GCM-SHA384`, `ECDHE-ECDSA-CHACHA20-POLY1305`, `ECDHE-RSA-CHACHA20-POLY1305`, `DHE-RSA-AES128-GCM-SHA256`, `DHE-RSA-AES256-GCM-SHA384`, `ECDHE-RSA-AES128-SHA256`, `ECDHE-RSA-AES128-SHA`, and `ECDHE-RSA-AES256-SHA`.
-
-!!! warning
-    Changes affect the cluster-wide TLS configuration, may require a cluster restart to fully apply, and should be verified for compatibility with other applications in the cluster.
 
 ### Ingress Controller
 
@@ -242,7 +211,6 @@ CA file names must match the registry URL and end with `.crt` (e.g. `ibm.com.crt
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    ocp_update_ciphers_for_semeru: True
     ocp_ingress_update_timeouts: True
     ocp_ingress_client_timeout: 30s
     ocp_ingress_server_timeout: 30s
